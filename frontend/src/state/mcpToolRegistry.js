@@ -7,8 +7,8 @@ import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
 import {
   deleteCodeRange,
   getCurrentCode,
-  startStreamingInto,
-  stopStreamingInto,
+  insertCode,
+  replaceCodeRange,
 } from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
@@ -22,8 +22,8 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
-  startStreamingInto,
-  stopStreamingInto,
+  insertCode,
+  replaceCodeRange,
   deleteCodeRange,
   getCurrentCode,
   addParametersMcp,

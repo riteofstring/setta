@@ -9,9 +9,8 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from typing_extensions import TypedDict
-
 from setta.mcp.server import mcp_server
+from typing_extensions import TypedDict
 
 
 # TypedDict definitions generated from JSDoc typedefs
@@ -109,40 +108,57 @@ async def setParamValuesMcp(
 
 # From aiChat.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification."
+    description="Insert code into a code block. Returns A string containing the updated code."
 )
-async def startStreamingInto(sectionId: ID, insertAtLine: Optional[int] = None) -> str:
-    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification.
+async def insertCode(
+    sectionId: ID, code: str, insertAtLine: Optional[int] = None
+) -> str:
+    """Insert code into a code block. Returns A string containing the updated code.
 
     Args:
-        sectionId: The id of the code block that you want to start writing code into.
+        sectionId: The id of the code block.
+        code: The code to insert
         insertAtLine: Optional line number (1-indexed) to insert at. If omitted, appends to the end.
 
     Returns:
-        A string containing the current code in the code block before modification.
+        A string containing the updated code.
     """
     args = {}
     args["sectionId"] = sectionId
+    args["code"] = code
     args["insertAtLine"] = insertAtLine
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
-            "startStreamingInto", startStreamingInto.__annotations__["return"], args
+            "insertCode", insertCode.__annotations__["return"], args
         )
     )
 
 
 @mcp_server.tool(
-    description="Stop streaming text into the code block. Returns the code with all the changes applied."
+    description="Replace a range of code from a code block. This first calls the deleteCodeRange tool and then the insertCode tool. Returns the updated code."
 )
-async def stopStreamingInto() -> str:
-    """Stop streaming text into the code block. Returns the code with all the changes applied.
+async def replaceCodeRange(
+    sectionId: ID, code: str, startLine: int, endLine: int
+) -> str:
+    """Replace a range of code from a code block. This first calls the deleteCodeRange tool and then the insertCode tool. Returns the updated code.
+
+    Args:
+        sectionId: The id of the code block.
+        code: The code to insert
+        startLine: Starting line number (1-indexed).
+        endLine: Ending line number (1-indexed, inclusive).
 
     Returns:
-        the code with all the changes applied.
+        the updated code.
     """
+    args = {}
+    args["sectionId"] = sectionId
+    args["code"] = code
+    args["startLine"] = startLine
+    args["endLine"] = endLine
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
-            "stopStreamingInto", stopStreamingInto.__annotations__["return"]
+            "replaceCodeRange", replaceCodeRange.__annotations__["return"], args
         )
     )
 
