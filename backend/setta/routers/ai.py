@@ -3,10 +3,10 @@ import uuid
 from typing import List, Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.routers.dependencies import get_mcp_client
+from setta.routers.dependencies import get_wmh_mcp_client
 from setta.utils.constants import C
 
 load_dotenv()
@@ -35,8 +35,7 @@ class ApiKeysRequest(BaseModel):
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
-    background_tasks: BackgroundTasks,
-    mcp_client=Depends(get_mcp_client),
+    websocket_msg_handler=Depends(get_wmh_mcp_client),
 ):
     try:
         print("========== DEBUGGING INFO ==========")
@@ -62,8 +61,8 @@ async def route_get_llm_response(
         print("Messages:", conversation_histories[session_id])
 
         # Add process_query to background tasks
-        background_tasks.add_task(
-            mcp_client.process_query, x.model, conversation_histories[session_id]
+        await websocket_msg_handler.send_message_to_llm(
+            x.model, conversation_histories[session_id]
         )
 
         # Return immediate response with session ID

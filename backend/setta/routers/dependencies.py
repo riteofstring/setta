@@ -49,6 +49,10 @@ def get_wmh_python_logger_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.python_logger
 
 
+def get_wmh_mcp_client(request: Request):
+    return request.app.state.websocket_msg_handlers.mcp_client
+
+
 def get_wmh_mcp_client_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.mcp_client
 
@@ -83,7 +87,3 @@ def get_code_state_from_websocket(websocket: WebSocket):
 
 def get_specific_file_watcher(request: Request):
     return request.app.state.specific_file_watcher
-
-
-def get_mcp_client(request: Request):
-    return request.app.state.mcp_client
