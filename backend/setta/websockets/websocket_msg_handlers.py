@@ -34,7 +34,8 @@ class WebsocketMsgHandlers:
             websocket_manager, script_metadata, code_state
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
-        self.mcp = WMHMCP(websocket_manager)
+        self.mcp_server = WMHMCPServer(websocket_manager)
+        self.mcp_client = WMHMCPClient(websocket_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -224,7 +225,7 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
             )
 
 
-class WMHMCP(BaseWebsocketMsgHandler):
+class WMHMCPServer(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
         self.id_to_uuid = {}
@@ -268,3 +269,15 @@ class WMHMCP(BaseWebsocketMsgHandler):
             C.WS_LLM_STREAMING_RESPONSE,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
+
+
+class WMHMCPClient(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def process_message(self, message, *_):
+        msg_type = message["messageType"]
+        if msg_type == C.WS_LLM_STREAMING_RESPONSE:
+            await self.websocket_manager.broadcast(
+                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+            )
