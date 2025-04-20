@@ -2,19 +2,8 @@ import json
 
 
 def load_chat(db, chat_id):
-    """
-    Load chat metadata and all messages for a given chat_id.
-
-    Args:
-        db: Database connection object with execute method
-        chat_id: ID of the chat to load
-
-    Returns:
-        dict: Chat data with metadata and messages
-    """
-    # First get chat metadata
     chat_query = """
-        SELECT id, updated
+        SELECT id, lastUpdated
         FROM Chat
         WHERE id = :chat_id
     """
@@ -26,7 +15,7 @@ def load_chat(db, chat_id):
         return None  # Chat not found
 
     # Create the base chat object
-    chat = {"id": chat_row[0], "updated": chat_row[1], "messages": []}
+    chat = {"id": chat_row[0], "lastUpdated": chat_row[1], "messages": []}
 
     # Now get all messages for this chat
     messages_query = """
@@ -47,3 +36,19 @@ def load_chat(db, chat_id):
         chat["messages"].append(message)
 
     return chat
+
+
+def load_all_chat_metadata(db):
+    # First get chat metadata
+    chat_query = """
+        SELECT id, lastUpdated
+        FROM Chat
+        ORDER BY lastUpdated DESC
+    """
+
+    db.execute(chat_query)
+
+    output = []
+    for row in db.fetchall():
+        output.append({"chatId": row[0], "lastUpdated": row[1]})
+    return output

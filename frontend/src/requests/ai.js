@@ -50,3 +50,10 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
     throw error;
   }
 }
+
+export async function dbCreateNewLLMChat() {
+  return await post({
+    body: {},
+    address: C.ROUTE_CREATE_NEW_LLM_CHAT,
+  });
+}

@@ -5,6 +5,7 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
+import { createNewLLMChat } from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
@@ -16,8 +17,8 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     messages,
-    chatSessions,
-    sessionId,
+    allChatMetadata,
+    currentChatId,
     isLoading,
     viewHistory,
     userSelectedLLM,
@@ -46,6 +47,7 @@ export function ProjectChat() {
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               aria-label="New Chat"
+              onClick={createNewLLMChat}
             >
               <MdAdd size={15} />
               <span className="@[17.5rem]:hidden @sm:block">New</span>
@@ -98,8 +100,8 @@ export function ProjectChat() {
 
         {viewHistory ? (
           <ProjectChatHistory
-            chatSessions={chatSessions}
-            sessionId={sessionId}
+            allChatMetadata={allChatMetadata}
+            currentChatId={currentChatId}
           />
         ) : (
           <ProjectChatCore

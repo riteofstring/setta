@@ -56,7 +56,7 @@ class MCPClient:
 
                 # Initialize the session
                 await self.session.initialize()
-
+                print(f"Connected to {url}...", flush=True)
                 # List available tools to verify connection
                 response = await self.session.list_tools()
                 self.available_tools = [

@@ -2,7 +2,6 @@
 CREATE TABLE IF NOT EXISTS Metadata (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     defaultProject TEXT,
-    apiKeysFilepath TEXT NOT NULL DEFAULT '.env',
     FOREIGN KEY (defaultProject) REFERENCES ProjectConfig(id)
 );
 CREATE TABLE IF NOT EXISTS CodeInfo (
@@ -233,7 +232,7 @@ CREATE TABLE IF NOT EXISTS Notifications (
 );
 CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
-    updated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    lastUpdated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (
     chatId TEXT NOT NULL,
@@ -277,6 +276,6 @@ CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
 AFTER INSERT ON ChatMessage
 BEGIN
     UPDATE Chat
-    SET updated = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.chatId;
 END;

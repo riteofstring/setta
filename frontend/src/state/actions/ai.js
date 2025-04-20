@@ -1,26 +1,34 @@
 import _ from "lodash";
-import { dbGetLLMResponse } from "requests/ai";
+import { dbCreateNewLLMChat, dbGetLLMResponse } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
+export async function createNewLLMChat() {
+  const res = await dbCreateNewLLMChat();
+  if (res.status == 200) {
+    const { chatId, messages, allChatMetadata } = res.data;
+    useAIStore.setState({ currentChatId: chatId, messages, allChatMetadata });
+  }
+}
+
 export function switchToChat(id) {
-  const { sessionId, chatSessions } = useAIStore.getState();
+  const { currentChatId, allChatMetadata } = useAIStore.getState();
 
   // Guard clause: already on this chat
-  if (id === sessionId) {
+  if (id === currentChatId) {
     useAIStore.setState({ viewHistory: false });
     return;
   }
 
   // Find requested chat
-  const selectedChat = chatSessions.find((session) => session.id === id);
+  const selectedChat = allChatMetadata.find((session) => session.id === id);
 
   // Guard clause: chat not found
   if (!selectedChat) return;
 
   // Switch to selected chat
   useAIStore.setState({
-    sessionId: id,
+    currentChatId: id,
     messages: selectedChat.messages,
     viewHistory: false,
   });
@@ -55,10 +63,15 @@ export async function submitMessage(userMessage, deepThink) {
     currentAssistantMsgId: assistantMsgId,
   }));
 
-  const { sessionId, userSelectedLLM } = useAIStore.getState();
+  const { currentChatId, userSelectedLLM } = useAIStore.getState();
 
   try {
-    await dbGetLLMResponse(userSelectedLLM, userMessage, deepThink, sessionId);
+    await dbGetLLMResponse(
+      userSelectedLLM,
+      userMessage,
+      deepThink,
+      currentChatId,
+    );
   } catch (error) {
     // Error handling
     const errorMsg = {

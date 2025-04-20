@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.routers.dependencies import (
+    get_chat_manager,
     get_mcp_client,
     get_wmh_specific_file_watcher,
 )
@@ -119,3 +120,8 @@ def get_llm_api_keys_from_env_vars(env_vars):
 @router.post(C.ROUTE_GET_LLM_API_KEYS)
 def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
     return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
+
+
+@router.post(C.ROUTE_CREATE_NEW_LLM_CHAT)
+def route_create_new_llm_chat(chat_manager=Depends(get_chat_manager)):
+    return chat_manager.create_new_chat()
