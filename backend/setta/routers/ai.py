@@ -1,5 +1,4 @@
-import uuid
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -15,15 +14,12 @@ from setta.utils.constants import C
 load_dotenv()
 router = APIRouter()
 
-# Dictionary to store conversation histories by session ID
-conversation_histories = {}
-
 
 class GetLLMResponseRequest(BaseModel):
-    model: str  # Model identifier
-    conversationHistory: List[Dict[str, str]]  # Single message from user
+    chatId: str
+    message: str
+    model: str
     deepThink: bool
-    session_id: Optional[str] = None  # Session ID, optional
 
 
 class SetLLMApiKeysRequest(BaseModel):
@@ -42,29 +38,6 @@ async def route_get_llm_response(
     mcp_client=Depends(get_mcp_client),
 ):
     try:
-        print("========== DEBUGGING INFO ==========")
-        print("Received request data:", x)
-        print("Raw model value:", x.model)
-        # print("Message:", x.message)
-        print("Session ID:", x.session_id)
-        print("====================================")
-
-        # Get or create session ID
-        session_id = x.session_id or str(uuid.uuid4())
-
-        # Initialize conversation history for new sessions
-        # if session_id not in conversation_histories:
-        # conversation_histories[session_id] = x.conversationHistory
-        conversation_histories[session_id] = x.conversationHistory
-
-        # Add user message to conversation history
-        # conversation_histories[session_id].append(
-        #     {"role": "user", "content": x.message}
-        # )
-
-        print("About to call completion with model:", x.model)
-        print("Messages:", conversation_histories[session_id], flush=True)
-
         background_tasks.add_task(
             mcp_client.process_query,
             x.model,
@@ -75,7 +48,6 @@ async def route_get_llm_response(
         # Return immediate response with session ID
         return {
             "status": "processing",
-            "session_id": session_id,
             "message": "Query is being processed. Connect to websocket for results.",
         }
 
@@ -85,7 +57,6 @@ async def route_get_llm_response(
         error_message = f"Error calling LLM: {str(e)}"
         return {
             "error": error_message,
-            "session_id": session_id if "session_id" in locals() else None,
             "status": "error",
         }
 

@@ -95,3 +95,6 @@ def get_specific_file_watcher(request: Request):
 
 def get_mcp_client(request: Request):
     return request.app.state.mcp_client
+
+def get_chat_manager(request: Request):
+    return request.app.state.chat_manager

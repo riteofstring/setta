@@ -16,6 +16,7 @@ class WebsocketMsgHandlers:
         code_state,
         code_tasks,
         script_metadata,
+        chat_manager
     ):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
