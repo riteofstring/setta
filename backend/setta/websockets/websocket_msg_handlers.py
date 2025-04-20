@@ -270,9 +270,9 @@ class WMHMCP(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def send_streaming_response(self, chunk):
+    async def send_streaming_response(self, chatId, chunk):
         await self.websocket_manager.broadcast(
-            chunk,
+            {"chatId": chatId, "chunk": chunk},
             C.WS_LLM_STREAMING_RESPONSE,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )

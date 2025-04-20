@@ -90,13 +90,8 @@ export function ProjectChat() {
                 onSelectedItemChange={(model) =>
                   useAIStore.setState({ userSelectedLLM: model })
                 }
-                placeholder={
-                  !Boolean(userSelectedLLM)
-                    ? "Add API key in chat settings"
-                    : "Select an LLM model"
-                }
-                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={`${!Boolean(userSelectedLLM) ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                placeholder="Select an LLM model"
+                bg={`${!Boolean(userSelectedLLM) ? "bg-red-900" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -108,9 +103,7 @@ export function ProjectChat() {
         ) : (
           <ProjectChatCore
             messages={messages}
-            placeholderText={
-              !Boolean(userSelectedLLM) ? "Add API key!" : "Type a message..."
-            }
+            placeholderText="Type a message..."
             deepThink={deepThink}
             isLoading={isLoading}
           />

@@ -5,11 +5,12 @@ import {
   dbGetLLMResponse,
 } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 
 export async function createNewLLMChat() {
   useAIStore.setState({
-    currentChatId: null,
+    currentChatId: createNewId(),
     messages: [],
     viewHistory: false,
   });
@@ -98,10 +99,16 @@ export async function submitMessage(message, deepThink) {
   }
 }
 
-export function receiveLLMResponseChunk(chunk) {
+export function receiveLLMResponseChunk(msg) {
   try {
-    // Get current state
+    const { chatId, chunk } = msg;
     const currentState = useAIStore.getState();
+    if (chatId !== currentState.currentChatId) {
+      return;
+    }
+
+    // Get current state
+
     const currentMessages = currentState.messages;
     let {
       currentBlockType,
