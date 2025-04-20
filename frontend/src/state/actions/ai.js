@@ -105,19 +105,12 @@ export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
     const { currentChatId, streamTarget } = useAIStore.getState();
-    if (streamTarget) {
-      switch (chunk.type) {
-        case C.LLM_CONTENT_BLOCK_DELTA:
-          if (chunk.delta.type === C.LLM_TEXT_DELTA) {
-            streamInto(streamTarget, chunk.delta.text);
-          }
-          return;
-        case C.LLM_FULL_MESSAGE_STOP:
-          llmFullMessageStop();
-          return;
-        default:
-          return;
-      }
+    if (
+      streamTarget &&
+      chunk.type === C.LLM_CONTENT_BLOCK_DELTA &&
+      chunk.delta.type === C.LLM_TEXT_DELTA
+    ) {
+      streamInto(streamTarget, chunk.delta.text);
     }
 
     if (chatId !== currentChatId) {

@@ -327,8 +327,6 @@ const consolidateAssistantMessages = (messages) => {
   const processedMessages = [];
   let currentAssistantMessage = null;
 
-  // First pass: collect tool results
-
   for (const message of messages) {
     // If this is an assistant message
     if (message.role === C.LLM_ASSISTANT_ROLE) {
@@ -357,5 +355,41 @@ const consolidateAssistantMessages = (messages) => {
     processedMessages.push(currentAssistantMessage);
   }
 
-  return processedMessages;
+  // Second pass: filter out text content between startStreamingInto and stopStreamingInto
+  const finalMessages = [];
+
+  for (const message of processedMessages) {
+    if (message.role === C.LLM_ASSISTANT_ROLE) {
+      const filteredContent = [];
+      let isStreaming = false;
+
+      for (const item of message.content) {
+        if (item.type === "tool_use" && item.name === "startStreamingInto") {
+          isStreaming = true;
+          filteredContent.push(item);
+        } else if (
+          item.type === "tool_use" &&
+          item.name === "stopStreamingInto"
+        ) {
+          isStreaming = false;
+          filteredContent.push(item);
+        } else if (isStreaming && item.type === "text") {
+          // Skip text content while streaming
+        } else {
+          filteredContent.push(item);
+        }
+      }
+
+      if (filteredContent.length > 0) {
+        finalMessages.push({
+          ...message,
+          content: filteredContent,
+        });
+      }
+    } else {
+      finalMessages.push(message);
+    }
+  }
+
+  return finalMessages;
 };
