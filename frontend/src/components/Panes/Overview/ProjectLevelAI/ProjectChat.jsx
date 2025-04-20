@@ -108,7 +108,9 @@ export function ProjectChat() {
         ) : (
           <ProjectChatCore
             messages={messages}
-            placeholderText="Type a message..."
+            placeholderText={
+              !Boolean(userSelectedLLM) ? "Add API key!" : "Type a message..."
+            }
             deepThink={deepThink}
             isLoading={isLoading}
           />
