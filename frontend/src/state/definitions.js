@@ -260,7 +260,7 @@ export const useAIStore = create(
         messages: [],
         allChatMetadata: [],
         currentChatId: null,
-        isLoading: false,
+        waitingForResponse: false,
         viewHistory: false,
         userSelectedLLM: "",
         streamTarget: null,

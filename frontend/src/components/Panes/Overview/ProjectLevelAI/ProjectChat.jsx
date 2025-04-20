@@ -1,5 +1,6 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
@@ -16,12 +17,19 @@ export function ProjectChat() {
   const {
     apiKeys,
     apiKeysInitialLoadComplete,
-    messages,
-    currentChatId,
-    isLoading,
     viewHistory,
     userSelectedLLM,
-  } = useAIStore();
+    waitingForResponse,
+  } = useAIStore(
+    (x) => ({
+      apiKeys: x.apiKeys,
+      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+      viewHistory: x.viewHistory,
+      userSelectedLLM: x.userSelectedLLM,
+      waitingForResponse: x.waitingForResponse,
+    }),
+    _.isEqual,
+  );
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
@@ -106,10 +114,9 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory currentChatId={currentChatId} />
+          <ProjectChatHistory />
         ) : (
           <ProjectChatCore
-            messages={messages}
             placeholderText={
               noModelsAvailable
                 ? "Add API key!"
@@ -118,8 +125,8 @@ export function ProjectChat() {
                   : "Type a message..."
             }
             deepThink={deepThink}
-            isLoading={isLoading}
             userSelectedLLM={userSelectedLLM}
+            waitingForResponse={waitingForResponse}
           />
         )}
       </div>

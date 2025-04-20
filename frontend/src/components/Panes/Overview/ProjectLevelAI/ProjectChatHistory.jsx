@@ -8,8 +8,14 @@ import {
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 
-export function ProjectChatHistory({ currentChatId }) {
-  const allChatMetadata = useAIStore((x) => x.allChatMetadata, _.isEqual);
+export function ProjectChatHistory() {
+  const { allChatMetadata, currentChatId } = useAIStore(
+    (x) => ({
+      allChatMetadata: x.allChatMetadata,
+      currentChatId: x.currentChatId,
+    }),
+    _.isEqual,
+  );
 
   useEffect(() => {
     getAllLLMChatMetadata();

@@ -1,6 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
+import _ from "lodash";
 import { memo } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -10,6 +11,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { useAIStore } from "state/definitions";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
@@ -220,8 +222,9 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 });
 
 // Message list component
-const MessageList = memo(function MessageList({ messages, isLoading }) {
-  console.log("messages", messages);
+const MessageList = memo(function MessageList({ waitingForResponse }) {
+  const messages = useAIStore((x) => x.messages, _.isEqual);
+
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
@@ -241,7 +244,7 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
         {messages.map((message, idx) => {
           // Only the last assistant message should be considered streaming when loading
           const isLastAssistantMessage =
-            isLoading &&
+            waitingForResponse &&
             message.role === "assistant" &&
             idx === messages.length - 1;
 
@@ -260,19 +263,18 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
 
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
-  messages,
   placeholderText,
   deepThink,
-  isLoading,
   userSelectedLLM,
+  waitingForResponse,
 }) {
   return (
     <>
-      <MessageList messages={messages} isLoading={isLoading} />
+      <MessageList waitingForResponse={waitingForResponse} />
       <ChatInput
         deepThink={deepThink}
         placeholderText={placeholderText}
-        isLoading={isLoading}
+        waitingForResponse={waitingForResponse}
         userSelectedLLM={userSelectedLLM}
       />
     </>

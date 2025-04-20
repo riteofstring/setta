@@ -5,7 +5,7 @@ import { submitMessage } from "state/actions/ai";
 export const ChatInput = memo(function ChatInput({
   deepThink,
   placeholderText,
-  isLoading,
+  waitingForResponse,
   userSelectedLLM,
 }) {
   const disabled = !Boolean(userSelectedLLM);
@@ -14,7 +14,7 @@ export const ChatInput = memo(function ChatInput({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (inputValue.trim() === "" || isLoading) return;
+    if (inputValue.trim() === "" || waitingForResponse) return;
 
     // Only communicate with parent on submission
     submitMessage(inputValue, deepThink);
@@ -22,7 +22,8 @@ export const ChatInput = memo(function ChatInput({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Only allow Enter key submission when NOT waiting for a response
+    if (e.key === "Enter" && !e.shiftKey && !waitingForResponse) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -49,12 +50,12 @@ export const ChatInput = memo(function ChatInput({
           type="submit"
           disabled={disabled}
           className={`mb-5 cursor-pointer self-end px-2 py-0.5 ${
-            isLoading
+            waitingForResponse
               ? "text-setta-300 dark:text-setta-600"
               : "text-setta-500 hover:text-blue-500 focus:text-blue-500"
           } focus:outline-none focus:ring-0 dark:hover:text-blue-700`}
         >
-          {isLoading ? <IoStop /> : <IoSend />}
+          {waitingForResponse ? <IoStop /> : <IoSend />}
         </button>
       </div>
     </form>
