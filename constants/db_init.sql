@@ -231,18 +231,18 @@ CREATE TABLE IF NOT EXISTS Notifications (
   read_status BOOLEAN NOT NULL DEFAULT 0,
   FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
 );
-CREATE TABLE IF NOT EXISTS ChatSession (
+CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
     name TEXT,
     updated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (
-    sessionId TEXT NOT NULL,
+    chatId TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     role TEXT NOT NULL,  -- 'user', 'assistant', or 'system'
     streamSequence TEXT,
-    PRIMARY KEY (sessionId, "order"),
-    FOREIGN KEY (sessionId) REFERENCES ChatSession(id) ON DELETE CASCADE
+    PRIMARY KEY (chatId, "order"),
+    FOREIGN KEY (chatId) REFERENCES Chat(id) ON DELETE CASCADE
 );
 
 
@@ -277,7 +277,7 @@ END;
 CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
 AFTER INSERT ON ChatMessage
 BEGIN
-    UPDATE ChatSession
+    UPDATE Chat
     SET updated = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    WHERE id = NEW.sessionId;
+    WHERE id = NEW.chatId;
 END;

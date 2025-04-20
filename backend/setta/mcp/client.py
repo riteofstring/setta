@@ -96,7 +96,8 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, messages, deepThink):
+    async def process_query(self, model, chat, deepThink):
+        messages = chat["messages"]
         response = await self.session.list_tools()
         available_tools = [
             {

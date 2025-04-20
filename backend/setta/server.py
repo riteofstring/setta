@@ -25,6 +25,7 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
+from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client_subprocess_manager import MCPSubprocessManager
 from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
@@ -83,6 +84,7 @@ async def lifespan(app: FastAPI):
     app.state.mcpSubprocessManager = MCPSubprocessManager(
         f"{C.BACKEND}/mcp", f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_MCP_CLIENT}"
     )
+    app.state.chat_manager = ChatManager()
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcpSubprocessManager.start()

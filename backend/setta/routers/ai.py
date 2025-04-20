@@ -1,5 +1,4 @@
-import uuid
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, Depends
@@ -7,6 +6,7 @@ from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.routers.dependencies import (
+    get_chat_manager,
     get_wmh_mcp_client,
     get_wmh_specific_file_watcher,
 )
@@ -15,15 +15,12 @@ from setta.utils.constants import C
 load_dotenv()
 router = APIRouter()
 
-# Dictionary to store conversation histories by session ID
-conversation_histories = {}
-
 
 class GetLLMResponseRequest(BaseModel):
-    model: str  # Model identifier
-    conversationHistory: List[Dict[str, str]]  # Single message from user
+    model: str
+    chatId: Optional[str]
+    message: str
     deepThink: bool
-    session_id: Optional[str] = None  # Session ID, optional
 
 
 class SetLLMApiKeysRequest(BaseModel):
@@ -39,40 +36,17 @@ class GetLLMApiKeysRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     websocket_msg_handler=Depends(get_wmh_mcp_client),
+    chat_manager=Depends(get_chat_manager),
 ):
     try:
-        print("========== DEBUGGING INFO ==========")
-        print("Received request data:", x)
-        print("Raw model value:", x.model)
-        # print("Message:", x.message)
-        print("Session ID:", x.session_id)
-        print("====================================")
+        chat = chat_manager.get_chat(x.chatId, x.message)
 
-        # Get or create session ID
-        session_id = x.session_id or str(uuid.uuid4())
+        await websocket_msg_handler.send_message_to_llm(x.model, chat, x.deepThink)
 
-        # Initialize conversation history for new sessions
-        # if session_id not in conversation_histories:
-        # conversation_histories[session_id] = x.conversationHistory
-        conversation_histories[session_id] = x.conversationHistory
-
-        # Add user message to conversation history
-        # conversation_histories[session_id].append(
-        #     {"role": "user", "content": x.message}
-        # )
-
-        print("About to call completion with model:", x.model)
-        print("Messages:", conversation_histories[session_id], flush=True)
-
-        # Add process_query to background tasks
-        await websocket_msg_handler.send_message_to_llm(
-            x.model, conversation_histories[session_id], x.deepThink
-        )
-
-        # Return immediate response with session ID
+        # Return immediate response with chat ID
         return {
             "status": "processing",
-            "session_id": session_id,
+            "chatId": chat["id"],
             "message": "Query is being processed. Connect to websocket for results.",
         }
 
@@ -82,7 +56,6 @@ async def route_get_llm_response(
         error_message = f"Error calling LLM: {str(e)}"
         return {
             "error": error_message,
-            "session_id": session_id if "session_id" in locals() else None,
             "status": "error",
         }
 
