@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from anthropic import AsyncAnthropic
@@ -15,6 +16,7 @@ class ChatManager:
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
         self.current_streams = {}
+        self.stream_tasks = {}
         self.anthropic = AsyncAnthropic()
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
@@ -63,10 +65,24 @@ class ChatManager:
 
     async def process_query(self, chat, model, deepThink):
         chatId = chat["id"]
+        self.stream_tasks[chatId] = asyncio.current_task()
+        try:
+            await self._process_query(chat, model, deepThink)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            # Clean up
+            if chatId in self.stream_tasks:
+                del self.stream_tasks[chatId]
+            self.end_current_stream(chatId)
+            chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
+            await self.send_streaming_response(chatId, None, chunk)
+
+    async def _process_query(self, chat, model, deepThink):
+        chatId = chat["id"]
         messages = chat["messages"]
         self.init_current_stream(chatId)
         curr_stream = self.current_streams[chatId]
-
         while True:
             has_tool_call = False
             thinking = (
@@ -215,3 +231,27 @@ class ChatManager:
         for c in result["content"]:
             c.pop("annotations", None)
         return result
+
+    async def request_stop_streaming(self, chat_id):
+        """Request stopping an ongoing LLM response stream by cancelling the task."""
+        if chat_id not in self.current_streams or chat_id not in self.stream_tasks:
+            return False
+
+        print(f"Cancelling stream task for chat {chat_id}", flush=True)
+        task = self.stream_tasks[chat_id]
+
+        # # Send a message to the client that we're stopping
+        # assistant_message_id = None
+        # for message in self.current_streams.get(chat_id, []):
+        #     if message.role == C.LLM_ASSISTANT_ROLE:
+        #         assistant_message_id = message.id
+        #         break
+
+        # if assistant_message_id:
+        #     chunk = {"type": "stream_cancelled"}
+        #     await self.send_streaming_response(chat_id, assistant_message_id, chunk)
+
+        # Cancel the task - this will raise CancelledError in the task
+        task.cancel()
+
+        return True

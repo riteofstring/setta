@@ -41,6 +41,10 @@ class GetLLMChatRequest(BaseModel):
     projectConfigId: str
 
 
+class StopLLMChatRequest(BaseModel):
+    chatId: str
+
+
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
@@ -140,6 +144,15 @@ def route_delete_llm_chat(
     x: DeleteLLMChatRequest, chat_manager=Depends(get_chat_manager)
 ):
     return chat_manager.delete_chat(x.chatId)
+
+
+@router.post(C.ROUTE_STOP_LLM_CHAT)
+async def route_stop_llm_chat(
+    x: StopLLMChatRequest,
+    chat_manager=Depends(get_chat_manager),
+):
+    success = await chat_manager.request_stop_streaming(x.chatId)
+    return {"success": success}
 
 
 @router.post(C.ROUTE_GET_LLM_CHAT)

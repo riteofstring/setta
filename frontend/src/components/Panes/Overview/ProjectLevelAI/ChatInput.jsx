@@ -1,5 +1,6 @@
 import { memo, useState } from "react";
 import { IoSend, IoStop } from "react-icons/io5";
+import { dbStopLLMChat } from "requests/ai";
 import { submitMessage } from "state/actions/ai";
 
 export const ChatInput = memo(function ChatInput({
@@ -7,6 +8,7 @@ export const ChatInput = memo(function ChatInput({
   placeholderText,
   waitingForResponse,
   userSelectedLLM,
+  currentChatId,
 }) {
   const disabled = !Boolean(userSelectedLLM);
   // Keep input state local to this component
@@ -14,7 +16,12 @@ export const ChatInput = memo(function ChatInput({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (inputValue.trim() === "" || waitingForResponse) return;
+    if (waitingForResponse) {
+      dbStopLLMChat(currentChatId);
+      return;
+    }
+
+    if (inputValue.trim() === "") return;
 
     // Only communicate with parent on submission
     submitMessage(inputValue, deepThink);

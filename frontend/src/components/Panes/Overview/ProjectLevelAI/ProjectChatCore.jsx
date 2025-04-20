@@ -323,6 +323,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         placeholderText={placeholderText}
         waitingForResponse={waitingForResponse}
         userSelectedLLM={userSelectedLLM}
+        currentChatId={currentChatId}
       />
     </>
   );

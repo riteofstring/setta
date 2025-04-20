@@ -135,7 +135,7 @@ export function receiveLLMResponseChunk(msg) {
         llmToolResult(chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
-        llmFullMessageStop(assistantMessageId, chunk);
+        llmFullMessageStop();
         return;
     }
   } catch (e) {
