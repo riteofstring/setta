@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { ChatInput } from "./ChatInput";
+import ChatInput from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
@@ -42,39 +42,6 @@ const formatToolArgs = (args, jsonSoFar) => {
 
   return JSON.stringify(args, null, 2);
 };
-
-const ThinkingBox = memo(({ content, isStreaming }) => {
-  const shouldAnimate = isStreaming;
-  // Use the typewriter effect
-  const displayText = useTypewriterEffect(
-    content,
-    shouldAnimate,
-    5, // typing speed
-  );
-
-  return (
-    <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="details">
-        <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-          <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
-            <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
-              <PiWrenchFill
-                size={15}
-                className="min-w-6 text-setta-200 dark:text-setta-400"
-              />
-            </div>
-          </div>
-        </Accordion.Trigger>
-
-        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className=" bg-setta-300 p-3  dark:bg-setta-860">
-            {displayText}
-          </div>
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
-  );
-});
 
 const ToolCall = memo(
   ({ name, args, jsonSoFar, streaming, result, success = true }) => {
@@ -138,12 +105,13 @@ const ToolCall = memo(
   },
 );
 
-const StreamItem = ({ item, nextItem, isStreaming }) => {
+const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
   switch (item.type) {
     case "text":
       return (
         <MarkdownContent
-          content={item.text}
+          key={`text-${idx}`}
+          content={item.content}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
           role="assistant"
           isStreaming={isStreaming}
@@ -151,6 +119,7 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
       );
     case "tool_call":
       // Check if the next item is a tool_result
+      const nextItem = streamSequence[idx + 1];
       const hasResult = nextItem && nextItem.type === "tool_result";
       const resultContent = hasResult ? nextItem.content : null;
 
@@ -162,6 +131,7 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
 
       return (
         <ToolCall
+          key={`tool-call-${idx}`}
           name={item.name}
           args={item.args}
           jsonSoFar={item.jsonSoFar}
@@ -170,8 +140,6 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
           success={isSuccess}
         />
       );
-    case "thinking":
-      return <ThinkingBox content={item.content} isStreaming={isStreaming} />;
     default:
       return null;
   }
@@ -188,17 +156,19 @@ function LLMChatBubble({ children }) {
 }
 
 const ChatMessage = memo(({ message, isStreaming }) => {
-  if (message.role === "assistant") {
+  // Handle streaming message with streamSequence
+  if (message.streamSequence) {
     return (
       <LLMChatBubble>
-        {message.content.length === 0 && (
+        {message.streamSequence.length === 0 && (
           <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
         )}
-        {message.content.map((item, idx) => (
+        {message.streamSequence.map((item, idx) => (
           <StreamItem
-            key={idx}
             item={item}
-            nextItem={message.content[idx + 1]}
+            idx={idx}
+            key={idx}
+            streamSequence={message.streamSequence}
             isStreaming={isStreaming}
           />
         ))}
@@ -206,13 +176,14 @@ const ChatMessage = memo(({ message, isStreaming }) => {
     );
   }
 
+  // Handle regular message
   return (
     <div className="my-4 flex justify-end">
       <MarkdownContent
-        content={message.content[0].text}
+        content={message.content}
         className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words"
         role={message.role}
-        isStreaming={false}
+        isStreaming={isStreaming}
       />
     </div>
   );
@@ -220,7 +191,6 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 
 // Message list component
 const MessageList = memo(function MessageList({ messages, isLoading }) {
-  console.log("messages", messages);
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
@@ -260,15 +230,16 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
   messages,
+  selectedModel,
   placeholderText,
-  deepThink,
+  handleSubmit,
   isLoading,
 }) {
   return (
     <>
       <MessageList messages={messages} isLoading={isLoading} />
       <ChatInput
-        deepThink={deepThink}
+        onSubmit={handleSubmit}
         placeholderText={placeholderText}
         isLoading={isLoading}
       />

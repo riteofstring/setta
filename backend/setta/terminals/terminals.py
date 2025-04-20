@@ -94,7 +94,7 @@ class Terminals:
         if not self.sockets[id]["sentReadyMsg"]:
             await websocket.send_text(C.SETTA_TERMINAL_READY)
             self.sockets[id]["sentReadyMsg"] = True
-        await websocket.send_text(self.get_terminal_history(sectionId))
+        await websocket.send_text("".join(self.PTY_PIDS[sectionId]["history"]))
 
     def disconnect(self, sectionId, id):
         logger.debug(f"disconnecting {id}")
@@ -287,6 +287,3 @@ class Terminals:
             )
             # Sleep until next check
             await asyncio.sleep(CHECK_INTERVAL)
-
-    def get_terminal_history(self, terminalId):
-        return "".join(self.PTY_PIDS[terminalId]["history"])

@@ -250,38 +250,35 @@ export const useResizerStore = withProjectState(
 );
 
 export const useAIStore = create(
-  subscribeWithSelector(
-    persist(
-      () => ({
-        // State
-        apiKeys: {},
-        apiKeysFilepath: ".env",
-        apiKeysInitialLoadComplete: false,
-        messages: [],
-        allChatMetadata: [],
-        currentChatId: null,
-        isLoading: false,
-        viewHistory: false,
-        userSelectedLLM: "",
-        streamTarget: null,
-        streamBeforeLines: "",
-        streamAfterLines: "",
-        streamedContent: "",
-        currentBlockType: null,
-        currentBlockIndex: null,
-        currentJsonContent: "",
-        currentToolName: "",
-        currentAssistantMsgId: null,
+  persist(
+    () => ({
+      // State
+      messages: [],
+      chatSessions: [],
+      sessionId: null,
+      isLoading: false,
+      viewHistory: false,
+      apiKeys: [],
+      userSelectedLLM: "",
+      saveStatus: "",
+      isSaving: false,
+      streamTarget: null,
+      currentBlockType: null,
+      currentBlockIndex: null,
+      currentJsonContent: "",
+      currentToolName: "",
+      currentAssistantMsgId: null,
+    }),
+    {
+      name: "setta_ai_data",
+      partialize: (state) => ({
+        apiKeys: state.apiKeys,
+        userSelectedLLM: state.userSelectedLLM,
+        chatSessions: state.chatSessions,
+        sessionId: state.sessionId,
+        messages: state.messages,
       }),
-      {
-        name: "setta_ai_data",
-        partialize: (state) => ({
-          apiKeysFilepath: state.apiKeysFilepath,
-          userSelectedLLM: state.userSelectedLLM,
-          viewHistory: state.viewHistory,
-        }),
-      },
-    ),
+    },
   ),
 );
 

@@ -5,11 +5,10 @@ import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
 import {
-  deleteCodeRange,
   getCurrentCode,
   startStreamingInto,
   stopStreamingInto,
-} from "./actions/ai";
+} from "./actions/aiChat";
 import { addParametersMcp } from "./actions/kwargs";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
@@ -24,7 +23,6 @@ const mcpToolRegistry = {
   setParamValuesMcp,
   startStreamingInto,
   stopStreamingInto,
-  deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
   runEntryCodeBlock,
