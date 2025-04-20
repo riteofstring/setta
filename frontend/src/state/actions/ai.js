@@ -137,6 +137,9 @@ export function receiveLLMResponseChunk(msg) {
       case C.LLM_FULL_MESSAGE_STOP:
         llmFullMessageStop();
         return;
+      case C.LLM_FULL_MESSAGE_STOPPED_BY_USER:
+        llmFullMessageStoppedByUser(chunk);
+        return;
     }
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
@@ -272,6 +275,12 @@ function llmToolResult(chunk) {
 }
 
 function llmFullMessageStop() {
+  resetStreamingResponseState();
+}
+
+function llmFullMessageStoppedByUser(chunk) {
+  const { messages, toolResults } = chunk;
+  useAIStore.setState({ messages, toolResults });
   resetStreamingResponseState();
 }
 

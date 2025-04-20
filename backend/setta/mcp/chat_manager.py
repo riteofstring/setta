@@ -48,6 +48,7 @@ class ChatManager:
             chat_id,
             messages,
         )
+        return messages
 
     def create_new_chat(self, first_message):
         with self.dbq as db:
@@ -83,9 +84,14 @@ class ChatManager:
         finally:
             # Clean up
             self.stream_tasks.pop(chatId, None)
-            self.save_current_stream_to_db(chatId)
+            messages = self.save_current_stream_to_db(chatId)
             self.end_current_stream(chatId)
-            chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
+            messages, tool_results = self.separate_tool_results(messages)
+            chunk = {
+                "type": C.LLM_FULL_MESSAGE_STOPPED_BY_USER,
+                "messages": messages,
+                "toolResults": tool_results,
+            }
             await self.send_streaming_response(chatId, None, chunk)
 
     async def _process_query(self, chat, model, deepThink):
@@ -269,3 +275,16 @@ class ChatManager:
         if isinstance(input, str) and input:
             return json.loads(input)
         return {}
+
+    def separate_tool_results(self, messages):
+        tool_results = {}
+        filtered_messages = []
+        for m in messages:
+            if len(m["content"]) == 0:
+                continue
+            c = m["content"][0]
+            if c.get("type") == C.LLM_TOOL_RESULT:
+                tool_results[c["tool_use_id"]] = m["content"][0]
+            else:
+                filtered_messages.append(m)
+        return filtered_messages, tool_results
