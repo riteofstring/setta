@@ -23,6 +23,7 @@ class MCPClient:
         self.server_url = server_url
         self.websocket_msg_handler = websocket_msg_handler
         self.chat_manager = chat_manager
+        self.available_tools = []
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
@@ -58,12 +59,14 @@ class MCPClient:
 
                 # List available tools to verify connection
                 response = await self.session.list_tools()
-                tools = response.tools
-                print(
-                    "\nConnected to server with tools:",
-                    [tool.name for tool in tools],
-                    flush=True,
-                )
+                self.available_tools = [
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.inputSchema,
+                    }
+                    for tool in response.tools
+                ]
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
@@ -92,17 +95,9 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, chat, deepThink):
+    async def process_query(self, chatId, model, message, deepThink):
+        chat = self.chat_manager.get_chat(chatId, message)
         messages = chat["messages"]
-        response = await self.session.list_tools()
-        available_tools = [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.inputSchema,
-            }
-            for tool in response.tools
-        ]
 
         while True:
             assistant_message_content = []
@@ -122,7 +117,7 @@ class MCPClient:
                 model=model,
                 max_tokens=20000,
                 messages=messages,
-                tools=available_tools,
+                tools=self.available_tools,
                 stream=True,
                 system=[
                     {
@@ -154,67 +149,61 @@ class MCPClient:
 
             complete_messages = await self.stream_responses(stream)
 
-            # Process complete messages for tool calls
-            if complete_messages:
-                for msg in complete_messages:
-                    if msg.type == "text":
-                        assistant_message_content.append(
-                            {"type": "text", "text": msg.text}
-                        )
-                    elif msg.type == "thinking":
-                        assistant_message_content.append(
-                            {
-                                "type": "thinking",
-                                "thinking": msg.text,
-                                "signature": msg.signature,
-                            }
-                        )
-                    elif msg.type == "tool_use":
-                        has_tool_call = True
-                        tool_name = msg.name
-                        tool_args = msg.input
-
-                        # Execute tool call
-                        result = await self.session.call_tool(tool_name, tool_args)
-
-                        chunk = {
-                            "type": "tool_result",
-                            "content": self.tool_call_result_formatted_for_frontend(
-                                result
-                            ),
-                            "is_delta": False,
+            for msg in complete_messages:
+                if msg.type == "text":
+                    assistant_message_content.append({"type": "text", "text": msg.text})
+                elif msg.type == "thinking":
+                    assistant_message_content.append(
+                        {
+                            "type": "thinking",
+                            "thinking": msg.text,
+                            "signature": msg.signature,
                         }
+                    )
+                elif msg.type == "tool_use":
+                    has_tool_call = True
+                    tool_name = msg.name
+                    tool_args = msg.input
 
-                        await self.send_streaming_response(chunk)
+                    # Execute tool call
+                    result = await self.session.call_tool(tool_name, tool_args)
 
-                        # Format the tool_use content block for history
-                        assistant_message_content.append(
-                            {
-                                "type": "tool_use",
-                                "id": msg.id,
-                                "name": tool_name,
-                                "input": tool_args,
-                            }
-                        )
+                    chunk = {
+                        "type": "tool_result",
+                        "content": self.tool_call_result_formatted_for_frontend(result),
+                        "is_delta": False,
+                    }
 
-                        # Update conversation history
-                        messages.append(
-                            {"role": "assistant", "content": assistant_message_content}
-                        )
-                        messages.append(
-                            {
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "tool_result",
-                                        "tool_use_id": msg.id,
-                                        "content": result.content,
-                                    }
-                                ],
-                            }
-                        )
+                    await self.send_streaming_response(chunk)
 
-                        break  # Exit the loop to process a new response
+                    # Format the tool_use content block for history
+                    assistant_message_content.append(
+                        {
+                            "type": "tool_use",
+                            "id": msg.id,
+                            "name": tool_name,
+                            "input": tool_args,
+                        }
+                    )
+
+                    # Update conversation history
+                    messages.append(
+                        {"role": "assistant", "content": assistant_message_content}
+                    )
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "tool_result",
+                                    "tool_use_id": msg.id,
+                                    "content": result.content,
+                                }
+                            ],
+                        }
+                    )
+
+                    break  # Exit the loop to process a new response
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
