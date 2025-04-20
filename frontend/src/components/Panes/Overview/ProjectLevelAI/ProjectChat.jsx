@@ -38,6 +38,8 @@ export function ProjectChat() {
     [apiKeys],
   );
 
+  const noModelsAvailable = filteredModelGroups.length === 0;
+
   return (
     apiKeysInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
@@ -90,8 +92,13 @@ export function ProjectChat() {
                 onSelectedItemChange={(model) =>
                   useAIStore.setState({ userSelectedLLM: model })
                 }
-                placeholder="Select an LLM model"
-                bg={`${!Boolean(userSelectedLLM) ? "bg-red-900" : ""}`}
+                placeholder={
+                  noModelsAvailable
+                    ? "Add API key in chat settings"
+                    : "Select an LLM"
+                }
+                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                bg={`${!Boolean(userSelectedLLM) ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -103,9 +110,16 @@ export function ProjectChat() {
         ) : (
           <ProjectChatCore
             messages={messages}
-            placeholderText="Type a message..."
+            placeholderText={
+              noModelsAvailable
+                ? "Add API key!"
+                : !Boolean(userSelectedLLM)
+                  ? "Select an LLM"
+                  : "Type a message..."
+            }
             deepThink={deepThink}
             isLoading={isLoading}
+            userSelectedLLM={userSelectedLLM}
           />
         )}
       </div>
