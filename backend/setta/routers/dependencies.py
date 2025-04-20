@@ -57,10 +57,6 @@ def get_wmh_mcp_client_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.mcp_client
 
 
-def get_wmh_specific_file_watcher(request: Request):
-    return request.app.state.websocket_msg_handlers.specific_file_watcher
-
-
 def get_lsps(request: Request):
     return [
         request.app.state.lsps,
@@ -91,7 +87,3 @@ def get_code_state_from_websocket(websocket: WebSocket):
 
 def get_specific_file_watcher(request: Request):
     return request.app.state.specific_file_watcher
-
-
-def get_chat_manager(request: Request):
-    return request.app.state.chat_manager

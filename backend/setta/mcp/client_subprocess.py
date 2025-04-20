@@ -46,7 +46,7 @@ class MCPClientRunner:
             if messageType == C.WS_MESSAGE_TO_LLM:
                 content = message["content"]
                 await self.mcp_client.process_query(
-                    content["model"], content["chat"], content["deepThink"]
+                    content["model"], content["messages"]
                 )
 
         # If the websocket connection ends, cancel the connect_task

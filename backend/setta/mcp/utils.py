@@ -83,9 +83,7 @@ def replace_ids_with_uuids(data, id_to_uuid):
             if value in id_to_uuid:
                 return id_to_uuid[value]
             else:
-                raise IDDoesNotExist(
-                    f"{value} is not a valid id. The available ids are {str(id_to_uuid.keys())}"
-                )
+                raise IDDoesNotExist(f"id does not exist: {value}")
 
         return value  # No mapping found or not an ID, leave unchanged
 
