@@ -1,5 +1,5 @@
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
-from setta.database.db.chats.save import create_new_chat, delete_chat
+from setta.database.db.chats.save import create_new_chat, delete_chat, update_chat
 
 
 class ChatManager:
@@ -16,8 +16,10 @@ class ChatManager:
             return self.create_new_chat(message)
         return self.get_chat(chat_id)
 
-    def update_chat(self, chat_id, chunk):
-        pass
+    def update_chat(self, chat_id, new_messages):
+        with self.dbq as db:
+            print("new_messages", new_messages, flush=True)
+            update_chat(db, chat_id, new_messages)
 
     def create_new_chat(self, first_message):
         with self.dbq as db:

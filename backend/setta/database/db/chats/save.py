@@ -39,3 +39,33 @@ def delete_chat(db, chat_id):
         WHERE ID = :chatId
     """
     db.execute(query, {"chatId": chat_id})
+
+
+def update_chat(db, chat_id, new_messages):
+    # First, get the maximum order value for this chat
+    max_order_query = """
+        SELECT MAX("order") FROM ChatMessage WHERE chatId = :chat_id
+    """
+    db.execute(max_order_query, {"chat_id": chat_id})
+    result = db.fetchone()
+    # If there are no existing messages, max_order would be None
+    max_order = result[0] if result is not None else -1
+
+    query = """
+        INSERT INTO ChatMessage (id, chatId, "order", role, content) 
+        VALUES (:id, :chat_id, :order, :role, :content)
+    """
+    query_params = []
+
+    for idx, m in enumerate(new_messages):
+        query_params.append(
+            {
+                "id": m["id"],
+                "chat_id": chat_id,
+                "order": max_order + 1 + idx,
+                "role": m["role"],
+                "content": json.dumps(m["content"]),
+            }
+        )
+
+    db.executemany(query, query_params)

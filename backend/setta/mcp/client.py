@@ -99,11 +99,11 @@ class MCPClient:
     async def process_query(self, chat, model, deepThink):
         chatId = chat["id"]
         self.chat_manager.notify_that_llm_is_responding(chatId)
-        messages = [
-            {"role": m["role"], "content": m["content"]} for m in chat["messages"]
-        ]
+        messages = chat["messages"]
+        new_messages = []
 
         while True:
+            messages = [*messages, *new_messages]
             assistant_message_content = []
             has_tool_call = False
             thinking = (
@@ -120,7 +120,9 @@ class MCPClient:
             stream = await self.anthropic.messages.with_raw_response.create(
                 model=model,
                 max_tokens=20000,
-                messages=messages,
+                messages=[
+                    {"role": m["role"], "content": m["content"]} for m in messages
+                ],
                 tools=self.available_tools,
                 stream=True,
                 system=[
@@ -156,7 +158,7 @@ class MCPClient:
             )
 
             for msg in complete_messages:
-                assistant_message_content.append(msg)
+                assistant_message_content.append(msg.model_dump())
                 if msg.type == C.LLM_TOOL_USE:
                     has_tool_call = True
                     result = await self.session.call_tool(msg.name, msg.input)
@@ -166,14 +168,14 @@ class MCPClient:
                         "content": result.content,
                     }
                     await self.send_streaming_response(chatId, tool_result)
-                    messages.append(
+                    new_messages.append(
                         {
                             "id": assistant_message_id,
                             "role": C.LLM_ASSISTANT_ROLE,
                             "content": assistant_message_content,
                         }
                     )
-                    messages.append(
+                    new_messages.append(
                         {
                             "id": create_new_id(),
                             "role": "user",
@@ -185,19 +187,21 @@ class MCPClient:
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
                 if assistant_message_content:
-                    messages.append(
+                    new_messages.append(
                         {
                             "id": assistant_message_id,
                             "role": C.LLM_ASSISTANT_ROLE,
                             "content": assistant_message_content,
                         }
                     )
+                    self.chat_manager.update_chat(chatId, new_messages)
                 break
             # Otherwise continue the loop to get the next response after tool use
 
+            self.chat_manager.update_chat(chatId, new_messages)
+
         chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
         await self.send_streaming_response(chatId, assistant_message_id, chunk)
-
         self.chat_manager.notify_that_llm_is_done(chatId)
 
     async def stop(self):
