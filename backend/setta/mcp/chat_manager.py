@@ -14,6 +14,7 @@ class ChatManager:
     def get_or_create_chat(self, chat_id, message):
         if not chat_id:
             return self.create_new_chat(message)
+        self.update_chat(chat_id, [message])
         return self.get_chat(chat_id)
 
     def update_chat(self, chat_id, new_messages):
@@ -33,10 +34,10 @@ class ChatManager:
         with self.dbq as db:
             delete_chat(db, chat_id)
 
-    def notify_that_llm_is_responding(self, chat_id):
+    def set_llm_is_responding(self, chat_id):
         self.waiting_for_response[chat_id] = True
 
-    def notify_that_llm_is_done(self, chat_id):
+    def set_llm_is_done(self, chat_id):
         self.waiting_for_response[chat_id] = False
 
     def is_waiting_for_response(self, chat_id):
