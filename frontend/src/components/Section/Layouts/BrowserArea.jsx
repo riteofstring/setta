@@ -124,7 +124,7 @@ function ThumbnailItem({ size = "96px", thumbnail, children }) {
 function ResizableFileList({ items, sectionId, children }) {
   const { headerRef, contentRef, handleResize, getRowProps } =
     useResizableColumn(sectionId, {
-      minWidth: 120,
+      minWidth: 80,
       maxWidth: 400,
       defaultWidth: 180,
     });
@@ -157,14 +157,18 @@ function ResizableFileList({ items, sectionId, children }) {
             style={{ gridTemplateColumns: "minmax(min-content, 180px) 1fr" }}
             {...getRowProps()}
           >
-            <div className="relative flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/listitem:!text-blue-500 dark:text-setta-200">
-              {item.id}
-              <button className="mr-0.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500 focus-visible:outline group-hover/listitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/listitem:text-setta-600">
-                <i className="gg-pen" />
-              </button>
-            </div>
+            <div className="relative w-full">
+              <div className="absolute min-h-6 w-full min-w-0 cursor-pointer items-center gap-2 overflow-clip truncate rounded px-1 py-0.5 text-xs text-setta-700 group-hover/listitem:!text-blue-500 dark:text-setta-200">
+                <div className="flex w-full justify-between">
+                  <p className="min-w-0 truncate">{item.id}</p>
 
-            <p className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-400 group-hover/listitem:!text-blue-500 dark:text-setta-600">
+                  <button className="bottom-0 right-0 top-0 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500 focus-visible:outline group-hover/listitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/listitem:text-setta-600">
+                    <i className="gg-pen" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-400 group-hover/listitem:!text-blue-500 dark:text-setta-600">
               {item.lastModified}
             </p>
           </div>
