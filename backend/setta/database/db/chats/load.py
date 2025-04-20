@@ -19,7 +19,7 @@ def load_chat(db, chat_id):
 
     # Now get all messages for this chat
     messages_query = """
-        SELECT role, content
+        SELECT id, role, content
         FROM ChatMessage
         WHERE chatId = :chat_id
         ORDER BY "order" ASC
@@ -30,8 +30,9 @@ def load_chat(db, chat_id):
     # Process each message
     for row in db.fetchall():
         message = {
-            "role": row[0],
-            "content": json.loads(row[1]),
+            "id": row[0],
+            "role": row[1],
+            "content": json.loads(row[2]),
         }
         chat["messages"].append(message)
 
