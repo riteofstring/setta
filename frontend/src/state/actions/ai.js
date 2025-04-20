@@ -144,6 +144,9 @@ export function receiveLLMResponseChunk(msg) {
       case C.LLM_CONTENT_BLOCK_DELTA:
         llmContentBlockDelta(assistantMessageId, chunk);
         return;
+      case C.LLM_CONTENT_BLOCK_STOP:
+        llmContentBlockStop(assistantMessageId, chunk);
+        return;
 
       // case "content_block_start":
       //   // Track new content block start
@@ -399,6 +402,7 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
     const message = state.messages[messageIndex];
     const newContentArray = [...message.content];
     const currMsg = newContentArray[chunk.index];
+    let updated = true;
     switch (chunk.delta.type) {
       case C.LLM_TEXT_DELTA:
         currMsg.text += chunk.delta.text;
@@ -415,7 +419,45 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
         }
         currMsg.text += chunk.delta.partial_json;
         break;
+      default:
+        updated = false;
     }
+
+    if (!updated) {
+      return {};
+    }
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...state.messages.slice(0, messageIndex),
+      updatedMessage,
+      ...state.messages.slice(messageIndex + 1),
+    ];
+
+    return { messages: newMessages };
+  });
+}
+
+function llmContentBlockStop(assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const messageIndex = state.messages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+    const message = state.messages[messageIndex];
+    const newContentArray = [...message.content];
+    const currMsg = newContentArray[chunk.index];
+    if (currMsg.type === C.LLM_TOOL_USE && currMsg.text) {
+      currMsg.input = JSON.parse(currMsg.text);
+    } else {
+      return {};
+    }
+
     // Create updated message
     const updatedMessage = { ...message, content: newContentArray };
 

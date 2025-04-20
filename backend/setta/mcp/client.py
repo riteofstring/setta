@@ -276,11 +276,10 @@ class MCPClient:
                     if not isinstance(curr_msg.text, str):
                         curr_msg.text = ""
                     curr_msg.text += event.delta.partial_json
-            elif event.type == "content_block_stop":
-                if llm_msgs[event.index].type == "tool_use":
-                    text = llm_msgs[event.index].text
-                    if text:
-                        llm_msgs[event.index].input = json.loads(text)
+            elif event.type == C.LLM_CONTENT_BLOCK_STOP:
+                curr_msg = llm_msgs[event.index]
+                if curr_msg.type == C.LLM_TOOL_USE and curr_msg.text:
+                    curr_msg.input = json.loads(curr_msg.text)
             await self.send_streaming_response(
                 chatId, assistant_message_id, event.model_dump()
             )
