@@ -16,15 +16,9 @@ class ChatManager:
     def update_chat(self, chat_id, chunk):
         pass
 
-    def create_new_chat(self):
+    def create_new_chat(self, first_message):
         with self.dbq as db:
-            chatId = create_new_chat(db)
-            all_chat_metadata = load_all_chat_metadata(db)
-            return {
-                "chatId": chatId,
-                "messages": [],
-                "allChatMetadata": all_chat_metadata,
-            }
+            return create_new_chat(db, first_message)
 
     def get_all_chat_metadata(self):
         with self.dbq as db:

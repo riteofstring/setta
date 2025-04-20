@@ -1,6 +1,5 @@
 import _ from "lodash";
 import {
-  dbCreateNewLLMChat,
   dbDeleteLLMChat,
   dbGetAllLLMChatMetadata,
   dbGetLLMResponse,
@@ -9,11 +8,11 @@ import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
 export async function createNewLLMChat() {
-  const res = await dbCreateNewLLMChat();
-  if (res.status == 200) {
-    const { chatId, messages, allChatMetadata } = res.data;
-    useAIStore.setState({ currentChatId: chatId, messages, allChatMetadata });
-  }
+  useAIStore.setState({
+    currentChatId: null,
+    messages: [],
+    viewHistory: false,
+  });
 }
 
 export async function getAllLLMChatMetadata() {
@@ -64,20 +63,18 @@ function resetStreamingResponseState() {
   });
 }
 
-export async function submitMessage(userMessage, deepThink) {
-  // Guard clause: empty message
-  if (!userMessage.trim()) return;
+export async function submitMessage(message, deepThink) {
+  if (!message.trim()) return;
 
   // Add user message immediately for responsive UI
-  const userMsg = {
+  const userMessage = {
     role: "user",
-    content: [{ type: "text", text: userMessage }],
+    content: [{ type: "text", text: message }],
   };
 
   useAIStore.setState((state) => ({
     isLoading: true,
-    messages: [...state.messages, userMsg],
-    currentAssistantMsgId: assistantMsgId,
+    messages: [...state.messages, userMessage],
   }));
 
   const { currentChatId, userSelectedLLM } = useAIStore.getState();

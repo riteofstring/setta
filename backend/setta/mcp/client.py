@@ -95,8 +95,12 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, chatId, model, message, deepThink):
-        chat = self.chat_manager.get_chat(chatId, message)
+    async def process_query(self, chatId, message, model, deepThink):
+        if not chatId:
+            chat = self.chat_manager.create_new_chat(message)
+            chatId = chat["id"]
+        else:
+            chat = self.chat_manager.get_chat(chatId, message)
         messages = chat["messages"]
 
         while True:

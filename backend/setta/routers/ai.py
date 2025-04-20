@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Any, Dict
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -17,8 +17,8 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: str
-    message: str
+    chatId: str | None
+    message: Dict[str, Any]
     model: str
     deepThink: bool
 
@@ -124,11 +124,6 @@ def get_llm_api_keys_from_env_vars(env_vars):
 @router.post(C.ROUTE_GET_LLM_API_KEYS)
 def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
     return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
-
-
-@router.post(C.ROUTE_CREATE_NEW_LLM_CHAT)
-def route_create_new_llm_chat(chat_manager=Depends(get_chat_manager)):
-    return chat_manager.create_new_chat()
 
 
 @router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)

@@ -143,7 +143,7 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
     case "text":
       return (
         <MarkdownContent
-          content={item.content}
+          content={item.text}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
           role="assistant"
           isStreaming={isStreaming}
@@ -206,14 +206,13 @@ const ChatMessage = memo(({ message, isStreaming }) => {
     );
   }
 
-  // Handle regular message
   return (
     <div className="my-4 flex justify-end">
       <MarkdownContent
-        content={message.content}
+        content={message.content[0].text}
         className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words"
         role={message.role}
-        isStreaming={isStreaming}
+        isStreaming={false}
       />
     </div>
   );
@@ -221,6 +220,7 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 
 // Message list component
 const MessageList = memo(function MessageList({ messages, isLoading }) {
+  console.log("messages", messages);
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">

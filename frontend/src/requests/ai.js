@@ -51,13 +51,6 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
   }
 }
 
-export async function dbCreateNewLLMChat() {
-  return await post({
-    body: {},
-    address: C.ROUTE_CREATE_NEW_LLM_CHAT,
-  });
-}
-
 export async function dbGetAllLLMChatMetadata(chatId) {
   return await post({
     body: { chatId },
