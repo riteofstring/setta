@@ -180,6 +180,7 @@ def merge_db_messages_with_current_stream(db_messages, current_stream):
 
     # Loop through current_stream and append messages that aren't already in chat
     for message in current_stream:
+        message = message.model_dump()
         if message["id"] not in existing_ids:
             db_messages.append(message)
             # Add to existing_ids to track what we've added
