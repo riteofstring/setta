@@ -16,9 +16,9 @@ export async function getLLMChat(chatId) {
   const res = await dbGetLLMChat(chatId, projectConfigId);
   console.log("res", res);
   if (res.status == 200) {
-    const { messages, currentStream, waitingForResponse } = res.data;
+    const { messages, waitingForResponse } = res.data;
     useAIStore.setState({
-      messages: [...messages, ...currentStream],
+      messages,
       currentChatId: chatId,
       waitingForResponse,
     });

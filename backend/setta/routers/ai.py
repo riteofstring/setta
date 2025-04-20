@@ -162,8 +162,23 @@ async def route_get_llm_chat(
 
     waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
     current_stream = chat_manager.get_current_stream(x.chatId)
+    print("chat", chat, flush=True)
+    merge_db_messages_with_current_stream(chat["messages"], current_stream)
+    print("chat after", chat, flush=True)
+
     return {
         "messages": chat["messages"],
-        "currentStream": current_stream,
         "waitingForResponse": waiting_for_response,
     }
+
+
+def merge_db_messages_with_current_stream(db_messages, current_stream):
+    # Create a set of existing message IDs for efficient lookup
+    existing_ids = {message["id"] for message in db_messages}
+
+    # Loop through current_stream and append messages that aren't already in chat
+    for message in current_stream:
+        if message["id"] not in existing_ids:
+            db_messages.append(message)
+            # Add to existing_ids to track what we've added
+            existing_ids.add(message["id"])
