@@ -276,12 +276,13 @@ class WMHChatManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def send_streaming_response(self, chatId, assistant_message_id, chunk):
+    async def send_streaming_response(self, chatId, super_msg_id, chunk, chunk_idx_offset):
         await self.websocket_manager.broadcast(
             {
                 "chatId": chatId,
-                "assistantMessageId": assistant_message_id,
+                "superMsgId": super_msg_id,
                 "chunk": chunk,
+                "chunkIdxOffset": chunk_idx_offset,
             },
             C.WS_LLM_STREAMING_RESPONSE,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,

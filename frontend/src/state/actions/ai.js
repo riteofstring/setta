@@ -100,7 +100,7 @@ export async function submitMessage(message, deepThink) {
 
 export function receiveLLMResponseChunk(msg) {
   try {
-    const { chatId, assistantMessageId, chunk } = msg;
+    const { chatId, superMsgId, chunk } = msg;
     const currentState = useAIStore.getState();
     if (chatId !== currentState.currentChatId) {
       return;
@@ -108,20 +108,26 @@ export function receiveLLMResponseChunk(msg) {
 
     // Handle different chunk types
     switch (chunk.type) {
+      case C.LLM_FULL_MESSAGE_START:
+        llmFullMessageStart(superMsgId, chunk);
+        return;
       case C.LLM_MESSAGE_START:
-        llmMessageStart(chunk);
+        llmMessageStart(superMsgId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_START:
-        llmContentBlockStart(assistantMessageId, chunk);
+        llmContentBlockStart(superMsgId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_DELTA:
-        llmContentBlockDelta(assistantMessageId, chunk);
+        llmContentBlockDelta(superMsgId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_STOP:
-        llmContentBlockStop(assistantMessageId, chunk);
+        llmContentBlockStop(superMsgId, chunk);
+        return;
+      case C.LLM_TOOL_RESULT:
+        llmToolResult(superMsgId, chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
-        llmFullMessageStop(assistantMessageId, chunk);
+        llmFullMessageStop(superMsgId, chunk);
         return;
     }
   } catch (e) {
@@ -129,16 +135,33 @@ export function receiveLLMResponseChunk(msg) {
   }
 }
 
-function llmMessageStart(chunk) {
+function llmFullMessageStart(superMsgId) {
   useAIStore.setState((state) => ({
-    messages: [...state.messages, chunk.message],
+    messages: [
+      ...state.messages,
+      { superMsgId, subMsgLengths: {}, chunks: [] },
+    ],
   }));
 }
 
-function llmContentBlockStart(assistantMessageId, chunk) {
+function llmMessageStart(superMsgId, chunk) {
   useAIStore.setState((state) => {
     const messageIndex = state.messages.findIndex(
-      (m) => m.id === assistantMessageId,
+      (m) => m.superMsgId === superMsgId,
+    );
+    if (messageIndex === -1) {
+      return {};
+    }
+    return {
+      messages: [...state.messages, chunk.message],
+    };
+  });
+}
+
+function llmContentBlockStart(superMsgId, chunk) {
+  useAIStore.setState((state) => {
+    const messageIndex = state.messages.findIndex(
+      (m) => m.superMsgId === superMsgId,
     );
     if (messageIndex === -1) {
       return {}; // No changes to state
@@ -166,10 +189,10 @@ function llmContentBlockStart(assistantMessageId, chunk) {
   });
 }
 
-function llmContentBlockDelta(assistantMessageId, chunk) {
+function llmContentBlockDelta(superMsgId, chunk) {
   useAIStore.setState((state) => {
     const messageIndex = state.messages.findIndex(
-      (m) => m.id === assistantMessageId,
+      (m) => m.superMsgId === superMsgId,
     );
     if (messageIndex === -1) {
       return {}; // No changes to state
@@ -216,10 +239,10 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
   });
 }
 
-function llmContentBlockStop(assistantMessageId, chunk) {
+function llmContentBlockStop(superMsgId, chunk) {
   useAIStore.setState((state) => {
     const messageIndex = state.messages.findIndex(
-      (m) => m.id === assistantMessageId,
+      (m) => m.superMsgId === superMsgId,
     );
     if (messageIndex === -1) {
       return {}; // No changes to state
@@ -232,6 +255,31 @@ function llmContentBlockStop(assistantMessageId, chunk) {
     } else {
       return {};
     }
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...state.messages.slice(0, messageIndex),
+      updatedMessage,
+      ...state.messages.slice(messageIndex + 1),
+    ];
+
+    return { messages: newMessages };
+  });
+}
+
+function llmToolResult(superMsgId, chunk) {
+  useAIStore.setState((state) => {
+    const messageIndex = state.messages.findIndex(
+      (m) => m.superMsgId === superMsgId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+    const message = state.messages[messageIndex];
+    const newContentArray = [...message.content, chunk];
 
     // Create updated message
     const updatedMessage = { ...message, content: newContentArray };

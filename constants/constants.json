@@ -165,6 +165,7 @@
     "Anthropic": "ANTHROPIC_API_KEY",
     "OpenAI": "OPENAI_API_KEY"
   },
+  "LLM_FULL_MESSAGE_START": "full_message_start",
   "LLM_MESSAGE_START": "message_start",
   "LLM_CONTENT_BLOCK_START": "content_block_start",
   "LLM_CONTENT_BLOCK_DELTA": "content_block_delta",

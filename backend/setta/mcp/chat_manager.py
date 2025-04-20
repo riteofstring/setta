@@ -65,6 +65,8 @@ class ChatManager:
         chatId = chat["id"]
         messages = chat["messages"]
         self.init_current_stream(chatId)
+        super_msg_id = create_new_id()
+        await self.send_streaming_response(chatId, super_msg_id, {"type": C.LLM_FULL_MESSAGE_START})
         curr_stream = self.current_streams[chatId]
 
         while True:
@@ -117,7 +119,9 @@ class ChatManager:
                 flush=True,
             )
 
-            assistant_message_id = await self.stream_responses(chatId, stream)
+            await self.stream_responses(
+                chatId, super_msg_id, stream
+            )
 
             if len(curr_stream) == 0:
                 break
@@ -140,7 +144,7 @@ class ChatManager:
                         "is_error": False,
                     }
                     await self.send_streaming_response(
-                        chatId, assistant_message_id, tool_result
+                        chatId, super_msg_id, tool_result
                     )
                     newer_msgs.append(
                         {
@@ -158,18 +162,15 @@ class ChatManager:
                 break
 
         self.end_current_stream(chatId)
-        chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
-        await self.send_streaming_response(chatId, assistant_message_id, chunk)
+        await self.send_streaming_response(chatId, super_msg_id, {"type": C.LLM_FULL_MESSAGE_STOP})
 
-    async def stream_responses(self, chatId, stream):
+    async def stream_responses(self, chatId, super_msg_id, stream):
         # sends streaming response to frontend
         # and also constructs the full message for use in process_query
-        assistant_message_id = None
         llm_msgs = None
 
         async for event in stream.parse():
             if event.type == C.LLM_MESSAGE_START:
-                assistant_message_id = event.message.id
                 self.current_streams[chatId].append(event.message)
                 llm_msgs = self.current_streams[chatId][-1].content
             elif llm_msgs is None:
@@ -199,14 +200,15 @@ class ChatManager:
                     delattr(curr_msg, "text")
 
             await self.send_streaming_response(
-                chatId, assistant_message_id, event.model_dump()
+                chatId,
+                super_msg_id,
+                event.model_dump(),
             )
 
-        return assistant_message_id
 
-    async def send_streaming_response(self, chatId, assistant_message_id, chunk):
+    async def send_streaming_response(self, chatId, super_msg_id, chunk):
         await self.websocket_msg_handler.send_streaming_response(
-            chatId, assistant_message_id, chunk
+            chatId, super_msg_id, chunk
         )
 
     def process_tool_result(self, result):
