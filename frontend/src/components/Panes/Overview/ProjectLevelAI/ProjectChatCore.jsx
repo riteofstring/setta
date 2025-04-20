@@ -43,11 +43,14 @@ function MarkdownContent({ content, className, role, isStreaming }) {
   );
 }
 
-const formatToolArgs = (args, jsonSoFar) => {
-  if (jsonSoFar) return jsonSoFar;
+const formatToolArgs = (args) => {
   if (!args) return "{}";
 
-  return JSON.stringify(args, null, 2);
+  try {
+    return JSON.stringify(args, null, 2);
+  } catch {
+    return args;
+  }
 };
 
 const ThinkingBox = memo(({ content, isStreaming }) => {
@@ -81,7 +84,7 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
   );
 });
 
-const ToolCall = memo(({ name, args, jsonSoFar, result, success }) => {
+const ToolCall = memo(({ name, args, result, success }) => {
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
@@ -108,13 +111,13 @@ const ToolCall = memo(({ name, args, jsonSoFar, result, success }) => {
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          {(args || jsonSoFar) && (
+          {args && (
             <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
               <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
                 Arguments
               </h3>
               <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
-                {formatToolArgs(args, jsonSoFar)}
+                {formatToolArgs(args)}
               </pre>
             </div>
           )}
@@ -163,13 +166,12 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
         <ToolCall
           name={item.name}
           args={item.input}
-          jsonSoFar={item.jsonSoFar}
           result={hasResult ? toolResult.content?.[0]?.text : undefined}
           success={isSuccess}
         />
       );
     case C.LLM_THINKING:
-      return <ThinkingBox content={item.content} isStreaming={isStreaming} />;
+      return <ThinkingBox content={item.thinking} isStreaming={isStreaming} />;
     default:
       return null;
   }
