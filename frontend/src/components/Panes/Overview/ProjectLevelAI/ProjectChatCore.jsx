@@ -233,6 +233,8 @@ function ChatMessages({ messages, waitingForResponse }) {
       />,
     );
   }
+
+  // add a temporary empty message for loading spinner to appear in
   if (
     waitingForResponse &&
     messages[messages.length - 1]?.role !== "assistant"
