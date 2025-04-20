@@ -5,19 +5,16 @@ from typing import Optional
 
 import mcp.types
 from anthropic import AsyncAnthropic
-from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
 from setta.utils.constants import CONSTANTS_FOLDER
 from setta.utils.utils import get_absolute_path
 
-load_dotenv()  # load environment variables from .env
-
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url, websocket_msg_handler):
+    def __init__(self, server_url, websocket_msg_handler, chat_manager):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
@@ -25,7 +22,7 @@ class MCPClient:
         self.reader_task = None
         self.server_url = server_url
         self.websocket_msg_handler = websocket_msg_handler
-        self.ready = asyncio.Event()
+        self.chat_manager = chat_manager
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
@@ -67,7 +64,6 @@ class MCPClient:
                     [tool.name for tool in tools],
                     flush=True,
                 )
-                self.ready.set()
 
                 # Keep the connection alive (this will block until an exception occurs)
                 await self._keep_alive()
@@ -232,15 +228,29 @@ class MCPClient:
         chunk = {"type": "message_stop"}
         await self.send_streaming_response(chunk)
 
-    async def cleanup(self):
-        """Clean up resources"""
-        await self.exit_stack.aclose()
+    async def stop(self):
+        """Clean up resources properly for server shutdown"""
+        # Cancel any running tasks first
+        if hasattr(self, "_keep_alive_task") and self._keep_alive_task:
+            self._keep_alive_task.cancel()
+            try:
+                await self._keep_alive_task
+            except asyncio.CancelledError:
+                pass
+
         if self.reader_task and not self.reader_task.done():
             self.reader_task.cancel()
             try:
                 await self.reader_task
             except asyncio.CancelledError:
                 pass
+
+        # Then close the exit stack to release resources
+        await self.exit_stack.aclose()
+
+        # Set flags to indicate shutdown
+        self._shutdown = True
+        print("MCPClient resources cleaned up successfully")
 
     async def stream_responses(self, stream):
         # sends streaming response to frontend

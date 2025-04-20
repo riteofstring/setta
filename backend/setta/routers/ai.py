@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -40,8 +40,9 @@ async def route_get_llm_response(
     try:
         background_tasks.add_task(
             mcp_client.process_query,
+            x.chatId,
+            x.message,
             x.model,
-            conversation_histories[session_id],
             x.deepThink,
         )
 

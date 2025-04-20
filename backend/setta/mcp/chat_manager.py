@@ -1,5 +1,4 @@
 from setta.database.db.chats.load import load_chat
-from setta.database.utils import create_new_id
 
 
 class ChatManager:
@@ -12,7 +11,6 @@ class ChatManager:
         if message:
             chat["messages"].append({"role": "user", "content": message})
         return chat
-
 
     def update_chat(self, chat_id, chunk):
         pass
