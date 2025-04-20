@@ -1,21 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useEditableOnSubmit(
-  initialValue,
-  onSetTitle,
-  condition,
-  onChangeReceivesValue = false,
-  allowEmpty = false,
-) {
+export function useEditableOnSubmit(initialValue, onSetTitle, condition) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
 
-  function onChange(e) {
-    if (onChangeReceivesValue) {
-      setInputValue(e);
-    } else {
-      setInputValue(e.target.value);
-    }
+  function onChange(event) {
+    setInputValue(event.target.value);
   }
 
   async function onBlur(event) {
@@ -25,7 +15,7 @@ export function useEditableOnSubmit(
     }
     blurTriggeredByEscapeKey.current = false;
     const v = event.target.value;
-    if ((allowEmpty || v != "") && v != initialValue && (await condition(v))) {
+    if (v != "" && v != initialValue && (await condition(v))) {
       onSetTitle(v);
     } else {
       setInputValue(initialValue);
