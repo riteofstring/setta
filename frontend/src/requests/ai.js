@@ -1,14 +1,10 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbGetLLMResponse(model, message, sessionId = null) {
+export async function dbGetLLMResponse(model, message, deepThink, chatId) {
   try {
     const response = await post({
-      body: {
-        model,
-        message,
-        session_id: sessionId,
-      },
+      body: { model, message, deepThink, chatId },
       address: C.ROUTE_GET_LLM_RESPONSE,
     });
 
@@ -20,19 +16,51 @@ export async function dbGetLLMResponse(model, message, sessionId = null) {
   }
 }
 
-export async function dbSetApiKeys(apiKeys) {
+export async function dbGetLLMApiKeys(apiKeysFilepath) {
   try {
     const response = await post({
       body: {
-        apiKeys,
+        apiKeysFilepath,
       },
-      address: C.ROUTE_SET_API_KEYS,
+      address: C.ROUTE_GET_LLM_API_KEYS,
     });
 
     console.log("Response received from API Keys update:", response);
     return response;
   } catch (error) {
-    console.error("Error in dbSetApiKeys:", error);
+    console.error("Error in dbGetLLMApiKeys:", error);
     throw error;
   }
+}
+
+export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
+  try {
+    const response = await post({
+      body: {
+        apiKeys,
+        apiKeysFilepath,
+      },
+      address: C.ROUTE_SET_LLM_API_KEYS,
+    });
+
+    console.log("Response received from API Keys update:", response);
+    return response;
+  } catch (error) {
+    console.error("Error in dbSetLLMApiKeys:", error);
+    throw error;
+  }
+}
+
+export async function dbGetAllLLMChatMetadata(chatId) {
+  return await post({
+    body: { chatId },
+    address: C.ROUTE_GET_ALL_LLM_CHAT_METADATA,
+  });
+}
+
+export async function dbDeleteLLMChat(chatId) {
+  return await post({
+    body: { chatId },
+    address: C.ROUTE_DELETE_LLM_CHAT,
+  });
 }

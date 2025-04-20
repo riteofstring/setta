@@ -44,10 +44,9 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
   });
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
-  // {boxShadow}
   return (
     <section
-      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} $  dndline  w-min border bg-white outline outline-4 dark:bg-setta-925 ${outlineColor}`}
+      className={`group/card-section transition-radius ${!positionAndSizeLocked ? "rounded-xl border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} border  bg-white  dark:bg-setta-925 ${boxShadow} dndline w-min outline outline-4 ${outlineColor}`}
       onClick={getOnSectionClick(sectionId, isActiveSection)}
       ref={refForPosition}
     >

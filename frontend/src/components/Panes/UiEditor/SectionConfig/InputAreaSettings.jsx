@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { dbCreateFile } from "requests/jsonSource";
-import { loadJsonContents } from "state/actions/jsonSource";
+import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateSectionInfos } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";

@@ -18,6 +18,8 @@ class CustomFastMCP(FastMCP):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fn_param_docstrings = {}
+        self.setta_websocket = None
+        self.setta_terminals = None
 
     def add_tool(
         self, fn: AnyFunction, name: str | None = None, description: str | None = None
@@ -49,7 +51,6 @@ class CustomFastMCP(FastMCP):
 
 
 mcp_server = CustomFastMCP("Setta MCP Server")
-mcp_server.setta_websocket = None
 
 
 def add_mcp_server_to_fastapi_server(app, mount_path):
@@ -69,7 +70,8 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     app.get(mount_path)(handle_mcp_connection)
     app.mount(msg_path, app=sse_transport.handle_post_message)
 
-    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp_server
+    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
+    mcp_server.setta_terminals = app.state.terminals
 
     content = create_notification_dict("MCP Server Ready", temporary=True)
     asyncio.create_task(mcp_server.setta_websocket.broadcast_notification(content))

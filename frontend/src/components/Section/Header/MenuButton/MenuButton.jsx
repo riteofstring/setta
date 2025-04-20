@@ -7,7 +7,6 @@ import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
-import { HideColumn } from "./HideColumn";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
@@ -119,8 +118,6 @@ function getMenuItems(uiTypeName) {
     case C.IMAGE:
     case C.CHART:
       return [AddArtifactByFilepath];
-    case C.BROWSER:
-      return [HideColumn];
     default:
       return [];
   }
