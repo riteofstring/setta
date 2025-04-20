@@ -267,10 +267,6 @@ export const useAIStore = create(
         streamBeforeLines: "",
         streamAfterLines: "",
         streamedContent: "",
-        currentBlockType: null,
-        currentBlockIndex: null,
-        currentJsonContent: "",
-        currentToolName: "",
         currentAssistantMsgId: null,
       }),
       {
