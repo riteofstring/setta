@@ -195,7 +195,7 @@ const ChatMessage = memo(({ message, isStreaming }) => {
   if (message.role === C.LLM_ASSISTANT_ROLE) {
     return (
       <LLMChatBubble>
-        {message.content.length === 0 && (
+        {message.content.length === 0 && isStreaming && (
           <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
         )}
         {message.content.map((item, idx) => (
@@ -222,12 +222,39 @@ const ChatMessage = memo(({ message, isStreaming }) => {
   );
 });
 
+function ChatMessages({ messages, waitingForResponse }) {
+  const output = [];
+  for (const [idx, message] of messages.entries()) {
+    output.push(
+      <ChatMessage
+        key={idx}
+        message={message}
+        isStreaming={waitingForResponse && message.role === "assistant"}
+      />,
+    );
+  }
+  if (
+    waitingForResponse &&
+    messages[messages.length - 1]?.role !== "assistant"
+  ) {
+    output.push(
+      <ChatMessage
+        key={messages.length}
+        message={{ role: "assistant", content: [] }}
+        isStreaming={true}
+      />,
+    );
+  }
+  return output;
+}
+
 // Message list component
 const MessageList = memo(function MessageList({
   messages,
   waitingForResponse,
+  currentChatId,
 }) {
-  if (messages.length === 0) {
+  if (!currentChatId) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
         <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
@@ -240,24 +267,14 @@ const MessageList = memo(function MessageList({
       </div>
     );
   }
+
   return (
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
-        {messages.map((message, idx) => {
-          // Only the last assistant message should be considered streaming when loading
-          const isLastAssistantMessage =
-            waitingForResponse &&
-            message.role === "assistant" &&
-            idx === messages.length - 1;
-
-          return (
-            <ChatMessage
-              key={idx}
-              message={message}
-              isStreaming={isLastAssistantMessage}
-            />
-          );
-        })}
+        <ChatMessages
+          messages={messages}
+          waitingForResponse={waitingForResponse}
+        />
       </div>
     </div>
   );
@@ -289,6 +306,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       <MessageList
         messages={messages}
         waitingForResponse={waitingForResponse}
+        currentChatId={currentChatId}
       />
       <ChatInput
         deepThink={deepThink}
