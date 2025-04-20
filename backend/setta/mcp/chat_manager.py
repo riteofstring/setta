@@ -6,11 +6,11 @@ class ChatManager:
     def __init__(self, dbq):
         self.dbq = dbq
 
-    def get_chat(self, chat_id, message=None):
+    def get_or_create_chat(self, chat_id, message):
         with self.dbq as db:
             chat = load_chat(db, chat_id)
-        if message:
-            chat["messages"].append({"role": "user", "content": message})
+        if chat is None:
+            chat = self.create_new_chat(message)
         return chat
 
     def update_chat(self, chat_id, chunk):

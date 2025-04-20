@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: str | None
+    chatId: str
     message: Dict[str, Any]
     model: str
     deepThink: bool
