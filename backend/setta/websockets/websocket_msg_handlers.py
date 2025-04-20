@@ -17,7 +17,6 @@ class WebsocketMsgHandlers:
         code_state,
         code_tasks,
         script_metadata,
-        chat_manager
     ):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
@@ -37,7 +36,7 @@ class WebsocketMsgHandlers:
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
         self.mcp_server = WMHMCPServer(websocket_manager)
-        self.mcp_client = WMHMCPClient(websocket_manager, chat_manager)
+        self.mcp_client = WMHMCPClient(websocket_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -282,15 +281,13 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
 
 
 class WMHMCPClient(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager, chat_manager):
+    def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
-        self.chat_manager = chat_manager
         self.mcp_client_websocket_id = None
 
     async def process_message(self, message, fromWebsocketId):
         msg_type = message["messageType"]
         if msg_type == C.WS_LLM_STREAMING_RESPONSE:
-            self.chat_manager.update_chat_with_chunk(message["chatId"], message["chunk"])
             await self.websocket_manager.broadcast(
                 message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
             )
@@ -307,10 +304,9 @@ class WMHMCPClient(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def send_message_to_llm(self, chatId, message, model, deepThink):
-        chat = self.chat_manager.get_chat(chatId, message)
+    async def send_message_to_llm(self, model, messages, deepThink):
         message = {
-            "content": {"model": model, "chat": chat, "deepThink": deepThink},
+            "content": {"model": model, "messages": messages, "deepThink": deepThink},
             "messageType": C.WS_MESSAGE_TO_LLM,
         }
         await self.websocket_manager.send_message(message, self.mcp_client_websocket_id)

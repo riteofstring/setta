@@ -1,10 +1,25 @@
 import C from "constants/constants.json";
+import { useAIStore } from "state/definitions";
 import { post } from "./utils";
 
-export async function dbGetLLMResponse(model, message, deepThink, chatId) {
+export async function dbGetLLMResponse(
+  model,
+  message,
+  deepThink,
+  sessionId = null,
+) {
   try {
     const response = await post({
-      body: { model, message, deepThink, chatId },
+      body: {
+        model,
+        // message,
+        conversationHistory: useAIStore
+          .getState()
+          .messages.filter((m) => m.content)
+          .map((m) => ({ role: m.role, content: m.content })),
+        deepThink,
+        session_id: sessionId,
+      },
       address: C.ROUTE_GET_LLM_RESPONSE,
     });
 
