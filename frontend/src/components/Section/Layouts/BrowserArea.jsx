@@ -135,7 +135,7 @@ function ResizableFileList({ items, sectionId, children }) {
     });
 
   return (
-    <div className="flex flex-1 flex-col pb-2">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Header Row */}
       <div
         ref={headerRef}
@@ -154,7 +154,7 @@ function ResizableFileList({ items, sectionId, children }) {
       </div>
 
       {/* List Items */}
-      <div ref={contentRef}>
+      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
         {items.map((item) => (
           <div
             key={item.id}
