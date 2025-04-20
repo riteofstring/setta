@@ -8,7 +8,6 @@ from anthropic import AsyncAnthropic
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from setta.database.utils import create_new_id
 from setta.utils.constants import CONSTANTS_FOLDER
 from setta.utils.utils import get_absolute_path
 
@@ -97,11 +96,12 @@ class MCPClient:
             await self.session.send_ping()
 
     async def process_query(self, chatId, message, model, deepThink):
-        chat = self.chat_manager.get_or_create_chat(chatId, message)
-        messages = [
-            {"role": m["role"], "content": m["content"]} for m in chat["messages"]
-        ]
-        assistant_message_id = create_new_id()
+        if not chatId:
+            chat = self.chat_manager.create_new_chat(message)
+            chatId = chat["id"]
+        else:
+            chat = self.chat_manager.get_chat(chatId, message)
+        messages = chat["messages"]
 
         while True:
             assistant_message_content = []
@@ -151,9 +151,7 @@ class MCPClient:
                 flush=True,
             )
 
-            complete_messages = await self.stream_responses(
-                chatId, assistant_message_id, stream
-            )
+            complete_messages = await self.stream_responses(stream)
 
             for msg in complete_messages:
                 if msg.type == "text":
@@ -192,13 +190,15 @@ class MCPClient:
                         "content": result.content,
                     }
 
-                    await self.send_streaming_response(chatId, tool_result)
+                    await self.send_streaming_response(tool_result)
 
                     # Update conversation history
                     messages.append(
                         {"role": "assistant", "content": assistant_message_content}
                     )
                     messages.append({"role": "user", "content": [tool_result]})
+
+                    break  # Exit the loop to process a new response
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
@@ -210,7 +210,7 @@ class MCPClient:
             # Otherwise continue the loop to get the next response after tool use
 
         chunk = {"type": "message_stop"}
-        await self.send_streaming_response(chatId, assistant_message_id, chunk)
+        await self.send_streaming_response(chunk)
 
     async def stop(self):
         """Clean up resources properly for server shutdown"""
@@ -236,7 +236,7 @@ class MCPClient:
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
 
-    async def stream_responses(self, chatId, assistant_message_id, stream):
+    async def stream_responses(self, stream):
         # sends streaming response to frontend
         # and also constructs the full message for use in process_query
         llm_msgs = []
@@ -244,7 +244,7 @@ class MCPClient:
         async for event in stream.parse():
             chunk = None
             if event.type == "message_start":
-                chunk = {"type": event.type, "messageId": event.message.id}
+                print("event.usage", event.message.usage, flush=True)
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
@@ -304,7 +304,7 @@ class MCPClient:
                 chunk = {"type": event.type, "index": event.index}
 
             if chunk is not None:
-                await self.send_streaming_response(chatId, assistant_message_id, chunk)
+                await self.send_streaming_response(chunk)
 
         return llm_msgs
 
@@ -319,7 +319,5 @@ class MCPClient:
             return output[0]
         return output
 
-    async def send_streaming_response(self, chatId, assistant_message_id, chunk):
-        await self.websocket_msg_handler.send_streaming_response(
-            chatId, assistant_message_id, chunk
-        )
+    async def send_streaming_response(self, chunk):
+        await self.websocket_msg_handler.send_streaming_response(chunk)

@@ -5,7 +5,6 @@ import {
   dbGetLLMResponse,
 } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 
 export async function createNewLLMChat() {
@@ -69,7 +68,6 @@ export async function submitMessage(message, deepThink) {
 
   // Add user message immediately for responsive UI
   const userMessage = {
-    id: createNewId(),
     role: "user",
     content: [{ type: "text", text: message }],
   };
@@ -79,19 +77,14 @@ export async function submitMessage(message, deepThink) {
     messages: [...state.messages, userMessage],
   }));
 
-  const state = useAIStore.getState();
-  let chatId = state.currentChatId;
-  if (!chatId) {
-    chatId = createNewId();
-    useAIStore.setState({ currentChatId: chatId });
-  }
+  const { currentChatId, userSelectedLLM } = useAIStore.getState();
 
   try {
     await dbGetLLMResponse(
-      state.userSelectedLLM,
+      userSelectedLLM,
       userMessage,
       deepThink,
-      chatId,
+      currentChatId,
     );
   } catch (error) {
     // Error handling
@@ -105,215 +98,211 @@ export async function submitMessage(message, deepThink) {
   }
 }
 
-export function receiveLLMResponseChunk(msg) {
+export function receiveLLMResponseChunk(chunk) {
   try {
-    const { chatId, chunk } = msg;
+    // Get current state
     const currentState = useAIStore.getState();
-    if (chatId !== currentState.currentChatId) {
-      return;
-    }
+    const currentMessages = currentState.messages;
+    let {
+      currentBlockType,
+      currentBlockIndex,
+      currentJsonContent,
+      currentToolName,
+      currentAssistantMsgId,
+    } = currentState;
 
-    // const currentMessages = currentState.messages;
-    // let {
-    //   currentBlockType,
-    //   currentBlockIndex,
-    //   currentJsonContent,
-    //   currentToolName,
-    //   currentAssistantMsgId,
-    // } = currentState;
+    // Find the message we're updating
+    const messageIndex = currentMessages.findIndex(
+      (m) => m.id === currentAssistantMsgId,
+    );
+    if (messageIndex === -1) return;
 
-    // // Find the message we're updating
-    // const messageIndex = currentMessages.findIndex(
-    //   (m) => m.id === currentAssistantMsgId,
-    // );
-    // if (messageIndex === -1) return;
-
-    // const updatedMessages = [...currentMessages];
-    // const currentMsg = { ...updatedMessages[messageIndex] };
-    // let endOfMessage = false;
+    const updatedMessages = [...currentMessages];
+    const currentMsg = { ...updatedMessages[messageIndex] };
+    let endOfMessage = false;
 
     // Handle different chunk types
     switch (chunk.type) {
-      // case "content_block_start":
-      //   // Track new content block start
-      //   currentBlockType = chunk.block_type;
-      //   currentBlockIndex = chunk.index;
+      case "content_block_start":
+        // Track new content block start
+        currentBlockType = chunk.block_type;
+        currentBlockIndex = chunk.index;
 
-      //   // If it's a tool_use block, prepare for JSON building
-      //   if (currentBlockType === "tool_use") {
-      //     currentJsonContent = "";
+        // If it's a tool_use block, prepare for JSON building
+        if (currentBlockType === "tool_use") {
+          currentJsonContent = "";
 
-      //     // Use the tool_name from the event if available
-      //     if (chunk.tool_name) {
-      //       currentToolName = chunk.tool_name;
-      //     } else {
-      //       currentToolName = ""; // Fallback to known default
-      //     }
+          // Use the tool_name from the event if available
+          if (chunk.tool_name) {
+            currentToolName = chunk.tool_name;
+          } else {
+            currentToolName = ""; // Fallback to known default
+          }
 
-      //     // Create a tool call entry immediately with the known name
-      //     currentMsg.content.push({
-      //       type: "tool_call",
-      //       name: currentToolName,
-      //       args: {},
-      //       streaming: true,
-      //       jsonSoFar: "",
-      //     });
-      //   }
-      //   break;
+          // Create a tool call entry immediately with the known name
+          currentMsg.content.push({
+            type: "tool_call",
+            name: currentToolName,
+            args: {},
+            streaming: true,
+            jsonSoFar: "",
+          });
+        }
+        break;
 
-      // case "text":
-      //   if (chunk.is_delta) {
-      //     const { streamTarget } = useAIStore.getState();
-      //     if (streamTarget) {
-      //       streamInto(streamTarget, chunk.content);
-      //       break;
-      //     }
+      case "text":
+        if (chunk.is_delta) {
+          const { streamTarget } = useAIStore.getState();
+          if (streamTarget) {
+            streamInto(streamTarget, chunk.content);
+            break;
+          }
 
-      //     // For text deltas, either add to existing content or create a new text chunk
-      //     if (
-      //       currentMsg.content.length > 0 &&
-      //       currentMsg.content[currentMsg.content.length - 1].type === "text"
-      //     ) {
-      //       // Add to existing text chunk
-      //       const lastItem =
-      //         currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
-      //       lastItem.content += chunk.content;
-      //     } else {
-      //       // Create a new text chunk
-      //       currentMsg.streamSequence.push({
-      //         type: "text",
-      //         content: chunk.content,
-      //       });
-      //     }
+          // For text deltas, either add to existing content or create a new text chunk
+          if (
+            currentMsg.content.length > 0 &&
+            currentMsg.content[currentMsg.content.length - 1].type === "text"
+          ) {
+            // Add to existing text chunk
+            const lastItem =
+              currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
+            lastItem.content += chunk.content;
+          } else {
+            // Create a new text chunk
+            currentMsg.streamSequence.push({
+              type: "text",
+              content: chunk.content,
+            });
+          }
 
-      //     // Also update the main content for backward compatibility
-      //     currentMsg.content += chunk.content;
-      //   }
-      //   break;
+          // Also update the main content for backward compatibility
+          currentMsg.content += chunk.content;
+        }
+        break;
 
-      // case "thinking":
-      //   if (chunk.is_delta) {
-      //     // For thinking deltas, either add to existing content or create a new text chunk
-      //     if (
-      //       currentMsg.streamSequence.length > 0 &&
-      //       currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
-      //         .type === "thinking"
-      //     ) {
-      //       // Add to existing text chunk
-      //       const lastItem =
-      //         currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
-      //       lastItem.content += chunk.content;
-      //     } else {
-      //       // Create a new text chunk
-      //       currentMsg.streamSequence.push({
-      //         type: "thinking",
-      //         content: chunk.content,
-      //       });
-      //     }
+      case "thinking":
+        if (chunk.is_delta) {
+          // For thinking deltas, either add to existing content or create a new text chunk
+          if (
+            currentMsg.streamSequence.length > 0 &&
+            currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
+              .type === "thinking"
+          ) {
+            // Add to existing text chunk
+            const lastItem =
+              currentMsg.streamSequence[currentMsg.streamSequence.length - 1];
+            lastItem.content += chunk.content;
+          } else {
+            // Create a new text chunk
+            currentMsg.streamSequence.push({
+              type: "thinking",
+              content: chunk.content,
+            });
+          }
 
-      //     // Also update the main content for backward compatibility
-      //     currentMsg.content += chunk.content;
-      //   }
-      //   break;
+          // Also update the main content for backward compatibility
+          currentMsg.content += chunk.content;
+        }
+        break;
 
-      // case "json":
-      //   if (chunk.is_delta && currentBlockType === "tool_use") {
-      //     // Build up JSON content for the tool call
-      //     currentJsonContent += chunk.content;
+      case "json":
+        if (chunk.is_delta && currentBlockType === "tool_use") {
+          // Build up JSON content for the tool call
+          currentJsonContent += chunk.content;
 
-      //     // Find or update the tool call in the sequence
-      //     let toolCallIndex = currentMsg.streamSequence.findIndex(
-      //       (item) => item.type === "tool_call" && item.streaming === true,
-      //     );
+          // Find or update the tool call in the sequence
+          let toolCallIndex = currentMsg.streamSequence.findIndex(
+            (item) => item.type === "tool_call" && item.streaming === true,
+          );
 
-      //     if (toolCallIndex === -1) {
-      //       // Create a new tool call entry without trying to parse the JSON yet
-      //       currentMsg.streamSequence.push({
-      //         type: "tool_call",
-      //         name: currentToolName || "Loading...",
-      //         args: {}, // Empty args until we have complete JSON
-      //         streaming: true,
-      //         jsonSoFar: currentJsonContent,
-      //       });
-      //     } else {
-      //       // Update existing tool call - just store the raw JSON content for now
-      //       currentMsg.streamSequence[toolCallIndex].jsonSoFar =
-      //         currentJsonContent;
-      //     }
-      //   }
-      //   break;
+          if (toolCallIndex === -1) {
+            // Create a new tool call entry without trying to parse the JSON yet
+            currentMsg.streamSequence.push({
+              type: "tool_call",
+              name: currentToolName || "Loading...",
+              args: {}, // Empty args until we have complete JSON
+              streaming: true,
+              jsonSoFar: currentJsonContent,
+            });
+          } else {
+            // Update existing tool call - just store the raw JSON content for now
+            currentMsg.streamSequence[toolCallIndex].jsonSoFar =
+              currentJsonContent;
+          }
+        }
+        break;
 
-      // case "content_block_stop":
-      //   // Finalize a content block
-      //   if (
-      //     currentBlockType === "tool_use" &&
-      //     chunk.index === currentBlockIndex
-      //   ) {
-      //     // Finalize the tool call JSON
-      //     try {
-      //       // Only try to parse the JSON if it's not empty
-      //       if (currentJsonContent && currentJsonContent.trim() !== "") {
-      //         try {
-      //           const jsonObj = JSON.parse(currentJsonContent);
+      case "content_block_stop":
+        // Finalize a content block
+        if (
+          currentBlockType === "tool_use" &&
+          chunk.index === currentBlockIndex
+        ) {
+          // Finalize the tool call JSON
+          try {
+            // Only try to parse the JSON if it's not empty
+            if (currentJsonContent && currentJsonContent.trim() !== "") {
+              try {
+                const jsonObj = JSON.parse(currentJsonContent);
 
-      //           // Find the streaming tool call
-      //           let toolCallIndex = currentMsg.streamSequence.findIndex(
-      //             (item) =>
-      //               item.type === "tool_call" && item.streaming === true,
-      //           );
+                // Find the streaming tool call
+                let toolCallIndex = currentMsg.streamSequence.findIndex(
+                  (item) =>
+                    item.type === "tool_call" && item.streaming === true,
+                );
 
-      //           if (toolCallIndex !== -1) {
-      //             // Mark as no longer streaming and update with parsed JSON
-      //             currentMsg.streamSequence[toolCallIndex] = {
-      //               ...currentMsg.streamSequence[toolCallIndex],
-      //               streaming: false,
-      //               name:
-      //                 jsonObj.name ||
-      //                 currentMsg.streamSequence[toolCallIndex].name,
-      //               args: jsonObj,
-      //               jsonSoFar: null, // Clean up the partial JSON
-      //             };
-      //           }
-      //         } catch (e) {
-      //           console.error("Error finalizing tool call JSON:", e);
+                if (toolCallIndex !== -1) {
+                  // Mark as no longer streaming and update with parsed JSON
+                  currentMsg.streamSequence[toolCallIndex] = {
+                    ...currentMsg.streamSequence[toolCallIndex],
+                    streaming: false,
+                    name:
+                      jsonObj.name ||
+                      currentMsg.streamSequence[toolCallIndex].name,
+                    args: jsonObj,
+                    jsonSoFar: null, // Clean up the partial JSON
+                  };
+                }
+              } catch (e) {
+                console.error("Error finalizing tool call JSON:", e);
 
-      //           // Even if parsing fails, we should still mark the tool call as complete
-      //           let toolCallIndex = currentMsg.streamSequence.findIndex(
-      //             (item) =>
-      //               item.type === "tool_call" && item.streaming === true,
-      //           );
+                // Even if parsing fails, we should still mark the tool call as complete
+                let toolCallIndex = currentMsg.streamSequence.findIndex(
+                  (item) =>
+                    item.type === "tool_call" && item.streaming === true,
+                );
 
-      //           if (toolCallIndex !== -1) {
-      //             currentMsg.streamSequence[toolCallIndex].streaming = false;
-      //           }
-      //         }
-      //       } else {
-      //         // For empty JSON, just mark any streaming tool call as complete
-      //         let toolCallIndex = currentMsg.streamSequence.findIndex(
-      //           (item) => item.type === "tool_call" && item.streaming === true,
-      //         );
+                if (toolCallIndex !== -1) {
+                  currentMsg.streamSequence[toolCallIndex].streaming = false;
+                }
+              }
+            } else {
+              // For empty JSON, just mark any streaming tool call as complete
+              let toolCallIndex = currentMsg.streamSequence.findIndex(
+                (item) => item.type === "tool_call" && item.streaming === true,
+              );
 
-      //         if (toolCallIndex !== -1) {
-      //           currentMsg.streamSequence[toolCallIndex].streaming = false;
-      //         }
-      //       }
-      //     } catch (e) {
-      //       console.error("Error in block_end handling:", e);
-      //     }
+              if (toolCallIndex !== -1) {
+                currentMsg.streamSequence[toolCallIndex].streaming = false;
+              }
+            }
+          } catch (e) {
+            console.error("Error in block_end handling:", e);
+          }
 
-      //     // Reset for the next block
-      //     currentBlockType = null;
-      //     currentJsonContent = "";
-      //   }
-      //   break;
+          // Reset for the next block
+          currentBlockType = null;
+          currentJsonContent = "";
+        }
+        break;
 
-      // case "tool_result":
-      //   // Add tool result to the sequence
-      //   currentMsg.streamSequence.push({
-      //     type: "tool_result",
-      //     content: chunk.content,
-      //   });
-      //   break;
+      case "tool_result":
+        // Add tool result to the sequence
+        currentMsg.streamSequence.push({
+          type: "tool_result",
+          content: chunk.content,
+        });
+        break;
 
       case "message_stop":
         endOfMessage = true;
