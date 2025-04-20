@@ -322,8 +322,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 const processMessages = (messages) => {
   const processedMessages = [];
   const toolResults = {};
+  let currentAssistantMessage = null;
 
   // First pass: collect tool results
+
   for (const message of messages) {
     if (
       message.role === C.LLM_USER_ROLE &&
@@ -331,21 +333,8 @@ const processMessages = (messages) => {
     ) {
       const toolResult = message.content[0];
       toolResults[toolResult.tool_use_id] = toolResult;
-    }
-  }
-
-  // Second pass: process messages and combine assistant messages
-  let currentAssistantMessage = null;
-
-  for (const message of messages) {
-    // Skip tool result user messages as we've already processed them
-    if (
-      message.role === C.LLM_USER_ROLE &&
-      message.content?.[0]?.type === C.LLM_TOOL_RESULT
-    ) {
       continue;
     }
-
     // If this is an assistant message
     if (message.role === C.LLM_ASSISTANT_ROLE) {
       // If we're already building an assistant message, add this content to it
