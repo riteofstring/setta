@@ -234,19 +234,16 @@ CREATE TABLE IF NOT EXISTS Notifications (
 CREATE TABLE IF NOT EXISTS ChatSession (
     id TEXT PRIMARY KEY,
     name TEXT,
-    created TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (
-    id TEXT PRIMARY KEY,
     sessionId TEXT NOT NULL,
+    "order" INTEGER NOT NULL,
     role TEXT NOT NULL,  -- 'user', 'assistant', or 'system'
     streamSequence TEXT,
-    timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    "order" INTEGER,     -- To maintain message sequence
+    PRIMARY KEY (sessionId, "order"),
     FOREIGN KEY (sessionId) REFERENCES ChatSession(id) ON DELETE CASCADE
 );
-
 
 
 -- INSERTS ---
