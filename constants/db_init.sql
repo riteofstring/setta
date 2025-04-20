@@ -233,7 +233,6 @@ CREATE TABLE IF NOT EXISTS Notifications (
 );
 CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
-    name TEXT,
     updated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (

@@ -1,12 +1,7 @@
 import C from "constants/constants.json";
 import { post } from "./utils";
 
-export async function dbGetLLMResponse(
-  model,
-  message,
-  deepThink,
-  chatId = null,
-) {
+export async function dbGetLLMResponse(model, message, deepThink, chatId) {
   try {
     const response = await post({
       body: { model, message, deepThink, chatId },

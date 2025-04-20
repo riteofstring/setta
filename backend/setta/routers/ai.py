@@ -17,9 +17,9 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    model: str
-    chatId: Optional[str]
+    chatId: str
     message: str
+    model: str
     deepThink: bool
 
 
@@ -36,17 +36,13 @@ class GetLLMApiKeysRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     websocket_msg_handler=Depends(get_wmh_mcp_client),
-    chat_manager=Depends(get_chat_manager),
 ):
     try:
-        chat = chat_manager.get_chat(x.chatId, x.message)
-
-        await websocket_msg_handler.send_message_to_llm(x.model, chat, x.deepThink)
+        await websocket_msg_handler.send_message_to_llm(x.chatId, x.message, x.model, x.deepThink)
 
         # Return immediate response with chat ID
         return {
             "status": "processing",
-            "chatId": chat["id"],
             "message": "Query is being processed. Connect to websocket for results.",
         }
 
