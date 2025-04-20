@@ -60,6 +60,7 @@ export function useCreateSectionsList() {
         { name: "Image", specificProps: { type: C.IMAGE } },
         { name: "Chart", specificProps: { type: C.CHART } },
         { name: "Chat", specificProps: { type: C.CHAT } },
+        { name: "Browser", specificProps: { type: C.BROWSER } },
       ],
     },
     {

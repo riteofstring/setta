@@ -14,10 +14,10 @@ import {
   TabButton,
 } from "../paneFns";
 import { NotificationsArea } from "./NotificationsArea";
+import { ProjectAIChat } from "./ProjectAIChat";
 import { ProjectConfigs } from "./ProjectConfigs";
-import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
-import { ProjectLLMSettings } from "./ProjectLevelAI/ProjectLLMSettings";
-import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
+import { ProjectLLMSettings } from "./ProjectLLMSettings";
+import { ProjectOverview } from "./ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 const paneName = OVERVIEW;
 
@@ -142,7 +142,7 @@ function TabContent({ tab }) {
     case "tab4":
       return <NotificationsArea />;
     case "tab5":
-      return <ProjectChat />;
+      return <ProjectAIChat />;
     case "tab6":
       return <ProjectLLMSettings />;
   }
