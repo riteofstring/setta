@@ -29,9 +29,11 @@ export function BrowserArea({ sectionId }) {
     const w = x.x[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
+  const hideColumn = useSectionInfos((x) => x.x[sectionId].hideColumn);
+
   return (
-    <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
-      <TypesColumn width={width} />
+    <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
+      {!hideColumn && <TypesColumn width={width} />}
       <ItemsColumn sectionId={sectionId} />
     </div>
   );
@@ -166,7 +168,7 @@ function ResizableFileList({ items, sectionId, children }) {
 
       {/* List Items */}
       <div
-        className={`min-h-0 flex-1 overflow-y-auto ${isScrollable ? "nowheel" : ""}`}
+        className={`min-h-0 flex-1 overflow-x-auto overflow-y-scroll ${isScrollable ? "nowheel" : ""}`}
         ref={totalContentRef}
       >
         {items.map((item) => (
@@ -220,12 +222,12 @@ function EnhancedCarouselView({ items, children }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Featured Image Display */}
-      <section className="flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg border border-solid border-setta-50 bg-transparent dark:border-transparent dark:bg-setta-860">
+      <section className="flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg  bg-transparent  dark:bg-setta-860">
         {selectedItem && selectedItem.content?.image ? (
           <div className="relative h-full w-full">
             <img
               src={selectedItem.content.image}
-              className="h-full w-full object-contain p-4 shadow-md"
+              className="h-full w-full object-contain"
               alt={selectedItem.id}
             />
             {/* <div className="absolute bottom-2 left-2 rounded bg-setta-800/70 px-2 py-1 text-xs text-white">
@@ -347,8 +349,8 @@ function ViewSwitch({ view, children, sectionId }) {
 function ItemsColumn({ sectionId }) {
   const [view, setView] = useState("list");
   return (
-    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
-      <div className="-mt-[4.5px] flex flex-row">
+    <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
+      <div className="-mt-[4.5px] mb-1 flex flex-row">
         <div className="flex w-full min-w-0 gap-2">
           <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Artifacts
@@ -391,36 +393,6 @@ function ResizableColumn({
   return <article className="-mr-2 flex flex-col pr-2">{children}</article>;
 }
 
-function TextItem({
-  children,
-  checked,
-  shown,
-  onChange,
-  onClick,
-  onMouseEnter,
-  lastModified,
-}) {
-  return (
-    <li className="group/textitem flex justify-between">
-      <div className="flex w-full justify-between gap-1">
-        <p className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs  text-setta-700 group-hover/textitem:!text-blue-500 dark:text-setta-200">
-          {children}
-        </p>
-        <p className="flex min-h-6 cursor-pointer items-center gap-2 truncate rounded px-1 py-0.5 text-xs text-setta-400 group-hover/textitem:!text-blue-500 dark:text-setta-600">
-          {lastModified}
-        </p>
-      </div>
-
-      <button
-        className={`mr-0.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500  focus-visible:outline group-hover/textitem:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/textitem:text-setta-600`}
-        // onClick={onClick}
-      >
-        <i className="gg-pen" />
-      </button>
-    </li>
-  );
-}
-
 function CheckboxNextToLabel({
   children,
   checked,
@@ -430,9 +402,6 @@ function CheckboxNextToLabel({
   onMouseEnter,
   icon,
 }) {
-  // label ${shown ? "font-bold !text-blue-500" : ""}
-  // button ${shown ? "!text-blue-500" : ""}
-  // h-4 w-4 min-w-4 cursor-pointer rounded-md bg-setta-500/15 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline
   return (
     <li
       className="group/checkboxlabel flex justify-between"
