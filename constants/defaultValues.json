@@ -28,7 +28,6 @@
     "hideParams": false,
     "hideSearch": false,
     "hideUnpinnedParams": false,
-    "hideColumn": false,
     "displayMode": "GUI",
     "visibility": { "DEV": true, "USER": true },
     "pinnedAreaHeight": "auto",

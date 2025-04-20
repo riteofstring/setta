@@ -14,17 +14,20 @@ export async function runCodeBlocks(sectionIds) {
     if (newTerminalCreated) {
       createTemporaryTerminalFromBackend(terminalId);
     }
+    return terminalId;
   }
 }
 
 /**
  * Runs the main entry code block.
  * @SETTA_MCP_TOOL
+ * @returns {ID} the id of the terminal running the code
  */
-export function runEntryCodeBlock() {
+export async function runEntryCodeBlock() {
   // ids should be length 0 or 1
   const ids = getEntryCodeBlock();
-  runCodeBlocks(ids);
+  const terminalId = await runCodeBlocks(ids);
+  return terminalId;
 }
 
 function getEntryCodeBlock() {

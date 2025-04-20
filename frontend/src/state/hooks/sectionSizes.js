@@ -57,8 +57,6 @@ function getMinSectionHeight({
     return 50;
   } else if (sectionType === C.CHAT) {
     return 200;
-  } else if (sectionType === C.BROWSER) {
-    return 250;
   }
 }
 
@@ -138,8 +136,7 @@ export function useSectionMinMaxDims(sectionId) {
 }
 
 export function useIsScrollable() {
-  const [isScrollableVertical, setIsScrollableVertical] = useState(false);
-  const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
+  const [isScrollable, setIsScrollable] = useState(false);
   const elementRef = useRef(null);
 
   useEffect(() => {
@@ -147,11 +144,8 @@ export function useIsScrollable() {
 
     function checkScrollable() {
       if (elementRef.current) {
-        setIsScrollableVertical(
+        setIsScrollable(
           elementRef.current.scrollHeight > elementRef.current.clientHeight,
-        );
-        setIsScrollableHorizontal(
-          elementRef.current.scrollWidth > elementRef.current.clientWidth,
         );
       }
     }
@@ -185,10 +179,7 @@ export function useIsScrollable() {
     };
   }, []);
 
-  return {
-    ref: elementRef,
-    isScrollable: isScrollableVertical || isScrollableHorizontal,
-  };
+  return { ref: elementRef, isScrollable };
 }
 
 async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
