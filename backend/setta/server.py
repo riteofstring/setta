@@ -84,12 +84,17 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
-    app.state.chat_manager = ChatManager(app.state.dbq)
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(
-        f"{C.BACKEND}/mcp", app.state.websocket_msg_handlers.mcp, app.state.chat_manager
+        f"{C.BACKEND}/mcp",
     )
+    app.state.chat_manager = ChatManager(
+        app.state.dbq,
+        app.state.mcp_client,
+        app.state.websocket_msg_handlers.chat_manager,
+    )
+
     asyncio.create_task(app.state.mcp_client.connect_to_server())
 
     maybe_create_tables_and_seed(

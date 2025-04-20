@@ -35,6 +35,7 @@ class WebsocketMsgHandlers:
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
         self.mcp = WMHMCP(websocket_manager)
+        self.chat_manager = WMHChatManager(websocket_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -269,6 +270,11 @@ class WMHMCP(BaseWebsocketMsgHandler):
             C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
+
+
+class WMHChatManager(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
 
     async def send_streaming_response(self, chatId, assistant_message_id, chunk):
         await self.websocket_manager.broadcast(

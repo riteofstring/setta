@@ -3,31 +3,19 @@ from contextlib import AsyncExitStack
 from typing import Optional
 
 import mcp.types
-from anthropic import AsyncAnthropic
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-
-from setta.database.utils import create_new_id
-from setta.utils.constants import CONSTANTS_FOLDER, C
-from setta.utils.utils import get_absolute_path
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url, websocket_msg_handler, chat_manager):
+    def __init__(self, server_url):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        self.anthropic = AsyncAnthropic()
         self.reader_task = None
         self.server_url = server_url
-        self.websocket_msg_handler = websocket_msg_handler
-        self.chat_manager = chat_manager
         self.available_tools = []
-        with open(
-            get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
-        ) as f:
-            self.system_prompt = f.read()
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -95,114 +83,8 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, chat, model, deepThink):
-        chatId = chat["id"]
-        self.chat_manager.set_llm_is_responding(chatId)
-        messages = chat["messages"]
-
-        while True:
-            new_messages = []
-            assistant_message_content = []
-            has_tool_call = False
-            thinking = (
-                {"type": "enabled", "budget_tokens": 10000}
-                if deepThink
-                else {"type": "disabled"}
-            )
-
-            # Only need to specify cache_control once.
-            # Everything up to the first occurence of cache_control is cached.
-            # The read ordering is tools, system prompt, messages.
-            # By putting the system prompt in the cache, the tools are also included.
-            # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
-            stream = await self.anthropic.messages.with_raw_response.create(
-                model=model,
-                max_tokens=20000,
-                messages=[
-                    {"role": m["role"], "content": m["content"]} for m in messages
-                ],
-                tools=self.available_tools,
-                stream=True,
-                system=[
-                    {
-                        "type": "text",
-                        "text": self.system_prompt,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                thinking=thinking,
-            )
-
-            print(
-                "remaining requests",
-                stream.headers.get("anthropic-ratelimit-requests-remaining"),
-                flush=True,
-            )
-
-            print(
-                "remaining input tokens",
-                stream.headers.get("anthropic-ratelimit-input-tokens-remaining"),
-                flush=True,
-            )
-
-            print(
-                "remaining output tokens",
-                stream.headers.get("anthropic-ratelimit-output-tokens-remaining"),
-                flush=True,
-            )
-
-            assistant_message_id = await self.chat_manager.stream_responses(
-                chatId, stream, self.send_streaming_response
-            )
-            complete_messages = self.chat_manager.current_stream[chatId]
-
-            for msg in complete_messages:
-                assistant_message_content.append(msg.model_dump())
-                if msg.type == C.LLM_TOOL_USE:
-                    has_tool_call = True
-                    result = await self.session.call_tool(msg.name, msg.input)
-                    tool_result = {
-                        "type": C.LLM_TOOL_RESULT,
-                        "tool_use_id": msg.id,
-                        "content": result.content,
-                    }
-                    await self.send_streaming_response(chatId, tool_result)
-                    new_messages.append(
-                        {
-                            "id": assistant_message_id,
-                            "role": C.LLM_ASSISTANT_ROLE,
-                            "content": assistant_message_content,
-                        }
-                    )
-                    new_messages.append(
-                        {
-                            "id": create_new_id(),
-                            "role": "user",
-                            "content": [tool_result],
-                        }
-                    )
-                    break
-
-            # If we processed the entire response without finding tool calls, we're done
-            if not has_tool_call:
-                if assistant_message_content:
-                    new_messages.append(
-                        {
-                            "id": assistant_message_id,
-                            "role": C.LLM_ASSISTANT_ROLE,
-                            "content": assistant_message_content,
-                        }
-                    )
-                    self.chat_manager.update_chat(chatId, new_messages)
-                break
-            # Otherwise continue the loop to get the next response after tool use
-
-            self.chat_manager.update_chat(chatId, new_messages)
-            messages = [*messages, *new_messages]
-
-        chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
-        await self.send_streaming_response(chatId, assistant_message_id, chunk)
-        self.chat_manager.set_llm_is_done(chatId)
+    async def call_tool(self, tool_name, tool_args):
+        return await self.session.call_tool(tool_name, tool_args)
 
     async def stop(self):
         """Clean up resources properly for server shutdown"""
@@ -238,8 +120,3 @@ class MCPClient:
         if len(output) == 1:
             return output[0]
         return output
-
-    async def send_streaming_response(self, chatId, assistant_message_id, chunk):
-        await self.websocket_msg_handler.send_streaming_response(
-            chatId, assistant_message_id, chunk
-        )

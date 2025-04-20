@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from setta.database.db.notifications.load import create_notification_dict
 from setta.routers.dependencies import (
     get_chat_manager,
-    get_mcp_client,
     get_wmh_database,
     get_wmh_specific_file_watcher,
 )
@@ -46,14 +45,13 @@ class GetLLMChatRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
-    mcp_client=Depends(get_mcp_client),
     chat_manager=Depends(get_chat_manager),
 ):
     try:
         chat = chat_manager.get_or_create_chat(x.chatId, x.message)
 
         background_tasks.add_task(
-            mcp_client.process_query,
+            chat_manager.process_query,
             chat,
             x.model,
             x.deepThink,
