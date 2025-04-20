@@ -540,7 +540,7 @@ function FilterSection() {
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
 
   return (
-    <div className="-mt-1 min-w-0 flex-1">
+    <div className="-mt-1 flex-1">
       <StandardSearch
         leftElement={
           <i className="gg-sort-az mb-[2px] !scale-50 text-setta-400" />

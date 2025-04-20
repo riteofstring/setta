@@ -1,41 +1,35 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useState } from "react";
 import { IoSend, IoStop } from "react-icons/io5";
+import { submitMessage } from "state/actions/ai";
 
-const ChatInput = memo(function ChatInput({
-  onSubmit,
-  initialValue = "",
+export const ChatInput = memo(function ChatInput({
+  deepThink,
   placeholderText,
   isLoading,
 }) {
   // Keep input state local to this component
-  const [inputValue, setInputValue] = useState(initialValue);
+  const [inputValue, setInputValue] = useState("");
 
-  const handleSubmit = useCallback(
-    (e) => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (inputValue.trim() === "" || isLoading) return;
+
+    // Only communicate with parent on submission
+    submitMessage(inputValue, deepThink);
+    setInputValue("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (inputValue.trim() === "" || isLoading) return;
-
-      // Only communicate with parent on submission
-      onSubmit(inputValue);
-      setInputValue("");
-    },
-    [inputValue, isLoading, onSubmit],
-  );
-
-  const handleKeyDown = useCallback(
-    (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSubmit(e);
-      }
-    },
-    [handleSubmit],
-  );
+      handleSubmit(e);
+    }
+  };
 
   // Local change handler that doesn't affect parent
-  const handleChange = useCallback((e) => {
+  const handleChange = (e) => {
     setInputValue(e.target.value);
-  }, []);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="">
@@ -64,5 +58,3 @@ const ChatInput = memo(function ChatInput({
     </form>
   );
 });
-
-export default ChatInput;

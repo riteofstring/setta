@@ -1,4 +1,4 @@
-import { useOverviewListing } from "components/Panes/Overview/ProjectOverview";
+import { useOverviewListing } from "components/Panes/Overview/ProjectOverview/ProjectOverview";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
   ComboboxItems,

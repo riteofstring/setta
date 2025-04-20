@@ -20,7 +20,6 @@ export function getBgColor(sectionTypeName) {
     case C.TERMINAL:
       return "bg-setta-950 overflow-clip";
     case C.GLOBAL_PARAM_SWEEP:
-    case C.BROWSER:
       return "@container/multipane";
     // case PARAM_SWEEP:
     //   return "bg-setta-50 dark:bg-setta-850";
