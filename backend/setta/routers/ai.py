@@ -164,9 +164,11 @@ async def route_get_llm_chat(
     current_stream = chat_manager.get_current_stream(x.chatId)
     messages = chat["messages"]
     merge_db_messages_with_current_stream(messages, current_stream)
+    messages, tool_results = separate_tool_results(messages)
 
     return {
         "messages": messages,
+        "toolResults": tool_results,
         "waitingForResponse": waiting_for_response,
     }
 
@@ -182,3 +184,16 @@ def merge_db_messages_with_current_stream(db_messages, current_stream):
             # Add to existing_ids to track what we've added
             existing_ids.add(message["id"])
 
+
+def separate_tool_results(messages):
+    tool_results = {}
+    filtered_messages = []
+    for m in messages:
+        if len(m["content"]) == 0:
+            continue
+        c = m["content"][0]
+        if c.get("type") == C.LLM_TOOL_RESULT:
+            tool_results[c["tool_use_id"]] = m["content"][0]
+        else:
+            filtered_messages.append(m)
+    return filtered_messages, tool_results

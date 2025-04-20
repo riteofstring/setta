@@ -258,6 +258,7 @@ export const useAIStore = create(
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
         messages: [],
+        toolResults: {},
         allChatMetadata: [],
         currentChatId: null,
         waitingForResponse: false,

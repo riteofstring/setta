@@ -16,9 +16,10 @@ export async function getLLMChat(chatId) {
   const res = await dbGetLLMChat(chatId, projectConfigId);
   console.log("res", res);
   if (res.status == 200) {
-    const { messages, waitingForResponse } = res.data;
+    const { messages, toolResults, waitingForResponse } = res.data;
     useAIStore.setState({
       messages,
+      toolResults,
       currentChatId: chatId,
       waitingForResponse,
     });
@@ -119,6 +120,9 @@ export function receiveLLMResponseChunk(msg) {
         return;
       case C.LLM_CONTENT_BLOCK_STOP:
         llmContentBlockStop(assistantMessageId, chunk);
+        return;
+      case C.LLM_TOOL_RESULT:
+        llmToolResult(chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
         llmFullMessageStop(assistantMessageId, chunk);
@@ -245,6 +249,12 @@ function llmContentBlockStop(assistantMessageId, chunk) {
 
     return { messages: newMessages };
   });
+}
+
+function llmToolResult(chunk) {
+  useAIStore.setState((state) => ({
+    toolResults: { ...state.toolResults, [chunk.tool_use_id]: chunk },
+  }));
 }
 
 function llmFullMessageStop() {

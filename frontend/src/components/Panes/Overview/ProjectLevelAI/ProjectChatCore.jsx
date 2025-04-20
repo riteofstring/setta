@@ -247,11 +247,12 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
 // Message list component
 const MessageList = memo(function MessageList({
   messages,
+  toolResults,
   waitingForResponse,
   currentChatId,
 }) {
   // TODO: make more efficient
-  const { processedMessages, toolResults } = processMessages(messages);
+  const consolidatedMessages = consolidateAssistantMessages(messages);
 
   if (!currentChatId) {
     return (
@@ -271,7 +272,7 @@ const MessageList = memo(function MessageList({
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
         <ChatMessages
-          messages={processedMessages}
+          messages={consolidatedMessages}
           toolResults={toolResults}
           waitingForResponse={waitingForResponse}
         />
@@ -286,14 +287,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   deepThink,
   userSelectedLLM,
 }) {
-  const { messages, currentChatId, waitingForResponse } = useAIStore(
-    (x) => ({
-      messages: x.messages,
-      currentChatId: x.currentChatId,
-      waitingForResponse: x.waitingForResponse,
-    }),
-    shallow,
-  );
+  const { messages, toolResults, currentChatId, waitingForResponse } =
+    useAIStore(
+      (x) => ({
+        messages: x.messages,
+        toolResults: x.toolResults,
+        currentChatId: x.currentChatId,
+        waitingForResponse: x.waitingForResponse,
+      }),
+      shallow,
+    );
 
   useEffect(() => {
     if (currentChatId) {
@@ -305,6 +308,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     <>
       <MessageList
         messages={messages}
+        toolResults={toolResults}
         waitingForResponse={waitingForResponse}
         currentChatId={currentChatId}
       />
@@ -319,22 +323,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 });
 
 // Consolidate assistant messages and handle tool results
-const processMessages = (messages) => {
+const consolidateAssistantMessages = (messages) => {
   const processedMessages = [];
-  const toolResults = {};
   let currentAssistantMessage = null;
 
   // First pass: collect tool results
 
   for (const message of messages) {
-    if (
-      message.role === C.LLM_USER_ROLE &&
-      message.content?.[0]?.type === C.LLM_TOOL_RESULT
-    ) {
-      const toolResult = message.content[0];
-      toolResults[toolResult.tool_use_id] = toolResult;
-      continue;
-    }
     // If this is an assistant message
     if (message.role === C.LLM_ASSISTANT_ROLE) {
       // If we're already building an assistant message, add this content to it
@@ -362,5 +357,5 @@ const processMessages = (messages) => {
     processedMessages.push(currentAssistantMessage);
   }
 
-  return { processedMessages, toolResults };
+  return processedMessages;
 };
