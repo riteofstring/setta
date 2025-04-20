@@ -26,7 +26,7 @@ class ChatManager:
             return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id, message):
-        if not chat_id:
+        if not chat_id or not self.get_chat(chat_id):
             return self.create_new_chat(message)
         self.update_chat(chat_id, [message])
         return self.get_chat(chat_id)
@@ -129,6 +129,7 @@ class ChatManager:
             for sub_msg in latest_msg["content"]:
                 if sub_msg["type"] == C.LLM_TOOL_USE:
                     has_tool_call = True
+                    print("calling tool",sub_msg["name"], flush=True)
                     result = await self.mcp_client.call_tool(
                         sub_msg["name"], sub_msg["input"]
                     )

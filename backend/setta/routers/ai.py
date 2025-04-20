@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: Optional[str]
+    chatId: str | None
     message: Dict[str, Any]
     model: str
     deepThink: bool
@@ -47,27 +47,28 @@ async def route_get_llm_response(
     background_tasks: BackgroundTasks,
     chat_manager=Depends(get_chat_manager),
 ):
-    try:
-        chat = chat_manager.get_or_create_chat(x.chatId, x.message)
+    # try:
+    print(x, flush=True)
+    chat = chat_manager.get_or_create_chat(x.chatId, x.message)
 
-        background_tasks.add_task(
-            chat_manager.process_query,
-            chat,
-            x.model,
-            x.deepThink,
-        )
+    background_tasks.add_task(
+        chat_manager.process_query,
+        chat,
+        x.model,
+        x.deepThink,
+    )
 
-        # Return immediate response with session ID
-        return chat["id"]
+    # Return immediate response with session ID
+    return chat["id"]
 
-    except Exception as e:
-        print(f"Error in route_get_llm_response: {str(e)}")
-        # Return a more specific error message
-        error_message = f"Error calling LLM: {str(e)}"
-        return {
-            "error": error_message,
-            "status": "error",
-        }
+    # except Exception as e:
+    #     print(f"Error in route_get_llm_response: {str(e)}")
+    #     # Return a more specific error message
+    #     error_message = f"Error calling LLM: {str(e)}"
+    #     return {
+    #         "error": error_message,
+    #         "status": "error",
+    #     }
 
 
 @router.post(C.ROUTE_SET_LLM_API_KEYS)

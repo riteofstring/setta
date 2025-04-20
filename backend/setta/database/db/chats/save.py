@@ -47,9 +47,9 @@ def update_chat(db, chat_id, new_messages):
         SELECT MAX("order") FROM ChatMessage WHERE chatId = :chat_id
     """
     db.execute(max_order_query, {"chat_id": chat_id})
-    result = db.fetchone()
+    result = db.fetchone()[0]
     # If there are no existing messages, max_order would be None
-    max_order = result[0] if result is not None else -1
+    max_order = result if result is not None else -1
 
     query = """
         INSERT INTO ChatMessage (id, chatId, "order", role, content) 
