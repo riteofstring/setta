@@ -153,7 +153,7 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case "tool_call":
+    case "tool_use":
       // Check if the next item is a tool_result
       const hasResult = nextItem && nextItem.type === "tool_result";
       const resultContent = hasResult ? nextItem.content : null;
@@ -296,6 +296,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }),
     shallow,
   );
+
+console.log(messages)
 
   useEffect(() => {
     if (currentChatId) {
