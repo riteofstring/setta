@@ -25,6 +25,7 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
+from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client_subprocess_manager import MCPSubprocessManager
 from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
@@ -63,12 +64,17 @@ async def lifespan(app: FastAPI):
     app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
+    app.state.dbq = DBQueue(
+        C.DB_PATH,
+    )
+    app.state.chat_manager = ChatManager(app.state.dbq)
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
         app.state.code_state,
         app.state.code_tasks,
         app.state.script_metadata,
+        app.state.chat_manager
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
     app.state.specific_file_watcher = create_specific_file_watcher(
@@ -76,9 +82,6 @@ async def lifespan(app: FastAPI):
     )
     app.state.lsp_readers = create_lsp_readers(
         app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
-    )
-    app.state.dbq = DBQueue(
-        C.DB_PATH,
     )
     app.state.mcpSubprocessManager = MCPSubprocessManager(
         f"{C.BACKEND}/mcp", f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_MCP_CLIENT}"

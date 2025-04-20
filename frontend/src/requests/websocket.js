@@ -1,11 +1,11 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { receiveLLMResponseChunk } from "state/actions/aiChat";
+import { receiveLLMResponseChunk } from "state/actions/ai";
+import { updateWithFileChanges } from "state/actions/fileUpdates";
 import {
   updateInteractiveArtifacts,
   updateInteractiveDependencies,
 } from "state/actions/interactive";
-import { updateJSONSourceContents } from "state/actions/jsonSource";
 import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
@@ -85,7 +85,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
     updateInteractiveDependencies(m.content);
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
-    updateJSONSourceContents(m.content);
+    updateWithFileChanges(m.content);
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
     // console.log(m.content);
   } else if (m.messageType === C.WS_LLM_STREAMING_RESPONSE) {

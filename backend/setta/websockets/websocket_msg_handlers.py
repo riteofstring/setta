@@ -17,6 +17,7 @@ class WebsocketMsgHandlers:
         code_state,
         code_tasks,
         script_metadata,
+        chat_manager
     ):
         self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
@@ -36,7 +37,7 @@ class WebsocketMsgHandlers:
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
         self.mcp_server = WMHMCPServer(websocket_manager)
-        self.mcp_client = WMHMCPClient(websocket_manager)
+        self.mcp_client = WMHMCPClient(websocket_manager, chat_manager)
 
 
 class BaseWebsocketMsgHandler:
@@ -78,6 +79,14 @@ class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             content,
             C.WS_SPECIFIC_FILE_WATCHER_UPDATE,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+    async def broadcast_notification(self, content):
+        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
@@ -239,7 +248,7 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
         try:
             args = replace_ids_with_uuids(args, self.id_to_uuid)
         except IDDoesNotExist as e:
-            return {"error": e}
+            return {"error": str(e)}
 
         if args is None:
             args = {}
@@ -273,13 +282,15 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
 
 
 class WMHMCPClient(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
+    def __init__(self, websocket_manager, chat_manager):
         self.websocket_manager = websocket_manager
+        self.chat_manager = chat_manager
         self.mcp_client_websocket_id = None
 
     async def process_message(self, message, fromWebsocketId):
         msg_type = message["messageType"]
         if msg_type == C.WS_LLM_STREAMING_RESPONSE:
+            self.chat_manager.update_chat_with_chunk(message["chatId"], message["chunk"])
             await self.websocket_manager.broadcast(
                 message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
             )
@@ -296,9 +307,10 @@ class WMHMCPClient(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def send_message_to_llm(self, model, messages):
+    async def send_message_to_llm(self, chatId, message, model, deepThink):
+        chat = self.chat_manager.get_chat(chatId, message)
         message = {
-            "content": {"model": model, "messages": messages},
+            "content": {"model": model, "chat": chat, "deepThink": deepThink},
             "messageType": C.WS_MESSAGE_TO_LLM,
         }
         await self.websocket_manager.send_message(message, self.mcp_client_websocket_id)
