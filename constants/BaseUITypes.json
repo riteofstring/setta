@@ -156,12 +156,5 @@
     "name": "",
     "presetType": "BASE",
     "config": {}
-  },
-  "d58df269-fe7f-435b-99f4-5c8b351c956e": {
-    "id": "d58df269-fe7f-435b-99f4-5c8b351c956e",
-    "type": "BROWSER",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
   }
 }

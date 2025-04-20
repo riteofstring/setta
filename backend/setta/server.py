@@ -25,7 +25,8 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
-from setta.mcp.client_subprocess_manager import MCPSubprocessManager
+from setta.mcp.chat_manager import ChatManager
+from setta.mcp.client import MCPClient
 from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
     ai_router,
@@ -63,6 +64,9 @@ async def lifespan(app: FastAPI):
     app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
+    app.state.dbq = DBQueue(
+        C.DB_PATH,
+    )
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
@@ -80,12 +84,13 @@ async def lifespan(app: FastAPI):
     app.state.dbq = DBQueue(
         C.DB_PATH,
     )
-    app.state.mcpSubprocessManager = MCPSubprocessManager(
-        f"{C.BACKEND}/mcp", f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_MCP_CLIENT}"
-    )
+    app.state.chat_manager = ChatManager(app.state.dbq)
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
-    app.state.mcpSubprocessManager.start()
+    app.state.mcp_client = MCPClient(
+        f"{C.BACKEND}/mcp", app.state.websocket_msg_handlers.mcp, app.state.chat_manager
+    )
+    asyncio.create_task(app.state.mcp_client.connect_to_server())
 
     maybe_create_tables_and_seed(
         app.state.dbq,
@@ -128,7 +133,7 @@ async def lifespan(app: FastAPI):
     finally:
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
-        app.state.mcpSubprocessManager.stop()
+        await app.state.mcp_client.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
 
 
