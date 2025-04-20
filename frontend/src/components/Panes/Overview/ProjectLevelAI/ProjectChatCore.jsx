@@ -263,7 +263,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
   isLoading,
-  userSelectedLLM,
 }) {
   return (
     <>
@@ -272,7 +271,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         deepThink={deepThink}
         placeholderText={placeholderText}
         isLoading={isLoading}
-        userSelectedLLM={userSelectedLLM}
       />
     </>
   );

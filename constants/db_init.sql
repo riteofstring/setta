@@ -235,11 +235,11 @@ CREATE TABLE IF NOT EXISTS Chat (
     lastUpdated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (
+    id TEXT PRIMARY KEY,
     chatId TEXT NOT NULL,
     "order" INTEGER NOT NULL,
     role TEXT NOT NULL,
     content TEXT,
-    PRIMARY KEY (chatId, "order"),
     FOREIGN KEY (chatId) REFERENCES Chat(id) ON DELETE CASCADE
 );
 
