@@ -273,6 +273,7 @@ export const useAIStore = create(
         name: "setta_ai_data",
         partialize: (state) => ({
           apiKeysFilepath: state.apiKeysFilepath,
+          currentChatId: state.currentChatId,
           userSelectedLLM: state.userSelectedLLM,
           viewHistory: state.viewHistory,
         }),

@@ -10,12 +10,18 @@ import { useAIStore, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 
-export async function getLLMChat(currentChatId) {
+export async function getLLMChat(chatId) {
+  console.log("getLLMChat", chatId);
   const projectConfigId = useSectionInfos.getState().projectConfig.id;
-  const res = await dbGetLLMChat(currentChatId, projectConfigId);
+  const res = await dbGetLLMChat(chatId, projectConfigId);
+  console.log("res", res);
   if (res.status == 200) {
     const { messages, waitingForResponse } = res.data;
-    useAIStore.setState({ messages, waitingForResponse });
+    useAIStore.setState({
+      messages,
+      currentChatId: chatId,
+      waitingForResponse,
+    });
   }
 }
 
@@ -67,19 +73,19 @@ export async function submitMessage(message, deepThink) {
   }));
 
   const state = useAIStore.getState();
-  let chatId = state.currentChatId;
-  if (!chatId) {
-    chatId = createNewId();
-    useAIStore.setState({ currentChatId: chatId });
-  }
 
   try {
-    await dbGetLLMResponse(
+    const res = await dbGetLLMResponse(
       state.userSelectedLLM,
       userMessage,
       deepThink,
-      chatId,
+      state.currentChatId,
     );
+    console.log("res", res);
+    if (res.status == 200) {
+      const chatId = res.data;
+      await getLLMChat(chatId);
+    }
   } catch (error) {
     // Error handling
     const errorMsg = {

@@ -7,8 +7,6 @@ export async function dbGetLLMResponse(model, message, deepThink, chatId) {
       body: { model, message, deepThink, chatId },
       address: C.ROUTE_GET_LLM_RESPONSE,
     });
-
-    console.log("Response received from LLM query:", response);
     return response;
   } catch (error) {
     console.error("Error in dbGetLLMResponse:", error);
@@ -25,7 +23,6 @@ export async function dbGetLLMApiKeys(apiKeysFilepath) {
       address: C.ROUTE_GET_LLM_API_KEYS,
     });
 
-    console.log("Response received from API Keys update:", response);
     return response;
   } catch (error) {
     console.error("Error in dbGetLLMApiKeys:", error);
@@ -43,7 +40,6 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
       address: C.ROUTE_SET_LLM_API_KEYS,
     });
 
-    console.log("Response received from API Keys update:", response);
     return response;
   } catch (error) {
     console.error("Error in dbSetLLMApiKeys:", error);

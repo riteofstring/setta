@@ -284,13 +284,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [currentChatId]);
 
-  console.log(
-    "messages, currentChatId, waitingForResponse",
-    messages,
-    currentChatId,
-    waitingForResponse,
-  );
-
   return (
     <>
       <MessageList

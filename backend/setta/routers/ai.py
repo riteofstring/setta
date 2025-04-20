@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -18,7 +18,7 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: str
+    chatId: Optional[str]
     message: Dict[str, Any]
     model: str
     deepThink: bool
@@ -47,21 +47,20 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
     mcp_client=Depends(get_mcp_client),
+    chat_manager=Depends(get_chat_manager),
 ):
     try:
+        chat = chat_manager.get_or_create_chat(x.chatId, x.message)
+
         background_tasks.add_task(
             mcp_client.process_query,
-            x.chatId,
-            x.message,
+            chat,
             x.model,
             x.deepThink,
         )
 
         # Return immediate response with session ID
-        return {
-            "status": "processing",
-            "message": "Query is being processed. Connect to websocket for results.",
-        }
+        return chat["id"]
 
     except Exception as e:
         print(f"Error in route_get_llm_response: {str(e)}")
@@ -152,7 +151,6 @@ async def route_get_llm_chat(
     websocket_msg_handler=Depends(get_wmh_database),
 ):
     chat = chat_manager.get_chat(x.chatId)
-    print("chat", chat, flush=True)
     if not chat:
         notification = create_notification_dict(
             "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True

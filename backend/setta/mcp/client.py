@@ -96,9 +96,9 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, chatId, message, model, deepThink):
-        chat = self.chat_manager.get_or_create_chat(chatId, message)
-        self.chat_manager.notify_that_llm_is_responding(chatId, True)
+    async def process_query(self, chat, model, deepThink):
+        chatId = chat["id"]
+        self.chat_manager.notify_that_llm_is_responding(chatId)
         messages = [
             {"role": m["role"], "content": m["content"]} for m in chat["messages"]
         ]
