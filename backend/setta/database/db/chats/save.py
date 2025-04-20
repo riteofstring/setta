@@ -1,19 +1,33 @@
 import json
 
 from setta.database.utils import create_new_id
+from setta.utils.constants import C
+from setta.utils.generate_memorable_string import generate_memorable_string
+
+
+def create_new_chat_name(first_message):
+    name = None
+    for c in first_message["content"]:
+        if c.get("type") == C.LLM_TEXT:
+            name = c.get("text", "")[:30]
+            break
+    if not name:
+        name = generate_memorable_string()
+    return name
 
 
 def create_new_chat(db, first_message):
     chat_id = create_new_id()
+    name = create_new_chat_name(first_message)
 
     # Create new chat
     query = """
-        INSERT INTO Chat (id) 
-        VALUES (:chat_id)
+        INSERT INTO Chat (id, name) 
+        VALUES (:chat_id, :name)
         ON CONFLICT (id)
         DO NOTHING
     """
-    db.execute(query, {"chat_id": chat_id})
+    db.execute(query, {"chat_id": chat_id, "name": name})
 
     query = """
         INSERT INTO ChatMessage (id, chatId, "order", role, content) 

@@ -47,7 +47,7 @@ export function ProjectChatHistory() {
                       : ""
                   }`}
                 >
-                  {chat.title || "New Chat"}
+                  {chat.name}
                 </h4>
 
                 <p

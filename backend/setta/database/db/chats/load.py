@@ -3,7 +3,7 @@ import json
 
 def load_chat(db, chat_id):
     chat_query = """
-        SELECT id, lastUpdated
+        SELECT id, name, lastUpdated
         FROM Chat
         WHERE id = :chat_id
     """
@@ -15,7 +15,12 @@ def load_chat(db, chat_id):
         return None  # Chat not found
 
     # Create the base chat object
-    chat = {"id": chat_row[0], "lastUpdated": chat_row[1], "messages": []}
+    chat = {
+        "id": chat_row[0],
+        "name": chat_row[1],
+        "lastUpdated": chat_row[2],
+        "messages": [],
+    }
 
     # Now get all messages for this chat
     messages_query = """
@@ -42,7 +47,7 @@ def load_chat(db, chat_id):
 def load_all_chat_metadata(db):
     # First get chat metadata
     chat_query = """
-        SELECT id, lastUpdated
+        SELECT id, name, lastUpdated
         FROM Chat
         ORDER BY lastUpdated DESC
     """
@@ -51,5 +56,5 @@ def load_all_chat_metadata(db):
 
     output = []
     for row in db.fetchall():
-        output.append({"id": row[0], "lastUpdated": row[1]})
+        output.append({"id": row[0], "name": row[1], "lastUpdated": row[2]})
     return output
