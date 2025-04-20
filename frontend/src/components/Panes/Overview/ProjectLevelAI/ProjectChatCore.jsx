@@ -142,9 +142,9 @@ const ToolCall = memo(
   },
 );
 
-const StreamItem = ({ item, toolResult, isStreaming }) => {
+const StreamItem = ({ item, nextItem, isStreaming }) => {
   switch (item.type) {
-    case C.LLM_TEXT:
+    case "text":
       return (
         <MarkdownContent
           content={item.text}
@@ -153,10 +153,16 @@ const StreamItem = ({ item, toolResult, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case C.LLM_TOOL_USE:
+    case "tool_use":
+      // Check if the next item is a tool_result
+      const hasResult = nextItem && nextItem.type === "tool_result";
+      const resultContent = hasResult ? nextItem.content : null;
+
       // Determine success/failure status (could be enhanced with more sophisticated detection)
       const isSuccess =
-        !toolResult?.includes("error") && !toolResult?.includes("fail");
+        hasResult &&
+        !resultContent?.includes("error") &&
+        !resultContent?.includes("fail");
 
       return (
         <ToolCall
@@ -164,11 +170,11 @@ const StreamItem = ({ item, toolResult, isStreaming }) => {
           args={item.args}
           jsonSoFar={item.jsonSoFar}
           streaming={item.streaming}
-          result={toolResult ? toolResult : undefined}
+          result={hasResult ? resultContent : undefined}
           success={isSuccess}
         />
       );
-    case C.LLM_THINKING:
+    case "thinking":
       return <ThinkingBox content={item.content} isStreaming={isStreaming} />;
     default:
       return null;
@@ -185,8 +191,7 @@ function LLMChatBubble({ children }) {
   );
 }
 
-const ChatMessage = memo(({ message, toolResult, isStreaming }) => {
-  console.log(message, toolResult);
+const ChatMessage = memo(({ message, isStreaming }) => {
   if (message.role === C.LLM_ASSISTANT_ROLE) {
     return (
       <LLMChatBubble>
@@ -197,7 +202,7 @@ const ChatMessage = memo(({ message, toolResult, isStreaming }) => {
           <StreamItem
             key={idx}
             item={item}
-            toolResult={toolResult}
+            nextItem={message.content[idx + 1]}
             isStreaming={isStreaming}
           />
         ))}
@@ -219,27 +224,11 @@ const ChatMessage = memo(({ message, toolResult, isStreaming }) => {
 
 function ChatMessages({ messages, waitingForResponse }) {
   const output = [];
-  let nextMessage, toolResult, skip;
   for (const [idx, message] of messages.entries()) {
-    if (skip) {
-      skip = false;
-      continue;
-    }
-    nextMessage = messages[idx + 1];
-    toolResult = null;
-    if (
-      message.role === C.LLM_ASSISTANT_ROLE &&
-      nextMessage?.role === C.LLM_USER_ROLE &&
-      nextMessage?.content[0]?.type === C.LLM_TOOL_RESULT
-    ) {
-      toolResult = nextMessage.content[0].content;
-      skip = true;
-    }
     output.push(
       <ChatMessage
         key={idx}
         message={message}
-        toolResult={toolResult}
         isStreaming={waitingForResponse && message.role === "assistant"}
       />,
     );
@@ -308,7 +297,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     shallow,
   );
 
-  console.log(messages);
+console.log(messages)
 
   useEffect(() => {
     if (currentChatId) {
