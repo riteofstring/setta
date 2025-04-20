@@ -165,5 +165,6 @@
     "OpenAI": "OPENAI_API_KEY"
   },
   "LLM_MESSAGE_START": "message_start",
+  "LLM_CONTENT_BLOCK_START": "content_block_start",
   "LLM_ASSISTANT_ROLE": "assistant"
 }

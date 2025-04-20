@@ -258,70 +258,29 @@ class MCPClient:
         assistant_message_id = None
 
         async for event in stream.parse():
-            chunk = None
             if event.type == C.LLM_MESSAGE_START:
-                chunk = {"type": event.type, "messageId": event.message.id}
                 assistant_message_id = event.message.id
-            if event.type == "content_block_start":
+            if event.type == C.LLM_CONTENT_BLOCK_START:
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
                 llm_msgs[event.index] = event.content_block
-                if not hasattr(event.content_block, "text"):
-                    event.content_block.text = ""
-                if event.content_block.type == "text":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                    }
-                elif event.content_block.type == "thinking":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                    }
-                elif event.content_block.type == "tool_use":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                        "tool_name": event.content_block.name,
-                    }
-
             elif event.type == "content_block_delta":
                 if event.delta.type == "text_delta":
                     llm_msgs[event.index].text += event.delta.text
-                    chunk = {
-                        "type": "text",
-                        "content": event.delta.text,
-                        "index": event.index,
-                    }
                 elif event.delta.type == "thinking_delta":
-                    llm_msgs[event.index].text += event.delta.thinking
-                    chunk = {
-                        "type": "thinking",
-                        "content": event.delta.thinking,
-                        "index": event.index,
-                    }
+                    llm_msgs[event.index].thinking += event.delta.thinking
                 elif event.delta.type == "signature_delta":
                     llm_msgs[event.index].signature = event.delta.signature
                 elif event.delta.type == "input_json_delta":
                     llm_msgs[event.index].text += event.delta.partial_json
-                    chunk = {
-                        "type": "json",
-                        "content": event.delta.partial_json,
-                        "index": event.index,
-                    }
-
             elif event.type == "content_block_stop":
                 if llm_msgs[event.index].type == "tool_use":
                     text = llm_msgs[event.index].text
                     if text:
                         llm_msgs[event.index].input = json.loads(text)
-                chunk = {"type": event.type, "index": event.index}
-
-            if chunk is not None:
-                await self.send_streaming_response(chatId, assistant_message_id, chunk)
+            await self.send_streaming_response(
+                chatId, assistant_message_id, event.model_dump()
+            )
 
         return llm_msgs, assistant_message_id
 

@@ -136,12 +136,13 @@ export function receiveLLMResponseChunk(msg) {
     // Handle different chunk types
     switch (chunk.type) {
       case C.LLM_MESSAGE_START:
-        useAIStore.setState((state) => ({
-          messages: [
-            ...state.messages,
-            { id: assistantMessageId, role: C.LLM_ASSISTANT_ROLE, content: [] },
-          ],
-        }));
+        llmMessageStart(assistantMessageId, chunk);
+        console.log(useAIStore.getState());
+        return;
+
+      case C.LLM_CONTENT_BLOCK_START:
+        llmContentBlockStart(assistantMessageId, chunk);
+        console.log(useAIStore.getState());
         return;
 
       // case "content_block_start":
@@ -345,6 +346,46 @@ export function receiveLLMResponseChunk(msg) {
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
   }
+}
+
+function llmMessageStart(assistantMessageId, chunk) {
+  useAIStore.setState((state) => ({
+    messages: [
+      ...state.messages,
+      { id: assistantMessageId, ..._.pick(chunk.message, ["role", "content"]) },
+    ],
+  }));
+}
+
+function llmContentBlockStart(assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const messageIndex = state.messages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+
+    // Create new content array with the updated chunk
+    const message = state.messages[messageIndex];
+    const newContentArray = [...(message.content || [])];
+    while (newContentArray.length <= chunk.index) {
+      newContentArray.push(null);
+    }
+    newContentArray[chunk.index] = chunk.content_block;
+
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...state.messages.slice(0, messageIndex),
+      updatedMessage,
+      ...state.messages.slice(messageIndex + 1),
+    ];
+
+    return { messages: newMessages };
+  });
 }
 
 function streamInto(streamTarget, content) {
