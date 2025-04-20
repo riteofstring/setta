@@ -1,6 +1,7 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
+import { useState } from "react";
 import { BiChevronRight } from "react-icons/bi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { MdList } from "react-icons/md";
@@ -41,26 +42,30 @@ function GroupColumn({ width }) {
   );
 }
 
-function ViewSelector() {
+function ViewSelector({ setView }) {
   return (
     <div className="flex">
-      <button>
+      <button
+        onClick={() => {
+          setView("list");
+        }}
+      >
         <MdList />
       </button>
-      <button>
+      <button
+        onClick={() => {
+          setView("thumbnail");
+        }}
+      >
         <HiOutlineViewGrid />
       </button>
-      <button>
+      <button
+        onClick={() => {
+          setView("carousel");
+        }}
+      >
         <TbCarouselHorizontal />
       </button>
-    </div>
-  );
-}
-
-function ListItem() {
-  return (
-    <div>
-      <input type="checkbox"></input>List Item Type
     </div>
   );
 }
@@ -68,10 +73,13 @@ function ListItem() {
 function ThumbnailItem({ size = "96px" }) {
   return (
     <div
-      className="single-cell-container rounded-md bg-setta-500"
+      className="single-cell-container group/thumbnail rounded-md bg-setta-100 dark:bg-setta-800"
       style={{ width: size, height: size }}
     >
-      <input className="single-cell-child" type="checkbox"></input>
+      <input
+        className="single-cell-child ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-400 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
+        type="checkbox"
+      ></input>
     </div>
   );
 }
@@ -83,8 +91,10 @@ function ViewSwitch({ view, children }) {
 
     case "thumbnail":
       return (
-        <div className="grid h-full w-full auto-cols-min grid-flow-col auto-rows-min gap-2 overflow-y-auto overflow-x-clip">
-          {children}
+        <div className="nodrag h-full w-full overflow-y-auto overflow-x-hidden">
+          <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
+            {children}
+          </div>
         </div>
       );
 
@@ -97,6 +107,7 @@ function ViewSwitch({ view, children }) {
 }
 
 function ItemsColumn() {
+  const [view, setView] = useState("list");
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
       <div className="flex flex-row">
@@ -108,9 +119,9 @@ function ItemsColumn() {
           </div>
           <FilterSection />
         </div>
-        <ViewSelector />
+        <ViewSelector setView={setView} />
       </div>
-      <ViewSwitch view="thumbnail">
+      <ViewSwitch view={view}>
         {/* <CheckboxNextToLabel>Main</CheckboxNextToLabel>
         <CheckboxNextToLabel>OLD</CheckboxNextToLabel>
         <CheckboxNextToLabel>Images</CheckboxNextToLabel>
