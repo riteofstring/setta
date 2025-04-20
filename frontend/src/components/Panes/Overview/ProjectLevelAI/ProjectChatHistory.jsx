@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect } from "react";
 import { FiTrash2 } from "react-icons/fi";
 import {
@@ -7,6 +6,7 @@ import {
   switchToChat,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
+import { shallow } from "zustand/shallow";
 
 export function ProjectChatHistory() {
   const { allChatMetadata, currentChatId } = useAIStore(
@@ -14,7 +14,7 @@ export function ProjectChatHistory() {
       allChatMetadata: x.allChatMetadata,
       currentChatId: x.currentChatId,
     }),
-    _.isEqual,
+    shallow,
   );
 
   useEffect(() => {

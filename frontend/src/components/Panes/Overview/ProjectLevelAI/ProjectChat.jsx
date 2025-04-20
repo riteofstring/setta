@@ -1,6 +1,5 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
-import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
@@ -10,6 +9,7 @@ import { createNewLLMChat } from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
+import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
@@ -28,7 +28,7 @@ export function ProjectChat() {
       userSelectedLLM: x.userSelectedLLM,
       waitingForResponse: x.waitingForResponse,
     }),
-    _.isEqual,
+    shallow,
   );
 
   useEffect(() => {
