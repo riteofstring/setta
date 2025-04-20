@@ -2,12 +2,12 @@ import { ResizeHandle } from "components/Params/ResizeHandle";
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BiChevronRight } from "react-icons/bi";
 import { FiFileText } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
-import { MdBrush, MdDataArray, MdList } from "react-icons/md";
+import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
 import { useSectionInfos } from "state/definitions";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
@@ -19,6 +19,7 @@ const artifactTypes = [
   { type: "Text", icon: <FiFileText /> },
   { type: "Data", icon: <MdDataArray /> },
   { type: "Brushes", icon: <MdBrush /> },
+  { type: "Other", icon: <MdCategory /> },
 ];
 
 export function BrowserArea({ sectionId }) {
@@ -39,9 +40,8 @@ function GroupColumn({ width }) {
     <>
       <ResizableColumn width={width}>
         <h3 className="text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-          Groups
+          Types
         </h3>
-        <FilterSection />
 
         <div className="nodrag relative -mr-2 flex flex-col pr-1">
           {artifactTypes.map((x) => (
@@ -134,7 +134,7 @@ function ResizableFileList({ items, sectionId, children }) {
       {/* Header Row */}
       <div
         ref={headerRef}
-        className="grid border-b border-solid border-setta-200 text-xs text-setta-300 dark:border-setta-700 dark:text-setta-700"
+        className="mb-3 grid border-b border-solid border-setta-200 text-xs text-setta-300 dark:border-setta-700 dark:text-setta-700"
         style={{ gridTemplateColumns: "minmax(min-content, 180px) 1fr" }}
       >
         <div className="relative flex items-center px-1 py-2">
@@ -179,6 +179,108 @@ function ResizableFileList({ items, sectionId, children }) {
   );
 }
 
+function EnhancedCarouselView({ items, children }) {
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  // Find items with images for initial selection
+  const imageItems = items.filter((item) => item.content?.thumbnail);
+
+  // Set first image as default selected item if none is selected
+  useEffect(() => {
+    if (selectedItem === null && imageItems.length > 0) {
+      setSelectedItem(imageItems[0]);
+    }
+  }, []);
+
+  const handleItemClick = (item) => {
+    setSelectedItem(item);
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      {/* Featured Image Display */}
+      <section className="flex w-full flex-1 items-center justify-center overflow-hidden rounded-lg border border-solid border-setta-50 bg-transparent dark:border-transparent dark:bg-setta-860">
+        {selectedItem && selectedItem.content?.image ? (
+          <div className="relative h-full w-full">
+            <img
+              src={selectedItem.content.image}
+              className="h-full w-full object-contain p-4 shadow-md"
+              alt={selectedItem.id}
+            />
+            {/* <div className="absolute bottom-2 left-2 rounded bg-setta-800/70 px-2 py-1 text-xs text-white">
+              {selectedItem.id}
+            </div> */}
+          </div>
+        ) : selectedItem && selectedItem.content?.text ? (
+          <div className="max-w-lg p-4 text-sm text-setta-700 dark:text-setta-200">
+            {selectedItem.content.text}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center text-setta-400 dark:text-setta-600">
+            <IoImageOutline size={48} />
+            <p className="mt-2 text-sm">Select an item to preview</p>
+          </div>
+        )}
+      </section>
+
+      {/* Carousel Thumbnails */}
+      <article className="flex gap-2 overflow-x-scroll pb-4 pt-[4px]">
+        {items.map((item) => (
+          <EnhancedThumbnailItem
+            key={item.id}
+            item={item}
+            isSelected={selectedItem && selectedItem.id === item.id}
+            onClick={() => handleItemClick(item)}
+          />
+        ))}
+      </article>
+      {children}
+    </div>
+  );
+}
+
+// Enhanced thumbnail item with selection state
+function EnhancedThumbnailItem({ item, isSelected, onClick }) {
+  const { id, content } = item;
+  const thumbnail = content?.thumbnail;
+
+  return (
+    <div
+      className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 ${isSelected ? "scale-105" : ""}`}
+      style={{ width: "96px" }}
+      onClick={onClick}
+    >
+      <div
+        className={`single-cell-container overflow-clip rounded-md border border-solid ${isSelected ? "border-blue-500 shadow-md" : "border-setta-500/20"} bg-setta-100 opacity-80 transition-opacity group-hover/thumbnail:opacity-100 dark:bg-setta-800`}
+        style={{ width: "96px", height: "96px" }}
+      >
+        {thumbnail ? (
+          <>
+            <img
+              src={thumbnail}
+              className="single-cell-child z-10 h-full w-full object-cover"
+            />
+            <IoImageOutline className="single-cell-child z-0 place-self-center text-setta-200 dark:text-setta-600" />
+          </>
+        ) : (
+          <FiFileText
+            size={20}
+            className="single-cell-child place-self-center text-setta-200 dark:text-setta-600"
+          />
+        )}
+        <input
+          className="single-cell-child z-10 ml-1 mt-1 h-4 w-4 cursor-pointer rounded-full bg-transparent transition-colors checked:bg-blue-500 group-hover/thumbnail:bg-setta-500/70 group-hover/thumbnail:checked:bg-blue-600 dark:checked:bg-blue-700"
+          type="checkbox"
+          onClick={(e) => e.stopPropagation()}
+        ></input>
+      </div>
+      <p className="w-full break-words text-center text-xs text-setta-600 group-hover/thumbnail:text-setta-900 dark:text-setta-200 group-hover/thumbnail:dark:text-white">
+        {id}
+      </p>
+    </div>
+  );
+}
+
 function ViewSwitch({ view, children, sectionId }) {
   switch (view) {
     case "list":
@@ -193,7 +295,7 @@ function ViewSwitch({ view, children, sectionId }) {
         <div className="nodrag h-full w-full overflow-y-auto overflow-x-hidden">
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
             {testItems.map((x) => (
-              <ThumbnailItem thumbnail={x.content?.thumbnail}>
+              <ThumbnailItem key={x.id} thumbnail={x.content?.thumbnail}>
                 {x.id}
               </ThumbnailItem>
             ))}
@@ -203,7 +305,11 @@ function ViewSwitch({ view, children, sectionId }) {
       );
 
     case "carousel":
-      return <div className="flex">{children}</div>;
+      return (
+        <EnhancedCarouselView items={testItems}>
+          {children}
+        </EnhancedCarouselView>
+      );
 
     default:
       return <>{children}</>;
@@ -319,12 +425,6 @@ function CheckboxNextToLabel({
 
         {children}
       </label>
-      <button
-        className={`mr-0.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-transparent outline-blue-500 hover:!text-setta-500  focus-visible:outline group-hover/checkboxlabel:text-setta-300 dark:hover:!text-setta-300 dark:group-hover/checkboxlabel:text-setta-600`}
-        // onClick={onClick}
-      >
-        <i className="gg-pen" />
-      </button>
     </li>
   );
 }
