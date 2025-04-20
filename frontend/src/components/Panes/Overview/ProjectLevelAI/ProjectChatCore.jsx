@@ -304,6 +304,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [currentChatId]);
 
+  console.log("messages", messages)
+
   return (
     <>
       <MessageList
