@@ -42,9 +42,11 @@ class ChatManager:
 
     def save_current_stream_to_db(self, chat_id):
         messages = self.get_current_stream(chat_id)
+        messages = [m.model_dump() if isinstance(m, BaseModel) else m for m in messages]
+        messages = self.remove_incomplete_tool_uses(messages)
         self.save_messages_to_db(
             chat_id,
-            [m.model_dump() if isinstance(m, BaseModel) else m for m in messages],
+            messages,
         )
 
     def create_new_chat(self, first_message):
@@ -175,8 +177,8 @@ class ChatManager:
                         }
                     )
 
-            self.save_current_stream_to_db(chatId)
             curr_stream.extend(newer_msgs)
+            self.save_current_stream_to_db(chatId)
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
@@ -213,15 +215,13 @@ class ChatManager:
                 elif event.delta.type == C.LLM_SIGNATURE_DELTA:
                     curr_msg.signature = event.delta.signature
                 elif event.delta.type == C.LLM_INPUT_JSON_DELTA:
-                    if not hasattr(curr_msg, "text"):
-                        curr_msg.text = ""
-                    curr_msg.text += event.delta.partial_json
+                    if not isinstance(curr_msg.input, str):
+                        curr_msg.input = ""
+                    curr_msg.input += event.delta.partial_json
             elif event.type == C.LLM_CONTENT_BLOCK_STOP:
                 curr_msg = llm_msgs[event.index]
                 if curr_msg.type == C.LLM_TOOL_USE:
-                    if curr_msg.text:
-                        curr_msg.input = json.loads(curr_msg.text)
-                    delattr(curr_msg, "text")
+                    curr_msg.input = self.tool_use_input_str_to_dict(curr_msg.input)
 
             await self.send_streaming_response(
                 chatId, assistant_message_id, event.model_dump()
@@ -244,3 +244,28 @@ class ChatManager:
         task = self.stream_tasks.get(chat_id)
         if task:
             task.cancel()
+
+    def remove_incomplete_tool_uses(self, messages):
+        tool_use_has_result = set()
+        for m in messages:
+            for c in m["content"]:
+                if c["type"] == C.LLM_TOOL_USE:
+                    if not isinstance(c["input"], dict):
+                        c["input"] = self.tool_use_input_str_to_dict(c["input"])
+                elif c["type"] == C.LLM_TOOL_RESULT:
+                    tool_use_has_result.add(c["tool_use_id"])
+
+        for m in messages:
+            new_content = []
+            for c in m["content"]:
+                if c["type"] == C.LLM_TOOL_USE and c["id"] not in tool_use_has_result:
+                    continue
+                new_content.append(c)
+            m["content"] = new_content
+
+        return [m for m in messages if len(m["content"]) > 0]
+
+    def tool_use_input_str_to_dict(self, input):
+        if isinstance(input, str) and input:
+            return json.loads(input)
+        return {}

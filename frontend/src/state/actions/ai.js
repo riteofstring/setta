@@ -203,10 +203,10 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
         currMsgsignature = chunk.delta.signature;
         break;
       case C.LLM_INPUT_JSON_DELTA:
-        if (typeof currMsg.text !== "string") {
-          currMsg.text = "";
+        if (typeof currMsg.input !== "string") {
+          currMsg.input = "";
         }
-        currMsg.text += chunk.delta.partial_json;
+        currMsg.input += chunk.delta.partial_json;
         break;
       default:
         updated = false;
@@ -241,8 +241,12 @@ function llmContentBlockStop(assistantMessageId, chunk) {
     const message = state.messages[messageIndex];
     const newContentArray = [...message.content];
     const currMsg = newContentArray[chunk.index];
-    if (currMsg.type === C.LLM_TOOL_USE && currMsg.text) {
-      currMsg.input = JSON.parse(currMsg.text);
+    if (currMsg.type === C.LLM_TOOL_USE) {
+      if (currMsg.input) {
+        currMsg.input = JSON.parse(currMsg.input);
+      } else {
+        currMsg.input = {};
+      }
     } else {
       return {};
     }
