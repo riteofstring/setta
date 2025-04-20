@@ -2,9 +2,8 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
+import { dbFilesWatchList } from "requests/jsonSource";
 import {
-  useAIStore,
   useArtifacts,
   useEVRefRegex,
   useMisc,
@@ -75,9 +74,9 @@ export function subscribe() {
   );
 
   useSectionInfos.subscribe(
-    jsonFilenameSubscriptionFn,
+    filenameSubscriptionFn,
     (newVal) => {
-      dbFileWatchList([...newVal], "jsonSource");
+      dbFilesWatchList([...newVal]);
     },
     {
       equalityFn: _.isEqual,
@@ -176,12 +175,6 @@ export function subscribe() {
     {
       equalityFn: _.isEqual,
     },
-  );
-
-  useAIStore.subscribe(
-    apiKeysFilepathSubscriptionFn,
-    (newVal, oldVal) => dbFileWatchReplacePath(newVal, oldVal, "apiKeysFile"),
-    { fireImmediately: true },
   );
 }
 
@@ -291,7 +284,7 @@ function artifactWhoModifiedSubscriptionFn(state) {
   return output;
 }
 
-function jsonFilenameSubscriptionFn(state) {
+function filenameSubscriptionFn(state) {
   const filenameSet = new Set();
   for (const v of Object.values(state.variants)) {
     if (v.isJsonSource) {
@@ -325,8 +318,4 @@ function entryCodeBlockSubscriptionFn(state) {
     }
   }
   return count;
-}
-
-function apiKeysFilepathSubscriptionFn(state) {
-  return state.apiKeysFilepath;
 }
