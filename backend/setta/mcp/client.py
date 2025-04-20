@@ -155,45 +155,16 @@ class MCPClient:
             )
 
             for msg in complete_messages:
-                if msg.type == "text":
-                    assistant_message_content.append(
-                        {"type": msg.type, "text": msg.text}
-                    )
-                elif msg.type == "thinking":
-                    assistant_message_content.append(
-                        {
-                            "type": msg.type,
-                            "thinking": msg.text,
-                            "signature": msg.signature,
-                        }
-                    )
-                elif msg.type == "tool_use":
+                assistant_message_content.append(msg)
+                if msg.type == C.LLM_TOOL_USE:
                     has_tool_call = True
-                    tool_name = msg.name
-                    tool_args = msg.input
-
-                    # Format the tool_use content block for history
-                    assistant_message_content.append(
-                        {
-                            "type": msg.type,
-                            "id": msg.id,
-                            "name": tool_name,
-                            "input": tool_args,
-                        }
-                    )
-
-                    # Execute tool call
-                    result = await self.session.call_tool(tool_name, tool_args)
-
+                    result = await self.session.call_tool(msg.name, msg.input)
                     tool_result = {
-                        "type": "tool_result",
+                        "type": C.LLM_TOOL_RESULT,
                         "tool_use_id": msg.id,
                         "content": result.content,
                     }
-
                     await self.send_streaming_response(chatId, tool_result)
-
-                    # Update conversation history
                     messages.append(
                         {
                             "id": assistant_message_id,
@@ -208,7 +179,6 @@ class MCPClient:
                             "content": [tool_result],
                         }
                     )
-
                     break
 
             # If we processed the entire response without finding tool calls, we're done
@@ -224,7 +194,7 @@ class MCPClient:
                 break
             # Otherwise continue the loop to get the next response after tool use
 
-        chunk = {"type": "message_stop"}
+        chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
         await self.send_streaming_response(chatId, assistant_message_id, chunk)
 
     async def stop(self):
@@ -280,6 +250,7 @@ class MCPClient:
                 curr_msg = llm_msgs[event.index]
                 if curr_msg.type == C.LLM_TOOL_USE and curr_msg.text:
                     curr_msg.input = json.loads(curr_msg.text)
+                    delattr(curr_msg, "text")
             await self.send_streaming_response(
                 chatId, assistant_message_id, event.model_dump()
             )

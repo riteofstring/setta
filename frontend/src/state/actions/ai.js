@@ -123,6 +123,9 @@ export function receiveLLMResponseChunk(msg) {
       case C.LLM_CONTENT_BLOCK_STOP:
         llmContentBlockStop(assistantMessageId, chunk);
         return;
+      case C.LLM_FULL_MESSAGE_STOP:
+        llmFullMessageStop(assistantMessageId, chunk);
+        return;
     }
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);
@@ -248,6 +251,10 @@ function llmContentBlockStop(assistantMessageId, chunk) {
 
     return { messages: newMessages };
   });
+}
+
+function llmFullMessageStop(assistantMessageId, chunk) {
+  
 }
 
 function streamInto(streamTarget, content) {
