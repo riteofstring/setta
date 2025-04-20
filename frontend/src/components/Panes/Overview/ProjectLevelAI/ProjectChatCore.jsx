@@ -264,15 +264,18 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
 
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
-  messages,
-  selectedModel,
+  chatSessions,
+  sessionId,
   placeholderText,
   handleSubmit,
   isLoading,
 }) {
   return (
     <>
-      <MessageList messages={messages} isLoading={isLoading} />
+      <MessageList
+        messages={chatSessions[sessionId]?.messages ?? []}
+        isLoading={isLoading}
+      />
       <ChatInput
         onSubmit={handleSubmit}
         placeholderText={placeholderText}

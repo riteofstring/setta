@@ -9,13 +9,14 @@ export async function dbGetLLMResponse(
   sessionId = null,
 ) {
   try {
+    const { sessionId, chatSessions } = useAIStore.getState();
+
     const response = await post({
       body: {
         model,
         // message,
-        conversationHistory: useAIStore
-          .getState()
-          .messages.filter((m) => m.content)
+        conversationHistory: chatSessions[sessionId].messages
+          .filter((m) => m.content)
           .map((m) => ({ role: m.role, content: m.content })),
         deepThink,
         session_id: sessionId,

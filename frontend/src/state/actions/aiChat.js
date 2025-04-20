@@ -31,36 +31,22 @@ export function updateChatSession(id, newMessages) {
 }
 
 export function createNewChat() {
-  const { messages, sessionId } = useAIStore.getState();
-
-  // Save current chat only if it has content
-  if (sessionId && messages.length > 0) {
-    updateChatSession(sessionId, messages);
-  }
-
   // Simple clean creation of new session
   const newSessionId = `session_${Date.now()}`;
   useAIStore.setState({
     sessionId: newSessionId,
-    messages: [],
     viewHistory: false,
   });
 }
 
 export function switchToChat(id) {
-  const { sessionId, messages, chatSessions } = useAIStore.getState();
+  const { sessionId, chatSessions } = useAIStore.getState();
 
   // Guard clause: already on this chat
   if (id === sessionId) {
     useAIStore.setState({ viewHistory: false });
     return;
   }
-
-  // Save current chat if it has messages
-  if (sessionId && messages.length > 0) {
-    updateChatSession(sessionId, messages);
-  }
-
   // Find requested chat
   const selectedChat = chatSessions.find((session) => session.id === id);
 
@@ -70,17 +56,15 @@ export function switchToChat(id) {
   // Switch to selected chat
   useAIStore.setState({
     sessionId: id,
-    messages: selectedChat.messages,
     viewHistory: false,
   });
 }
 
 export function addMessageToChat(message, useSessionId = null) {
-  const { messages, sessionId } = useAIStore.getState();
-  const newMessages = [...messages, message];
+  const { chatSessions, sessionId } = useAIStore.getState();
+  const newMessages = [...chatSessions[sessionId].messages, message];
 
   useAIStore.setState({ messages: newMessages });
-  updateChatSession(useSessionId || sessionId, newMessages);
 
   return newMessages;
 }
@@ -142,7 +126,6 @@ export function receiveLLMResponseChunk(chunk) {
   try {
     // Get current state
     const currentState = useAIStore.getState();
-    const currentMessages = currentState.messages;
     let {
       currentBlockType,
       currentBlockIndex,
@@ -150,7 +133,10 @@ export function receiveLLMResponseChunk(chunk) {
       currentToolName,
       currentAssistantMsgId,
       sessionId,
+      chatSessions,
     } = currentState;
+
+    const currentMessages = chatSessions[sessionId].messages;
 
     // Find the message we're updating
     const messageIndex = currentMessages.findIndex(
