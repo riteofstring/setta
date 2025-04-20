@@ -151,8 +151,7 @@ async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     chat_manager=Depends(get_chat_manager),
 ):
-    success = await chat_manager.request_stop_streaming(x.chatId)
-    return {"success": success}
+    await chat_manager.request_stop_streaming(x.chatId)
 
 
 @router.post(C.ROUTE_GET_LLM_CHAT)

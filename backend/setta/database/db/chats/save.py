@@ -55,7 +55,7 @@ def delete_chat(db, chat_id):
     db.execute(query, {"chatId": chat_id})
 
 
-def update_chat(db, chat_id, new_messages):
+def save_messages(db, chat_id, messages):
     # First, get the maximum order value for this chat
     max_order_query = """
         SELECT MAX("order") FROM ChatMessage WHERE chatId = :chat_id
@@ -68,10 +68,12 @@ def update_chat(db, chat_id, new_messages):
     query = """
         INSERT INTO ChatMessage (id, chatId, "order", role, content) 
         VALUES (:id, :chat_id, :order, :role, :content)
+        ON CONFLICT (id)
+        DO NOTHING
     """
     query_params = []
 
-    for idx, m in enumerate(new_messages):
+    for idx, m in enumerate(messages):
         query_params.append(
             {
                 "id": m["id"],
