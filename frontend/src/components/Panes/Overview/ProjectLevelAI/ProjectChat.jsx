@@ -5,12 +5,6 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import {
-  createNewChat,
-  submitMessage,
-  switchToChat,
-  updateChatSession,
-} from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
@@ -35,29 +29,6 @@ export function ProjectChat() {
 
   const [deepThink, setDeepThink] = useState(false);
 
-  // Initialize a new chat if none exists
-  useEffect(() => {
-    if (!sessionId) createNewChat();
-  }, [sessionId, createNewChat]);
-
-  // Save chat when the component unmounts or before page refresh
-  useEffect(() => {
-    const saveCurrentChat = () => {
-      if (sessionId && messages.length > 0) {
-        updateChatSession(sessionId, messages);
-      }
-    };
-
-    // Add event listener for beforeunload to save chat before page refresh
-    window.addEventListener("beforeunload", saveCurrentChat);
-
-    // Return cleanup function to save chat when component unmounts
-    return () => {
-      window.removeEventListener("beforeunload", saveCurrentChat);
-      saveCurrentChat();
-    };
-  }, [sessionId, messages, updateChatSession]);
-
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
     () =>
@@ -74,7 +45,6 @@ export function ProjectChat() {
           <div className="flex gap-2">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={createNewChat}
               aria-label="New Chat"
             >
               <MdAdd size={15} />
@@ -130,14 +100,12 @@ export function ProjectChat() {
           <ProjectChatHistory
             chatSessions={chatSessions}
             sessionId={sessionId}
-            switchToChat={switchToChat}
           />
         ) : (
           <ProjectChatCore
             messages={messages}
-            selectedModel={userSelectedLLM}
             placeholderText="Type a message..."
-            handleSubmit={(m) => submitMessage(m, deepThink)}
+            deepThink={deepThink}
             isLoading={isLoading}
           />
         )}

@@ -1,6 +1,7 @@
 import { FiTrash2 } from "react-icons/fi";
+import { switchToChat } from "state/actions/ai";
 
-export function ProjectChatHistory({ chatSessions, sessionId, switchToChat }) {
+export function ProjectChatHistory({ chatSessions, sessionId }) {
   return (
     <div className="flex flex-col gap-2 overflow-y-auto p-4">
       <h3 className="mb-4 text-setta-600 dark:text-setta-400">Chat History</h3>

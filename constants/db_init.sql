@@ -238,8 +238,8 @@ CREATE TABLE IF NOT EXISTS Chat (
 CREATE TABLE IF NOT EXISTS ChatMessage (
     chatId TEXT NOT NULL,
     "order" INTEGER NOT NULL,
-    role TEXT NOT NULL,  -- 'user', 'assistant', or 'system'
-    streamSequence TEXT,
+    role TEXT NOT NULL,
+    content TEXT,
     PRIMARY KEY (chatId, "order"),
     FOREIGN KEY (chatId) REFERENCES Chat(id) ON DELETE CASCADE
 );

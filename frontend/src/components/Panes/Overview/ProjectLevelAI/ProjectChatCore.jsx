@@ -9,7 +9,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import ChatInput from "./ChatInput";
+import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
@@ -138,12 +138,11 @@ const ToolCall = memo(
   },
 );
 
-const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
+const StreamItem = ({ item, nextItem, isStreaming }) => {
   switch (item.type) {
     case "text":
       return (
         <MarkdownContent
-          key={`text-${idx}`}
           content={item.content}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
           role="assistant"
@@ -152,7 +151,6 @@ const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
       );
     case "tool_call":
       // Check if the next item is a tool_result
-      const nextItem = streamSequence[idx + 1];
       const hasResult = nextItem && nextItem.type === "tool_result";
       const resultContent = hasResult ? nextItem.content : null;
 
@@ -164,7 +162,6 @@ const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
 
       return (
         <ToolCall
-          key={`tool-call-${idx}`}
           name={item.name}
           args={item.args}
           jsonSoFar={item.jsonSoFar}
@@ -191,19 +188,17 @@ function LLMChatBubble({ children }) {
 }
 
 const ChatMessage = memo(({ message, isStreaming }) => {
-  // Handle streaming message with streamSequence
-  if (message.streamSequence) {
+  if (message.role === "assistant") {
     return (
       <LLMChatBubble>
-        {message.streamSequence.length === 0 && (
+        {message.content.length === 0 && (
           <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
         )}
-        {message.streamSequence.map((item, idx) => (
+        {message.content.map((item, idx) => (
           <StreamItem
-            item={item}
-            idx={idx}
             key={idx}
-            streamSequence={message.streamSequence}
+            item={item}
+            nextItem={message.content[idx + 1]}
             isStreaming={isStreaming}
           />
         ))}
@@ -265,16 +260,15 @@ const MessageList = memo(function MessageList({ messages, isLoading }) {
 // Main component
 export const ProjectChatCore = memo(function ProjectChatCore({
   messages,
-  selectedModel,
   placeholderText,
-  handleSubmit,
+  deepThink,
   isLoading,
 }) {
   return (
     <>
       <MessageList messages={messages} isLoading={isLoading} />
       <ChatInput
-        onSubmit={handleSubmit}
+        deepThink={deepThink}
         placeholderText={placeholderText}
         isLoading={isLoading}
       />

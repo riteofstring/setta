@@ -3,62 +3,13 @@ import { dbGetLLMResponse } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
-export function updateChatSession(id, newMessages) {
-  if (!id) return;
-
-  const { chatSessions } = useAIStore.getState();
-  const existingIndex = chatSessions.findIndex((s) => s.id === id);
-
-  // Create session update object
-  const sessionUpdate = {
-    id,
-    messages: newMessages,
-    lastUpdated: Date.now(),
-    title: newMessages[0]?.content.substring(0, 30) || "New Chat",
-  };
-
-  // Clean direct updates with guard clauses
-  if (existingIndex === -1) {
-    // Add new session
-    useAIStore.setState({ chatSessions: [...chatSessions, sessionUpdate] });
-    return;
-  }
-
-  // Update existing session
-  const updatedSessions = [...chatSessions];
-  updatedSessions[existingIndex] = sessionUpdate;
-  useAIStore.setState({ chatSessions: updatedSessions });
-}
-
-export function createNewChat() {
-  const { messages, sessionId } = useAIStore.getState();
-
-  // Save current chat only if it has content
-  if (sessionId && messages.length > 0) {
-    updateChatSession(sessionId, messages);
-  }
-
-  // Simple clean creation of new session
-  const newSessionId = `session_${Date.now()}`;
-  useAIStore.setState({
-    sessionId: newSessionId,
-    messages: [],
-    viewHistory: false,
-  });
-}
-
 export function switchToChat(id) {
-  const { sessionId, messages, chatSessions } = useAIStore.getState();
+  const { sessionId, chatSessions } = useAIStore.getState();
 
   // Guard clause: already on this chat
   if (id === sessionId) {
     useAIStore.setState({ viewHistory: false });
     return;
-  }
-
-  // Save current chat if it has messages
-  if (sessionId && messages.length > 0) {
-    updateChatSession(sessionId, messages);
   }
 
   // Find requested chat
@@ -73,16 +24,6 @@ export function switchToChat(id) {
     messages: selectedChat.messages,
     viewHistory: false,
   });
-}
-
-export function addMessageToChat(message, useSessionId = null) {
-  const { messages, sessionId } = useAIStore.getState();
-  const newMessages = [...messages, message];
-
-  useAIStore.setState({ messages: newMessages });
-  updateChatSession(useSessionId || sessionId, newMessages);
-
-  return newMessages;
 }
 
 function resetStreamingResponseState() {
@@ -102,38 +43,30 @@ export async function submitMessage(userMessage, deepThink) {
   // Guard clause: empty message
   if (!userMessage.trim()) return;
 
-  const { messages, sessionId, userSelectedLLM } = useAIStore.getState();
-
-  useAIStore.setState({ isLoading: true });
-
   // Add user message immediately for responsive UI
-  const userMsg = { role: "user", content: userMessage };
-  const updatedMessages = [...messages, userMsg];
-  useAIStore.setState({ messages: updatedMessages });
-
-  // Create a placeholder for the assistant's message
-  const assistantMsgId = Date.now().toString();
-  const assistantMsg = {
-    role: "assistant",
-    content: "",
-    id: assistantMsgId,
-    streamSequence: [], // Ordered sequence of content chunks and tool interactions
+  const userMsg = {
+    role: "user",
+    content: [{ type: "text", text: userMessage }],
   };
 
-  useAIStore.setState({ currentAssistantMsgId: assistantMsgId });
+  useAIStore.setState((state) => ({
+    isLoading: true,
+    messages: [...state.messages, userMsg],
+    currentAssistantMsgId: assistantMsgId,
+  }));
 
-  // Add empty assistant message that will be updated
-  addMessageToChat(assistantMsg);
+  const { sessionId, userSelectedLLM } = useAIStore.getState();
 
   try {
-    dbGetLLMResponse(userSelectedLLM, userMessage, deepThink, sessionId);
+    await dbGetLLMResponse(userSelectedLLM, userMessage, deepThink, sessionId);
   } catch (error) {
     // Error handling
     const errorMsg = {
       role: "assistant",
       content: `Sorry, there was a problem with the API: ${error.message || "Unknown error"}.`,
     };
-    addMessageToChat(errorMsg);
+    // TODO: show error message in chat area
+    console.error(errorMsg);
     resetStreamingResponseState();
   }
 }
@@ -149,7 +82,6 @@ export function receiveLLMResponseChunk(chunk) {
       currentJsonContent,
       currentToolName,
       currentAssistantMsgId,
-      sessionId,
     } = currentState;
 
     // Find the message we're updating
@@ -181,7 +113,7 @@ export function receiveLLMResponseChunk(chunk) {
           }
 
           // Create a tool call entry immediately with the known name
-          currentMsg.streamSequence.push({
+          currentMsg.content.push({
             type: "tool_call",
             name: currentToolName,
             args: {},
@@ -201,9 +133,8 @@ export function receiveLLMResponseChunk(chunk) {
 
           // For text deltas, either add to existing content or create a new text chunk
           if (
-            currentMsg.streamSequence.length > 0 &&
-            currentMsg.streamSequence[currentMsg.streamSequence.length - 1]
-              .type === "text"
+            currentMsg.content.length > 0 &&
+            currentMsg.content[currentMsg.content.length - 1].type === "text"
           ) {
             // Add to existing text chunk
             const lastItem =
@@ -362,9 +293,6 @@ export function receiveLLMResponseChunk(chunk) {
         currentJsonContent,
         currentToolName,
       });
-
-      // Also update the chat session
-      updateChatSession(sessionId, updatedMessages);
     }
   } catch (e) {
     console.error("Error parsing streaming chunk:", e);

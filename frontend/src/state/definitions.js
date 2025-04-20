@@ -281,6 +281,7 @@ export const useAIStore = create(
           chatSessions: state.chatSessions,
           sessionId: state.sessionId,
           messages: state.messages,
+          viewHistory: state.viewHistory,
         }),
       },
     ),
