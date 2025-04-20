@@ -9,6 +9,7 @@ import {
   createNewChat,
   submitMessage,
   switchToChat,
+  updateChatSession,
 } from "state/actions/aiChat";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
@@ -20,6 +21,7 @@ export function ProjectAIChat() {
   const {
     apiKeys,
     apiKeysInitialLoadComplete,
+    messages,
     chatSessions,
     sessionId,
     isLoading,
@@ -36,7 +38,25 @@ export function ProjectAIChat() {
   // Initialize a new chat if none exists
   useEffect(() => {
     if (!sessionId) createNewChat();
-  }, [sessionId]);
+  }, [sessionId, createNewChat]);
+
+  // Save chat when the component unmounts or before page refresh
+  useEffect(() => {
+    const saveCurrentChat = () => {
+      if (sessionId && messages.length > 0) {
+        updateChatSession(sessionId, messages);
+      }
+    };
+
+    // Add event listener for beforeunload to save chat before page refresh
+    window.addEventListener("beforeunload", saveCurrentChat);
+
+    // Return cleanup function to save chat when component unmounts
+    return () => {
+      window.removeEventListener("beforeunload", saveCurrentChat);
+      saveCurrentChat();
+    };
+  }, [sessionId, messages, updateChatSession]);
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
@@ -114,8 +134,8 @@ export function ProjectAIChat() {
           />
         ) : (
           <ProjectChatCore
-            chatSessions={chatSessions}
-            sessionId={sessionId}
+            messages={messages}
+            selectedModel={userSelectedLLM}
             placeholderText="Type a message..."
             handleSubmit={(m) => submitMessage(m, deepThink)}
             isLoading={isLoading}
