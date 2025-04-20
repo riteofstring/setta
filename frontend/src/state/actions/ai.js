@@ -63,8 +63,8 @@ export async function submitMessage(message, deepThink) {
   // Add user message immediately for responsive UI
   const userMessage = {
     id: createNewId(),
-    role: "user",
-    content: [{ type: "text", text: message }],
+    role: C.LLM_USER_ROLE,
+    content: [{ type: C.LLM_TEXT, text: message }],
   };
 
   useAIStore.setState((state) => ({

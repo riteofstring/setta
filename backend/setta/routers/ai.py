@@ -164,7 +164,6 @@ async def route_get_llm_chat(
     current_stream = chat_manager.get_current_stream(x.chatId)
     messages = chat["messages"]
     merge_db_messages_with_current_stream(messages, current_stream)
-    # messages = consolidate_messages(messages)
 
     return {
         "messages": messages,
@@ -183,42 +182,3 @@ def merge_db_messages_with_current_stream(db_messages, current_stream):
             # Add to existing_ids to track what we've added
             existing_ids.add(message["id"])
 
-
-def consolidate_messages(messages):
-    """
-    Consolidates messages in a list based on specific rules:
-    1. Combines consecutive "assistant" objects by concatenating their content lists
-    2. When an "assistant" object is followed by a "user" object with content[0]["type"] == "tool_result",
-       extends the assistant's content with the user's content and removes the user object
-
-    Args:
-        messages (list): List of message dictionaries with 'role' and 'content' keys
-
-    Returns:
-        list: Consolidated list of messages
-    """
-    if not messages or len(messages) <= 1:
-        return messages
-
-    result = []
-
-    for message in messages:
-        # Check if this message should be merged with the previous one
-        if result and (
-            (result[-1]["role"] == "assistant" and message["role"] == "assistant")
-            or (
-                result[-1]["role"] == "assistant"
-                and message["role"] == "user"
-                and message["content"]
-                and message["content"][0].get("type") == "tool_result"
-            )
-        ):
-            # Merge with the previous message in the result list
-            result[-1]["content"].extend(message["content"])
-        else:
-            # Add as a new message to the result list
-            result.append(
-                {"role": message["role"], "content": message["content"].copy()}
-            )
-
-    return result

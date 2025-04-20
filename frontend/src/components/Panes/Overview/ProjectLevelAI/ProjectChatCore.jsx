@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import { memo, useEffect, useRef, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -18,8 +18,7 @@ import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
   // Only animate if this is an assistant message that's currently streaming
-  const isAssistant = role === C.LLM_ASSISTANT_ROLE;
-  const shouldAnimate = isAssistant && isStreaming;
+  const shouldAnimate = role === C.LLM_ASSISTANT_ROLE && isStreaming;
 
   // Use the typewriter effect
   const displayText = useTypewriterEffect(
@@ -48,11 +47,9 @@ const formatToolArgs = (args, jsonSoFar) => {
 };
 
 const ThinkingBox = memo(({ content, isStreaming }) => {
-  const shouldAnimate = isStreaming;
-  // Use the typewriter effect
   const displayText = useTypewriterEffect(
     content,
-    shouldAnimate,
+    isStreaming,
     5, // typing speed
   );
 
@@ -80,67 +77,64 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
   );
 });
 
-const ToolCall = memo(
-  ({ name, args, jsonSoFar, streaming, result, success = true, toolUseId }) => {
-    return (
-      <Accordion.Root type="single" collapsible>
-        <Accordion.Item value="details">
-          <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-            <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
-              <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
-                <PiWrenchFill
-                  size={15}
-                  className="min-w-6 text-setta-200 dark:text-setta-400"
-                />
-              </div>
-
-              <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
-                {name}
-                {streaming}
-              </div>
-
-              {result &&
-                (success ? (
-                  <IoMdCheckmark className="absolute right-2 text-setta-400" />
-                ) : (
-                  <MdErrorOutline className="absolute right-2 text-red-500" />
-                ))}
+const ToolCall = memo(({ name, args, jsonSoFar, result, success }) => {
+  return (
+    <Accordion.Root type="single" collapsible>
+      <Accordion.Item value="details">
+        <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+          <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
+            <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+              <PiWrenchFill
+                size={15}
+                className="min-w-6 text-setta-200 dark:text-setta-400"
+              />
             </div>
-          </Accordion.Trigger>
 
-          <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-            {(args || jsonSoFar) && (
-              <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
-                <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
-                  Arguments
-                </h3>
-                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
-                  {formatToolArgs(args, jsonSoFar)}
-                </pre>
-              </div>
-            )}
-            {result && (
-              <div className=" bg-setta-300 p-3  dark:bg-setta-860">
-                <h3 className="!mt-0 text-xs uppercase text-setta-700 dark:text-setta-300">
-                  Result
-                </h3>
-                <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
-                  {typeof result === "string"
-                    ? result
-                    : typeof result === "object"
-                      ? JSON.stringify(result, null, 2)
-                      : success
-                        ? "Tool completed successfully"
-                        : "Tool execution failed"}
-                </pre>
-              </div>
-            )}
-          </Accordion.Content>
-        </Accordion.Item>
-      </Accordion.Root>
-    );
-  },
-);
+            <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+              {name}
+            </div>
+
+            {result &&
+              (success ? (
+                <IoMdCheckmark className="absolute right-2 text-setta-400" />
+              ) : (
+                <MdErrorOutline className="absolute right-2 text-red-500" />
+              ))}
+          </div>
+        </Accordion.Trigger>
+
+        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          {(args || jsonSoFar) && (
+            <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
+              <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
+                Arguments
+              </h3>
+              <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
+                {formatToolArgs(args, jsonSoFar)}
+              </pre>
+            </div>
+          )}
+          {result && (
+            <div className=" bg-setta-300 p-3  dark:bg-setta-860">
+              <h3 className="!mt-0 text-xs uppercase text-setta-700 dark:text-setta-300">
+                Result
+              </h3>
+              <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
+                {typeof result === "string"
+                  ? result
+                  : typeof result === "object"
+                    ? JSON.stringify(result, null, 2)
+                    : success
+                      ? "Tool completed successfully"
+                      : "Tool execution failed"}
+              </pre>
+            </div>
+          )}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
 
 const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
   switch (item.type) {
@@ -166,10 +160,8 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           name={item.name}
           args={item.input}
           jsonSoFar={item.jsonSoFar}
-          streaming={item.streaming}
           result={hasResult ? toolResult.content?.[0]?.text : undefined}
           success={isSuccess}
-          toolUseId={item.id}
         />
       );
     case "thinking":
@@ -189,18 +181,16 @@ function LLMChatBubble({ children }) {
   );
 }
 
-// New: Process messages to consolidate assistant messages and handle tool results
-// Process all messages from scratch - used for initial load
+// Consolidate assistant messages and handle tool results
 const processMessages = (messages) => {
   const processedMessages = [];
   const toolResults = {};
 
   // First pass: collect tool results
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i];
+  for (const message of messages) {
     if (
-      message.role === "user" &&
-      message.content?.[0]?.type === "tool_result"
+      message.role === C.LLM_USER_ROLE &&
+      message.content?.[0]?.type === C.LLM_TOOL_RESULT
     ) {
       const toolResult = message.content[0];
       toolResults[toolResult.tool_use_id] = toolResult;
@@ -210,13 +200,11 @@ const processMessages = (messages) => {
   // Second pass: process messages and combine assistant messages
   let currentAssistantMessage = null;
 
-  for (let i = 0; i < messages.length; i++) {
-    const message = messages[i];
-
+  for (const message of messages) {
     // Skip tool result user messages as we've already processed them
     if (
-      message.role === "user" &&
-      message.content?.[0]?.type === "tool_result"
+      message.role === C.LLM_USER_ROLE &&
+      message.content?.[0]?.type === C.LLM_TOOL_RESULT
     ) {
       continue;
     }
@@ -226,93 +214,6 @@ const processMessages = (messages) => {
       // If we're already building an assistant message, add this content to it
       if (currentAssistantMessage) {
         currentAssistantMessage.content.push(...message.content);
-      } else {
-        // Start a new assistant message
-        currentAssistantMessage = {
-          ...message,
-          content: [...message.content],
-        };
-      }
-    } else {
-      // User message - add the current assistant message if we have one
-      if (currentAssistantMessage) {
-        processedMessages.push(currentAssistantMessage);
-        currentAssistantMessage = null;
-      }
-      processedMessages.push(message);
-    }
-  }
-
-  // Add the last assistant message if there is one
-  if (currentAssistantMessage) {
-    processedMessages.push(currentAssistantMessage);
-  }
-
-  return { processedMessages, toolResults };
-};
-
-// Process only new messages incrementally - more efficient for streaming
-const processIncrementalMessages = (
-  messages,
-  startIndex,
-  existingProcessedMessages,
-  existingToolResults,
-) => {
-  const processedMessages = [...existingProcessedMessages];
-  const toolResults = { ...existingToolResults };
-
-  // First, collect any new tool results
-  for (let i = startIndex; i < messages.length; i++) {
-    const message = messages[i];
-    if (
-      message.role === "user" &&
-      message.content?.[0]?.type === "tool_result"
-    ) {
-      const toolResult = message.content[0];
-      toolResults[toolResult.tool_use_id] = toolResult;
-    }
-  }
-
-  // Then, process new messages
-  let currentAssistantMessage = null;
-
-  // If the last processed message was part of an assistant message, we need to continue building it
-  if (
-    processedMessages.length > 0 &&
-    processedMessages[processedMessages.length - 1].role ===
-      C.LLM_ASSISTANT_ROLE
-  ) {
-    currentAssistantMessage = processedMessages.pop();
-  }
-
-  for (let i = startIndex; i < messages.length; i++) {
-    const message = messages[i];
-
-    // Skip tool result user messages as we've already processed them
-    if (
-      message.role === "user" &&
-      message.content?.[0]?.type === "tool_result"
-    ) {
-      continue;
-    }
-
-    // If this is an assistant message
-    if (message.role === C.LLM_ASSISTANT_ROLE) {
-      // If we're already building an assistant message, add this content to it
-      if (currentAssistantMessage) {
-        // Avoid duplicate content by checking if this content is already included
-        const existingContentIds = new Set(
-          currentAssistantMessage.content.map(
-            (item) => item.id || JSON.stringify(item),
-          ),
-        );
-
-        // Only add content we don't already have
-        const newContent = message.content.filter(
-          (item) => !existingContentIds.has(item.id || JSON.stringify(item)),
-        );
-
-        currentAssistantMessage.content.push(...newContent);
       } else {
         // Start a new assistant message
         currentAssistantMessage = {
@@ -377,7 +278,9 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
         key={idx}
         message={message}
         toolResults={toolResults}
-        isStreaming={waitingForResponse && message.role === "assistant"}
+        isStreaming={
+          waitingForResponse && message.role === C.LLM_ASSISTANT_ROLE
+        }
       />,
     );
   }
@@ -385,12 +288,12 @@ function ChatMessages({ messages, toolResults, waitingForResponse }) {
   // add a temporary empty message for loading spinner to appear in
   if (
     waitingForResponse &&
-    messages[messages.length - 1]?.role !== "assistant"
+    messages[messages.length - 1]?.role !== C.LLM_ASSISTANT_ROLE
   ) {
     output.push(
       <ChatMessage
         key={messages.length}
-        message={{ role: "assistant", content: [] }}
+        message={{ role: C.LLM_ASSISTANT_ROLE, content: [] }}
         toolResults={toolResults}
         isStreaming={true}
       />,

@@ -145,7 +145,7 @@ class ChatManager:
                     newer_msgs.append(
                         {
                             "id": create_new_id(),
-                            "role": "user",
+                            "role": C.LLM_USER_ROLE,
                             "content": [tool_result],
                         }
                     )

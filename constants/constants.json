@@ -175,6 +175,7 @@
   "LLM_SIGNATURE_DELTA": "signature_delta",
   "LLM_INPUT_JSON_DELTA": "input_json_delta",
   "LLM_ASSISTANT_ROLE": "assistant",
+  "LLM_USER_ROLE": "user",
   "LLM_TEXT": "text",
   "LLM_THINKING": "thinking",
   "LLM_TOOL_USE": "tool_use",
