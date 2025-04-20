@@ -189,7 +189,7 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
         currMsgsignature = chunk.delta.signature;
         break;
       case C.LLM_INPUT_JSON_DELTA:
-        if (typeof currMsg !== "string") {
+        if (typeof currMsg.text !== "string") {
           currMsg.text = "";
         }
         currMsg.text += chunk.delta.partial_json;

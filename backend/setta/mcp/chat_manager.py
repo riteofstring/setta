@@ -65,6 +65,7 @@ class ChatManager:
         chatId = chat["id"]
         messages = chat["messages"]
         self.init_current_stream(chatId)
+        curr_stream = self.current_streams[chatId]
 
         while True:
             has_tool_call = False
@@ -84,7 +85,7 @@ class ChatManager:
                 max_tokens=20000,
                 messages=[
                     {"role": m["role"], "content": m["content"]}
-                    for m in [*messages, *self.current_streams[chatId]]
+                    for m in [*messages, *curr_stream]
                 ],
                 tools=self.mcp_client.available_tools,
                 stream=True,
@@ -118,31 +119,39 @@ class ChatManager:
 
             assistant_message_id = await self.stream_responses(chatId, stream)
 
-            if len(self.current_streams[chatId]) == 0:
+            if len(curr_stream) == 0:
                 break
 
-            latest_msg = self.current_streams[chatId][-1]
+            curr_stream[-1] = curr_stream[-1].model_dump()
+            latest_msg = curr_stream[-1]
+            newer_msgs = []
 
-            for sub_msg in latest_msg.content:
-                if sub_msg.type == C.LLM_TOOL_USE:
+            for sub_msg in latest_msg["content"]:
+                if sub_msg["type"] == C.LLM_TOOL_USE:
                     has_tool_call = True
                     result = await self.mcp_client.call_tool(
-                        sub_msg.name, sub_msg.input
+                        sub_msg["name"], sub_msg["input"]
                     )
+                    result = self.process_tool_result(result)
                     tool_result = {
                         "type": C.LLM_TOOL_RESULT,
-                        "tool_use_id": sub_msg.id,
-                        "content": result.content,
+                        "tool_use_id": sub_msg["id"],
+                        "content": result["content"],
+                        "is_error": False,
                     }
-                    await self.send_streaming_response(chatId, tool_result)
-                    tool_result_msg = {
-                        "id": create_new_id(),
-                        "role": "user",
-                        "content": [tool_result],
-                    }
-                    latest_msg.content.append(tool_result_msg)
+                    await self.send_streaming_response(
+                        chatId, assistant_message_id, tool_result
+                    )
+                    newer_msgs.append(
+                        {
+                            "id": create_new_id(),
+                            "role": "user",
+                            "content": [tool_result],
+                        }
+                    )
 
-            self.update_chat(chatId, [latest_msg.model_dump()])
+            self.update_chat(chatId, [latest_msg, *newer_msgs])
+            curr_stream.extend(newer_msgs)
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
@@ -179,13 +188,14 @@ class ChatManager:
                 elif event.delta.type == C.LLM_SIGNATURE_DELTA:
                     curr_msg.signature = event.delta.signature
                 elif event.delta.type == C.LLM_INPUT_JSON_DELTA:
-                    if not isinstance(curr_msg.text, str):
+                    if not hasattr(curr_msg, "text"):
                         curr_msg.text = ""
                     curr_msg.text += event.delta.partial_json
             elif event.type == C.LLM_CONTENT_BLOCK_STOP:
                 curr_msg = llm_msgs[event.index]
-                if curr_msg.type == C.LLM_TOOL_USE and curr_msg.text:
-                    curr_msg.input = json.loads(curr_msg.text)
+                if curr_msg.type == C.LLM_TOOL_USE:
+                    if curr_msg.text:
+                        curr_msg.input = json.loads(curr_msg.text)
                     delattr(curr_msg, "text")
 
             await self.send_streaming_response(
@@ -198,3 +208,9 @@ class ChatManager:
         await self.websocket_msg_handler.send_streaming_response(
             chatId, assistant_message_id, chunk
         )
+
+    def process_tool_result(self, result):
+        result = result.model_dump()
+        for c in result["content"]:
+            c.pop("annotations", None)
+        return result
