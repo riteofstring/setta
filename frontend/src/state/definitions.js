@@ -268,7 +268,6 @@ export const useAIStore = create(
         streamBeforeLines: "",
         streamAfterLines: "",
         streamedContent: "",
-        currentAssistantMsgId: null,
       }),
       {
         name: "setta_ai_data",

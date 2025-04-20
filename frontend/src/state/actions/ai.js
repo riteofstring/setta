@@ -54,7 +54,9 @@ function resetStreamingResponseState() {
   useAIStore.setState({
     waitingForResponse: false,
     streamTarget: null,
-    streamTargetStartIdx: -1,
+    streamBeforeLines: "",
+    streamAfterLines: "",
+    streamedContent: "",
   });
 }
 
@@ -102,8 +104,23 @@ export async function submitMessage(message, deepThink) {
 export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
-    const currentState = useAIStore.getState();
-    if (chatId !== currentState.currentChatId) {
+    const { currentChatId, streamTarget } = useAIStore.getState();
+    if (streamTarget) {
+      switch (chunk.type) {
+        case C.LLM_CONTENT_BLOCK_DELTA:
+          if (chunk.delta.type === C.LLM_TEXT_DELTA) {
+            streamInto(streamTarget, chunk.delta.text);
+          }
+          return;
+        case C.LLM_FULL_MESSAGE_STOP:
+          llmFullMessageStop();
+          return;
+        default:
+          return;
+      }
+    }
+
+    if (chatId !== currentChatId) {
       return;
     }
 
@@ -258,7 +275,7 @@ function llmToolResult(chunk) {
 }
 
 function llmFullMessageStop() {
-  useAIStore.setState({ waitingForResponse: false });
+  resetStreamingResponseState();
 }
 
 function streamInto(streamTarget, content) {
