@@ -105,26 +105,24 @@ export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
     const { currentChatId, streamTarget } = useAIStore.getState();
-    // if (streamTarget) {
-    //   switch (chunk.type) {
-    //     case C.LLM_MESSAGE_START:
+    if (streamTarget) {
+      switch (chunk.type) {
+        case C.LLM_CONTENT_BLOCK_DELTA:
+          if (chunk.delta.type === C.LLM_TEXT_DELTA) {
+            streamInto(streamTarget, chunk.delta.text);
+          }
+          return;
+        case C.LLM_FULL_MESSAGE_STOP:
+          llmFullMessageStop();
+          return;
+        default:
+          return;
+      }
+    }
 
-    //     case C.LLM_CONTENT_BLOCK_DELTA:
-    //       if (chunk.delta.type === C.LLM_TEXT_DELTA) {
-    //         streamInto(streamTarget, chunk.delta.text);
-    //       }
-    //       return;
-    //     case C.LLM_FULL_MESSAGE_STOP:
-    //       llmFullMessageStop();
-    //       return;
-    //     default:
-    //       return;
-    //   }
-    // }
-
-    // if (chatId !== currentChatId) {
-    //   return;
-    // }
+    if (chatId !== currentChatId) {
+      return;
+    }
 
     // Handle different chunk types
     switch (chunk.type) {
@@ -152,32 +150,13 @@ export function receiveLLMResponseChunk(msg) {
   }
 }
 
-function llmMessageStart(streamTarget, chatId, currentChatId, chunk) {
-  if (streamTarget || chatId !== currentChatId) {
-    return;
-  }
+function llmMessageStart(chunk) {
   useAIStore.setState((state) => ({
     messages: [...state.messages, chunk.message],
   }));
 }
 
-function llmContentBlockStart(
-  streamTarget,
-  chatId,
-  currentChatId,
-  assistantMessageId,
-  chunk,
-) {
-  if (streamTarget) {
-    if (chunk.content_block.type === C.LLM_TEXT) {
-      return;
-    }
-  }
-
-  if (chatId !== currentChatId) {
-    return;
-  }
-
+function llmContentBlockStart(assistantMessageId, chunk) {
   useAIStore.setState((state) => {
     const messageIndex = state.messages.findIndex(
       (m) => m.id === assistantMessageId,
