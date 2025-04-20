@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -183,7 +183,6 @@ function LLMChatBubble({ children }) {
 
 // Consolidate assistant messages and handle tool results
 const processMessages = (messages) => {
-  const processedMessages = [];
   const toolResults = {};
 
   // First pass: collect tool results
@@ -197,46 +196,7 @@ const processMessages = (messages) => {
     }
   }
 
-  // Second pass: process messages and combine assistant messages
-  let currentAssistantMessage = null;
-
-  for (const message of messages) {
-    // Skip tool result user messages as we've already processed them
-    if (
-      message.role === C.LLM_USER_ROLE &&
-      message.content?.[0]?.type === C.LLM_TOOL_RESULT
-    ) {
-      continue;
-    }
-
-    // If this is an assistant message
-    if (message.role === C.LLM_ASSISTANT_ROLE) {
-      // If we're already building an assistant message, add this content to it
-      if (currentAssistantMessage) {
-        currentAssistantMessage.content.push(...message.content);
-      } else {
-        // Start a new assistant message
-        currentAssistantMessage = {
-          ...message,
-          content: [...message.content],
-        };
-      }
-    } else {
-      // User message - add the current assistant message if we have one
-      if (currentAssistantMessage) {
-        processedMessages.push(currentAssistantMessage);
-        currentAssistantMessage = null;
-      }
-      processedMessages.push(message);
-    }
-  }
-
-  // Add the last assistant message if there is one
-  if (currentAssistantMessage) {
-    processedMessages.push(currentAssistantMessage);
-  }
-
-  return { processedMessages, toolResults };
+  return toolResults;
 };
 
 const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
@@ -273,6 +233,9 @@ const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
 function ChatMessages({ messages, toolResults, waitingForResponse }) {
   const output = [];
   for (const [idx, message] of messages.entries()) {
+    if (message.content[0]?.type === C.LLM_TOOL_RESULT) {
+      continue;
+    }
     output.push(
       <ChatMessage
         key={idx}
@@ -308,31 +271,8 @@ const MessageList = memo(function MessageList({
   waitingForResponse,
   currentChatId,
 }) {
-  // Store previous messages for comparison
-  const prevMessagesRef = useRef([]);
-
-  // Process messages and detect changes, including content changes in existing messages
-  const { processedMessages, toolResults } = useMemo(() => {
-    const prevMessages = prevMessagesRef.current;
-
-    // Check if we need full reprocessing
-    // This happens if:
-    // 1. First render
-    // 2. Messages array reference changed with different length
-    // 3. Last message content changed (streaming case)
-    const needsFullReprocessing =
-      prevMessages.length === 0 ||
-      messages.length !== prevMessages.length ||
-      (messages.length > 0 &&
-        JSON.stringify(messages[messages.length - 1]) !==
-          JSON.stringify(prevMessages[prevMessages.length - 1]));
-
-    // Update reference for next comparison
-    prevMessagesRef.current = messages;
-
-    // Full reprocessing needed
-    return processMessages(messages);
-  }, [messages]); // Dependency on messages reference
+  console.log(messages);
+  const toolResults = processMessages(messages);
 
   if (!currentChatId) {
     return (
@@ -352,7 +292,7 @@ const MessageList = memo(function MessageList({
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
         <ChatMessages
-          messages={processedMessages}
+          messages={messages}
           toolResults={toolResults}
           waitingForResponse={waitingForResponse}
         />
