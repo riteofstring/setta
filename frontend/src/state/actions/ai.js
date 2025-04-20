@@ -92,7 +92,7 @@ export async function submitMessage(message, deepThink) {
   } catch (error) {
     // Error handling
     const errorMsg = {
-      role: "assistant",
+      role: C.LLM_ASSISTANT_ROLE,
       content: `Sorry, there was a problem with the API: ${error.message || "Unknown error"}.`,
     };
     // TODO: show error message in chat area

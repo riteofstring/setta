@@ -10,7 +10,11 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getLLMChat } from "state/actions/ai";
+import {
+  getLLMChat,
+  startStreamingInto,
+  stopStreamingInto,
+} from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -138,7 +142,7 @@ const ToolCall = memo(({ name, args, jsonSoFar, result, success }) => {
 
 const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
   switch (item.type) {
-    case "text":
+    case C.LLM_TEXT:
       return (
         <MarkdownContent
           content={item.text}
@@ -147,7 +151,7 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           isStreaming={isStreaming}
         />
       );
-    case "tool_use":
+    case C.LLM_TOOL_USE:
       // Get the result for this tool_use if available
       const toolResult = toolResults[item.id];
       const hasResult = !!toolResult;
@@ -164,7 +168,7 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           success={isSuccess}
         />
       );
-    case "thinking":
+    case C.LLM_THINKING:
       return <ThinkingBox content={item.content} isStreaming={isStreaming} />;
     default:
       return null;
@@ -364,12 +368,15 @@ const consolidateAssistantMessages = (messages) => {
       let isStreaming = false;
 
       for (const item of message.content) {
-        if (item.type === "tool_use" && item.name === "startStreamingInto") {
+        if (
+          item.type === C.LLM_TOOL_USE &&
+          item.name === startStreamingInto.name
+        ) {
           isStreaming = true;
           filteredContent.push(item);
         } else if (
-          item.type === "tool_use" &&
-          item.name === "stopStreamingInto"
+          item.type === C.LLM_TOOL_USE &&
+          item.name === stopStreamingInto.name
         ) {
           isStreaming = false;
           filteredContent.push(item);
