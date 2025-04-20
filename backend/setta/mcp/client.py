@@ -116,17 +116,44 @@ class MCPClient:
                 else {"type": "disabled"}
             )
 
+            # Only need to specify cache_control once.
+            # Everything up to the first occurence of cache_control is cached.
+            # The read ordering is tools, system prompt, messages.
+            # By putting the system prompt in the cache, the tools are also included.
+            # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
             stream = await self.anthropic.messages.with_raw_response.create(
                 model=model,
                 max_tokens=20000,
                 messages=messages,
                 tools=available_tools,
                 stream=True,
-                system=self.system_prompt,
+                system=[
+                    {
+                        "type": "text",
+                        "text": self.system_prompt,
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ],
                 thinking=thinking,
             )
 
-            print(stream.headers, flush=True)
+            print(
+                "remaining requests",
+                stream.headers.get("anthropic-ratelimit-requests-remaining"),
+                flush=True,
+            )
+
+            print(
+                "remaining input tokens",
+                stream.headers.get("anthropic-ratelimit-input-tokens-remaining"),
+                flush=True,
+            )
+
+            print(
+                "remaining output tokens",
+                stream.headers.get("anthropic-ratelimit-output-tokens-remaining"),
+                flush=True,
+            )
 
             complete_messages = await self.stream_responses(stream)
 
@@ -221,6 +248,8 @@ class MCPClient:
 
         async for event in stream.parse():
             chunk = None
+            if event.type == "message_start":
+                print("event.usage", event.message.usage, flush=True)
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)

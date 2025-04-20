@@ -61,7 +61,7 @@ async def main():
         model="claude-3-5-sonnet-latest",
         stream=True,
     )
-    print(response.headers)
+    print(response.headers.keys())
     async for event in response.parse():
         print(event)
 
