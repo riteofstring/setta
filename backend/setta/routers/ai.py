@@ -164,7 +164,7 @@ async def route_get_llm_chat(
     current_stream = chat_manager.get_current_stream(x.chatId)
     messages = chat["messages"]
     merge_db_messages_with_current_stream(messages, current_stream)
-    messages = consolidate_messages(messages)
+    # messages = consolidate_messages(messages)
 
     return {
         "messages": messages,

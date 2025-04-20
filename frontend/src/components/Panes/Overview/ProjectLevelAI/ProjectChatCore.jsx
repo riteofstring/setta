@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import { memo, useEffect } from "react";
+import { memo, useEffect, useRef, useMemo } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -81,7 +81,7 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
 });
 
 const ToolCall = memo(
-  ({ name, args, jsonSoFar, streaming, result, success = true }) => {
+  ({ name, args, jsonSoFar, streaming, result, success = true, toolUseId }) => {
     return (
       <Accordion.Root type="single" collapsible>
         <Accordion.Item value="details">
@@ -142,7 +142,7 @@ const ToolCall = memo(
   },
 );
 
-const StreamItem = ({ item, nextItem, isStreaming }) => {
+const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
   switch (item.type) {
     case "text":
       return (
@@ -154,24 +154,22 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
         />
       );
     case "tool_use":
-      // Check if the next item is a tool_result
-      const hasResult = nextItem && nextItem.type === "tool_result";
-      const resultContent = hasResult ? nextItem.content : null;
+      // Get the result for this tool_use if available
+      const toolResult = toolResults[item.id];
+      const hasResult = !!toolResult;
 
-      // Determine success/failure status (could be enhanced with more sophisticated detection)
-      const isSuccess =
-        hasResult &&
-        !resultContent?.includes("error") &&
-        !resultContent?.includes("fail");
+      // Determine success/failure status
+      const isSuccess = hasResult && !toolResult.is_error;
 
       return (
         <ToolCall
           name={item.name}
-          args={item.args}
+          args={item.input}
           jsonSoFar={item.jsonSoFar}
           streaming={item.streaming}
-          result={hasResult ? resultContent : undefined}
+          result={hasResult ? toolResult.content?.[0]?.text : undefined}
           success={isSuccess}
+          toolUseId={item.id}
         />
       );
     case "thinking":
@@ -191,7 +189,156 @@ function LLMChatBubble({ children }) {
   );
 }
 
-const ChatMessage = memo(({ message, isStreaming }) => {
+// New: Process messages to consolidate assistant messages and handle tool results
+// Process all messages from scratch - used for initial load
+const processMessages = (messages) => {
+  const processedMessages = [];
+  const toolResults = {};
+
+  // First pass: collect tool results
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (
+      message.role === "user" &&
+      message.content?.[0]?.type === "tool_result"
+    ) {
+      const toolResult = message.content[0];
+      toolResults[toolResult.tool_use_id] = toolResult;
+    }
+  }
+
+  // Second pass: process messages and combine assistant messages
+  let currentAssistantMessage = null;
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+
+    // Skip tool result user messages as we've already processed them
+    if (
+      message.role === "user" &&
+      message.content?.[0]?.type === "tool_result"
+    ) {
+      continue;
+    }
+
+    // If this is an assistant message
+    if (message.role === C.LLM_ASSISTANT_ROLE) {
+      // If we're already building an assistant message, add this content to it
+      if (currentAssistantMessage) {
+        currentAssistantMessage.content.push(...message.content);
+      } else {
+        // Start a new assistant message
+        currentAssistantMessage = {
+          ...message,
+          content: [...message.content],
+        };
+      }
+    } else {
+      // User message - add the current assistant message if we have one
+      if (currentAssistantMessage) {
+        processedMessages.push(currentAssistantMessage);
+        currentAssistantMessage = null;
+      }
+      processedMessages.push(message);
+    }
+  }
+
+  // Add the last assistant message if there is one
+  if (currentAssistantMessage) {
+    processedMessages.push(currentAssistantMessage);
+  }
+
+  return { processedMessages, toolResults };
+};
+
+// Process only new messages incrementally - more efficient for streaming
+const processIncrementalMessages = (
+  messages,
+  startIndex,
+  existingProcessedMessages,
+  existingToolResults,
+) => {
+  const processedMessages = [...existingProcessedMessages];
+  const toolResults = { ...existingToolResults };
+
+  // First, collect any new tool results
+  for (let i = startIndex; i < messages.length; i++) {
+    const message = messages[i];
+    if (
+      message.role === "user" &&
+      message.content?.[0]?.type === "tool_result"
+    ) {
+      const toolResult = message.content[0];
+      toolResults[toolResult.tool_use_id] = toolResult;
+    }
+  }
+
+  // Then, process new messages
+  let currentAssistantMessage = null;
+
+  // If the last processed message was part of an assistant message, we need to continue building it
+  if (
+    processedMessages.length > 0 &&
+    processedMessages[processedMessages.length - 1].role ===
+      C.LLM_ASSISTANT_ROLE
+  ) {
+    currentAssistantMessage = processedMessages.pop();
+  }
+
+  for (let i = startIndex; i < messages.length; i++) {
+    const message = messages[i];
+
+    // Skip tool result user messages as we've already processed them
+    if (
+      message.role === "user" &&
+      message.content?.[0]?.type === "tool_result"
+    ) {
+      continue;
+    }
+
+    // If this is an assistant message
+    if (message.role === C.LLM_ASSISTANT_ROLE) {
+      // If we're already building an assistant message, add this content to it
+      if (currentAssistantMessage) {
+        // Avoid duplicate content by checking if this content is already included
+        const existingContentIds = new Set(
+          currentAssistantMessage.content.map(
+            (item) => item.id || JSON.stringify(item),
+          ),
+        );
+
+        // Only add content we don't already have
+        const newContent = message.content.filter(
+          (item) => !existingContentIds.has(item.id || JSON.stringify(item)),
+        );
+
+        currentAssistantMessage.content.push(...newContent);
+      } else {
+        // Start a new assistant message
+        currentAssistantMessage = {
+          ...message,
+          content: [...message.content],
+        };
+      }
+    } else {
+      // User message - add the current assistant message if we have one
+      if (currentAssistantMessage) {
+        processedMessages.push(currentAssistantMessage);
+        currentAssistantMessage = null;
+      }
+      processedMessages.push(message);
+    }
+  }
+
+  // Add the last assistant message if there is one
+  if (currentAssistantMessage) {
+    processedMessages.push(currentAssistantMessage);
+  }
+
+  return { processedMessages, toolResults };
+};
+
+const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
   if (message.role === C.LLM_ASSISTANT_ROLE) {
     return (
       <LLMChatBubble>
@@ -202,7 +349,7 @@ const ChatMessage = memo(({ message, isStreaming }) => {
           <StreamItem
             key={idx}
             item={item}
-            nextItem={message.content[idx + 1]}
+            toolResults={toolResults}
             isStreaming={isStreaming}
           />
         ))}
@@ -222,13 +369,14 @@ const ChatMessage = memo(({ message, isStreaming }) => {
   );
 });
 
-function ChatMessages({ messages, waitingForResponse }) {
+function ChatMessages({ messages, toolResults, waitingForResponse }) {
   const output = [];
   for (const [idx, message] of messages.entries()) {
     output.push(
       <ChatMessage
         key={idx}
         message={message}
+        toolResults={toolResults}
         isStreaming={waitingForResponse && message.role === "assistant"}
       />,
     );
@@ -243,6 +391,7 @@ function ChatMessages({ messages, waitingForResponse }) {
       <ChatMessage
         key={messages.length}
         message={{ role: "assistant", content: [] }}
+        toolResults={toolResults}
         isStreaming={true}
       />,
     );
@@ -256,6 +405,32 @@ const MessageList = memo(function MessageList({
   waitingForResponse,
   currentChatId,
 }) {
+  // Store previous messages for comparison
+  const prevMessagesRef = useRef([]);
+
+  // Process messages and detect changes, including content changes in existing messages
+  const { processedMessages, toolResults } = useMemo(() => {
+    const prevMessages = prevMessagesRef.current;
+
+    // Check if we need full reprocessing
+    // This happens if:
+    // 1. First render
+    // 2. Messages array reference changed with different length
+    // 3. Last message content changed (streaming case)
+    const needsFullReprocessing =
+      prevMessages.length === 0 ||
+      messages.length !== prevMessages.length ||
+      (messages.length > 0 &&
+        JSON.stringify(messages[messages.length - 1]) !==
+          JSON.stringify(prevMessages[prevMessages.length - 1]));
+
+    // Update reference for next comparison
+    prevMessagesRef.current = messages;
+
+    // Full reprocessing needed
+    return processMessages(messages);
+  }, [messages]); // Dependency on messages reference
+
   if (!currentChatId) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
@@ -274,7 +449,8 @@ const MessageList = memo(function MessageList({
     <div className="flex h-full min-h-0 flex-col-reverse overflow-y-auto pr-2">
       <div>
         <ChatMessages
-          messages={messages}
+          messages={processedMessages}
+          toolResults={toolResults}
           waitingForResponse={waitingForResponse}
         />
       </div>
@@ -296,8 +472,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }),
     shallow,
   );
-
-console.log(messages)
 
   useEffect(() => {
     if (currentChatId) {
