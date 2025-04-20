@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from setta.utils.constants import CONSTANTS_FOLDER, C
+from setta.utils.constants import CONSTANTS_FOLDER
 from setta.utils.utils import get_absolute_path
 
 load_dotenv()  # load environment variables from .env
@@ -17,14 +17,14 @@ load_dotenv()  # load environment variables from .env
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url):
+    def __init__(self, server_url, websocket_msg_handler):
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
         self.anthropic = AsyncAnthropic()
         self.reader_task = None
         self.server_url = server_url
-        self.websocket = None
+        self.websocket_msg_handler = websocket_msg_handler
         self.ready = asyncio.Event()
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
@@ -328,6 +328,4 @@ class MCPClient:
         return output
 
     async def send_streaming_response(self, chunk):
-        await self.websocket.send(
-            json.dumps({"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk})
-        )
+        await self.websocket_msg_handler.send_streaming_response(chunk)

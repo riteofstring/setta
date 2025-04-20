@@ -70,7 +70,7 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     app.get(mount_path)(handle_mcp_connection)
     app.mount(msg_path, app=sse_transport.handle_post_message)
 
-    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp_server
+    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
     mcp_server.setta_terminals = app.state.terminals
 
     content = create_notification_dict("MCP Server Ready", temporary=True)
