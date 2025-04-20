@@ -1,5 +1,4 @@
 import asyncio
-import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
@@ -100,10 +99,9 @@ class MCPClient:
         chatId = chat["id"]
         self.chat_manager.set_llm_is_responding(chatId)
         messages = chat["messages"]
-        new_messages = []
 
         while True:
-            messages = [*messages, *new_messages]
+            new_messages = []
             assistant_message_content = []
             has_tool_call = False
             thinking = (
@@ -153,9 +151,10 @@ class MCPClient:
                 flush=True,
             )
 
-            complete_messages, assistant_message_id = await self.stream_responses(
-                chatId, stream
+            assistant_message_id = await self.chat_manager.stream_responses(
+                chatId, stream, self.send_streaming_response
             )
+            complete_messages = self.chat_manager.current_stream[chatId]
 
             for msg in complete_messages:
                 assistant_message_content.append(msg.model_dump())
@@ -199,6 +198,7 @@ class MCPClient:
             # Otherwise continue the loop to get the next response after tool use
 
             self.chat_manager.update_chat(chatId, new_messages)
+            messages = [*messages, *new_messages]
 
         chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
         await self.send_streaming_response(chatId, assistant_message_id, chunk)
@@ -227,42 +227,6 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
-
-    async def stream_responses(self, chatId, stream):
-        # sends streaming response to frontend
-        # and also constructs the full message for use in process_query
-        llm_msgs = []
-        assistant_message_id = None
-
-        async for event in stream.parse():
-            if event.type == C.LLM_MESSAGE_START:
-                assistant_message_id = event.message.id
-            if event.type == C.LLM_CONTENT_BLOCK_START:
-                while len(llm_msgs) <= event.index:
-                    llm_msgs.append(None)
-                llm_msgs[event.index] = event.content_block
-            elif event.type == C.LLM_CONTENT_BLOCK_DELTA:
-                curr_msg = llm_msgs[event.index]
-                if event.delta.type == C.LLM_TEXT_DELTA:
-                    curr_msg.text += event.delta.text
-                elif event.delta.type == C.LLM_THINKING_DELTA:
-                    curr_msg.thinking += event.delta.thinking
-                elif event.delta.type == C.LLM_SIGNATURE_DELTA:
-                    curr_msg.signature = event.delta.signature
-                elif event.delta.type == C.LLM_INPUT_JSON_DELTA:
-                    if not isinstance(curr_msg.text, str):
-                        curr_msg.text = ""
-                    curr_msg.text += event.delta.partial_json
-            elif event.type == C.LLM_CONTENT_BLOCK_STOP:
-                curr_msg = llm_msgs[event.index]
-                if curr_msg.type == C.LLM_TOOL_USE and curr_msg.text:
-                    curr_msg.input = json.loads(curr_msg.text)
-                    delattr(curr_msg, "text")
-            await self.send_streaming_response(
-                chatId, assistant_message_id, event.model_dump()
-            )
-
-        return llm_msgs, assistant_message_id
 
     def tool_call_result_formatted_for_frontend(self, result):
         output = []
