@@ -125,3 +125,8 @@ def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
 @router.post(C.ROUTE_CREATE_NEW_LLM_CHAT)
 def route_create_new_llm_chat(chat_manager=Depends(get_chat_manager)):
     return chat_manager.create_new_chat()
+
+
+@router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
+def route_get_all_llm_chat_metadata(chat_manager=Depends(get_chat_manager)):
+    return chat_manager.get_all_chat_metadata()

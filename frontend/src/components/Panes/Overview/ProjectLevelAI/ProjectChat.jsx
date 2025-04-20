@@ -17,7 +17,6 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     messages,
-    allChatMetadata,
     currentChatId,
     isLoading,
     viewHistory,
@@ -99,10 +98,7 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory
-            allChatMetadata={allChatMetadata}
-            currentChatId={currentChatId}
-          />
+          <ProjectChatHistory currentChatId={currentChatId} />
         ) : (
           <ProjectChatCore
             messages={messages}

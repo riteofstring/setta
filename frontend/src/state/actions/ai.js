@@ -1,5 +1,9 @@
 import _ from "lodash";
-import { dbCreateNewLLMChat, dbGetLLMResponse } from "requests/ai";
+import {
+  dbCreateNewLLMChat,
+  dbGetAllLLMChatMetadata,
+  dbGetLLMResponse,
+} from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { getSectionVariant } from "./sectionInfos";
 
@@ -8,6 +12,13 @@ export async function createNewLLMChat() {
   if (res.status == 200) {
     const { chatId, messages, allChatMetadata } = res.data;
     useAIStore.setState({ currentChatId: chatId, messages, allChatMetadata });
+  }
+}
+
+export async function getAllLLMChatMetadata() {
+  const res = await dbGetAllLLMChatMetadata();
+  if (res.status == 200) {
+    useAIStore.setState({ allChatMetadata: res.data });
   }
 }
 

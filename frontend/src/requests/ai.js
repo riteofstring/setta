@@ -57,3 +57,11 @@ export async function dbCreateNewLLMChat() {
     address: C.ROUTE_CREATE_NEW_LLM_CHAT,
   });
 }
+
+
+export async function dbGetAllLLMChatMetadata() {
+  return await post({
+    body: {},
+    address: C.ROUTE_GET_ALL_LLM_CHAT_METADATA,
+  });
+}

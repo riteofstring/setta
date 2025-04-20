@@ -20,4 +20,12 @@ class ChatManager:
         with self.dbq as db:
             chatId = create_new_chat(db)
             all_chat_metadata = load_all_chat_metadata(db)
-            return {"chatId": chatId, "messages": [], "allChatMetadata": all_chat_metadata}
+            return {
+                "chatId": chatId,
+                "messages": [],
+                "allChatMetadata": all_chat_metadata,
+            }
+
+    def get_all_chat_metadata(self):
+        with self.dbq as db:
+            return load_all_chat_metadata(db)

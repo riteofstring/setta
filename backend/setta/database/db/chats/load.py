@@ -50,5 +50,5 @@ def load_all_chat_metadata(db):
 
     output = []
     for row in db.fetchall():
-        output.append({"chatId": row[0], "lastUpdated": row[1]})
+        output.append({"id": row[0], "lastUpdated": row[1]})
     return output
