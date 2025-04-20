@@ -10,14 +10,14 @@ import {
   submitMessage,
   switchToChat,
   updateChatSession,
-} from "state/actions/aiChat";
+} from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
-import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
-import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
+import { ProjectChatCore } from "./ProjectChatCore";
+import { ProjectChatHistory } from "./ProjectChatHistory";
 
-export function ProjectAIChat() {
+export function ProjectChat() {
   const {
     apiKeys,
     apiKeysInitialLoadComplete,

@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { receiveLLMResponseChunk } from "state/actions/aiChat";
+import { receiveLLMResponseChunk } from "state/actions/ai";
 import { updateWithFileChanges } from "state/actions/fileUpdates";
 import {
   updateInteractiveArtifacts,

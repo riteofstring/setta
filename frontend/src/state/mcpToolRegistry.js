@@ -9,7 +9,7 @@ import {
   getCurrentCode,
   startStreamingInto,
   stopStreamingInto,
-} from "./actions/aiChat";
+} from "./actions/ai";
 import { addParametersMcp } from "./actions/kwargs";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
