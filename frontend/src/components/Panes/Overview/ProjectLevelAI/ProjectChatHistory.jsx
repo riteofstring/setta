@@ -3,7 +3,7 @@ import { FiTrash2 } from "react-icons/fi";
 import {
   deleteLLMChat,
   getAllLLMChatMetadata,
-  switchToChat,
+  goToChat,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
@@ -37,7 +37,7 @@ export function ProjectChatHistory() {
               className={`group/historyitem flex cursor-pointer flex-row justify-between gap-2 rounded-md border border-transparent px-3 py-2 transition-colors hover:bg-white/50 hover:shadow-sm focus-visible:border-blue-500 hover:dark:bg-setta-800 ${
                 chat.id === currentChatId ? "bg-blue-600 dark:bg-blue-700" : ""
               }`}
-              onClick={() => switchToChat(chat.id)}
+              onClick={() => goToChat(chat.id)}
             >
               <div className="flex flex-col gap-1">
                 <h4

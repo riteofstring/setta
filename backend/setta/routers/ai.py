@@ -36,6 +36,10 @@ class DeleteLLMChatRequest(BaseModel):
     chatId: str
 
 
+class GetLLMChatRequest(BaseModel):
+    chatId: str
+
+
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
@@ -136,3 +140,10 @@ def route_delete_llm_chat(
     x: DeleteLLMChatRequest, chat_manager=Depends(get_chat_manager)
 ):
     return chat_manager.delete_chat(x.chatId)
+
+
+@router.post(C.ROUTE_GET_LLM_CHAT)
+def route_get_llm_chat(x: GetLLMChatRequest, chat_manager=Depends(get_chat_manager)):
+    chat = chat_manager.get_chat(x.chatId)
+    waiting_for_response = chat_manager.is_waiting_for_response(chat["id"])
+    return {"messages": chat["messsages"], "waitingForResponse": waiting_for_response}

@@ -5,6 +5,11 @@ from setta.database.db.chats.save import create_new_chat, delete_chat
 class ChatManager:
     def __init__(self, dbq):
         self.dbq = dbq
+        self.waiting_for_response = {}
+
+    def get_chat(self, chat_id):
+        with self.dbq as db:
+            return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id, message):
         with self.dbq as db:
@@ -27,3 +32,12 @@ class ChatManager:
     def delete_chat(self, chat_id):
         with self.dbq as db:
             delete_chat(db, chat_id)
+
+    def notify_that_llm_is_responding(self, chat_id):
+        self.waiting_for_response[chat_id] = True
+
+    def notify_that_llm_is_done(self, chat_id):
+        self.waiting_for_response[chat_id] = False
+
+    def is_waiting_for_response(self, chat_id):
+        return self.waiting_for_response.get(chat_id, False)

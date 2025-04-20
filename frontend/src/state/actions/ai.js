@@ -3,11 +3,22 @@ import _ from "lodash";
 import {
   dbDeleteLLMChat,
   dbGetAllLLMChatMetadata,
+  dbGetLLMChat,
   dbGetLLMResponse,
 } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
+
+export async function getLLMChat(currentChatId) {
+  console.log("getLLMChat");
+  const res = await dbGetLLMChat(currentChatId);
+  if (res.status == 200) {
+    const { messages, waitingForResponse } = res.data;
+    console.log("messages, waitingForResponse", messages, waitingForResponse);
+    useAIStore.setState({ messages, waitingForResponse });
+  }
+}
 
 export async function createNewLLMChat() {
   useAIStore.setState({
@@ -29,27 +40,8 @@ export async function deleteLLMChat(chatId) {
   await getAllLLMChatMetadata();
 }
 
-export function switchToChat(id) {
-  const { currentChatId, allChatMetadata } = useAIStore.getState();
-
-  // Guard clause: already on this chat
-  if (id === currentChatId) {
-    useAIStore.setState({ viewHistory: false });
-    return;
-  }
-
-  // Find requested chat
-  const selectedChat = allChatMetadata.find((session) => session.id === id);
-
-  // Guard clause: chat not found
-  if (!selectedChat) return;
-
-  // Switch to selected chat
-  useAIStore.setState({
-    currentChatId: id,
-    messages: selectedChat.messages,
-    viewHistory: false,
-  });
+export function goToChat(id) {
+  useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
 function resetStreamingResponseState() {

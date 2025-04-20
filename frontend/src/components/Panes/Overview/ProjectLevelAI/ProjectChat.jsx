@@ -14,22 +14,16 @@ import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 
 export function ProjectChat() {
-  const {
-    apiKeys,
-    apiKeysInitialLoadComplete,
-    viewHistory,
-    userSelectedLLM,
-    waitingForResponse,
-  } = useAIStore(
-    (x) => ({
-      apiKeys: x.apiKeys,
-      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-      viewHistory: x.viewHistory,
-      userSelectedLLM: x.userSelectedLLM,
-      waitingForResponse: x.waitingForResponse,
-    }),
-    shallow,
-  );
+  const { apiKeys, apiKeysInitialLoadComplete, viewHistory, userSelectedLLM } =
+    useAIStore(
+      (x) => ({
+        apiKeys: x.apiKeys,
+        apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+        viewHistory: x.viewHistory,
+        userSelectedLLM: x.userSelectedLLM,
+      }),
+      shallow,
+    );
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
@@ -126,7 +120,6 @@ export function ProjectChat() {
             }
             deepThink={deepThink}
             userSelectedLLM={userSelectedLLM}
-            waitingForResponse={waitingForResponse}
           />
         )}
       </div>

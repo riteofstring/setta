@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { getLLMChat } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -222,12 +223,10 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 });
 
 // Message list component
-const MessageList = memo(function MessageList({ waitingForResponse }) {
-  const messages = useAIStore((x) => x.messages, shallow);
-
-  console.log("messages", messages);
-  console.log("waitingForResponse", waitingForResponse);
-
+const MessageList = memo(function MessageList({
+  messages,
+  waitingForResponse,
+}) {
   if (messages.length === 0) {
     return (
       <div className="flex h-full min-h-0 items-center justify-center gap-4 overflow-y-auto">
@@ -269,11 +268,35 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   placeholderText,
   deepThink,
   userSelectedLLM,
-  waitingForResponse,
 }) {
+  const { messages, currentChatId, waitingForResponse } = useAIStore(
+    (x) => ({
+      messages: x.messages,
+      currentChatId: x.currentChatId,
+      waitingForResponse: x.waitingForResponse,
+    }),
+    shallow,
+  );
+
+  useEffect(() => {
+    if (currentChatId) {
+      getLLMChat(currentChatId);
+    }
+  }, [currentChatId]);
+
+  console.log(
+    "messages, currentChatId, waitingForResponse",
+    messages,
+    currentChatId,
+    waitingForResponse,
+  );
+
   return (
     <>
-      <MessageList waitingForResponse={waitingForResponse} />
+      <MessageList
+        messages={messages}
+        waitingForResponse={waitingForResponse}
+      />
       <ChatInput
         deepThink={deepThink}
         placeholderText={placeholderText}

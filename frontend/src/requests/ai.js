@@ -64,3 +64,10 @@ export async function dbDeleteLLMChat(chatId) {
     address: C.ROUTE_DELETE_LLM_CHAT,
   });
 }
+
+export async function dbGetLLMChat(chatId) {
+  return await post({
+    body: { chatId },
+    address: C.ROUTE_GET_LLM_CHAT,
+  });
+}

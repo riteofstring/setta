@@ -98,6 +98,7 @@ class MCPClient:
 
     async def process_query(self, chatId, message, model, deepThink):
         chat = self.chat_manager.get_or_create_chat(chatId, message)
+        self.chat_manager.notify_that_llm_is_responding(chatId, True)
         messages = [
             {"role": m["role"], "content": m["content"]} for m in chat["messages"]
         ]
@@ -196,6 +197,8 @@ class MCPClient:
 
         chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
         await self.send_streaming_response(chatId, assistant_message_id, chunk)
+
+        self.chat_manager.notify_that_llm_is_done(chatId)
 
     async def stop(self):
         """Clean up resources properly for server shutdown"""
