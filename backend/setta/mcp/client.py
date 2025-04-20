@@ -9,7 +9,7 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 
 from setta.database.utils import create_new_id
-from setta.utils.constants import CONSTANTS_FOLDER
+from setta.utils.constants import CONSTANTS_FOLDER, C
 from setta.utils.utils import get_absolute_path
 
 
@@ -101,7 +101,6 @@ class MCPClient:
         messages = [
             {"role": m["role"], "content": m["content"]} for m in chat["messages"]
         ]
-        assistant_message_id = create_new_id()
 
         while True:
             assistant_message_content = []
@@ -151,8 +150,8 @@ class MCPClient:
                 flush=True,
             )
 
-            complete_messages = await self.stream_responses(
-                chatId, assistant_message_id, stream
+            complete_messages, assistant_message_id = await self.stream_responses(
+                chatId, stream
             )
 
             for msg in complete_messages:
@@ -196,15 +195,31 @@ class MCPClient:
 
                     # Update conversation history
                     messages.append(
-                        {"role": "assistant", "content": assistant_message_content}
+                        {
+                            "id": assistant_message_id,
+                            "role": C.LLM_ASSISTANT_ROLE,
+                            "content": assistant_message_content,
+                        }
                     )
-                    messages.append({"role": "user", "content": [tool_result]})
+                    messages.append(
+                        {
+                            "id": create_new_id(),
+                            "role": "user",
+                            "content": [tool_result],
+                        }
+                    )
+
+                    break
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
                 if assistant_message_content:
                     messages.append(
-                        {"role": "assistant", "content": assistant_message_content}
+                        {
+                            "id": assistant_message_id,
+                            "role": C.LLM_ASSISTANT_ROLE,
+                            "content": assistant_message_content,
+                        }
                     )
                 break
             # Otherwise continue the loop to get the next response after tool use
@@ -236,15 +251,17 @@ class MCPClient:
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
 
-    async def stream_responses(self, chatId, assistant_message_id, stream):
+    async def stream_responses(self, chatId, stream):
         # sends streaming response to frontend
         # and also constructs the full message for use in process_query
         llm_msgs = []
+        assistant_message_id = None
 
         async for event in stream.parse():
             chunk = None
-            if event.type == "message_start":
+            if event.type == C.LLM_MESSAGE_START:
                 chunk = {"type": event.type, "messageId": event.message.id}
+                assistant_message_id = event.message.id
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
@@ -306,7 +323,7 @@ class MCPClient:
             if chunk is not None:
                 await self.send_streaming_response(chatId, assistant_message_id, chunk)
 
-        return llm_msgs
+        return llm_msgs, assistant_message_id
 
     def tool_call_result_formatted_for_frontend(self, result):
         output = []

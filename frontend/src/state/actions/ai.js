@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import _ from "lodash";
 import {
   dbDeleteLLMChat,
@@ -107,7 +108,7 @@ export async function submitMessage(message, deepThink) {
 
 export function receiveLLMResponseChunk(msg) {
   try {
-    const { chatId, chunk } = msg;
+    const { chatId, assistantMessageId, chunk } = msg;
     const currentState = useAIStore.getState();
     if (chatId !== currentState.currentChatId) {
       return;
@@ -130,10 +131,19 @@ export function receiveLLMResponseChunk(msg) {
 
     // const updatedMessages = [...currentMessages];
     // const currentMsg = { ...updatedMessages[messageIndex] };
-    // let endOfMessage = false;
+    let endOfMessage = false;
 
     // Handle different chunk types
     switch (chunk.type) {
+      case C.LLM_MESSAGE_START:
+        useAIStore.setState((state) => ({
+          messages: [
+            ...state.messages,
+            { id: assistantMessageId, role: C.LLM_ASSISTANT_ROLE, content: [] },
+          ],
+        }));
+        return;
+
       // case "content_block_start":
       //   // Track new content block start
       //   currentBlockType = chunk.block_type;

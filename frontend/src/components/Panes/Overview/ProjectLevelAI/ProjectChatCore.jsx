@@ -1,5 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import C from "constants/constants.json";
 import { memo } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -14,7 +15,7 @@ import { useTypewriterEffect } from "./useTypewriterEffect";
 
 function MarkdownContent({ content, className, role, isStreaming }) {
   // Only animate if this is an assistant message that's currently streaming
-  const isAssistant = role === "assistant";
+  const isAssistant = role === C.LLM_ASSISTANT_ROLE;
   const shouldAnimate = isAssistant && isStreaming;
 
   // Use the typewriter effect
@@ -145,7 +146,7 @@ const StreamItem = ({ item, nextItem, isStreaming }) => {
         <MarkdownContent
           content={item.text}
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
-          role="assistant"
+          role={C.LLM_ASSISTANT_ROLE}
           isStreaming={isStreaming}
         />
       );
@@ -188,7 +189,7 @@ function LLMChatBubble({ children }) {
 }
 
 const ChatMessage = memo(({ message, isStreaming }) => {
-  if (message.role === "assistant") {
+  if (message.role === C.LLM_ASSISTANT_ROLE) {
     return (
       <LLMChatBubble>
         {message.content.length === 0 && (
