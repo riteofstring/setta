@@ -3,7 +3,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { ResizableWithScale } from "components/Utils/Resizable/ResizableWithScale";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { useEffect, useState } from "react";
-import { BiChevronRight } from "react-icons/bi";
+import { BiSolidSelectMultiple } from "react-icons/bi";
 import { FiFileText } from "react-icons/fi";
 import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
@@ -14,6 +14,7 @@ import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { testItems } from "./BrowserArea/testitems";
 
 const artifactTypes = [
+  // { type: "Select All" },
   { type: "Image", icon: <IoImageOutline /> },
   { type: "Video", icon: <IoVideocam /> },
   { type: "Text", icon: <FiFileText /> },
@@ -43,13 +44,17 @@ function GroupColumn({ width }) {
           Types
         </h3>
 
-        <div className="nodrag relative -mr-2 flex flex-col pr-1">
+        <div className="nodrag relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto  pr-1">
           {artifactTypes.map((x) => (
             <CheckboxNextToLabel icon={x.icon}>
               <p className="truncate">{x.type}</p>
             </CheckboxNextToLabel>
           ))}
         </div>
+        <button className="nodrag mt-auto flex min-w-0 cursor-pointer select-none items-center justify-center gap-1 rounded-md border border-solid border-setta-100 px-2 py-2 text-xs font-bold uppercase leading-none text-setta-400 outline-none transition-colors duration-150 hover:bg-setta-50 focus-visible:!border-blue-500 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-800 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-400">
+          <BiSolidSelectMultiple />
+          Select All
+        </button>
       </ResizableColumn>
     </>
   );
@@ -130,7 +135,7 @@ function ResizableFileList({ items, sectionId, children }) {
     });
 
   return (
-    <div className="flex flex-col overflow-y-auto overflow-x-clip">
+    <div className="flex flex-1 flex-col pb-2">
       {/* Header Row */}
       <div
         ref={headerRef}
@@ -320,12 +325,10 @@ function ItemsColumn({ sectionId }) {
   const [view, setView] = useState("list");
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-clip pb-2 ">
-      <div className="flex flex-row">
-        <div className="flex w-full min-w-0 flex-col">
+      <div className="-mt-[4.5px] flex flex-row">
+        <div className="flex w-full min-w-0 gap-2">
           <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
-            <span>Artifacts</span>
-            <BiChevronRight />
-            <span>Select</span>
+            Artifacts
           </div>
           <FilterSection />
         </div>
@@ -343,7 +346,7 @@ function ResizableColumn({
   minWidth = 100,
   maxWidth = "70%",
   enable = { right: true },
-  className = "nodrag relative -mr-2 flex flex-col overflow-y-auto overflow-x-clip pr-1",
+  className = "nodrag relative flex flex-col pr-1",
   handleClasses = {
     right:
       "before:bg-transparent before:absolute before:top-0 before:h-3/4 before:bottom-0 before:left-0 before:right-0  before:m-auto before:w-1/4 hover:before:bg-blue-500 before:rounded-full",
@@ -417,11 +420,15 @@ function CheckboxNextToLabel({
       >
         <input
           type="checkbox"
-          className="peer sr-only"
+          className={
+            icon
+              ? "peer sr-only"
+              : "h-[12px] w-[12px] min-w-[12px] cursor-pointer rounded-sm bg-setta-500/15 outline-offset-2 outline-blue-500 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500 focus-visible:outline"
+          }
           // checked={checked}
           // onChange={onChange}
         />
-        <i className="peer-checked:text-blue-600">{icon}</i>
+        {icon && <i className="peer-checked:text-blue-600">{icon}</i>}
 
         {children}
       </label>
@@ -434,15 +441,13 @@ function FilterSection() {
     "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
 
   return (
-    <div className="min-w-0">
-      <StandardSearch
-        leftElement={
-          <i className="gg-sort-az mb-[2px] !scale-50 text-setta-400" />
-        }
-        placeholder="Filter"
-        inputStyles={inputStyles}
-        outerClasses="flex-1"
-      />
-    </div>
+    <StandardSearch
+      leftElement={
+        <i className="gg-sort-az mb-[2px] !scale-50 text-setta-400" />
+      }
+      placeholder="Filter"
+      inputStyles={inputStyles}
+      outerClasses="flex-1"
+    />
   );
 }
