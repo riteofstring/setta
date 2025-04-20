@@ -166,5 +166,11 @@
   },
   "LLM_MESSAGE_START": "message_start",
   "LLM_CONTENT_BLOCK_START": "content_block_start",
-  "LLM_ASSISTANT_ROLE": "assistant"
+  "LLM_CONTENT_BLOCK_DELTA": "content_block_delta",
+  "LLM_TEXT_DELTA": "text_delta",
+  "LLM_THINKING_DELTA": "thinking_delta",
+  "LLM_SIGNATURE_DELTA": "signature_delta",
+  "LLM_INPUT_JSON_DELTA": "input_json_delta",
+  "LLM_ASSISTANT_ROLE": "assistant",
+  "LLM_TOOL_USE": "tool_use"
 }

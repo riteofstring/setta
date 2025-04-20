@@ -264,15 +264,18 @@ class MCPClient:
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
                 llm_msgs[event.index] = event.content_block
-            elif event.type == "content_block_delta":
-                if event.delta.type == "text_delta":
-                    llm_msgs[event.index].text += event.delta.text
-                elif event.delta.type == "thinking_delta":
-                    llm_msgs[event.index].thinking += event.delta.thinking
-                elif event.delta.type == "signature_delta":
-                    llm_msgs[event.index].signature = event.delta.signature
-                elif event.delta.type == "input_json_delta":
-                    llm_msgs[event.index].text += event.delta.partial_json
+            elif event.type == C.LLM_CONTENT_BLOCK_DELTA:
+                curr_msg = llm_msgs[event.index]
+                if event.delta.type == C.LLM_TEXT_DELTA:
+                    curr_msg.text += event.delta.text
+                elif event.delta.type == C.LLM_THINKING_DELTA:
+                    curr_msg.thinking += event.delta.thinking
+                elif event.delta.type == C.LLM_SIGNATURE_DELTA:
+                    curr_msg.signature = event.delta.signature
+                elif event.delta.type == C.LLM_INPUT_JSON_DELTA:
+                    if not isinstance(curr_msg.text, str):
+                        curr_msg.text = ""
+                    curr_msg.text += event.delta.partial_json
             elif event.type == "content_block_stop":
                 if llm_msgs[event.index].type == "tool_use":
                     text = llm_msgs[event.index].text

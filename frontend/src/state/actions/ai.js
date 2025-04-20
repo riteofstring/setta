@@ -137,12 +137,12 @@ export function receiveLLMResponseChunk(msg) {
     switch (chunk.type) {
       case C.LLM_MESSAGE_START:
         llmMessageStart(assistantMessageId, chunk);
-        console.log(useAIStore.getState());
         return;
-
       case C.LLM_CONTENT_BLOCK_START:
         llmContentBlockStart(assistantMessageId, chunk);
-        console.log(useAIStore.getState());
+        return;
+      case C.LLM_CONTENT_BLOCK_DELTA:
+        llmContentBlockDelta(assistantMessageId, chunk);
         return;
 
       // case "content_block_start":
@@ -368,12 +368,54 @@ function llmContentBlockStart(assistantMessageId, chunk) {
 
     // Create new content array with the updated chunk
     const message = state.messages[messageIndex];
-    const newContentArray = [...(message.content || [])];
+    const newContentArray = [...message.content];
     while (newContentArray.length <= chunk.index) {
       newContentArray.push(null);
     }
     newContentArray[chunk.index] = chunk.content_block;
 
+    // Create updated message
+    const updatedMessage = { ...message, content: newContentArray };
+
+    // Create new messages array using spread operations
+    const newMessages = [
+      ...state.messages.slice(0, messageIndex),
+      updatedMessage,
+      ...state.messages.slice(messageIndex + 1),
+    ];
+
+    return { messages: newMessages };
+  });
+}
+
+function llmContentBlockDelta(assistantMessageId, chunk) {
+  useAIStore.setState((state) => {
+    const messageIndex = state.messages.findIndex(
+      (m) => m.id === assistantMessageId,
+    );
+    if (messageIndex === -1) {
+      return {}; // No changes to state
+    }
+    const message = state.messages[messageIndex];
+    const newContentArray = [...message.content];
+    const currMsg = newContentArray[chunk.index];
+    switch (chunk.delta.type) {
+      case C.LLM_TEXT_DELTA:
+        currMsg.text += chunk.delta.text;
+        break;
+      case C.LLM_THINKING_DELTA:
+        currMsg.thinking += chunk.delta.thinking;
+        break;
+      case C.LLM_SIGNATURE_DELTA:
+        currMsgsignature = chunk.delta.signature;
+        break;
+      case C.LLM_INPUT_JSON_DELTA:
+        if (typeof currMsg !== "string") {
+          currMsg.text = "";
+        }
+        currMsg.text += chunk.delta.partial_json;
+        break;
+    }
     // Create updated message
     const updatedMessage = { ...message, content: newContentArray };
 
