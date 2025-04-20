@@ -11,11 +11,10 @@ import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 
 export async function getLLMChat(currentChatId) {
-  console.log("getLLMChat");
-  const res = await dbGetLLMChat(currentChatId);
+  const projectConfigId = useSectionInfos.getState().projectConfig.id;
+  const res = await dbGetLLMChat(currentChatId, projectConfigId);
   if (res.status == 200) {
     const { messages, waitingForResponse } = res.data;
-    console.log("messages, waitingForResponse", messages, waitingForResponse);
     useAIStore.setState({ messages, waitingForResponse });
   }
 }

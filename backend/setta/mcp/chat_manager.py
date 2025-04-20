@@ -12,8 +12,7 @@ class ChatManager:
             return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id, message):
-        with self.dbq as db:
-            chat = load_chat(db, chat_id)
+        chat = self.get_chat(chat_id)
         if chat is None:
             chat = self.create_new_chat(message)
         return chat

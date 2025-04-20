@@ -65,9 +65,9 @@ export async function dbDeleteLLMChat(chatId) {
   });
 }
 
-export async function dbGetLLMChat(chatId) {
+export async function dbGetLLMChat(chatId, projectConfigId) {
   return await post({
-    body: { chatId },
+    body: { chatId, projectConfigId },
     address: C.ROUTE_GET_LLM_CHAT,
   });
 }

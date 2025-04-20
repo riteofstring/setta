@@ -8,6 +8,7 @@ from setta.database.db.notifications.load import create_notification_dict
 from setta.routers.dependencies import (
     get_chat_manager,
     get_mcp_client,
+    get_wmh_database,
     get_wmh_specific_file_watcher,
 )
 from setta.utils.constants import C
@@ -38,6 +39,7 @@ class DeleteLLMChatRequest(BaseModel):
 
 class GetLLMChatRequest(BaseModel):
     chatId: str
+    projectConfigId: str
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
@@ -143,7 +145,23 @@ def route_delete_llm_chat(
 
 
 @router.post(C.ROUTE_GET_LLM_CHAT)
-def route_get_llm_chat(x: GetLLMChatRequest, chat_manager=Depends(get_chat_manager)):
+async def route_get_llm_chat(
+    x: GetLLMChatRequest,
+    background_tasks: BackgroundTasks,
+    chat_manager=Depends(get_chat_manager),
+    websocket_msg_handler=Depends(get_wmh_database),
+):
     chat = chat_manager.get_chat(x.chatId)
+    print("chat", chat, flush=True)
+    if not chat:
+        notification = create_notification_dict(
+            "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True
+        )
+        background_tasks.add_task(
+            websocket_msg_handler.broadcast_notification,
+            notification,
+            x.projectConfigId,
+        )
+        return {"messages": [], "waitingForResponse": False}
     waiting_for_response = chat_manager.is_waiting_for_response(chat["id"])
-    return {"messages": chat["messsages"], "waitingForResponse": waiting_for_response}
+    return {"messages": chat["messages"], "waitingForResponse": waiting_for_response}
