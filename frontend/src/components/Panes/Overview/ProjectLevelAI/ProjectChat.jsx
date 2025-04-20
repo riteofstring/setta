@@ -91,6 +91,7 @@ export function ProjectChat() {
                   useAIStore.setState({ userSelectedLLM: model })
                 }
                 placeholder="Select an LLM model"
+                bg={`${!Boolean(userSelectedLLM) ? "bg-red-900" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
