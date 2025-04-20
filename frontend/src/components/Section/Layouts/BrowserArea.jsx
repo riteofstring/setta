@@ -42,30 +42,31 @@ function GroupColumn({ width }) {
   );
 }
 
-function ViewSelector({ setView }) {
+function ViewSelectorButton({ view, setView, viewType, children }) {
   return (
-    <div className="flex">
-      <button
-        onClick={() => {
-          setView("list");
-        }}
-      >
+    <button
+      onClick={() => {
+        setView(viewType);
+      }}
+      className={`flex h-4 w-4 cursor-pointer items-center justify-center rounded-md p-1  hover:bg-setta-50  dark:hover:bg-setta-800 ${view === viewType ? "bg-blue-100 text-blue-600 dark:bg-transparent dark:text-blue-600" : "bg-transparent text-setta-400 dark:text-setta-500"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ViewSelector({ view, setView }) {
+  return (
+    <div className="flex gap-0.5">
+      <ViewSelectorButton view={view} setView={setView} viewType="list">
         <MdList />
-      </button>
-      <button
-        onClick={() => {
-          setView("thumbnail");
-        }}
-      >
+      </ViewSelectorButton>
+      <ViewSelectorButton view={view} setView={setView} viewType="thumbnail">
         <HiOutlineViewGrid />
-      </button>
-      <button
-        onClick={() => {
-          setView("carousel");
-        }}
-      >
+      </ViewSelectorButton>
+      <ViewSelectorButton view={view} setView={setView} viewType="carousel">
         <TbCarouselHorizontal />
-      </button>
+      </ViewSelectorButton>
     </div>
   );
 }
@@ -87,7 +88,11 @@ function ThumbnailItem({ size = "96px" }) {
 function ViewSwitch({ view, children }) {
   switch (view) {
     case "list":
-      return <div className="flex">{children}</div>;
+      return (
+        <div className="flex flex-col gap-1 overflow-y-auto overflow-x-clip">
+          {children}
+        </div>
+      );
 
     case "thumbnail":
       return (
@@ -119,18 +124,18 @@ function ItemsColumn() {
           </div>
           <FilterSection />
         </div>
-        <ViewSelector setView={setView} />
+        <ViewSelector view={view} setView={setView} />
       </div>
       <ViewSwitch view={view}>
-        {/* <CheckboxNextToLabel>Main</CheckboxNextToLabel>
+        <CheckboxNextToLabel>Main</CheckboxNextToLabel>
         <CheckboxNextToLabel>OLD</CheckboxNextToLabel>
         <CheckboxNextToLabel>Images</CheckboxNextToLabel>
         <CheckboxNextToLabel>Text</CheckboxNextToLabel>
-        <CheckboxNextToLabel>Video</CheckboxNextToLabel> */}
+        <CheckboxNextToLabel>Video</CheckboxNextToLabel>
+        {/* <ThumbnailItem />
         <ThumbnailItem />
         <ThumbnailItem />
-        <ThumbnailItem />
-        <ThumbnailItem />
+        <ThumbnailItem /> */}
       </ViewSwitch>
     </div>
   );
@@ -140,7 +145,7 @@ function ResizablePane({ width, children }) {
   if (width > 384) {
     return (
       <ResizableWithScale
-        className="nodrag relative -mr-2 flex flex-col pr-1"
+        className="nodrag relative -mr-2 flex flex-col overflow-y-auto overflow-x-clip pr-1"
         enable={{ right: true }}
         minWidth={100}
         maxWidth="70%"
