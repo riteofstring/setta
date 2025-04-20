@@ -1,7 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import _ from "lodash";
 import { memo } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
@@ -12,6 +11,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { useAIStore } from "state/definitions";
+import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
@@ -223,7 +223,10 @@ const ChatMessage = memo(({ message, isStreaming }) => {
 
 // Message list component
 const MessageList = memo(function MessageList({ waitingForResponse }) {
-  const messages = useAIStore((x) => x.messages, _.isEqual);
+  const messages = useAIStore((x) => x.messages, shallow);
+
+  console.log("messages", messages);
+  console.log("waitingForResponse", waitingForResponse);
 
   if (messages.length === 0) {
     return (

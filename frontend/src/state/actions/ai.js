@@ -54,7 +54,7 @@ export function switchToChat(id) {
 
 function resetStreamingResponseState() {
   useAIStore.setState({
-    isLoading: false,
+    waitingForResponse: false,
     streamTarget: null,
     streamTargetStartIdx: -1,
   });
@@ -71,7 +71,7 @@ export async function submitMessage(message, deepThink) {
   };
 
   useAIStore.setState((state) => ({
-    isLoading: true,
+    waitingForResponse: true,
     messages: [...state.messages, userMessage],
   }));
 
@@ -253,9 +253,7 @@ function llmContentBlockStop(assistantMessageId, chunk) {
   });
 }
 
-function llmFullMessageStop(assistantMessageId, chunk) {
-  
-}
+function llmFullMessageStop(assistantMessageId, chunk) {}
 
 function streamInto(streamTarget, content) {
   const aiState = useAIStore.getState();
