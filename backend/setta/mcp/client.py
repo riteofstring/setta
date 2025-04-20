@@ -4,7 +4,6 @@ from contextlib import AsyncExitStack
 from typing import Optional
 
 import mcp.types
-import websockets
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
@@ -33,17 +32,18 @@ class MCPClient:
             self.system_prompt = f.read()
 
     async def connect_to_server(self, retry_delay=1):
-        """Connect to an MCP server over HTTP with retry logic"""
+        """Connect to an MCP server over HTTP with retry logic
+
+        Args:
+            url: URL to the MCP server
+            retry_delay: Delay between retry attempts in seconds
+        """
         print("Starting MCP client connection...", flush=True)
         url = self.server_url
 
         while True:
-            keep_alive_task = None
             try:
                 print(f"Attempting to connect to {url}...", flush=True)
-
-                # Create a new exit stack for each connection attempt
-                self.exit_stack = AsyncExitStack()
 
                 # Create and enter the SSE client context
                 stdio_transport = await self.exit_stack.enter_async_context(
@@ -69,15 +69,9 @@ class MCPClient:
                 )
                 self.ready.set()
 
-                # Create a separate task for keep_alive instead of awaiting it directly
-                keep_alive_task = asyncio.create_task(self._keep_alive())
+                # Keep the connection alive (this will block until an exception occurs)
+                await self._keep_alive()
 
-                # Wait for the keep_alive task to complete or be cancelled
-                await keep_alive_task
-
-            except asyncio.CancelledError:
-                print("Connection task cancelled", flush=True)
-                raise  # Re-raise to propagate cancellation
             except asyncio.TimeoutError:
                 print(
                     f"Connection timed out, retrying in {retry_delay} seconds...",
@@ -86,34 +80,15 @@ class MCPClient:
             except Exception as e:
                 print(f"Connection error: {e}", flush=True)
                 print(f"Retrying in {retry_delay} seconds...", flush=True)
-            finally:
-                # Clean up the keep_alive task if it's still running
-                if keep_alive_task and not keep_alive_task.done():
-                    keep_alive_task.cancel()
-                    try:
-                        await keep_alive_task
-                    except asyncio.CancelledError:
-                        pass
 
-                # Clear resources before closing exit stack
-                self.read = None
-                self.write = None
-                self.session = None
+            # Close any open contexts before retrying
+            await self.exit_stack.aclose()
+            self.exit_stack = (
+                AsyncExitStack()
+            )  # Create a new stack for the next attempt
 
-                # Clear the ready event
-                self.ready.clear()
-
-                # Close the exit stack
-                try:
-                    await self.exit_stack.aclose()
-                except Exception as e:
-                    print(f"Error closing exit stack: {e}", flush=True)
-
-                # Wait before retrying (unless cancelled)
-                try:
-                    await asyncio.sleep(retry_delay)
-                except asyncio.CancelledError:
-                    raise
+            # Wait before retrying
+            await asyncio.sleep(retry_delay)
 
     async def _keep_alive(self):
         """Keep the connection alive"""
@@ -121,7 +96,7 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def process_query(self, model, messages, deepThink):
+    async def process_query(self, model, messages):
         response = await self.session.list_tools()
         available_tools = [
             {
@@ -135,23 +110,75 @@ class MCPClient:
         while True:
             assistant_message_content = []
             has_tool_call = False
-            thinking = (
-                {"type": "enabled", "budget_tokens": 10000}
-                if deepThink
-                else {"type": "disabled"}
-            )
+            complete_messages = None
 
+            # Initial Claude API call with streaming
             stream = self.anthropic.messages.create(
                 model=model,
-                max_tokens=20000,
+                max_tokens=1000,
                 messages=messages,
                 tools=available_tools,
                 stream=True,
                 system=self.system_prompt,
-                thinking=thinking,
             )
 
-            complete_messages = await self.stream_responses(stream)
+            # Process streaming events
+            # Use a regular for loop since stream_responses returns a regular generator
+            stream_gen = self.stream_responses(stream)
+            async for event_data in stream_gen:
+                # Check for the special complete event
+                if (
+                    isinstance(event_data, dict)
+                    and event_data.get("type") == "content_block_complete"
+                ):
+                    complete_messages = event_data.get("messages")
+                    continue
+
+                # Regular event from the stream
+                event = event_data  # The actual event object from the stream
+
+                # For content block start, track the current index and block type
+                if event.type == "content_block_start":
+                    if event.content_block.type == "tool_use" and hasattr(
+                        event.content_block, "name"
+                    ):
+                        # Yield the original event with tool name
+                        chunk = {
+                            "type": event.type,
+                            "index": event.index,
+                            "block_type": event.content_block.type,
+                            "tool_name": event.content_block.name,
+                        }
+                    else:
+                        # Yield the original event
+                        chunk = {
+                            "type": event.type,
+                            "index": event.index,
+                            "block_type": event.content_block.type,
+                        }
+
+                # For deltas, stream them to the frontend with type info
+                elif event.type == "content_block_delta":
+                    if event.delta.type == "text_delta":
+                        chunk = {
+                            "type": "text",
+                            "content": event.delta.text,
+                            "index": event.index,
+                            "is_delta": True,
+                        }
+                    elif event.delta.type == "input_json_delta":
+                        chunk = {
+                            "type": "json",
+                            "content": event.delta.partial_json,
+                            "index": event.index,
+                            "is_delta": True,
+                        }
+
+                # For content block stop, inform the frontend
+                elif event.type == "content_block_stop":
+                    chunk = {"type": event.type, "index": event.index}
+
+                await self.send_streaming_response(chunk)
 
             # Process complete messages for tool calls
             if complete_messages:
@@ -159,14 +186,6 @@ class MCPClient:
                     if msg.type == "text":
                         assistant_message_content.append(
                             {"type": "text", "text": msg.text}
-                        )
-                    elif msg.type == "thinking":
-                        assistant_message_content.append(
-                            {
-                                "type": "thinking",
-                                "thinking": msg.text,
-                                "signature": msg.signature,
-                            }
                         )
                     elif msg.type == "tool_use":
                         has_tool_call = True
@@ -176,6 +195,7 @@ class MCPClient:
                         # Execute tool call
                         result = await self.session.call_tool(tool_name, tool_args)
 
+                        # Yield tool result
                         chunk = {
                             "type": "tool_result",
                             "content": self.tool_call_result_formatted_for_frontend(
@@ -238,77 +258,45 @@ class MCPClient:
                 pass
 
     async def stream_responses(self, stream):
-        # sends streaming response to frontend
-        # and also constructs the full message for use in process_query
+        """
+        Process the stream from Claude API, yield each event as it arrives
+        and finally yield a dictionary with the complete messages
+        """
         llm_msgs = []
 
+        # Assuming stream is an iterable, not an async iterable
         for event in stream:
-            chunk = None
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
                 llm_msgs[event.index] = event.content_block
                 if not hasattr(event.content_block, "text"):
                     event.content_block.text = ""
-                if event.content_block.type == "text":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                    }
-                elif event.content_block.type == "thinking":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                    }
-                elif event.content_block.type == "tool_use":
-                    chunk = {
-                        "type": event.type,
-                        "index": event.index,
-                        "block_type": event.content_block.type,
-                        "tool_name": event.content_block.name,
-                    }
+
+                # Yield the original event
+                yield event
 
             elif event.type == "content_block_delta":
                 if event.delta.type == "text_delta":
+                    # Add to the message being built
                     llm_msgs[event.index].text += event.delta.text
-                    chunk = {
-                        "type": "text",
-                        "content": event.delta.text,
-                        "index": event.index,
-                        "is_delta": True,
-                    }
-                elif event.delta.type == "thinking_delta":
-                    llm_msgs[event.index].text += event.delta.thinking
-                    chunk = {
-                        "type": "thinking",
-                        "content": event.delta.thinking,
-                        "index": event.index,
-                        "is_delta": True,
-                    }
-                elif event.delta.type == "signature_delta":
-                    llm_msgs[event.index].signature = event.delta.signature
                 elif event.delta.type == "input_json_delta":
                     llm_msgs[event.index].text += event.delta.partial_json
-                    chunk = {
-                        "type": "json",
-                        "content": event.delta.partial_json,
-                        "index": event.index,
-                        "is_delta": True,
-                    }
+
+                # Yield the original event
+                yield event
 
             elif event.type == "content_block_stop":
                 if llm_msgs[event.index].type == "tool_use":
                     text = llm_msgs[event.index].text
                     if text:
                         llm_msgs[event.index].input = json.loads(text)
-                chunk = {"type": event.type, "index": event.index}
 
-            if chunk is not None:
-                await self.send_streaming_response(chunk)
+                # Yield the original event
+                yield event
 
-        return llm_msgs
+        # Yield a dictionary with the complete message data
+        yield {"type": "content_block_complete", "messages": llm_msgs}
 
     def tool_call_result_formatted_for_frontend(self, result):
         output = []
@@ -322,15 +310,6 @@ class MCPClient:
         return output
 
     async def send_streaming_response(self, chunk):
-        try:
-            await self.websocket.send(
-                json.dumps(
-                    {"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk}
-                )
-            )
-        except websockets.exceptions.ConnectionClosedError as e:
-            print(f"WebSocket connection closed: {e}", flush=True)
-            raise  # Re-raise to ensure proper handling in the calling method
-        except Exception as e:
-            print(f"Error sending streaming response: {e}", flush=True)
-            raise
+        await self.websocket.send(
+            json.dumps({"messageType": C.WS_LLM_STREAMING_RESPONSE, "content": chunk})
+        )

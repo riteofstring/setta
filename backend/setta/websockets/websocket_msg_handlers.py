@@ -81,14 +81,6 @@ class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def broadcast_notification(self, content):
-        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
 
 class WMHArtifact(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
@@ -247,7 +239,7 @@ class WMHMCPServer(BaseWebsocketMsgHandler):
         try:
             args = replace_ids_with_uuids(args, self.id_to_uuid)
         except IDDoesNotExist as e:
-            return {"error": str(e)}
+            return {"error": e}
 
         if args is None:
             args = {}
@@ -304,9 +296,9 @@ class WMHMCPClient(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def send_message_to_llm(self, model, messages, deepThink):
+    async def send_message_to_llm(self, model, messages):
         message = {
-            "content": {"model": model, "messages": messages, "deepThink": deepThink},
+            "content": {"model": model, "messages": messages},
             "messageType": C.WS_MESSAGE_TO_LLM,
         }
         await self.websocket_manager.send_message(message, self.mcp_client_websocket_id)

@@ -5,7 +5,6 @@ import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
 import {
-  deleteCodeRange,
   getCurrentCode,
   startStreamingInto,
   stopStreamingInto,
@@ -24,7 +23,6 @@ const mcpToolRegistry = {
   setParamValuesMcp,
   startStreamingInto,
   stopStreamingInto,
-  deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
   runEntryCodeBlock,

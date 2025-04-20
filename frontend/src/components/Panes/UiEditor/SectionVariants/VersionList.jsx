@@ -3,7 +3,7 @@ import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
-import { loadJsonContents } from "state/actions/fileUpdates";
+import { loadJsonContents } from "state/actions/jsonSource";
 import { createNewVersionMaybeWithJSON } from "state/actions/newVersion";
 import {
   onClickSetVariantId,
