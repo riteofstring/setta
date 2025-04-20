@@ -116,7 +116,7 @@ class MCPClient:
                 else {"type": "disabled"}
             )
 
-            stream = await self.anthropic.messages.create(
+            stream = await self.anthropic.messages.with_raw_response.create(
                 model=model,
                 max_tokens=20000,
                 messages=messages,
@@ -125,6 +125,8 @@ class MCPClient:
                 system=self.system_prompt,
                 thinking=thinking,
             )
+
+            print(stream.headers, flush=True)
 
             complete_messages = await self.stream_responses(stream)
 
@@ -217,7 +219,7 @@ class MCPClient:
         # and also constructs the full message for use in process_query
         llm_msgs = []
 
-        async for event in stream:
+        async for event in stream.parse():
             chunk = None
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:

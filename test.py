@@ -43,8 +43,10 @@
 # asyncio.run(main())
 
 
-from anthropic import AsyncAnthropic
 import asyncio
+
+from anthropic import AsyncAnthropic
+
 
 async def main():
     client = AsyncAnthropic()
@@ -57,7 +59,7 @@ async def main():
             }
         ],
         model="claude-3-5-sonnet-latest",
-        stream=True
+        stream=True,
     )
     print(response.headers)
     async for event in response.parse():
