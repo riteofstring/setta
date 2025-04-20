@@ -10,6 +10,7 @@ import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
 import { useSectionInfos } from "state/definitions";
+import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { testItems } from "./BrowserArea/testitems";
 
@@ -29,14 +30,15 @@ export function BrowserArea({ sectionId }) {
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
   return (
-    <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
-      <GroupColumn width={width} />
+    <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 overflow-y-scroll pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
+      <TypesColumn width={width} />
       <ItemsColumn sectionId={sectionId} />
     </div>
   );
 }
 
-function GroupColumn({ width }) {
+function TypesColumn({ width }) {
+  const { ref, isScrollable } = useIsScrollable();
   return (
     <>
       <ResizableColumn width={width}>
@@ -44,7 +46,10 @@ function GroupColumn({ width }) {
           Types
         </h3>
 
-        <div className="nodrag relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto  pr-1">
+        <div
+          ref={ref}
+          className={`relative mb-2 mt-2 flex min-h-0 flex-col overflow-y-auto pr-1 ${isScrollable ? "nowheel" : ""}`}
+        >
           {artifactTypes.map((x) => (
             <CheckboxNextToLabel icon={x.icon}>
               <p className="truncate">{x.type}</p>
@@ -133,6 +138,12 @@ function ResizableFileList({ items, sectionId, children }) {
       maxWidth: 400,
       defaultWidth: 180,
     });
+  const { ref, isScrollable } = useIsScrollable();
+
+  function totalContentRef(e) {
+    ref.current = e;
+    contentRef.current = e;
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -154,7 +165,10 @@ function ResizableFileList({ items, sectionId, children }) {
       </div>
 
       {/* List Items */}
-      <div className="min-h-0 flex-1 overflow-y-auto" ref={contentRef}>
+      <div
+        className={`min-h-0 flex-1 overflow-y-auto ${isScrollable ? "nowheel" : ""}`}
+        ref={totalContentRef}
+      >
         {items.map((item) => (
           <div
             key={item.id}
@@ -201,6 +215,8 @@ function EnhancedCarouselView({ items, children }) {
     setSelectedItem(item);
   };
 
+  const { ref, isScrollable } = useIsScrollable();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Featured Image Display */}
@@ -229,7 +245,10 @@ function EnhancedCarouselView({ items, children }) {
       </section>
 
       {/* Carousel Thumbnails */}
-      <article className="flex gap-2 overflow-x-scroll pb-4 pt-[4px]">
+      <article
+        ref={ref}
+        className={`flex gap-2 overflow-x-scroll pb-4 pt-[4px] ${isScrollable ? "nowheel" : ""}`}
+      >
         {items.map((item) => (
           <EnhancedThumbnailItem
             key={item.id}
@@ -287,6 +306,7 @@ function EnhancedThumbnailItem({ item, isSelected, onClick }) {
 }
 
 function ViewSwitch({ view, children, sectionId }) {
+  const { ref, isScrollable } = useIsScrollable();
   switch (view) {
     case "list":
       return (
@@ -297,7 +317,10 @@ function ViewSwitch({ view, children, sectionId }) {
 
     case "thumbnail":
       return (
-        <div className="nodrag h-full w-full overflow-y-auto overflow-x-hidden">
+        <div
+          ref={ref}
+          className={`nodrag h-full w-full overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
+        >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
             {testItems.map((x) => (
               <ThumbnailItem key={x.id} thumbnail={x.content?.thumbnail}>

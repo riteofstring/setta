@@ -57,6 +57,8 @@ function getMinSectionHeight({
     return 50;
   } else if (sectionType === C.CHAT) {
     return 200;
+  } else if (sectionType === C.BROWSER) {
+    return 250;
   }
 }
 

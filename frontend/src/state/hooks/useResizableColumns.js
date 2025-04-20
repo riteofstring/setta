@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSectionColumnWidth } from "state/definitions";
 
-/**
- * Custom hook for managing resizable columns
- *
- * @param {string} sectionId - Unique identifier for the section in the store
- * @param {Object} options - Configuration options
- * @param {number} options.minWidth - Minimum column width (default: 100px)
- * @param {number} options.maxWidth - Maximum column width (default: 500px)
- * @param {number} options.defaultWidth - Default width if not in store (default: 200px)
- * @param {boolean} options.persistOnUnmount - Whether to keep width in store when unmounted
- * @returns {Object} Column refs and resize handler
- */
 export function useResizableColumn(sectionId, options = {}) {
   // Default options
   const {
