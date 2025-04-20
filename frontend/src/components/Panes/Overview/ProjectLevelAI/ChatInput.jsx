@@ -38,8 +38,8 @@ const ChatInput = memo(function ChatInput({
   }, []);
 
   return (
-    <form onSubmit={handleSubmit} className="">
-      <div className="flex gap-2">
+    <form onSubmit={handleSubmit} className="flex justify-center">
+      <div className="flex w-full max-w-xl gap-2">
         <textarea
           type="text"
           value={inputValue}
