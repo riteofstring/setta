@@ -43,6 +43,39 @@ const formatToolArgs = (args, jsonSoFar) => {
   return JSON.stringify(args, null, 2);
 };
 
+const ThinkingBox = memo(({ content, isStreaming }) => {
+  const shouldAnimate = isStreaming;
+  // Use the typewriter effect
+  const displayText = useTypewriterEffect(
+    content,
+    shouldAnimate,
+    5, // typing speed
+  );
+
+  return (
+    <Accordion.Root type="single" collapsible>
+      <Accordion.Item value="details">
+        <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+          <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
+            <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+              <PiWrenchFill
+                size={15}
+                className="min-w-6 text-setta-200 dark:text-setta-400"
+              />
+            </div>
+          </div>
+        </Accordion.Trigger>
+
+        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <div className=" bg-setta-300 p-3  dark:bg-setta-860">
+            {displayText}
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
+
 const ToolCall = memo(
   ({ name, args, jsonSoFar, streaming, result, success = true }) => {
     return (
@@ -140,6 +173,8 @@ const StreamItem = ({ item, idx, streamSequence, isStreaming }) => {
           success={isSuccess}
         />
       );
+    case "thinking":
+      return <ThinkingBox content={item.content} isStreaming={isStreaming} />;
     default:
       return null;
   }

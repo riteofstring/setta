@@ -1,12 +1,15 @@
-import os
 import uuid
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.routers.dependencies import get_wmh_mcp_client
+from setta.database.db.notifications.load import create_notification_dict
+from setta.routers.dependencies import (
+    get_wmh_mcp_client,
+    get_wmh_specific_file_watcher,
+)
 from setta.utils.constants import C
 
 load_dotenv()
@@ -18,18 +21,18 @@ conversation_histories = {}
 
 class GetLLMResponseRequest(BaseModel):
     model: str  # Model identifier
-    message: str  # Single message from user
+    conversationHistory: List[Dict[str, str]]  # Single message from user
+    deepThink: bool
     session_id: Optional[str] = None  # Session ID, optional
 
 
-class ApiKey(BaseModel):
-    modelId: str
-    providerName: str
-    apiKey: str
+class SetLLMApiKeysRequest(BaseModel):
+    apiKeys: Dict[str, str]
+    apiKeysFilepath: str
 
 
-class ApiKeysRequest(BaseModel):
-    apiKeys: List[ApiKey]
+class GetLLMApiKeysRequest(BaseModel):
+    apiKeysFilepath: str
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
@@ -41,7 +44,7 @@ async def route_get_llm_response(
         print("========== DEBUGGING INFO ==========")
         print("Received request data:", x)
         print("Raw model value:", x.model)
-        print("Message:", x.message)
+        # print("Message:", x.message)
         print("Session ID:", x.session_id)
         print("====================================")
 
@@ -49,20 +52,21 @@ async def route_get_llm_response(
         session_id = x.session_id or str(uuid.uuid4())
 
         # Initialize conversation history for new sessions
-        if session_id not in conversation_histories:
-            conversation_histories[session_id] = []
+        # if session_id not in conversation_histories:
+        # conversation_histories[session_id] = x.conversationHistory
+        conversation_histories[session_id] = x.conversationHistory
 
         # Add user message to conversation history
-        conversation_histories[session_id].append(
-            {"role": "user", "content": x.message}
-        )
+        # conversation_histories[session_id].append(
+        #     {"role": "user", "content": x.message}
+        # )
 
         print("About to call completion with model:", x.model)
-        print("Messages:", conversation_histories[session_id])
+        print("Messages:", conversation_histories[session_id], flush=True)
 
         # Add process_query to background tasks
         await websocket_msg_handler.send_message_to_llm(
-            x.model, conversation_histories[session_id]
+            x.model, conversation_histories[session_id], x.deepThink
         )
 
         # Return immediate response with session ID
@@ -83,8 +87,11 @@ async def route_get_llm_response(
         }
 
 
-@router.post(C.ROUTE_SET_API_KEYS)
-def route_set_api_keys(x: ApiKeysRequest):
+@router.post(C.ROUTE_SET_LLM_API_KEYS)
+async def route_set_llm_api_keys(
+    x: SetLLMApiKeysRequest,
+    websocket_msg_handler=Depends(get_wmh_specific_file_watcher),
+):
     """
     Write API keys to .env file to be used by litellm
 
@@ -92,60 +99,48 @@ def route_set_api_keys(x: ApiKeysRequest):
     and provider names, then writes them to the .env file in the correct format.
     """
     try:
-        env_file_path = ".env"
-
-        # Read existing .env file if it exists
-        env_vars = {}
-        if os.path.exists(env_file_path):
-            with open(env_file_path, "r") as env_file:
-                for line in env_file:
-                    if line.strip() and not line.startswith("#"):
-                        if "=" in line:
-                            key, value = line.strip().split("=", 1)
-                            env_vars[key] = value
+        env_vars = dotenv_values(x.apiKeysFilepath)
 
         # Remove all existing API key variables first
         # This ensures keys that were deleted on the frontend are also removed here
-        api_key_vars = [
-            key for key in list(env_vars.keys()) if key.endswith("_API_KEY")
-        ]
-        for key in api_key_vars:
-            del env_vars[key]
-            print(f"Removed {key} from .env file")
+        api_key_vars = get_llm_api_keys_from_env_vars(env_vars)
+        env_vars = {k: v for k, v in env_vars.items() if k not in api_key_vars}
 
         # Add back only the API keys that are in the current request
-        for key in x.apiKeys:
-            if not key.apiKey.strip():
+        for api_key_name, api_key in x.apiKeys.items():
+            api_key = api_key.strip()
+            if not api_key:
                 continue  # Skip empty keys
-
-            # Format API key environment variable exactly as LiteLLM expects
-            provider_name = key.providerName.lower()
-            if provider_name == "anthropic":
-                env_var_name = "ANTHROPIC_API_KEY"
-            elif provider_name == "openai":
-                env_var_name = "OPENAI_API_KEY"
-            else:
-                # Fallback to generic format
-                env_var_name = f"{provider_name.upper().replace(' ', '_')}_API_KEY"
-
-            # Ensure there are no spaces or special formatting that might cause issues
-            api_key = key.apiKey.strip()
-
             # Save the API key
-            env_vars[env_var_name] = api_key
-            print(f"Saving {env_var_name} to .env file")
+            env_vars[api_key_name] = api_key
 
         # Write back to .env file
-        with open(env_file_path, "w") as env_file:
+        with open(x.apiKeysFilepath, "w") as env_file:
             for key, value in env_vars.items():
                 env_file.write(f"{key}={value}\n")
 
         # Reload the environment variables
         load_dotenv(override=True)
 
-        print("Successfully updated API keys in .env file")
-        return {"status": "success"}
+        print("Successfully updated API keys in .env file", flush=True)
+        notification = create_notification_dict("Saved LLM API keys", temporary=True)
 
-    except Exception as e:
-        print(f"Error updating .env file: {e}")
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        notification = create_notification_dict(
+            "Error saving LLM API keys", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
+        )
+
+    await websocket_msg_handler.broadcast_notification(notification)
+
+
+def get_llm_api_keys_from_env_vars(env_vars):
+    return {
+        key: value
+        for key, value in env_vars.items()
+        if key in C.LLM_API_KEY_NAMES.values()
+    }
+
+
+@router.post(C.ROUTE_GET_LLM_API_KEYS)
+def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
+    return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
