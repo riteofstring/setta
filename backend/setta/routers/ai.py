@@ -159,5 +159,11 @@ async def route_get_llm_chat(
             x.projectConfigId,
         )
         return {"messages": [], "waitingForResponse": False}
-    waiting_for_response = chat_manager.is_waiting_for_response(chat["id"])
-    return {"messages": chat["messages"], "waitingForResponse": waiting_for_response}
+
+    waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
+    current_stream = chat_manager.get_current_stream(x.chatId)
+    return {
+        "messages": chat["messages"],
+        "currentStream": current_stream,
+        "waitingForResponse": waiting_for_response,
+    }

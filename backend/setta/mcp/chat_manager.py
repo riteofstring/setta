@@ -14,8 +14,7 @@ class ChatManager:
         self.dbq = dbq
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.current_stream = {}
-        self.waiting_for_response = {}
+        self.current_streams = {}
         self.anthropic = AsyncAnthropic()
         with open(
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
@@ -33,8 +32,9 @@ class ChatManager:
         return self.get_chat(chat_id)
 
     def update_chat(self, chat_id, new_messages):
+        if len(new_messages) == 0:
+            return
         with self.dbq as db:
-            print("new_messages", new_messages, flush=True)
             update_chat(db, chat_id, new_messages)
 
     def create_new_chat(self, first_message):
@@ -49,23 +49,24 @@ class ChatManager:
         with self.dbq as db:
             delete_chat(db, chat_id)
 
-    def set_llm_is_responding(self, chat_id):
-        self.waiting_for_response[chat_id] = True
-
-    def set_llm_is_done(self, chat_id):
-        self.waiting_for_response[chat_id] = False
-
     def is_waiting_for_response(self, chat_id):
-        return self.waiting_for_response.get(chat_id, False)
+        return chat_id in self.current_streams
+
+    def init_current_stream(self, chatId):
+        self.current_streams[chatId] = []
+
+    def end_current_stream(self, chatId):
+        self.current_streams.pop(chatId, None)
+
+    def get_current_stream(self, chatId):
+        return self.current_streams.get(chatId, [])
 
     async def process_query(self, chat, model, deepThink):
         chatId = chat["id"]
-        self.set_llm_is_responding(chatId)
         messages = chat["messages"]
+        self.init_current_stream(chatId)
 
         while True:
-            new_messages = []
-            assistant_message_content = []
             has_tool_call = False
             thinking = (
                 {"type": "enabled", "budget_tokens": 10000}
@@ -82,7 +83,8 @@ class ChatManager:
                 model=model,
                 max_tokens=20000,
                 messages=[
-                    {"role": m["role"], "content": m["content"]} for m in messages
+                    {"role": m["role"], "content": m["content"]}
+                    for m in [*messages, *self.current_streams[chatId]]
                 ],
                 tools=self.mcp_client.available_tools,
                 stream=True,
@@ -115,66 +117,55 @@ class ChatManager:
             )
 
             assistant_message_id = await self.stream_responses(chatId, stream)
-            complete_messages = self.current_stream[chatId]
 
-            for msg in complete_messages:
-                assistant_message_content.append(msg.model_dump())
-                if msg.type == C.LLM_TOOL_USE:
+            if len(self.current_streams[chatId]) == 0:
+                break
+
+            latest_msg = self.current_streams[chatId][-1]
+
+            for sub_msg in latest_msg.content:
+                if sub_msg.type == C.LLM_TOOL_USE:
                     has_tool_call = True
-                    result = await self.mcp_client.call_tool(msg.name, msg.input)
+                    result = await self.mcp_client.call_tool(
+                        sub_msg.name, sub_msg.input
+                    )
                     tool_result = {
                         "type": C.LLM_TOOL_RESULT,
-                        "tool_use_id": msg.id,
+                        "tool_use_id": sub_msg.id,
                         "content": result.content,
                     }
                     await self.send_streaming_response(chatId, tool_result)
-                    new_messages.append(
-                        {
-                            "id": assistant_message_id,
-                            "role": C.LLM_ASSISTANT_ROLE,
-                            "content": assistant_message_content,
-                        }
-                    )
-                    new_messages.append(
-                        {
-                            "id": create_new_id(),
-                            "role": "user",
-                            "content": [tool_result],
-                        }
-                    )
-                    break
+                    tool_result_msg = {
+                        "id": create_new_id(),
+                        "role": "user",
+                        "content": [tool_result],
+                    }
+                    latest_msg.content.append(tool_result_msg)
+
+            self.update_chat(chatId, [latest_msg.model_dump()])
 
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
-                if assistant_message_content:
-                    new_messages.append(
-                        {
-                            "id": assistant_message_id,
-                            "role": C.LLM_ASSISTANT_ROLE,
-                            "content": assistant_message_content,
-                        }
-                    )
-                    self.update_chat(chatId, new_messages)
                 break
-            # Otherwise continue the loop to get the next response after tool use
-
-            self.update_chat(chatId, new_messages)
-            messages = [*messages, *new_messages]
 
         chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
         await self.send_streaming_response(chatId, assistant_message_id, chunk)
-        self.set_llm_is_done(chatId)
+        self.end_current_stream(chatId)
 
     async def stream_responses(self, chatId, stream):
         # sends streaming response to frontend
         # and also constructs the full message for use in process_query
         assistant_message_id = None
-        self.current_stream[chatId] = []
-        llm_msgs = self.current_stream[chatId]
+        llm_msgs = None
 
         async for event in stream.parse():
             if event.type == C.LLM_MESSAGE_START:
                 assistant_message_id = event.message.id
+                self.current_streams[chatId].append(event.message)
+                llm_msgs = self.current_streams[chatId][-1].content
+            elif llm_msgs is None:
+                continue
+
             if event.type == C.LLM_CONTENT_BLOCK_START:
                 while len(llm_msgs) <= event.index:
                     llm_msgs.append(None)
@@ -196,6 +187,7 @@ class ChatManager:
                 if curr_msg.type == C.LLM_TOOL_USE and curr_msg.text:
                     curr_msg.input = json.loads(curr_msg.text)
                     delattr(curr_msg, "text")
+
             await self.send_streaming_response(
                 chatId, assistant_message_id, event.model_dump()
             )

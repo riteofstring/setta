@@ -16,9 +16,9 @@ export async function getLLMChat(chatId) {
   const res = await dbGetLLMChat(chatId, projectConfigId);
   console.log("res", res);
   if (res.status == 200) {
-    const { messages, waitingForResponse } = res.data;
+    const { messages, currentStream, waitingForResponse } = res.data;
     useAIStore.setState({
-      messages,
+      messages: [...messages, ...currentStream],
       currentChatId: chatId,
       waitingForResponse,
     });
@@ -109,7 +109,7 @@ export function receiveLLMResponseChunk(msg) {
     // Handle different chunk types
     switch (chunk.type) {
       case C.LLM_MESSAGE_START:
-        llmMessageStart(assistantMessageId, chunk);
+        llmMessageStart(chunk);
         return;
       case C.LLM_CONTENT_BLOCK_START:
         llmContentBlockStart(assistantMessageId, chunk);
@@ -129,12 +129,9 @@ export function receiveLLMResponseChunk(msg) {
   }
 }
 
-function llmMessageStart(assistantMessageId, chunk) {
+function llmMessageStart(chunk) {
   useAIStore.setState((state) => ({
-    messages: [
-      ...state.messages,
-      { id: assistantMessageId, ..._.pick(chunk.message, ["role", "content"]) },
-    ],
+    messages: [...state.messages, chunk.message],
   }));
 }
 
