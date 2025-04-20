@@ -247,7 +247,9 @@ function llmContentBlockStop(assistantMessageId, chunk) {
   });
 }
 
-function llmFullMessageStop(assistantMessageId, chunk) {}
+function llmFullMessageStop() {
+  useAIStore.setState({ waitingForResponse: false });
+}
 
 function streamInto(streamTarget, content) {
   const aiState = useAIStore.getState();
