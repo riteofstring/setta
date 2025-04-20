@@ -1,5 +1,5 @@
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
-from setta.database.db.chats.save import create_new_chat
+from setta.database.db.chats.save import create_new_chat, delete_chat
 
 
 class ChatManager:
@@ -29,3 +29,7 @@ class ChatManager:
     def get_all_chat_metadata(self):
         with self.dbq as db:
             return load_all_chat_metadata(db)
+
+    def delete_chat(self, chat_id):
+        with self.dbq as db:
+            delete_chat(db, chat_id)

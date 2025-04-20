@@ -101,6 +101,7 @@
   "ROUTE_GET_LLM_API_KEYS": "/getLLMApiKeys",
   "ROUTE_CREATE_NEW_LLM_CHAT": "/createNewLLMChat",
   "ROUTE_GET_ALL_LLM_CHAT_METADATA": "/getAllLLMChatMetadata",
+  "ROUTE_DELETE_LLM_CHAT": "/deleteLLMChat",
   "ROUTE_RUN_CODE": "/runCode",
   "ROUTE_TYPE_CHECK": "/typeCheck",
   "NESTED_PARAM": "NESTED_PARAM",

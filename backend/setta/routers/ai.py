@@ -32,6 +32,10 @@ class GetLLMApiKeysRequest(BaseModel):
     apiKeysFilepath: str
 
 
+class DeleteLLMChatRequest(BaseModel):
+    chatId: str
+
+
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
@@ -130,3 +134,10 @@ def route_create_new_llm_chat(chat_manager=Depends(get_chat_manager)):
 @router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
 def route_get_all_llm_chat_metadata(chat_manager=Depends(get_chat_manager)):
     return chat_manager.get_all_chat_metadata()
+
+
+@router.post(C.ROUTE_DELETE_LLM_CHAT)
+def route_delete_llm_chat(
+    x: DeleteLLMChatRequest, chat_manager=Depends(get_chat_manager)
+):
+    return chat_manager.delete_chat(x.chatId)

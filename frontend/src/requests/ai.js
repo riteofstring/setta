@@ -58,10 +58,16 @@ export async function dbCreateNewLLMChat() {
   });
 }
 
-
-export async function dbGetAllLLMChatMetadata() {
+export async function dbGetAllLLMChatMetadata(chatId) {
   return await post({
-    body: {},
+    body: { chatId },
     address: C.ROUTE_GET_ALL_LLM_CHAT_METADATA,
+  });
+}
+
+export async function dbDeleteLLMChat(chatId) {
+  return await post({
+    body: { chatId },
+    address: C.ROUTE_DELETE_LLM_CHAT,
   });
 }

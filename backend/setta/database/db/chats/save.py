@@ -14,3 +14,11 @@ def create_new_chat(db):
     db.execute(query, {"chat_id": id})
 
     return id
+
+
+def delete_chat(db, chat_id):
+    query = """
+        DELETE FROM CHAT
+        WHERE ID = :chatId
+    """
+    db.execute(query, {"chatId": chat_id})

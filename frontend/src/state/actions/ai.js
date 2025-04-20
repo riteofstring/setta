@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   dbCreateNewLLMChat,
+  dbDeleteLLMChat,
   dbGetAllLLMChatMetadata,
   dbGetLLMResponse,
 } from "requests/ai";
@@ -20,6 +21,11 @@ export async function getAllLLMChatMetadata() {
   if (res.status == 200) {
     useAIStore.setState({ allChatMetadata: res.data });
   }
+}
+
+export async function deleteLLMChat(chatId) {
+  await dbDeleteLLMChat(chatId);
+  await getAllLLMChatMetadata();
 }
 
 export function switchToChat(id) {

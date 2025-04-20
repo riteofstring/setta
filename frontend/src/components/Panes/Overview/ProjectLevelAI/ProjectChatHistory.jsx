@@ -1,7 +1,11 @@
 import _ from "lodash";
 import { useEffect } from "react";
 import { FiTrash2 } from "react-icons/fi";
-import { getAllLLMChatMetadata, switchToChat } from "state/actions/ai";
+import {
+  deleteLLMChat,
+  getAllLLMChatMetadata,
+  switchToChat,
+} from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 
 export function ProjectChatHistory({ currentChatId }) {
@@ -50,7 +54,13 @@ export function ProjectChatHistory({ currentChatId }) {
                   {new Date(chat.lastUpdated).toLocaleString()}
                 </p>
               </div>
-              <button className="cursor-pointer p-1  text-transparent transition-colors hover:!text-red-500 group-hover/historyitem:text-setta-300  group-hover:opacity-100 dark:hover:!text-red-600 group-hover/historyitem:dark:text-setta-600">
+              <button
+                className="cursor-pointer p-1  text-transparent transition-colors hover:!text-red-500 group-hover/historyitem:text-setta-300  group-hover:opacity-100 dark:hover:!text-red-600 group-hover/historyitem:dark:text-setta-600"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteLLMChat(chat.id);
+                }}
+              >
                 <FiTrash2 />
               </button>
             </div>
