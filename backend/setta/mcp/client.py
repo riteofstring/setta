@@ -151,11 +151,13 @@ class MCPClient:
 
             for msg in complete_messages:
                 if msg.type == "text":
-                    assistant_message_content.append({"type": "text", "text": msg.text})
+                    assistant_message_content.append(
+                        {"type": msg.type, "text": msg.text}
+                    )
                 elif msg.type == "thinking":
                     assistant_message_content.append(
                         {
-                            "type": "thinking",
+                            "type": msg.type,
                             "thinking": msg.text,
                             "signature": msg.signature,
                         }
@@ -165,43 +167,32 @@ class MCPClient:
                     tool_name = msg.name
                     tool_args = msg.input
 
-                    # Execute tool call
-                    result = await self.session.call_tool(tool_name, tool_args)
-
-                    chunk = {
-                        "type": "tool_result",
-                        "content": self.tool_call_result_formatted_for_frontend(result),
-                        "is_delta": False,
-                    }
-
-                    await self.send_streaming_response(chunk)
-
                     # Format the tool_use content block for history
                     assistant_message_content.append(
                         {
-                            "type": "tool_use",
+                            "type": msg.type,
                             "id": msg.id,
                             "name": tool_name,
                             "input": tool_args,
                         }
                     )
 
+                    # Execute tool call
+                    result = await self.session.call_tool(tool_name, tool_args)
+
+                    tool_result = {
+                        "type": "tool_result",
+                        "tool_use_id": msg.id,
+                        "content": result.content,
+                    }
+
+                    await self.send_streaming_response(tool_result)
+
                     # Update conversation history
                     messages.append(
                         {"role": "assistant", "content": assistant_message_content}
                     )
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": msg.id,
-                                    "content": result.content,
-                                }
-                            ],
-                        }
-                    )
+                    messages.append({"role": "user", "content": [tool_result]})
 
                     break  # Exit the loop to process a new response
 
@@ -283,7 +274,6 @@ class MCPClient:
                         "type": "text",
                         "content": event.delta.text,
                         "index": event.index,
-                        "is_delta": True,
                     }
                 elif event.delta.type == "thinking_delta":
                     llm_msgs[event.index].text += event.delta.thinking
@@ -291,7 +281,6 @@ class MCPClient:
                         "type": "thinking",
                         "content": event.delta.thinking,
                         "index": event.index,
-                        "is_delta": True,
                     }
                 elif event.delta.type == "signature_delta":
                     llm_msgs[event.index].signature = event.delta.signature
@@ -301,7 +290,6 @@ class MCPClient:
                         "type": "json",
                         "content": event.delta.partial_json,
                         "index": event.index,
-                        "is_delta": True,
                     }
 
             elif event.type == "content_block_stop":
