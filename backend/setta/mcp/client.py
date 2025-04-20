@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from typing import Optional
 
 import mcp.types
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -21,7 +21,7 @@ class MCPClient:
         # Initialize session and client objects
         self.session: Optional[ClientSession] = None
         self.exit_stack = AsyncExitStack()
-        self.anthropic = Anthropic()
+        self.anthropic = AsyncAnthropic()
         self.reader_task = None
         self.server_url = server_url
         self.websocket = None
@@ -116,7 +116,7 @@ class MCPClient:
                 else {"type": "disabled"}
             )
 
-            stream = self.anthropic.messages.create(
+            stream = await self.anthropic.messages.create(
                 model=model,
                 max_tokens=20000,
                 messages=messages,
@@ -217,7 +217,7 @@ class MCPClient:
         # and also constructs the full message for use in process_query
         llm_msgs = []
 
-        for event in stream:
+        async for event in stream:
             chunk = None
             if event.type == "content_block_start":
                 while len(llm_msgs) <= event.index:
