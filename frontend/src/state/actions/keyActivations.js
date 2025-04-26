@@ -52,10 +52,7 @@ import {
   addTerminalInEmptySpace,
 } from "./sections/createSections";
 import { deleteAllActiveSections } from "./sections/deleteSections";
-import {
-  groupActiveSections,
-  ungroupActiveGroup,
-} from "./sections/groupSections";
+import { groupSections, ungroupActiveGroup } from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
   focusOnCommandPalette,
@@ -464,7 +461,7 @@ export function attachKeyEventListeners() {
     [shortcuts.frozenTooltipCopyShortcut, copyFrozenFloatingBoxContent],
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
-    [shortcuts.groupShortcut, groupActiveSections],
+    [shortcuts.groupShortcut, groupSections],
     [shortcuts.ungroupShortcut, ungroupActiveGroup],
     [shortcuts.saveShortcut, saveProject],
     [shortcuts.loadShortcut, openLoadModal],
