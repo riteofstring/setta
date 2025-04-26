@@ -100,7 +100,7 @@ class ChatManager:
 
     async def _process_query(self, chat, model, deepThink):
         chatId = chat["id"]
-        messages = chat["messages"]
+        original_messages = chat["messages"]
         self.init_current_stream(chatId)
         curr_stream = self.current_streams[chatId]
         while True:
@@ -112,7 +112,7 @@ class ChatManager:
                 messages,
                 thinking,
             ) = await self.get_tools_system_messages_thinking(
-                messages, curr_stream, model, deepThink
+                original_messages, curr_stream, model, deepThink
             )
 
             print(f"{messages}\n\n\n", flush=True)
@@ -197,6 +197,7 @@ class ChatManager:
 
         async for event in stream.parse():
             if event.type == C.LLM_MESSAGE_START:
+                print(event.message.usage, flush=True)
                 assistant_message_id = event.message.id
                 self.current_streams[chatId].append(event.message)
                 llm_msgs = self.current_streams[chatId][-1].content
@@ -300,6 +301,8 @@ class ChatManager:
             }
         ]
 
+        self.set_cache_control(system[0])
+
         messages = [
             {
                 "role": m["role"],
@@ -314,69 +317,19 @@ class ChatManager:
             else {"type": "disabled"}
         )
 
-        cache_control_idx = await self.get_cache_control_idx(messages, model, thinking)
-
-        if cache_control_idx is None:
-            self.set_cache_control(system[0])
-        else:
-            cache_message_idx, cache_content_idx = cache_control_idx
-            self.set_cache_control(
-                messages[cache_message_idx]["content"][cache_content_idx]
-            )
+        did_set_cache_control = False
+        for m in reversed(messages):
+            for c in reversed(m["content"]):
+                if did_set_cache_control:
+                    c.pop("cache_control", None)
+                elif c["type"] != C.LLM_THINKING:
+                    self.set_cache_control(c)
+                    did_set_cache_control = True
 
         return tools, system, messages, thinking
 
-    async def get_cache_control_idx(self, messages, model, thinking):
-        cache_message_idx, cache_content_idx = None, None
-        for msg_idx, m in enumerate(messages):
-            for content_idx, c in enumerate(m["content"]):
-                if c.get("cache_control"):
-                    cache_message_idx = msg_idx
-                    cache_content_idx = content_idx
-                    c.pop("cache_control")
-                    break
-
-        if cache_message_idx is not None:
-            messages_to_count = messages[cache_message_idx:]
-            messages_to_count[0]["content"] = messages_to_count[0]["content"][
-                cache_content_idx:
-            ]
-        else:
-            messages_to_count = messages
-
-        num_tokens = await self.anthropic.messages.count_tokens(
-            model=model,
-            messages=messages_to_count,
-            thinking=thinking,
-        )
-
-        if num_tokens.input_tokens >= self.cache_trigger_tokens:
-            new_indices = self.get_new_cache_indices(messages)
-            if new_indices is None:
-                return cache_message_idx, cache_content_idx
-            return new_indices
-        elif cache_message_idx is not None:
-            return cache_message_idx, cache_content_idx
-        return None
-
     def set_cache_control(self, x):
         x["cache_control"] = {"type": "ephemeral"}
-
-    def get_new_cache_indices(self, messages):
-        cache_message_idx = len(messages) - 1
-        cache_content_idx = len(messages[cache_message_idx]["content"]) - 1
-        while (
-            messages[cache_message_idx]["content"][cache_content_idx]["type"]
-            == C.LLM_THINKING
-        ):
-            if cache_content_idx > 0:
-                cache_content_idx -= 1
-            elif cache_message_idx > 0:
-                cache_message_idx -= 1
-                cache_content_idx = len(messages[cache_message_idx]["content"]) - 1
-            else:
-                return None
-        return cache_message_idx, cache_content_idx
 
 
 def maybe_pydantic_model_dump(x):
