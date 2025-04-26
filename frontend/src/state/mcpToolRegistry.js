@@ -15,7 +15,10 @@ import { addParametersMcp } from "./actions/kwargs";
 import { updateNodePositionsMcp } from "./actions/nodeInternals";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
-import { groupSections } from "./actions/sections/groupSections";
+import {
+  groupSections,
+  ungroupGroupMcp,
+} from "./actions/sections/groupSections";
 import {
   getAllSectionInformationMcp,
   getSectionCurrentCodeInfoMcp,
@@ -35,6 +38,7 @@ const mcpToolRegistry = {
   runEntryCodeBlock,
   addSectionsAtPositionMcp,
   groupSections,
+  ungroupGroupMcp,
   getSectionCurrentCodeInfoMcp,
   getAllSectionInformationMcp,
   setSelectedItemMcp,

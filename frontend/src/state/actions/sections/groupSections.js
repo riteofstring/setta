@@ -63,7 +63,7 @@ export async function groupActiveSections() {
   }
 }
 
-export function ungroup(groupId, state) {
+export function ungroupGroup(groupId, state) {
   if (getSectionType(groupId, state) !== C.GROUP) {
     return;
   }
@@ -92,8 +92,19 @@ export function ungroupActiveGroup() {
     const ids = useActiveSection.getState().ids;
     // TODO: support multiple groups
     if (ids.length === 1) {
-      ungroup(ids[0], state);
+      ungroupGroup(ids[0], state);
     }
   });
   maybeIncrementProjectStateVersion(true);
+}
+
+/**
+ * Ungroup an existing group.
+ * @SETTA_MCP_TOOL
+ * @param {ID} sectionId The id of the group to ungroup.
+ */
+export function ungroupGroupMcp({ sectionId }) {
+  useSectionInfos.setState((state) => {
+    ungroupGroup(sectionId, state);
+  });
 }

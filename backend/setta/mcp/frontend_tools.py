@@ -376,6 +376,23 @@ async def groupSections(
     )
 
 
+@mcp_server.tool(description="Ungroup an existing group.")
+async def ungroupGroupMcp(chatId: str, sectionId: ID) -> Any:
+    """Ungroup an existing group.
+
+    Args:
+        sectionId: The id of the group to ungroup.
+    """
+    args = {}
+    args["chatId"] = chatId
+    args["sectionId"] = sectionId
+    return json.dumps(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "ungroupGroupMcp", ungroupGroupMcp.__annotations__["return"], args
+        )
+    )
+
+
 # From sectionContents.js
 @mcp_server.tool(
     description="Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"
