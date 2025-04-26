@@ -1,7 +1,7 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
-import { memo, useEffect } from "react";
+import { memo, useEffect, useRef } from "react";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -61,22 +61,75 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
     5, // typing speed
   );
 
+  // Create a ref for the preview container
+  const previewRef = useRef(null);
+
+  // Auto-scroll to bottom when content changes during streaming
+  useEffect(() => {
+    if (isStreaming && previewRef.current) {
+      previewRef.current.scrollTop = previewRef.current.scrollHeight;
+    }
+  }, [displayText, isStreaming]);
+
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
+        {/* Use a hidden style tag to hide webkit scrollbars */}
+        <style>{`
+          .hide-webkit-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+        `}</style>
+
         <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-          <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
-            <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
-              <PiWrenchFill
-                size={15}
-                className="min-w-6 text-setta-200 dark:text-setta-400"
-              />
+          <div className="relative flex w-full flex-col items-start justify-center gap-2 px-2 py-2 text-left">
+            <div className="flex w-full items-center">
+              <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+                <PiWrenchFill
+                  size={15}
+                  className="min-w-6 text-setta-200 dark:text-setta-400"
+                />
+              </div>
+              {isStreaming && (
+                <div className="ml-auto">
+                  <i className="gg-spinner !scale-125 text-blue-500/70" />
+                </div>
+              )}
+            </div>
+
+            {/* Preview section */}
+            <div className="mt-2 w-full overflow-hidden pl-6 pr-2">
+              {isStreaming ? (
+                <div className="relative w-full">
+                  {/* Fade effect at top */}
+                  <div className="absolute left-0 right-0 top-0 z-10 h-4 bg-gradient-to-b from-setta-50 to-transparent dark:from-setta-700"></div>
+
+                  {/* Scrollable content area with hidden scrollbar */}
+                  <div
+                    ref={previewRef}
+                    className="hide-webkit-scrollbar h-16 overflow-y-auto text-xs text-setta-600 dark:text-setta-300"
+                    style={{
+                      scrollbarWidth: "none",
+                      msOverflowStyle: "none",
+                    }}
+                  >
+                    {displayText}
+                  </div>
+
+                  {/* Fade effect at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 z-10 h-4 bg-gradient-to-t from-setta-50 to-transparent dark:from-setta-700"></div>
+                </div>
+              ) : (
+                <div className="text-xs italic text-setta-600 dark:text-setta-300">
+                  Thinking complete
+                </div>
+              )}
             </div>
           </div>
         </Accordion.Trigger>
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className=" bg-setta-300 p-3  dark:bg-setta-860">
+          <div className="bg-setta-300 p-3 dark:bg-setta-860">
             {displayText}
           </div>
         </Accordion.Content>
@@ -85,7 +138,7 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
   );
 });
 
-function AccordionStatus({ result, success, isStreaming }) {
+function ToolCallAccordionStatus({ result, success, isStreaming }) {
   if (result) {
     return success ? (
       <IoMdCheckmark className="absolute right-2 text-setta-400" />
@@ -116,7 +169,7 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
             <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
               {name}
             </div>
-            <AccordionStatus
+            <ToolCallAccordionStatus
               result={result}
               success={success}
               isStreaming={isStreaming}

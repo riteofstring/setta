@@ -218,7 +218,7 @@ function llmContentBlockDelta(chatId, assistantMessageId, chunk) {
         currMsg.thinking += chunk.delta.thinking;
         break;
       case C.LLM_SIGNATURE_DELTA:
-        currMsgsignature = chunk.delta.signature;
+        currMsg.signature = chunk.delta.signature;
         break;
       case C.LLM_INPUT_JSON_DELTA:
         if (typeof currMsg.input !== "string") {
