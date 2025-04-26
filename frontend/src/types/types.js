@@ -6,8 +6,8 @@
 
 /**
  * @typedef {Object} SectionSize
- * @property {number} width
- * @property {number} height
+ * @property {(number|"auto")} width - Width value (number or "auto")
+ * @property {(number|"auto")} height - Height value (number or "auto")
  */
 
 /**
@@ -17,11 +17,10 @@
 /**
  * @typedef {Object} SimplifiedSectionConfig
  * @property {string} name - The section title
- * @property {SectionSize} size - The section dimensions
+ * @property {SectionSize} [size] - The section dimensions (optional)
  * @property {Position} position
  * @property {SectionUIType} type
  */
-
 /**
 @typedef {string} ID
  */
