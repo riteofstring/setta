@@ -262,6 +262,7 @@ export const useAIStore = create(
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
         userSelectedLLM: "",
+        idToUUIDForLLM: {},
       }),
       {
         name: "setta_ai_data",

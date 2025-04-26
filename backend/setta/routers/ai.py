@@ -4,10 +4,12 @@ from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
+from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.notifications.load import create_notification_dict
 from setta.mcp.chat_manager import maybe_pydantic_model_dump
 from setta.routers.dependencies import (
     get_chat_manager,
+    get_dbq,
     get_wmh_database,
     get_wmh_specific_file_watcher,
 )
@@ -198,3 +200,13 @@ def merge_db_messages_with_current_stream(db_messages, current_stream):
             db_messages.append(message)
             # Add to existing_ids to track what we've added
             existing_ids.add(message["id"])
+
+
+@router.post(C.ROUTE_GET_UUID_MAPPING_FOR_LLM)
+async def route_get_uuid_mapping_for_llm(
+    dbq=Depends(get_dbq),
+):
+    with dbq as db:
+        id_to_uuid, _ = load_uuid_mapping_for_llm(db)
+        print("id_to_uuid", id_to_uuid, flush=True)
+    return id_to_uuid

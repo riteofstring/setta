@@ -1,7 +1,7 @@
 from pydantic import TypeAdapter
 
-from setta.database.db.chats.load import load_uuid_mappings_for_llm
-from setta.database.db.chats.save import save_uuid_mappings_for_llm
+from setta.database.db.chats.load import load_uuid_mapping_for_llm
+from setta.database.db.chats.save import save_uuid_mapping_for_llm
 from setta.mcp.utils import (
     IDDoesNotExist,
     replace_ids_with_uuids,
@@ -241,7 +241,7 @@ class WMHMCP(BaseWebsocketMsgHandler):
         self.websocket_manager = websocket_manager
         self.dbq = dbq
         with self.dbq as db:
-            self.id_to_uuid, self.uuid_to_id = load_uuid_mappings_for_llm(db)
+            self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
 
     async def use_frontend_tool(self, fn_name, return_type, args=None):
         # Generate request ID
@@ -266,7 +266,8 @@ class WMHMCP(BaseWebsocketMsgHandler):
         result = TypeAdapter(return_type).validate_python(result)
         result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
         with self.dbq as db:
-            save_uuid_mappings_for_llm(db, self.uuid_to_id)
+            save_uuid_mapping_for_llm(db, self.uuid_to_id)
+            await self.send_uuid_mapping()
         return result
 
     async def broadcast_notification(self, content):
@@ -274,6 +275,13 @@ class WMHMCP(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             content,
             C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+    async def send_uuid_mapping(self):
+        await self.websocket_manager.broadcast(
+            self.id_to_uuid,
+            C.WS_UUID_MAPPING_FOR_LLM,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 

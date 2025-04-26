@@ -74,3 +74,10 @@ export async function dbGetLLMChat(chatId, projectConfigId) {
     address: C.ROUTE_GET_LLM_CHAT,
   });
 }
+
+export async function dbGetUUIDMappingForLLM() {
+  return await post({
+    body: {},
+    address: C.ROUTE_GET_UUID_MAPPING_FOR_LLM,
+  });
+}

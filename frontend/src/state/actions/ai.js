@@ -5,6 +5,7 @@ import {
   dbGetAllLLMChatMetadata,
   dbGetLLMChat,
   dbGetLLMResponse,
+  dbGetUUIDMappingForLLM,
 } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -20,10 +21,8 @@ export function getDefaultChatDetails() {
 }
 
 export async function getLLMChat(chatId) {
-  console.log("getLLMChat", chatId);
   const projectConfigId = useSectionInfos.getState().projectConfig.id;
   const res = await dbGetLLMChat(chatId, projectConfigId);
-  console.log("res", res);
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
@@ -84,7 +83,6 @@ export async function submitMessage(message, deepThink) {
       deepThink,
       state.currentChatId,
     );
-    console.log("res", res);
     if (res.status == 200) {
       const chatId = res.data;
       await getLLMChat(chatId);
@@ -567,4 +565,17 @@ function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
   }
 
   return [start, end];
+}
+
+export function updateUUIDMappingForLLM(idToUUIDForLLM) {
+  console.log("updateUUIDMappingForLLM", idToUUIDForLLM);
+  useAIStore.setState({ idToUUIDForLLM });
+}
+
+export async function getUUIDMappingForLLM() {
+  const res = await dbGetUUIDMappingForLLM();
+  console.log("getUUIDMappingForLLM", res);
+  if (res.status === 200) {
+    updateUUIDMappingForLLM(res.data);
+  }
 }

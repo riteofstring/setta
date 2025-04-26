@@ -60,10 +60,10 @@ def load_all_chat_metadata(db):
     return output
 
 
-def load_uuid_mappings_for_llm(db):
+def load_uuid_mapping_for_llm(db):
     query = """
         SELECT id, uuid
-        FROM UUIDMappingsForLLM
+        FROM UUIDMappingForLLM
     """
 
     db.execute(query)

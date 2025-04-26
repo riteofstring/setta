@@ -32,7 +32,7 @@ def traverse_and_replace(data, replace_func):
 def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
     """
     Replace all UUIDs in data with their corresponding IDs.
-    If a UUID doesn't have an ID, create a new one and update the mappings.
+    If a UUID doesn't have an ID, create a new one and update the mapping.
 
     Args:
         data: Input data (can be simple type, dict, or list)

@@ -16,6 +16,7 @@ import {
   startStreamingInto,
   stopStreamingInto,
 } from "state/actions/ai";
+import { getSectionInfo } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -323,10 +324,14 @@ const MessageList = memo(function MessageList({
   messages,
   toolResults,
   waitingForResponse,
+  idToUUIDForLLM,
   currentChatId,
 }) {
   // TODO: make more efficient
-  const consolidatedMessages = consolidateAssistantMessages(messages);
+  const consolidatedMessages = consolidateAssistantMessages(
+    messages,
+    idToUUIDForLLM,
+  );
 
   if (!currentChatId) {
     return (
@@ -361,20 +366,26 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   deepThink,
   userSelectedLLM,
 }) {
-  const { messages, toolResults, waitingForResponse, currentChatId } =
-    useAIStore((x) => {
-      const details = x.chatDetails[x.currentChatId];
-      if (!x.currentChatId || !details) {
-        return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
-      }
-      const { messages, toolResults, waitingForResponse } = details;
-      return {
-        messages,
-        toolResults,
-        waitingForResponse,
-        currentChatId: x.currentChatId,
-      };
-    }, shallow);
+  const {
+    messages,
+    toolResults,
+    waitingForResponse,
+    idToUUIDForLLM,
+    currentChatId,
+  } = useAIStore((x) => {
+    const details = x.chatDetails[x.currentChatId];
+    if (!x.currentChatId || !details) {
+      return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
+    }
+    const { messages, toolResults, waitingForResponse } = details;
+    return {
+      messages,
+      toolResults,
+      waitingForResponse,
+      idToUUIDForLLM: x.idToUUIDForLLM,
+      currentChatId: x.currentChatId,
+    };
+  }, shallow);
 
   useEffect(() => {
     if (currentChatId) {
@@ -382,12 +393,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [currentChatId]);
 
+  console.log("idToUUIDForLLM", idToUUIDForLLM);
+
   return (
     <>
       <MessageList
         messages={messages}
         toolResults={toolResults}
         waitingForResponse={waitingForResponse}
+        idToUUIDForLLM={idToUUIDForLLM}
         currentChatId={currentChatId}
       />
       <ChatInput
@@ -402,7 +416,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 });
 
 // Consolidate assistant messages and handle tool results
-const consolidateAssistantMessages = (messages) => {
+const consolidateAssistantMessages = (messages, idToUUIDForLLM) => {
   const processedMessages = [];
   let currentAssistantMessage = null;
 
@@ -436,6 +450,7 @@ const consolidateAssistantMessages = (messages) => {
 
   // Second pass: filter out text content between startStreamingInto and stopStreamingInto
   const finalMessages = [];
+  let sectionId;
 
   for (const message of processedMessages) {
     if (message.role === C.LLM_ASSISTANT_ROLE) {
@@ -449,6 +464,12 @@ const consolidateAssistantMessages = (messages) => {
         ) {
           isStreaming = true;
           filteredContent.push(item);
+          sectionId = idToUUIDForLLM[item.input.sectionId];
+          if (sectionId) {
+            console.log("startStreamingInto", getSectionInfo(sectionId).name);
+          } else {
+            console.log("startStreamingInto some section");
+          }
         } else if (
           item.type === C.LLM_TOOL_USE &&
           item.name === stopStreamingInto.name

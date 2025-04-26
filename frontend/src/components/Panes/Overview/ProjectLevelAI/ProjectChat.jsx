@@ -5,7 +5,7 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { createNewLLMChat } from "state/actions/ai";
+import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
@@ -27,6 +27,7 @@ export function ProjectChat() {
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
+    getUUIDMappingForLLM();
   }, []);
 
   const [deepThink, setDeepThink] = useState(false);
