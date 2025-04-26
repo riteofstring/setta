@@ -10,6 +10,15 @@ import { useAIStore, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 
+export function getDefaultChatDetails() {
+  return {
+    messages: [],
+    toolResults: {},
+    waitingForResponse: false,
+    streamTarget: null,
+  };
+}
+
 export async function getLLMChat(chatId) {
   console.log("getLLMChat", chatId);
   const projectConfigId = useSectionInfos.getState().projectConfig.id;
@@ -18,13 +27,17 @@ export async function getLLMChat(chatId) {
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
-      messages,
-      toolResults,
-      currentChatId: chatId,
-      waitingForResponse: {
-        ...state.waitingForResponse,
-        [chatId]: waitingForResponse,
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(state.chatDetails[chatId] ?? {}),
+          messages,
+          toolResults,
+          waitingForResponse,
+        },
       },
+      currentChatId: chatId,
     }));
   }
 }
@@ -32,7 +45,6 @@ export async function getLLMChat(chatId) {
 export async function createNewLLMChat() {
   useAIStore.setState({
     currentChatId: null,
-    messages: [],
     viewHistory: false,
   });
 }
@@ -63,10 +75,6 @@ export async function submitMessage(message, deepThink) {
     content: [{ type: C.LLM_TEXT, text: message }],
   };
 
-  useAIStore.setState((state) => ({
-    messages: [...state.messages, userMessage],
-  }));
-
   const state = useAIStore.getState();
 
   try {
@@ -95,31 +103,31 @@ export async function submitMessage(message, deepThink) {
 export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
-    const { streamTarget } = useAIStore.getState();
+    const { chatDetails } = useAIStore.getState();
     if (
-      streamTarget[chatId] &&
+      chatDetails[chatId]?.streamTarget &&
       chunk.type === C.LLM_CONTENT_BLOCK_DELTA &&
       chunk.delta.type === C.LLM_TEXT_DELTA
     ) {
-      streamInto(chatId, streamTarget, chunk.delta.text);
+      streamInto(chatId, chatDetails[chatId].streamTarget, chunk.delta.text);
     }
 
     // Handle different chunk types
     switch (chunk.type) {
       case C.LLM_MESSAGE_START:
-        llmMessageStart(chunk);
+        llmMessageStart(chatId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_START:
-        llmContentBlockStart(assistantMessageId, chunk);
+        llmContentBlockStart(chatId, assistantMessageId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_DELTA:
-        llmContentBlockDelta(assistantMessageId, chunk);
+        llmContentBlockDelta(chatId, assistantMessageId, chunk);
         return;
       case C.LLM_CONTENT_BLOCK_STOP:
-        llmContentBlockStop(assistantMessageId, chunk);
+        llmContentBlockStop(chatId, assistantMessageId, chunk);
         return;
       case C.LLM_TOOL_RESULT:
-        llmToolResult(chunk);
+        llmToolResult(chatId, chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
         llmFullMessageStop(chatId, chunk);
@@ -130,15 +138,27 @@ export function receiveLLMResponseChunk(msg) {
   }
 }
 
-function llmMessageStart(chunk) {
-  useAIStore.setState((state) => ({
-    messages: [...state.messages, chunk.message],
-  }));
+function llmMessageStart(chatId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: [...(currDetails?.messages ?? []), chunk.message],
+        },
+      },
+    };
+  });
 }
 
-function llmContentBlockStart(assistantMessageId, chunk) {
+function llmContentBlockStart(chatId, assistantMessageId, chunk) {
   useAIStore.setState((state) => {
-    const messageIndex = state.messages.findIndex(
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
       (m) => m.id === assistantMessageId,
     );
     if (messageIndex === -1) {
@@ -146,7 +166,7 @@ function llmContentBlockStart(assistantMessageId, chunk) {
     }
 
     // Create new content array with the updated chunk
-    const message = state.messages[messageIndex];
+    const message = currMessages[messageIndex];
     const newContentArray = [...message.content];
     while (newContentArray.length <= chunk.index) {
       newContentArray.push(null);
@@ -158,24 +178,35 @@ function llmContentBlockStart(assistantMessageId, chunk) {
 
     // Create new messages array using spread operations
     const newMessages = [
-      ...state.messages.slice(0, messageIndex),
+      ...currMessages.slice(0, messageIndex),
       updatedMessage,
-      ...state.messages.slice(messageIndex + 1),
+      ...currMessages.slice(messageIndex + 1),
     ];
 
-    return { messages: newMessages };
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
   });
 }
 
-function llmContentBlockDelta(assistantMessageId, chunk) {
+function llmContentBlockDelta(chatId, assistantMessageId, chunk) {
   useAIStore.setState((state) => {
-    const messageIndex = state.messages.findIndex(
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
       (m) => m.id === assistantMessageId,
     );
     if (messageIndex === -1) {
       return {}; // No changes to state
     }
-    const message = state.messages[messageIndex];
+    const message = currMessages[messageIndex];
     const newContentArray = [...message.content];
     const currMsg = newContentArray[chunk.index];
     let updated = true;
@@ -208,24 +239,35 @@ function llmContentBlockDelta(assistantMessageId, chunk) {
 
     // Create new messages array using spread operations
     const newMessages = [
-      ...state.messages.slice(0, messageIndex),
+      ...currMessages.slice(0, messageIndex),
       updatedMessage,
-      ...state.messages.slice(messageIndex + 1),
+      ...currMessages.slice(messageIndex + 1),
     ];
 
-    return { messages: newMessages };
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
   });
 }
 
-function llmContentBlockStop(assistantMessageId, chunk) {
+function llmContentBlockStop(chatId, assistantMessageId, chunk) {
   useAIStore.setState((state) => {
-    const messageIndex = state.messages.findIndex(
+    const currDetails = state.chatDetails[chatId];
+    const currMessages = currDetails?.messages ?? [];
+    const messageIndex = currMessages.findIndex(
       (m) => m.id === assistantMessageId,
     );
     if (messageIndex === -1) {
       return {}; // No changes to state
     }
-    const message = state.messages[messageIndex];
+    const message = currMessages[messageIndex];
     const newContentArray = [...message.content];
     const currMsg = newContentArray[chunk.index];
     if (currMsg.type === C.LLM_TOOL_USE) {
@@ -243,56 +285,94 @@ function llmContentBlockStop(assistantMessageId, chunk) {
 
     // Create new messages array using spread operations
     const newMessages = [
-      ...state.messages.slice(0, messageIndex),
+      ...currMessages.slice(0, messageIndex),
       updatedMessage,
-      ...state.messages.slice(messageIndex + 1),
+      ...currMessages.slice(messageIndex + 1),
     ];
 
-    return { messages: newMessages };
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          messages: newMessages,
+        },
+      },
+    };
   });
 }
 
-function llmToolResult(chunk) {
-  useAIStore.setState((state) => ({
-    toolResults: { ...state.toolResults, [chunk.tool_use_id]: chunk },
-  }));
+function llmToolResult(chatId, chunk) {
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          toolResults: {
+            ...(currDetails?.toolResults ?? {}),
+            [chunk.tool_use_id]: chunk,
+          },
+        },
+      },
+    };
+  });
 }
 
 function llmFullMessageStop(chatId, chunk) {
   const { messages, toolResults } = chunk;
-  useAIStore.setState((state) => ({
-    messages,
-    toolResults,
-    waitingForResponse: { ...state.waitingForResponse, [chatId]: false },
-    streamTarget: { ...state.streamTarget, [chatId]: null },
-  }));
+  console.log("messages", messages);
+  useAIStore.setState((state) => {
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          messages,
+          toolResults,
+          waitingForResponse: false,
+          streamTarget: null,
+        },
+      },
+    };
+  });
 }
 
 function streamInto(chatId, streamTarget, content) {
-  const { sectionId, before, after, contentToInsert } = streamTarget[chatId];
+  const { sectionId, before, after, contentToInsert } = streamTarget;
 
+  let currentContentToInsert;
   useSectionInfos.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
     // Update current streamed content
-    const currentContentToInsert = contentToInsert + content;
+    currentContentToInsert = contentToInsert + content;
 
     // Reconstruct the code with the updated streamed content in the middle
     sectionVariant.code = [before, currentContentToInsert, after]
       .filter(Boolean)
       .join("\n");
+  });
 
-    // Store the updated streamed content for next time
-    useAIStore.setState((state) => ({
-      streamTarget: {
-        ...state.streamTarget,
+  // Store the updated streamed content for next time
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
         [chatId]: {
-          sectionId,
-          before,
-          after,
-          contentToInsert: currentContentToInsert,
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          streamTarget: {
+            sectionId,
+            before,
+            after,
+            contentToInsert: currentContentToInsert,
+          },
         },
       },
-    }));
+    };
   });
 }
 
@@ -334,18 +414,24 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
     afterLines = "";
   }
 
-  // Set streaming target and store line segments
-  useAIStore.setState((state) => ({
-    streamTarget: {
-      ...state.streamTarget,
-      [chatId]: {
-        sectionId,
-        before: beforeLines,
-        after: afterLines,
-        contentToInsert: "",
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          streamTarget: {
+            sectionId,
+            before: beforeLines,
+            after: afterLines,
+            contentToInsert: "",
+          },
+        },
       },
-    },
-  }));
+    };
+  });
 
   return currCode;
 }
@@ -356,18 +442,27 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
  * @returns {string} the code with all the changes applied.
  */
 export function stopStreamingInto({ chatId }) {
-  const { streamTarget } = useAIStore.getState();
-  const chatStreamTarget = streamTarget[chatId];
+  const { chatDetails } = useAIStore.getState();
+  const chatStreamTarget = chatDetails[chatId]?.streamTarget;
   if (!chatStreamTarget) {
     return "";
   }
   const { sectionId } = chatStreamTarget;
   const code = getSectionVariant(sectionId).code;
 
-  // Clear all streaming state
-  useAIStore.setState((state) => ({
-    streamTarget: { ...state.streamTarget, [chatId]: null },
-  }));
+  useAIStore.setState((state) => {
+    const currDetails = state.chatDetails[chatId];
+    return {
+      chatDetails: {
+        ...state.chatDetails,
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          ...(currDetails ?? {}),
+          streamTarget: null,
+        },
+      },
+    };
+  });
 
   return code;
 }

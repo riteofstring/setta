@@ -11,6 +11,7 @@ import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import {
+  getDefaultChatDetails,
   getLLMChat,
   startStreamingInto,
   stopStreamingInto,
@@ -293,14 +294,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   deepThink,
   userSelectedLLM,
 }) {
-  const { messages, toolResults, currentChatId, waitingForResponse } =
+  const { messages, toolResults, waitingForResponse, currentChatId } =
     useAIStore((x) => {
-      const waitingForResponse = Boolean(x.waitingForResponse[x.currentChatId]);
+      const details = x.chatDetails[x.currentChatId];
+      if (!x.currentChatId || !details) {
+        return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
+      }
+      const { messages, toolResults, waitingForResponse } = details;
       return {
-        messages: x.messages,
-        toolResults: x.toolResults,
-        currentChatId: x.currentChatId,
+        messages,
+        toolResults,
         waitingForResponse,
+        currentChatId: x.currentChatId,
       };
     }, shallow);
 

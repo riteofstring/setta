@@ -49,7 +49,7 @@ class ChatManager:
             chat_id,
             messages,
         )
-        return messages
+        return self.get_chat(chat_id)
 
     def create_new_chat(self, first_message):
         with self.dbq as db:
@@ -85,9 +85,9 @@ class ChatManager:
         finally:
             # Clean up
             self.stream_tasks.pop(chatId, None)
-            messages = self.save_current_stream_to_db(chatId)
+            chat = self.save_current_stream_to_db(chatId)
             self.end_current_stream(chatId)
-            messages, tool_results = self.separate_tool_results(messages)
+            messages, tool_results = self.separate_tool_results(chat["messages"])
             chunk = {
                 "type": C.LLM_FULL_MESSAGE_STOP,
                 "messages": messages,
@@ -190,7 +190,6 @@ class ChatManager:
             # If we processed the entire response without finding tool calls, we're done
             if not has_tool_call:
                 break
-
 
     async def stream_responses(self, chatId, stream):
         # sends streaming response to frontend
