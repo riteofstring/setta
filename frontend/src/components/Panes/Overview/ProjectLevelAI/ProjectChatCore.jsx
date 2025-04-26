@@ -85,7 +85,22 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
   );
 });
 
-const ToolCall = memo(({ name, args, result, success }) => {
+function AccordionStatus({ result, success, isStreaming }) {
+  if (result) {
+    return success ? (
+      <IoMdCheckmark className="absolute right-2 text-setta-400" />
+    ) : (
+      <MdErrorOutline className="absolute right-2 text-red-500" />
+    );
+  } else if (isStreaming) {
+    return (
+      <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+    );
+  }
+  return null;
+}
+
+const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
   return (
     <Accordion.Root type="single" collapsible>
       <Accordion.Item value="details">
@@ -101,13 +116,11 @@ const ToolCall = memo(({ name, args, result, success }) => {
             <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
               {name}
             </div>
-
-            {result &&
-              (success ? (
-                <IoMdCheckmark className="absolute right-2 text-setta-400" />
-              ) : (
-                <MdErrorOutline className="absolute right-2 text-red-500" />
-              ))}
+            <AccordionStatus
+              result={result}
+              success={success}
+              isStreaming={isStreaming}
+            />
           </div>
         </Accordion.Trigger>
 
@@ -169,6 +182,7 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           args={item.input}
           result={hasResult ? toolResult.content?.[0]?.text : undefined}
           success={isSuccess}
+          isStreaming={isStreaming}
         />
       );
     case C.LLM_THINKING:

@@ -27,8 +27,6 @@ export function ProjectChatHistory() {
     shallow,
   );
 
-  console.log("waitingForResponse", waitingForResponse);
-
   useEffect(() => {
     getAllLLMChatMetadata();
   }, []);
