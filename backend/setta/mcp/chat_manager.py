@@ -24,6 +24,9 @@ class ChatManager:
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
             self.system_prompt = f.read()
+        self.max_tokens = 20000
+        self.thinking_budget_tokens = 10000
+        self.cache_trigger_tokens = 1000
 
     def get_chat(self, chat_id):
         with self.dbq as db:
@@ -102,11 +105,17 @@ class ChatManager:
         curr_stream = self.current_streams[chatId]
         while True:
             has_tool_call = False
-            thinking = (
-                {"type": "enabled", "budget_tokens": 10000}
-                if deepThink
-                else {"type": "disabled"}
+
+            (
+                tools,
+                system,
+                messages,
+                thinking,
+            ) = await self.get_tools_system_messages_thinking(
+                messages, curr_stream, model, deepThink
             )
+
+            print(f"{messages}\n\n\n", flush=True)
 
             # Only need to specify cache_control once.
             # Everything up to the first occurence of cache_control is cached.
@@ -115,47 +124,37 @@ class ChatManager:
             # https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
             stream = await self.anthropic.messages.with_raw_response.create(
                 model=model,
-                max_tokens=20000,
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in [*messages, *curr_stream]
-                ],
-                tools=self.mcp_client.available_tools,
-                stream=True,
-                system=[
-                    {
-                        "type": "text",
-                        "text": self.system_prompt,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
+                max_tokens=self.max_tokens,
+                tools=tools,
+                system=system,
+                messages=messages,
                 thinking=thinking,
+                stream=True,
             )
 
-            print(
-                "remaining requests",
-                stream.headers.get("anthropic-ratelimit-requests-remaining"),
-                flush=True,
-            )
+            # print(
+            #     "remaining requests",
+            #     stream.headers.get("anthropic-ratelimit-requests-remaining"),
+            #     flush=True,
+            # )
 
-            print(
-                "remaining input tokens",
-                stream.headers.get("anthropic-ratelimit-input-tokens-remaining"),
-                flush=True,
-            )
+            # print(
+            #     "remaining input tokens",
+            #     stream.headers.get("anthropic-ratelimit-input-tokens-remaining"),
+            #     flush=True,
+            # )
 
-            print(
-                "remaining output tokens",
-                stream.headers.get("anthropic-ratelimit-output-tokens-remaining"),
-                flush=True,
-            )
+            # print(
+            #     "remaining output tokens",
+            #     stream.headers.get("anthropic-ratelimit-output-tokens-remaining"),
+            #     flush=True,
+            # )
 
             assistant_message_id = await self.stream_responses(chatId, stream)
 
             if len(curr_stream) == 0:
                 break
 
-            curr_stream[-1] = curr_stream[-1].model_dump()
             latest_msg = curr_stream[-1]
             newer_msgs = []
 
@@ -226,8 +225,12 @@ class ChatManager:
                     curr_msg.input = self.tool_use_input_str_to_dict(curr_msg.input)
 
             await self.send_streaming_response(
-                chatId, assistant_message_id, event.model_dump()
+                chatId, assistant_message_id, maybe_pydantic_model_dump(event)
             )
+
+        self.current_streams[chatId][-1] = maybe_pydantic_model_dump(
+            self.current_streams[chatId][-1]
+        )
 
         return assistant_message_id
 
@@ -237,7 +240,7 @@ class ChatManager:
         )
 
     def process_tool_result(self, result):
-        result = result.model_dump()
+        result = maybe_pydantic_model_dump(result)
         for c in result["content"]:
             c.pop("annotations", None)
         return result
@@ -284,6 +287,96 @@ class ChatManager:
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results
+
+    async def get_tools_system_messages_thinking(
+        self, messages, curr_stream, model, deepThink
+    ):
+        tools = self.mcp_client.available_tools
+
+        system = [
+            {
+                "type": "text",
+                "text": self.system_prompt,
+            }
+        ]
+
+        messages = [
+            {
+                "role": m["role"],
+                "content": m["content"],
+            }
+            for m in [*messages, *curr_stream]
+        ]
+
+        thinking = (
+            {"type": "enabled", "budget_tokens": self.thinking_budget_tokens}
+            if deepThink
+            else {"type": "disabled"}
+        )
+
+        cache_control_idx = await self.get_cache_control_idx(messages, model, thinking)
+
+        if cache_control_idx is None:
+            self.set_cache_control(system[0])
+        else:
+            cache_message_idx, cache_content_idx = cache_control_idx
+            self.set_cache_control(
+                messages[cache_message_idx]["content"][cache_content_idx]
+            )
+
+        return tools, system, messages, thinking
+
+    async def get_cache_control_idx(self, messages, model, thinking):
+        cache_message_idx, cache_content_idx = None, None
+        for msg_idx, m in enumerate(messages):
+            for content_idx, c in enumerate(m["content"]):
+                if c.get("cache_control"):
+                    cache_message_idx = msg_idx
+                    cache_content_idx = content_idx
+                    c.pop("cache_control")
+                    break
+
+        if cache_message_idx is not None:
+            messages_to_count = messages[cache_message_idx:]
+            messages_to_count[0]["content"] = messages_to_count[0]["content"][
+                cache_content_idx:
+            ]
+        else:
+            messages_to_count = messages
+
+        num_tokens = await self.anthropic.messages.count_tokens(
+            model=model,
+            messages=messages_to_count,
+            thinking=thinking,
+        )
+
+        if num_tokens.input_tokens >= self.cache_trigger_tokens:
+            new_indices = self.get_new_cache_indices(messages)
+            if new_indices is None:
+                return cache_message_idx, cache_content_idx
+            return new_indices
+        elif cache_message_idx is not None:
+            return cache_message_idx, cache_content_idx
+        return None
+
+    def set_cache_control(self, x):
+        x["cache_control"] = {"type": "ephemeral"}
+
+    def get_new_cache_indices(self, messages):
+        cache_message_idx = len(messages) - 1
+        cache_content_idx = len(messages[cache_message_idx]["content"]) - 1
+        while (
+            messages[cache_message_idx]["content"][cache_content_idx]["type"]
+            == C.LLM_THINKING
+        ):
+            if cache_content_idx > 0:
+                cache_content_idx -= 1
+            elif cache_message_idx > 0:
+                cache_message_idx -= 1
+                cache_content_idx = len(messages[cache_message_idx]["content"]) - 1
+            else:
+                return None
+        return cache_message_idx, cache_content_idx
 
 
 def maybe_pydantic_model_dump(x):
