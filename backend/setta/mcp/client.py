@@ -109,14 +109,3 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
-
-    def tool_call_result_formatted_for_frontend(self, result):
-        output = []
-        for r in result.content:
-            if isinstance(r, mcp.types.TextContent):
-                output.append(r.text)
-            elif isinstance(r, mcp.types.ImageContent):
-                output.append(r.data)
-        if len(output) == 1:
-            return output[0]
-        return output
