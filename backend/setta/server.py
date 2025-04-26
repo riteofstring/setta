@@ -25,6 +25,7 @@ from setta.lsp.utils import (
     kill_lsps,
     start_lsps,
 )
+from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import add_mcp_server_to_fastapi_server
 from setta.routers import (
@@ -63,12 +64,23 @@ async def lifespan(app: FastAPI):
     app.state.code_state = CodeState()
     app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
+    app.state.dbq = DBQueue(
+        C.DB_PATH,
+    )
+    maybe_create_tables_and_seed(
+        app.state.dbq,
+        with_examples=C.WITH_EXAMPLES,
+        with_base_ui_types=True,
+    )
+    app.state.dbq.connect()
+
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
         app.state.code_state,
         app.state.code_tasks,
         app.state.script_metadata,
+        app.state.dbq,
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
     app.state.specific_file_watcher = create_specific_file_watcher(
@@ -77,23 +89,19 @@ async def lifespan(app: FastAPI):
     app.state.lsp_readers = create_lsp_readers(
         app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
     )
-    app.state.dbq = DBQueue(
-        C.DB_PATH,
-    )
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(
-        f"{C.BACKEND}/mcp", app.state.websocket_msg_handlers.mcp
+        f"{C.BACKEND}/mcp",
     )
+    app.state.chat_manager = ChatManager(
+        app.state.dbq,
+        app.state.mcp_client,
+        app.state.websocket_msg_handlers.chat_manager,
+    )
+
     asyncio.create_task(app.state.mcp_client.connect_to_server())
 
-    maybe_create_tables_and_seed(
-        app.state.dbq,
-        with_examples=C.WITH_EXAMPLES,
-        with_base_ui_types=True,
-    )
-
-    app.state.dbq.connect()
     asyncio.create_task(
         start_lsps(
             app.state.lsps,
@@ -128,6 +136,7 @@ async def lifespan(app: FastAPI):
     finally:
         app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
+        await app.state.mcp_client.stop()
         await kill_lsps(app.state.lsps, app.state.lsp_readers)
 
 
