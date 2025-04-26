@@ -23,3 +23,14 @@ Don't be verbose, unless the user asks you to be. Just explain the most importan
 
 Perform operations in batches. In other words, if you can do something with 1 tool call instead of 5 separate tool calls, then you should do 1 tool call.
 
+Setta converts all the sections into python code. To specify where this generated code appears, use $SETTA_GENERATED_PYTHON in a code block. For example,
+
+```python
+import numpy as np
+
+$SETTA_GENERATED_PYTHON
+
+print('done')
+```
+
+In the above example, $SETTA_GENERATED_PYTHON will be replaced with all the generated code corresponding to the sections in the project.
