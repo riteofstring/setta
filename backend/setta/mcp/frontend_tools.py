@@ -147,15 +147,15 @@ async def getPaneRectMcp(chatId: str) -> ReactFlowPaneRect:
 
 # From ai.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear."
+    description="Start streaming text into a section. Text can be streamed into sections of type CODE and TEXT_BLOCK. After you call this tool, everything you respond with will be redirected and written to this section. For example, if you start writing code into a CODE section, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context or a TEXT_BLOCK section, but not in a CODE section. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear."
 )
 async def startStreamingInto(
     chatId: str, sectionId: ID, insertAtLine: Optional[int] = None
 ) -> Any:
-    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
+    """Start streaming text into a section. Text can be streamed into sections of type CODE and TEXT_BLOCK. After you call this tool, everything you respond with will be redirected and written to this section. For example, if you start writing code into a CODE section, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context or a TEXT_BLOCK section, but not in a CODE section. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
 
     Args:
-        sectionId: The id of the code block that you want to start writing code into.
+        sectionId: The id of the section that you want to start writing into.
         insertAtLine: Optional line number (1-indexed) to insert at. If omitted, appends to the end.
     """
     args = {}
@@ -170,13 +170,13 @@ async def startStreamingInto(
 
 
 @mcp_server.tool(
-    description="Stop streaming text into the code block. Returns the code with all the changes applied."
+    description="Stop streaming text into a section. Returns the seciton's text with all the changes applied."
 )
 async def stopStreamingInto(chatId: str) -> str:
-    """Stop streaming text into the code block. Returns the code with all the changes applied.
+    """Stop streaming text into a section. Returns the seciton's text with all the changes applied.
 
     Returns:
-        the code with all the changes applied.
+        the seciton's text with all the changes applied.
     """
     args = {}
     args["chatId"] = chatId
@@ -188,23 +188,23 @@ async def stopStreamingInto(chatId: str) -> str:
 
 
 @mcp_server.tool(
-    description="Delete a range of code from a code block. Returns A string containing the code with the specified range deleted."
+    description="Delete a range of text from a CODE or TEXT_BLOCK section. Returns A string containing the text with the specified range deleted."
 )
-async def deleteCodeRange(
+async def deleteTextRange(
     chatId: str,
     sectionId: ID,
     startLine: Optional[int] = None,
     endLine: Optional[int] = None,
 ) -> str:
-    """Delete a range of code from a code block. Returns A string containing the code with the specified range deleted.
+    """Delete a range of text from a CODE or TEXT_BLOCK section. Returns A string containing the text with the specified range deleted.
 
     Args:
-        sectionId: The id of the code block.
+        sectionId: The id of the section.
         startLine: Optional starting line number (1-indexed). If omitted, starts from the first line.
         endLine: Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
 
     Returns:
-        A string containing the code with the specified range deleted.
+        A string containing the text with the specified range deleted.
     """
     args = {}
     args["chatId"] = chatId
@@ -213,7 +213,7 @@ async def deleteCodeRange(
     args["endLine"] = endLine
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
-            "deleteCodeRange", deleteCodeRange.__annotations__["return"], args
+            "deleteTextRange", deleteTextRange.__annotations__["return"], args
         )
     )
 

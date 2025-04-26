@@ -6,7 +6,7 @@ import { sendMessage } from "requests/websocket";
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
 import { getPaneRectMcp } from "../forks/xyflow/core/utils/graphMcp";
 import {
-  deleteCodeRange,
+  deleteTextRange,
   getCurrentCode,
   startStreamingInto,
   stopStreamingInto,
@@ -31,7 +31,7 @@ const mcpToolRegistry = {
   getPaneRectMcp,
   startStreamingInto,
   stopStreamingInto,
-  deleteCodeRange,
+  deleteTextRange,
   getCurrentCode,
   addParametersMcp,
   updateNodePositionsMcp,
