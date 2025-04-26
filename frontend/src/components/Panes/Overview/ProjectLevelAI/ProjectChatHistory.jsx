@@ -9,13 +9,25 @@ import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 export function ProjectChatHistory() {
-  const { allChatMetadata, currentChatId } = useAIStore(
-    (x) => ({
-      allChatMetadata: x.allChatMetadata,
-      currentChatId: x.currentChatId,
-    }),
+  const { allChatMetadata, waitingForResponse, currentChatId } = useAIStore(
+    (x) => {
+      const waitingForResponse = {};
+      for (const c of x.allChatMetadata) {
+        waitingForResponse[c.id] = Boolean(
+          x.chatDetails[c.id]?.waitingForResponse ?? false,
+        );
+      }
+
+      return {
+        allChatMetadata: x.allChatMetadata,
+        waitingForResponse,
+        currentChatId: x.currentChatId,
+      };
+    },
     shallow,
   );
+
+  console.log("waitingForResponse", waitingForResponse);
 
   useEffect(() => {
     getAllLLMChatMetadata();
@@ -60,6 +72,9 @@ export function ProjectChatHistory() {
                   {new Date(chat.lastUpdated).toLocaleString()}
                 </p>
               </div>
+              {waitingForResponse[chat.id] && (
+                <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+              )}
               <button
                 className="cursor-pointer p-1  text-transparent transition-colors hover:!text-red-500 group-hover/historyitem:text-setta-300  group-hover:opacity-100 dark:hover:!text-red-600 group-hover/historyitem:dark:text-setta-600"
                 onClick={(e) => {
