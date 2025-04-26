@@ -89,7 +89,7 @@ class ChatManager:
             self.end_current_stream(chatId)
             messages, tool_results = self.separate_tool_results(messages)
             chunk = {
-                "type": C.LLM_FULL_MESSAGE_STOPPED_BY_USER,
+                "type": C.LLM_FULL_MESSAGE_STOP,
                 "messages": messages,
                 "toolResults": tool_results,
             }
@@ -191,9 +191,6 @@ class ChatManager:
             if not has_tool_call:
                 break
 
-        self.end_current_stream(chatId)
-        chunk = {"type": C.LLM_FULL_MESSAGE_STOP}
-        await self.send_streaming_response(chatId, assistant_message_id, chunk)
 
     async def stream_responses(self, chatId, stream):
         # sends streaming response to frontend

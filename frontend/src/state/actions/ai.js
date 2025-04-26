@@ -53,13 +53,6 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
-function resetStreamingResponseState(chatId) {
-  useAIStore.setState((state) => ({
-    waitingForResponse: { ...state.waitingForResponse, [chatId]: false },
-    streamTarget: { ...state.streamTarget, [chatId]: null },
-  }));
-}
-
 export async function submitMessage(message, deepThink) {
   if (!message.trim()) return;
 
@@ -129,10 +122,7 @@ export function receiveLLMResponseChunk(msg) {
         llmToolResult(chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
-        llmFullMessageStop(chatId);
-        return;
-      case C.LLM_FULL_MESSAGE_STOPPED_BY_USER:
-        llmFullMessageStoppedByUser(chatId, chunk);
+        llmFullMessageStop(chatId, chunk);
         return;
     }
   } catch (e) {
@@ -268,14 +258,14 @@ function llmToolResult(chunk) {
   }));
 }
 
-function llmFullMessageStop(chatId) {
-  resetStreamingResponseState(chatId);
-}
-
-function llmFullMessageStoppedByUser(chatId, chunk) {
+function llmFullMessageStop(chatId, chunk) {
   const { messages, toolResults } = chunk;
-  useAIStore.setState({ messages, toolResults });
-  resetStreamingResponseState(chatId);
+  useAIStore.setState((state) => ({
+    messages,
+    toolResults,
+    waitingForResponse: { ...state.waitingForResponse, [chatId]: false },
+    streamTarget: { ...state.streamTarget, [chatId]: null },
+  }));
 }
 
 function streamInto(chatId, streamTarget, content) {
@@ -314,7 +304,6 @@ function streamInto(chatId, streamTarget, content) {
  * @return {string} A string containing the current code in the code block before modification.
  */
 export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
-  console.log("startStreamingInto", sectionId, insertAtLine, chatId)
   // Get the current code
   const currCode = getCurrentCode({ sectionId });
   const lines = currCode.split("\n");
@@ -367,7 +356,6 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
  * @returns {string} the code with all the changes applied.
  */
 export function stopStreamingInto({ chatId }) {
-  console.log("startStreamingInto", chatId)
   const { streamTarget } = useAIStore.getState();
   const chatStreamTarget = streamTarget[chatId];
   if (!chatStreamTarget) {
