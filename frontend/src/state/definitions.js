@@ -257,11 +257,11 @@ export const useAIStore = create(
         apiKeys: {},
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
-        messages: [],
-        toolResults: {},
-        allChatMetadata: [],
-        currentChatId: null,
-        waitingForResponse: false,
+        messages: [], // messages for the currently viewed chat
+        toolResults: {}, // tool use id -> result
+        allChatMetadata: [], // list of {ids, names, updated}
+        currentChatId: null, // id of currently viewed chat
+        waitingForResponse: {}, // maps from chatId to boolean
         viewHistory: false,
         userSelectedLLM: "",
         streamTarget: null,

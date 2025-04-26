@@ -42,7 +42,7 @@ class ChatManager:
 
     def save_current_stream_to_db(self, chat_id):
         messages = self.get_current_stream(chat_id)
-        messages = [m.model_dump() if isinstance(m, BaseModel) else m for m in messages]
+        messages = [maybe_pydantic_model_dump(m) for m in messages]
         messages = self.remove_incomplete_tool_uses(messages)
         self.save_messages_to_db(
             chat_id,
@@ -288,3 +288,9 @@ class ChatManager:
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results
+
+
+def maybe_pydantic_model_dump(x):
+    if isinstance(x, BaseModel):
+        return x.model_dump()
+    return x

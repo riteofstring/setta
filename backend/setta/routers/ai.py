@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
+from setta.mcp.chat_manager import maybe_pydantic_model_dump
 from setta.routers.dependencies import (
     get_chat_manager,
     get_wmh_database,
@@ -192,7 +193,7 @@ def merge_db_messages_with_current_stream(db_messages, current_stream):
 
     # Loop through current_stream and append messages that aren't already in chat
     for message in current_stream:
-        message = message.model_dump()
+        message = maybe_pydantic_model_dump(message)
         if message["id"] not in existing_ids:
             db_messages.append(message)
             # Add to existing_ids to track what we've added

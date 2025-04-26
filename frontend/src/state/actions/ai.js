@@ -17,12 +17,15 @@ export async function getLLMChat(chatId) {
   console.log("res", res);
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
-    useAIStore.setState({
+    useAIStore.setState((state) => ({
       messages,
       toolResults,
       currentChatId: chatId,
-      waitingForResponse,
-    });
+      waitingForResponse: {
+        ...state.waitingForResponse,
+        [chatId]: waitingForResponse,
+      },
+    }));
   }
 }
 
@@ -71,7 +74,6 @@ export async function submitMessage(message, deepThink) {
   };
 
   useAIStore.setState((state) => ({
-    waitingForResponse: true,
     messages: [...state.messages, userMessage],
   }));
 

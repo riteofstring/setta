@@ -294,15 +294,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   userSelectedLLM,
 }) {
   const { messages, toolResults, currentChatId, waitingForResponse } =
-    useAIStore(
-      (x) => ({
+    useAIStore((x) => {
+      const waitingForResponse = Boolean(x.waitingForResponse[x.currentChatId]);
+      return {
         messages: x.messages,
         toolResults: x.toolResults,
         currentChatId: x.currentChatId,
-        waitingForResponse: x.waitingForResponse,
-      }),
-      shallow,
-    );
+        waitingForResponse,
+      };
+    }, shallow);
 
   useEffect(() => {
     if (currentChatId) {
