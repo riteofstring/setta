@@ -3,14 +3,12 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useSectionInfos } from "state/definitions";
-import { getParamUIType } from "state/hooks/uiTypes";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
-import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function getSectionInfo(sectionId) {
   return useSectionInfos.getState().x[sectionId];
@@ -133,35 +131,6 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
 
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
   setEnteredValue(state.x[sectionId].variantId, paramInfoId, value, state);
-}
-
-export async function cancelableSetParamEnteredValue({
-  sectionId,
-  paramInfoId,
-  vStr,
-  ac,
-}) {
-  if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
-    if (ac?.signal.aborted) return;
-    const evRefs = await getEVRefs({
-      sectionId,
-      paramInfoId,
-      fullText: vStr,
-    });
-    if (ac?.signal.aborted) return;
-    useSectionInfos.setState((state) => {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-      const { variantId } = state.x[sectionId];
-      state.variants[variantId].values[paramInfoId].evRefs = evRefs;
-    });
-  } else {
-    if (ac?.signal.aborted) return;
-    useSectionInfos.setState((state) => {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-    });
-  }
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function getCodeInfoCol(sectionId, _state) {
