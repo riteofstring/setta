@@ -10,7 +10,10 @@ from setta.mcp.utils import replace_ids_with_uuids
 )
 def getInstalledPythonPackages():
     installed_packages = importlib.metadata.distributions()
-    return str([(p.metadata["Name"], p.version) for p in installed_packages])
+    output = ""
+    for p in installed_packages:
+        output += f"{p.metadata['Name']}={p.version}\n"
+    return output
 
 
 @mcp_server.tool(description="Returns the history of outputs of a terminal")
