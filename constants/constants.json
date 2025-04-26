@@ -25,6 +25,7 @@
   "SOCIAL": "SOCIAL",
   "IFRAME": "IFRAME",
   "CHAT": "CHAT",
+  "BROWSER": "BROWSER",
   "NON_SECTION_TYPES": [
     "TEXT",
     "SLIDER",
