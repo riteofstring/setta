@@ -1,13 +1,13 @@
 /**
- * @typedef {Object} Position
+ * @typedef {Object} SectionPosition
  * @property {number} x - The x coordinate
  * @property {number} y - The y coordinate
  */
 
 /**
  * @typedef {Object} SectionSize
- * @property {number} width
- * @property {number} height
+ * @property {(number|"auto")} width - Width value (number or "auto")
+ * @property {(number|"auto")} height - Height value (number or "auto")
  */
 
 /**
@@ -17,11 +17,11 @@
 /**
  * @typedef {Object} SimplifiedSectionConfig
  * @property {string} name - The section title
- * @property {SectionSize} size - The section dimensions
- * @property {Position} position
+ * @property {SectionSize} [size] - The section dimensions (optional)
+ * @property {SectionPosition} position
  * @property {SectionUIType} type
+ * @property {boolean} [renderMarkdown] 
  */
-
 /**
 @typedef {string} ID
  */
@@ -44,4 +44,21 @@
  * @property {string} name
  * @property {string} type
  * @property {SectionSimplifiedCodeInfo} codeInfo
+ * @property {SectionPosition} position
+ * @property {SectionSize} size
+ */
+
+/**
+ * @typedef {Object} ReactFlowPaneRect
+ * @property {number} x
+ * @property {number} y
+ * @property {number} width
+ * @property {number} height
+ */
+
+/**
+ * @typedef {Object} SectionPositionAndSize
+ * @property {ID} id
+ * @property {SectionPosition} [position]
+ * @property {SectionSize} [size]
  */
