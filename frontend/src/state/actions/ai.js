@@ -9,7 +9,7 @@ import {
 } from "requests/ai";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { getSectionVariant } from "./sectionInfos";
+import { getSectionType, getSectionVariant } from "./sectionInfos";
 
 export function getDefaultChatDetails() {
   return {
@@ -343,14 +343,20 @@ function streamInto(chatId, streamTarget, content) {
 
   let currentContentToInsert;
   useSectionInfos.setState((x) => {
+    const sectionType = getSectionType(sectionId, x);
     const sectionVariant = getSectionVariant(sectionId, x);
     // Update current streamed content
     currentContentToInsert = contentToInsert + content;
-
-    // Reconstruct the code with the updated streamed content in the middle
-    sectionVariant.code = [before, currentContentToInsert, after]
+    const newContent = [before, currentContentToInsert, after]
       .filter(Boolean)
       .join("\n");
+
+    if (sectionType === C.CODE) {
+      // Reconstruct the text with the updated streamed content in the middle
+      sectionVariant.code = newContent;
+    } else if (sectionType === C.TEXT_BLOCK) {
+      sectionVariant.description = newContent;
+    }
   });
 
   // Store the updated streamed content for next time
@@ -375,16 +381,25 @@ function streamInto(chatId, streamTarget, content) {
 }
 
 /**
- * Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
+ * Start streaming text into a section. Text can be streamed into sections of type CODE and TEXT_BLOCK. After you call this tool, everything you respond with will be redirected and written to this section. For example, if you start writing code into a CODE section, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context or a TEXT_BLOCK section, but not in a CODE section. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
  * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block that you want to start writing code into.
+ * @param {ID} sectionId The id of the section that you want to start writing into.
  * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
- * @return {string} A string containing the current code in the code block before modification.
  */
 export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
   // Get the current code
-  const currCode = getCurrentCode({ sectionId });
-  const lines = currCode.split("\n");
+  let currText;
+  const sectionType = getSectionType(sectionId);
+  switch (sectionType) {
+    case C.CODE:
+      currText = getSectionVariant(sectionId).code;
+      break;
+    case C.TEXT_BLOCK:
+      currText = getSectionVariant(sectionId).description;
+      break;
+  }
+
+  const lines = currText.split("\n");
   const totalLines = lines.length;
 
   // Initialize streaming state
@@ -408,7 +423,7 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
     afterLines = lines.slice(insertIndex).join("\n");
   } else {
     // If no insertion point, append to the end
-    beforeLines = currCode;
+    beforeLines = currText;
     afterLines = "";
   }
 
@@ -430,14 +445,12 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
       },
     };
   });
-
-  return currCode;
 }
 
 /**
- * Stop streaming text into the code block.
+ * Stop streaming text into a section.
  * @SETTA_MCP_TOOL
- * @returns {string} the code with all the changes applied.
+ * @returns {string} the seciton's text with all the changes applied.
  */
 export function stopStreamingInto({ chatId }) {
   const { chatDetails } = useAIStore.getState();
@@ -466,15 +479,15 @@ export function stopStreamingInto({ chatId }) {
 }
 
 /**
- * Delete a range of code from a code block.
+ * Delete a range of text from a CODE or TEXT_BLOCK section.
  * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the code block.
+ * @param {ID} sectionId The id of the section.
  * @param {integer} [startLine] Optional starting line number (1-indexed). If omitted, starts from the first line.
  * @param {integer} [endLine] Optional ending line number (1-indexed, inclusive). If omitted, ends at the last line.
- * @return {string} A string containing the code with the specified range deleted.
+ * @return {string} A string containing the text with the specified range deleted.
  * @throws {Error} If the provided line numbers are invalid or out of range.
  */
-export function deleteCodeRange({ sectionId, startLine, endLine }) {
+export function deleteTextRange({ sectionId, startLine, endLine }) {
   // Update the state
   let updatedCode;
   useSectionInfos.setState((x) => {

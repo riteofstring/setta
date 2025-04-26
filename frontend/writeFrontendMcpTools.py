@@ -1,6 +1,5 @@
 import json
 import os
-import re
 from typing import Any, Dict, List
 
 from setta.utils.format_code import ruff_format
@@ -13,6 +12,22 @@ def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) ->
 
     # Clean up the type string
     type_str = type_str.strip()
+
+    # Helper function to check if a string is a quoted literal
+    def is_string_literal(s: str) -> bool:
+        s = s.strip()
+        return (s.startswith("'") and s.endswith("'")) or (
+            s.startswith('"') and s.endswith('"')
+        )
+
+    # Helper function to process a string literal
+    def process_string_literal(s: str) -> str:
+        s = s.strip()
+        if s.startswith("'") and s.endswith("'"):
+            return f"Literal[{s}]"
+        elif s.startswith('"') and s.endswith('"'):
+            return f'Literal["{s[1:-1]}"]'
+        return s
 
     # Check if this is a reference to a typedef
     if type_str in typedefs:
@@ -62,18 +77,22 @@ def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) ->
         return "Dict[str, Any]"
 
     # Handle union types with string literals (common in enum-like types)
-    if "|" in type_str and "'" in type_str:
-        # Extract all string literals
-        literals = re.findall(r"'([^']*)'", type_str)
-        if literals:
-            # If we have string literals, create a single Literal with all values
-            return f"Literal[{', '.join(repr(lit) for lit in literals)}]"
-
-    # Handle other union types
-    elif "|" in type_str:
+    if "|" in type_str:
         types = type_str.split("|")
-        python_types = [jsdoc_type_to_python_type(t.strip(), typedefs) for t in types]
+        python_types = []
+
+        for t in types:
+            t = t.strip()
+            if is_string_literal(t):
+                python_types.append(process_string_literal(t))
+            else:
+                python_types.append(jsdoc_type_to_python_type(t, typedefs))
+
         return f"Union[{', '.join(python_types)}]"
+
+    # Handle single string literal
+    if is_string_literal(type_str):
+        return process_string_literal(type_str)
 
     # Handle arrays with specific types
     if type_str.startswith("Array<") and type_str.endswith(">"):
@@ -102,10 +121,6 @@ def jsdoc_type_to_python_type(type_str: str, typedefs: Dict[str, Any] = None) ->
     # Handle Object with key and value types: Object.<keyType, valueType>
     if type_str.startswith("Object.<") and type_str.endswith(">"):
         return handle_object_generic(type_str[8:-1])
-
-    # Handle single string literal
-    if type_str.startswith("'") and type_str.endswith("'"):
-        return f"Literal[{type_str}]"
 
     # Handle common types
     type_map = {
