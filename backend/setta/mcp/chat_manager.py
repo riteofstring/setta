@@ -24,7 +24,6 @@ class ChatManager:
             get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
         ) as f:
             self.system_prompt = f.read()
-        self.num_cache_tokens = {}
         self.max_tokens = 20000
         self.thinking_budget_tokens = 10000
         self.cache_trigger_tokens = 1000
@@ -72,11 +71,9 @@ class ChatManager:
 
     def init_current_stream(self, chatId):
         self.current_streams[chatId] = []
-        self.num_cache_tokens[chatId] = 0
 
     def end_current_stream(self, chatId):
         self.current_streams.pop(chatId, None)
-        self.num_cache_tokens.pop(chatId)
 
     def get_current_stream(self, chatId):
         return self.current_streams.get(chatId, [])
@@ -115,7 +112,7 @@ class ChatManager:
                 messages,
                 thinking,
             ) = await self.get_tools_system_messages_thinking(
-                chatId, messages, curr_stream, model, deepThink
+                messages, curr_stream, model, deepThink
             )
 
             print(f"{messages}\n\n\n", flush=True)
@@ -292,7 +289,7 @@ class ChatManager:
         return filtered_messages, tool_results
 
     async def get_tools_system_messages_thinking(
-        self, chatId, messages, curr_stream, model, deepThink
+        self, messages, curr_stream, model, deepThink
     ):
         tools = self.mcp_client.available_tools
 
@@ -317,9 +314,7 @@ class ChatManager:
             else {"type": "disabled"}
         )
 
-        cache_control_idx = await self.get_cache_control_idx(
-            chatId, tools, system, messages, model, thinking
-        )
+        cache_control_idx = await self.get_cache_control_idx(messages, model, thinking)
 
         if cache_control_idx is None:
             self.set_cache_control(system[0])
@@ -331,33 +326,43 @@ class ChatManager:
 
         return tools, system, messages, thinking
 
-    async def get_cache_control_idx(
-        self, chatId, tools, system, messages, model, thinking
-    ):
+    async def get_cache_control_idx(self, messages, model, thinking):
+        cache_message_idx, cache_content_idx = None, None
         for msg_idx, m in enumerate(messages):
             for content_idx, c in enumerate(m["content"]):
-                c.pop("cache_control", None)
+                if c.get("cache_control"):
+                    cache_message_idx = msg_idx
+                    cache_content_idx = content_idx
+                    c.pop("cache_control")
+                    break
 
-        new_num_tokens = await self.anthropic.messages.count_tokens(
-            tools=tools,
-            system=system,
-            messages=messages,
+        if cache_message_idx is not None:
+            messages_to_count = messages[cache_message_idx:]
+            messages_to_count[0]["content"] = messages_to_count[0]["content"][
+                cache_content_idx:
+            ]
+        else:
+            messages_to_count = messages
+
+        num_tokens = await self.anthropic.messages.count_tokens(
             model=model,
+            messages=messages_to_count,
             thinking=thinking,
         )
-        new_num_tokens = new_num_tokens.input_tokens
 
-        old_num_tokens = self.num_cache_tokens[chatId]
-        self.num_cache_tokens[chatId] = new_num_tokens
-
-        if new_num_tokens - old_num_tokens >= self.cache_trigger_tokens:
-            return self.get_cache_indices(messages)
+        if num_tokens.input_tokens >= self.cache_trigger_tokens:
+            new_indices = self.get_new_cache_indices(messages)
+            if new_indices is None:
+                return cache_message_idx, cache_content_idx
+            return new_indices
+        elif cache_message_idx is not None:
+            return cache_message_idx, cache_content_idx
         return None
 
     def set_cache_control(self, x):
         x["cache_control"] = {"type": "ephemeral"}
 
-    def get_cache_indices(self, messages):
+    def get_new_cache_indices(self, messages):
         cache_message_idx = len(messages) - 1
         cache_content_idx = len(messages[cache_message_idx]["content"]) - 1
         while (
