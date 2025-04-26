@@ -192,9 +192,6 @@ const ThinkingBox = memo(({ content, signature, isStreaming }) => {
             role={C.LLM_ASSISTANT_ROLE}
             isStreaming={isStreaming}
           />
-          {/* <div className="">
-            {displayText}
-          </div> */}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
@@ -279,7 +276,7 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
       return (
         <MarkdownContent
           content={item.text}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400 "
           role={C.LLM_ASSISTANT_ROLE}
           isStreaming={isStreaming}
         />
@@ -355,7 +352,7 @@ const ChatMessage = memo(({ message, toolResults, isStreaming }) => {
     <div className="my-4 flex justify-end">
       <MarkdownContent
         content={message.content[0].text}
-        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words"
+        className="prose prose-sm w-fit max-w-[min(85%,800px)] flex-shrink cursor-text rounded-t-lg rounded-bl-lg bg-blue-500 px-4 py-4 text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:bg-blue-700 [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400"
         role={message.role}
         isStreaming={false}
       />
