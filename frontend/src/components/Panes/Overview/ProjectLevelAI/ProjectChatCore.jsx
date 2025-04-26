@@ -56,10 +56,51 @@ const formatToolArgs = (args) => {
   }
 };
 
+function StreamingIntoCodeBlockMessage({ sectionName, sectionId }) {
+  return sectionName ? (
+    <>
+      Writing into section{" "}
+      <span
+        className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+        onClick={(e) => {
+          e.stopPropagation();
+          goToSection(sectionId);
+        }}
+      >
+        {sectionName}
+      </span>
+    </>
+  ) : (
+    "Writing into a section"
+  );
+}
+
+function StreamingIntoCodeBlockError({ sectionName, sectionId, errorMessage }) {
+  return sectionName ? (
+    <>
+      Failed to write into{" "}
+      <span
+        className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+        onClick={(e) => {
+          e.stopPropagation();
+          goToSection(sectionId);
+        }}
+      >
+        {sectionName}
+      </span>
+      : {errorMessage}
+    </>
+  ) : (
+    `Failed to write into a section: ${errorMessage}`
+  );
+}
+
 const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
   sectionId,
   isStreaming,
   done,
+  isError,
+  content,
 }) {
   const sectionName = useSectionInfos((x) => x.x[sectionId]?.name);
 
@@ -75,26 +116,16 @@ const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
           </div>
 
           <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
-            {sectionName ? (
-              <>
-                Writing code in{" "}
-                <span
-                  className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goToSection(sectionId);
-                  }}
-                >
-                  {sectionName}
-                </span>
-              </>
-            ) : (
-              "Writing code"
-            )}
+            <StreamingIntoCodeBlockMessage
+              sectionName={sectionName}
+              sectionId={sectionId}
+            />
           </div>
           {done ? (
             <IoMdCheckmark className="mr-1.5 text-setta-400" />
-          ) : isStreaming && !done ? (
+          ) : isError ? (
+            <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
+          ) : isStreaming ? (
             <i className="gg-spinner !scale-125 self-center justify-self-end text-setta-500/70" />
           ) : null}
         </Accordion.Trigger>
@@ -102,22 +133,18 @@ const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           <div className="bg-setta-300 p-3 dark:bg-setta-860">
             <div className="text-xs text-setta-700 dark:text-setta-300">
-              {sectionName ? (
-                <>
-                  Code is being written to section{" "}
-                  <span
-                    className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                  >
-                    {sectionName}
-                  </span>
-                </>
+              {isError ? (
+                <StreamingIntoCodeBlockError
+                  sectionName={sectionName}
+                  sectionId={sectionId}
+                  errorMessage={content}
+                />
               ) : (
-                "Code is being written"
+                <StreamingIntoCodeBlockMessage
+                  sectionName={sectionName}
+                  sectionId={sectionId}
+                />
               )}
-              {done ? " (completed)" : ""}
             </div>
           </div>
         </Accordion.Content>
@@ -312,6 +339,8 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
           sectionId={item.sectionId}
           isStreaming={isStreaming}
           done={item.done}
+          isError={item.isError}
+          content={item.content?.[0]?.text}
         />
       );
     default:
@@ -544,6 +573,7 @@ const consolidateAssistantMessages = (
             sectionId,
             done: false,
             isError: toolResults[item.id]?.is_error,
+            content: toolResults[item.id]?.content,
           };
           filteredContent.push(streamingItem);
         } else if (

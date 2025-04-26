@@ -20,7 +20,7 @@
  * @property {SectionSize} [size] - The section dimensions (optional)
  * @property {SectionPosition} position
  * @property {SectionUIType} type
- * @property {boolean} [renderMarkdown] 
+ * @property {boolean} [renderMarkdown]
  */
 /**
 @typedef {string} ID
