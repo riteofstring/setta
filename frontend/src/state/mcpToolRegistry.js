@@ -12,6 +12,7 @@ import {
   stopStreamingInto,
 } from "./actions/ai";
 import { addParametersMcp } from "./actions/kwargs";
+import { updateNodePositionsMcp } from "./actions/nodeInternals";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
 import {
@@ -29,6 +30,7 @@ const mcpToolRegistry = {
   deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
+  updateNodePositionsMcp,
   runEntryCodeBlock,
   addSectionsAtPositionMcp,
   getSectionCurrentCodeInfoMcp,

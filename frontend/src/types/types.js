@@ -1,5 +1,5 @@
 /**
- * @typedef {Object} Position
+ * @typedef {Object} SectionPosition
  * @property {number} x - The x coordinate
  * @property {number} y - The y coordinate
  */
@@ -18,7 +18,7 @@
  * @typedef {Object} SimplifiedSectionConfig
  * @property {string} name - The section title
  * @property {SectionSize} [size] - The section dimensions (optional)
- * @property {Position} position
+ * @property {SectionPosition} position
  * @property {SectionUIType} type
  */
 /**
@@ -43,7 +43,7 @@
  * @property {string} name
  * @property {string} type
  * @property {SectionSimplifiedCodeInfo} codeInfo
- * @property {Position} position
+ * @property {SectionPosition} position
  * @property {SectionSize} size
  */
 
@@ -53,4 +53,11 @@
  * @property {number} y
  * @property {number} width
  * @property {number} height
+ */
+
+/**
+ * @typedef {Object} SectionPositionAndSize
+ * @property {ID} id
+ * @property {SectionPosition} [position]
+ * @property {SectionSize} [size]
  */

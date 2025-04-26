@@ -9,12 +9,13 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from setta.mcp.server import mcp_server
 from typing_extensions import TypedDict
+
+from setta.mcp.server import mcp_server
 
 
 # TypedDict definitions generated from JSDoc typedefs
-class Position(TypedDict, total=False):
+class SectionPosition(TypedDict, total=False):
     # The x coordinate
     x: float
     # The y coordinate
@@ -54,7 +55,7 @@ class SimplifiedSectionConfig(TypedDict, total=False):
     name: str
     # The section dimensions (optional)
     size: Optional[SectionSize]
-    position: Position
+    position: SectionPosition
     type: SectionUIType
 
 
@@ -81,7 +82,7 @@ class SimplifiedSectionInfo(TypedDict, total=False):
     name: str
     type: str
     codeInfo: SectionSimplifiedCodeInfo
-    position: Position
+    position: SectionPosition
     size: SectionSize
 
 
@@ -90,6 +91,12 @@ class ReactFlowPaneRect(TypedDict, total=False):
     y: float
     width: float
     height: float
+
+
+class SectionPositionAndSize(TypedDict, total=False):
+    id: ID
+    position: Optional[SectionPosition]
+    size: Optional[SectionSize]
 
 
 # From ParamInput.jsx
@@ -263,6 +270,30 @@ async def addParametersMcp(chatId: str, sectionId: ID, names: List[str]) -> List
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "addParametersMcp", addParametersMcp.__annotations__["return"], args
+        )
+    )
+
+
+# From nodeInternals.js
+@mcp_server.tool(
+    description="Updates the positions and/or the sizes of existing sections."
+)
+async def updateNodePositionsMcp(
+    chatId: str, sections: List[SectionPositionAndSize]
+) -> Any:
+    """Updates the positions and/or the sizes of existing sections.
+
+    Args:
+        sections: Array of dicts containing sectionId, and position and/or size.
+    """
+    args = {}
+    args["chatId"] = chatId
+    args["sections"] = sections
+    return json.dumps(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "updateNodePositionsMcp",
+            updateNodePositionsMcp.__annotations__["return"],
+            args,
         )
     )
 
