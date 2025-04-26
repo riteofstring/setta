@@ -240,8 +240,6 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
       );
     case C.LLM_THINKING:
       return <ThinkingBox content={item.thinking} isStreaming={isStreaming} />;
-    case C.LLM_STREAMING_TO_CODE_BLOCK:
-      return null;
     default:
       return null;
   }
@@ -325,14 +323,10 @@ const MessageList = memo(function MessageList({
   messages,
   toolResults,
   waitingForResponse,
-  streamTargetSectionId,
   currentChatId,
 }) {
   // TODO: make more efficient
-  const consolidatedMessages = consolidateAssistantMessages(
-    messages,
-    streamTargetSectionId,
-  );
+  const consolidatedMessages = consolidateAssistantMessages(messages);
 
   if (!currentChatId) {
     return (
@@ -367,34 +361,20 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   deepThink,
   userSelectedLLM,
 }) {
-  const {
-    messages,
-    toolResults,
-    waitingForResponse,
-    streamTargetSectionId,
-    currentChatId,
-  } = useAIStore((x) => {
-    const details = x.chatDetails[x.currentChatId];
-    if (!x.currentChatId || !details) {
-      const { messages, toolResults, waitingForResponse } =
-        getDefaultChatDetails();
+  const { messages, toolResults, waitingForResponse, currentChatId } =
+    useAIStore((x) => {
+      const details = x.chatDetails[x.currentChatId];
+      if (!x.currentChatId || !details) {
+        return { ...getDefaultChatDetails(), currentChatId: x.currentChatId };
+      }
+      const { messages, toolResults, waitingForResponse } = details;
       return {
         messages,
         toolResults,
         waitingForResponse,
-        streamTargetSectionId: null,
         currentChatId: x.currentChatId,
       };
-    }
-    const { messages, toolResults, waitingForResponse, streamTarget } = details;
-    return {
-      messages,
-      toolResults,
-      waitingForResponse,
-      streamTargetSectionId: streamTarget.sectionId,
-      currentChatId: x.currentChatId,
-    };
-  }, shallow);
+    }, shallow);
 
   useEffect(() => {
     if (currentChatId) {
@@ -408,7 +388,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messages={messages}
         toolResults={toolResults}
         waitingForResponse={waitingForResponse}
-        streamTargetSectionId={streamTargetSectionId}
         currentChatId={currentChatId}
       />
       <ChatInput
@@ -423,7 +402,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 });
 
 // Consolidate assistant messages and handle tool results
-const consolidateAssistantMessages = (messages, streamTargetSectionId) => {
+const consolidateAssistantMessages = (messages) => {
   const processedMessages = [];
   let currentAssistantMessage = null;
 
