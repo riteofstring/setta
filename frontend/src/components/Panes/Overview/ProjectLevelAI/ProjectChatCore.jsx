@@ -16,7 +16,6 @@ import {
   startStreamingInto,
   stopStreamingInto,
 } from "state/actions/ai";
-import { getSectionInfo } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
@@ -55,10 +54,13 @@ const formatToolArgs = (args) => {
   }
 };
 
-const ThinkingBox = memo(({ content, isStreaming }) => {
+const ThinkingBox = memo(({ content, signature, isStreaming }) => {
+  // signature is an empty string until thinking is done
+  const _isStreaming = !signature && isStreaming
+
   const displayText = useTypewriterEffect(
     content,
-    isStreaming,
+    _isStreaming,
     5, // typing speed
   );
 
@@ -67,10 +69,10 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
 
   // Auto-scroll to bottom when content changes during streaming
   useEffect(() => {
-    if (isStreaming && previewRef.current) {
+    if (_isStreaming && previewRef.current) {
       previewRef.current.scrollTop = previewRef.current.scrollHeight;
     }
-  }, [displayText, isStreaming]);
+  }, [displayText, _isStreaming]);
 
   return (
     <Accordion.Root type="single" collapsible>
@@ -91,7 +93,7 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
                   className="min-w-6 text-setta-200 dark:text-setta-400"
                 />
               </div>
-              {isStreaming && (
+              {_isStreaming && (
                 <div className="ml-auto">
                   <i className="gg-spinner !scale-125 text-blue-500/70" />
                 </div>
@@ -100,7 +102,7 @@ const ThinkingBox = memo(({ content, isStreaming }) => {
 
             {/* Preview section */}
             <div className="mt-2 w-full overflow-hidden pl-6 pr-2">
-              {isStreaming ? (
+              {_isStreaming ? (
                 <div className="relative w-full">
                   {/* Fade effect at top */}
                   <div className="absolute left-0 right-0 top-0 z-10 h-4 bg-gradient-to-b from-setta-50 to-transparent dark:from-setta-700"></div>
@@ -240,7 +242,21 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
         />
       );
     case C.LLM_THINKING:
-      return <ThinkingBox content={item.thinking} isStreaming={isStreaming} />;
+      return (
+        <ThinkingBox
+          content={item.thinking}
+          signature={item.signature}
+          isStreaming={isStreaming}
+        />
+      );
+    case C.LLM_STREAMING_INTO_CODE_BLOCK:
+      return null
+      // return (
+      //   <StreamingIntoCodeBlock
+      //     sectionId={item.sectionId}
+      //     isStreaming={isStreaming}
+      //   />
+      // );
     default:
       return null;
   }
@@ -463,19 +479,16 @@ const consolidateAssistantMessages = (messages, idToUUIDForLLM) => {
           item.name === startStreamingInto.name
         ) {
           isStreaming = true;
-          filteredContent.push(item);
           sectionId = idToUUIDForLLM[item.input.sectionId];
-          if (sectionId) {
-            console.log("startStreamingInto", getSectionInfo(sectionId).name);
-          } else {
-            console.log("startStreamingInto some section");
-          }
+          filteredContent.push({
+            type: C.LLM_STREAMING_INTO_CODE_BLOCK,
+            sectionId,
+          });
         } else if (
           item.type === C.LLM_TOOL_USE &&
           item.name === stopStreamingInto.name
         ) {
           isStreaming = false;
-          filteredContent.push(item);
         } else if (isStreaming && item.type === "text") {
           // Skip text content while streaming
         } else {
