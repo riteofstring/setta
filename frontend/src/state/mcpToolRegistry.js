@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
+import { getPaneRectMcp } from "../forks/xyflow/core/utils/graphMcp";
 import {
   deleteCodeRange,
   getCurrentCode,
@@ -11,8 +12,10 @@ import {
   stopStreamingInto,
 } from "./actions/ai";
 import { addParametersMcp } from "./actions/kwargs";
+import { updateNodePositionsMcp } from "./actions/nodeInternals";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
 import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
+import { groupSections } from "./actions/sections/groupSections";
 import {
   getAllSectionInformationMcp,
   getSectionCurrentCodeInfoMcp,
@@ -22,13 +25,16 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
+  getPaneRectMcp,
   startStreamingInto,
   stopStreamingInto,
   deleteCodeRange,
   getCurrentCode,
   addParametersMcp,
+  updateNodePositionsMcp,
   runEntryCodeBlock,
   addSectionsAtPositionMcp,
+  groupSections,
   getSectionCurrentCodeInfoMcp,
   getAllSectionInformationMcp,
   setSelectedItemMcp,
