@@ -2,6 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
 import { memo, useEffect, useRef } from "react";
+import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
 import { MdCode, MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
@@ -149,65 +150,53 @@ const ThinkingBox = memo(({ content, signature, isStreaming }) => {
 
   return (
     <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="details">
-        {/* Use a hidden style tag to hide webkit scrollbars */}
-        <style>{`
-          .hide-webkit-scrollbar::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
-
-        <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
-          <div className="relative flex w-full flex-col items-start justify-center gap-2 px-2 py-2 text-left">
-            <div className="flex w-full items-center">
-              <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
-                <PiWrenchFill
+      <Accordion.Item className="" value="details">
+        <Accordion.Trigger className="relative mb-4 flex w-full cursor-pointer gap-3 overflow-hidden rounded-xl  bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+          <div className="flex min-w-[40px] items-center bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+            {_isStreaming ? (
+              <div className="single-cell-container">
+                <FaBrain
+                  className="single-cell-child min-w-6 animate-ping text-setta-200 dark:text-setta-400"
                   size={15}
-                  className="min-w-6 text-setta-200 dark:text-setta-400"
+                />
+                <FaBrain
+                  className="single-cell-child min-w-6 text-setta-200 dark:text-setta-400"
+                  size={15}
                 />
               </div>
-              {_isStreaming && (
-                <div className="ml-auto">
-                  <i className="gg-spinner !scale-125 text-blue-500/70" />
-                </div>
-              )}
-            </div>
+            ) : (
+              // <i className="gg-spinner !scale-100 text-blue-500/70" />
 
-            {/* Preview section */}
-            <div className="mt-2 w-full overflow-hidden pl-6 pr-2">
-              {_isStreaming ? (
-                <div className="relative w-full">
-                  {/* Fade effect at top */}
-                  <div className="absolute left-0 right-0 top-0 z-10 h-4 bg-gradient-to-b from-setta-50 to-transparent dark:from-setta-700"></div>
+              <FaBrain
+                className=" min-w-6 text-setta-200 dark:text-setta-400"
+                size={15}
+              />
+            )}
+          </div>
 
-                  {/* Scrollable content area with hidden scrollbar */}
-                  <div
-                    ref={previewRef}
-                    className="hide-webkit-scrollbar h-16 overflow-y-auto text-xs text-setta-600 dark:text-setta-300"
-                    style={{
-                      scrollbarWidth: "none",
-                      msOverflowStyle: "none",
-                    }}
-                  >
-                    {displayText}
-                  </div>
-
-                  {/* Fade effect at bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 z-10 h-4 bg-gradient-to-t from-setta-50 to-transparent dark:from-setta-700"></div>
-                </div>
-              ) : (
-                <div className="text-xs italic text-setta-600 dark:text-setta-300">
-                  Thinking complete
-                </div>
-              )}
+          <div className="relative my-3 mr-3 w-full overflow-clip rounded-lg border border-solid border-white shadow-[inset_0px_2px_4px_2px_rgb(0_0_0_/_0.15)] dark:border-setta-600/90 dark:bg-setta-900 ">
+            <div
+              ref={previewRef}
+              className="top-bottom-fade h-20 overflow-y-auto px-3 py-2 text-xs text-setta-300 dark:text-setta-500"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {displayText}
             </div>
           </div>
         </Accordion.Trigger>
-
-        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="bg-setta-300 p-3 dark:bg-setta-860">
+        <Accordion.Content className="-mt-6 mb-2 overflow-hidden rounded-b-md bg-setta-200 px-3 pb-3 pt-4 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:bg-setta-860">
+          <MarkdownContent
+            content={content}
+            className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+            role={C.LLM_ASSISTANT_ROLE}
+            isStreaming={isStreaming}
+          />
+          {/* <div className="">
             {displayText}
-          </div>
+          </div> */}
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
@@ -226,7 +215,9 @@ function ToolCallAccordionStatus({ result, success, isStreaming }) {
       <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
     );
   }
-  return null;
+  return (
+    <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+  );
 }
 
 const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
@@ -255,21 +246,21 @@ const ToolCall = memo(({ name, args, result, success, isStreaming }) => {
 
         <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
-            <div className="bg-setta-300 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
-              <h3 className="!mt-2.5 text-xs uppercase dark:text-setta-300">
+            <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
+              <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
-              <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
+              <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
                 {formatToolArgs(args)}
               </pre>
             </div>
           )}
           {result && (
-            <div className=" bg-setta-300 p-3  dark:bg-setta-860">
-              <h3 className="!mt-0 text-xs uppercase text-setta-700 dark:text-setta-300">
+            <div className=" bg-setta-200 p-3  dark:bg-setta-900">
+              <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Result
               </h3>
-              <pre className="m-0 cursor-auto font-mono text-xs text-setta-200">
+              <pre className="m-0 cursor-auto font-mono text-xs text-setta-600 dark:text-setta-200">
                 {typeof result === "string"
                   ? result
                   : typeof result === "object"
