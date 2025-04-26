@@ -558,10 +558,10 @@ const consolidateAssistantMessages = (
           streamingItem = {
             type: C.LLM_STREAMING_INTO_CODE_BLOCK,
             sectionId,
-            done: toolResults[item.id]?.isError ?? false,
+            done: false,
+            isError: toolResults[item.id]?.is_error,
           };
           filteredContent.push(streamingItem);
-          
         } else if (
           item.type === C.LLM_TOOL_USE &&
           item.name === stopStreamingInto.name
