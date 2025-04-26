@@ -58,3 +58,19 @@ def load_all_chat_metadata(db):
     for row in db.fetchall():
         output.append({"id": row[0], "name": row[1], "lastUpdated": row[2]})
     return output
+
+
+def load_uuid_mappings_for_llm(db):
+    query = """
+        SELECT id, uuid
+        FROM UUIDMappingsForLLM
+    """
+
+    db.execute(query)
+
+    id_to_uuid, uuid_to_id = {}, {}
+    for row in db.fetchall():
+        id_to_uuid[row["id"]] = row["uuid"]
+        uuid_to_id[row["uuid"]] = row["id"]
+
+    return id_to_uuid, uuid_to_id

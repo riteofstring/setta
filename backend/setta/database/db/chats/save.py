@@ -85,3 +85,18 @@ def save_messages(db, chat_id, messages):
         )
 
     db.executemany(query, query_params)
+
+
+def save_uuid_mappings_for_llm(db, uuid_to_id):
+    query = """
+        INSERT INTO UUIDMappingsForLLM (id, uuid)
+        VALUES (:id, :uuid)
+        ON CONFLICT (id)
+        DO NOTHING
+    """
+
+    query_params = []
+    for uuid, id in uuid_to_id.items():
+        query_params.append({"uuid": uuid, "id": id})
+
+    db.executemany(query, query_params)
