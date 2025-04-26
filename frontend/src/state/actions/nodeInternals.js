@@ -2,12 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
-import {
-  useMisc,
-  useNodeInternals,
-  useSectionInfos,
-  useSectionRefs,
-} from "state/definitions";
+import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
 
 export function getNodes(s = null) {
   const source = s ? s.x : useNodeInternals.getState().x;
@@ -149,27 +144,4 @@ export function getNodeUpdateInformation(entries, fromResizeObserver) {
     }
   });
   return output;
-}
-
-/**
- * Updates the positions and/or the sizes of existing sections.
- * @SETTA_MCP_TOOL
- * @param {Array<SectionPositionAndSize>} sections Array of dicts containing sectionId, and position and/or size.
- */
-export function updateNodePositionsMcp({ sections }) {
-  const newNodes = getNewNodes();
-  let curr;
-  useSectionInfos.setState((state) => {
-    for (const n of sections) {
-      curr = newNodes.get(n.id);
-      if (n.position) {
-        curr.position = { ...curr.position, ...n.position };
-      }
-      if (n.size) {
-        state.x[n.id].size = { ...state.x[n.id].size, ...n.size };
-      }
-    }
-  });
-
-  useNodeInternals.setState({ x: newNodes });
 }

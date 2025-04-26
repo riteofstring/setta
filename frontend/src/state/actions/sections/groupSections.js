@@ -13,28 +13,19 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-/**
- * Set the values of multiple parameters in a particular section.
- * @SETTA_MCP_TOOL
- * @param {Array<ID>} sectionIds The ids of the sections to group together.
- * @param {SectionPosition} position The x,y position of the new group.
- * @param {string} [name] The name of the new group. If not specified, a random name will be created.
- * @return {ID} The id of the new group.
- */
-export function groupSections({ sectionIds, position, name }) {
+export function createGroup({ nodeIds, x, y }) {
   let groupId;
   useSectionInfos.setState((state) => {
     groupId = addSectionAtPosition({
-      sectionProps: { name },
       type: C.GROUP,
-      position,
+      position: { x, y },
       state,
     });
 
     moveSections({
       oldParentId: null,
       newParentId: groupId,
-      sectionIds,
+      sectionIds: nodeIds,
       state,
     });
 
@@ -44,11 +35,9 @@ export function groupSections({ sectionIds, position, name }) {
   setActiveSectionIds([groupId]);
 
   maybeIncrementProjectStateVersion(true);
-
-  return groupId;
 }
 
-export async function groupActiveSections() {
+export async function groupSections() {
   const activeSectionIds = useActiveSection.getState().ids;
   const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
     activeSectionIds.includes(x[0]),
@@ -58,12 +47,12 @@ export async function groupActiveSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    groupSections({ nodeIds, position: { x, y } });
+    createGroup({ nodeIds, x, y });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
 
-export function ungroupGroup(groupId, state) {
+export function ungroup(groupId, state) {
   if (getSectionType(groupId, state) !== C.GROUP) {
     return;
   }
@@ -92,19 +81,8 @@ export function ungroupActiveGroup() {
     const ids = useActiveSection.getState().ids;
     // TODO: support multiple groups
     if (ids.length === 1) {
-      ungroupGroup(ids[0], state);
+      ungroup(ids[0], state);
     }
   });
   maybeIncrementProjectStateVersion(true);
-}
-
-/**
- * Ungroup an existing group.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the group to ungroup.
- */
-export function ungroupGroupMcp({ sectionId }) {
-  useSectionInfos.setState((state) => {
-    ungroupGroup(sectionId, state);
-  });
 }
