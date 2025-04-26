@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useSectionInfos } from "state/definitions";
 import {
@@ -162,13 +161,10 @@ export function getAllSectionInformationMcp() {
   const state = useSectionInfos.getState();
   const output = {};
   for (const s of Object.values(state.x)) {
-    const { x, y, height, width } = getSectionRect(s.id);
     output[s.id] = {
       name: s.name,
       type: getSectionType(s.id, state),
       codeInfo: getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
-      position: { x, y },
-      size: { width, height },
     };
   }
   return output;

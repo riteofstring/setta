@@ -6,7 +6,7 @@ import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
-import { groupSections } from "state/actions/sections/groupSections";
+import { createGroup } from "state/actions/sections/groupSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useSectionInfos } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
@@ -50,9 +50,9 @@ export function SelectionContextMenu() {
   };
 
   function onClickCreate() {
-    groupSections({
+    createGroup({
       nodeIds,
-      position: screenToFlowPosition({ x, y }),
+      ...screenToFlowPosition({ x, y }),
     });
     closeContextMenu();
   }
