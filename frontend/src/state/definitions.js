@@ -264,10 +264,7 @@ export const useAIStore = create(
         waitingForResponse: {}, // maps from chatId to boolean
         viewHistory: false,
         userSelectedLLM: "",
-        streamTarget: null,
-        streamBeforeLines: "",
-        streamAfterLines: "",
-        streamedContent: "",
+        streamTarget: {}, // maps from chatId to {sectionId, before, after, contentToInsert}
       }),
       {
         name: "setta_ai_data",

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
 from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
 from setta.database.utils import create_new_id
+from setta.mcp.server import CHAT_ID_ARG_NAME
 from setta.utils.constants import CONSTANTS_FOLDER, C
 from setta.utils.utils import get_absolute_path
 
@@ -163,7 +164,7 @@ class ChatManager:
                     has_tool_call = True
                     print("calling tool", sub_msg["name"], flush=True)
                     result = await self.mcp_client.call_tool(
-                        sub_msg["name"], sub_msg["input"]
+                        sub_msg["name"], {CHAT_ID_ARG_NAME: chatId, **sub_msg["input"]}
                     )
                     result = self.process_tool_result(result)
                     tool_result = {

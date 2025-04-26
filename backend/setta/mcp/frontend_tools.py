@@ -86,7 +86,7 @@ class SimplifiedSectionInfo(TypedDict, total=False):
     description="Set the values of multiple parameters in a particular section. Returns a map from parameter id to whether or not the value was successfully set."
 )
 async def setParamValuesMcp(
-    sectionId: ID, paramIdsToValues: Dict[ID, str]
+    chatId: str, sectionId: ID, paramIdsToValues: Dict[ID, str]
 ) -> Dict[ID, bool]:
     """Set the values of multiple parameters in a particular section. Returns a map from parameter id to whether or not the value was successfully set.
 
@@ -98,6 +98,7 @@ async def setParamValuesMcp(
         a map from parameter id to whether or not the value was successfully set.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["paramIdsToValues"] = paramIdsToValues
     return json.dumps(
@@ -107,11 +108,13 @@ async def setParamValuesMcp(
     )
 
 
-# From aiChat.js
+# From ai.js
 @mcp_server.tool(
     description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification."
 )
-async def startStreamingInto(sectionId: ID, insertAtLine: Optional[int] = None) -> str:
+async def startStreamingInto(
+    chatId: str, sectionId: ID, insertAtLine: Optional[int] = None
+) -> str:
     """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification.
 
     Args:
@@ -122,6 +125,7 @@ async def startStreamingInto(sectionId: ID, insertAtLine: Optional[int] = None) 
         A string containing the current code in the code block before modification.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["insertAtLine"] = insertAtLine
     return json.dumps(
@@ -134,15 +138,17 @@ async def startStreamingInto(sectionId: ID, insertAtLine: Optional[int] = None) 
 @mcp_server.tool(
     description="Stop streaming text into the code block. Returns the code with all the changes applied."
 )
-async def stopStreamingInto() -> str:
+async def stopStreamingInto(chatId: str) -> str:
     """Stop streaming text into the code block. Returns the code with all the changes applied.
 
     Returns:
         the code with all the changes applied.
     """
+    args = {}
+    args["chatId"] = chatId
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
-            "stopStreamingInto", stopStreamingInto.__annotations__["return"]
+            "stopStreamingInto", stopStreamingInto.__annotations__["return"], args
         )
     )
 
@@ -151,7 +157,10 @@ async def stopStreamingInto() -> str:
     description="Delete a range of code from a code block. Returns A string containing the code with the specified range deleted."
 )
 async def deleteCodeRange(
-    sectionId: ID, startLine: Optional[int] = None, endLine: Optional[int] = None
+    chatId: str,
+    sectionId: ID,
+    startLine: Optional[int] = None,
+    endLine: Optional[int] = None,
 ) -> str:
     """Delete a range of code from a code block. Returns A string containing the code with the specified range deleted.
 
@@ -164,6 +173,7 @@ async def deleteCodeRange(
         A string containing the code with the specified range deleted.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["startLine"] = startLine
     args["endLine"] = endLine
@@ -178,7 +188,10 @@ async def deleteCodeRange(
     description="Get the current code that's in a code block. Returns A string containing the requested code from the code block."
 )
 async def getCurrentCode(
-    sectionId: ID, startLine: Optional[int] = None, endLine: Optional[int] = None
+    chatId: str,
+    sectionId: ID,
+    startLine: Optional[int] = None,
+    endLine: Optional[int] = None,
 ) -> str:
     """Get the current code that's in a code block. Returns A string containing the requested code from the code block.
 
@@ -191,6 +204,7 @@ async def getCurrentCode(
         A string containing the requested code from the code block.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["startLine"] = startLine
     args["endLine"] = endLine
@@ -205,7 +219,7 @@ async def getCurrentCode(
 @mcp_server.tool(
     description="Add parameters to a section. Returns the created parameter ids."
 )
-async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
+async def addParametersMcp(chatId: str, sectionId: ID, names: List[str]) -> List[ID]:
     """Add parameters to a section. Returns the created parameter ids.
 
     Args:
@@ -216,6 +230,7 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
         the created parameter ids.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["names"] = names
     return json.dumps(
@@ -229,15 +244,17 @@ async def addParametersMcp(sectionId: ID, names: List[str]) -> List[ID]:
 @mcp_server.tool(
     description="Runs the main entry code block. Returns the id of the terminal running the code"
 )
-async def runEntryCodeBlock() -> ID:
+async def runEntryCodeBlock(chatId: str) -> ID:
     """Runs the main entry code block. Returns the id of the terminal running the code
 
     Returns:
         the id of the terminal running the code
     """
+    args = {}
+    args["chatId"] = chatId
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
-            "runEntryCodeBlock", runEntryCodeBlock.__annotations__["return"]
+            "runEntryCodeBlock", runEntryCodeBlock.__annotations__["return"], args
         )
     )
 
@@ -246,7 +263,9 @@ async def runEntryCodeBlock() -> ID:
 @mcp_server.tool(
     description="Adds a new section at a specific location. Returns an array of the ids of the created sections."
 )
-async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> List[ID]:
+async def addSectionsAtPositionMcp(
+    chatId: str, sections: List[SimplifiedSectionConfig]
+) -> List[ID]:
     """Adds a new section at a specific location. Returns an array of the ids of the created sections.
 
     Args:
@@ -256,6 +275,7 @@ async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> L
         an array of the ids of the created sections.
     """
     args = {}
+    args["chatId"] = chatId
     args["sections"] = sections
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
@@ -270,9 +290,12 @@ async def addSectionsAtPositionMcp(sections: List[SimplifiedSectionConfig]) -> L
 @mcp_server.tool(
     description="Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"
 )
-async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeInfo:
+async def getSectionCurrentCodeInfoMcp(
+    chatId: str, sectionId: ID
+) -> SectionSimplifiedCodeInfo:
     """Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"""
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
@@ -286,16 +309,19 @@ async def getSectionCurrentCodeInfoMcp(sectionId: ID) -> SectionSimplifiedCodeIn
 @mcp_server.tool(
     description="Gets information about all the sections that currently exist. Returns an object that maps from sectionId to that section's information."
 )
-async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
+async def getAllSectionInformationMcp(chatId: str) -> Dict[ID, SimplifiedSectionInfo]:
     """Gets information about all the sections that currently exist. Returns an object that maps from sectionId to that section's information.
 
     Returns:
         an object that maps from sectionId to that section's information.
     """
+    args = {}
+    args["chatId"] = chatId
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "getAllSectionInformationMcp",
             getAllSectionInformationMcp.__annotations__["return"],
+            args,
         )
     )
 
@@ -305,7 +331,7 @@ async def getAllSectionInformationMcp() -> Dict[ID, SimplifiedSectionInfo]:
     description="Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters."
 )
 async def setSelectedItemMcp(
-    sectionId: ID, selectedItemName: str
+    chatId: str, sectionId: ID, selectedItemName: str
 ) -> SectionSimplifiedCodeInfo:
     """Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters.
 
@@ -317,6 +343,7 @@ async def setSelectedItemMcp(
         the callable info and info about its parameters.
     """
     args = {}
+    args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["selectedItemName"] = selectedItemName
     return json.dumps(

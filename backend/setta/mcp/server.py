@@ -12,6 +12,8 @@ from mcp.types import Tool as MCPTool
 
 from setta.database.db.notifications.load import create_notification_dict
 
+CHAT_ID_ARG_NAME = "chatId"
+
 
 # TODO use FastMCP once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
 class CustomFastMCP(FastMCP):
@@ -38,6 +40,13 @@ class CustomFastMCP(FastMCP):
                 inputSchema=t.parameters,
             )
             schema = mcpt.inputSchema
+            schema["properties"] = {
+                k: v for k, v in schema["properties"].items() if k != CHAT_ID_ARG_NAME
+            }
+            if schema.get("required"):
+                schema["required"] = [
+                    k for k in schema["required"] if k != CHAT_ID_ARG_NAME
+                ]
             for arg_name, arg_metadata in schema["properties"].items():
                 if "description" in arg_metadata:
                     continue
@@ -46,7 +55,6 @@ class CustomFastMCP(FastMCP):
                     arg_metadata["description"] = description
 
             output.append(mcpt)
-
         return output
 
 

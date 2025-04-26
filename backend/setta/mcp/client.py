@@ -2,7 +2,6 @@ import asyncio
 from contextlib import AsyncExitStack
 from typing import Optional
 
-import mcp.types
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 

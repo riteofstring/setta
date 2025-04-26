@@ -53,14 +53,11 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
-function resetStreamingResponseState() {
-  useAIStore.setState({
-    waitingForResponse: false,
-    streamTarget: null,
-    streamBeforeLines: "",
-    streamAfterLines: "",
-    streamedContent: "",
-  });
+function resetStreamingResponseState(chatId) {
+  useAIStore.setState((state) => ({
+    waitingForResponse: { ...state.waitingForResponse, [chatId]: false },
+    streamTarget: { ...state.streamTarget, [chatId]: null },
+  }));
 }
 
 export async function submitMessage(message, deepThink) {
@@ -99,24 +96,19 @@ export async function submitMessage(message, deepThink) {
     };
     // TODO: show error message in chat area
     console.error(errorMsg);
-    resetStreamingResponseState();
   }
 }
 
 export function receiveLLMResponseChunk(msg) {
   try {
     const { chatId, assistantMessageId, chunk } = msg;
-    const { currentChatId, streamTarget } = useAIStore.getState();
+    const { streamTarget } = useAIStore.getState();
     if (
-      streamTarget &&
+      streamTarget[chatId] &&
       chunk.type === C.LLM_CONTENT_BLOCK_DELTA &&
       chunk.delta.type === C.LLM_TEXT_DELTA
     ) {
-      streamInto(streamTarget, chunk.delta.text);
-    }
-
-    if (chatId !== currentChatId) {
-      return;
+      streamInto(chatId, streamTarget, chunk.delta.text);
     }
 
     // Handle different chunk types
@@ -137,10 +129,10 @@ export function receiveLLMResponseChunk(msg) {
         llmToolResult(chunk);
         return;
       case C.LLM_FULL_MESSAGE_STOP:
-        llmFullMessageStop();
+        llmFullMessageStop(chatId);
         return;
       case C.LLM_FULL_MESSAGE_STOPPED_BY_USER:
-        llmFullMessageStoppedByUser(chunk);
+        llmFullMessageStoppedByUser(chatId, chunk);
         return;
     }
   } catch (e) {
@@ -276,37 +268,41 @@ function llmToolResult(chunk) {
   }));
 }
 
-function llmFullMessageStop() {
-  resetStreamingResponseState();
+function llmFullMessageStop(chatId) {
+  resetStreamingResponseState(chatId);
 }
 
-function llmFullMessageStoppedByUser(chunk) {
+function llmFullMessageStoppedByUser(chatId, chunk) {
   const { messages, toolResults } = chunk;
   useAIStore.setState({ messages, toolResults });
-  resetStreamingResponseState();
+  resetStreamingResponseState(chatId);
 }
 
-function streamInto(streamTarget, content) {
-  const aiState = useAIStore.getState();
+function streamInto(chatId, streamTarget, content) {
+  const { sectionId, before, after, contentToInsert } = streamTarget[chatId];
 
   useSectionInfos.setState((x) => {
-    const sectionVariant = getSectionVariant(streamTarget, x);
-    // Get our cached line segments and current streamed content
-    const beforeLines = aiState.streamBeforeLines;
-    const afterLines = aiState.streamAfterLines;
-
+    const sectionVariant = getSectionVariant(sectionId, x);
     // Update current streamed content
-    const currentStreamedContent = aiState.streamedContent + content;
+    const currentContentToInsert = contentToInsert + content;
 
     // Reconstruct the code with the updated streamed content in the middle
-    sectionVariant.code = [beforeLines, currentStreamedContent, afterLines]
+    sectionVariant.code = [before, currentContentToInsert, after]
       .filter(Boolean)
       .join("\n");
 
     // Store the updated streamed content for next time
-    useAIStore.setState({
-      streamedContent: currentStreamedContent,
-    });
+    useAIStore.setState((state) => ({
+      streamTarget: {
+        ...state.streamTarget,
+        [chatId]: {
+          sectionId,
+          before,
+          after,
+          contentToInsert: currentContentToInsert,
+        },
+      },
+    }));
   });
 }
 
@@ -317,7 +313,8 @@ function streamInto(streamTarget, content) {
  * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
  * @return {string} A string containing the current code in the code block before modification.
  */
-export function startStreamingInto({ sectionId, insertAtLine }) {
+export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
+  console.log("startStreamingInto", sectionId, insertAtLine, chatId)
   // Get the current code
   const currCode = getCurrentCode({ sectionId });
   const lines = currCode.split("\n");
@@ -349,12 +346,17 @@ export function startStreamingInto({ sectionId, insertAtLine }) {
   }
 
   // Set streaming target and store line segments
-  useAIStore.setState({
-    streamTarget: sectionId,
-    streamBeforeLines: beforeLines,
-    streamAfterLines: afterLines,
-    streamedContent: "", // Initialize empty stream content
-  });
+  useAIStore.setState((state) => ({
+    streamTarget: {
+      ...state.streamTarget,
+      [chatId]: {
+        sectionId,
+        before: beforeLines,
+        after: afterLines,
+        contentToInsert: "",
+      },
+    },
+  }));
 
   return currCode;
 }
@@ -364,17 +366,20 @@ export function startStreamingInto({ sectionId, insertAtLine }) {
  * @SETTA_MCP_TOOL
  * @returns {string} the code with all the changes applied.
  */
-export function stopStreamingInto() {
+export function stopStreamingInto({ chatId }) {
+  console.log("startStreamingInto", chatId)
   const { streamTarget } = useAIStore.getState();
-  const code = getSectionVariant(streamTarget).code;
+  const chatStreamTarget = streamTarget[chatId];
+  if (!chatStreamTarget) {
+    return "";
+  }
+  const { sectionId } = chatStreamTarget;
+  const code = getSectionVariant(sectionId).code;
 
   // Clear all streaming state
-  useAIStore.setState({
-    streamTarget: null,
-    streamBeforeLines: "",
-    streamAfterLines: "",
-    streamedContent: "",
-  });
+  useAIStore.setState((state) => ({
+    streamTarget: { ...state.streamTarget, [chatId]: null },
+  }));
 
   return code;
 }
