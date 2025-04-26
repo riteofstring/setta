@@ -70,7 +70,7 @@ def load_uuid_mappings_for_llm(db):
 
     id_to_uuid, uuid_to_id = {}, {}
     for row in db.fetchall():
-        id_to_uuid[row["id"]] = row["uuid"]
-        uuid_to_id[row["uuid"]] = row["id"]
+        id_to_uuid[str(row["id"])] = row["uuid"]
+        uuid_to_id[row["uuid"]] = str(row["id"])
 
     return id_to_uuid, uuid_to_id

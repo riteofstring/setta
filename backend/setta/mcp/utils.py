@@ -51,10 +51,11 @@ def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
             return uuid_to_id[value]
         else:
             # Create a new ID by incrementing the highest existing ID
-            new_id = "1"
-            if id_to_uuid:
-                existing_ids = [int(id_) for id_ in id_to_uuid.keys()]
-                new_id = str(max(existing_ids) + 1)
+            new_id = 0
+            for id in id_to_uuid.keys():
+                new_id = max(new_id, int(id))
+            new_id += 1
+            new_id = str(new_id)
 
             # Update mappings
             uuid_to_id[value] = new_id
