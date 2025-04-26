@@ -7,9 +7,7 @@ import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { MODEL_GROUPS } from "utils/constants";
 
-const IsolatedInput = ({ apiKeyName }) => {
-  const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
-
+const IsolatedInput = ({ apiKeyName, initialValue }) => {
   const onSetValue = (v) => {
     useAIStore.setState((state) => ({
       apiKeys: { ...state.apiKeys, [apiKeyName]: v },
@@ -41,6 +39,8 @@ const IsolatedInput = ({ apiKeyName }) => {
 };
 
 export function ProjectLLMSettings() {
+  const apiKeys = useAIStore((x) => x.apiKeys);
+
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
   }, []);
@@ -57,7 +57,10 @@ export function ProjectLLMSettings() {
           <div className="flex flex-col gap-0.5">
             <label htmlFor={`api-key-${group.group}`}>API Key</label>
             <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto]">
-              <IsolatedInput apiKeyName={C.LLM_API_KEY_NAMES[group.group]} />
+              <IsolatedInput
+                apiKeyName={C.LLM_API_KEY_NAMES[group.group]}
+                initialValue={apiKeys[C.LLM_API_KEY_NAMES[group.group]] ?? ""}
+              />
               <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
             </div>
           </div>

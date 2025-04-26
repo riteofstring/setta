@@ -257,20 +257,27 @@ export const useAIStore = create(
         apiKeys: {},
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
-        chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
-        allChatMetadata: [], // list of {ids, names, updated}
-        currentChatId: null, // id of currently viewed chat
+        messages: [],
+        chatSessions: [],
+        sessionId: null,
+        isLoading: false,
         viewHistory: false,
         userSelectedLLM: "",
-        idToUUIDForLLM: {},
+        streamTarget: null,
+        currentBlockType: null,
+        currentBlockIndex: null,
+        currentJsonContent: "",
+        currentToolName: "",
+        currentAssistantMsgId: null,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           apiKeysFilepath: state.apiKeysFilepath,
-          currentChatId: state.currentChatId,
           userSelectedLLM: state.userSelectedLLM,
-          viewHistory: state.viewHistory,
+          chatSessions: state.chatSessions,
+          sessionId: state.sessionId,
+          messages: state.messages,
         }),
       },
     ),

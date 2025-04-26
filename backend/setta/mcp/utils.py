@@ -32,7 +32,7 @@ def traverse_and_replace(data, replace_func):
 def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
     """
     Replace all UUIDs in data with their corresponding IDs.
-    If a UUID doesn't have an ID, create a new one and update the mapping.
+    If a UUID doesn't have an ID, create a new one and update the mappings.
 
     Args:
         data: Input data (can be simple type, dict, or list)
@@ -51,11 +51,10 @@ def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
             return uuid_to_id[value]
         else:
             # Create a new ID by incrementing the highest existing ID
-            new_id = 0
-            for id in id_to_uuid.keys():
-                new_id = max(new_id, int(id))
-            new_id += 1
-            new_id = str(new_id)
+            new_id = "1"
+            if id_to_uuid:
+                existing_ids = [int(id_) for id_ in id_to_uuid.keys()]
+                new_id = str(max(existing_ids) + 1)
 
             # Update mappings
             uuid_to_id[value] = new_id
@@ -84,9 +83,7 @@ def replace_ids_with_uuids(data, id_to_uuid):
             if value in id_to_uuid:
                 return id_to_uuid[value]
             else:
-                raise IDDoesNotExist(
-                    f"{value} is not a valid id. The available ids are {str(id_to_uuid.keys())}"
-                )
+                raise IDDoesNotExist(f"id does not exist: {value}")
 
         return value  # No mapping found or not an ID, leave unchanged
 
