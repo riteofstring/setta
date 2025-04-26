@@ -379,7 +379,6 @@ function streamInto(chatId, streamTarget, content) {
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the code block that you want to start writing code into.
  * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
- * @return {string} A string containing the current code in the code block before modification.
  */
 export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
   // Get the current code
@@ -430,8 +429,6 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
       },
     };
   });
-
-  return currCode;
 }
 
 /**

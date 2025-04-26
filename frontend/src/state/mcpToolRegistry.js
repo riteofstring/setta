@@ -4,6 +4,7 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
+import { getPaneRectMcp } from "../forks/xyflow/core/utils/mcp";
 import {
   deleteCodeRange,
   getCurrentCode,
@@ -22,6 +23,7 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 // Registry of all MCP tools
 const mcpToolRegistry = {
   setParamValuesMcp,
+  getPaneRectMcp,
   startStreamingInto,
   stopStreamingInto,
   deleteCodeRange,

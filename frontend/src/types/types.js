@@ -45,3 +45,11 @@
  * @property {string} type
  * @property {SectionSimplifiedCodeInfo} codeInfo
  */
+
+/**
+ * @typedef {Object} ReactFlowPaneRect
+ * @property {number} x
+ * @property {number} y
+ * @property {number} width
+ * @property {number} height
+ */

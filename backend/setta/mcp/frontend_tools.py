@@ -44,6 +44,7 @@ SectionUIType = Literal[
     "GLOBAL_PARAM_SWEEP",
     "IFRAME",
     "CHAT",
+    "BROWSER",
 ]
 
 
@@ -81,6 +82,13 @@ class SimplifiedSectionInfo(TypedDict, total=False):
     codeInfo: SectionSimplifiedCodeInfo
 
 
+class ReactFlowPaneRect(TypedDict, total=False):
+    x: float
+    y: float
+    width: float
+    height: float
+
+
 # From ParamInput.jsx
 @mcp_server.tool(
     description="Set the values of multiple parameters in a particular section. Returns a map from parameter id to whether or not the value was successfully set."
@@ -108,21 +116,37 @@ async def setParamValuesMcp(
     )
 
 
+# From mcp.js
+@mcp_server.tool(
+    description="Gets the position and dimensions of the area of the zoomable/pannable pane that is currently being viewed. Returns x, y, height, width."
+)
+async def getPaneRectMcp(chatId: str) -> ReactFlowPaneRect:
+    """Gets the position and dimensions of the area of the zoomable/pannable pane that is currently being viewed. Returns x, y, height, width.
+
+    Returns:
+        x, y, height, width.
+    """
+    args = {}
+    args["chatId"] = chatId
+    return json.dumps(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "getPaneRectMcp", getPaneRectMcp.__annotations__["return"], args
+        )
+    )
+
+
 # From ai.js
 @mcp_server.tool(
-    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification."
+    description="Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear."
 )
 async def startStreamingInto(
     chatId: str, sectionId: ID, insertAtLine: Optional[int] = None
-) -> str:
-    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear. Returns A string containing the current code in the code block before modification.
+) -> Any:
+    """Start streaming text into a specific code block. You can think of a code block like a source code file. After you call this tool, everything you respond with will be redirected and written to this code block. For example, if you start writing Python code, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context, but not in a python code context. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
 
     Args:
         sectionId: The id of the code block that you want to start writing code into.
         insertAtLine: Optional line number (1-indexed) to insert at. If omitted, appends to the end.
-
-    Returns:
-        A string containing the current code in the code block before modification.
     """
     args = {}
     args["chatId"] = chatId
