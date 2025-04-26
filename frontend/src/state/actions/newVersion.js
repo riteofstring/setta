@@ -41,29 +41,13 @@ async function createNewVersionName(currName, isJsonSource) {
   return createRandomName();
 }
 
-export async function createNewVersionMaybeWithJSON(sectionId, newVersionName) {
+export async function createNewVersionMaybeWithJSON(sectionId) {
   const { name, isJsonSource } = getSectionVariant(sectionId);
-  if (!newVersionName) {
-    newVersionName = await createNewVersionName(name, isJsonSource);
-  }
+  const newVersionName = await createNewVersionName(name, isJsonSource);
   let newVariantId;
   useSectionInfos.setState((state) => {
     ({ newVariantId } = createNewVersion(sectionId, newVersionName, state));
   });
   maybeRunGuiToYaml(sectionId, newVariantId);
   maybeSaveNewJSONVersion(newVariantId, isJsonSource);
-}
-
-/**
- * Set the values of multiple parameters in a particular section.
- * @SETTA_MCP_TOOL
- * @param {Object<ID, Array<str>>} sectionIdToVersionNames A dict mapping from section id to new version names.
- */
-export async function createNewVersionsMcp({ sectionIdToVersionNames }) {
-  for (const [sectionId, versionNames] of Object.entries(
-    sectionIdToVersionNames,
-  )) {
-    for (const,)
-    await createNewVersionMaybeWithJSON(sectionId, )
-  }
 }
