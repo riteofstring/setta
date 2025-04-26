@@ -5,6 +5,10 @@ class IDDoesNotExist(Exception):
     pass
 
 
+class SettaMCPToolError(Exception):
+    pass
+
+
 def traverse_and_replace(data, replace_func):
     """
     Recursively traverse data structure and apply replace_func to all string values.

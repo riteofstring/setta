@@ -162,7 +162,6 @@ class ChatManager:
             for sub_msg in latest_msg["content"]:
                 if sub_msg["type"] == C.LLM_TOOL_USE:
                     has_tool_call = True
-                    print("calling tool", sub_msg["name"], flush=True)
                     result = await self.mcp_client.call_tool(
                         sub_msg["name"], {CHAT_ID_ARG_NAME: chatId, **sub_msg["input"]}
                     )
@@ -171,7 +170,7 @@ class ChatManager:
                         "type": C.LLM_TOOL_RESULT,
                         "tool_use_id": sub_msg["id"],
                         "content": result["content"],
-                        "is_error": False,
+                        "is_error": result["isError"],
                     }
                     await self.send_streaming_response(
                         chatId, assistant_message_id, tool_result

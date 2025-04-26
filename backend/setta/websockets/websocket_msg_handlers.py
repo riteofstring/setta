@@ -4,6 +4,7 @@ from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.chats.save import save_uuid_mapping_for_llm
 from setta.mcp.utils import (
     IDDoesNotExist,
+    SettaMCPToolError,
     replace_ids_with_uuids,
     replace_uuids_with_ids,
 )
@@ -263,6 +264,8 @@ class WMHMCP(BaseWebsocketMsgHandler):
 
         # Wait for response
         result = await self.websocket_manager.wait_for_pending_request(request_id)
+        if isinstance(result, dict) and C.SETTA_MCP_TOOL_ERROR in result:
+            raise SettaMCPToolError(result[C.SETTA_MCP_TOOL_ERROR])
         result = TypeAdapter(return_type).validate_python(result)
         result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
         with self.dbq as db:

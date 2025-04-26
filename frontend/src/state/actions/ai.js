@@ -397,6 +397,10 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
     case C.TEXT_BLOCK:
       currText = getSectionVariant(sectionId).description;
       break;
+    default:
+      throw new Error(
+        `Cannot write text into a ${sectionType} section. Section must of type CODE or TEXT_BLOCK`,
+      );
   }
 
   const lines = currText.split("\n");
@@ -581,13 +585,11 @@ function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
 }
 
 export function updateUUIDMappingForLLM(idToUUIDForLLM) {
-  console.log("updateUUIDMappingForLLM", idToUUIDForLLM);
   useAIStore.setState({ idToUUIDForLLM });
 }
 
 export async function getUUIDMappingForLLM() {
   const res = await dbGetUUIDMappingForLLM();
-  console.log("getUUIDMappingForLLM", res);
   if (res.status === 200) {
     updateUUIDMappingForLLM(res.data);
   }

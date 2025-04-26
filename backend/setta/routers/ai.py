@@ -208,5 +208,4 @@ async def route_get_uuid_mapping_for_llm(
 ):
     with dbq as db:
         id_to_uuid, _ = load_uuid_mapping_for_llm(db)
-        print("id_to_uuid", id_to_uuid, flush=True)
     return id_to_uuid

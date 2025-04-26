@@ -152,7 +152,7 @@ export async function mcpToolUse(details) {
     }
   } catch (error) {
     console.error(\`Error executing MCP tool \${fnName}:\`, error);
-    result = { error: error.message };
+    result = { [C.SETTA_MCP_TOOL_ERROR]: error.message };
   }
 
   if (result === undefined) {

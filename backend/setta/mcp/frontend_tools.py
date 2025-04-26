@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
-from setta.mcp.server import mcp_server
 from typing_extensions import TypedDict
+
+from setta.mcp.server import mcp_server
 
 
 # TypedDict definitions generated from JSDoc typedefs

@@ -419,6 +419,7 @@ const MessageList = memo(function MessageList({
   // TODO: make more efficient
   const consolidatedMessages = consolidateAssistantMessages(
     messages,
+    toolResults,
     idToUUIDForLLM,
   );
 
@@ -482,8 +483,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [currentChatId]);
 
-  console.log("idToUUIDForLLM", idToUUIDForLLM);
-
   return (
     <>
       <MessageList
@@ -505,7 +504,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 });
 
 // Consolidate assistant messages and handle tool results
-const consolidateAssistantMessages = (messages, idToUUIDForLLM) => {
+const consolidateAssistantMessages = (
+  messages,
+  toolResults,
+  idToUUIDForLLM,
+) => {
   const processedMessages = [];
   let currentAssistantMessage = null;
 
@@ -555,9 +558,10 @@ const consolidateAssistantMessages = (messages, idToUUIDForLLM) => {
           streamingItem = {
             type: C.LLM_STREAMING_INTO_CODE_BLOCK,
             sectionId,
-            done: false,
+            done: toolResults[item.id]?.isError ?? false,
           };
           filteredContent.push(streamingItem);
+          
         } else if (
           item.type === C.LLM_TOOL_USE &&
           item.name === stopStreamingInto.name
