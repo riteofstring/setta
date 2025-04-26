@@ -5,58 +5,32 @@ import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import {
-  createNewChat,
-  submitMessage,
-  switchToChat,
-  updateChatSession,
-} from "state/actions/aiChat";
+import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
 import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { MODEL_GROUPS } from "utils/constants";
-import { ProjectChatCore } from "./ProjectLevelAI/ProjectChatCore";
-import { ProjectChatHistory } from "./ProjectLevelAI/ProjectChatHistory";
+import { shallow } from "zustand/shallow";
+import { ProjectChatCore } from "./ProjectChatCore";
+import { ProjectChatHistory } from "./ProjectChatHistory";
 
-export function ProjectAIChat() {
-  const {
-    apiKeys,
-    apiKeysInitialLoadComplete,
-    messages,
-    chatSessions,
-    sessionId,
-    isLoading,
-    viewHistory,
-    userSelectedLLM,
-  } = useAIStore();
+export function ProjectChat() {
+  const { apiKeys, apiKeysInitialLoadComplete, viewHistory, userSelectedLLM } =
+    useAIStore(
+      (x) => ({
+        apiKeys: x.apiKeys,
+        apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+        viewHistory: x.viewHistory,
+        userSelectedLLM: x.userSelectedLLM,
+      }),
+      shallow,
+    );
 
   useEffect(() => {
     updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
+    getUUIDMappingForLLM();
   }, []);
 
   const [deepThink, setDeepThink] = useState(false);
-
-  // Initialize a new chat if none exists
-  useEffect(() => {
-    if (!sessionId) createNewChat();
-  }, [sessionId, createNewChat]);
-
-  // Save chat when the component unmounts or before page refresh
-  useEffect(() => {
-    const saveCurrentChat = () => {
-      if (sessionId && messages.length > 0) {
-        updateChatSession(sessionId, messages);
-      }
-    };
-
-    // Add event listener for beforeunload to save chat before page refresh
-    window.addEventListener("beforeunload", saveCurrentChat);
-
-    // Return cleanup function to save chat when component unmounts
-    return () => {
-      window.removeEventListener("beforeunload", saveCurrentChat);
-      saveCurrentChat();
-    };
-  }, [sessionId, messages, updateChatSession]);
 
   // Memoize filtered model groups
   const filteredModelGroups = useMemo(
@@ -67,6 +41,8 @@ export function ProjectAIChat() {
     [apiKeys],
   );
 
+  const noModelsAvailable = filteredModelGroups.length === 0;
+
   return (
     apiKeysInitialLoadComplete && (
       <div className="flex h-full min-h-0 flex-col @container">
@@ -74,8 +50,8 @@ export function ProjectAIChat() {
           <div className="flex gap-2">
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={createNewChat}
               aria-label="New Chat"
+              onClick={createNewLLMChat}
             >
               <MdAdd size={15} />
               <span className="@[17.5rem]:hidden @sm:block">New</span>
@@ -119,7 +95,13 @@ export function ProjectAIChat() {
                 onSelectedItemChange={(model) =>
                   useAIStore.setState({ userSelectedLLM: model })
                 }
-                placeholder="Select an LLM model"
+                placeholder={
+                  noModelsAvailable
+                    ? "Add API key in chat settings"
+                    : "Select an LLM"
+                }
+                // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
+                bg={`${!Boolean(userSelectedLLM) ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -127,18 +109,18 @@ export function ProjectAIChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory
-            chatSessions={chatSessions}
-            sessionId={sessionId}
-            switchToChat={switchToChat}
-          />
+          <ProjectChatHistory />
         ) : (
           <ProjectChatCore
-            messages={messages}
-            selectedModel={userSelectedLLM}
-            placeholderText="Type a message..."
-            handleSubmit={(m) => submitMessage(m, deepThink)}
-            isLoading={isLoading}
+            placeholderText={
+              noModelsAvailable
+                ? "Add API key!"
+                : !Boolean(userSelectedLLM)
+                  ? "Select an LLM"
+                  : "Type a message..."
+            }
+            deepThink={deepThink}
+            userSelectedLLM={userSelectedLLM}
           />
         )}
       </div>
