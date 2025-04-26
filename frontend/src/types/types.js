@@ -44,6 +44,8 @@
  * @property {string} name
  * @property {string} type
  * @property {SectionSimplifiedCodeInfo} codeInfo
+ * @property {Position} position
+ * @property {SectionSize} size
  */
 
 /**

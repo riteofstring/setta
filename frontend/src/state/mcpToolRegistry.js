@@ -4,7 +4,7 @@ import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
-import { getPaneRectMcp } from "../forks/xyflow/core/utils/mcp";
+import { getPaneRectMcp } from "../forks/xyflow/core/utils/graphMcp";
 import {
   deleteCodeRange,
   getCurrentCode,

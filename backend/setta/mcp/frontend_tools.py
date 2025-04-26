@@ -80,6 +80,8 @@ class SimplifiedSectionInfo(TypedDict, total=False):
     name: str
     type: str
     codeInfo: SectionSimplifiedCodeInfo
+    position: Position
+    size: SectionSize
 
 
 class ReactFlowPaneRect(TypedDict, total=False):
@@ -116,7 +118,7 @@ async def setParamValuesMcp(
     )
 
 
-# From mcp.js
+# From graphMcp.js
 @mcp_server.tool(
     description="Gets the position and dimensions of the area of the zoomable/pannable pane that is currently being viewed. Returns x, y, height, width."
 )
