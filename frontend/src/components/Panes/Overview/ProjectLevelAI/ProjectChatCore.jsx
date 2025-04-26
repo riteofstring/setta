@@ -3,7 +3,7 @@ import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import C from "constants/constants.json";
 import { memo, useEffect, useRef } from "react";
 import { IoMdCheckmark } from "react-icons/io";
-import { MdErrorOutline } from "react-icons/md";
+import { MdCode, MdErrorOutline } from "react-icons/md";
 import { PiWrenchFill } from "react-icons/pi";
 import { TbLayoutDashboard, TbLayoutDashboardFilled } from "react-icons/tb";
 import ReactMarkdown from "react-markdown";
@@ -16,7 +16,8 @@ import {
   startStreamingInto,
   stopStreamingInto,
 } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import { goToSection } from "state/actions/sections/sectionPositions";
+import { useAIStore, useSectionInfos } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
@@ -54,9 +55,81 @@ const formatToolArgs = (args) => {
   }
 };
 
+const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
+  sectionId,
+  isStreaming,
+  done,
+}) {
+  const sectionName = useSectionInfos((x) => x.x[sectionId]?.name);
+
+  return (
+    <Accordion.Root type="single" collapsible>
+      <Accordion.Item value="details">
+        <Accordion.Trigger className="my-1 w-full cursor-pointer overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-700 dark:hover:bg-setta-600">
+          <div className="relative flex w-full items-center justify-center gap-2 px-2 py-2 text-left">
+            <div className="absolute left-2 -mx-2 -my-5 bg-white/50 px-2 py-5 dark:bg-setta-600/50">
+              <MdCode
+                size={15}
+                className="min-w-6 text-setta-200 dark:text-setta-400"
+              />
+            </div>
+
+            <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+              {sectionName ? (
+                <>
+                  Writing code in{" "}
+                  <span
+                    className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goToSection(sectionId);
+                    }}
+                  >
+                    {sectionName}
+                  </span>
+                </>
+              ) : (
+                "Writing code"
+              )}
+            </div>
+            {done ? (
+              <IoMdCheckmark className="absolute right-2 text-setta-400" />
+            ) : isStreaming && !done ? (
+              <i className="gg-spinner !scale-125 self-center justify-self-end text-blue-500/70" />
+            ) : null}
+          </div>
+        </Accordion.Trigger>
+
+        <Accordion.Content className="-mt-2.5 mb-2 overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <div className="bg-setta-300 p-3 dark:bg-setta-860">
+            <div className="text-xs text-setta-700 dark:text-setta-300">
+              {sectionName ? (
+                <>
+                  Code is being written to section{" "}
+                  <span
+                    className="cursor-pointer text-blue-500 hover:text-blue-700 hover:underline dark:text-blue-400 dark:hover:text-blue-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    {sectionName}
+                  </span>
+                </>
+              ) : (
+                "Code is being written"
+              )}
+              {done ? " (completed)" : ""}
+            </div>
+          </div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
+
 const ThinkingBox = memo(({ content, signature, isStreaming }) => {
   // signature is an empty string until thinking is done
-  const _isStreaming = !signature && isStreaming
+  const _isStreaming = !signature && isStreaming;
 
   const displayText = useTypewriterEffect(
     content,
@@ -250,13 +323,13 @@ const StreamItem = ({ item, toolResults = {}, isStreaming }) => {
         />
       );
     case C.LLM_STREAMING_INTO_CODE_BLOCK:
-      return null
-      // return (
-      //   <StreamingIntoCodeBlock
-      //     sectionId={item.sectionId}
-      //     isStreaming={isStreaming}
-      //   />
-      // );
+      return (
+        <StreamingIntoCodeBlock
+          sectionId={item.sectionId}
+          isStreaming={isStreaming}
+          done={item.done}
+        />
+      );
     default:
       return null;
   }
@@ -471,25 +544,27 @@ const consolidateAssistantMessages = (messages, idToUUIDForLLM) => {
   for (const message of processedMessages) {
     if (message.role === C.LLM_ASSISTANT_ROLE) {
       const filteredContent = [];
-      let isStreaming = false;
+      let streamingItem = null;
 
       for (const item of message.content) {
         if (
           item.type === C.LLM_TOOL_USE &&
           item.name === startStreamingInto.name
         ) {
-          isStreaming = true;
           sectionId = idToUUIDForLLM[item.input.sectionId];
-          filteredContent.push({
+          streamingItem = {
             type: C.LLM_STREAMING_INTO_CODE_BLOCK,
             sectionId,
-          });
+            done: false,
+          };
+          filteredContent.push(streamingItem);
         } else if (
           item.type === C.LLM_TOOL_USE &&
           item.name === stopStreamingInto.name
         ) {
-          isStreaming = false;
-        } else if (isStreaming && item.type === "text") {
+          streamingItem.done = true;
+          streamingItem = null;
+        } else if (streamingItem && item.type === "text") {
           // Skip text content while streaming
         } else {
           filteredContent.push(item);
