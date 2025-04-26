@@ -344,6 +344,38 @@ async def addSectionsAtPositionMcp(
     )
 
 
+# From groupSections.js
+@mcp_server.tool(
+    description="Set the values of multiple parameters in a particular section. Returns The id of the new group."
+)
+async def groupSections(
+    chatId: str,
+    sectionIds: List[ID],
+    position: SectionPosition,
+    name: Optional[str] = None,
+) -> ID:
+    """Set the values of multiple parameters in a particular section. Returns The id of the new group.
+
+    Args:
+        sectionIds: The ids of the sections to group together.
+        position: The x,y position of the new group.
+        name: The name of the new group. If not specified, a random name will be created.
+
+    Returns:
+        The id of the new group.
+    """
+    args = {}
+    args["chatId"] = chatId
+    args["sectionIds"] = sectionIds
+    args["position"] = position
+    args["name"] = name
+    return json.dumps(
+        await mcp_server.setta_websocket.use_frontend_tool(
+            "groupSections", groupSections.__annotations__["return"], args
+        )
+    )
+
+
 # From sectionContents.js
 @mcp_server.tool(
     description="Gets the current code info for a section. This means the callable's id, (if there's one), its name, its documentation, and the same information for its parameters (if it has any)"

@@ -13,19 +13,28 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-export function createGroup({ nodeIds, x, y }) {
+/**
+ * Set the values of multiple parameters in a particular section.
+ * @SETTA_MCP_TOOL
+ * @param {Array<ID>} sectionIds The ids of the sections to group together.
+ * @param {SectionPosition} position The x,y position of the new group.
+ * @param {string} [name] The name of the new group. If not specified, a random name will be created.
+ * @return {ID} The id of the new group.
+ */
+export function groupSections({ sectionIds, position, name }) {
   let groupId;
   useSectionInfos.setState((state) => {
     groupId = addSectionAtPosition({
+      sectionProps: { name },
       type: C.GROUP,
-      position: { x, y },
+      position,
       state,
     });
 
     moveSections({
       oldParentId: null,
       newParentId: groupId,
-      sectionIds: nodeIds,
+      sectionIds,
       state,
     });
 
@@ -35,9 +44,11 @@ export function createGroup({ nodeIds, x, y }) {
   setActiveSectionIds([groupId]);
 
   maybeIncrementProjectStateVersion(true);
+
+  return groupId;
 }
 
-export async function groupSections() {
+export async function groupActiveSections() {
   const activeSectionIds = useActiveSection.getState().ids;
   const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
     activeSectionIds.includes(x[0]),
@@ -47,7 +58,7 @@ export async function groupSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    createGroup({ nodeIds, x, y });
+    groupSections({ nodeIds, position: { x, y } });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }
