@@ -1,9 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  receiveLLMResponseChunk,
-  updateUUIDMappingForLLM,
-} from "state/actions/ai";
+import { receiveLLMResponseChunk } from "state/actions/ai";
 import { updateWithFileChanges } from "state/actions/fileUpdates";
 import {
   updateInteractiveArtifacts,
@@ -90,14 +87,12 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
     updateWithFileChanges(m.content);
   } else if (m.messageType === C.WS_TERMINAL_METADATA) {
-    // TODO: implement
     // console.log(m.content);
   } else if (m.messageType === C.WS_LLM_STREAMING_RESPONSE) {
+    // console.log(m.content)
     receiveLLMResponseChunk(m.content);
   } else if (m.messageType === C.WS_MCP_TOOL_USE) {
     mcpToolUse(m.content);
-  } else if (m.messageType === C.WS_UUID_MAPPING_FOR_LLM) {
-    updateUUIDMappingForLLM(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

@@ -1,16 +1,13 @@
-from typing import Any, Dict
+import uuid
+from typing import Dict, List, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
-from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.notifications.load import create_notification_dict
-from setta.mcp.chat_manager import maybe_pydantic_model_dump
 from setta.routers.dependencies import (
-    get_chat_manager,
-    get_dbq,
-    get_wmh_database,
+    get_mcp_client,
     get_wmh_specific_file_watcher,
 )
 from setta.utils.constants import C
@@ -18,12 +15,15 @@ from setta.utils.constants import C
 load_dotenv()
 router = APIRouter()
 
+# Dictionary to store conversation histories by session ID
+conversation_histories = {}
+
 
 class GetLLMResponseRequest(BaseModel):
-    chatId: str | None
-    message: Dict[str, Any]
-    model: str
+    model: str  # Model identifier
+    conversationHistory: List[Dict[str, str]]  # Single message from user
     deepThink: bool
+    session_id: Optional[str] = None  # Session ID, optional
 
 
 class SetLLMApiKeysRequest(BaseModel):
@@ -35,47 +35,59 @@ class GetLLMApiKeysRequest(BaseModel):
     apiKeysFilepath: str
 
 
-class DeleteLLMChatRequest(BaseModel):
-    chatId: str
-
-
-class GetLLMChatRequest(BaseModel):
-    chatId: str
-    projectConfigId: str
-
-
-class StopLLMChatRequest(BaseModel):
-    chatId: str
-
-
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
-    chat_manager=Depends(get_chat_manager),
+    mcp_client=Depends(get_mcp_client),
 ):
-    # try:
-    print(x, flush=True)
-    chat = chat_manager.get_or_create_chat(x.chatId, x.message)
+    try:
+        print("========== DEBUGGING INFO ==========")
+        print("Received request data:", x)
+        print("Raw model value:", x.model)
+        # print("Message:", x.message)
+        print("Session ID:", x.session_id)
+        print("====================================")
 
-    background_tasks.add_task(
-        chat_manager.process_query,
-        chat,
-        x.model,
-        x.deepThink,
-    )
+        # Get or create session ID
+        session_id = x.session_id or str(uuid.uuid4())
 
-    # Return immediate response with session ID
-    return chat["id"]
+        # Initialize conversation history for new sessions
+        # if session_id not in conversation_histories:
+        # conversation_histories[session_id] = x.conversationHistory
+        conversation_histories[session_id] = x.conversationHistory
 
-    # except Exception as e:
-    #     print(f"Error in route_get_llm_response: {str(e)}")
-    #     # Return a more specific error message
-    #     error_message = f"Error calling LLM: {str(e)}"
-    #     return {
-    #         "error": error_message,
-    #         "status": "error",
-    #     }
+        # Add user message to conversation history
+        # conversation_histories[session_id].append(
+        #     {"role": "user", "content": x.message}
+        # )
+
+        print("About to call completion with model:", x.model)
+        print("Messages:", conversation_histories[session_id], flush=True)
+
+        background_tasks.add_task(
+            mcp_client.process_query,
+            x.model,
+            conversation_histories[session_id],
+            x.deepThink,
+        )
+
+        # Return immediate response with session ID
+        return {
+            "status": "processing",
+            "session_id": session_id,
+            "message": "Query is being processed. Connect to websocket for results.",
+        }
+
+    except Exception as e:
+        print(f"Error in route_get_llm_response: {str(e)}")
+        # Return a more specific error message
+        error_message = f"Error calling LLM: {str(e)}"
+        return {
+            "error": error_message,
+            "session_id": session_id if "session_id" in locals() else None,
+            "status": "error",
+        }
 
 
 @router.post(C.ROUTE_SET_LLM_API_KEYS)
@@ -135,78 +147,3 @@ def get_llm_api_keys_from_env_vars(env_vars):
 @router.post(C.ROUTE_GET_LLM_API_KEYS)
 def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
     return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
-
-
-@router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
-def route_get_all_llm_chat_metadata(chat_manager=Depends(get_chat_manager)):
-    return chat_manager.get_all_chat_metadata()
-
-
-@router.post(C.ROUTE_DELETE_LLM_CHAT)
-def route_delete_llm_chat(
-    x: DeleteLLMChatRequest, chat_manager=Depends(get_chat_manager)
-):
-    return chat_manager.delete_chat(x.chatId)
-
-
-@router.post(C.ROUTE_STOP_LLM_CHAT)
-async def route_stop_llm_chat(
-    x: StopLLMChatRequest,
-    chat_manager=Depends(get_chat_manager),
-):
-    await chat_manager.request_stop_streaming(x.chatId)
-
-
-@router.post(C.ROUTE_GET_LLM_CHAT)
-async def route_get_llm_chat(
-    x: GetLLMChatRequest,
-    background_tasks: BackgroundTasks,
-    chat_manager=Depends(get_chat_manager),
-    websocket_msg_handler=Depends(get_wmh_database),
-):
-    chat = chat_manager.get_chat(x.chatId)
-    if not chat:
-        notification = create_notification_dict(
-            "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True
-        )
-        background_tasks.add_task(
-            websocket_msg_handler.broadcast_notification,
-            notification,
-            x.projectConfigId,
-        )
-        return {"messages": [], "waitingForResponse": False}
-
-    waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
-    current_stream = chat_manager.get_current_stream(x.chatId)
-    messages = chat["messages"]
-    merge_db_messages_with_current_stream(messages, current_stream)
-    messages, tool_results = chat_manager.separate_tool_results(messages)
-
-    return {
-        "messages": messages,
-        "toolResults": tool_results,
-        "waitingForResponse": waiting_for_response,
-    }
-
-
-def merge_db_messages_with_current_stream(db_messages, current_stream):
-    # Create a set of existing message IDs for efficient lookup
-    existing_ids = {message["id"] for message in db_messages}
-
-    # Loop through current_stream and append messages that aren't already in chat
-    for message in current_stream:
-        message = maybe_pydantic_model_dump(message)
-        if message["id"] not in existing_ids:
-            db_messages.append(message)
-            # Add to existing_ids to track what we've added
-            existing_ids.add(message["id"])
-
-
-@router.post(C.ROUTE_GET_UUID_MAPPING_FOR_LLM)
-async def route_get_uuid_mapping_for_llm(
-    dbq=Depends(get_dbq),
-):
-    with dbq as db:
-        id_to_uuid, _ = load_uuid_mapping_for_llm(db)
-        print("id_to_uuid", id_to_uuid, flush=True)
-    return id_to_uuid

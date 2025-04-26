@@ -416,16 +416,6 @@ import json
             output += f'    description="{description}"\n'
             output += ")\n"
 
-            params.insert(
-                0,
-                {
-                    "name": "chatId",
-                    "type": "str",
-                    "description": "",
-                    "required": True,
-                    "default": None,
-                },
-            )
             # Function signature with type annotations
             signature_params = []
             for param in params:
