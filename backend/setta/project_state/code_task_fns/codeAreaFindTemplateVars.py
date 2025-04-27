@@ -3,7 +3,7 @@ import asyncio
 from pydantic import BaseModel
 
 from setta.database.utils import create_new_id
-from setta.gen_code.python.position_line_col import position_to_line_col
+from setta.code_gen.python.position_line_col import position_to_line_col
 
 from .utils import (
     find_candidate_template_vars,

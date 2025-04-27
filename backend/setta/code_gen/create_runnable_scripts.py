@@ -4,24 +4,24 @@ from datetime import datetime
 from pathlib import Path
 
 from setta.database.utils import create_new_id
-from setta.gen_code.export_selected import (
+from setta.code_gen.export_selected import (
     export_selected,
     get_gen_code_template_var,
     get_section_name,
     get_section_type,
     get_selected_section_variant,
 )
-from setta.gen_code.find_placeholders import parse_template_var, tp
-from setta.gen_code.python.generate_code import (
+from setta.code_gen.find_placeholders import parse_template_var, tp
+from setta.code_gen.python.generate_code import (
     convert_var_names_to_readable_form,
     generate_code,
     generate_imports,
     get_chars_in_line_before_position,
 )
-from setta.gen_code.python.validate_imports import (
+from setta.code_gen.python.validate_imports import (
     maybe_validate_imports_and_update_code,
 )
-from setta.gen_code.utils import process_refs
+from setta.code_gen.utils import process_refs
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import prune_dict
 

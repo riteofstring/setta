@@ -1,7 +1,7 @@
 import re
 
-from setta.gen_code.export_selected import get_gen_code_template_var
-from setta.gen_code.python.position_line_col import line_col_to_position_batch
+from setta.code_gen.export_selected import get_gen_code_template_var
+from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
 def process_diagnostics(diagnostics, code, codeJson, ref_template_var_positions):

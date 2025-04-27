@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
-from setta.gen_code.create_runnable_scripts import generateRunCodeCommand, runCode
+from setta.code_gen.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.utils.constants import C
 
 from .dependencies import (

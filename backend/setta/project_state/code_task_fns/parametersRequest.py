@@ -1,4 +1,4 @@
-from setta.gen_code.python.position_line_col import position_to_line_col
+from setta.code_gen.python.position_line_col import position_to_line_col
 
 from .textFieldAutocomplete import CodeCompletionContent, get_code_and_cursor_position
 from .utils import send_document_open_request_with_diagnostics

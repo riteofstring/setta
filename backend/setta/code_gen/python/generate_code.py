@@ -1,5 +1,5 @@
-from setta.gen_code.export_selected import get_gen_code_template_var
-from setta.gen_code.python.make_parseable import make_parseable
+from setta.code_gen.export_selected import get_gen_code_template_var
+from setta.code_gen.python.make_parseable import make_parseable
 from setta.utils.utils import replace_at_positions
 
 from ...utils.constants import C, ParameterPassingStyle

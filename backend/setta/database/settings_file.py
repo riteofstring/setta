@@ -7,7 +7,7 @@ from setta.database.db.projects.utils import (
     filter_data_for_json_export,
 )
 from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.gen_code.export_selected import get_selected_section_variant
+from setta.code_gen.export_selected import get_selected_section_variant
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 

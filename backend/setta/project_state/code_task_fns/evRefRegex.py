@@ -1,7 +1,7 @@
 import json
 import re
 
-from setta.gen_code.find_placeholders import tp
+from setta.code_gen.find_placeholders import tp
 from setta.utils.constants import C
 
 
