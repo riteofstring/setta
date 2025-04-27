@@ -1,5 +1,7 @@
-from setta.project_state.code_generator import (
+from setta.project_state.project_perspective_code_generator import (
     ProjectPerspectiveCodeGenerator,
+)
+from setta.project_state.section_perspective_code_generator import (
     SectionPerspectiveCodeGenerator,
 )
 
