@@ -28,7 +28,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.server.stdin.drain()
         logger.debug(f"Sent {method} with params: {params}")
 
-    async def send_initialize_request(self):
+    async def start(self):
         params = {
             "capabilities": {
                 "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}

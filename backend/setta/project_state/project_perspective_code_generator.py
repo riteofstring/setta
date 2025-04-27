@@ -11,7 +11,7 @@ from setta.project_state.code_preview import CodePreview
 
 class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
-        await self.lsp_writers["full"].send_document_open_request(
+        await self.lsp_writers.full.send_document_open_request(
             uri=self.uri,
             code=self.code,
         )
@@ -54,7 +54,7 @@ class ProjectPerspectiveCodeGenerator:
             self.project_state,
             exporter_obj,
             lsp_writers=self.lsp_writers,
-            folder_path=self.lsp_writers["full"].project_code_folder(projectConfigName),
+            folder_path=self.lsp_writers.full.project_code_folder(projectConfigName),
         )
         self.code_previews = {
             k: v for k, v in self.code_previews.items() if k in code_dict
@@ -81,7 +81,7 @@ class ProjectPerspectiveCodeGenerator:
         code_preview = self.get_code_preview_by_uri(params["uri"])
         if (
             not code_preview
-            or self.lsp_writers["full"].get_latest_version_number(self.uri)
+            or self.lsp_writers.full.get_latest_version_number(self.uri)
             != params["version"]
         ):
             return

@@ -22,7 +22,7 @@ class LanguageServerReader(LanguageServerInteractor):
         self.started = asyncio.Event()
         self.reader_task = None
 
-    async def start_listener(self):
+    async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = asyncio.create_task(self.read_response())

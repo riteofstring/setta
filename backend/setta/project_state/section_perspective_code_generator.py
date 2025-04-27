@@ -30,7 +30,7 @@ class SectionPerspectiveCodeGenerator:
             self.project_state,
             exporter_obj,
             lsp_writers=self.lsp_writers,
-            folder_path=self.lsp_writers["full"].project_code_folder(projectConfigName),
+            folder_path=self.lsp_writers.full.project_code_folder(projectConfigName),
             push_var_name=var_name,
         )
         self.code_previews = {
@@ -44,7 +44,7 @@ class SectionPerspectiveCodeGenerator:
             self.code_previews[k].update(self.project_state, v)
 
         send_document_open_request_with_diagnostics_with_code_dict(
-            self.lsp_writers["full"],
+            self.lsp_writers.full,
             code_dict,
             exporter_obj,
             projectConfigName,

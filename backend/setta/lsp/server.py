@@ -26,7 +26,7 @@ class LanguageServer:
             self.settings = settings
         self.name = name
 
-    async def start_server(self):
+    async def start(self):
         logger.debug(f"Starting {self.name} language server")
         self.init_properties()
         self.server = await asyncio.create_subprocess_shell(
@@ -55,7 +55,7 @@ class LanguageServer:
                 )
         self.pending_requests.clear()
 
-    def kill_server(self):
+    def stop(self):
         try:
             logger.debug(f"Stopping {self.name} language server")
             self.server.terminate()
