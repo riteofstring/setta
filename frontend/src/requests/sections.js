@@ -63,15 +63,13 @@ export async function dbTextFieldCompletion({
   position,
   messageType = C.WS_TEXT_FIELD_AUTOCOMPLETE,
 }) {
-  const { id: projectConfigId, name: projectConfigName } =
-    useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
     messageType,
     content: {
       projectConfigId,
-      projectConfigName,
       sectionId,
       paramInfoId,
       fullText,

@@ -13,12 +13,20 @@ class CodeManager:
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
             self.states[projectConfigId] = CodeState(
-                project_state, self.lsp_writers, self.websocket_msg_handler
+                self.lsp_writers, self.websocket_msg_handler
             )
         await self.states[projectConfigId].update(project_state)
 
     async def type_check(self, projectConfigId):
         await self.states[projectConfigId].type_check()
+
+    async def text_field_autocomplete(
+        self, messageId, projectConfigId, sectionId, paramInfoId, fullText, position
+    ):
+        code_state = self.states[projectConfigId]
+        await code_state.text_field_autocomplete(
+            messageId, sectionId, paramInfoId, fullText, position
+        )
 
     async def process_diagnostics_response(self, lsp_response):
         for code_state in self.states.values():

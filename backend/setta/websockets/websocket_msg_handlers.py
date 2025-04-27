@@ -162,8 +162,10 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             self.websocket_manager.resolve_pending_request(
                 message["id"], message["content"]
             )
-        elif message.get("projectUpdate") == C.WS_PROJECT_UPDATE:
-            pass
+        elif message.get("messageType") == C.WS_TEXT_FIELD_AUTOCOMPLETE:
+            await self.code_manager.text_field_autocomplete(
+                messageId=message["id"], **message["content"]
+            )
 
         # else:
         #     msg_id = message.get("id")

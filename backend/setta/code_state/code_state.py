@@ -12,7 +12,7 @@ from setta.lsp.reader_fns.diagnostics import (
 
 
 class CodeState:
-    def __init__(self, project_state, lsp_writers, websocket_msg_handler):
+    def __init__(self, lsp_writers, websocket_msg_handler):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.state = None
@@ -56,6 +56,11 @@ class CodeState:
                 code=details["code"],
                 version=details["version"],
             )
+
+    async def text_field_autocomplete(
+        self, messageId, sectionId, paramInfoId, fullText, position
+    ):
+        print("text_field_autocomplete", flush=True)
 
     def get_uri_code_block(self, uri):
         for sectionId, details in self.code_blocks.items():
