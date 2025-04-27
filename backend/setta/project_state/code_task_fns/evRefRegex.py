@@ -8,7 +8,6 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_selected_item,
 )
-from setta.code_gen.find_placeholders import tp
 from setta.project_state.code_task_fns.utils import escape_reg_exp
 from setta.utils.constants import C
 
@@ -31,20 +30,14 @@ def get_ev_ref_regex(p):
     if len(names) == 0:
         return {
             "pattern": None,
-            "code_area_pattern": None,
             "full_name_to_info": full_name_to_info,
         }
 
     pattern_str = f"(?<![A-Za-z.\"'_])({('|').join(names)})(?![A-Za-z\"'_])"
-    pattern = re.compile(pattern_str, re.MULTILINE)
-    code_area_pattern = re.compile(
-        f"(?<=.*?\\{tp(C.SETTA_GENERATED_PYTHON)}.*?){pattern_str}",
-        re.MULTILINE | re.DOTALL,
-    )
+    pattern = re.compile(pattern_str)
 
     return {
         "pattern": pattern,
-        "code_area_pattern": code_area_pattern,
         "full_name_to_info": full_name_to_info,
     }
 
@@ -187,11 +180,11 @@ def key_for_info_to_full_name(info):
 
 
 def is_top_level_and_can_be_referred_to(p, section_id, section_type_name):
-    return not p["sections"][section_id]["parentId"] and [
+    return not p["sections"][section_id]["parentId"] and section_type_name in [
         C.GLOBAL_VARIABLES,
         C.SECTION,
         C.LIST_ROOT,
         C.DICT_ROOT,
         C.GROUP,
         C.TEXT_BLOCK,
-    ].includes(section_type_name)
+    ]
