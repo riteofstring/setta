@@ -15,7 +15,7 @@ from setta.gen_code.utils import process_refs
 from setta.utils.constants import C
 
 from .findEVRefs import findEVRefsLocally
-from .utils import send_document_open_request_with_diagnostics
+from .utils import getCandidateEVRefs, send_document_open_request_with_diagnostics
 
 
 class CodeCompletionContent(BaseModel):
@@ -25,14 +25,14 @@ class CodeCompletionContent(BaseModel):
     paramInfoId: Optional[str]
     fullText: str
     position: int
-    candidateEVRefs: list
 
 
 async def getEVRefsAndProcessThem(message, fullNameToInfo, exporter_obj, lsp_writers):
+    candidateEVRefs = getCandidateEVRefs()
     evRefs = await findEVRefsLocally(
         message.sectionId,
         message.paramInfoId,
-        message.candidateEVRefs,
+        candidateEVRefs,
         [],
         False,
         message.fullText,

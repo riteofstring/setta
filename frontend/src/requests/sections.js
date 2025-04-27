@@ -1,8 +1,6 @@
 import {
   constructEVRefs,
   constructTemplateVars,
-  findCandidateEVRefs,
-  findCandidateTemplateVars,
 } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -67,15 +65,6 @@ export async function dbCodeAreaCompletion({
     useSectionInfos.getState().projectConfig;
   const { name: sectionName } = getSectionInfo(sectionId);
 
-  const candidateEVRefs = findCandidateEVRefs({
-    sectionId,
-    paramInfoId: null,
-    value: fullText,
-    regexPatternKey: "codeAreaPattern",
-  });
-
-  const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
-
   const autoCompleteProps = {
     id: createNewId(),
     messageType: C.WS_CODE_AREA_AUTOCOMPLETE,
@@ -87,8 +76,6 @@ export async function dbCodeAreaCompletion({
       sectionName,
       fullText,
       position,
-      candidateEVRefs,
-      candidateTemplateVars,
     },
   };
 
@@ -115,13 +102,6 @@ export async function dbTextFieldCompletion({
   const { id: projectConfigId, name: projectConfigName } =
     useSectionInfos.getState().projectConfig;
 
-  const candidateEVRefs = findCandidateEVRefs({
-    sectionId,
-    paramInfoId,
-    value: fullText,
-    regexPatternKey: "pattern",
-  });
-
   return await sendMessageAndWait({
     id: createNewId(),
     messageType,
@@ -132,7 +112,6 @@ export async function dbTextFieldCompletion({
       paramInfoId,
       fullText,
       position,
-      candidateEVRefs,
     },
   });
 }
@@ -141,44 +120,34 @@ export async function getEVRefs({
   sectionId,
   paramInfoId,
   fullText,
-  regexPatternKey = "pattern",
   templateVars = null,
   onlyAfterGenCodeTemplateVar = false,
 }) {
   let evRefs = [];
   let keywordPositions = [];
-  const candidateEVRefs = findCandidateEVRefs({
-    sectionId,
-    paramInfoId,
-    value: fullText,
-    regexPatternKey,
+  let count = 0;
+  keywordPositions = [];
+  await sendMessageAndWait({
+    id: createNewId(),
+    messageType: C.WS_FIND_EV_REFS,
+    content: {
+      sectionId,
+      paramInfoId,
+      fullText,
+      templateVars,
+      onlyAfterGenCodeTemplateVar,
+    },
+    condition: ({ data: { positions, numMessages } }) => {
+      keywordPositions.push(...positions);
+      count += 1;
+      return count === numMessages;
+    },
   });
-  if (candidateEVRefs.length > 0) {
-    let count = 0;
-    keywordPositions = [];
-    await sendMessageAndWait({
-      id: createNewId(),
-      messageType: C.WS_FIND_EV_REFS,
-      content: {
-        sectionId,
-        paramInfoId,
-        candidateEVRefs,
-        fullText,
-        templateVars,
-        onlyAfterGenCodeTemplateVar,
-      },
-      condition: ({ data: { positions, numMessages } }) => {
-        keywordPositions.push(...positions);
-        count += 1;
-        return count === numMessages;
-      },
-    });
 
-    // CodeMirror's RangeSetBuilder needs the list to be sorted
-    keywordPositions.sort((a, b) => a.startPos - b.startPos);
+  // CodeMirror's RangeSetBuilder needs the list to be sorted
+  keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    evRefs = constructEVRefs(keywordPositions, fullText);
-  }
+  evRefs = constructEVRefs(keywordPositions, fullText);
 
   return evRefs;
 }
@@ -186,28 +155,25 @@ export async function getEVRefs({
 async function getTemplateVars(sectionId, fullText) {
   let templateVars = [];
   let keywordPositions = [];
-  const candidateTemplateVars = findCandidateTemplateVars(sectionId, fullText);
-  if (candidateTemplateVars.length > 0) {
-    let count = 0;
-    keywordPositions = [];
-    await sendMessageAndWait({
-      id: createNewId(),
-      messageType: C.WS_CODE_AREA_FIND_TEMPLATE_VARS,
-      content: { sectionId, candidateTemplateVars, fullText },
-      condition: ({ data: { positions, numMessages } }) => {
-        if (positions !== null) {
-          keywordPositions.push(...positions);
-        }
-        count += 1;
-        return count === numMessages;
-      },
-    });
+  let count = 0;
+  keywordPositions = [];
+  await sendMessageAndWait({
+    id: createNewId(),
+    messageType: C.WS_CODE_AREA_FIND_TEMPLATE_VARS,
+    content: { sectionId, fullText },
+    condition: ({ data: { positions, numMessages } }) => {
+      if (positions !== null) {
+        keywordPositions.push(...positions);
+      }
+      count += 1;
+      return count === numMessages;
+    },
+  });
 
-    // CodeMirror's RangeSetBuilder needs the list to be sorted
-    keywordPositions.sort((a, b) => a.startPos - b.startPos);
+  // CodeMirror's RangeSetBuilder needs the list to be sorted
+  keywordPositions.sort((a, b) => a.startPos - b.startPos);
 
-    templateVars = constructTemplateVars(keywordPositions, fullText);
-  }
+  templateVars = constructTemplateVars(keywordPositions, fullText);
 
   return templateVars;
 }
@@ -219,7 +185,6 @@ export async function getEVRefsAndTemplateVarsForCodeArea(sectionId, value) {
     sectionId,
     paramInfoId: null,
     fullText: value,
-    regexPatternKey: "codeAreaPattern",
     templateVars,
     onlyAfterGenCodeTemplateVar: true,
   });

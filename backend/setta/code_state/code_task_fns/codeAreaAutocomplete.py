@@ -11,6 +11,8 @@ from setta.utils.constants import C
 from .codeAreaFindTemplateVars import findTemplateVarsLocally
 from .findEVRefs import findEVRefsLocally
 from .utils import (
+    getCandidateEVRefs,
+    getCandidateTemplateVars,
     prepare_code_for_scope_checking,
     send_document_open_request_with_diagnostics,
 )
@@ -24,8 +26,6 @@ class CodeAreaAutocompleteContent(BaseModel):
     sectionName: str
     fullText: str
     position: int
-    candidateEVRefs: list
-    candidateTemplateVars: list
 
 
 async def codeAreaAutocomplete(message, lsp_writers, code_state):
@@ -43,9 +43,12 @@ async def codeAreaAutocomplete(message, lsp_writers, code_state):
         fullNameToSectionId,
     ) = cache
 
+    candidateTemplateVars = getCandidateTemplateVars()
+    candidateEVRefs = getCandidateEVRefs()
+
     templateVars = await findTemplateVarsLocally(
         message.sectionId,
-        message.candidateTemplateVars,
+        candidateTemplateVars,
         message.fullText,
         fullNameToSectionId,
         lsp_writers,
@@ -62,7 +65,7 @@ async def codeAreaAutocomplete(message, lsp_writers, code_state):
     evRefs = await findEVRefsLocally(
         message.sectionId,
         None,
-        message.candidateEVRefs,
+        candidateEVRefs,
         templateVars,
         True,
         message.fullText,

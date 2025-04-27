@@ -1,27 +1,26 @@
 import asyncio
-from typing import List
 
 from pydantic import BaseModel
 
 from setta.database.utils import create_new_id
 from setta.gen_code.python.position_line_col import position_to_line_col
 
-from .utils import replace_template_vars_with_random_names
+from .utils import getCandidateTemplateVars, replace_template_vars_with_random_names
 
 
 class CodeAreaFindTemplateVarsContent(BaseModel):
     sectionId: str
-    candidateTemplateVars: List[list]
     fullText: str
 
 
 async def codeAreaFindTemplateVars(message, lsp_writers):
     message_id = message["id"]
     message = CodeAreaFindTemplateVarsContent.parse_obj(message["content"])
+    candidateTemplateVars = getCandidateTemplateVars()
     request_ids = await sendTemplateVarRequests(
         message_id,
         message.sectionId,
-        message.candidateTemplateVars,
+        candidateTemplateVars,
         message.fullText,
         lsp_writers,
         local=False,

@@ -78,58 +78,6 @@ export function keyForInfoToFullName({
   return JSON.stringify([sectionId, paramInfoId, isArgsObj]);
 }
 
-function evRefDoesNotReferToSelf({
-  fullNameToInfo,
-  keyword,
-  sectionId,
-  paramInfoId,
-}) {
-  return !(
-    (fullNameToInfo[keyword].sectionId === sectionId &&
-      !fullNameToInfo[keyword].paramInfoId) ||
-    (fullNameToInfo[keyword].sectionId === sectionId &&
-      fullNameToInfo[keyword].paramInfoId === paramInfoId)
-  );
-}
-
-export function findCandidateEVRefs({
-  sectionId,
-  paramInfoId,
-  value,
-  regexPatternKey,
-}) {
-  let match;
-  const output = new Set();
-  const { [regexPatternKey]: evRefRegex, fullNameToInfo } =
-    useEVRefRegex.getState();
-  while ((match = evRefRegex.exec(value))) {
-    if (
-      evRefDoesNotReferToSelf({
-        fullNameToInfo,
-        keyword: match[0],
-        sectionId,
-        paramInfoId,
-      })
-    )
-      output.add([match[0], match.index]);
-  }
-  return Array.from(output);
-}
-
-export function findCandidateTemplateVars(sectionId, value) {
-  let match;
-  const output = [];
-  const { pattern: templateVarsRegex, fullNameToSectionId } =
-    useTemplateVarRegex.getState();
-  while ((match = templateVarsRegex.exec(value))) {
-    // don't allow self-references
-    if (fullNameToSectionId[match[0]] !== sectionId) {
-      output.push([match[0], match.index]);
-    }
-  }
-  return output;
-}
-
 export function extractTemplateVarSuffix(str) {
   const suffixIdx = str.indexOf(
     C.TEMPLATE_PREFIX,

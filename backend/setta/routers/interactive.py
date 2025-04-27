@@ -1,7 +1,10 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from setta.code_state.code_task_fns.utils import replace_template_vars_with_random_names
+from setta.code_state.code_task_fns.utils import (
+    getCandidateTemplateVars,
+    replace_template_vars_with_random_names,
+)
 from setta.gen_code.export_selected import get_section_code, get_section_type
 from setta.utils.constants import C
 from setta.utils.format_code import ruff_format
@@ -12,7 +15,6 @@ router = APIRouter()
 
 class FormatCodeRequest(BaseModel):
     project: dict
-    candidateTemplateVars: dict
 
 
 @router.post(C.ROUTE_FORMAT_CODE)
@@ -22,14 +24,13 @@ async def route_format_code(x: FormatCodeRequest):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == C.CODE:
             if s["codeLanguage"] == "python":
+                candidateTemplateVars = getCandidateTemplateVars()
                 code = get_section_code(p, id)
                 (
                     code,
                     _,
                     reverse_var_name_mapping,
-                ) = replace_template_vars_with_random_names(
-                    x.candidateTemplateVars[id], code
-                )
+                ) = replace_template_vars_with_random_names(candidateTemplateVars, code)
                 formattedCode[id] = multireplace(
                     format_python_code(code), reverse_var_name_mapping
                 )

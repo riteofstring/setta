@@ -8,13 +8,16 @@ from setta.gen_code.export_selected import get_gen_code_template_var
 from setta.gen_code.python.check_scope import are_positions_in_scope_with_variable
 from setta.utils.utils import multireplace
 
-from .utils import generate_unique_variable, prepare_code_for_scope_checking
+from .utils import (
+    generate_unique_variable,
+    getCandidateEVRefs,
+    prepare_code_for_scope_checking,
+)
 
 
 class TextFieldFindReferencesContent(BaseModel):
     sectionId: str
     paramInfoId: Optional[str] = None
-    candidateEVRefs: List[list]
     templateVars: Optional[List[dict]] = None
     onlyAfterGenCodeTemplateVar: Optional[bool] = False
     fullText: str
@@ -23,11 +26,12 @@ class TextFieldFindReferencesContent(BaseModel):
 async def findEVRefs(message, lsp_writers):
     message_id = message["id"]
     message = TextFieldFindReferencesContent.parse_obj(message["content"])
+    candidateEVRefs = getCandidateEVRefs()
     request_ids = await sendEVRefRequests(
         message_id,
         message.sectionId,
         message.paramInfoId,
-        message.candidateEVRefs,
+        candidateEVRefs,
         message.templateVars,
         message.onlyAfterGenCodeTemplateVar,
         message.fullText,
