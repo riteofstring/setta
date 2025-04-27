@@ -14,11 +14,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  dbCodeAreaCompletion,
-  dbCodeAreaInitializeCode,
-  getEVRefsAndTemplateVarsForCodeArea,
-} from "requests/sections";
+import { dbCodeAreaCompletion } from "requests/sections";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
@@ -104,10 +100,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     debouncedSetCode(sectionId, v, abortController);
   }
 
-  function onMouseDown() {
-    dbCodeAreaInitializeCode(sectionId);
-  }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
@@ -146,7 +138,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
           uneditableStyles,
           labelDecorationField,
         ]}
-        onMouseDown={onMouseDown}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
@@ -295,18 +286,12 @@ const debouncedSetCode = asyncDebounce(
       return;
     }
 
-    const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
-      sectionId,
-      value,
-    );
     if (ac.signal.aborted) {
       return;
     }
     useSectionInfos.setState((x) => {
       const sectionVariant = getSectionVariant(sectionId, x);
       sectionVariant.code = value;
-      sectionVariant.evRefs = evRefs;
-      sectionVariant.templateVars = templateVars;
     });
 
     maybeIncrementProjectStateVersion(true);

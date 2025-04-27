@@ -115,7 +115,8 @@ function HighlightedCode({
     currKeywordEndIdx,
     currComponentIndices,
   ] = [null, null, null, null];
-  const fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
+  // const fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
+  const fullNameToInfo = {};
 
   const cursor = decorationRangeSet.iter();
 
