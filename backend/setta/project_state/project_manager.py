@@ -1,5 +1,5 @@
 from setta.utils.constants import CODE_FOLDER
-from setta.websockets.websocket_msg_handlers import WMHCodeManager
+from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 from .project_state import ProjectState
 
@@ -8,7 +8,7 @@ class ProjectManager:
     def __init__(self, lsp_writers, websocket_manager):
         self.states = {}  # project config id to current state
         self.lsp_writers = lsp_writers
-        self.websocket_msg_handler = WMHCodeManager(websocket_manager)
+        self.websocket_msg_handler = WMHProjectManager(websocket_manager)
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder_sp = CODE_FOLDER / "temp_folder_sp"
         self.temp_folder.mkdir(parents=True, exist_ok=True)

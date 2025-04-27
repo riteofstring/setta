@@ -47,7 +47,7 @@ class BaseWebsocketMsgHandler:
         pass
 
 
-class WMHCodeManager(BaseWebsocketMsgHandler):
+class WMHProjectManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 

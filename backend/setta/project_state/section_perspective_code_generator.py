@@ -1,6 +1,10 @@
+import json
+
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
+from setta.code_gen.find_placeholders import tp
 from setta.project_state.code_preview import CodePreview
+from setta.utils.constants import C
 
 
 class SectionPerspectiveCodeGenerator:
@@ -11,11 +15,11 @@ class SectionPerspectiveCodeGenerator:
         self.temp_folder = temp_folder
         self.project_state = None
         self.code_previews = {}
-        self.up_to_date_text_fields = set()
+        self.text_field_cache = {}
 
     def update(self, project_state):
         self.project_state = project_state
-        self.up_to_date_text_fields = set()
+        self.text_field_cache.clear()
 
     async def text_field_initialize(self, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
@@ -54,7 +58,8 @@ class SectionPerspectiveCodeGenerator:
         pushed_var_name_position = var_name_to_decl_position[var_name]
         generated_var_names = list(var_name_to_decl_position.keys())
         infoToFullName = {
-            tuple(json.loads(k)): v for k, v in project["infoToFullName"].items()
+            tuple(json.loads(k)): v
+            for k, v in self.project_state["infoToFullName"].items()
         }
         referencable_var_names = [
             infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
@@ -62,23 +67,18 @@ class SectionPerspectiveCodeGenerator:
             if startPos < pushed_var_name_position[0]
         ]
 
-        code_state.set_state(
-            message.project["projectConfig"]["id"],
-            message.sectionId,
-            message.paramInfoId,
-            [
-                gen_code_dict,
-                var_name,
-                referencable_var_names,
-                generated_var_names,
-                exporter_obj,
-                project["fullNameToInfo"],
-            ],
-        )
+        self.text_field_cache[paramInfoId] = [
+            gen_code_dict,
+            var_name,
+            referencable_var_names,
+            generated_var_names,
+            exporter_obj,
+            project["fullNameToInfo"],
+        ]
 
     async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
         print("*************text_field_autocomplete\n\n\n", flush=True)
-        if paramInfoId not in self.up_to_date_text_fields:
+        if paramInfoId not in self.text_field_cache:
             self.text_field_initialize(paramInfoId)
 
     def delete_temp_files(self):
