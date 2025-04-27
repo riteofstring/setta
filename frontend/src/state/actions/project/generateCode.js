@@ -5,11 +5,7 @@ import {
   getSectionPathFullName,
   getSectionType,
 } from "state/actions/sectionInfos";
-import {
-  useEVRefRegex,
-  useSectionInfos,
-  useTemplateVarRegex,
-} from "state/definitions";
+import { useEVRefRegex, useSectionInfos } from "state/definitions";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
@@ -17,7 +13,6 @@ export async function getProjectDataToGenerateCode({
   withArtifacts = false,
   includeFullNameToInfo = true,
   includeInfoToFullName = true,
-  includeFullNameToSectionId = true,
   includeSectionPathFullNames = true,
   includeDrawings = false,
   includeLatestChatMessages = false,
@@ -28,10 +23,6 @@ export async function getProjectDataToGenerateCode({
   }
   if (includeInfoToFullName) {
     project.infoToFullName = computeInfoToFullName(project);
-  }
-  if (includeFullNameToSectionId) {
-    project.fullNameToSectionId =
-      useTemplateVarRegex.getState().fullNameToSectionId;
   }
   if (includeSectionPathFullNames) {
     project.sectionPathFullNames = {};

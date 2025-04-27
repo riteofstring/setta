@@ -80,13 +80,6 @@ export const useEVRefRegex = create(
   })),
 );
 
-export const useTemplateVarRegex = create(
-  withResetFn(() => ({
-    pattern: dummyRegExpObject(),
-    fullNameToSectionId: {},
-  })),
-);
-
 // keys for textFields are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields

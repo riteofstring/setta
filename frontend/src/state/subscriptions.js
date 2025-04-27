@@ -10,7 +10,6 @@ import {
   useMisc,
   useNodeInternals,
   useSectionInfos,
-  useTemplateVarRegex,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
@@ -31,7 +30,6 @@ import {
   getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
-import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -48,7 +46,6 @@ export function subscribe() {
     regexSubscriptionFn,
     (x) => {
       useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
-      useTemplateVarRegex.setState(getTemplateVarsRegexAndColorMap(x));
       if (useSectionInfos.getState().shouldRenameReferences) {
         // reset the flag used by subscriptions
         useSectionInfos.setState({ shouldRenameReferences: false });

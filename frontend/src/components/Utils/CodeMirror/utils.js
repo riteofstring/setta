@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useEVRefRegex, useTemplateVarRegex } from "state/definitions";
+import { useEVRefRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -35,22 +35,6 @@ export function constructEVRefs(keywordPositions, fullText) {
     }
   }
 
-  return output;
-}
-
-export function constructTemplateVars(keywordPositions, fullText) {
-  const output = [];
-  const { fullNameToSectionId } = useTemplateVarRegex.getState();
-  for (const k of keywordPositions) {
-    const keyword = fullText.substring(k.startPos, k.endPos);
-    if (keyword in fullNameToSectionId) {
-      output.push({
-        sectionId: fullNameToSectionId[keyword],
-        startPos: k.startPos,
-        keyword,
-      });
-    }
-  }
   return output;
 }
 

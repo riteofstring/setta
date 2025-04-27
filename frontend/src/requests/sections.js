@@ -1,7 +1,4 @@
-import {
-  constructEVRefs,
-  constructTemplateVars,
-} from "components/Utils/CodeMirror/utils";
+import { constructEVRefs } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
@@ -172,8 +169,6 @@ async function getTemplateVars(sectionId, fullText) {
 
   // CodeMirror's RangeSetBuilder needs the list to be sorted
   keywordPositions.sort((a, b) => a.startPos - b.startPos);
-
-  templateVars = constructTemplateVars(keywordPositions, fullText);
 
   return templateVars;
 }
