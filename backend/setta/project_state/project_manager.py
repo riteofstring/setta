@@ -23,11 +23,11 @@ class ProjectManager:
     async def text_field_autocomplete(
         self, messageId, projectConfigId, sectionId, paramInfoId, fullText, position
     ):
-        code_state = self.states[projectConfigId]
-        await code_state.text_field_autocomplete(
+        project_state = self.states[projectConfigId]
+        await project_state.text_field_autocomplete(
             messageId, sectionId, paramInfoId, fullText, position
         )
 
     async def process_diagnostics_response(self, lsp_response):
-        for code_state in self.states.values():
-            await code_state.process_diagnostics_response(lsp_response)
+        for project_state in self.states.values():
+            await project_state.process_diagnostics_response(lsp_response)
