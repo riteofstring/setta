@@ -12,7 +12,6 @@ class SectionPerspectiveCodeGenerator:
         self.project_state = None
         self.code_previews = {}
         self.up_to_date_text_fields = set()
-        self.exporter_output = None
 
     def update(self, project_state):
         self.project_state = project_state
@@ -27,11 +26,12 @@ class SectionPerspectiveCodeGenerator:
         )
         var_name = exporter_obj.var_name_mapping[(self.sectionId, paramInfoId, False)]
         projectConfigName = self.project_state["projectConfig"]["name"]
+        project_temp_folder = self.temp_folder / projectConfigName
         code_dict = await generate_final_code_for_sections(
             self.project_state,
             exporter_obj,
             lsp_writers=self.lsp_writers,
-            folder_path=self.lsp_writers.full.project_code_folder(projectConfigName),
+            folder_path=project_temp_folder,
             push_var_name=var_name,
         )
         self.code_previews = {
@@ -40,16 +40,9 @@ class SectionPerspectiveCodeGenerator:
         for k, v in code_dict.items():
             if k not in self.code_previews:
                 self.code_previews[k] = CodePreview(
-                    k, self.lsp_writers, self.websocket_msg_handler
+                    k, self.lsp_writers, self.websocket_msg_handler, project_temp_folder
                 )
-            self.code_previews[k].update(self.project_state, v)
-
-        send_document_open_request_with_diagnostics_with_code_dict(
-            self.lsp_writers.full,
-            code_dict,
-            exporter_obj,
-            projectConfigName,
-        )
+            await self.code_previews[k].update(self.project_state, v)
 
         gen_code_section_details = exporter_obj.code_gen_template_var_section_details[
             "section"

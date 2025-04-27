@@ -17,7 +17,7 @@ class CodePreview(ABC):
         self.temp_file = None
         self.uri = ""
 
-    def update(self, project_state, code_details):
+    async def update(self, project_state, code_details):
         self.project_state = project_state
         for k, v in code_details.items():
             setattr(self, k, v)
@@ -31,6 +31,7 @@ class CodePreview(ABC):
         sanitized_full_name = sanitize_section_path_full_name(section_path_full_name)
         filepath = self.temp_folder / f"{sanitized_full_name}.py"
         self.create_or_update_temp_file(filepath, self.code)
+        await self.send_document_open_request()
 
     def create_temp_file(self, filepath, code):
         logger.debug(f"Creating temporary file {filepath}")
@@ -43,6 +44,12 @@ class CodePreview(ABC):
             self.delete_temp_file()
             self.create_temp_file(filepath, code)
         self.temp_file.write_text(code)
+
+    async def send_document_open_request(self):
+        self.uri = await self.lsp_writers.full.send_document_open_request(
+            filepath=self.temp_file,
+            code=self.code,
+        )
 
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():
