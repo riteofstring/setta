@@ -307,13 +307,11 @@ class Exporter:
         ]
 
     def export(self):
-        self.output = {}
         remove_unneeded_sections(
             self.p,
             self.section_types_to_process,
         )
         self.export_sections(list(self.p["projectConfig"]["children"].keys()))
-        return self.output
 
     def export_sections(self, ids):
         return [self.export_section(x) for x in ids]
