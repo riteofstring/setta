@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server, code_manager):
+    def __init__(self, server, project_manager):
         self.server = server
-        self.code_manager = code_manager
+        self.project_manager = project_manager
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None
@@ -143,5 +143,5 @@ class LanguageServerReader(LanguageServerInteractor):
     async def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
             asyncio.create_task(
-                self.code_manager.process_diagnostics_response(response)
+                self.project_manager.process_diagnostics_response(response)
             )

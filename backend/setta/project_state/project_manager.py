@@ -1,9 +1,9 @@
 from setta.websockets.websocket_msg_handlers import WMHCodeManager
 
-from .code_state import CodeState
+from .project_state import ProjectState
 
 
-class CodeManager:
+class ProjectManager:
     def __init__(self, lsp_writers, websocket_manager):
         self.states = {}  # project config id to current state
         self.lsp_writers = lsp_writers
@@ -12,7 +12,7 @@ class CodeManager:
     async def update(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
-            self.states[projectConfigId] = CodeState(
+            self.states[projectConfigId] = ProjectState(
                 self.lsp_writers, self.websocket_msg_handler
             )
         await self.states[projectConfigId].update(project_state)

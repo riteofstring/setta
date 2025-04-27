@@ -120,7 +120,6 @@ async def generate_final_code_for_sections(
         and code_gen_template_var_section_details["section"]["id"] is None
     ):
         code_sections[None] = code_gen_template_var_section_details["section"]
-        p["sectionPathFullNames"][None] = code_sections[None]["name"]
 
     code_dict = {}
     for s in code_sections.values():
@@ -150,12 +149,8 @@ async def generate_final_code_for_sections(
             push_var_name=push_var_name,
         )
 
-        sanitized_full_name = sanitize_section_path_full_name(
-            p["sectionPathFullNames"][s["id"]]
-        )
         code_dict[s["id"]] = {
             "name": s["name"],
-            "sanitized_full_name": sanitized_full_name,
             "code": curr_code,
             "codeLanguage": s["codeLanguage"],
             "var_name_to_decl_rel_position_dict": curr_var_name_to_decl_rel_position_dict,
