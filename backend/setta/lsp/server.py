@@ -6,12 +6,21 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageServer:
-    def __init__(self, workspace_folder, code_folder, settings, name):
+    def __init__(
+        self,
+        workspace_folder,
+        code_folder,
+        code_folder_section_perspective,
+        settings,
+        name,
+    ):
         # Create folders if they don't exist
         workspace_folder.mkdir(parents=True, exist_ok=True)
         code_folder.mkdir(parents=True, exist_ok=True)
+        code_folder_section_perspective.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
         self.code_folder = code_folder
+        self.code_folder_section_perspective = code_folder_section_perspective
         self.init_properties()
         self.server = None
         if not isinstance(settings, dict):
@@ -90,6 +99,10 @@ class LanguageServerInteractor:
         return self.server.code_folder
 
     @property
+    def code_folder_section_perspective(self):
+        return self.server.code_folder_section_perspective
+
+    @property
     def pending_requests(self):
         return self.server.pending_requests
 
@@ -116,3 +129,6 @@ class LanguageServerInteractor:
 
     def project_code_folder(self, projectConfigName):
         return self.code_folder / projectConfigName
+
+    def project_code_folder_section_perspective(self, projectConfigName):
+        return self.code_folder_section_perspective / projectConfigName

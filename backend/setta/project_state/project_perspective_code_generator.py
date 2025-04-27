@@ -1,44 +1,15 @@
-from pathlib import Path
-
 from setta.code_gen.create_runnable_scripts import (
     generate_final_code_for_sections,
-    sanitize_section_path_full_name,
 )
-from setta.code_gen.export_selected import export_selected, get_section_path_full_name
+from setta.code_gen.export_selected import export_selected
 from setta.lsp.reader_fns.diagnostics import (
     convert_diagnostic_line_cols_to_positions,
     process_diagnostics,
 )
+from setta.project_state.code_preview import CodePreview
 
 
-class ProjectPerspectiveCodePreview:
-    def __init__(self, sectionId, lsp_writers, websocket_msg_handler):
-        self.project_state = None
-        self.sectionId = sectionId
-        self.lsp_writers = lsp_writers
-        self.websocket_msg_handler = websocket_msg_handler
-        self.version = 0
-        self.lsp_code_id = ""
-        self.uri = ""
-
-    def update(self, project_state, code_details):
-        self.project_state = project_state
-        for k, v in code_details.items():
-            setattr(self, k, v)
-        self.update_lsp_code_id(code_details)
-        self.version += 1
-
-    def update_lsp_code_id(self, code_details):
-        if self.sectionId is None:
-            section_path_full_name = code_details["name"]
-        else:
-            section_path_full_name = get_section_path_full_name(
-                self.project_state, self.sectionId
-            )
-        projectConfigName = self.project_state["projectConfig"]["name"]
-        sanitized_full_name = sanitize_section_path_full_name(section_path_full_name)
-        self.lsp_code_id = str(Path(projectConfigName) / sanitized_full_name)
-
+class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
         self.uri = await self.lsp_writers["full"].send_document_open_request(
             code_id=self.lsp_code_id, code=self.code, version=self.version

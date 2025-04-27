@@ -12,18 +12,21 @@ logger = logging.getLogger(__name__)
 def create_lsps(
     workspace_folder,
     code_folder,
+    code_folder_section_perspective,
     settings,
 ):
     return {
         "full": LanguageServer(
             workspace_folder=workspace_folder,
             code_folder=code_folder,
+            code_folder_section_perspective=code_folder_section_perspective,
             settings=settings,
             name="full",
         ),
         "basic": LanguageServer(
             workspace_folder=code_folder,
             code_folder=code_folder,
+            code_folder_section_perspective=code_folder_section_perspective,
             settings={},
             name="basic",
         ),

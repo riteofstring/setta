@@ -31,6 +31,7 @@ class ProjectState:
                         sectionId, self.lsp_writers, self.websocket_msg_handler
                     )
                 )
+            self.section_perspective_code_generators[sectionId].update(project_state)
 
         await self.code_generator.update(project_state)
 
