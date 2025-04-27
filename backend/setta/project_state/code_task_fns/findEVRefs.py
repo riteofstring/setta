@@ -3,9 +3,9 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.database.utils import create_new_id
 from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
+from setta.database.utils import create_new_id
 from setta.utils.utils import multireplace
 
 from .utils import (

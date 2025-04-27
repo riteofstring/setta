@@ -3,7 +3,6 @@ import copy
 from datetime import datetime
 from pathlib import Path
 
-from setta.database.utils import create_new_id
 from setta.code_gen.export_selected import (
     export_selected,
     get_gen_code_template_var,
@@ -22,6 +21,7 @@ from setta.code_gen.python.validate_imports import (
     maybe_validate_imports_and_update_code,
 )
 from setta.code_gen.utils import process_refs
+from setta.database.utils import create_new_id
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import prune_dict
 

@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.backend_tools  # noqa: F401
 import setta.mcp.frontend_tools  # noqa: F401
-from setta.project_state.code_manager import CodeManager
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
@@ -27,6 +26,7 @@ from setta.lsp.utils import (
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import add_mcp_server_to_fastapi_server
+from setta.project_state.code_manager import CodeManager
 from setta.routers import (
     ai_router,
     artifact_router,

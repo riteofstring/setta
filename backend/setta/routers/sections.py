@@ -5,12 +5,6 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from setta.database.db.sections.copy import (
-    copy_relative_positions,
-    copy_sections_and_other_info,
-)
-from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
@@ -21,6 +15,12 @@ from setta.code_gen.yaml.section_dict import (
     run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
+from setta.database.db.sections.copy import (
+    copy_relative_positions,
+    copy_sections_and_other_info,
+)
+from setta.database.db.sections.jsonSource import save_json_source_data
+from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.routers.dependencies import get_specific_file_watcher
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename

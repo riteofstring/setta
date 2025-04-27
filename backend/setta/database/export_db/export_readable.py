@@ -4,9 +4,6 @@ import shutil
 from pathlib import Path
 
 from setta.api.logger import save_base64_to_png
-from setta.database.db.artifacts.load import (
-    load_artifact_metadata_and_maybe_value_from_disk,
-)
 from setta.code_gen.export_selected import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
@@ -25,6 +22,9 @@ from setta.code_gen.yaml.section_dict import (
     param_sweep_dict_to_yaml,
     run_group_dict_to_yaml,
     section_dict_to_yaml,
+)
+from setta.database.db.artifacts.load import (
+    load_artifact_metadata_and_maybe_value_from_disk,
 )
 from setta.utils.constants import C
 from setta.utils.section_contents import getParamIdsToShowInArea
