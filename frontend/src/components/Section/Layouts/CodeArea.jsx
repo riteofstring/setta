@@ -1,5 +1,10 @@
-import { EditorState, Facet } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
+import { EditorState, Facet, StateField } from "@codemirror/state";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+} from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
@@ -139,6 +144,7 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
           readOnlyRangesExtension,
           uneditableRangeStyle,
           uneditableStyles,
+          labelDecorationField,
         ]}
         onMouseDown={onMouseDown}
         onChange={onChange}
@@ -373,5 +379,64 @@ const uneditableStyles = EditorView.theme({
     backgroundColor: "#f0f0f0",
     color: "#666",
     cursor: "not-allowed",
+  },
+});
+
+class BlockLabelWidget extends WidgetType {
+  constructor(label) {
+    super();
+    this.label = label;
+  }
+
+  toDOM() {
+    const div = document.createElement("div");
+    div.textContent = this.label;
+    div.style.backgroundColor = "#e0e0e0"; // Light gray background for visibility
+    div.style.padding = "2px"; // Add some padding
+    div.style.margin = "2px 0"; // Add vertical spacing
+    div.style.width = "100%"; // Full width to act as a block
+    return div;
+  }
+
+  ignoreEvent() {
+    return true; // Prevent the widget from interfering with editor events
+  }
+}
+
+function computeLabelDecorations(state) {
+  const decorations = [];
+  const doc = state.doc;
+
+  // Iterate through each line in the document
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const lineText = line.text;
+
+    // Check if the line contains "NOT"
+    if (lineText.includes("NOT")) {
+      // Place the widget at the end of the line
+      const pos = line.to;
+      const deco = Decoration.widget({
+        widget: new BlockLabelWidget("Read-only"), // The label text
+        block: true, // Treat it as a block-level element
+        side: 1, // Place it after the line content
+      });
+      decorations.push(deco.range(pos));
+    }
+  }
+
+  return Decoration.set(decorations);
+}
+
+// Define the StateField to hold the decorations
+const labelDecorationField = StateField.define({
+  create(state) {
+    return computeLabelDecorations(state);
+  },
+  update(decorations, transaction) {
+    return computeLabelDecorations(transaction.state);
+  },
+  provide(field) {
+    return EditorView.decorations.from(field);
   },
 });
