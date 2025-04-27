@@ -1,31 +1,37 @@
 import json
 import re
 
+from setta.code_gen.export_selected import (
+    get_code_info_children,
+    get_section_children,
+    get_section_name,
+    get_section_type,
+    get_selected_item,
+)
 from setta.code_gen.find_placeholders import tp
+from setta.project_state.code_task_fns.utils import escape_reg_exp
 from setta.utils.constants import C
 
 
-# input is state computed by keyword regex subscription
-def get_ev_ref_regex_and_color_map(state):
+def get_ev_ref_regex(p):
     names = []
     full_name_to_info = {}
-    for sid in state["details"].keys():
-        if not state["details"][sid]["is_top_level_and_can_be_referred_to"]:
+    for sid in p["sections"].keys():
+        section_type_name = get_section_type(p, sid)
+        if not is_top_level_and_can_be_referred_to(p, sid, section_type_name):
             continue
-        if state["global_variable_id"] == sid:
-            set_full_param_regex(
-                state, sid, None, names, full_name_to_info, "", [], True
-            )
+        if section_type_name == C.GLOBAL_VARIABLES:
+            set_full_param_regex(p, sid, None, names, full_name_to_info, "", [], True)
         else:
-            curr_name = state["details"][sid]["name"]
+            curr_name = get_section_name(p, sid)
             set_full_children_names_for_regex(
-                state, names, full_name_to_info, sid, curr_name, [len(curr_name)]
+                p, names, full_name_to_info, sid, curr_name, [len(curr_name)]
             )
 
     if len(names) == 0:
         return {
-            "pattern": dummy_reg_exp_object(),
-            "code_area_pattern": dummy_reg_exp_object(),
+            "pattern": None,
+            "code_area_pattern": None,
             "full_name_to_info": full_name_to_info,
         }
 
@@ -44,17 +50,17 @@ def get_ev_ref_regex_and_color_map(state):
 
 
 def set_full_children_names_for_regex(
-    state, all_names, full_name_to_info, section_id, parent_name, parent_lengths
+    p, all_names, full_name_to_info, section_id, parent_name, parent_lengths
 ):
-    section_type_name = state["details"][section_id]["section_type_name"]
-    for idx, c in enumerate(state["details"][section_id]["section_children"]):
-        name = state["details"][c]["name"]
+    section_type_name = get_section_type(p, section_id)
+    for idx, c in enumerate(get_section_children(p, section_id)):
+        name = get_section_name(p, c)
         curr_component_name = (
             f"[{idx}]" if section_type_name == C.LIST_ROOT else f'["{name}"]'
         )
         curr_full_name = f"{parent_name}{curr_component_name}"
         set_full_children_names_for_regex(
-            state,
+            p,
             all_names,
             full_name_to_info,
             c,
@@ -66,9 +72,9 @@ def set_full_children_names_for_regex(
     args_full_name = f"{C.ARGS_PREFIX}{parent_name}"
     args_parent_lengths = [x + len(C.ARGS_PREFIX) for x in parent_lengths]
     set_full_param_regex(
-        state,
+        p,
         section_id,
-        state["details"][section_id]["selected_item"],
+        get_selected_item(p, section_id),
         all_names,
         full_name_to_info,
         args_full_name,
@@ -83,7 +89,7 @@ def set_full_children_names_for_regex(
         "is_args_obj": False,
     }
 
-    if section_type_name == C["SECTION"]:
+    if section_type_name == C.SECTION:
         all_names.append(escape_reg_exp(args_full_name))
         full_name_to_info[args_full_name] = {
             "section_id": section_id,
@@ -94,7 +100,7 @@ def set_full_children_names_for_regex(
 
 
 def set_full_param_regex(
-    state,
+    p,
     section_id,
     code_info_id,
     all_names,
@@ -103,24 +109,23 @@ def set_full_param_regex(
     parent_lengths,
     is_global_var=False,
 ):
-    code_info_children = state["details"][section_id]["code_info_children"]
-    if code_info_id not in code_info_children:
-        return
+    code_info_children = get_code_info_children(p, section_id, code_info_id)
+    child_param_infos = [p["codeInfo"][x] for x in code_info_children]
 
-    child_param_infos = [
-        state["code_info"][x] for x in code_info_children[code_info_id]
-    ]
-
-    for p in child_param_infos:
-        if not p["name"] or p["rc_type"] != C.PARAMETER:
+    for param_info in child_param_infos:
+        if not param_info["name"] or param_info["rc_type"] != C.PARAMETER:
             continue
 
-        full_name = p["name"] if is_global_var else f'{parent_name}["{p["name"]}"]'
+        full_name = (
+            param_info["name"]
+            if is_global_var
+            else f'{parent_name}["{param_info["name"]}"]'
+        )
         new_lengths_array = parent_lengths + [len(full_name)]
         set_full_param_regex(
-            state,
+            p,
             section_id,
-            p["id"],
+            param_info["id"],
             all_names,
             full_name_to_info,
             full_name,
@@ -130,7 +135,7 @@ def set_full_param_regex(
         all_names.append(escape_reg_exp(full_name))
         full_name_to_info[full_name] = {
             "section_id": section_id,
-            "param_info_id": p["id"],
+            "param_info_id": param_info["id"],
             "component_indices": new_lengths_array,
             "is_args_obj": False,
         }
@@ -179,3 +184,14 @@ def key_for_info_to_full_name(info):
     is_args_obj = info.get("is_args_obj", False)
 
     return json.dumps([section_id, param_info_id, is_args_obj])
+
+
+def is_top_level_and_can_be_referred_to(p, section_id, section_type_name):
+    return not p["sections"][section_id]["parentId"] and [
+        C.GLOBAL_VARIABLES,
+        C.SECTION,
+        C.LIST_ROOT,
+        C.DICT_ROOT,
+        C.GROUP,
+        C.TEXT_BLOCK,
+    ].includes(section_type_name)

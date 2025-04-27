@@ -1,3 +1,4 @@
+from setta.project_state.code_task_fns.evRefRegex import get_ev_ref_regex
 from setta.project_state.project_perspective_code_generator import (
     ProjectPerspectiveCodeGenerator,
 )
@@ -18,6 +19,8 @@ class ProjectState:
         self.section_perspective_code_generators = {}
 
     async def update(self, project_state):
+        print(f"{get_ev_ref_regex(project_state)}\n\n", flush=True)
+
         # filter out sections that are no longer in the project
         self.section_perspective_code_generators = {
             k: v

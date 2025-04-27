@@ -1,6 +1,7 @@
 import re
 
 from setta.code_gen.find_placeholders import tp
+from setta.project_state.code_task_fns.utils import escape_reg_exp
 from setta.utils.constants import C
 
 
@@ -24,7 +25,7 @@ def get_template_vars_regex_and_color_map(state):
 
     if len(names) == 0:
         return {
-            "pattern": dummy_reg_exp_object(),
+            "pattern": None,
             "full_name_to_section_id": full_name_to_section_id,
         }
 

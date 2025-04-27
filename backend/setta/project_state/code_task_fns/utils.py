@@ -1,5 +1,6 @@
 import asyncio
 import random
+import re
 import string
 
 from setta.utils.utils import multireplace
@@ -153,3 +154,7 @@ def find_candidate_template_vars(template_var_regex_state, section_id, value):
         match = template_vars_regex.search(value, match.start() + 1)
 
     return output
+
+
+def escape_reg_exp(string):
+    return re.sub(r"[.*+?^${}()|[\]\\]", r"\\\g<0>", string)
