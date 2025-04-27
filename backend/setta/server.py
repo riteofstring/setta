@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.websocket_manager = WebsocketManager()
-    app.state.code_manager = CodeManager()
+    app.state.code_manager = CodeManager(app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
     app.state.dbq = DBQueue(
         C.DB_PATH,

@@ -1,29 +1,16 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import {
-  getSectionPathFullName,
-  getSectionType,
-} from "state/actions/sectionInfos";
+import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataToGenerateCode({
   withArtifacts = false,
-  includeSectionPathFullNames = true,
   includeDrawings = false,
   includeLatestChatMessages = false,
 }) {
   const project = getProjectData({ withArtifacts });
-  if (includeSectionPathFullNames) {
-    project.sectionPathFullNames = {};
-    for (const s of Object.values(project.sections)) {
-      project.sectionPathFullNames[s.id] = getSectionPathFullName(
-        s.id,
-        useSectionInfos.getState(),
-      );
-    }
-  }
   if (includeDrawings || includeLatestChatMessages) {
     const sectionInfosState = useSectionInfos.getState().x;
     const sections = {};

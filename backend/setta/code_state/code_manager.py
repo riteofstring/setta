@@ -1,10 +1,15 @@
+from .code_state import CodeState
+
+
 class CodeManager:
-    def __init__(self):
+    def __init__(self, lsp_writers):
         self.states = {}  # project id to current state
+        self.lsp_writers = lsp_writers
 
     def update_project_state(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
-        self.states[projectConfigId] = project_state
+        if projectConfigId not in self.states:
+            self.states[projectConfigId] = CodeState(project_state, self.lsp_writers)
 
     async def type_check(self, projectConfigId):
-        print("type_check!!", self.states.get(projectConfigId), flush=True)
+        await self.states[projectConfigId].type_check()

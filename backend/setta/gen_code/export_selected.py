@@ -172,6 +172,27 @@ def get_param_full_path_name(id, pathMap, codeInfo):
         return name
 
 
+def get_section_path_full_name(p, section_id):
+    parent_id = p["sections"][section_id]["parentId"]
+    if not parent_id:
+        return p["sections"][section_id]["name"]
+
+    child_id = section_id
+    output = ""
+    while parent_id:
+        if get_section_type(p, parent_id) == C.LIST_ROOT:
+            idx = get_section_children(p, parent_id).index(section_id)
+            output = f"[{idx}]{output}"
+        else:
+            output = f'["{p["sections"][child_id]["name"]}"]' + output
+
+        child_id = parent_id
+        parent_id = p["sections"][parent_id]["parentId"]
+
+    # child_id will contain the highest parent's id
+    return f"{p['sections'][child_id]['name']}{output}"
+
+
 def export_selected(p, always_export_args_objs, force_include_template_var):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = Exporter(

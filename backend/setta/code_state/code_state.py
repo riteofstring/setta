@@ -1,20 +1,42 @@
+from setta.gen_code.create_runnable_scripts import generate_final_code_for_sections
+from setta.gen_code.export_selected import (
+    export_selected,
+    get_section_path_full_name,
+)
+
+from .code_task_fns.utils import (
+    send_document_open_request_with_diagnostics_with_code_dict,
+)
+
+
 class CodeState:
-    def __init__(self):
-        self.cache = {}
-        self.projects = {}
-        self.rel_path_to_project_id = {}
+    def __init__(self, project_state, lsp_writers):
+        self.state = project_state
+        self.lsp_writers = lsp_writers
+        self.update_section_path_full_name()
 
-    def get_state(self, projectConfigId, sectionId, paramInfoId):
-        return self.cache.get(
-            self.get_state_key(projectConfigId, sectionId, paramInfoId)
+    def update_section_path_full_name(self):
+        sectionPathFullNames = {}
+        for s in self.state["sections"].values():
+            sectionPathFullNames[s["id"]] = get_section_path_full_name(
+                self.state, s["id"]
+            )
+        self.state["sectionPathFullNames"] = sectionPathFullNames
+
+    async def type_check(self):
+        exporter_obj = export_selected(
+            self.state, always_export_args_objs=False, force_include_template_var=True
         )
-
-    def set_state(self, projectConfigId, sectionId, paramInfoId, data):
-        self.cache[self.get_state_key(projectConfigId, sectionId, paramInfoId)] = data
-
-    def get_state_key(self, projectConfigId, sectionId, paramInfoId):
-        return f"{projectConfigId}-{sectionId}-{paramInfoId}"
-
-    def get_project_from_rel_path(self, rel_path):
-        projectConfigId = self.rel_path_to_project_id.get(rel_path)
-        return self.projects.get(projectConfigId)
+        projectConfigName = self.state["projectConfig"]["name"]
+        code_dict = await generate_final_code_for_sections(
+            self.state,
+            exporter_obj,
+            lsp_writers=self.lsp_writers,
+            folder_path=self.lsp_writers["full"].project_code_folder(projectConfigName),
+        )
+        send_document_open_request_with_diagnostics_with_code_dict(
+            self.lsp_writers["full"],
+            code_dict,
+            exporter_obj,
+            projectConfigName,
+        )
