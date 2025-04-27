@@ -10,12 +10,15 @@ class SectionPerspectiveCodeGenerator:
         self.websocket_msg_handler = websocket_msg_handler
         self.project_state = None
         self.code_previews = {}
+        self.up_to_date_text_fields = set()
         self.exporter_output = None
 
     def update(self, project_state):
         self.project_state = project_state
+        self.up_to_date_text_fields = set()
 
     async def text_field_initialize(self, paramInfoId):
+        print("*************text_field_initialize\n\n\n", flush=True)
         exporter_obj = export_selected(
             self.project_state,
             always_export_args_objs=True,
@@ -79,7 +82,7 @@ class SectionPerspectiveCodeGenerator:
             ],
         )
 
-    async def text_field_autocomplete(
-        self, project_state, messageId, paramInfoId, fullText, position
-    ):
-        print("text_field_autocomplete", flush=True)
+    async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
+        print("*************text_field_autocomplete\n\n\n", flush=True)
+        if paramInfoId not in self.up_to_date_text_fields:
+            self.text_field_initialize(paramInfoId)
