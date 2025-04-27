@@ -11,8 +11,9 @@ from setta.project_state.code_preview import CodePreview
 
 class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
-        self.uri = await self.lsp_writers["full"].send_document_open_request(
-            code_id=self.lsp_code_id, code=self.code, version=self.version
+        await self.lsp_writers["full"].send_document_open_request(
+            uri=self.uri,
+            code=self.code,
         )
 
     async def process_diagnostics_response(self, lsp_response, exporter_output):
@@ -78,7 +79,11 @@ class ProjectPerspectiveCodeGenerator:
     async def process_diagnostics_response(self, lsp_response):
         params = lsp_response["params"]
         code_preview = self.get_code_preview_by_uri(params["uri"])
-        if not code_preview or code_preview.version != params["version"]:
+        if (
+            not code_preview
+            or self.lsp_writers["full"].get_latest_version_number(self.uri)
+            != params["version"]
+        ):
             return
         await code_preview.process_diagnostics_response(
             lsp_response, self.exporter_output

@@ -11,7 +11,6 @@ class CodePreview(ABC):
         self.sectionId = sectionId
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
-        self.version = 0
         self.lsp_code_id = ""
         self.uri = ""
 
@@ -20,7 +19,6 @@ class CodePreview(ABC):
         for k, v in code_details.items():
             setattr(self, k, v)
         self.update_lsp_code_id()
-        self.version += 1
 
     def update_lsp_code_id(self):
         if self.sectionId is None:

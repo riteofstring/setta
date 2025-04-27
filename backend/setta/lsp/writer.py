@@ -33,7 +33,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             "capabilities": {
                 "workspace": {"didChangeWatchedFiles": {"dynamicRegistration": True}}
             },
-            "workspaceFolders": [{"uri": self.get_workspace_uri()}],
+            "workspaceFolders": [{"uri": self.workspace_folder.as_uri()}],
         }
         request_id = str(uuid.uuid4())
         self.server.initialization_request_id = request_id
@@ -42,22 +42,20 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_open_request(
         self,
-        code_id,
+        uri,
         code,
-        version,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
         if not virtual:
-            self.create_or_update_temp_file(code_id, code)
-        uri = self.get_uri(code_id, virtual)
-        if uri not in self.uris:
-            self.uris.add(uri)
+            self.create_or_update_temp_file(uri, code)
+        if uri not in self.latest_version_numbers:
+            self.latest_version_numbers[uri] = 0
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": version,
+                    "version": self.latest_version_numbers[uri],
                     "text": code,
                 }
             }
@@ -66,11 +64,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         else:
             logger.debug(f"document already open, updating it {uri}")
             await self.send_document_update(
-                code=code,
                 uri=uri,
-                version=version,
+                code=code,
             )
-        return uri
 
     async def send_autocomplete_request(
         self,
@@ -164,14 +160,14 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_update(
         self,
-        code,
         uri,
-        version,
+        code,
     ):
+        self.latest_version_numbers[uri] += 1
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": version,
+                "version": self.latest_version_numbers[uri],
             },
             "contentChanges": [{"text": code}],
         }
@@ -234,41 +230,5 @@ class LanguageServerWriter(LanguageServerInteractor):
             self.pending_requests[request_id] = asyncio.Future()
         asyncio.create_task(async_task)
 
-    def get_workspace_uri(self):
-        return self.workspace_folder.as_uri()
-
-    def get_code_id_path(self, code_id):
-        return self.code_folder / f"{code_id}.py"
-
-    def get_base_uri(self, code_id):
-        return self.get_code_id_path(code_id).as_uri()
-
-    # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, code_id, virtual):
-        uri = self.get_base_uri(code_id)
-        if virtual:
-            uri = uri.replace("file://", "untitled:", 1)
-        return uri
-
     def get_is_virtual(self, virtual):
         return virtual if virtual is not None else self.use_virtual_files
-
-    def create_temp_file(self, code_id, code):
-        """Create a temporary file for the given code and return its path."""
-        # Create all necessary parent directories
-        file_path = self.get_code_id_path(code_id)
-        logger.debug(f"Creating temporary file {file_path}")
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the code to the file
-        file_path.write_text(code)
-
-        # Store the path for later cleanup
-        self.temp_files[code_id] = file_path
-        return file_path
-
-    def create_or_update_temp_file(self, code_id, code):
-        if code_id in self.temp_files:
-            self.temp_files[code_id].write_text(code)
-        else:
-            self.create_temp_file(code_id, code)

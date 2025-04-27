@@ -9,18 +9,12 @@ class LanguageServer:
     def __init__(
         self,
         workspace_folder,
-        code_folder,
-        code_folder_section_perspective,
         settings,
         name,
     ):
         # Create folders if they don't exist
         workspace_folder.mkdir(parents=True, exist_ok=True)
-        code_folder.mkdir(parents=True, exist_ok=True)
-        code_folder_section_perspective.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
-        self.code_folder = code_folder
-        self.code_folder_section_perspective = code_folder_section_perspective
         self.init_properties()
         self.server = None
         if not isinstance(settings, dict):
@@ -48,8 +42,7 @@ class LanguageServer:
         self.msg_id_to_metadata = defaultdict(dict)
         self.initialization_request_id = None
         self.is_initialized = False
-        self.temp_files = {}
-        self.uris = set()
+        self.latest_version_numbers = {}  # uri to version number
 
     def cleanup_pending_requests(self):
         if not hasattr(self, "pending_requests"):
@@ -68,9 +61,6 @@ class LanguageServer:
             self.server.terminate()
         except ProcessLookupError:
             pass
-        for path in self.temp_files.values():
-            if path.exists():
-                path.unlink()
 
     @property
     def stdin(self):
@@ -95,24 +85,12 @@ class LanguageServerInteractor:
         return self.server.workspace_folder
 
     @property
-    def code_folder(self):
-        return self.server.code_folder
-
-    @property
-    def code_folder_section_perspective(self):
-        return self.server.code_folder_section_perspective
-
-    @property
     def pending_requests(self):
         return self.server.pending_requests
 
     @property
-    def temp_files(self):
-        return self.server.temp_files
-
-    @property
-    def uris(self):
-        return self.server.uris
+    def latest_version_numbers(self):
+        return self.server.latest_version_numbers
 
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
@@ -127,8 +105,46 @@ class LanguageServerInteractor:
                 self.pending_requests.pop(id, None)
         return None
 
-    def project_code_folder(self, projectConfigName):
-        return self.code_folder / projectConfigName
 
-    def project_code_folder_section_perspective(self, projectConfigName):
-        return self.code_folder_section_perspective / projectConfigName
+# self.temp_files = {}
+# code_folder.mkdir(parents=True, exist_ok=True)
+# code_folder_section_perspective.mkdir(parents=True, exist_ok=True)
+
+
+# for path in self.temp_files.values():
+#     if path.exists():
+#         path.unlink()
+
+
+# # https://github.com/microsoft/language-server-protocol/issues/1676
+# def get_uri(self, code_id, virtual):
+#     uri = self.get_base_uri(code_id)
+#     if virtual:
+#         uri = uri.replace("file://", "untitled:", 1)
+#     return uri
+
+# def get_code_id_path(self, code_id):
+#     return self.code_folder / f"{code_id}.py"
+
+# def get_base_uri(self, code_id):
+#     return self.get_code_id_path(code_id).as_uri()
+
+# def create_temp_file(self, code_id, code):
+#     """Create a temporary file for the given code and return its path."""
+#     # Create all necessary parent directories
+#     file_path = self.get_code_id_path(code_id)
+#     logger.debug(f"Creating temporary file {file_path}")
+#     file_path.parent.mkdir(parents=True, exist_ok=True)
+
+#     # Write the code to the file
+#     file_path.write_text(code)
+
+#     # Store the path for later cleanup
+#     self.temp_files[code_id] = file_path
+#     return file_path
+
+# def create_or_update_temp_file(self, code_id, code):
+#     if code_id in self.temp_files:
+#         self.temp_files[code_id].write_text(code)
+#     else:
+#         self.create_temp_file(code_id, code)
