@@ -1,7 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useEVRefRegex } from "state/definitions";
 import { roundUpIdx } from "./utils";
 
 function getContentDomEventListener(evRefs, editor) {

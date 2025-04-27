@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { useEVRefRegex } from "state/definitions";
 
 export function roundUpIdx(numList, x) {
   let closest = undefined;
@@ -16,50 +15,6 @@ export function roundUpIdx(numList, x) {
   }
 
   return closest;
-}
-
-export function constructEVRefs(keywordPositions, fullText) {
-  const output = [];
-  const { fullNameToInfo } = useEVRefRegex.getState();
-  for (const k of keywordPositions) {
-    const keyword = fullText.substring(k.startPos, k.endPos);
-    if (keyword in fullNameToInfo) {
-      const info = fullNameToInfo[keyword];
-      output.push({
-        sectionId: info.sectionId,
-        paramInfoId: info.paramInfoId,
-        isArgsObj: info.isArgsObj,
-        startPos: k.startPos,
-        keyword,
-      });
-    }
-  }
-
-  return output;
-}
-
-export function computeInfoToFullName() {
-  const output = {};
-  for (const [k, v] of Object.entries(
-    useEVRefRegex.getState().fullNameToInfo,
-  )) {
-    output[
-      keyForInfoToFullName({
-        sectionId: v.sectionId,
-        paramInfoId: v.paramInfoId,
-        isArgsObj: v.isArgsObj,
-      })
-    ] = k;
-  }
-  return output;
-}
-
-export function keyForInfoToFullName({
-  sectionId,
-  paramInfoId = null,
-  isArgsObj = false,
-}) {
-  return JSON.stringify([sectionId, paramInfoId, isArgsObj]);
 }
 
 export function extractTemplateVarSuffix(str) {

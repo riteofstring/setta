@@ -6,14 +6,12 @@ import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
 import {
   useAIStore,
   useArtifacts,
-  useEVRefRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
-import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
@@ -45,7 +43,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     regexSubscriptionFn,
     (x) => {
-      useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
       if (useSectionInfos.getState().shouldRenameReferences) {
         // reset the flag used by subscriptions
         useSectionInfos.setState({ shouldRenameReferences: false });

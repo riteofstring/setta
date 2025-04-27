@@ -4,7 +4,6 @@ import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
-import { useEVRefRegex } from "state/definitions";
 import { goToSectionOnNameClick } from "./getOnCreateEditor";
 import { roundUpIdx } from "./utils";
 

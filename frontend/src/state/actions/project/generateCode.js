@@ -1,29 +1,20 @@
-import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getSectionPathFullName,
   getSectionType,
 } from "state/actions/sectionInfos";
-import { useEVRefRegex, useSectionInfos } from "state/definitions";
+import { useSectionInfos } from "state/definitions";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataToGenerateCode({
   withArtifacts = false,
-  includeFullNameToInfo = true,
-  includeInfoToFullName = true,
   includeSectionPathFullNames = true,
   includeDrawings = false,
   includeLatestChatMessages = false,
 }) {
   const project = getProjectData({ withArtifacts });
-  if (includeFullNameToInfo) {
-    project.fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
-  }
-  if (includeInfoToFullName) {
-    project.infoToFullName = computeInfoToFullName(project);
-  }
   if (includeSectionPathFullNames) {
     project.sectionPathFullNames = {};
     for (const s of Object.values(project.sections)) {
