@@ -15,9 +15,7 @@ from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps, stop_lsps
-from setta.lsp.utils import (
-    create_specific_file_watcher,
-)
+from setta.lsp.specific_file_watcher import create_specific_file_watcher
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import add_mcp_server_to_fastapi_server
