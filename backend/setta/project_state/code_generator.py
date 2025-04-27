@@ -113,9 +113,10 @@ class ProjectPerspectiveCodeGenerator:
 
 
 class SectionPerspectiveCodeGenerator:
-    def __init__(self, sectionId, lsp_writers):
+    def __init__(self, sectionId, lsp_writers, websocket_msg_handler):
         self.sectionId = sectionId
         self.lsp_writers = lsp_writers
+        self.websocket_msg_handler = websocket_msg_handler
         self.code_previews = {}
         self.exporter_output = None
 
@@ -170,3 +171,6 @@ class SectionPerspectiveCodeGenerator:
                 project["fullNameToInfo"],
             ],
         )
+
+    async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
+        print("text_field_autocomplete", flush=True)
