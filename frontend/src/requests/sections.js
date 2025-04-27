@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getProjectDataToGenerateCode } from "state/actions/project/generateCode";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useSectionInfos, useTypeErrors } from "state/definitions";
@@ -13,9 +12,9 @@ export async function dbRequestTypeCheck(userRequested = false) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const project = await getProjectDataToGenerateCode({});
+  const projectConfigId = useSectionInfos.getState().projectConfig.id;
   post({
-    body: { project },
+    body: { projectConfigId },
     address: C.ROUTE_TYPE_CHECK,
   });
 }

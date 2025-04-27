@@ -104,20 +104,20 @@ async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,
     lsp_writers=Depends(get_lsp_writers),
-    code_state=Depends(get_code_state),
+    code_manager=Depends(get_code_state),
     terminals=Depends(get_terminals),
     websocket_msg_handler=Depends(get_wmh_terminals),
 ):
     terminal_id, new_terminal_created = None, None
 
     if x.cliId:
-        command = await generateRunCodeCommand(x.project, lsp_writers, code_state)
+        command = await generateRunCodeCommand(x.project, lsp_writers, code_manager)
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
         terminal_id, new_terminal_created = await runCode(
             x.project,
             lsp_writers,
-            code_state,
+            code_manager,
             terminals,
         )
 

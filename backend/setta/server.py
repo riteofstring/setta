@@ -11,8 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.backend_tools  # noqa: F401
 import setta.mcp.frontend_tools  # noqa: F401
-from setta.code_state.code_state import CodeState
-from setta.code_state.code_tasks import CodeTasks
+from setta.code_state.code_manager import CodeManager
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
@@ -61,8 +60,7 @@ async def lifespan(app: FastAPI):
     app.state.lsp_writers = create_lsp_writers(app.state.lsps)
     app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
     app.state.websocket_manager = WebsocketManager()
-    app.state.code_state = CodeState()
-    app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
+    app.state.code_manager = CodeManager()
     app.state.script_metadata = ScriptMetadata()
     app.state.dbq = DBQueue(
         C.DB_PATH,
@@ -77,8 +75,7 @@ async def lifespan(app: FastAPI):
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
-        app.state.code_state,
-        app.state.code_tasks,
+        app.state.code_manager,
         app.state.script_metadata,
         app.state.dbq,
     )
