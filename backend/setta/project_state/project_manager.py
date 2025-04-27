@@ -1,5 +1,4 @@
 from setta.websockets.websocket_msg_handlers import WMHCodeManager
-
 from .project_state import ProjectState
 
 
