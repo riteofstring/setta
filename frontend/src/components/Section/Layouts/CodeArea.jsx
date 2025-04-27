@@ -1,3 +1,5 @@
+import { EditorState, Facet } from "@codemirror/state";
+import { Decoration, EditorView, ViewPlugin } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
@@ -126,9 +128,18 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={localValue}
+        // value={localValue}
+        value={
+          "This is editable.\nThis is NOT editable.\nThis is editable again."
+        }
         theme={theme}
-        extensions={extensions}
+        extensions={[
+          ...extensions,
+          uneditableRanges.of({ from: 10, to: 50 }), // Make characters 10-50 uneditable
+          readOnlyRangesExtension,
+          uneditableRangeStyle,
+          uneditableStyles,
+        ]}
         onMouseDown={onMouseDown}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
@@ -296,3 +307,71 @@ const debouncedSetCode = asyncDebounce(
   },
   50,
 );
+
+// Create a facet to store uneditable ranges
+const uneditableRanges = Facet.define({
+  combine: (ranges) => ranges,
+});
+
+// Create the extension that checks against these ranges
+const readOnlyRangesExtension = EditorState.transactionFilter.of((tr) => {
+  const ranges = tr.startState.facet(uneditableRanges) || [];
+
+  // Check if any ranges are affected by this transaction
+  for (let range of ranges) {
+    if (tr.changes.touchesRange(range.from, range.to)) {
+      return []; // Reject the transaction
+    }
+  }
+  return tr;
+});
+
+// Create decorations for visual styling of uneditable regions
+const uneditableRangeStyle = ViewPlugin.fromClass(
+  class {
+    decorations;
+
+    constructor(view) {
+      this.decorations = this.createDecorations(view);
+    }
+
+    update(update) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        update.startState.facet(uneditableRanges) !==
+          update.state.facet(uneditableRanges)
+      ) {
+        this.decorations = this.createDecorations(update.view);
+      }
+    }
+
+    createDecorations(view) {
+      const ranges = view.state.facet(uneditableRanges) || [];
+      let decorations = [];
+
+      for (let range of ranges) {
+        // Add mark decoration for the uneditable range
+        decorations.push(
+          Decoration.mark({
+            class: "cm-uneditable-region",
+          }).range(range.from, range.to),
+        );
+      }
+
+      return Decoration.set(decorations);
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);
+
+// CSS styles for the editor
+const uneditableStyles = EditorView.theme({
+  ".cm-uneditable-region": {
+    backgroundColor: "#f0f0f0",
+    color: "#666",
+    cursor: "not-allowed",
+  },
+});
