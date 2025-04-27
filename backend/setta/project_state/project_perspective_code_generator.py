@@ -91,3 +91,7 @@ class ProjectPerspectiveCodeGenerator:
         await code_preview.process_diagnostics_response(
             lsp_response, self.exporter_output
         )
+
+    def delete_temp_files(self):
+        for v in self.code_previews.values():
+            v.delete_temp_file()

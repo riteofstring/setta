@@ -52,3 +52,8 @@ class ProjectState:
 
     async def process_diagnostics_response(self, lsp_response):
         await self.code_generator.process_diagnostics_response(lsp_response)
+
+    def delete_temp_files(self):
+        self.code_generator.delete_temp_files()
+        for v in self.section_perspective_code_generators.values():
+            v.delete_temp_files()

@@ -87,3 +87,7 @@ class SectionPerspectiveCodeGenerator:
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.up_to_date_text_fields:
             self.text_field_initialize(paramInfoId)
+
+    def delete_temp_files(self):
+        for v in self.code_previews.values():
+            v.delete_temp_file()

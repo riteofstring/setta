@@ -113,7 +113,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.file_watcher.stop()
+        app.state.project_manager.delete_temp_files()
+        app.state.lsp_writers.file_watcher.stop()
         app.state.specific_file_watcher.stop()
         await app.state.mcp_client.stop()
         await stop_lsps(app.state.lsps, app.state.lsp_readers)
