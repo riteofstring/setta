@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from setta.database.utils import create_new_id
 from setta.gen_code.python.position_line_col import position_to_line_col
 
-from .utils import getCandidateTemplateVars, replace_template_vars_with_random_names
+from .utils import (
+    find_candidate_template_vars,
+    replace_template_vars_with_random_names,
+)
 
 
 class CodeAreaFindTemplateVarsContent(BaseModel):
@@ -16,7 +19,7 @@ class CodeAreaFindTemplateVarsContent(BaseModel):
 async def codeAreaFindTemplateVars(message, lsp_writers):
     message_id = message["id"]
     message = CodeAreaFindTemplateVarsContent.parse_obj(message["content"])
-    candidateTemplateVars = getCandidateTemplateVars()
+    candidateTemplateVars = find_candidate_template_vars()
     request_ids = await sendTemplateVarRequests(
         message_id,
         message.sectionId,

@@ -9,8 +9,8 @@ from setta.gen_code.python.check_scope import are_positions_in_scope_with_variab
 from setta.utils.utils import multireplace
 
 from .utils import (
+    find_candidate_ev_refs,
     generate_unique_variable,
-    getCandidateEVRefs,
     prepare_code_for_scope_checking,
 )
 
@@ -26,7 +26,7 @@ class TextFieldFindReferencesContent(BaseModel):
 async def findEVRefs(message, lsp_writers):
     message_id = message["id"]
     message = TextFieldFindReferencesContent.parse_obj(message["content"])
-    candidateEVRefs = getCandidateEVRefs()
+    candidateEVRefs = find_candidate_ev_refs()
     request_ids = await sendEVRefRequests(
         message_id,
         message.sectionId,

@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 
 from setta.code_state.code_task_fns.utils import (
-    getCandidateTemplateVars,
+    find_candidate_template_vars,
     replace_template_vars_with_random_names,
 )
 from setta.gen_code.export_selected import get_section_code, get_section_type
@@ -24,7 +24,7 @@ async def route_format_code(x: FormatCodeRequest):
     for id, s in p["sections"].items():
         if get_section_type(p, id) == C.CODE:
             if s["codeLanguage"] == "python":
-                candidateTemplateVars = getCandidateTemplateVars()
+                candidateTemplateVars = find_candidate_template_vars()
                 code = get_section_code(p, id)
                 (
                     code,

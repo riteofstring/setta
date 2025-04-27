@@ -11,8 +11,8 @@ from setta.utils.constants import C
 from .codeAreaFindTemplateVars import findTemplateVarsLocally
 from .findEVRefs import findEVRefsLocally
 from .utils import (
-    getCandidateEVRefs,
-    getCandidateTemplateVars,
+    find_candidate_ev_refs,
+    find_candidate_template_vars,
     prepare_code_for_scope_checking,
     send_document_open_request_with_diagnostics,
 )
@@ -43,8 +43,8 @@ async def codeAreaAutocomplete(message, lsp_writers, code_state):
         fullNameToSectionId,
     ) = cache
 
-    candidateTemplateVars = getCandidateTemplateVars()
-    candidateEVRefs = getCandidateEVRefs()
+    candidateTemplateVars = find_candidate_template_vars()
+    candidateEVRefs = find_candidate_ev_refs()
 
     templateVars = await findTemplateVarsLocally(
         message.sectionId,

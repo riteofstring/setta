@@ -105,14 +105,6 @@ def generate_unique_variable(code, keyword):
             return new_var
 
 
-def getCandidateTemplateVars():
-    pass
-
-
-def getCandidateEVRefs():
-    pass
-
-
 def ev_ref_does_not_refer_to_self(
     full_name_to_info, keyword, section_id, param_info_id
 ):
@@ -128,12 +120,12 @@ def ev_ref_does_not_refer_to_self(
     )
 
 
-def find_candidate_ev_refs(section_id, param_info_id, value, regex_pattern_key):
+def find_candidate_ev_refs(
+    ev_ref_regex_state, section_id, param_info_id, value, regex_pattern_key
+):
     output = set()
-    ev_ref_regex, full_name_to_info = (
-        use_ev_ref_regex.get_state()[regex_pattern_key],
-        use_ev_ref_regex.get_state()["full_name_to_info"],
-    )
+    ev_ref_regex = (ev_ref_regex_state[regex_pattern_key],)
+    full_name_to_info = ev_ref_regex_state["full_name_to_info"]
 
     match = ev_ref_regex.search(value)
     while match:
@@ -147,12 +139,10 @@ def find_candidate_ev_refs(section_id, param_info_id, value, regex_pattern_key):
     return list(output)
 
 
-def find_candidate_template_vars(section_id, value):
+def find_candidate_template_vars(template_var_regex_state, section_id, value):
     output = []
-    template_vars_regex = use_template_var_regex.get_state()["pattern"]
-    full_name_to_section_id = use_template_var_regex.get_state()[
-        "full_name_to_section_id"
-    ]
+    template_vars_regex = template_var_regex_state["pattern"]
+    full_name_to_section_id = template_var_regex_state["full_name_to_section_id"]
 
     match = template_vars_regex.search(value)
     while match:
