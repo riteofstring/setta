@@ -37,10 +37,8 @@ def create_lsp_writers(lsps):
     }
 
 
-def create_lsp_readers(lsps, websocket_message_handler):
-    return {
-        k: LanguageServerReader(v, websocket_message_handler) for k, v in lsps.items()
-    }
+def create_lsp_readers(lsps, code_manager):
+    return {k: LanguageServerReader(v, code_manager) for k, v in lsps.items()}
 
 
 def create_file_watcher(lsps, lsp_writers):

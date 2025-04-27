@@ -1,17 +1,25 @@
+from setta.websockets.websocket_msg_handlers import WMHCodeManager
+
 from .code_state import CodeState
 
 
 class CodeManager:
-    def __init__(self, lsp_writers):
-        self.states = {}  # project id to current state
+    def __init__(self, lsp_writers, websocket_manager):
+        self.states = {}  # project config id to current state
         self.lsp_writers = lsp_writers
+        self.websocket_msg_handler = WMHCodeManager(websocket_manager)
 
-    def update_project_state(self, project_state):
+    async def update(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
-            self.states[projectConfigId] = CodeState(project_state, self.lsp_writers)
-        else:
-            self.states[projectConfigId].update(project_state)
+            self.states[projectConfigId] = CodeState(
+                project_state, self.lsp_writers, self.websocket_msg_handler
+            )
+        await self.states[projectConfigId].update(project_state)
 
     async def type_check(self, projectConfigId):
         await self.states[projectConfigId].type_check()
+
+    async def process_diagnostics_response(self, lsp_response):
+        for code_state in self.states.values():
+            await code_state.process_diagnostics_response(lsp_response)

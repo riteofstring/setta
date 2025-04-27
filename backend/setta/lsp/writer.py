@@ -70,6 +70,7 @@ class LanguageServerWriter(LanguageServerInteractor):
                 uri=uri,
                 version=version,
             )
+        return uri
 
     async def send_autocomplete_request(
         self,

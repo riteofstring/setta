@@ -111,13 +111,13 @@ def route_load_project_config_names(dbq=Depends(get_dbq)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(
+async def route_load_project_config(
     x: ProjectLoadRequest, dbq=Depends(get_dbq), code_manager=Depends(get_code_manager)
 ):
     try:
         with dbq as db:
             project_state = load_project_config(db, x.projectConfigName)
-            code_manager.update_project_state(project_state)
+            await code_manager.update(project_state)
             return project_state
     except ProjectNotFound as e:
         raise HTTPException(status_code=404, detail=repr(e))

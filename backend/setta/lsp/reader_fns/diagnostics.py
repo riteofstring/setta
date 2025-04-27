@@ -4,30 +4,8 @@ from setta.gen_code.export_selected import get_gen_code_template_var
 from setta.gen_code.python.position_line_col import line_col_to_position_batch
 
 
-def process_diagnostics_response(response, get_code_metadata):
-    params = response["params"]
-    metadata = get_code_metadata(params["uri"])
-    if not metadata["needsDiagnostics"] or metadata["version"] != params["version"]:
-        return None, False
-
-    convert_diagnostic_line_cols_to_positions(metadata["code"], params["diagnostics"])
-
-    code_split = metadata["code"].split("\n")
-    diagnostics = process_diagnostics(
-        params["diagnostics"],
-        code_split,
-        metadata["codeJson"],
-        metadata["ref_template_var_positions"],
-    )
-
-    return {
-        "projectConfigId": metadata["projectConfigId"],
-        "codeSectionId": metadata["codeSectionId"],
-        "diagnostics": diagnostics,
-    }, True
-
-
-def process_diagnostics(diagnostics, code_split, codeJson, ref_template_var_positions):
+def process_diagnostics(diagnostics, code, codeJson, ref_template_var_positions):
+    code_split = code.split("\n")
     output = []
     gen_code_template_var = get_gen_code_template_var(
         ref_template_var_positions["templateVars"]

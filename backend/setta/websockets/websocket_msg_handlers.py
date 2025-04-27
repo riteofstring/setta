@@ -20,7 +20,6 @@ class WebsocketMsgHandlers:
         script_metadata,
         dbq,
     ):
-        self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
@@ -48,7 +47,7 @@ class BaseWebsocketMsgHandler:
         pass
 
 
-class WMHLSPReader(BaseWebsocketMsgHandler):
+class WMHCodeManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
