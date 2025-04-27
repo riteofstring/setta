@@ -7,11 +7,13 @@ from setta.project_state.section_perspective_code_generator import (
 
 
 class ProjectState:
-    def __init__(self, lsp_writers, websocket_msg_handler):
+    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, temp_folder_sp):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
+        self.temp_folder = temp_folder
+        self.temp_folder_sp = temp_folder_sp
         self.code_generator = ProjectPerspectiveCodeGenerator(
-            self.lsp_writers, websocket_msg_handler
+            self.lsp_writers, self.websocket_msg_handler, self.temp_folder
         )
         self.section_perspective_code_generators = {}
 
@@ -28,7 +30,10 @@ class ProjectState:
             if sectionId not in self.section_perspective_code_generators:
                 self.section_perspective_code_generators[sectionId] = (
                     SectionPerspectiveCodeGenerator(
-                        sectionId, self.lsp_writers, self.websocket_msg_handler
+                        sectionId,
+                        self.lsp_writers,
+                        self.websocket_msg_handler,
+                        self.temp_folder_sp,
                     )
                 )
             self.section_perspective_code_generators[sectionId].update(project_state)

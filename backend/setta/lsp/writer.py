@@ -42,20 +42,20 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_open_request(
         self,
-        uri,
+        filepath,
         code,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
-        if not virtual:
-            self.create_or_update_temp_file(uri, code)
+        uri = self.get_uri(filepath, virtual)
         if uri not in self.latest_version_numbers:
-            self.latest_version_numbers[uri] = 0
+            version = 0
+            self.latest_version_numbers[uri] = version
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.latest_version_numbers[uri],
+                    "version": version,
                     "text": code,
                 }
             }
@@ -64,9 +64,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         else:
             logger.debug(f"document already open, updating it {uri}")
             await self.send_document_update(
-                uri=uri,
+                filepath=filepath,
                 code=code,
             )
+        return uri
 
     async def send_autocomplete_request(
         self,
@@ -158,16 +159,15 @@ class LanguageServerWriter(LanguageServerInteractor):
             params={"settings": settings},
         )
 
-    async def send_document_update(
-        self,
-        uri,
-        code,
-    ):
-        self.latest_version_numbers[uri] += 1
+    async def send_document_update(self, filepath, code, virtual=None):
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(filepath, virtual)
+        version = self.latest_version_numbers[uri] + 1
+        self.latest_version_numbers[uri] = version
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.latest_version_numbers[uri],
+                "version": version,
             },
             "contentChanges": [{"text": code}],
         }
@@ -232,3 +232,10 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     def get_is_virtual(self, virtual):
         return virtual if virtual is not None else self.use_virtual_files
+
+    # https://github.com/microsoft/language-server-protocol/issues/1676
+    def get_uri(self, filepath, virtual):
+        uri = filepath.as_uri()
+        if virtual:
+            uri = uri.replace("file://", "untitled:", 1)
+        return uri

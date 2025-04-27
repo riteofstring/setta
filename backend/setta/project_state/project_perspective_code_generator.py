@@ -11,13 +11,18 @@ from setta.project_state.code_preview import CodePreview
 
 class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
-        await self.lsp_writers.full.send_document_open_request(
-            uri=self.uri,
+        self.uri = await self.lsp_writers.full.send_document_open_request(
+            filepath=self.temp_file,
             code=self.code,
         )
 
     async def process_diagnostics_response(self, lsp_response, exporter_output):
         params = lsp_response["params"]
+        if (
+            self.lsp_writers.full.get_latest_version_number(self.uri)
+            != params["version"]
+        ):
+            return
         convert_diagnostic_line_cols_to_positions(self.code, params["diagnostics"])
         diagnostics = process_diagnostics(
             params["diagnostics"],
@@ -34,12 +39,13 @@ class ProjectPerspectiveCodePreview(CodePreview):
 
 
 class ProjectPerspectiveCodeGenerator:
-    def __init__(self, lsp_writers, websocket_msg_handler):
+    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.project_state = None
         self.code_previews = {}
         self.exporter_output = None
+        self.temp_folder = temp_folder
 
     async def update(self, project_state):
         self.project_state = project_state
@@ -50,11 +56,12 @@ class ProjectPerspectiveCodeGenerator:
         )
         self.exporter_output = exporter_obj.output
         projectConfigName = self.project_state["projectConfig"]["name"]
+        project_temp_folder = self.temp_folder / projectConfigName
         code_dict = await generate_final_code_for_sections(
             self.project_state,
             exporter_obj,
             lsp_writers=self.lsp_writers,
-            folder_path=self.lsp_writers.full.project_code_folder(projectConfigName),
+            folder_path=project_temp_folder,
         )
         self.code_previews = {
             k: v for k, v in self.code_previews.items() if k in code_dict
@@ -62,7 +69,7 @@ class ProjectPerspectiveCodeGenerator:
         for k, v in code_dict.items():
             if k not in self.code_previews:
                 self.code_previews[k] = ProjectPerspectiveCodePreview(
-                    k, self.lsp_writers, self.websocket_msg_handler
+                    k, self.lsp_writers, self.websocket_msg_handler, project_temp_folder
                 )
             self.code_previews[k].update(self.project_state, v)
 
@@ -79,11 +86,7 @@ class ProjectPerspectiveCodeGenerator:
     async def process_diagnostics_response(self, lsp_response):
         params = lsp_response["params"]
         code_preview = self.get_code_preview_by_uri(params["uri"])
-        if (
-            not code_preview
-            or self.lsp_writers.full.get_latest_version_number(self.uri)
-            != params["version"]
-        ):
+        if not code_preview:
             return
         await code_preview.process_diagnostics_response(
             lsp_response, self.exporter_output

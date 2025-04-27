@@ -4,10 +4,11 @@ from setta.project_state.code_preview import CodePreview
 
 
 class SectionPerspectiveCodeGenerator:
-    def __init__(self, sectionId, lsp_writers, websocket_msg_handler):
+    def __init__(self, sectionId, lsp_writers, websocket_msg_handler, temp_folder):
         self.sectionId = sectionId
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
+        self.temp_folder = temp_folder
         self.project_state = None
         self.code_previews = {}
         self.up_to_date_text_fields = set()

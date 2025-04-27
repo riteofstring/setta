@@ -105,46 +105,5 @@ class LanguageServerInteractor:
                 self.pending_requests.pop(id, None)
         return None
 
-
-# self.temp_files = {}
-# code_folder.mkdir(parents=True, exist_ok=True)
-# code_folder_section_perspective.mkdir(parents=True, exist_ok=True)
-
-
-# for path in self.temp_files.values():
-#     if path.exists():
-#         path.unlink()
-
-
-# # https://github.com/microsoft/language-server-protocol/issues/1676
-# def get_uri(self, code_id, virtual):
-#     uri = self.get_base_uri(code_id)
-#     if virtual:
-#         uri = uri.replace("file://", "untitled:", 1)
-#     return uri
-
-# def get_code_id_path(self, code_id):
-#     return self.code_folder / f"{code_id}.py"
-
-# def get_base_uri(self, code_id):
-#     return self.get_code_id_path(code_id).as_uri()
-
-# def create_temp_file(self, code_id, code):
-#     """Create a temporary file for the given code and return its path."""
-#     # Create all necessary parent directories
-#     file_path = self.get_code_id_path(code_id)
-#     logger.debug(f"Creating temporary file {file_path}")
-#     file_path.parent.mkdir(parents=True, exist_ok=True)
-
-#     # Write the code to the file
-#     file_path.write_text(code)
-
-#     # Store the path for later cleanup
-#     self.temp_files[code_id] = file_path
-#     return file_path
-
-# def create_or_update_temp_file(self, code_id, code):
-#     if code_id in self.temp_files:
-#         self.temp_files[code_id].write_text(code)
-#     else:
-#         self.create_temp_file(code_id, code)
+    def get_latest_version_number(self, uri):
+        return self.latest_version_numbers.get(uri)

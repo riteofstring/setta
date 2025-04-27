@@ -1,3 +1,4 @@
+from setta.utils.constants import CODE_FOLDER
 from setta.websockets.websocket_msg_handlers import WMHCodeManager
 
 from .project_state import ProjectState
@@ -8,12 +9,19 @@ class ProjectManager:
         self.states = {}  # project config id to current state
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHCodeManager(websocket_manager)
+        self.temp_folder = CODE_FOLDER / "temp_folder"
+        self.temp_folder_sp = CODE_FOLDER / "temp_folder_sp"
+        self.temp_folder.mkdir(parents=True, exist_ok=True)
+        self.temp_folder_sp.mkdir(parents=True, exist_ok=True)
 
     async def update(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
             self.states[projectConfigId] = ProjectState(
-                self.lsp_writers, self.websocket_msg_handler
+                self.lsp_writers,
+                self.websocket_msg_handler,
+                self.temp_folder,
+                self.temp_folder_sp,
             )
         await self.states[projectConfigId].update(project_state)
 
