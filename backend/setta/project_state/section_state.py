@@ -21,8 +21,8 @@ class SectionState:
             code_id=self.lsp_code_id, code=self.code, version=self.version
         )
 
-    def text_field_autocomplete(self):
-        print("text_field_autocomplete", flush=True)
+    async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
+        print("text_field_autocomplete", self.sectionId, flush=True)
 
     def update(self, project_state):
         self.update_section_path_full_name(project_state)

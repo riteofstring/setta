@@ -17,6 +17,7 @@ import {
   updateNodeDimensions,
   updateNodeVisibility,
 } from "./actions/nodeInternals";
+import { updateBackendProjectState } from "./actions/project/generateCode";
 import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
@@ -100,6 +101,10 @@ export function subscribe() {
         }
       });
     }
+  });
+
+  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
+    updateBackendProjectState();
   });
 
   useReactFlow.subscribe(
@@ -323,4 +328,8 @@ function entryCodeBlockSubscriptionFn(state) {
 
 function apiKeysFilepathSubscriptionFn(state) {
   return state.apiKeysFilepath;
+}
+
+function updateBackendSubscriptionFn(state) {
+  return state;
 }
