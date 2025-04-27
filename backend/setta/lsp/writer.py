@@ -44,31 +44,20 @@ class LanguageServerWriter(LanguageServerInteractor):
         self,
         code_id,
         code,
-        codeJson=None,
-        ref_template_var_positions=None,
-        needsDiagnostics=False,
-        projectConfigId=None,
-        codeSectionId=None,
+        version,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
+        if not virtual:
+            self.create_or_update_temp_file(code_id, code)
         uri = self.get_uri(code_id, virtual)
-        if uri not in self.code_metadata:
-            if not virtual:
-                self.create_or_update_temp_file(code_id, code)
+        if uri not in self.uris:
+            self.uris.add(uri)
             params = {
                 "textDocument": {
                     "uri": uri,
                     "languageId": "python",
-                    "version": self.get_new_version_number(
-                        uri,
-                        code,
-                        codeJson,
-                        ref_template_var_positions,
-                        needsDiagnostics,
-                        projectConfigId,
-                        codeSectionId,
-                    ),
+                    "version": version,
                     "text": code,
                 }
             }
@@ -77,14 +66,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         else:
             logger.debug(f"document already open, updating it {uri}")
             await self.send_document_update(
-                code_id=code_id,
                 code=code,
-                codeJson=codeJson,
-                ref_template_var_positions=ref_template_var_positions,
-                needsDiagnostics=needsDiagnostics,
-                projectConfigId=projectConfigId,
-                codeSectionId=codeSectionId,
-                virtual=virtual,
+                uri=uri,
+                version=version,
             )
 
     async def send_autocomplete_request(
@@ -179,31 +163,14 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_document_update(
         self,
-        code_id,
         code,
-        codeJson,
-        ref_template_var_positions=None,
-        needsDiagnostics=False,
-        projectConfigId=None,
-        codeSectionId=None,
-        virtual=None,
+        uri,
+        version,
     ):
-        virtual = self.get_is_virtual(virtual)
-        if not virtual:
-            self.create_or_update_temp_file(code_id, code)
-        uri = self.get_uri(code_id, virtual)
         params = {
             "textDocument": {
                 "uri": uri,
-                "version": self.get_new_version_number(
-                    uri,
-                    code,
-                    codeJson,
-                    ref_template_var_positions,
-                    needsDiagnostics,
-                    projectConfigId,
-                    codeSectionId,
-                ),
+                "version": version,
             },
             "contentChanges": [{"text": code}],
         }

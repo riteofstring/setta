@@ -10,6 +10,8 @@ class CodeManager:
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
             self.states[projectConfigId] = CodeState(project_state, self.lsp_writers)
+        else:
+            self.states[projectConfigId].update(project_state)
 
     async def type_check(self, projectConfigId):
         await self.states[projectConfigId].type_check()

@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from collections import defaultdict
-from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +37,10 @@ class LanguageServer:
         self.cleanup_pending_requests()
         self.pending_requests = {}
         self.msg_id_to_metadata = defaultdict(dict)
-        self.code_metadata = {}
         self.initialization_request_id = None
         self.is_initialized = False
         self.temp_files = {}
+        self.uris = set()
 
     def cleanup_pending_requests(self):
         if not hasattr(self, "pending_requests"):
@@ -98,6 +97,10 @@ class LanguageServerInteractor:
     def temp_files(self):
         return self.server.temp_files
 
+    @property
+    def uris(self):
+        return self.server.uris
+
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
         if future:
@@ -113,38 +116,3 @@ class LanguageServerInteractor:
 
     def project_code_folder(self, projectConfigName):
         return self.code_folder / projectConfigName
-
-    def construct_code_id(self, projectConfigName, sectionName):
-        return str(Path(projectConfigName) / sectionName)
-
-    @property
-    def code_metadata(self):
-        return self.server.code_metadata
-
-    def get_new_version_number(
-        self,
-        uri,
-        code,
-        codeJson,
-        ref_template_var_positions,
-        needsDiagnostics,
-        projectConfigId,
-        codeSectionId,
-    ):
-        obj = {
-            "code": code,
-            "codeJson": codeJson,
-            "ref_template_var_positions": ref_template_var_positions,
-            "needsDiagnostics": needsDiagnostics,
-            "projectConfigId": projectConfigId,
-            "codeSectionId": codeSectionId,
-        }
-        if uri not in self.code_metadata:
-            obj["version"] = 0
-        else:
-            obj["version"] = self.code_metadata[uri]["version"] + 1
-        self.code_metadata[uri] = obj
-        return obj["version"]
-
-    def get_code_metadata(self, uri):
-        return self.code_metadata[uri]
