@@ -16,7 +16,6 @@ from setta.code_gen.create_runnable_scripts import (
 )
 from setta.code_gen.export_selected import export_for_interactive_fn
 from setta.utils.constants import C
-from setta.utils.utils import nested_access
 
 from .logger import SettaLogger
 
@@ -363,6 +362,7 @@ class SettaListener:
         for fn in self.fns:
             for d in fn._setta_dependencies:
                 if d is not None:
+                    # TODO: use new S class approach
                     d = self.exporter_obj.var_name_reverse_mapping.get(d)
                     if not d:
                         continue
@@ -375,6 +375,7 @@ class SettaListener:
         if fn._setta_is_running:
             fn._setta_data_to_be_updated[tuple(key)] = value
         else:
+            # TODO: use new S class approach
             nice_str = self.exporter_obj.var_name_mapping.get(tuple(key))
             if not nice_str:
                 return

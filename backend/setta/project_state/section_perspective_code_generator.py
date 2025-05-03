@@ -23,6 +23,7 @@ class SectionPerspectiveCodeGenerator:
             self.project_state,
             always_export_args_objs=True,
         )
+        # TODO: replace this
         var_name = exporter_obj.var_name_mapping[(self.sectionId, paramInfoId, False)]
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName

@@ -4,7 +4,7 @@ from setta.database.db.codeInfo.utils import new_code_info_col
 from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import findAllParametersAndPathMaps
-from setta.utils.utils import QuoteInsensitiveDict, replace_null_keys_with_none
+from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import BASE_UI_TYPES, C
 
@@ -128,10 +128,6 @@ def no_entered_value(value):
     return value is None or value == ""
 
 
-def get_var_name(var_name_mapping):
-    return f"{C.ARGS_PREFIX}x{len(var_name_mapping)}"
-
-
 def get_for_section_id(p, section_id):
     for sid, s in p["sections"].items():
         if s["paramSweepSectionId"] == section_id:
@@ -247,8 +243,6 @@ class Exporter:
     def __init__(self, p, always_export_args_objs):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.var_name_mapping = {}
-        self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
         self.section_types_to_process = [
             C.SECTION,
@@ -271,7 +265,7 @@ class Exporter:
         return [self.export_section(x) for x in ids]
 
     def export_section(self, id):
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             id,
             None,
         )
@@ -332,7 +326,7 @@ class Exporter:
         return var_name
 
     def export_args_obj(self, id):
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             id,
             None,
             is_args_obj=True,
@@ -385,7 +379,7 @@ class Exporter:
         param_name = codeInfo["name"]
         if not param_name:
             return None
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             section_id,
             id,
         )
@@ -429,41 +423,22 @@ class Exporter:
             used_ref_var_names = []
         return value, used_ref_var_names
 
-    def maybe_create_ref_var_name(
-        self, ref_section_id, ref_param_info_id, ref_is_args_obj
-    ):
-        if ref_is_args_obj:
-            return self.export_args_obj(ref_section_id)
-        elif ref_param_info_id:
-            return self.export_param(ref_section_id, ref_param_info_id)
-        elif ref_section_id:
-            return self.export_section(ref_section_id)
-        else:
-            raise ValueError
+    # def maybe_create_var_name(
+    #     self,
+    #     section_id,
+    #     param_info_id,
+    #     is_args_obj=False,
+    # ):
+    # TODO: figure out new condition for circular reference
+    # elif var_name not in self.output:
+    # this means the var_name has already been created
+    # but it hasn't been added to the output.
+    # This only happens in a circular dependency.
+    # raise RecursionError("There is a circular reference")
+    # return var_name
 
-    def get_ref_var_name(self, ref_section_id, ref_param_info_id, ref_is_args_obj):
-        return self.var_name_mapping[
-            (ref_section_id, ref_param_info_id, ref_is_args_obj)
-        ]
-
-    def maybe_create_var_name(
-        self,
-        section_id,
-        param_info_id,
-        is_args_obj=False,
-    ):
-        mapping_key = (section_id, param_info_id, is_args_obj)
-        var_name = self.var_name_mapping.get(mapping_key)
-        if not var_name:
-            var_name = get_var_name(self.var_name_mapping)
-            self.var_name_mapping[mapping_key] = var_name
-            self.var_name_reverse_mapping[var_name] = mapping_key
-        elif var_name not in self.output:
-            # this means the var_name has already been created
-            # but it hasn't been added to the output.
-            # This only happens in a circular dependency.
-            raise RecursionError("There is a circular reference")
-        return var_name
+    def create_var_name(self, section_id, param_info_id, is_args_obj=False):
+        return "x"
 
 
 class ExporterForInteractiveFn:
@@ -471,7 +446,6 @@ class ExporterForInteractiveFn:
         self.output = {}
         self.p = copy.deepcopy(p)
         self.var_name_mapping = {}
-        self.var_name_reverse_mapping = QuoteInsensitiveDict()
 
     def export(self):
         remove_unneeded_sections(
