@@ -15,10 +15,7 @@ class ProjectPerspectiveCodePreview(CodePreview):
 
     async def process_diagnostics_response(self, lsp_response, exporter_output):
         params = lsp_response["params"]
-        if (
-            self.lsp_writers.full.get_latest_version_number(self.uri)
-            != params["version"]
-        ):
+        if self.lsp_writer.get_latest_version_number(self.uri) != params["version"]:
             return
         convert_diagnostic_line_cols_to_positions(self.code, params["diagnostics"])
         diagnostics = process_diagnostics(

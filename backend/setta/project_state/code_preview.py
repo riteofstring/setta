@@ -1,5 +1,4 @@
 import logging
-from abc import ABC
 
 from setta.code_gen.create_runnable_scripts import sanitize_section_path_full_name
 from setta.code_gen.export_selected import get_section_path_full_name
@@ -7,11 +6,11 @@ from setta.code_gen.export_selected import get_section_path_full_name
 logger = logging.getLogger(__name__)
 
 
-class CodePreview(ABC):
+class CodePreview:
     def __init__(self, sectionId, lsp_writers, websocket_msg_handler, temp_folder):
         self.project_state = None
         self.sectionId = sectionId
-        self.lsp_writers = lsp_writers
+        self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
         self.temp_file = None
@@ -46,7 +45,7 @@ class CodePreview(ABC):
         self.temp_file.write_text(code)
 
     async def send_document_open_request(self):
-        self.uri = await self.lsp_writers.full.send_document_open_request(
+        self.uri = await self.lsp_writer.send_document_open_request(
             filepath=self.temp_file,
             code=self.code,
         )
