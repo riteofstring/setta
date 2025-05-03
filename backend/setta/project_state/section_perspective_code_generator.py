@@ -85,47 +85,9 @@ class SectionPerspectiveCodeGenerator:
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.text_field_cache:
             await self.text_field_initialize(paramInfoId)
-        self.get_code_and_cursor_position(paramInfoId, fullText)
-
-    def get_code_and_cursor_position(self, paramInfoId, fullText):
-        evRefs, var_value, new_positions = self.get_ev_refs_and_process_them(
-            paramInfoId, fullText
-        )
-
-    def get_ev_refs_and_process_them(self, paramInfoId, fullText):
-        candidateEVRefs = self.find_candidate_ev_refs(paramInfoId, fullText)
-        print(f"candidateEVRefs {candidateEVRefs}\n\n", flush=True)
-        evRefs = self.find_ev_refs(candidateEVRefs, fullText)
-        return None, None, None
-
-    def find_candidate_ev_refs(self, paramInfoId, fullText):
-        output = set()
-        match = self.ev_ref_regex.search(fullText)
-        while match:
-            if ev_ref_does_not_refer_to_self(
-                self.full_name_to_info, match.group(0), self.sectionId, paramInfoId
-            ):
-                output.add((match.group(0), match.start()))
-
-            match = self.ev_ref_regex.search(fullText, match.start() + 1)
-        return list(output)
-
-    def find_ev_refs(self, candidateEVRefs, fullText):
-        evRefRequestId = create_new_id()
-        candidateEVRefs = filter_candidates_by_scope(
-            candidateEVRefs,
-            fullText,
-            onlyAfterGenCodeTemplateVar=False,
-            templateVars=[],
-        )
-        if len(candidateEVRefs) == 0:
-            return []
-        code, position_offset, num_keywords = generate_code_for_reference_finding(
-            candidateEVRefs,
-            fullText,
-            onlyAfterGenCodeTemplateVar=False,
-            templateVars=[],
-        )
+            ev_ref_finder
+        await self.get_code_and_cursor_position(paramInfoId, fullText)
+        
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
@@ -146,6 +108,7 @@ class TextFieldCache:
         self.referencable_var_names = referencable_var_names
         self.generated_var_names = generated_var_names
         self.exporter_obj = exporter_obj
+        self.ev_ref_finder = 
 
 
 def ev_ref_does_not_refer_to_self(
@@ -267,3 +230,20 @@ def prepare_code_for_scope_checking(fullText, templateVars, target_template_var)
         fullText = fullText[:startPos] + replacement + fullText[endPos:]
 
     return fullText, the_special_var_name
+
+
+
+
+# alternate approach:
+# S.model.args
+
+import math
+from transformers import Trainer
+
+class S:
+    def __init__(self):
+        x = 5
+        self.result = Trainer()
+
+
+math.sqrt()
