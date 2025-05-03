@@ -3,15 +3,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import get_gen_code_template_var
-from setta.code_gen.python.check_scope import are_positions_in_scope_with_variable
 from setta.database.utils import create_new_id
-from setta.utils.utils import multireplace
 
 from .utils import (
     find_candidate_ev_refs,
-    generate_unique_variable,
-    prepare_code_for_scope_checking,
 )
 
 
@@ -154,73 +149,3 @@ async def waitForEVRefResponses(request_ids, lsp_writers):
         request_futures.append(future)
 
     return await asyncio.gather(*request_futures)
-
-
-def filterCandidatesByScope(
-    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, templateVars
-):
-    if not onlyAfterGenCodeTemplateVar:
-        return candidateEVRefs
-    matching_template_var = get_gen_code_template_var(templateVars)
-    if matching_template_var is None:
-        return []
-
-    fullText, the_special_var_name = prepare_code_for_scope_checking(
-        fullText, templateVars, matching_template_var
-    )
-
-    response = are_positions_in_scope_with_variable(
-        fullText, [x[1] for x in candidateEVRefs], the_special_var_name
-    )
-
-    return [x for idx, x in enumerate(candidateEVRefs) if response[idx]]
-
-
-def generateCodeForReferenceFinding(
-    candidateEVRefs, fullText, onlyAfterGenCodeTemplateVar, templateVars
-):
-    position_offset = 0
-
-    if onlyAfterGenCodeTemplateVar:
-        matching_template_var = get_gen_code_template_var(templateVars)
-        if matching_template_var is None:
-            return "", position_offset, 0
-        # If SETTA_GENERATED_PYTHON is present, we only want to consider
-        # code that comes after it.
-        startPos = matching_template_var["startPos"]
-        keyword = matching_template_var["keyword"]
-        endPos = startPos + len(keyword)
-        template_str_len = endPos - startPos
-        before_text = fullText[:startPos]
-        fullText = fullText[endPos:]
-        position_offset -= len(before_text) + template_str_len
-
-    output = []
-    var_name_mapping = {}
-    visited_keywords = set()
-    for keyword, _ in candidateEVRefs:
-        # candidateEVRefs might contain multiple suggestions to the same keyword
-        # like in the case of fn(a=a), it'll suggest "a" in two positions
-        # but we only need to write the a=None declaration once
-        # so we keep track of keywords we've already visited
-        if keyword in visited_keywords:
-            continue
-        visited_keywords.add(keyword)
-        # Replace reference names like
-        # list_of_models[0]
-        # with a random valid variable name of the same length.
-        # If "[" is ever in the keyword,
-        # we know it will have a length of at least 4, e.g. x[0] has 4 characters.
-        # So we don't have to worry about clashes.
-        if "[" in keyword:
-            new_keyword = generate_unique_variable(fullText, keyword)
-            var_name_mapping[keyword] = new_keyword
-            keyword = new_keyword
-        output.append(f"{keyword}=None")
-
-    output = "\n".join(output)
-    # the plus 1 is for the newline between output and fullText
-    position_offset += len(output) + 1
-    if len(var_name_mapping) > 0:
-        fullText = multireplace(fullText, var_name_mapping)
-    return f"{output}\n{fullText}", position_offset, len(visited_keywords)

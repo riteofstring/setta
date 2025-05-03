@@ -1,7 +1,5 @@
 import asyncio
-import random
 import re
-import string
 
 from setta.utils.utils import multireplace
 
@@ -54,28 +52,6 @@ async def send_document_open_request_with_diagnostics(
     return code_id
 
 
-def prepare_code_for_scope_checking(fullText, templateVars, target_template_var):
-    the_special_var_name = None
-    for t in templateVars:
-        startPos = t["startPos"]
-        keyword = t["keyword"]
-        endPos = startPos + len(keyword)
-        if t is target_template_var:
-            # need to assign something to the replacement variable so that ast considers it a variable
-            decl = "=None"
-            # the [:-len(decl)] is to keep the full declaration the same length as the original keyword
-            the_special_var_name = generate_unique_variable(fullText, keyword)[
-                : -len(decl)
-            ]
-            replacement = the_special_var_name + decl
-        else:
-            # variable assignment not necessary for the keywords that we don't care about
-            replacement = generate_unique_variable(fullText, keyword)
-        fullText = fullText[:startPos] + replacement + fullText[endPos:]
-
-    return fullText, the_special_var_name
-
-
 # generate valid variable names because for example $SETTA_GENERATED_PYTHON is not valid
 def replace_template_vars_with_random_names(candidateTemplateVars, fullText):
     var_name_mapping = {}
@@ -90,20 +66,6 @@ def replace_template_vars_with_random_names(candidateTemplateVars, fullText):
 
     code = multireplace(fullText, var_name_mapping)
     return code, list(keyword_to_pos.values()), reverse_var_name_mapping
-
-
-def generate_unique_variable(code, keyword):
-    length = len(keyword)
-    chars = string.ascii_lowercase + string.digits + "_"
-
-    while True:
-        # Ensure the variable starts with a letter or underscore
-        new_var = random.choice(string.ascii_lowercase + "_")
-        # Fill the rest with random characters
-        new_var += "".join(random.choice(chars) for _ in range(length - 1))
-
-        if new_var.isidentifier() and new_var not in code:
-            return new_var
 
 
 def find_candidate_template_vars(template_var_regex_state, section_id, value):
