@@ -106,40 +106,6 @@ def generate_unique_variable(code, keyword):
             return new_var
 
 
-def ev_ref_does_not_refer_to_self(
-    full_name_to_info, keyword, section_id, param_info_id
-):
-    return not (
-        (
-            full_name_to_info[keyword]["section_id"] == section_id
-            and not full_name_to_info[keyword]["param_info_id"]
-        )
-        or (
-            full_name_to_info[keyword]["section_id"] == section_id
-            and full_name_to_info[keyword]["param_info_id"] == param_info_id
-        )
-    )
-
-
-def find_candidate_ev_refs(
-    ev_ref_regex_state, section_id, param_info_id, value, regex_pattern_key
-):
-    output = set()
-    ev_ref_regex = (ev_ref_regex_state[regex_pattern_key],)
-    full_name_to_info = ev_ref_regex_state["full_name_to_info"]
-
-    match = ev_ref_regex.search(value)
-    while match:
-        if ev_ref_does_not_refer_to_self(
-            full_name_to_info, match.group(0), section_id, param_info_id
-        ):
-            output.add((match.group(0), match.start()))
-
-        match = ev_ref_regex.search(value, match.start() + 1)
-
-    return list(output)
-
-
 def find_candidate_template_vars(template_var_regex_state, section_id, value):
     output = []
     template_vars_regex = template_var_regex_state["pattern"]
