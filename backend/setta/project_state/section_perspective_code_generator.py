@@ -67,23 +67,35 @@ class SectionPerspectiveCodeGenerator:
             if startPos < pushed_var_name_position[0]
         ]
 
-        self.text_field_cache[paramInfoId] = [
-            gen_code_dict,
-            var_name,
-            referencable_var_names,
-            generated_var_names,
-            exporter_obj,
-        ]
+        self.text_field_cache[paramInfoId] = TextFieldCache(
+            gen_code_dict=gen_code_dict,
+            var_name=var_name,
+            referencable_var_names=referencable_var_names,
+            generated_var_names=generated_var_names,
+            exporter_obj=exporter_obj,
+        )
 
     async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.text_field_cache:
             await self.text_field_initialize(paramInfoId)
-        print(
-            f"self.text_field_cache[paramInfoId] {self.text_field_cache[paramInfoId]}\n\n\n",
-            flush=True,
-        )
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
             v.delete_temp_file()
+
+
+class TextFieldCache:
+    def __init__(
+        self,
+        gen_code_dict,
+        var_name,
+        referencable_var_names,
+        generated_var_names,
+        exporter_obj,
+    ):
+        self.gen_code_dict = gen_code_dict
+        self.var_name = var_name
+        self.referencable_var_names = referencable_var_names
+        self.generated_var_names = generated_var_names
+        self.exporter_obj = exporter_obj
