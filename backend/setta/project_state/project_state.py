@@ -1,7 +1,3 @@
-from setta.project_state.code_task_fns.evRefRegex import (
-    compute_info_to_full_name,
-    get_ev_ref_regex,
-)
 from setta.project_state.project_perspective_code_generator import (
     ProjectPerspectiveCodeGenerator,
 )
@@ -22,9 +18,6 @@ class ProjectState:
         self.section_perspective_code_generators = {}
 
     async def update(self, project_state):
-        ev_ref_regex, full_name_to_info = get_ev_ref_regex(project_state)
-        info_to_full_name = compute_info_to_full_name(full_name_to_info)
-
         # filter out sections that are no longer in the project
         self.section_perspective_code_generators = {
             k: v
@@ -43,13 +36,9 @@ class ProjectState:
                         self.temp_folder_sp,
                     )
                 )
-            self.section_perspective_code_generators[sectionId].update(
-                project_state, ev_ref_regex, full_name_to_info, info_to_full_name
-            )
+            self.section_perspective_code_generators[sectionId].update(project_state)
 
-        await self.code_generator.update(
-            project_state, ev_ref_regex, full_name_to_info, info_to_full_name
-        )
+        await self.code_generator.update(project_state)
 
     async def type_check(self):
         await self.code_generator.type_check()

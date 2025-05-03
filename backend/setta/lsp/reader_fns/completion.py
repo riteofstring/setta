@@ -8,22 +8,18 @@ def process_completion_response(response, metadata):
         content = process_completion(
             code,
             response["result"]["items"],
-            metadata["generated_var_names"],
-            metadata["referencable_var_names"],
-            metadata["cursor_offset"],
         )
     return content
 
 
 def process_completion(
-    code, items, generated_var_names, referencable_var_names, cursor_offset
+    code,
+    items,
 ):
     content = []
     line_cols = []
     content_idx_with_text_edit = {}
     for x in items:
-        if x["label"] in generated_var_names:
-            continue
         c = {"label": x["label"], "type": type_mapping[x["kind"]]}
         if "textEdit" in x:
             content_idx_with_text_edit[len(content)] = len(line_cols)
@@ -47,9 +43,6 @@ def process_completion(
             # for the frontend
             content[i]["from"] = positions[j] - cursor_offset
             content[i]["to"] = positions[j + 1] - cursor_offset
-
-    for x in referencable_var_names:
-        content.append({"label": x, "type": "variable"})
 
     return content
 

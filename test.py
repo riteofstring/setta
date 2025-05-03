@@ -71,85 +71,94 @@
 
 import ast
 
+
 def find_section_dependencies(code, section_names):
     """Find dependencies between sections by analyzing 'self.X' references in expressions."""
     dependencies = set()
-    
+
     class DependencyVisitor(ast.NodeVisitor):
         def visit_Attribute(self, node):
             # Check for self.X attributes
-            if isinstance(node.value, ast.Name) and node.value.id == 'self':
+            if isinstance(node.value, ast.Name) and node.value.id == "self":
                 if node.attr in section_names:
                     dependencies.add(node.attr)
-            
+
             # Continue visiting other nodes
             self.generic_visit(node)
-    
+
     # Try parsing the code
     try:
         # For expressions, wrap as needed
         try:
-            tree = ast.parse(code, mode='eval')  # Try as expression first
+            tree = ast.parse(code, mode="eval")  # Try as expression first
         except SyntaxError:
             # If that fails, try as a statement/module
             tree = ast.parse(code)
-            
+
         DependencyVisitor().visit(tree)
     except SyntaxError:
         # Handle unparseable code gracefully
         pass
-        
+
     return dependencies
+
 
 def test_dependency_visitor():
     """Test the dependency visitor with expression code examples."""
     # Define section names
-    section_names = ["model", "optimizer", "loss_fn", "dataset", "learning_rate", "bias"]
-    
+    section_names = [
+        "model",
+        "optimizer",
+        "loss_fn",
+        "dataset",
+        "learning_rate",
+        "bias",
+    ]
+
     # Test cases with expected dependencies
     test_cases = [
         # Basic reference
         {"code": "self.model", "expected": {"model"}},
-        
         # Method call
         {"code": "self.model.parameters()", "expected": {"model"}},
-        
         # Multiple references in function call
-        {"code": "torch.optim.Adam(params=self.model.parameters(), lr=self.learning_rate)", 
-         "expected": {"model", "learning_rate"}},
-        
+        {
+            "code": "torch.optim.Adam(params=self.model.parameters(), lr=self.learning_rate)",
+            "expected": {"model", "learning_rate"},
+        },
         # Right side of assignment only
-        {"code": "torch.optim.Adam(params=self.model.parameters())", 
-         "expected": {"model"}},
-        
+        {
+            "code": "torch.optim.Adam(params=self.model.parameters())",
+            "expected": {"model"},
+        },
         # Complex nested case
-        {"code": "self.loss_fn(self.model(self.dataset[0]))", 
-         "expected": {"loss_fn", "model", "dataset"}},
-        
+        {
+            "code": "self.loss_fn(self.model(self.dataset[0]))",
+            "expected": {"loss_fn", "model", "dataset"},
+        },
         # No dependencies
         {"code": "torch.randn(10, 10)", "expected": set()},
-        
         # Complex expression
-        {"code": "self.model(x) + self.bias", 
-         "expected": {"model", "bias"}},
-        
+        {"code": "self.model(x) + self.bias", "expected": {"model", "bias"}},
         # Invalid code (should handle gracefully)
-        {"code": "self.model.parameters(", "expected": set()}
+        {"code": "self.model.parameters(", "expected": set()},
     ]
-    
+
     # Run tests
     results = []
     for i, test in enumerate(test_cases):
         deps = find_section_dependencies(test["code"], section_names)
         success = deps == test["expected"]
-        results.append({
-            "test": i+1,
-            "code": test["code"],
-            "expected": test["expected"],
-            "actual": deps,
-            "success": success
-        })
-    
+        results.append(
+            {
+                "test": i + 1,
+                "code": test["code"],
+                "expected": test["expected"],
+                "actual": deps,
+                "success": success,
+            }
+        )
+
     # Print results
     print("Test Results:")
     all_passed = True
@@ -162,10 +171,11 @@ def test_dependency_visitor():
         print()
         if not result["success"]:
             all_passed = False
-    
+
     print(f"Overall: {'✅ All tests passed' if all_passed else '❌ Some tests failed'}")
-    
+
     return all_passed
+
 
 # Run the test
 if __name__ == "__main__":

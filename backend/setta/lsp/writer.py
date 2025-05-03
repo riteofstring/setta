@@ -75,8 +75,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         character,
         code_id,
         request_id,
-        referencable_var_names,
-        generated_var_names,
         cursor_offset,
         otherData=None,
         virtual=None,
@@ -87,10 +85,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
         }
-        self.msg_id_to_metadata[request_id]["referencable_var_names"] = (
-            referencable_var_names
-        )
-        self.msg_id_to_metadata[request_id]["generated_var_names"] = generated_var_names
         self.msg_id_to_metadata[request_id]["cursor_offset"] = cursor_offset
         self.msg_id_to_metadata[request_id]["otherData"] = otherData
         self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[

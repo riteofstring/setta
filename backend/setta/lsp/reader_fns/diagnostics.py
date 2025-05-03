@@ -1,27 +1,13 @@
 import re
 
-from setta.code_gen.export_selected import get_gen_code_template_var
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_diagnostics(diagnostics, code, codeJson, ref_template_var_positions):
+def process_diagnostics(diagnostics, code, codeJson):
     code_split = code.split("\n")
     output = []
-    gen_code_template_var = get_gen_code_template_var(
-        ref_template_var_positions["templateVars"]
-    )
-    if gen_code_template_var:
-        gen_code_start = gen_code_template_var["startPos"]
-        gen_code_end = gen_code_start + len(gen_code_template_var["value"])
     for d in diagnostics:
-        start, end = d["range"]["start"], d["range"]["end"]
-        if gen_code_template_var and gen_code_start <= start["position"] < gen_code_end:
-            result = process_gen_code_diagnostic(d, code_split, codeJson, start, end)
-            output.extend(result)
-        # TODO: process diagnostics for non-generated code:
-        # else:
-        #     output.append(d)
-
+        pass  # TODO
     return output
 
 
