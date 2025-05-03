@@ -108,8 +108,6 @@
   "ROUTE_RUN_CODE": "/runCode",
   "ROUTE_TYPE_CHECK": "/typeCheck",
   "NESTED_PARAM": "NESTED_PARAM",
-  "ARGS_PREFIX": "__",
-  "TEMPLATE_PREFIX": "$",
   "WS_ALL_CONNECTIONS": "allConnections",
   "WS_LSP_DIAGNOSTICS": "lspDiagnostics",
   "WS_RUN_CODE": "runCode",
