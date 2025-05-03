@@ -44,7 +44,9 @@ class ProjectPerspectiveCodeGenerator:
         self.exporter_output = None
         self.temp_folder = temp_folder
 
-    async def update(self, project_state):
+    async def update(
+        self, project_state, ev_ref_regex, full_name_to_info, info_to_full_name
+    ):
         self.project_state = project_state
         exporter_obj = export_selected(
             self.project_state,

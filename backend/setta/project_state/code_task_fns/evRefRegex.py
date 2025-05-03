@@ -1,4 +1,3 @@
-import json
 import re
 
 from setta.code_gen.export_selected import (
@@ -28,18 +27,12 @@ def get_ev_ref_regex(p):
             )
 
     if len(names) == 0:
-        return {
-            "pattern": None,
-            "full_name_to_info": full_name_to_info,
-        }
+        return None, full_name_to_info
 
     pattern_str = f"(?<![A-Za-z.\"'_])({('|').join(names)})(?![A-Za-z\"'_])"
     pattern = re.compile(pattern_str)
 
-    return {
-        "pattern": pattern,
-        "full_name_to_info": full_name_to_info,
-    }
+    return pattern, full_name_to_info
 
 
 def set_full_children_names_for_regex(
@@ -155,28 +148,11 @@ def construct_ev_refs(keyword_positions, full_text):
     return output
 
 
-def compute_info_to_full_name():
+def compute_info_to_full_name(full_name_to_info):
     output = {}
-    for k, v in use_ev_ref_regex.get_state()["full_name_to_info"].items():
-        output[
-            key_for_info_to_full_name(
-                {
-                    "section_id": v["section_id"],
-                    "param_info_id": v["param_info_id"],
-                    "is_args_obj": v["is_args_obj"],
-                }
-            )
-        ] = k
-
+    for k, v in full_name_to_info.items():
+        output[(v["section_id"], v["param_info_id"], v["is_args_obj"])] = k
     return output
-
-
-def key_for_info_to_full_name(info):
-    section_id = info["section_id"]
-    param_info_id = info.get("param_info_id", None)
-    is_args_obj = info.get("is_args_obj", False)
-
-    return json.dumps([section_id, param_info_id, is_args_obj])
 
 
 def is_top_level_and_can_be_referred_to(p, section_id, section_type_name):

@@ -1,5 +1,3 @@
-import json
-
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.find_placeholders import tp
@@ -14,11 +12,17 @@ class SectionPerspectiveCodeGenerator:
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
         self.project_state = None
+        self.ev_ref_regex = None
+        self.full_name_to_info = {}
+        self.info_to_full_name = {}
         self.code_previews = {}
         self.text_field_cache = {}
 
-    def update(self, project_state):
+    def update(self, project_state, ev_ref_regex, full_name_to_info, info_to_full_name):
         self.project_state = project_state
+        self.ev_ref_regex = ev_ref_regex
+        self.full_name_to_info = full_name_to_info
+        self.info_to_full_name = info_to_full_name
         self.text_field_cache.clear()
 
     async def text_field_initialize(self, paramInfoId):
@@ -57,12 +61,8 @@ class SectionPerspectiveCodeGenerator:
         ]
         pushed_var_name_position = var_name_to_decl_position[var_name]
         generated_var_names = list(var_name_to_decl_position.keys())
-        infoToFullName = {
-            tuple(json.loads(k)): v
-            for k, v in self.project_state["infoToFullName"].items()
-        }
         referencable_var_names = [
-            infoToFullName[exporter_obj.var_name_reverse_mapping[v]]
+            self.info_to_full_name[exporter_obj.var_name_reverse_mapping[v]]
             for v, (startPos, _, _) in var_name_to_decl_position.items()
             if startPos < pushed_var_name_position[0]
         ]
@@ -73,13 +73,16 @@ class SectionPerspectiveCodeGenerator:
             referencable_var_names,
             generated_var_names,
             exporter_obj,
-            project["fullNameToInfo"],
         ]
 
     async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.text_field_cache:
-            self.text_field_initialize(paramInfoId)
+            await self.text_field_initialize(paramInfoId)
+        print(
+            f"self.text_field_cache[paramInfoId] {self.text_field_cache[paramInfoId]}\n\n\n",
+            flush=True,
+        )
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
