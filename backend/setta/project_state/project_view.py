@@ -1,7 +1,7 @@
 import json
 
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import generate_code
+from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.lsp.reader_fns.diagnostics import (
     convert_diagnostic_line_cols_to_positions,
     process_diagnostics,
@@ -52,6 +52,7 @@ class ProjectView:
         self.code_previews = {}
         self.exporter_output = None
         self.temp_folder = temp_folder
+        self.code_generator = None
 
     async def update(self, project_state):
         with open("project_state.json", "w") as f:
@@ -60,9 +61,10 @@ class ProjectView:
         exporter_obj = export_selected(self.project_state)
         self.exporter_output = exporter_obj.output
         print(json.dumps(self.exporter_output, indent=2), flush=True)
-        code = generate_code(exporter_obj.output)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
+        self.code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
+        code = await self.code_generator.generate_code(exporter_obj.output)
         self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers, self.websocket_msg_handler, project_temp_folder
         )
