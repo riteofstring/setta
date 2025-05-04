@@ -199,12 +199,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         self,
         line,
         character,
-        code_id,
+        filepath,
         request_id,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(filepath, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},

@@ -118,27 +118,22 @@ class LanguageServerReader(LanguageServerInteractor):
             await self.websocket_msg_handler.broadcast_notification(content)
         else:
             returnId = id
-            otherData = metadata.get("otherData")
 
-            if method == "textDocument/completion":
-                content = process_completion_response(response, metadata)
-            elif method == "textDocument/signatureHelp":
-                content = process_signature_help_response(response)
-            elif method == "textDocument/references":
-                content, returnId = process_references_response(response, metadata)
-            elif method == "textDocument/documentHighlight":
-                content, returnId = process_document_highlight_response(
-                    response, metadata
-                )
-            elif method == "textDocument/definition":
-                content = process_definition_response(response)
-
-            content = {"data": content, "otherData": otherData}
+            # if method == "textDocument/completion":
+            #     content = process_completion_response(response, metadata)
+            # elif method == "textDocument/signatureHelp":
+            #     content = process_signature_help_response(response)
+            # elif method == "textDocument/references":
+            #     content, returnId = process_references_response(response, metadata)
+            # elif method == "textDocument/documentHighlight":
+            #     content, returnId = process_document_highlight_response(
+            #         response, metadata
+            #     )
 
             if id in self.pending_requests:
-                self.pending_requests[id].set_result(content)
-            else:
-                await self.websocket_msg_handler.return_to_requester(content, returnId)
+                self.pending_requests[id].set_result(response)
+            # else:
+            #     await self.websocket_msg_handler.return_to_requester(content, returnId)
 
     async def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
