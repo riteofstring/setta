@@ -3,9 +3,9 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  dbFileWatchApiKeys,
   dbFileWatchGenPythonCode,
-  dbFileWatchList,
-  dbFileWatchReplacePath,
+  dbFileWatchJsonSource,
 } from "requests/jsonSource";
 import {
   useAIStore,
@@ -77,15 +77,9 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(
-    jsonFilenameSubscriptionFn,
-    (newVal) => {
-      dbFileWatchList([...newVal], "jsonSource");
-    },
-    {
-      equalityFn: _.isEqual,
-    },
-  );
+  useSectionInfos.subscribe(jsonFilenameSubscriptionFn, dbFileWatchJsonSource, {
+    equalityFn: _.isEqual,
+  });
 
   useSectionInfos.subscribe(
     topLevelSectionVisibilitySubscriptionFn,
@@ -185,11 +179,10 @@ export function subscribe() {
     },
   );
 
-  useAIStore.subscribe(
-    apiKeysFilepathSubscriptionFn,
-    (newVal, oldVal) => dbFileWatchReplacePath(newVal, oldVal, "apiKeysFile"),
-    { fireImmediately: true },
-  );
+  useAIStore.subscribe(apiKeysFilepathSubscriptionFn, dbFileWatchApiKeys, {
+    equalityFn: _.isEqual,
+    fireImmediately: true,
+  });
 }
 
 function singletonSectionsSubscriptionFn(state) {
@@ -310,7 +303,7 @@ function jsonFilenameSubscriptionFn(state) {
       filenameSet.add(v.name);
     }
   }
-  return filenameSet;
+  return Array.from(filenameSet);
 }
 
 function topLevelSectionVisibilitySubscriptionFn(state) {
@@ -340,7 +333,7 @@ function entryCodeBlockSubscriptionFn(state) {
 }
 
 function apiKeysFilepathSubscriptionFn(state) {
-  return state.apiKeysFilepath;
+  return [state.apiKeysFilepath];
 }
 
 function updateBackendSubscriptionFn(state) {

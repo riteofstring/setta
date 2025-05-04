@@ -1,19 +1,18 @@
 import C from "constants/constants.json";
 import { dbGetLLMApiKeys } from "requests/ai";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { dbReadGenPythonCode } from "requests/lsp";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
-  const { metadata } = updatedFileInfo;
+  const { fileWatchGroupName } = updatedFileInfo;
 
-  if (metadata === "jsonSource") {
+  if (fileWatchGroupName === "jsonSource") {
     await updateJSONSourceContents(updatedFileInfo);
-  } else if (metadata === "apiKeysFile") {
+  } else if (fileWatchGroupName === "apiKeys") {
     await updateApiKeyInfo(updatedFileInfo);
-  } else if (metadata === "genPythonCode") {
-    await updateGenPythonCode(updateApiKeyInfo);
+  } else if (fileWatchGroupName === "genPythonCode") {
+    updateGenPythonCode(updatedFileInfo);
   }
 }
 
@@ -81,15 +80,12 @@ export async function updateLLMApiKeyInfo(apiKeysFilepath) {
   }
 }
 
-export async function updateGenPythonCode(updatedFileInfo) {
-  const { absPath, destAbsPath } = updatedFileInfo;
-  const res = await dbReadGenPythonCode(destAbsPath ?? absPath);
-  if (res.status === 200) {
-    useSectionInfos.setState((state) => {
-      const id = state.singletonSections[C.GEN_PYTHON_CODE];
-      if (id) {
-        state.x[id].code = res.data;
-      }
-    });
-  }
+export function updateGenPythonCode(updatedFileInfo) {
+  const { fileContent } = updatedFileInfo;
+  useSectionInfos.setState((state) => {
+    const id = state.singletonSections[C.GEN_PYTHON_CODE];
+    if (id) {
+      state.x[id].code = fileContent;
+    }
+  });
 }

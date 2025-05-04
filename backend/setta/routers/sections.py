@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -80,19 +80,12 @@ class DeleteFileRequest(BaseModel):
 
 class FileWatchListRequest(BaseModel):
     filepaths: List[str]
-    metadata: Any
-
-
-class FileWatchReplacePathRequest(BaseModel):
-    newPath: str
-    oldPath: str
-    metadata: Any
+    fileWatchGroupName: str
 
 
 class FileWatchGenPythonCodeRequest(BaseModel):
     projectConfigId: str
     watch: bool
-    metadata: Any
 
 
 @router.post(C.ROUTE_COPY_SECTIONS)
@@ -203,17 +196,7 @@ def route_file_watch_list(
     x: FileWatchListRequest, specific_file_watcher=Depends(get_specific_file_watcher)
 ):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
-    specific_file_watcher.update_watch_list(x.filepaths, x.metadata)
-
-
-@router.post(C.ROUTE_FILE_WATCH_REPLACE_PATH)
-def route_file_watch_replace_path(
-    x: FileWatchReplacePathRequest,
-    specific_file_watcher=Depends(get_specific_file_watcher),
-):
-    specific_file_watcher.add_file(x.newPath, x.metadata)
-    if x.oldPath != x.newPath:
-        specific_file_watcher.remove_file(x.oldPath)
+    specific_file_watcher.update_watch_list(x.filepaths, x.fileWatchGroupName)
 
 
 @router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
@@ -222,24 +205,5 @@ def route_file_watch_gen_python_code(
     specific_file_watcher=Depends(get_specific_file_watcher),
 ):
     path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
-    if x.watch:
-        specific_file_watcher.add_file(path, x.metadata)
-    else:
-        specific_file_watcher.remove_file(path)
-
-
-@router.post(C.ROUTE_READ_GEN_PYTHON_CODE)
-def route_read_gen_python_code():
-    path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
-    try:
-        with open(path, "r") as file:
-            content = file.read()
-        return content
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="File not found")
-    except PermissionError:
-        raise HTTPException(status_code=403, detail="Permission denied to access file")
-    except IsADirectoryError:
-        raise HTTPException(status_code=400, detail="Path is a directory, not a file")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+    filepaths = [path] if x.watch else []
+    specific_file_watcher.update_watch_list(filepaths, "genPythonCode", True)
