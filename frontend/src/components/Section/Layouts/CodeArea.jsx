@@ -20,40 +20,22 @@ import {
 } from "utils/constants";
 import { asyncDebounce } from "utils/utils";
 
-function _CodeArea({ sectionId, readOnly = false }) {
+function _CodeArea({ sectionId }) {
   const language = useSectionInfos((x) => x.x[sectionId].codeLanguage);
 
   switch (language) {
     case "python":
-      return (
-        <PythonCodeArea
-          sectionId={sectionId}
-          language={language}
-          readOnly={readOnly}
-        />
-      );
+      return <PythonCodeArea sectionId={sectionId} language={language} />;
     case "bash":
-      return (
-        <BashCodeArea
-          sectionId={sectionId}
-          language={language}
-          readOnly={readOnly}
-        />
-      );
+      return <BashCodeArea sectionId={sectionId} language={language} />;
     case "javascript":
-      return (
-        <JavascriptCodeArea
-          sectionId={sectionId}
-          language={language}
-          readOnly={readOnly}
-        />
-      );
+      return <JavascriptCodeArea sectionId={sectionId} language={language} />;
   }
 }
 
 export const CodeArea = React.memo(_CodeArea);
 
-function PythonCodeArea({ sectionId, language, readOnly }) {
+function PythonCodeArea({ sectionId, language }) {
   const evRefs = useSectionInfos(
     (x) => getDisplayedSectionVariant(sectionId, x).evRefs,
     _.isEqual,
@@ -72,30 +54,46 @@ function PythonCodeArea({ sectionId, language, readOnly }) {
       language={language}
       completionsFn={completionsFn}
       keywordStylizer={keywordStylizer}
-      readOnly={readOnly}
     />
   );
 }
 
-function BashCodeArea({ sectionId, language, readOnly }) {
+function BashCodeArea({ sectionId, language }) {
+  return <CoreCodeArea sectionId={sectionId} language={language} />;
+}
+
+function JavascriptCodeArea({ sectionId, language }) {
+  return <CoreCodeArea sectionId={sectionId} language={language} />;
+}
+
+function _ReadOnlyCoreCodeArea({ sectionId }) {
+  const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
+    useCodeAreaHeight({ sectionId });
+
+  const theme = useCodeMirrorStyle();
+
+  const { onArticleDivEnterKeyFocusOnCodeMirror } =
+    codeAreaTabOnEnterKeyHandlers(wrapperRef);
+
   return (
-    <CoreCodeArea
-      sectionId={sectionId}
-      language={language}
-      readOnly={readOnly}
-    />
+    <article
+      ref={wrapperRef}
+      className={`${NO_PAN_CLASS_NAME} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag section-full-no-title cursor-auto rounded-lg focus:bg-blue-200/70 focus:outline-none dark:focus:bg-blue-950/70 [&_*]:!outline-0 [&_.cm-activeLineGutter]:focus:!bg-transparent [&_.cm-activeLine]:focus:!bg-transparent [&_.cm-gutters]:focus:!bg-transparent ${overflow} ${nowheel}`}
+      tabIndex="0"
+      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+    >
+      <CodeMirror
+        maxHeight={maxHeight}
+        theme={theme}
+        onCreateEditor={handleCreateEditor}
+        basicSetup={{ tabSize: 4 }}
+        readOnly={true}
+      />
+    </article>
   );
 }
 
-function JavascriptCodeArea({ sectionId, language, readOnly }) {
-  return (
-    <CoreCodeArea
-      sectionId={sectionId}
-      language={language}
-      readOnly={readOnly}
-    />
-  );
-}
+export const ReadOnlyCoreCodeArea = React.memo(_ReadOnlyCoreCodeArea);
 
 function CoreCodeArea({
   sectionId,
