@@ -4,6 +4,8 @@ from ...utils.constants import C, ParameterPassingStyle
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports
 
+SELF_IDENTIFIER = "s"
+
 
 def get_import_text(code):
     imports = [f"import {x}" for x in find_missing_imports(code)]
@@ -116,10 +118,8 @@ def create_line(var_name, x, selected, force_appear):
     return value
 
 
-def generate_code(selected, chars_before_each_line, push_var_name=None):
-    code = ""
-    var_name_to_decl_position = {}
-    last_var_name = None
+def generate_code(selected, push_var_name=None):
+    lines = []
     if push_var_name:
         for v in selected.values():
             if (
@@ -136,34 +136,10 @@ def generate_code(selected, chars_before_each_line, push_var_name=None):
     for var_name, x in selected.items():
         force_appear = push_var_name == var_name
         var_str = create_line(var_name, x, selected, force_appear=force_appear)
-        if var_str:
-            last_var_name = var_name
-            # We add the "before chars" after the new line.
-            # This way every var decl starts with the var instead of with the leading chars.
-            var_str = construct_var_decl_with_trailing_whitespace(
-                var_str, chars_before_each_line
-            )
-            startPos = len(code)
-            var_name_to_decl_position[var_name] = (
-                startPos,
-                var_str,
-                chars_before_each_line,
-            )
-            code += var_str
+        lines.append(var_str)
 
-    # Since each var declaration ends with the chars_before_each_line
-    # we need to remove the hanging one on the final variable declaration.
-    if last_var_name is not None:
-        startPos, var_str, chars_after_line = var_name_to_decl_position[last_var_name]
-        new_var_str = var_str.rstrip(chars_after_line)
-        var_name_to_decl_position[last_var_name] = startPos, new_var_str, ""
-        code = code.rstrip(chars_after_line)
-
-    return code, var_name_to_decl_position
-
-
-def construct_var_decl_with_trailing_whitespace(var_decl, chars_after_line):
-    return f"{var_decl}\n{chars_after_line}"
+    code = generate_wrapper_class(lines)
+    return code
 
 
 def generate_imports(
@@ -189,3 +165,17 @@ def generate_imports(
     if len(imports) > 0:
         imports += "\n"
     return imports
+
+
+def generate_wrapper_class(lines):
+    code = f"""
+from setta.code_gen.args_obj import SettaArgsObj
+
+class S:
+    def __init__({SELF_IDENTIFIER}):
+        {SELF_IDENTIFIER}.args = SettaArgsObj()
+"""
+
+    for l in lines:
+        code = f"{code}        {l}\n"
+    return code.lstrip()

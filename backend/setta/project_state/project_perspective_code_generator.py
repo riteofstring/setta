@@ -1,3 +1,5 @@
+import json
+
 from setta.code_gen.create_runnable_scripts import (
     generate_final_code_for_sections,
 )
@@ -7,7 +9,7 @@ from setta.lsp.reader_fns.diagnostics import (
     process_diagnostics,
 )
 from setta.project_state.code_preview import CodePreview
-import json
+
 
 class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
