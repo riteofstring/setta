@@ -3,7 +3,6 @@ import asyncio
 from setta.database.utils import create_new_id
 
 from ...utils.constants import C, ParameterPassingStyle
-from ..utils import push_var_deep
 from .ast_utils import find_missing_imports
 
 SELF_IDENTIFIER = "s"
@@ -14,7 +13,7 @@ class PythonCodeGenerator:
         self.lsp_writer = lsp_writers.full
         self.virtual_filepath_for_import_validator = temp_folder / "validate_imports.py"
 
-    async def generate_code(self, selected, force_appear_var_name=None):
+    async def generate_code(self, exporter_output, force_appear_key=None):
         lines = []
         # if push_var_name:
         #     # TODO: rethink this push_var logic
@@ -30,9 +29,9 @@ class PythonCodeGenerator:
         #     selected = push_var_deep(selected, push_var_name)
         #     selected = {v.pop("var_name"): v for v in selected}
 
-        for var_name, x in selected.items():
-            force_appear = force_appear_var_name == var_name
-            var_str = create_line(var_name, x, selected, force_appear=force_appear)
+        for key, details in exporter_output.items():
+            force_appear = force_appear_key == key
+            var_str = create_line(details, exporter_output, force_appear=force_appear)
             lines.append(var_str)
 
         code = generate_wrapper_class(lines)
@@ -94,23 +93,24 @@ def get_import_text(code):
     return "\n".join(imports)
 
 
-def get_mappings(var_names, selected, is_dict=False, passingStyles=None):
+def get_mappings(dependency_keys, exporter_output, is_dict=False, passingStyles=None):
     if passingStyles is None:
         passingStyles = {}
     output = ""
     curr_position = 0
-    for idx, v in enumerate(var_names):
+    for idx, key in enumerate(dependency_keys):
+        v = exporter_output[key]["var_name"]
         prefix = "" if idx == 0 else ", "
-        if passingStyles.get(v) == ParameterPassingStyle.ARGS:
+        if passingStyles.get(key) == ParameterPassingStyle.ARGS:
             prefix = "*"
-        elif passingStyles.get(v) == ParameterPassingStyle.KWARGS:
+        elif passingStyles.get(key) == ParameterPassingStyle.KWARGS:
             prefix = "**"
         elif is_dict or (
-            passingStyles.get(v) == ParameterPassingStyle.DEFAULT
-            or passingStyles.get(v) == ParameterPassingStyle.KEYWORD_ONLY
+            passingStyles.get(key) == ParameterPassingStyle.DEFAULT
+            or passingStyles.get(key) == ParameterPassingStyle.KEYWORD_ONLY
         ):
             var_decl_prefix = var_declaration(
-                selected[v]["name"],
+                exporter_output[key]["name"],
                 v,
                 is_dict,
                 return_prefix=True,
@@ -125,16 +125,16 @@ def get_mappings(var_names, selected, is_dict=False, passingStyles=None):
     return output
 
 
-def get_dict_contents(var_names, selected):
-    return get_mappings(var_names, selected, is_dict=True)
+def get_dict_contents(dependency_keys, exporter_output):
+    return get_mappings(dependency_keys, exporter_output, is_dict=True)
 
 
-def get_callable_params(var_names, passingStyles, selected):
-    return get_mappings(var_names, selected, passingStyles=passingStyles)
+def get_callable_params(dependency_keys, passingStyles, exporter_output):
+    return get_mappings(dependency_keys, exporter_output, passingStyles=passingStyles)
 
 
-def get_list_of_vars(var_names):
-    return get_mappings(var_names, None)
+def get_list_of_vars(dependency_keys, exporter_output):
+    return get_mappings(dependency_keys, exporter_output)
 
 
 def get_boolean(value):
@@ -154,7 +154,7 @@ def var_declaration(
 
 
 # TODO: remove str(x["value"]). I don't think it's necessary since x["value"] should always be a string already.
-def get_value(x, selected):
+def get_value(x, exporter_output):
     type_value = x["type"]
     if (
         type_value == C.TEXT
@@ -171,20 +171,20 @@ def get_value(x, selected):
         output = f'"""{x["value"]}"""'
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:
-            output = get_dict_contents(x["value"]["usedParams"], selected)
+            output = get_dict_contents(x["value"]["usedParams"], exporter_output)
             prefix = "{"
             output = prefix + output + "}"
         else:
             output = get_callable_params(
-                x["value"]["usedParams"], x["value"]["passingStyles"], selected
+                x["value"]["usedParams"], x["value"]["passingStyles"], exporter_output
             )
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
     elif type_value == C.LIST_ROOT:
-        output = get_list_of_vars(x["value"])
+        output = get_list_of_vars(x["value"], exporter_output)
         output = f"[{output}]"
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
-        output = get_dict_contents(x["value"], selected)
+        output = get_dict_contents(x["value"], exporter_output)
         output = "{" + output + "}"
     else:
         output = None
@@ -192,12 +192,13 @@ def get_value(x, selected):
     return output
 
 
-def create_line(var_name, x, selected, force_appear):
-    value = get_value(x, selected)
+def create_line(details, exporter_output, force_appear):
+    value = get_value(details, exporter_output)
     if value or force_appear:
+        var_name = details["var_name"]
         prefix = var_declaration(var_name, value, return_prefix=True)
         value = f"{prefix}{value}"
-        if x["isTopLevel"]:
+        if details["isTopLevel"]:
             value = f"{SELF_IDENTIFIER}.{value}"
     return value
 

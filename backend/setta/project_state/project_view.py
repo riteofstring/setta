@@ -1,5 +1,3 @@
-import json
-
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.lsp.reader_fns.diagnostics import (
@@ -56,7 +54,7 @@ class ProjectView:
 
     async def update(self, project_state):
         # with open("project_state.json", "w") as f:
-            # json.dump(project_state, f, indent=2)
+        # json.dump(project_state, f, indent=2)
         self.project_state = project_state
         exporter_obj = export_selected(self.project_state)
         self.exporter_output = exporter_obj.output

@@ -318,16 +318,13 @@ class Exporter:
         return [self.export_section(x, isTopLevel) for x in ids]
 
     def export_section(self, id, isTopLevel=False):
-        var_name = self.create_var_name(
-            id,
-            None,
-        )
-        print("*****var_name*****", var_name, flush=True)
-        if var_name not in self.output:
+        output_key = self.create_output_key(id)
+        if output_key not in self.output:
             type = get_section_type(self.p, id)
             info = {
                 "sectionId": id,
                 "name": get_section_name(self.p, id),
+                "var_name": self.create_var_name(id),
                 "type": type,
                 "isTopLevel": isTopLevel,
             }
@@ -348,7 +345,7 @@ class Exporter:
                     "passingStyles": passingStyles,
                 }
                 info["dependencies"] = [*used_params, *used_ref_var_names]
-                self.output[var_name] = info
+                self.output[output_key] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = get_section_children(self.p, id)
                 children = [
@@ -358,7 +355,7 @@ class Exporter:
                 ]
                 info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
-                self.output[var_name] = info
+                self.output[output_key] = info
             elif type == C.GLOBAL_VARIABLES:
                 # don't need to process the output since the global variables get added directly to the output
                 # i.e. they aren't children of anything
@@ -367,10 +364,10 @@ class Exporter:
                 variant = get_selected_section_variant(self.p, id)
                 info["value"] = variant["description"]
                 info["dependencies"] = []
-                self.output[var_name] = info
+                self.output[output_key] = info
             else:
                 raise ValueError
-        return var_name
+        return output_key
 
     def export_section_params(self, section_id):
         ids = get_top_level_param_ids(self.p, section_id)
@@ -457,9 +454,12 @@ class Exporter:
     # raise RecursionError("There is a circular reference")
     # return var_name
 
-    def create_var_name(self, section_id, param_info_id):
+    def create_var_name(self, section_id, param_info_id=None):
         section_name = get_section_name_for_code_gen(self.p, section_id, self.slugs)
         return section_name
+
+    def create_output_key(self, section_id, param_info_id=None):
+        return (section_id, param_info_id)
 
 
 class ExporterForInteractiveFn:

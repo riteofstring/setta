@@ -1,7 +1,6 @@
-from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.project_state.code import Code, GenCode
+from setta.project_state.code import GenCode
 
 
 class SectionView:
