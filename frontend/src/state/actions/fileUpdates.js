@@ -10,7 +10,7 @@ export async function updateWithFileChanges(updatedFileInfo) {
   if (fileWatchGroupName === "jsonSource") {
     await updateJSONSourceContents(updatedFileInfo);
   } else if (fileWatchGroupName === "apiKeys") {
-    await updateApiKeyInfo(updatedFileInfo);
+    updateApiKeyInfo(updatedFileInfo);
   } else if (fileWatchGroupName === "genPythonCode") {
     updateGenPythonCode(updatedFileInfo);
   }
@@ -66,8 +66,11 @@ export async function loadJsonContents(variantIdsToLoad) {
 }
 
 async function updateApiKeyInfo(updatedFileInfo) {
-  const { absPath, destAbsPath } = updatedFileInfo;
-  await updateLLMApiKeyInfo(destAbsPath ?? absPath);
+  const { fileContent } = updatedFileInfo;
+  useAIStore.setState({
+    apiKeys: fileContent,
+    apiKeysInitialLoadComplete: true,
+  });
 }
 
 export async function updateLLMApiKeyInfo(apiKeysFilepath) {
@@ -80,7 +83,7 @@ export async function updateLLMApiKeyInfo(apiKeysFilepath) {
   }
 }
 
-export function updateGenPythonCode(updatedFileInfo) {
+function updateGenPythonCode(updatedFileInfo) {
   const { fileContent } = updatedFileInfo;
   useSectionInfos.setState((state) => {
     const id = state.singletonSections[C.GEN_PYTHON_CODE];

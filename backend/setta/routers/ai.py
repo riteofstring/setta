@@ -13,6 +13,7 @@ from setta.routers.dependencies import (
     get_wmh_database,
     get_wmh_specific_file_watcher,
 )
+from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.utils.constants import C
 
 load_dotenv()
@@ -31,10 +32,6 @@ class SetLLMApiKeysRequest(BaseModel):
     apiKeysFilepath: str
 
 
-class GetLLMApiKeysRequest(BaseModel):
-    apiKeysFilepath: str
-
-
 class DeleteLLMChatRequest(BaseModel):
     chatId: str
 
@@ -46,6 +43,10 @@ class GetLLMChatRequest(BaseModel):
 
 class StopLLMChatRequest(BaseModel):
     chatId: str
+
+
+class GetLLMApiKeysRequest(BaseModel):
+    apiKeysFilepath: str
 
 
 @router.post(C.ROUTE_GET_LLM_RESPONSE)
@@ -122,14 +123,6 @@ async def route_set_llm_api_keys(
         )
 
     await websocket_msg_handler.broadcast_notification(notification)
-
-
-def get_llm_api_keys_from_env_vars(env_vars):
-    return {
-        key: value
-        for key, value in env_vars.items()
-        if key in C.LLM_API_KEY_NAMES.values()
-    }
 
 
 @router.post(C.ROUTE_GET_LLM_API_KEYS)

@@ -22,6 +22,7 @@ from setta.database.db.sections.copy import (
 from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.routers.dependencies import get_specific_file_watcher
+from setta.routers.utils import get_content_processor
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename
 
@@ -196,7 +197,9 @@ def route_file_watch_list(
     x: FileWatchListRequest, specific_file_watcher=Depends(get_specific_file_watcher)
 ):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
-    specific_file_watcher.update_watch_list(x.filepaths, x.fileWatchGroupName)
+    specific_file_watcher.update_watch_list(
+        x.filepaths, x.fileWatchGroupName, get_content_processor(x.fileWatchGroupName)
+    )
 
 
 @router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
@@ -204,11 +207,10 @@ def route_file_watch_gen_python_code(
     x: FileWatchGenPythonCodeRequest,
     specific_file_watcher=Depends(get_specific_file_watcher),
 ):
-    def content_processor(raw_content):
-        return raw_content
-
     path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
     filepaths = [path] if x.watch else []
     specific_file_watcher.update_watch_list(
-        filepaths, "genPythonCode", content_processor
+        filepaths,
+        "genPythonCode",
+        get_content_processor("genPythonCode"),
     )
