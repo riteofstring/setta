@@ -186,55 +186,50 @@
 import math
 
 from types import SimpleNamespace
+from pydantic import BaseModel
 
-class SettaArgs:
+
+import math
+
+class TestClass(BaseModel):
+    dogs: float
+    cats: float
+
+
+class MathSqrtArgs:
+    def __init__(self, x):
+        self.x = x
+
+class MathCosArgs:
+    def __init__(self, x):
+        self.x = x
+
+class Args:
     def __init__(self):
-        # Internal dictionary to store attributes
-        self._attributes = {}
-    
-    def __getattr__(self, name):
-        # When accessing a non-existent attribute, create a new container
-        if name not in self._attributes:
-            self._attributes[name] = SettaArgs()
-        return self._attributes[name]
-    
-    def __setattr__(self, name, value):
-        # Handle the special case of our internal _attributes dictionary
-        if name == "_attributes":
-            super().__setattr__(name, value)
-        else:
-            # Store all other attributes in our _attributes dictionary
-            self._attributes[name] = value
-    
-    def __getitem__(self, key):
-        # Handle access with square brackets (both numeric indices and string keys)
-        if key not in self._attributes:
-            self._attributes[key] = SettaArgs()
-        return self._attributes[key]
-    
-    def __setitem__(self, key, value):
-        # Handle assignment with square brackets
-        self._attributes[key] = value
-            
-    def __str__(self):
-        # For a readable string representation
-        return str(self._attributes)
-        
-    def __repr__(self):
-        # For representation in interactive sessions
-        return self.__str__()
+        self.the_result = ()
+        self.something_else = {}
 
 class S:
-    def __init__(self):
-        args = SettaArgs()
-        args.the_result[0].x = 5
-        args.the_result[1].x = 10
-        the_result__i0 = math.sqrt(args.the_result[0].x)
-        the_result__i1 = math.sqrt(args.the_result[1].x)
-        self.the_result = [the_result__i0, the_result__i1]
-        self.args = args
+    def __init__(s):
+        # Initialize the explicit args structure
+        s.args = Args()
+
+        # Create intermediate values
+        the_result__i0 = math.sqrt(s.args.the_result[0].x)
+        the_result__i1 = math.sqrt(s.args.the_result[1].x)
+        
+        # Assign final result
+        s.the_result = [the_result__i0, the_result__i1]
+
+        somethine_else__dogs = math.cos(s.args.something_else["dogs"].x)
+        s.something_else = {"dogs": somethine_else__dogs}
+
+        test_test__cats = math.sin(s.args.test_test["cats"])
+        test_test__dogs = 5
+        s.test_test = TestClass(dogs=test_test__dogs, cats=test_test__cats)
+
+        s.args = s.args
 
 
 s = S()
-print(s.the_result)
-print(s.args)
+print(s.test_test)
