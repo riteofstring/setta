@@ -32,10 +32,7 @@ async def runCode(p, lsp_writers, code_state, terminals):
 
 
 async def generateRunCodeCommand(p, lsp_writers, code_state):
-    exporter_obj = export_selected(
-        p,
-        always_export_args_objs=False,
-    )
+    exporter_obj = export_selected(p)
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_dict = await generate_final_code_for_sections(

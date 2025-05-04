@@ -44,7 +44,6 @@ class ProjectPerspectiveCodeGenerator:
         self.project_state = project_state
         exporter_obj = export_selected(
             self.project_state,
-            always_export_args_objs=False,
         )
         self.exporter_output = exporter_obj.output
         projectConfigName = self.project_state["projectConfig"]["name"]

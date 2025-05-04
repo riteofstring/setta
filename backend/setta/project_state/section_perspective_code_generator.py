@@ -21,7 +21,6 @@ class SectionPerspectiveCodeGenerator:
         print("*************text_field_initialize\n\n\n", flush=True)
         exporter_obj = export_selected(
             self.project_state,
-            always_export_args_objs=True,
         )
         # TODO: replace this
         var_name = exporter_obj.var_name_mapping[(self.sectionId, paramInfoId, False)]

@@ -169,11 +169,10 @@ def get_section_path_full_name(p, section_id):
     return f"{p['sections'][child_id]['name']}{output}"
 
 
-def export_selected(p, always_export_args_objs):
+def export_selected(p):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = Exporter(
         p,
-        always_export_args_objs=always_export_args_objs,
     )
     e.export()
     return e
@@ -240,10 +239,9 @@ def remove_unneeded_sections(p, keep_section_types):
 
 
 class Exporter:
-    def __init__(self, p, always_export_args_objs):
+    def __init__(self, p):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.always_export_args_objs = always_export_args_objs
         self.section_types_to_process = [
             C.SECTION,
             C.LIST_ROOT,
@@ -277,8 +275,6 @@ class Exporter:
                 "type": type,
             }
             if type == C.SECTION:
-                if self.always_export_args_objs:
-                    self.export_args_obj(id)
                 (
                     used_params,
                     unused_params,
@@ -323,33 +319,6 @@ class Exporter:
                 self.output[var_name] = info
             else:
                 raise ValueError
-        return var_name
-
-    def export_args_obj(self, id):
-        var_name = self.create_var_name(
-            id,
-            None,
-            is_args_obj=True,
-        )
-        if var_name not in self.output:
-            (
-                used_params,
-                unused_params,
-                passingStyles,
-            ) = self.export_section_params(id)
-            info = {
-                "sectionId": id,
-                "name": get_section_name(self.p, id),
-                "type": C.SECTION,
-                "value": {
-                    "callable": None,
-                    "usedParams": used_params,
-                    "unusedParams": unused_params,
-                    "passingStyles": passingStyles,
-                },
-                "dependencies": used_params,
-            }
-            self.output[var_name] = info
         return var_name
 
     def export_section_params(self, section_id):
