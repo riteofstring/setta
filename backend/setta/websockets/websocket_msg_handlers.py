@@ -20,9 +20,8 @@ class WebsocketMsgHandlers:
         script_metadata,
         dbq,
     ):
-        self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
+        self.base = BaseWebsocketMsgHandler(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
-        self.database = WMHDatabase(websocket_manager)
         self.terminals = WMHTerminals(websocket_manager)
         self.frontend = WMHFrontend(
             websocket_manager,
@@ -40,24 +39,35 @@ class WebsocketMsgHandlers:
 
 
 class BaseWebsocketMsgHandler:
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
     async def on_connect(self, websocket_id):
         pass
 
     async def on_disconnect(self, websocket_id):
         pass
 
-
-class WMHProjectManager(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-
-    async def broadcast_notification(self, content):
+    async def broadcast_notification_to_all_projects(self, content):
         content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
         await self.websocket_manager.broadcast(
             content,
             C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
+
+    async def broadcast_notification(self, content, projectConfigId):
+        content["projectConfigId"] = projectConfigId
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+
+class WMHProjectManager(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
 
     async def return_to_requester(self, content, returnId):
         await self.websocket_manager.return_to_requester(content, returnId)
@@ -81,14 +91,6 @@ class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def broadcast_notification(self, content):
-        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
 
 class WMHArtifact(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
@@ -100,19 +102,6 @@ class WMHArtifact(BaseWebsocketMsgHandler):
         )
 
 
-class WMHDatabase(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-
-    async def broadcast_notification(self, content, projectConfigId):
-        content["projectConfigId"] = projectConfigId
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-
 class WMHTerminals(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
@@ -120,14 +109,6 @@ class WMHTerminals(BaseWebsocketMsgHandler):
     async def send_command(self, command, cliId):
         message = {"content": command, "messageType": C.WS_RUN_CODE}
         await self.websocket_manager.send_message(message, cliId)
-
-    async def broadcast_notification(self, content, projectConfigId):
-        content["projectConfigId"] = projectConfigId
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
 
     async def broadcast_terminal_metadata(self, terminal_metadata):
         await self.websocket_manager.broadcast(
@@ -274,14 +255,6 @@ class WMHMCP(BaseWebsocketMsgHandler):
             save_uuid_mapping_for_llm(db, self.uuid_to_id)
             await self.send_uuid_mapping()
         return result
-
-    async def broadcast_notification(self, content):
-        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
 
     async def send_uuid_mapping(self):
         await self.websocket_manager.broadcast(

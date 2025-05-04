@@ -8,10 +8,14 @@ from typing import Any, Callable, Dict, List, Optional, Set
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from setta.websockets.websocket_msg_handlers import WMHSpecificFileWatcher
+
 logger = logging.getLogger(__name__)
 
 
-def create_specific_file_watcher(websocket_message_handler):
+def create_specific_file_watcher(websocket_manager):
+    websocket_message_handler = WMHSpecificFileWatcher(websocket_manager)
+
     async def event_callback(event_info):
         logger.debug(f"event_callback {event_info}")
         await websocket_message_handler.broadcast_file_updates(event_info)

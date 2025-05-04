@@ -10,8 +10,7 @@ from setta.mcp.chat_manager import maybe_pydantic_model_dump
 from setta.routers.dependencies import (
     get_chat_manager,
     get_dbq,
-    get_wmh_database,
-    get_wmh_specific_file_watcher,
+    get_wmh_base,
 )
 from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.utils.constants import C
@@ -82,7 +81,7 @@ async def route_get_llm_response(
 @router.post(C.ROUTE_SET_LLM_API_KEYS)
 async def route_set_llm_api_keys(
     x: SetLLMApiKeysRequest,
-    websocket_msg_handler=Depends(get_wmh_specific_file_watcher),
+    websocket_msg_handler=Depends(get_wmh_base),
 ):
     """
     Write API keys to .env file to be used by litellm
@@ -122,7 +121,7 @@ async def route_set_llm_api_keys(
             "Error saving LLM API keys", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
         )
 
-    await websocket_msg_handler.broadcast_notification(notification)
+    await websocket_msg_handler.broadcast_notification_to_all_projects(notification)
 
 
 @router.post(C.ROUTE_GET_LLM_API_KEYS)
@@ -155,7 +154,7 @@ async def route_get_llm_chat(
     x: GetLLMChatRequest,
     background_tasks: BackgroundTasks,
     chat_manager=Depends(get_chat_manager),
-    websocket_msg_handler=Depends(get_wmh_database),
+    websocket_msg_handler=Depends(get_wmh_base),
 ):
     chat = chat_manager.get_chat(x.chatId)
     if not chat:

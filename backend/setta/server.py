@@ -62,6 +62,9 @@ async def lifespan(app: FastAPI):
     )
     app.state.dbq.connect()
 
+    app.state.specific_file_watcher = create_specific_file_watcher(
+        app.state.websocket_manager
+    )
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
@@ -70,9 +73,7 @@ async def lifespan(app: FastAPI):
         app.state.dbq,
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
-    app.state.specific_file_watcher = create_specific_file_watcher(
-        app.state.websocket_msg_handlers.specific_file_watcher
-    )
+
     app.state.lsp_readers = LSPReaders(app.state.lsps, app.state.project_manager)
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
