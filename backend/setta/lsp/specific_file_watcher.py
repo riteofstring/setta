@@ -11,17 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 def create_specific_file_watcher(websocket_message_handler):
-    async def callback(event_info):
-        logger.debug(f"callback {event_info}")
+    async def event_callback(event_info):
+        logger.debug(f"event_callback {event_info}")
         await websocket_message_handler.broadcast_file_updates(event_info)
 
-    return SpecificFileWatcher(callback)
+    return SpecificFileWatcher(event_callback)
 
 
 class SpecificFileWatcher:
     """File watcher that monitors specific files and notifies via a single callback."""
 
-    def __init__(self, callback):
+    def __init__(self, event_callback):
         """
         Initialize the file watcher for specific files.
 
@@ -35,7 +35,7 @@ class SpecificFileWatcher:
         self.file_to_metadata = {}
         self.file_to_patterns = {}
         self.handler = SpecificFileEventHandler(
-            callback,
+            event_callback,
             asyncio.get_event_loop(),
             self.watched_files,
             self.file_to_metadata,
