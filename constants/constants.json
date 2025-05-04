@@ -96,6 +96,8 @@
   "ROUTE_RESTART_LANGUAGE_SERVER": "/restartLanguageServer",
   "ROUTE_FILE_WATCH_LIST": "/fileWatchList",
   "ROUTE_FILE_WATCH_REPLACE_PATH": "/fileWatchReplacePath",
+  "ROUTE_FILE_WATCH_GEN_PYTHON_CODE": "/fileWatchGenPythonCode",
+  "ROUTE_READ_GEN_PYTHON_CODE": "/readGenPythonCode",
   "ROUTE_GET_NOTIFICATIONS": "/getNotifications",
   "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
   "ROUTE_GET_LLM_RESPONSE": "/getLLMResponse",

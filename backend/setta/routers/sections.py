@@ -89,6 +89,12 @@ class FileWatchReplacePathRequest(BaseModel):
     metadata: Any
 
 
+class FileWatchGenPythonCodeRequest(BaseModel):
+    projectConfigId: str
+    watch: bool
+    metadata: Any
+
+
 @router.post(C.ROUTE_COPY_SECTIONS)
 def route_sections_make_copy(x: SectionsMakeCopyRequest):
     output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
@@ -208,3 +214,32 @@ def route_file_watch_replace_path(
     specific_file_watcher.add_file(x.newPath, x.metadata)
     if x.oldPath != x.newPath:
         specific_file_watcher.remove_file(x.oldPath)
+
+
+@router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
+def route_file_watch_gen_python_code(
+    x: FileWatchGenPythonCodeRequest,
+    specific_file_watcher=Depends(get_specific_file_watcher),
+):
+    path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
+    if x.watch:
+        specific_file_watcher.add_file(path, x.metadata)
+    else:
+        specific_file_watcher.remove_file(path)
+
+
+@router.post(C.ROUTE_READ_GEN_PYTHON_CODE)
+def route_read_gen_python_code():
+    path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
+    try:
+        with open(path, "r") as file:
+            content = file.read()
+        return content
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File not found")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied to access file")
+    except IsADirectoryError:
+        raise HTTPException(status_code=400, detail="Path is a directory, not a file")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")

@@ -79,3 +79,14 @@ export async function dbFileWatchReplacePath(newPath, oldPath, metadata) {
     address: C.ROUTE_FILE_WATCH_REPLACE_PATH,
   });
 }
+
+export async function dbFileWatchGenPythonCode({ projectConfigId, watch }) {
+  return await post({
+    body: {
+      projectConfigId,
+      watch,
+      metadata: "genPythonCode",
+    },
+    address: C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE,
+  });
+}

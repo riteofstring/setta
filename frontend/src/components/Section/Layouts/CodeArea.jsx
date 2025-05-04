@@ -66,7 +66,15 @@ function JavascriptCodeArea({ sectionId, language }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
 
-function _ReadOnlyCoreCodeArea({ sectionId }) {
+function _GenPythonCodeArea({ sectionId }) {
+  const code = useSectionInfos((x) => x.x[sectionId].code);
+
+  return <ReadOnlyCoreCodeArea sectionId={sectionId} code={code} />;
+}
+
+export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
+
+function ReadOnlyCoreCodeArea({ sectionId, code }) {
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
@@ -83,6 +91,7 @@ function _ReadOnlyCoreCodeArea({ sectionId }) {
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
+        value={code}
         maxHeight={maxHeight}
         theme={theme}
         onCreateEditor={handleCreateEditor}
@@ -92,8 +101,6 @@ function _ReadOnlyCoreCodeArea({ sectionId }) {
     </article>
   );
 }
-
-export const ReadOnlyCoreCodeArea = React.memo(_ReadOnlyCoreCodeArea);
 
 function CoreCodeArea({
   sectionId,

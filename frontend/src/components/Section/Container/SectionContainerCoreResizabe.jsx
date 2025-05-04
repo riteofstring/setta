@@ -9,7 +9,7 @@ import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
-import { CodeArea, ReadOnlyCoreCodeArea } from "../Layouts/CodeArea";
+import { CodeArea, GenPythonCodeArea } from "../Layouts/CodeArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
@@ -104,7 +104,7 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
     case C.CODE:
       return <CodeArea sectionId={sectionId} />;
     case C.GEN_PYTHON_CODE:
-      return <ReadOnlyCoreCodeArea sectionId={sectionId} />;
+      return <GenPythonCodeArea sectionId={sectionId} />;
     case C.PARAM_SWEEP:
       return <ParamSweepArea sectionId={sectionId} />;
     case C.TERMINAL:

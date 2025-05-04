@@ -2,7 +2,11 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
+import {
+  dbFileWatchGenPythonCode,
+  dbFileWatchList,
+  dbFileWatchReplacePath,
+} from "requests/jsonSource";
 import {
   useAIStore,
   useArtifacts,
@@ -36,6 +40,10 @@ export function subscribe() {
     (x) => {
       useSectionInfos.setState((state) => {
         state.singletonSections = x;
+      });
+      dbFileWatchGenPythonCode({
+        watch: Boolean(x[C.GEN_PYTHON_CODE]),
+        projectConfigId: useSectionInfos.getState().projectConfig.id,
       });
     },
     { equalityFn: _.isEqual },
