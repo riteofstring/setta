@@ -188,12 +188,14 @@ function singletonSectionsSubscriptionFn(state) {
   const output = {
     [C.GLOBAL_VARIABLES]: null,
     [C.GLOBAL_PARAM_SWEEP]: null,
+    [C.GEN_PYTHON_CODE]: null,
   };
   for (const s of Object.values(state.x)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[C.GLOBAL_VARIABLES] &&
       output[C.GLOBAL_PARAM_SWEEP] &&
+      output[C.GEN_PYTHON_CODE] &&
       output.temporaryTerminalGroup
     ) {
       break;
@@ -203,6 +205,9 @@ function singletonSectionsSubscriptionFn(state) {
     }
     if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
       output[C.GLOBAL_PARAM_SWEEP] = s.id;
+    }
+    if (!output[C.GEN_PYTHON_CODE] && uiType === C.GEN_PYTHON_CODE) {
+      output[C.GEN_PYTHON_CODE] = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (!output.temporaryTerminalGroup && uiType === C.GROUP && s.isTemporary) {

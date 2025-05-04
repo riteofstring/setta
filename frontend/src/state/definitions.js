@@ -54,6 +54,7 @@ export const useSectionInfos = withProjectState(
               singletonSections: {
                 [C.GLOBAL_VARIABLES]: null,
                 [C.GLOBAL_PARAM_SWEEP]: null,
+                [C.GEN_PYTHON_CODE]: null,
                 temporaryTerminalGroup: null,
               },
               shouldRenameReferences: false,
