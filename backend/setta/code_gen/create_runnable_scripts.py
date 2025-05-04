@@ -7,9 +7,6 @@ from setta.code_gen.export_selected import (
     get_section_type,
     get_selected_section_variant,
 )
-from setta.code_gen.python.validate_imports import (
-    maybe_validate_imports_and_update_code,
-)
 from setta.database.utils import create_new_id
 from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import prune_dict

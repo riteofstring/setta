@@ -202,7 +202,6 @@
 
 import asyncio
 import json
-from pathlib import Path
 
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -221,7 +220,9 @@ async def main():
     writers = LSPWriters(servers)
     readers = LSPReaders(servers, None)
     await start_lsps(servers, readers, writers)
-    code_generator = PythonCodeGenerator(writers, CODE_FOLDER / "temp_folder/leaf_creek")
+    code_generator = PythonCodeGenerator(
+        writers, CODE_FOLDER / "temp_folder/leaf_creek"
+    )
 
     exporter_obj = export_selected(project_state)
     code = await code_generator.generate_code(exporter_obj.output)

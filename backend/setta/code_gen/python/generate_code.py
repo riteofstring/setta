@@ -1,5 +1,7 @@
 import asyncio
+
 from setta.database.utils import create_new_id
+
 from ...utils.constants import C, ParameterPassingStyle
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports
@@ -38,7 +40,7 @@ class PythonCodeGenerator:
         imports = await self.validate_imports(imports)
         code = f"{imports}{code}"
         return code
-    
+
     async def validate_imports(self, generated_imports):
         if not generated_imports:
             return generated_imports
@@ -85,13 +87,6 @@ class PythonCodeGenerator:
 
         generated_imports = "\n".join(lines)
         return generated_imports
-
-
-
-
-
-
-
 
 
 def get_import_text(code):
@@ -205,9 +200,6 @@ def create_line(var_name, x, selected, force_appear):
         if x["isTopLevel"]:
             value = f"{SELF_IDENTIFIER}.{value}"
     return value
-
-
-
 
 
 def generate_imports(
