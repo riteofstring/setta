@@ -124,11 +124,6 @@ async def route_set_llm_api_keys(
     await websocket_msg_handler.broadcast_notification_to_all_projects(notification)
 
 
-@router.post(C.ROUTE_GET_LLM_API_KEYS)
-def route_get_llm_api_keys(x: GetLLMApiKeysRequest):
-    return get_llm_api_keys_from_env_vars(dotenv_values(x.apiKeysFilepath))
-
-
 @router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
 def route_get_all_llm_chat_metadata(chat_manager=Depends(get_chat_manager)):
     return chat_manager.get_all_chat_metadata()

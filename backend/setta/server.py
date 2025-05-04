@@ -71,6 +71,7 @@ async def lifespan(app: FastAPI):
         app.state.project_manager,
         app.state.script_metadata,
         app.state.dbq,
+        app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
 

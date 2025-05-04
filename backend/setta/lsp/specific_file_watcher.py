@@ -58,6 +58,18 @@ class SpecificFileWatcher:
             self.file_to_patterns,
         )
 
+    def request_read_all_files(self):
+        for file_watch_group_name, filepaths in self.watched_files.items():
+            for f in filepaths:
+                mock_event = MockFileEvent(f)
+                self.handler._send_event(
+                    file_watch_group_name, mock_event, "readRequested"
+                )
+
+    def request_read(self, file_watch_group_name, abs_path):
+        mock_event = MockFileEvent(abs_path)
+        self.handler._send_event(file_watch_group_name, mock_event, "readRequested")
+
     def add_file(
         self,
         file_path: str,
@@ -113,8 +125,7 @@ class SpecificFileWatcher:
 
         # If requested, fire an immediate event
         if fire_immediately:
-            mock_event = MockFileEvent(absolute_path)
-            self.handler._send_event(file_watch_group_name, mock_event, "initialized")
+            self.request_read(file_watch_group_name, absolute_path)
 
         return True
 
@@ -309,7 +320,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         Args:
             file_watch_group_name: Group name for the file
             event: The file system event
-            event_type: The type of event ('created', 'modified', 'deleted', 'moved', 'initialized')
+            event_type: The type of event ('created', 'modified', 'deleted', 'moved', 'readRequested')
         """
         logger.debug("_send_event")
         # Get absolute path
@@ -318,14 +329,14 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         # Get relative path to current working directory
         rel_path = os.path.relpath(abs_path)
 
-        # Get file contents for created, modified, and initialized events
+        # Get file contents for created, modified, and readRequested events
         file_content = None
         processor = self.file_content_processors.get(abs_path)
 
         if processor is not None and event_type in (
             "created",
             "modified",
-            "initialized",
+            "readRequested",
         ):
             try:
                 with open(abs_path, "r", encoding="utf-8") as f:

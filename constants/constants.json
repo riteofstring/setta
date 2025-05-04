@@ -100,7 +100,6 @@
   "ROUTE_DELETE_NOTIFICATION": "/deleteNotification",
   "ROUTE_GET_LLM_RESPONSE": "/getLLMResponse",
   "ROUTE_SET_LLM_API_KEYS": "/setLLMApiKeys",
-  "ROUTE_GET_LLM_API_KEYS": "/getLLMApiKeys",
   "ROUTE_GET_ALL_LLM_CHAT_METADATA": "/getAllLLMChatMetadata",
   "ROUTE_DELETE_LLM_CHAT": "/deleteLLMChat",
   "ROUTE_STOP_LLM_CHAT": "/stopLLMChat",

@@ -19,6 +19,7 @@ class WebsocketMsgHandlers:
         project_manager,
         script_metadata,
         dbq,
+        specific_file_watcher,
     ):
         self.base = BaseWebsocketMsgHandler(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
@@ -28,6 +29,7 @@ class WebsocketMsgHandlers:
             lsp_writers,
             project_manager,
             script_metadata,
+            specific_file_watcher,
         )
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(
@@ -125,11 +127,13 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         lsp_writers,
         project_manager,
         script_metadata,
+        specific_file_watcher,
     ):
         self.websocket_manager = websocket_manager
         self.lsp_writers = lsp_writers
         self.project_manager = project_manager
         self.script_metadata = script_metadata
+        self.specific_file_watcher = specific_file_watcher
 
     async def process_message(self, message, fromWebsocketId):
         if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
@@ -164,6 +168,7 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         await self.websocket_manager.send_message(
             {"content": content, "messageType": messageType}, websocket_id
         )
+        self.specific_file_watcher.request_read_all_files()
 
 
 class WMHCLI(BaseWebsocketMsgHandler):

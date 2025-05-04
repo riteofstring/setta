@@ -1,5 +1,4 @@
 import C from "constants/constants.json";
-import { dbGetLLMApiKeys } from "requests/ai";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
@@ -71,16 +70,6 @@ async function updateApiKeyInfo(updatedFileInfo) {
     apiKeys: fileContent,
     apiKeysInitialLoadComplete: true,
   });
-}
-
-export async function updateLLMApiKeyInfo(apiKeysFilepath) {
-  const res = await dbGetLLMApiKeys(apiKeysFilepath);
-  if (res.status == 200) {
-    useAIStore.setState({
-      apiKeys: res.data,
-      apiKeysInitialLoadComplete: true,
-    });
-  }
 }
 
 function updateGenPythonCode(updatedFileInfo) {
