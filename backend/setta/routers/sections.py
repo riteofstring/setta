@@ -204,6 +204,11 @@ def route_file_watch_gen_python_code(
     x: FileWatchGenPythonCodeRequest,
     specific_file_watcher=Depends(get_specific_file_watcher),
 ):
+    def content_processor(raw_content):
+        return raw_content
+
     path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
     filepaths = [path] if x.watch else []
-    specific_file_watcher.update_watch_list(filepaths, "genPythonCode", True)
+    specific_file_watcher.update_watch_list(
+        filepaths, "genPythonCode", content_processor
+    )

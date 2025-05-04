@@ -56,7 +56,10 @@ async def route_save_settings_project(
 
 
 @router.post(C.ROUTE_LOAD_SETTINGS_PROJECT)
-async def route_load_settings_project(settings_file=Depends(get_settings_file), project_manager=Depends(get_project_manager),):
+async def route_load_settings_project(
+    settings_file=Depends(get_settings_file),
+    project_manager=Depends(get_project_manager),
+):
     p = settings_file.load_settings_project()
     await project_manager.update(p)
     return p
