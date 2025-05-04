@@ -115,12 +115,15 @@ def create_line(var_name, x, selected, force_appear):
     if value or force_appear:
         prefix = var_declaration(var_name, value, return_prefix=True)
         value = f"{prefix}{value}"
+        if x["isTopLevel"]:
+            value = f"{SELF_IDENTIFIER}.{value}"
     return value
 
 
 def generate_code(selected, push_var_name=None):
     lines = []
     if push_var_name:
+        # TODO: rethink this push_var logic
         for v in selected.values():
             if (
                 isinstance(v["value"], dict)

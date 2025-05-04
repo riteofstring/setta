@@ -310,12 +310,14 @@ class Exporter:
             self.p,
             self.section_types_to_process,
         )
-        self.export_sections(list(self.p["projectConfig"]["children"].keys()))
+        self.export_sections(
+            list(self.p["projectConfig"]["children"].keys()), isTopLevel=True
+        )
 
-    def export_sections(self, ids):
-        return [self.export_section(x) for x in ids]
+    def export_sections(self, ids, isTopLevel=False):
+        return [self.export_section(x, isTopLevel) for x in ids]
 
-    def export_section(self, id):
+    def export_section(self, id, isTopLevel=False):
         var_name = self.create_var_name(
             id,
             None,
@@ -327,6 +329,7 @@ class Exporter:
                 "sectionId": id,
                 "name": get_section_name(self.p, id),
                 "type": type,
+                "isTopLevel": isTopLevel,
             }
             if type == C.SECTION:
                 (
