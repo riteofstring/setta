@@ -213,7 +213,7 @@ def route_file_watch_gen_python_code(
     if x.watch:
         path = project_manager.get_gen_python_code_path(x.projectConfigId)
         if not path:
-            return
+            raise HTTPException(status_code=404, detail="Path not found")
         filepaths = [str(path)]
 
     specific_file_watcher.update_watch_list(
