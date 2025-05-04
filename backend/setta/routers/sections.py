@@ -21,7 +21,7 @@ from setta.database.db.sections.copy import (
 )
 from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
-from setta.routers.dependencies import get_specific_file_watcher
+from setta.routers.dependencies import get_project_manager, get_specific_file_watcher
 from setta.routers.utils import get_content_processor
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename
@@ -206,9 +206,16 @@ def route_file_watch_list(
 def route_file_watch_gen_python_code(
     x: FileWatchGenPythonCodeRequest,
     specific_file_watcher=Depends(get_specific_file_watcher),
+    project_manager=Depends(get_project_manager),
 ):
-    path = "setta_files/code/temp_folder/leaf_creek/setta_gen.py"
-    filepaths = [path] if x.watch else []
+    filepaths = []
+
+    if x.watch:
+        path = project_manager.get_gen_python_code_path(x.projectConfigId)
+        if not path:
+            return
+        filepaths = [str(path)]
+
     specific_file_watcher.update_watch_list(
         filepaths,
         "genPythonCode",

@@ -56,6 +56,9 @@ class GenCode(Code):
     def get_base_filename(self):
         return "setta_gen"
 
+    def get_gen_python_code_path(self):
+        return self.temp_file
+
 
 class NonGenCode(Code):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, sectionId):

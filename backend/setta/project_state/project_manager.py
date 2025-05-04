@@ -43,3 +43,6 @@ class ProjectManager:
     def delete_temp_files(self):
         for v in self.states.values():
             v.delete_temp_files()
+
+    def get_gen_python_code_path(self, projectConfigId):
+        return self.states[projectConfigId].get_gen_python_code_path()

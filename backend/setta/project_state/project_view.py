@@ -90,3 +90,8 @@ class ProjectView:
     def delete_temp_files(self):
         for v in self.code_previews.values():
             v.delete_temp_file()
+
+    def get_gen_python_code_path(self):
+        if self.gen_code_preview:
+            return self.gen_code_preview.get_gen_python_code_path()
+        return None

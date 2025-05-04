@@ -55,3 +55,6 @@ class ProjectState:
         self.project_view.delete_temp_files()
         for v in self.section_views.values():
             v.delete_temp_files()
+
+    def get_gen_python_code_path(self):
+        return self.project_view.get_gen_python_code_path()
