@@ -43,7 +43,8 @@ class ProjectPerspectiveCodeGenerator:
         self.temp_folder = temp_folder
 
     async def update(self, project_state):
-        print(json.dumps(project_state, indent=2), flush=True)
+        with open("project_state.json", "w") as f:
+            json.dump(project_state, f, indent=2)
         self.project_state = project_state
         exporter_obj = export_selected(
             self.project_state,

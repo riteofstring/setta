@@ -172,7 +172,7 @@ def generate_imports(
 
 def generate_wrapper_class(lines):
     code = f"""
-from setta.code_gen.args_obj import SettaArgsObj
+from setta.code_gen.python.args_obj import SettaArgsObj
 
 class S:
     def __init__({SELF_IDENTIFIER}):
