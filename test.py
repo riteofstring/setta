@@ -182,57 +182,203 @@
 #     test_dependency_visitor()
 
 
-import math
+# import math
 
 
-class SettaArgs:
-    def __init__(self):
-        # Internal dictionary to store attributes
-        self._attributes = {}
+# class SettaArgs:
+#     def __init__(self):
+#         # Internal dictionary to store attributes
+#         self._attributes = {}
 
-    def __getattr__(self, name):
-        # When accessing a non-existent attribute, create a new container
-        if name not in self._attributes:
-            self._attributes[name] = SettaArgs()
-        return self._attributes[name]
+#     def __getattr__(self, name):
+#         # When accessing a non-existent attribute, create a new container
+#         if name not in self._attributes:
+#             self._attributes[name] = SettaArgs()
+#         return self._attributes[name]
 
-    def __setattr__(self, name, value):
-        # Handle the special case of our internal _attributes dictionary
-        if name == "_attributes":
-            super().__setattr__(name, value)
-        else:
-            # Store all other attributes in our _attributes dictionary
-            self._attributes[name] = value
+#     def __setattr__(self, name, value):
+#         # Handle the special case of our internal _attributes dictionary
+#         if name == "_attributes":
+#             super().__setattr__(name, value)
+#         else:
+#             # Store all other attributes in our _attributes dictionary
+#             self._attributes[name] = value
 
-    def __getitem__(self, key):
-        # Handle access with square brackets (both numeric indices and string keys)
-        if key not in self._attributes:
-            self._attributes[key] = SettaArgs()
-        return self._attributes[key]
+#     def __getitem__(self, key):
+#         # Handle access with square brackets (both numeric indices and string keys)
+#         if key not in self._attributes:
+#             self._attributes[key] = SettaArgs()
+#         return self._attributes[key]
 
-    def __setitem__(self, key, value):
-        # Handle assignment with square brackets
-        self._attributes[key] = value
+#     def __setitem__(self, key, value):
+#         # Handle assignment with square brackets
+#         self._attributes[key] = value
 
-    def __str__(self):
-        # For a readable string representation
-        return str(self._attributes)
+#     def __str__(self):
+#         # For a readable string representation
+#         return str(self._attributes)
 
-    def __repr__(self):
-        # For representation in interactive sessions
-        return self.__str__()
-
-
-class S:
-    def __init__(s):
-        s.args = SettaArgs()
-        s.args.the_result[0].x = 5
-        the_result__i0 = math.sqrt(s.args.the_result[0].x)
-        s.args.the_result[1].x = 10
-        the_result__i1 = math.sqrt(s.args.the_result[1].x)
-        s.the_result = [the_result__i0, the_result__i1]
+#     def __repr__(self):
+#         # For representation in interactive sessions
+#         return self.__str__()
 
 
-s = S()
-print(s.the_result)
-print(s.args)
+# class S:
+#     def __init__(s):
+#         s.args = SettaArgs()
+#         s.args.the_result[0].x = 5
+#         the_result__i0 = math.sqrt(s.args.the_result[0].x)
+#         s.args.the_result[1].x = 10
+#         the_result__i1 = math.sqrt(s.args.the_result[1].x)
+#         s.the_result = [the_result__i0, the_result__i1]
+
+
+# s = S()
+# print(s.the_result)
+# print(s.args)
+
+
+
+from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
+from setta.code_gen.export_selected import export_selected
+
+
+def get_project_state():
+    return {
+    "projectConfig": {
+        "id": "28c8b0b6-3638-42a3-b2e5-83500547e3f4",
+        "name": "drawing_wandering",
+        "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
+        "viewingEditingMode": "DEV",
+        "viewport": {
+        "x": 0,
+        "y": 0,
+        "zoom": 1
+        },
+        "children": {
+        "0e473819-7bb5-44ee-8601-e76cb9ab6a84": {
+            "x": 510,
+            "y": 75,
+            "zIndex": 0,
+            "w": 202,
+            "h": 106
+        }
+        }
+    },
+    "sectionVariants": {
+        "50b84cb5-defe-4e79-aba6-5b3439b22fb7": {
+        "name": "bored_aquamarine",
+        "values": {},
+        "children": [],
+        "selectedItem": None,
+        "code": "",
+        "codeInfoColId": None,
+        "description": "",
+        "evRefs": [],
+        "templateVars": [],
+        "isFrozen": False,
+        "sweep": [],
+        "runGroup": {},
+        "configLanguage": "python",
+        "isJsonSource": False,
+        "jsonSourceKeys": [],
+        "jsonSourceMissing": False
+        }
+    },
+    "artifacts": {},
+    "artifactGroups": {},
+    "uiTypes": {},
+    "uiTypeCols": {},
+    "sections": {
+        "0e473819-7bb5-44ee-8601-e76cb9ab6a84": {
+        "id": "0e473819-7bb5-44ee-8601-e76cb9ab6a84",
+        "name": "xeric_salmon",
+        "size": {
+            "width": "auto",
+            "height": "auto"
+        },
+        "parentId": None,
+        "variantId": "50b84cb5-defe-4e79-aba6-5b3439b22fb7",
+        "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
+        "uiTypeColId": None,
+        "social": "",
+        "artifactGroupIds": [],
+        "defaultVariantId": "50b84cb5-defe-4e79-aba6-5b3439b22fb7",
+        "variantIds": [
+            "50b84cb5-defe-4e79-aba6-5b3439b22fb7"
+        ],
+        "paramSweepSectionId": None,
+        "nonPresetUITypeIds": [],
+        "codeLanguage": "python",
+        "isEntryCodeBlock": False,
+        "isFrozen": False,
+        "isHorizontalOrientation": False,
+        "hideParams": False,
+        "hideSearch": False,
+        "hideUnpinnedParams": False,
+        "hideColumn": False,
+        "displayMode": "GUI",
+        "visibility": {
+            "DEV": True,
+            "USER": True
+        },
+        "pinnedAreaHeight": "auto",
+        "isMinimized": False,
+        "canvasSettings": {
+            "activeLayerId": None,
+            "color": "#ff0000",
+            "brushSize": 16,
+            "brushShape": "butt",
+            "eraserBrushSize": 16,
+            "drawThrottleDelay": 0,
+            "canvasTransferQueueLength": 50,
+            "mode": "draw"
+        },
+        "chartSettings": {
+            "type": "line",
+            "xAxisColumn": "",
+            "secondYAxisColumns": [],
+            "xAxisLog": False,
+            "y1AxisLog": False,
+            "y2AxisLog": False
+        },
+        "isTemporary": False,
+        "renderMarkdown": False,
+        "positionAndSizeLocked": False,
+        "selectedVariantIds": {},
+        "paramFilter": "",
+        "isInOtherProjectConfigs": False,
+        "aspectRatio": False,
+        "aspectRatioExtraHeight": 0,
+        "aspectRatioExtraWidth": 0,
+        "columnWidth": 82,
+        "renderedValue": None,
+        "headingAsSectionName": False
+        }
+    },
+    "codeInfo": {},
+    "codeInfoCols": {}
+    }
+
+import json
+import asyncio
+
+
+async def main():
+    project_state = get_project_state()
+    exporter_obj = export_selected(project_state)
+    projectConfigName = project_state["projectConfig"]["name"]
+
+    print(json.dumps(exporter_obj.output, indent=2), flush=True)
+
+    code_dict = await generate_final_code_for_sections(
+        project_state,
+        exporter_obj,
+        lsp_writers=None,
+        folder_path="",
+    )
+    print(json.dumps(code_dict, indent=2), flush=True)
+
+
+if __name__=="__main__":
+    asyncio.run(main())
