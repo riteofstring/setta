@@ -182,22 +182,20 @@
 #     test_dependency_visitor()
 
 
-
 import math
 
-from types import SimpleNamespace
 
 class SettaArgs:
     def __init__(self):
         # Internal dictionary to store attributes
         self._attributes = {}
-    
+
     def __getattr__(self, name):
         # When accessing a non-existent attribute, create a new container
         if name not in self._attributes:
             self._attributes[name] = SettaArgs()
         return self._attributes[name]
-    
+
     def __setattr__(self, name, value):
         # Handle the special case of our internal _attributes dictionary
         if name == "_attributes":
@@ -205,34 +203,34 @@ class SettaArgs:
         else:
             # Store all other attributes in our _attributes dictionary
             self._attributes[name] = value
-    
+
     def __getitem__(self, key):
         # Handle access with square brackets (both numeric indices and string keys)
         if key not in self._attributes:
             self._attributes[key] = SettaArgs()
         return self._attributes[key]
-    
+
     def __setitem__(self, key, value):
         # Handle assignment with square brackets
         self._attributes[key] = value
-            
+
     def __str__(self):
         # For a readable string representation
         return str(self._attributes)
-        
+
     def __repr__(self):
         # For representation in interactive sessions
         return self.__str__()
 
+
 class S:
-    def __init__(self):
-        args = SettaArgs()
-        args.the_result[0].x = 5
-        args.the_result[1].x = 10
-        the_result__i0 = math.sqrt(args.the_result[0].x)
-        the_result__i1 = math.sqrt(args.the_result[1].x)
-        self.the_result = [the_result__i0, the_result__i1]
-        self.args = args
+    def __init__(s):
+        s.args = SettaArgs()
+        s.args.the_result[0].x = 5
+        the_result__i0 = math.sqrt(s.args.the_result[0].x)
+        s.args.the_result[1].x = 10
+        the_result__i1 = math.sqrt(s.args.the_result[1].x)
+        s.the_result = [the_result__i0, the_result__i1]
 
 
 s = S()
