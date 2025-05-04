@@ -1,8 +1,5 @@
 import C from "constants/constants.json";
-import {
-  dbParametersRequest,
-  dbTextFieldInitializeCode,
-} from "requests/sections";
+import { dbParametersRequest } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -26,7 +23,6 @@ export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
       getSectionVariant(sectionId, state).selectedItem = id;
     }
   }
-  await dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
   await setSelectedItem(
     sectionId,
     sectionId,

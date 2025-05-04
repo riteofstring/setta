@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
+import { debouncedTypeCheckRequest } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
@@ -11,7 +11,6 @@ import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
-import { asyncDebounce } from "utils/utils";
 
 export function SectionSearch({ sectionId, selectedItem }) {
   const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
@@ -190,7 +189,6 @@ function SectionSearchCore({
 
   function onChange(value) {
     setValueAndCheckConsistency(value);
-    debouncedSetLocalEVRefs(dataSectionId, value, setLocalEVRefs);
   }
 
   function _onEnter() {
@@ -251,15 +249,3 @@ function LoadingSpinner({ sectionId }) {
     )
   );
 }
-
-const debouncedSetLocalEVRefs = asyncDebounce(
-  async (sectionId, value, setLocalEVRefs) => {
-    const evRefs = await getEVRefs({
-      sectionId,
-      paramInfoId: null,
-      fullText: value,
-    });
-    setLocalEVRefs(evRefs);
-  },
-  50,
-);

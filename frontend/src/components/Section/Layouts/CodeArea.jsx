@@ -1,3 +1,10 @@
+import { EditorState, Facet, StateField } from "@codemirror/state";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+} from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
@@ -7,11 +14,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  dbCodeAreaCompletion,
-  dbCodeAreaInitializeCode,
-  getEVRefsAndTemplateVarsForCodeArea,
-} from "requests/sections";
+import { dbCodeAreaCompletion } from "requests/sections";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
@@ -97,10 +100,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     debouncedSetCode(sectionId, v, abortController);
   }
 
-  function onMouseDown() {
-    dbCodeAreaInitializeCode(sectionId);
-  }
-
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
@@ -126,10 +125,19 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={localValue}
+        // value={localValue}
+        value={
+          "This is editable.\nThis is NOT editable.\nThis is editable again."
+        }
         theme={theme}
-        extensions={extensions}
-        onMouseDown={onMouseDown}
+        extensions={[
+          ...extensions,
+          uneditableRanges.of({ from: 10, to: 50 }), // Make characters 10-50 uneditable
+          readOnlyRangesExtension,
+          uneditableRangeStyle,
+          uneditableStyles,
+          labelDecorationField,
+        ]}
         onChange={onChange}
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
@@ -278,21 +286,142 @@ const debouncedSetCode = asyncDebounce(
       return;
     }
 
-    const { templateVars, evRefs } = await getEVRefsAndTemplateVarsForCodeArea(
-      sectionId,
-      value,
-    );
     if (ac.signal.aborted) {
       return;
     }
     useSectionInfos.setState((x) => {
       const sectionVariant = getSectionVariant(sectionId, x);
       sectionVariant.code = value;
-      sectionVariant.evRefs = evRefs;
-      sectionVariant.templateVars = templateVars;
     });
 
     maybeIncrementProjectStateVersion(true);
   },
   50,
 );
+
+// Create a facet to store uneditable ranges
+const uneditableRanges = Facet.define({
+  combine: (ranges) => ranges,
+});
+
+// Create the extension that checks against these ranges
+const readOnlyRangesExtension = EditorState.transactionFilter.of((tr) => {
+  const ranges = tr.startState.facet(uneditableRanges) || [];
+
+  // Check if any ranges are affected by this transaction
+  for (let range of ranges) {
+    if (tr.changes.touchesRange(range.from, range.to)) {
+      return []; // Reject the transaction
+    }
+  }
+  return tr;
+});
+
+// Create decorations for visual styling of uneditable regions
+const uneditableRangeStyle = ViewPlugin.fromClass(
+  class {
+    decorations;
+
+    constructor(view) {
+      this.decorations = this.createDecorations(view);
+    }
+
+    update(update) {
+      if (
+        update.docChanged ||
+        update.viewportChanged ||
+        update.startState.facet(uneditableRanges) !==
+          update.state.facet(uneditableRanges)
+      ) {
+        this.decorations = this.createDecorations(update.view);
+      }
+    }
+
+    createDecorations(view) {
+      const ranges = view.state.facet(uneditableRanges) || [];
+      let decorations = [];
+
+      for (let range of ranges) {
+        // Add mark decoration for the uneditable range
+        decorations.push(
+          Decoration.mark({
+            class: "cm-uneditable-region",
+          }).range(range.from, range.to),
+        );
+      }
+
+      return Decoration.set(decorations);
+    }
+  },
+  {
+    decorations: (v) => v.decorations,
+  },
+);
+
+// CSS styles for the editor
+const uneditableStyles = EditorView.theme({
+  ".cm-uneditable-region": {
+    backgroundColor: "#f0f0f0",
+    color: "#666",
+    cursor: "not-allowed",
+  },
+});
+
+class BlockLabelWidget extends WidgetType {
+  constructor(label) {
+    super();
+    this.label = label;
+  }
+
+  toDOM() {
+    const div = document.createElement("div");
+    div.textContent = this.label;
+    div.style.backgroundColor = "#e0e0e0"; // Light gray background for visibility
+    div.style.padding = "2px"; // Add some padding
+    div.style.margin = "2px 0"; // Add vertical spacing
+    div.style.width = "100%"; // Full width to act as a block
+    return div;
+  }
+
+  ignoreEvent() {
+    return true; // Prevent the widget from interfering with editor events
+  }
+}
+
+function computeLabelDecorations(state) {
+  const decorations = [];
+  const doc = state.doc;
+
+  // Iterate through each line in the document
+  for (let i = 1; i <= doc.lines; i++) {
+    const line = doc.line(i);
+    const lineText = line.text;
+
+    // Check if the line contains "NOT"
+    if (lineText.includes("NOT")) {
+      // Place the widget at the end of the line
+      const pos = line.to;
+      const deco = Decoration.widget({
+        widget: new BlockLabelWidget("Read-only"), // The label text
+        block: true, // Treat it as a block-level element
+        side: 1, // Place it after the line content
+      });
+      decorations.push(deco.range(pos));
+    }
+  }
+
+  return Decoration.set(decorations);
+}
+
+// Define the StateField to hold the decorations
+const labelDecorationField = StateField.define({
+  create(state) {
+    return computeLabelDecorations(state);
+  },
+  update(decorations, transaction) {
+    return computeLabelDecorations(transaction.state);
+  },
+  provide(field) {
+    return EditorView.decorations.from(field);
+  },
+});

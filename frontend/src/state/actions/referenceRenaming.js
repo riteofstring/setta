@@ -1,8 +1,4 @@
-import {
-  computeInfoToFullName,
-  extractTemplateVarSuffix,
-  keyForInfoToFullName,
-} from "components/Utils/CodeMirror/utils";
+import { extractTemplateVarSuffix } from "components/Utils/CodeMirror/utils";
 import { dbMakeEVRefTemplateVarReplacements } from "requests/infoToEVReferrer";
 import { useSectionInfos, useSettings } from "state/definitions";
 import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";

@@ -36,7 +36,7 @@ from setta.database.db.projects.utils import (
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_wmh_database
+from .dependencies import get_dbq, get_project_manager, get_wmh_database
 
 router = APIRouter()
 
@@ -111,13 +111,16 @@ def route_load_project_config_names(dbq=Depends(get_dbq)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-def route_load_project_config(
+async def route_load_project_config(
     x: ProjectLoadRequest,
     dbq=Depends(get_dbq),
+    project_manager=Depends(get_project_manager),
 ):
     try:
         with dbq as db:
-            return load_project_config(db, x.projectConfigName)
+            project_state = load_project_config(db, x.projectConfigName)
+            await project_manager.update(project_state)
+            return project_state
     except ProjectNotFound as e:
         raise HTTPException(status_code=404, detail=repr(e))
 

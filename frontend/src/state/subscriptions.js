@@ -6,20 +6,18 @@ import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
 import {
   useAIStore,
   useArtifacts,
-  useEVRefRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
-  useTemplateVarRegex,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
-import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
   updateNodeVisibility,
 } from "./actions/nodeInternals";
+import { updateBackendProjectState } from "./actions/project/generateCode";
 import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
@@ -31,7 +29,6 @@ import {
   getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
-import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -47,8 +44,6 @@ export function subscribe() {
   useSectionInfos.subscribe(
     regexSubscriptionFn,
     (x) => {
-      useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
-      useTemplateVarRegex.setState(getTemplateVarsRegexAndColorMap(x));
       if (useSectionInfos.getState().shouldRenameReferences) {
         // reset the flag used by subscriptions
         useSectionInfos.setState({ shouldRenameReferences: false });
@@ -106,6 +101,10 @@ export function subscribe() {
         }
       });
     }
+  });
+
+  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
+    updateBackendProjectState();
   });
 
   useReactFlow.subscribe(
@@ -329,4 +328,8 @@ function entryCodeBlockSubscriptionFn(state) {
 
 function apiKeysFilepathSubscriptionFn(state) {
   return state.apiKeysFilepath;
+}
+
+function updateBackendSubscriptionFn(state) {
+  return state;
 }

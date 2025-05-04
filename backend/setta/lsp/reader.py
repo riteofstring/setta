@@ -5,7 +5,6 @@ import logging
 from setta.database.db.notifications.load import create_notification_dict
 from setta.lsp.reader_fns.completion import process_completion_response
 from setta.lsp.reader_fns.definition import process_definition_response
-from setta.lsp.reader_fns.diagnostics import process_diagnostics_response
 from setta.lsp.reader_fns.documentHighlight import process_document_highlight_response
 from setta.lsp.reader_fns.references import process_references_response
 from setta.lsp.reader_fns.signatureHelp import process_signature_help_response
@@ -16,14 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server, websocket_msg_handler):
+    def __init__(self, server, project_manager):
         self.server = server
-        self.websocket_msg_handler = websocket_msg_handler
+        self.project_manager = project_manager
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None
 
-    async def start_listener(self):
+    async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = asyncio.create_task(self.read_response())
@@ -143,11 +142,6 @@ class LanguageServerReader(LanguageServerInteractor):
 
     async def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
-            content, needsDiagnostics = process_diagnostics_response(
-                response, self.get_code_metadata
+            asyncio.create_task(
+                self.project_manager.process_diagnostics_response(response)
             )
-            with open("test_results.json", 'w') as f:
-                json.dump(response, f, indent=2)
-            if needsDiagnostics:
-                await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
-                

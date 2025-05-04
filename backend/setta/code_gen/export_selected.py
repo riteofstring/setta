@@ -1,14 +1,12 @@
 import copy
 
 from setta.database.db.codeInfo.utils import new_code_info_col
-from setta.database.db.sectionVariants.utils import new_ev_entry, new_section_variant
+from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.database.db.uiTypes.utils import new_ui_type_col_entry
 from setta.utils.section_contents import findAllParametersAndPathMaps
-from setta.utils.utils import QuoteInsensitiveDict, replace_null_keys_with_none
+from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import BASE_UI_TYPES, C
-from .find_placeholders import tp
-from .utils import process_refs
 
 
 def get_section_type(p, id):
@@ -56,13 +54,6 @@ def get_selected_item_id(p, id):
     selected_item = get_selected_item(p, id)
     if selected_item:
         return selected_item["id"]
-    return None
-
-
-def get_selected_item_ev_refs(p, id):
-    selected_item = get_selected_item(p, id)
-    if selected_item:
-        return selected_item["evRefs"]
     return None
 
 
@@ -133,23 +124,8 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
-def get_specific_template_var(template_vars, keyword, return_index=False):
-    for i, t in enumerate(template_vars):
-        if t["keyword"] == keyword:
-            return (t, i) if return_index else t
-    return (None, -1) if return_index else None
-
-
-def get_gen_code_template_var(template_vars):
-    return get_specific_template_var(template_vars, tp(C.SETTA_GENERATED_PYTHON))
-
-
 def no_entered_value(value):
     return value is None or value == ""
-
-
-def get_var_name(var_name_mapping):
-    return f"{C.ARGS_PREFIX}x{len(var_name_mapping)}"
 
 
 def get_for_section_id(p, section_id):
@@ -172,12 +148,32 @@ def get_param_full_path_name(id, pathMap, codeInfo):
         return name
 
 
-def export_selected(p, always_export_args_objs, force_include_template_var):
+def get_section_path_full_name(p, section_id):
+    parent_id = p["sections"][section_id]["parentId"]
+    if not parent_id:
+        return p["sections"][section_id]["name"]
+
+    child_id = section_id
+    output = ""
+    while parent_id:
+        if get_section_type(p, parent_id) == C.LIST_ROOT:
+            idx = get_section_children(p, parent_id).index(section_id)
+            output = f"[{idx}]{output}"
+        else:
+            output = f'["{p["sections"][child_id]["name"]}"]' + output
+
+        child_id = parent_id
+        parent_id = p["sections"][parent_id]["parentId"]
+
+    # child_id will contain the highest parent's id
+    return f"{p['sections'][child_id]['name']}{output}"
+
+
+def export_selected(p, always_export_args_objs):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = Exporter(
         p,
         always_export_args_objs=always_export_args_objs,
-        force_include_template_var=force_include_template_var,
     )
     e.export()
     return e
@@ -244,37 +240,10 @@ def remove_unneeded_sections(p, keep_section_types):
 
 
 class Exporter:
-    def __init__(self, p, always_export_args_objs, force_include_template_var):
+    def __init__(self, p, always_export_args_objs):
         self.output = {}
         self.p = copy.deepcopy(p)
-        self.var_name_mapping = {}
-        self.var_name_reverse_mapping = {}
         self.always_export_args_objs = always_export_args_objs
-        self.force_include_template_var = force_include_template_var
-        self.code_gen_template_var_section_details = {
-            "section": {},
-            "sectionVariant": {},
-        }
-        if force_include_template_var:
-            section_details = {
-                "id": None,
-                "name": C.DEFAULT_PYTHON_SCRIPT_NAME,
-                "codeLanguage": "python",
-            }
-            _, section_variant = new_section_variant(
-                code=tp(C.SETTA_GENERATED_PYTHON),
-                templateVars=[
-                    {
-                        "startPos": 0,
-                        "keyword": tp(C.SETTA_GENERATED_PYTHON),
-                        "sectionId": None,
-                    }
-                ],
-            )
-            self.code_gen_template_var_section_details = {
-                "section": section_details,
-                "sectionVariant": section_variant,
-            }
         self.section_types_to_process = [
             C.SECTION,
             C.LIST_ROOT,
@@ -296,7 +265,7 @@ class Exporter:
         return [self.export_section(x) for x in ids]
 
     def export_section(self, id):
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             id,
             None,
         )
@@ -316,19 +285,8 @@ class Exporter:
                     passingStyles,
                 ) = self.export_section_params(id)
 
-                selected_item_ev_refs = get_selected_item_ev_refs(self.p, id)
-                if selected_item_ev_refs:
-                    callable, ref_template_var_positions = process_refs(
-                        get_selected_item_name(self.p, id),
-                        selected_item_ev_refs,
-                        self.maybe_create_ref_var_name,
-                    )
-                    ref_var_name_positions = ref_template_var_positions["refs"]
-                    used_ref_var_names = [x["value"] for x in ref_var_name_positions]
-                else:
-                    callable = get_selected_item_name(self.p, id)
-                    used_ref_var_names = []
-                    ref_var_name_positions = []
+                callable = get_selected_item_name(self.p, id)
+                used_ref_var_names = []  # TODO: use ast to find references to other sections
 
                 info["value"] = {
                     "callable": callable,
@@ -337,7 +295,6 @@ class Exporter:
                     "passingStyles": passingStyles,
                 }
                 info["dependencies"] = [*used_params, *used_ref_var_names]
-                info["ref_var_name_positions"] = ref_var_name_positions
                 self.output[var_name] = info
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = get_section_children(self.p, id)
@@ -351,28 +308,10 @@ class Exporter:
                     x for x in self.export_sections(children) if x in self.output
                 ]
                 info["dependencies"] = info["value"]
-                info[
-                    "ref_var_name_positions"
-                ] = []  # has to be populated when the code is generated
                 self.output[var_name] = info
             elif type == C.CODE:
-                variant = get_selected_section_variant(self.p, id)
-                gen_code_template_var = get_gen_code_template_var(
-                    variant["templateVars"]
-                )
-                if gen_code_template_var:
-                    self.code_gen_template_var_section_details = {
-                        "section": self.p["sections"][id],
-                        "sectionVariant": variant,
-                    }
-                    # Make sure any necessary variables get created.
-                    # We don't do any replacements here, because that's done later
-                    # when the code is actually run.
-                    process_refs(
-                        get_section_code(self.p, id),
-                        variant["evRefs"],
-                        self.maybe_create_ref_var_name,
-                    )
+                # TODO: make sure that it's correct for nothing to happen here
+                pass
             elif type == C.GLOBAL_VARIABLES:
                 # don't need to process the output since the global variables get added directly to the output
                 # i.e. they aren't children of anything
@@ -381,14 +320,13 @@ class Exporter:
                 variant = get_selected_section_variant(self.p, id)
                 info["value"] = variant["description"]
                 info["dependencies"] = []
-                info["ref_var_name_positions"] = []
                 self.output[var_name] = info
             else:
                 raise ValueError
         return var_name
 
     def export_args_obj(self, id):
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             id,
             None,
             is_args_obj=True,
@@ -410,7 +348,6 @@ class Exporter:
                     "passingStyles": passingStyles,
                 },
                 "dependencies": used_params,
-                "ref_var_name_positions": [],  # has to be populated when the code is generated
             }
             self.output[var_name] = info
         return var_name
@@ -442,7 +379,7 @@ class Exporter:
         param_name = codeInfo["name"]
         if not param_name:
             return None
-        var_name = self.maybe_create_var_name(
+        var_name = self.create_var_name(
             section_id,
             id,
         )
@@ -458,14 +395,12 @@ class Exporter:
                     "type": C.NESTED_PARAM,
                     "value": used_params,
                     "dependencies": used_params,
-                    "ref_var_name_positions": [],  # has to be populated when the code is generated
                 }
                 self.output[var_name] = info
             else:
                 (
                     value,
                     used_ref_var_names,
-                    ref_var_name_positions,
                 ) = self.export_param_value(section_id, id)
                 self.output[var_name] = {
                     "sectionId": section_id,
@@ -474,7 +409,6 @@ class Exporter:
                     "type": get_param_ui_type(self.p, section_id, id),
                     "value": value,
                     "dependencies": used_ref_var_names,
-                    "ref_var_name_positions": ref_var_name_positions,
                 }
 
         return var_name
@@ -483,53 +417,28 @@ class Exporter:
         variant = get_selected_section_variant(self.p, section_id)
         if id in variant["values"]:
             value = variant["values"][id]["value"]
-            refs = variant["values"][id]["evRefs"]
-            value, ref_template_var_positions = process_refs(
-                value, refs, self.maybe_create_ref_var_name
-            )
-            ref_var_name_positions = ref_template_var_positions["refs"]
-            used_ref_var_names = [x["value"] for x in ref_var_name_positions]
+            used_ref_var_names = []  # TODO: use ast to find references to other sections
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []
-            ref_var_name_positions = []
-        return value, used_ref_var_names, ref_var_name_positions
+        return value, used_ref_var_names
 
-    def maybe_create_ref_var_name(
-        self, ref_section_id, ref_param_info_id, ref_is_args_obj
-    ):
-        if ref_is_args_obj:
-            return self.export_args_obj(ref_section_id)
-        elif ref_param_info_id:
-            return self.export_param(ref_section_id, ref_param_info_id)
-        elif ref_section_id:
-            return self.export_section(ref_section_id)
-        else:
-            raise ValueError
+    # def maybe_create_var_name(
+    #     self,
+    #     section_id,
+    #     param_info_id,
+    #     is_args_obj=False,
+    # ):
+    # TODO: figure out new condition for circular reference
+    # elif var_name not in self.output:
+    # this means the var_name has already been created
+    # but it hasn't been added to the output.
+    # This only happens in a circular dependency.
+    # raise RecursionError("There is a circular reference")
+    # return var_name
 
-    def get_ref_var_name(self, ref_section_id, ref_param_info_id, ref_is_args_obj):
-        return self.var_name_mapping[
-            (ref_section_id, ref_param_info_id, ref_is_args_obj)
-        ]
-
-    def maybe_create_var_name(
-        self,
-        section_id,
-        param_info_id,
-        is_args_obj=False,
-    ):
-        mapping_key = (section_id, param_info_id, is_args_obj)
-        var_name = self.var_name_mapping.get(mapping_key)
-        if not var_name:
-            var_name = get_var_name(self.var_name_mapping)
-            self.var_name_mapping[mapping_key] = var_name
-            self.var_name_reverse_mapping[var_name] = mapping_key
-        elif var_name not in self.output:
-            # this means the var_name has already been created
-            # but it hasn't been added to the output.
-            # This only happens in a circular dependency.
-            raise RecursionError("There is a circular reference")
-        return var_name
+    def create_var_name(self, section_id, param_info_id, is_args_obj=False):
+        return "x"
 
 
 class ExporterForInteractiveFn:
@@ -537,7 +446,6 @@ class ExporterForInteractiveFn:
         self.output = {}
         self.p = copy.deepcopy(p)
         self.var_name_mapping = {}
-        self.var_name_reverse_mapping = QuoteInsensitiveDict()
 
     def export(self):
         remove_unneeded_sections(
