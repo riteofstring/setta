@@ -10,9 +10,9 @@ class ProjectManager:
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHProjectManager(websocket_manager)
         self.temp_folder = CODE_FOLDER / "temp_folder"
-        self.temp_folder_sp = CODE_FOLDER / "temp_folder_sp"
+        self.temp_folder_sv = CODE_FOLDER / "temp_folder_sv"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        self.temp_folder_sp.mkdir(parents=True, exist_ok=True)
+        self.temp_folder_sv.mkdir(parents=True, exist_ok=True)
 
     async def update(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
@@ -21,7 +21,7 @@ class ProjectManager:
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 self.temp_folder,
-                self.temp_folder_sp,
+                self.temp_folder_sv,
             )
         await self.states[projectConfigId].update(project_state)
 

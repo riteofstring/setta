@@ -14,24 +14,24 @@ class PythonCodeGenerator:
         self.lsp_writer = lsp_writers.full
         self.virtual_filepath_for_import_validator = temp_folder / "validate_imports.py"
 
-    async def generate_code(self, selected, push_var_name=None):
+    async def generate_code(self, selected, force_appear_var_name=None):
         lines = []
-        if push_var_name:
-            # TODO: rethink this push_var logic
-            for v in selected.values():
-                if (
-                    isinstance(v["value"], dict)
-                    and push_var_name in v["value"]["unusedParams"]
-                ):
-                    v["value"]["usedParams"].append(push_var_name)
-                    v["dependencies"].append(push_var_name)
-                    v["value"]["unusedParams"].remove(push_var_name)
-            selected = [{"var_name": k, **v} for k, v in selected.items()]
-            selected = push_var_deep(selected, push_var_name)
-            selected = {v.pop("var_name"): v for v in selected}
+        # if push_var_name:
+        #     # TODO: rethink this push_var logic
+        #     for v in selected.values():
+        #         if (
+        #             isinstance(v["value"], dict)
+        #             and push_var_name in v["value"]["unusedParams"]
+        #         ):
+        #             v["value"]["usedParams"].append(push_var_name)
+        #             v["dependencies"].append(push_var_name)
+        #             v["value"]["unusedParams"].remove(push_var_name)
+        #     selected = [{"var_name": k, **v} for k, v in selected.items()]
+        #     selected = push_var_deep(selected, push_var_name)
+        #     selected = {v.pop("var_name"): v for v in selected}
 
         for var_name, x in selected.items():
-            force_appear = push_var_name == var_name
+            force_appear = force_appear_var_name == var_name
             var_str = create_line(var_name, x, selected, force_appear=force_appear)
             lines.append(var_str)
 

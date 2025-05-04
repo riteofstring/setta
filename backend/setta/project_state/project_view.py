@@ -55,12 +55,12 @@ class ProjectView:
         self.code_generator = None
 
     async def update(self, project_state):
-        with open("project_state.json", "w") as f:
-            json.dump(project_state, f, indent=2)
+        # with open("project_state.json", "w") as f:
+            # json.dump(project_state, f, indent=2)
         self.project_state = project_state
         exporter_obj = export_selected(self.project_state)
         self.exporter_output = exporter_obj.output
-        print(json.dumps(self.exporter_output, indent=2), flush=True)
+        # print(json.dumps(self.exporter_output, indent=2), flush=True)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         self.code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)

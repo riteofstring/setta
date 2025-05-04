@@ -7,11 +7,11 @@ from setta.project_state.section_view import (
 
 
 class ProjectState:
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, temp_folder_sp):
+    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, temp_folder_sv):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
-        self.temp_folder_sp = temp_folder_sp
+        self.temp_folder_sv = temp_folder_sv
         self.project_view = ProjectView(
             self.lsp_writers, self.websocket_msg_handler, self.temp_folder
         )
@@ -32,7 +32,7 @@ class ProjectState:
                     sectionId,
                     self.lsp_writers,
                     self.websocket_msg_handler,
-                    self.temp_folder_sp,
+                    self.temp_folder_sv,
                 )
             self.section_views[sectionId].update(project_state)
 
