@@ -14,7 +14,7 @@ class LSPServers:
             name="full",
         )
         self.basic = LanguageServer(
-            workspace_folder=CODE_FOLDER / "basic_temp_folder",
+            workspace_folder=CODE_FOLDER / "temp_folder_basic",
             settings={},
             name="basic",
         )

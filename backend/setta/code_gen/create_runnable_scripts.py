@@ -40,7 +40,6 @@ async def generateRunCodeCommand(p, lsp_writers, code_state):
         exporter_obj,
         lsp_writers,
         folder_path,
-        do_prepend_with_setup_code=True,
     )
 
     if len(p["runCodeBlocks"]) == 0:
@@ -88,7 +87,6 @@ async def generate_final_code_for_sections(
     exporter_obj,
     lsp_writers,
     folder_path,
-    do_prepend_with_setup_code=False,
     push_var_name=None,
 ):
     code_sections = {
@@ -110,7 +108,6 @@ async def generate_final_code_for_sections(
             lsp_writers=lsp_writers,
             folder_path=folder_path,
             projectConfigName=p["projectConfig"]["name"],
-            do_prepend_with_setup_code=do_prepend_with_setup_code,
             push_var_name=push_var_name,
         )
 
@@ -131,7 +128,6 @@ async def generate_final_code_for_section(
     lsp_writers,
     folder_path,
     projectConfigName=None,
-    do_prepend_with_setup_code=False,
 ):
     section_dependencies = []
 
@@ -141,15 +137,6 @@ async def generate_final_code_for_section(
         code = await maybe_validate_imports_and_update_code(
             sectionId, code, lsp_writers
         )
-
-    if codeLanguage == "python":
-        if do_prepend_with_setup_code:
-            code = prepend_with_setup_code(
-                code,
-                codeLanguage,
-                folder_path,
-                projectConfigName,
-            )
 
     return code, section_dependencies
 
@@ -258,11 +245,3 @@ def sanitize_section_path_full_name(name):
     name = name.strip("_")
 
     return name
-
-
-def prepend_with_setup_code(code, codeLanguage, folder_path, project_config_name):
-    if codeLanguage == "python":
-        # necessary to make imports of other python files work
-        setup_code = "import sys, os; sys.path.insert(0, os.getcwd())\n"
-        code = setup_code + code
-    return code
