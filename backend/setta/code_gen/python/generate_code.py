@@ -1,5 +1,3 @@
-from setta.code_gen.python.make_parseable import make_parseable
-
 from ...utils.constants import C, ParameterPassingStyle
 from ..utils import push_var_deep
 from .ast_utils import find_missing_imports
@@ -142,28 +140,24 @@ def generate_code(selected, push_var_name=None):
         lines.append(var_str)
 
     code = generate_wrapper_class(lines)
+    imports = generate_imports(code)
+    imports = validate
     return code
 
 
 def generate_imports(
     code,
-    push_var_name,
-    var_name_to_decl_position,
 ):
-    if push_var_name:
-        startPos, var_decl, chars_after_line = var_name_to_decl_position[push_var_name]
-        endPos = startPos + len(var_decl)
-        parseable_str = make_parseable(code[startPos:endPos], push_var_name)
-        if parseable_str is None:
-            parseable_str = var_declaration(push_var_name, "None")
-        var_decl = construct_var_decl_with_trailing_whitespace(
-            parseable_str, chars_after_line
-        )
-        code = code[:startPos] + var_decl + code[endPos:]
-    startPos = template_var["startPos"]
-    endPos = startPos + len(template_var["keyword"])
-    # remove template var to infer imports, because ast will raise syntax error
-    code = code[:startPos] + code[endPos:]
+    # if push_var_name:
+    #     startPos, var_decl, chars_after_line = var_name_to_decl_position[push_var_name]
+    #     endPos = startPos + len(var_decl)
+    #     parseable_str = make_parseable(code[startPos:endPos], push_var_name)
+    #     if parseable_str is None:
+    #         parseable_str = var_declaration(push_var_name, "None")
+    #     var_decl = construct_var_decl_with_trailing_whitespace(
+    #         parseable_str, chars_after_line
+    #     )
+    #     code = code[:startPos] + var_decl + code[endPos:]
     imports = get_import_text(code)
     if len(imports) > 0:
         imports += "\n"
@@ -177,6 +171,7 @@ from setta.code_gen.python.args_obj import SettaArgsObj
 class S:
     def __init__({SELF_IDENTIFIER}):
         {SELF_IDENTIFIER}.args = SettaArgsObj()
+        x = torch.nn.CrossEntropyLoss()
 """
 
     for l in lines:

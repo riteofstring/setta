@@ -6,27 +6,14 @@ from setta.database.utils import create_new_id
 logger = logging.getLogger(__name__)
 
 
-async def maybe_validate_imports_and_update_code(sectionId, code, lsp_writers):
-    old_value = ""  # TODO: get generated imports
-    new_value, did_change = await validate_imports(sectionId, old_value, lsp_writers)
-    if not did_change:
-        return code
-
-    # this shouldn't happen
-    if len(new_value) != len(old_value):
-        logger.debug("new imports have different length from old imports")
-        return code
-
-    return code  # TODO: figure out how to update code with validated imports
-
-
-async def validate_imports(sectionId, generated_imports, lsp_writers):
+async def validate_imports(generated_imports, lsp_writer):
     if not generated_imports:
-        return generated_imports, False
+        return generated_imports
 
-    code_id = f"{sectionId}-validate-imports"
-    await lsp_writers["full"].send_document_open_request(
-        code_id=code_id, code=generated_imports, virtual=True
+    filepath = None
+    generated_imports = None
+    await lsp_writer.send_document_open_request(
+        filepath=filepath, code=generated_imports, virtual=True
     )
 
     lines = generated_imports.split("\n")
@@ -40,22 +27,21 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
             continue
         request_id = f"{message_id}-{idx}"
         # Send request without awaiting
-        lsp_writers["full"].create_asyncio_task(
-            lsp_writers["full"].send_definition_request(
+        lsp_writer.create_asyncio_task(
+            lsp_writer.send_definition_request(
                 idx, len(line) - 1, code_id, request_id, virtual=True
             ),
             request_id,
             local=True,
         )
         # Store the future for waiting later
-        future = lsp_writers["full"].wait_for_response(request_id)
+        future = lsp_writer.wait_for_response(request_id)
         request_futures.append(future)
         line_indices.append(idx)  # Store the original line index
 
     # Then await all responses concurrently
     responses = await asyncio.gather(*request_futures)
 
-    did_change = False
     # Use line_indices to map responses back to correct lines
     for response_idx, response in enumerate(responses):
         original_idx = line_indices[response_idx]
@@ -63,7 +49,6 @@ async def validate_imports(sectionId, generated_imports, lsp_writers):
             # replace with equal length comment so that we don't have
             # to change any position information
             lines[original_idx] = "#" * len(lines[original_idx])
-            did_change = True
 
     generated_imports = "\n".join(lines)
-    return generated_imports, did_change
+    return generated_imports
