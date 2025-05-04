@@ -146,5 +146,8 @@ class LanguageServerReader(LanguageServerInteractor):
             content, needsDiagnostics = process_diagnostics_response(
                 response, self.get_code_metadata
             )
+            with open("test_results.json", 'w') as f:
+                json.dump(response, f, indent=2)
             if needsDiagnostics:
                 await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
+                

@@ -53,6 +53,7 @@ class LanguageServerWriter(LanguageServerInteractor):
     ):
         virtual = self.get_is_virtual(virtual)
         uri = self.get_uri(code_id, virtual)
+        print(uri)
         if uri not in self.code_metadata:
             if not virtual:
                 self.create_or_update_temp_file(code_id, code)
