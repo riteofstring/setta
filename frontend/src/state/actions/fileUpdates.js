@@ -15,6 +15,7 @@ export async function updateWithFileChanges(updatedFileInfo) {
   }
 }
 
+// TODO: this logic should be on the backend
 async function updateJSONSourceContents(updatedFileInfo) {
   const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
     updatedFileInfo;

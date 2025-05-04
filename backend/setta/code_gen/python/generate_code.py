@@ -15,20 +15,6 @@ class PythonCodeGenerator:
 
     async def generate_code(self, exporter_output, force_appear_key=None):
         lines = []
-        # if push_var_name:
-        #     # TODO: rethink this push_var logic
-        #     for v in selected.values():
-        #         if (
-        #             isinstance(v["value"], dict)
-        #             and push_var_name in v["value"]["unusedParams"]
-        #         ):
-        #             v["value"]["usedParams"].append(push_var_name)
-        #             v["dependencies"].append(push_var_name)
-        #             v["value"]["unusedParams"].remove(push_var_name)
-        #     selected = [{"var_name": k, **v} for k, v in selected.items()]
-        #     selected = push_var_deep(selected, push_var_name)
-        #     selected = {v.pop("var_name"): v for v in selected}
-
         for key, details in exporter_output.items():
             force_appear = force_appear_key == key
             var_str = create_line(details, exporter_output, force_appear=force_appear)

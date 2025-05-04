@@ -50,7 +50,6 @@ class ProjectView:
         self.code_previews = {}
         self.exporter_output = None
         self.temp_folder = temp_folder
-        self.code_generator = None
 
     async def update(self, project_state):
         # with open("project_state.json", "w") as f:
@@ -61,8 +60,8 @@ class ProjectView:
         # print(json.dumps(self.exporter_output, indent=2), flush=True)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        self.code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
-        code = await self.code_generator.generate_code(exporter_obj.output)
+        code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
+        code = await code_generator.generate_code(exporter_obj.output)
         self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers, self.websocket_msg_handler, project_temp_folder
         )
