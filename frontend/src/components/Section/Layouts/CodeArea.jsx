@@ -69,19 +69,28 @@ function JavascriptCodeArea({ sectionId, language }) {
 function _GenPythonCodeArea({ sectionId }) {
   const code = useSectionInfos((x) => x.x[sectionId].code);
 
-  return <ReadOnlyCoreCodeArea sectionId={sectionId} code={code} />;
+  return (
+    <ReadOnlyCoreCodeArea sectionId={sectionId} language="python" code={code} />
+  );
 }
 
 export const GenPythonCodeArea = React.memo(_GenPythonCodeArea);
 
-function ReadOnlyCoreCodeArea({ sectionId, code }) {
+function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
   const { wrapperRef, handleCreateEditor, maxHeight, overflow, nowheel } =
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
 
-  const { onArticleDivEnterKeyFocusOnCodeMirror } =
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
+
+  const extensions = getExtensions({
+    sectionId,
+    language,
+    onEscape: onEscapeFocusOnArticleDiv,
+    isDisabled: true,
+  });
 
   return (
     <article
@@ -91,24 +100,18 @@ function ReadOnlyCoreCodeArea({ sectionId, code }) {
       onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
     >
       <CodeMirror
+        extensions={extensions}
         value={code}
         maxHeight={maxHeight}
         theme={theme}
         onCreateEditor={handleCreateEditor}
         basicSetup={{ tabSize: 4 }}
-        readOnly={true}
       />
     </article>
   );
 }
 
-function CoreCodeArea({
-  sectionId,
-  language,
-  completionsFn,
-  keywordStylizer,
-  readOnly,
-}) {
+function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   const { value, variantIsFrozen } = useSectionInfos((x) => {
     return {
       value: getDisplayedSectionVariant(sectionId, x).code,
@@ -167,7 +170,6 @@ function CoreCodeArea({
         onCreateEditor={handleCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
         basicSetup={{ tabSize: 4 }}
-        readOnly={readOnly}
       />
     </article>
   );
