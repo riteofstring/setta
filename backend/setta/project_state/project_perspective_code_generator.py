@@ -7,7 +7,7 @@ from setta.lsp.reader_fns.diagnostics import (
     process_diagnostics,
 )
 from setta.project_state.code_preview import CodePreview
-
+import json
 
 class ProjectPerspectiveCodePreview(CodePreview):
     async def type_check(self):
@@ -46,6 +46,7 @@ class ProjectPerspectiveCodeGenerator:
             self.project_state,
         )
         self.exporter_output = exporter_obj.output
+        print(json.dumps(self.exporter_output, indent=2), flush=True)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         code_dict = await generate_final_code_for_sections(

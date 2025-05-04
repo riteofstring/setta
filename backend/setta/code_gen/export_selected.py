@@ -300,7 +300,6 @@ class Exporter:
             C.LIST_ROOT,
             C.DICT_ROOT,
             C.GROUP,
-            C.CODE,
             C.GLOBAL_VARIABLES,
             C.TEXT_BLOCK,
         ]
@@ -354,15 +353,9 @@ class Exporter:
                     for c in children
                     if get_section_type(self.p, c) in self.section_types_to_process
                 ]
-                # some sections (like CODE) don't get added to self.output
-                info["value"] = [
-                    x for x in self.export_sections(children) if x in self.output
-                ]
+                info["value"] = self.export_sections(children)
                 info["dependencies"] = info["value"]
                 self.output[var_name] = info
-            elif type == C.CODE:
-                # TODO: make sure that it's correct for nothing to happen here
-                pass
             elif type == C.GLOBAL_VARIABLES:
                 # don't need to process the output since the global variables get added directly to the output
                 # i.e. they aren't children of anything
