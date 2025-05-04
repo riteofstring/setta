@@ -1,9 +1,9 @@
 from setta.code_gen.create_runnable_scripts import generate_final_code_for_sections
 from setta.code_gen.export_selected import export_selected
-from setta.project_state.code_preview import CodePreview
+from setta.project_state.code import Code
 
 
-class SectionPerspectiveCodeGenerator:
+class SectionView:
     def __init__(self, sectionId, lsp_writers, websocket_msg_handler, temp_folder):
         self.sectionId = sectionId
         self.lsp_writers = lsp_writers
@@ -38,7 +38,7 @@ class SectionPerspectiveCodeGenerator:
         }
         for k, v in code_dict.items():
             if k not in self.code_previews:
-                self.code_previews[k] = CodePreview(
+                self.code_previews[k] = Code(
                     k, self.lsp_writers, self.websocket_msg_handler, project_temp_folder
                 )
             await self.code_previews[k].update(self.project_state, v)

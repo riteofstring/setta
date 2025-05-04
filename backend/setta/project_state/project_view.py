@@ -6,13 +6,13 @@ from setta.lsp.reader_fns.diagnostics import (
     convert_diagnostic_line_cols_to_positions,
     process_diagnostics,
 )
-from setta.project_state.code_preview import (
-    GenCodePreview,
-    NonGenCodePreview,
+from setta.project_state.code import (
+    GenCode,
+    NonGenCode,
 )
 
 
-class ProjectPerspectiveGenCodePreview(GenCodePreview):
+class ProjectViewGenCode(GenCode):
     async def type_check(self):
         await self.send_document_open_request()
 
@@ -34,7 +34,7 @@ class ProjectPerspectiveGenCodePreview(GenCodePreview):
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
 
-class ProjectPerspectiveNonGenCodePreview(NonGenCodePreview):
+class ProjectViewNonGenCode(NonGenCode):
     async def type_check(self):
         await self.send_document_open_request()
 
@@ -43,7 +43,7 @@ class ProjectPerspectiveNonGenCodePreview(NonGenCodePreview):
         pass
 
 
-class ProjectPerspectiveCodeGenerator:
+class ProjectView:
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -63,7 +63,7 @@ class ProjectPerspectiveCodeGenerator:
         code = generate_code(exporter_obj.output)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        self.gen_code_preview = ProjectPerspectiveGenCodePreview(
+        self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers, self.websocket_msg_handler, project_temp_folder
         )
         await self.gen_code_preview.update(self.project_state, code)

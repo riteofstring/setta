@@ -7,7 +7,7 @@ from setta.code_gen.export_selected import get_section_path_full_name
 logger = logging.getLogger(__name__)
 
 
-class CodePreview(ABC):
+class Code(ABC):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
         self.project_state = None
         self.lsp_writer = lsp_writers.full
@@ -52,12 +52,12 @@ class CodePreview(ABC):
             self.temp_file.unlink()
 
 
-class GenCodePreview(CodePreview):
+class GenCode(Code):
     def get_base_filename(self):
         return "setta_gen"
 
 
-class NonGenCodePreview(CodePreview):
+class NonGenCode(Code):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, sectionId):
         super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
         self.sectionId = sectionId
