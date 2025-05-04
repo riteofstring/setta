@@ -19,6 +19,14 @@ def create_specific_file_watcher(websocket_message_handler):
     return SpecificFileWatcher(event_callback)
 
 
+class MockFileEvent:
+    """Simple mock for a FileSystemEvent to use when firing immediate events."""
+
+    def __init__(self, src_path):
+        self.src_path = src_path
+        self.is_directory = False
+
+
 class SpecificFileWatcher:
     """File watcher that monitors specific files and notifies via a single callback."""
 
@@ -51,6 +59,7 @@ class SpecificFileWatcher:
         file_path: str,
         file_watch_group_name: str,
         content_processor: Optional[Callable[[str], Any]] = None,
+        fire_immediately: bool = True,
     ) -> bool:
         """
         Add a specific file to watch.
@@ -61,6 +70,7 @@ class SpecificFileWatcher:
             content_processor: Optional callback to process file content on events.
                              If None, file content won't be read. If provided, it will
                              be called with the raw file content as its argument.
+            fire_immediately: If True, trigger an event for this file right away
 
         Returns:
             bool: True if the file was added, False if it doesn't exist
@@ -70,9 +80,10 @@ class SpecificFileWatcher:
 
         absolute_path = os.path.abspath(file_path)
         dir_path = os.path.dirname(absolute_path)
+        is_new_file = absolute_path not in self.watched_files[file_watch_group_name]
 
         # Add file to watched files if not already there
-        if absolute_path not in self.watched_files[file_watch_group_name]:
+        if is_new_file:
             self.watched_files[file_watch_group_name].add(absolute_path)
             if content_processor is not None:
                 self.file_content_processors[absolute_path] = content_processor
@@ -80,7 +91,6 @@ class SpecificFileWatcher:
             # Already watching this file - update processor if provided
             if content_processor is not None:
                 self.file_content_processors[absolute_path] = content_processor
-            return True
 
         # Schedule the directory for watching if needed
         if not self.observer.emitters:
@@ -96,6 +106,11 @@ class SpecificFileWatcher:
 
             if not is_dir_watched:
                 self.observer.schedule(self.handler, dir_path, recursive=False)
+
+        # If requested, fire an immediate event
+        if fire_immediately:
+            mock_event = MockFileEvent(absolute_path)
+            self.handler._send_event(file_watch_group_name, mock_event, "initialized")
 
         return True
 
@@ -126,6 +141,7 @@ class SpecificFileWatcher:
         filepaths_and_glob_patterns: List[str],
         file_watch_group_name: str,
         content_processor: Optional[Callable[[str], Any]] = None,
+        fire_immediately: bool = True,
     ) -> Dict[str, List[str]]:
         """
         Update the entire list of files being watched with a single function call.
@@ -137,6 +153,7 @@ class SpecificFileWatcher:
             content_processor: Optional callback to process file content on events.
                              If None, file content won't be read. If provided, it will
                              be called with the raw file content as its argument.
+            fire_immediately: If True, trigger an event for each added file right away
 
         Returns:
             Dict containing 'added' and 'removed' lists of file paths
@@ -158,7 +175,9 @@ class SpecificFileWatcher:
 
         # Add new files
         for file_path in files_to_add:
-            success = self.add_file(file_path, file_watch_group_name, content_processor)
+            success = self.add_file(
+                file_path, file_watch_group_name, content_processor, fire_immediately
+            )
             if success:
                 added_files.append(file_path)
 
@@ -286,7 +305,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         Args:
             file_watch_group_name: Group name for the file
             event: The file system event
-            event_type: The type of event ('created', 'modified', 'deleted', 'moved')
+            event_type: The type of event ('created', 'modified', 'deleted', 'moved', 'initialized')
         """
         logger.debug("_send_event")
         # Get absolute path
@@ -295,11 +314,15 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         # Get relative path to current working directory
         rel_path = os.path.relpath(abs_path)
 
-        # Get file contents for created and modified events
+        # Get file contents for created, modified, and initialized events
         file_content = None
         processor = self.file_content_processors.get(abs_path)
 
-        if processor is not None and event_type in ("created", "modified"):
+        if processor is not None and event_type in (
+            "created",
+            "modified",
+            "initialized",
+        ):
             try:
                 with open(abs_path, "r", encoding="utf-8") as f:
                     raw_content = f.read()
