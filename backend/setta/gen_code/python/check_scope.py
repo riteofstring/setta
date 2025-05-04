@@ -2,7 +2,7 @@ import ast
 from dataclasses import dataclass
 from typing import List, Set
 
-from setta.code_gen.python.position_line_col import position_to_line_col
+from setta.gen_code.python.position_line_col import position_to_line_col
 
 
 @dataclass

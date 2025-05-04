@@ -5,8 +5,8 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.database.db.notifications.load import create_notification_dict
+from setta.gen_code.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.utils.constants import C
 
 from .dependencies import (
@@ -104,20 +104,20 @@ async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,
     lsp_writers=Depends(get_lsp_writers),
-    project_manager=Depends(get_code_state),
+    code_state=Depends(get_code_state),
     terminals=Depends(get_terminals),
     websocket_msg_handler=Depends(get_wmh_terminals),
 ):
     terminal_id, new_terminal_created = None, None
 
     if x.cliId:
-        command = await generateRunCodeCommand(x.project, lsp_writers, project_manager)
+        command = await generateRunCodeCommand(x.project, lsp_writers, code_state)
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
         terminal_id, new_terminal_created = await runCode(
             x.project,
             lsp_writers,
-            project_manager,
+            code_state,
             terminals,
         )
 

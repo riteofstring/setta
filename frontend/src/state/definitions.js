@@ -4,6 +4,7 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
 } from "utils/constants";
+import { dummyRegExpObject } from "utils/utils";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import {
@@ -68,6 +69,21 @@ export const useSectionInfos = withProjectState(
 export const useHomePageSearch = create(
   withResetFn(() => ({
     value: "",
+  })),
+);
+
+export const useEVRefRegex = create(
+  withResetFn(() => ({
+    pattern: dummyRegExpObject(),
+    codeAreaPattern: dummyRegExpObject(),
+    fullNameToInfo: {},
+  })),
+);
+
+export const useTemplateVarRegex = create(
+  withResetFn(() => ({
+    pattern: dummyRegExpObject(),
+    fullNameToSectionId: {},
   })),
 );
 

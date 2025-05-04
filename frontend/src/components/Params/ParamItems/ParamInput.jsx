@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { debouncedTypeCheckRequest } from "requests/sections";
+import { debouncedTypeCheckRequest, getEVRefs } from "requests/sections";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
@@ -73,9 +73,16 @@ async function cancelableSetParamEnteredValue({
 }) {
   if (getParamUIType(sectionId, paramInfoId).type === C.TEXT) {
     if (ac?.signal.aborted) return;
+    const evRefs = await getEVRefs({
+      sectionId,
+      paramInfoId,
+      fullText: vStr,
+    });
     if (ac?.signal.aborted) return;
     useSectionInfos.setState((state) => {
       setParamEnteredValue(sectionId, paramInfoId, vStr, state);
+      const { variantId } = state.x[sectionId];
+      state.variants[variantId].values[paramInfoId].evRefs = evRefs;
     });
   } else {
     if (ac?.signal.aborted) return;

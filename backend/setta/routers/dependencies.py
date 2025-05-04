@@ -69,8 +69,8 @@ def get_lsp_writers_from_websocket(websocket: WebSocket):
     return websocket.app.state.lsp_writers
 
 
-def get_project_manager(request: Request):
-    return request.app.state.project_manager
+def get_code_tasks(request: Request):
+    return request.app.state.code_tasks
 
 
 def get_code_state(request: Request):

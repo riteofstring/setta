@@ -1,23 +1,41 @@
 import asyncio
+import copy
 import logging
 
 from setta.database.utils import create_new_id
+from setta.gen_code.export_selected import get_specific_template_var
+from setta.gen_code.find_placeholders import tp
+from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
 
-async def maybe_validate_imports_and_update_code(sectionId, code, lsp_writers):
-    old_value = ""  # TODO: get generated imports
+async def maybe_validate_imports_and_update_code(
+    sectionId, code, ref_template_var_positions, lsp_writers
+):
+    templateVars = ref_template_var_positions["templateVars"]
+    generated_imports_info, idx = get_specific_template_var(
+        templateVars, tp(C.SETTA_GENERATED_PYTHON_IMPORTS), return_index=True
+    )
+    if not generated_imports_info:
+        return code, templateVars
+    old_value = generated_imports_info["value"]
     new_value, did_change = await validate_imports(sectionId, old_value, lsp_writers)
     if not did_change:
-        return code
+        return code, templateVars
 
     # this shouldn't happen
     if len(new_value) != len(old_value):
         logger.debug("new imports have different length from old imports")
-        return code
+        return code, templateVars
 
-    return code  # TODO: figure out how to update code with validated imports
+    templateVars = copy.deepcopy(ref_template_var_positions["templateVars"])
+    generated_imports_info = templateVars[idx]
+    generated_imports_info["value"] = new_value
+    startPos = generated_imports_info["startPos"]
+    endPos = generated_imports_info["startPos"] + len(new_value)
+    code = code[:startPos] + new_value + code[endPos:]
+    return code, templateVars
 
 
 async def validate_imports(sectionId, generated_imports, lsp_writers):

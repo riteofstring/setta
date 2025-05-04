@@ -1,18 +1,47 @@
+import { computeInfoToFullName } from "components/Utils/CodeMirror/utils";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { sendMessage } from "requests/websocket";
-import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
-import { asyncDebounce } from "utils/utils";
+import {
+  getSectionPathFullName,
+  getSectionType,
+} from "state/actions/sectionInfos";
+import {
+  useEVRefRegex,
+  useSectionInfos,
+  useTemplateVarRegex,
+} from "state/definitions";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataToGenerateCode({
   withArtifacts = false,
+  includeFullNameToInfo = true,
+  includeInfoToFullName = true,
+  includeFullNameToSectionId = true,
+  includeSectionPathFullNames = true,
   includeDrawings = false,
   includeLatestChatMessages = false,
 }) {
   const project = getProjectData({ withArtifacts });
+  if (includeFullNameToInfo) {
+    project.fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
+  }
+  if (includeInfoToFullName) {
+    project.infoToFullName = computeInfoToFullName(project);
+  }
+  if (includeFullNameToSectionId) {
+    project.fullNameToSectionId =
+      useTemplateVarRegex.getState().fullNameToSectionId;
+  }
+  if (includeSectionPathFullNames) {
+    project.sectionPathFullNames = {};
+    for (const s of Object.values(project.sections)) {
+      project.sectionPathFullNames[s.id] = getSectionPathFullName(
+        s.id,
+        useSectionInfos.getState(),
+      );
+    }
+  }
   if (includeDrawings || includeLatestChatMessages) {
     const sectionInfosState = useSectionInfos.getState().x;
     const sections = {};
@@ -32,9 +61,3 @@ export async function getProjectDataToGenerateCode({
 
   return project;
 }
-
-export const updateBackendProjectState = asyncDebounce(async () => {
-  const project = await getProjectDataToGenerateCode({});
-  console.log("updateBackendProjectState");
-  sendMessage({ content: project, messageType: C.WS_PROJECT_STATE_UPDATE });
-}, 50);

@@ -16,10 +16,12 @@ class WebsocketMsgHandlers:
         self,
         websocket_manager,
         lsp_writers,
-        project_manager,
+        code_state,
+        code_tasks,
         script_metadata,
         dbq,
     ):
+        self.lsp_reader = WMHLSPReader(websocket_manager)
         self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
         self.database = WMHDatabase(websocket_manager)
@@ -27,12 +29,13 @@ class WebsocketMsgHandlers:
         self.frontend = WMHFrontend(
             websocket_manager,
             lsp_writers,
-            project_manager,
+            code_state,
+            code_tasks,
             script_metadata,
         )
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(
-            websocket_manager, script_metadata, project_manager
+            websocket_manager, script_metadata, code_state
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
         self.mcp = WMHMCP(websocket_manager, dbq)
@@ -47,7 +50,7 @@ class BaseWebsocketMsgHandler:
         pass
 
 
-class WMHProjectManager(BaseWebsocketMsgHandler):
+class WMHLSPReader(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
@@ -142,12 +145,14 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         self,
         websocket_manager,
         lsp_writers,
-        project_manager,
+        code_state,
+        code_tasks,
         script_metadata,
     ):
         self.websocket_manager = websocket_manager
         self.lsp_writers = lsp_writers
-        self.project_manager = project_manager
+        self.code_state = code_state
+        self.code_tasks = code_tasks
         self.script_metadata = script_metadata
 
     async def process_message(self, message, fromWebsocketId):
@@ -162,20 +167,13 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             self.websocket_manager.resolve_pending_request(
                 message["id"], message["content"]
             )
-        elif message.get("messageType") == C.WS_TEXT_FIELD_AUTOCOMPLETE:
-            await self.project_manager.text_field_autocomplete(
-                messageId=message["id"], **message["content"]
-            )
-        elif message.get("messageType") == C.WS_PROJECT_STATE_UPDATE:
-            await self.project_manager.update(message["content"])
-
-        # else:
-        #     msg_id = message.get("id")
-        #     if not msg_id:
-        #         return
-        #     result = await self.code_tasks.process_message(message)
-        #     if result:
-        #         await self.websocket_manager.return_to_requester(result, msg_id)
+        else:
+            msg_id = message.get("id")
+            if not msg_id:
+                return
+            result = await self.code_tasks.process_message(message)
+            if result:
+                await self.websocket_manager.return_to_requester(result, msg_id)
 
     async def on_connect(self, websocket_id):
         content = self.script_metadata.dependencies
@@ -194,17 +192,17 @@ class WMHCLI(BaseWebsocketMsgHandler):
 
 
 class WMHPythonScript(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager, script_metadata, project_manager):
+    def __init__(self, websocket_manager, script_metadata, code_state):
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata
-        self.project_manager = project_manager
+        self.code_state = code_state
 
     async def process_message(self, message, websocket_id):
         print("WMHPythonScript process_message", message, websocket_id, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_SCRIPT_READY:
-            project = self.project_manager.get_project_from_rel_path(content)
+            project = self.code_state.get_project_from_rel_path(content)
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
             await self.websocket_manager.send_message(message, websocket_id)
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:

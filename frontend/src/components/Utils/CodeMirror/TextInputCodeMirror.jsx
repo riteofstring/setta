@@ -1,7 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { dbTextFieldCompletion } from "requests/sections";
+import {
+  dbTextFieldCompletion,
+  dbTextFieldInitializeCode,
+} from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
@@ -65,6 +68,9 @@ export function TextInputCodeMirror({
   function onFocus() {
     if (isDisabled) {
       return;
+    }
+    if (language === "python" && initializeGenCode) {
+      dbTextFieldInitializeCode({ sectionId: dataSectionId, paramInfoId });
     }
     if (!activationEvent) {
       setActivationEvent("tab");

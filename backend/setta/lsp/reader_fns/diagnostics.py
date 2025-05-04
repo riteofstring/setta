@@ -1,13 +1,49 @@
 import re
 
-from setta.code_gen.python.position_line_col import line_col_to_position_batch
+from setta.gen_code.export_selected import get_gen_code_template_var
+from setta.gen_code.python.position_line_col import line_col_to_position_batch
 
 
-def process_diagnostics(diagnostics, code, codeJson):
-    code_split = code.split("\n")
+def process_diagnostics_response(response, get_code_metadata):
+    params = response["params"]
+    metadata = get_code_metadata(params["uri"])
+    if not metadata["needsDiagnostics"] or metadata["version"] != params["version"]:
+        return None, False
+
+    convert_diagnostic_line_cols_to_positions(metadata["code"], params["diagnostics"])
+
+    code_split = metadata["code"].split("\n")
+    diagnostics = process_diagnostics(
+        params["diagnostics"],
+        code_split,
+        metadata["codeJson"],
+        metadata["ref_template_var_positions"],
+    )
+
+    return {
+        "projectConfigId": metadata["projectConfigId"],
+        "codeSectionId": metadata["codeSectionId"],
+        "diagnostics": diagnostics,
+    }, True
+
+
+def process_diagnostics(diagnostics, code_split, codeJson, ref_template_var_positions):
     output = []
+    gen_code_template_var = get_gen_code_template_var(
+        ref_template_var_positions["templateVars"]
+    )
+    if gen_code_template_var:
+        gen_code_start = gen_code_template_var["startPos"]
+        gen_code_end = gen_code_start + len(gen_code_template_var["value"])
     for d in diagnostics:
-        pass  # TODO
+        start, end = d["range"]["start"], d["range"]["end"]
+        if gen_code_template_var and gen_code_start <= start["position"] < gen_code_end:
+            result = process_gen_code_diagnostic(d, code_split, codeJson, start, end)
+            output.extend(result)
+        # TODO: process diagnostics for non-generated code:
+        # else:
+        #     output.append(d)
+
     return output
 
 
