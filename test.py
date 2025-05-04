@@ -69,114 +69,172 @@
 # asyncio.run(main())
 
 
-import ast
+# import ast
 
 
-def find_section_dependencies(code, section_names):
-    """Find dependencies between sections by analyzing 'self.X' references in expressions."""
-    dependencies = set()
+# def find_section_dependencies(code, section_names):
+#     """Find dependencies between sections by analyzing 'self.X' references in expressions."""
+#     dependencies = set()
 
-    class DependencyVisitor(ast.NodeVisitor):
-        def visit_Attribute(self, node):
-            # Check for self.X attributes
-            if isinstance(node.value, ast.Name) and node.value.id == "self":
-                if node.attr in section_names:
-                    dependencies.add(node.attr)
+#     class DependencyVisitor(ast.NodeVisitor):
+#         def visit_Attribute(self, node):
+#             # Check for self.X attributes
+#             if isinstance(node.value, ast.Name) and node.value.id == "self":
+#                 if node.attr in section_names:
+#                     dependencies.add(node.attr)
 
-            # Continue visiting other nodes
-            self.generic_visit(node)
+#             # Continue visiting other nodes
+#             self.generic_visit(node)
 
-    # Try parsing the code
-    try:
-        # For expressions, wrap as needed
-        try:
-            tree = ast.parse(code, mode="eval")  # Try as expression first
-        except SyntaxError:
-            # If that fails, try as a statement/module
-            tree = ast.parse(code)
+#     # Try parsing the code
+#     try:
+#         # For expressions, wrap as needed
+#         try:
+#             tree = ast.parse(code, mode="eval")  # Try as expression first
+#         except SyntaxError:
+#             # If that fails, try as a statement/module
+#             tree = ast.parse(code)
 
-        DependencyVisitor().visit(tree)
-    except SyntaxError:
-        # Handle unparseable code gracefully
-        pass
+#         DependencyVisitor().visit(tree)
+#     except SyntaxError:
+#         # Handle unparseable code gracefully
+#         pass
 
-    return dependencies
-
-
-def test_dependency_visitor():
-    """Test the dependency visitor with expression code examples."""
-    # Define section names
-    section_names = [
-        "model",
-        "optimizer",
-        "loss_fn",
-        "dataset",
-        "learning_rate",
-        "bias",
-    ]
-
-    # Test cases with expected dependencies
-    test_cases = [
-        # Basic reference
-        {"code": "self.model", "expected": {"model"}},
-        # Method call
-        {"code": "self.model.parameters()", "expected": {"model"}},
-        # Multiple references in function call
-        {
-            "code": "torch.optim.Adam(params=self.model.parameters(), lr=self.learning_rate)",
-            "expected": {"model", "learning_rate"},
-        },
-        # Right side of assignment only
-        {
-            "code": "torch.optim.Adam(params=self.model.parameters())",
-            "expected": {"model"},
-        },
-        # Complex nested case
-        {
-            "code": "self.loss_fn(self.model(self.dataset[0]))",
-            "expected": {"loss_fn", "model", "dataset"},
-        },
-        # No dependencies
-        {"code": "torch.randn(10, 10)", "expected": set()},
-        # Complex expression
-        {"code": "self.model(x) + self.bias", "expected": {"model", "bias"}},
-        # Invalid code (should handle gracefully)
-        {"code": "self.model.parameters(", "expected": set()},
-    ]
-
-    # Run tests
-    results = []
-    for i, test in enumerate(test_cases):
-        deps = find_section_dependencies(test["code"], section_names)
-        success = deps == test["expected"]
-        results.append(
-            {
-                "test": i + 1,
-                "code": test["code"],
-                "expected": test["expected"],
-                "actual": deps,
-                "success": success,
-            }
-        )
-
-    # Print results
-    print("Test Results:")
-    all_passed = True
-    for result in results:
-        status = "✅ PASS" if result["success"] else "❌ FAIL"
-        print(f"Test {result['test']}: {status}")
-        print(f"  Code: {result['code']}")
-        print(f"  Expected: {result['expected']}")
-        print(f"  Actual: {result['actual']}")
-        print()
-        if not result["success"]:
-            all_passed = False
-
-    print(f"Overall: {'✅ All tests passed' if all_passed else '❌ Some tests failed'}")
-
-    return all_passed
+#     return dependencies
 
 
-# Run the test
-if __name__ == "__main__":
-    test_dependency_visitor()
+# def test_dependency_visitor():
+#     """Test the dependency visitor with expression code examples."""
+#     # Define section names
+#     section_names = [
+#         "model",
+#         "optimizer",
+#         "loss_fn",
+#         "dataset",
+#         "learning_rate",
+#         "bias",
+#     ]
+
+#     # Test cases with expected dependencies
+#     test_cases = [
+#         # Basic reference
+#         {"code": "self.model", "expected": {"model"}},
+#         # Method call
+#         {"code": "self.model.parameters()", "expected": {"model"}},
+#         # Multiple references in function call
+#         {
+#             "code": "torch.optim.Adam(params=self.model.parameters(), lr=self.learning_rate)",
+#             "expected": {"model", "learning_rate"},
+#         },
+#         # Right side of assignment only
+#         {
+#             "code": "torch.optim.Adam(params=self.model.parameters())",
+#             "expected": {"model"},
+#         },
+#         # Complex nested case
+#         {
+#             "code": "self.loss_fn(self.model(self.dataset[0]))",
+#             "expected": {"loss_fn", "model", "dataset"},
+#         },
+#         # No dependencies
+#         {"code": "torch.randn(10, 10)", "expected": set()},
+#         # Complex expression
+#         {"code": "self.model(x) + self.bias", "expected": {"model", "bias"}},
+#         # Invalid code (should handle gracefully)
+#         {"code": "self.model.parameters(", "expected": set()},
+#     ]
+
+#     # Run tests
+#     results = []
+#     for i, test in enumerate(test_cases):
+#         deps = find_section_dependencies(test["code"], section_names)
+#         success = deps == test["expected"]
+#         results.append(
+#             {
+#                 "test": i + 1,
+#                 "code": test["code"],
+#                 "expected": test["expected"],
+#                 "actual": deps,
+#                 "success": success,
+#             }
+#         )
+
+#     # Print results
+#     print("Test Results:")
+#     all_passed = True
+#     for result in results:
+#         status = "✅ PASS" if result["success"] else "❌ FAIL"
+#         print(f"Test {result['test']}: {status}")
+#         print(f"  Code: {result['code']}")
+#         print(f"  Expected: {result['expected']}")
+#         print(f"  Actual: {result['actual']}")
+#         print()
+#         if not result["success"]:
+#             all_passed = False
+
+#     print(f"Overall: {'✅ All tests passed' if all_passed else '❌ Some tests failed'}")
+
+#     return all_passed
+
+
+# # Run the test
+# if __name__ == "__main__":
+#     test_dependency_visitor()
+
+
+
+import math
+
+from types import SimpleNamespace
+
+class SettaArgs:
+    def __init__(self):
+        # Internal dictionary to store attributes
+        self._attributes = {}
+    
+    def __getattr__(self, name):
+        # When accessing a non-existent attribute, create a new container
+        if name not in self._attributes:
+            self._attributes[name] = SettaArgs()
+        return self._attributes[name]
+    
+    def __setattr__(self, name, value):
+        # Handle the special case of our internal _attributes dictionary
+        if name == "_attributes":
+            super().__setattr__(name, value)
+        else:
+            # Store all other attributes in our _attributes dictionary
+            self._attributes[name] = value
+    
+    def __getitem__(self, key):
+        # Handle access with square brackets (both numeric indices and string keys)
+        if key not in self._attributes:
+            self._attributes[key] = SettaArgs()
+        return self._attributes[key]
+    
+    def __setitem__(self, key, value):
+        # Handle assignment with square brackets
+        self._attributes[key] = value
+            
+    def __str__(self):
+        # For a readable string representation
+        return str(self._attributes)
+        
+    def __repr__(self):
+        # For representation in interactive sessions
+        return self.__str__()
+
+class S:
+    def __init__(self):
+        args = SettaArgs()
+        args.the_result[0].x = 5
+        args.the_result[1].x = 10
+        the_result__i0 = math.sqrt(args.the_result[0].x)
+        the_result__i1 = math.sqrt(args.the_result[1].x)
+        self.the_result = [the_result__i0, the_result__i1]
+        self.args = args
+
+
+s = S()
+print(s.the_result)
+print(s.args)
