@@ -21,9 +21,9 @@ from ..utils.constants import C
 
 class DependencyGraph:
     def __init__(self, p):
-        p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
         self.output = {}
         self.p = copy.deepcopy(p)
+        self.p["codeInfoCols"] = replace_null_keys_with_none(self.p["codeInfoCols"])
         self.section_types_to_process = [
             C.SECTION,
             C.LIST_ROOT,
@@ -32,7 +32,7 @@ class DependencyGraph:
             C.GLOBAL_VARIABLES,
             C.TEXT_BLOCK,
         ]
-        self.slugs = {}
+        self.used_var_names = set()
         self.export()
 
     def export(self):
@@ -51,75 +51,30 @@ class DependencyGraph:
         output_key = self.create_output_key(id)
         if output_key not in self.output:
             type = get_section_type(self.p, id)
-            info = {
-                "sectionId": id,
-                "name": get_section_name(self.p, id),
-                "var_name": self.create_var_name(id),
-                "type": type,
-                "isTopLevel": isTopLevel,
-            }
             if type == C.SECTION:
-                (
-                    used_params,
-                    unused_params,
-                    passingStyles,
-                ) = self.export_section_params(id)
-
-                callable = get_selected_item_name(self.p, id)
-                used_ref_var_names = []  # TODO: use ast to find references to other sections
-
-                info["value"] = {
-                    "callable": callable,
-                    "usedParams": used_params,
-                    "unusedParams": unused_params,
-                    "passingStyles": passingStyles,
-                }
-                info["dependencies"] = [*used_params, *used_ref_var_names]
-                self.output[output_key] = info
-            elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
-                children = get_section_children(self.p, id)
-                children = [
-                    c
-                    for c in children
-                    if get_section_type(self.p, c) in self.section_types_to_process
-                ]
-                info["value"] = self.export_sections(children)
-                info["dependencies"] = info["value"]
-                self.output[output_key] = info
-            elif type == C.GLOBAL_VARIABLES:
-                # don't need to process the output since the global variables get added directly to the output
-                # i.e. they aren't children of anything
-                self.export_section_params(id)
-            elif type == C.TEXT_BLOCK:
-                variant = get_selected_section_variant(self.p, id)
-                info["value"] = variant["description"]
-                info["dependencies"] = []
-                self.output[output_key] = info
-            else:
-                raise ValueError
+                self.output[output_key] = SectionNode(self.p, self.used_var_names, id, isTopLevel)
+            # elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
+            #     children = get_section_children(self.p, id)
+            #     children = [
+            #         c
+            #         for c in children
+            #         if get_section_type(self.p, c) in self.section_types_to_process
+            #     ]
+            #     info["value"] = self.export_sections(children)
+            #     info["dependencies"] = info["value"]
+            #     self.output[output_key] = info
+            # elif type == C.GLOBAL_VARIABLES:
+            #     # don't need to process the output since the global variables get added directly to the output
+            #     # i.e. they aren't children of anything
+            #     self.export_section_params(id)
+            # elif type == C.TEXT_BLOCK:
+            #     variant = get_selected_section_variant(self.p, id)
+            #     info["value"] = variant["description"]
+            #     info["dependencies"] = []
+            #     self.output[output_key] = info
+            # else:
+            #     raise ValueError
         return output_key
-
-    def export_section_params(self, section_id):
-        ids = get_top_level_param_ids(self.p, section_id)
-        return self.export_params(section_id, ids)
-
-    def export_params(self, section_id, ids):
-        var_names = [self.export_param(section_id, x) for x in ids]
-        var_names = [x for x in var_names if x]
-        used_params = []
-        unused_params = []
-        passingStyles = {}
-        for v in var_names:
-            if no_entered_value(self.output[v]["value"]):
-                unused_params.append(v)
-            else:
-                used_params.append(v)
-
-            curr_param_info_id = self.output[v]["paramInfoId"]
-            passingStyles[v] = self.p["codeInfo"][curr_param_info_id].get(
-                "passingStyle", None
-            )
-        return used_params, unused_params, passingStyles
 
     def export_param(self, section_id, id):
         codeInfo = self.p["codeInfo"][id]
@@ -160,33 +115,54 @@ class DependencyGraph:
 
         return var_name
 
-    def export_param_value(self, section_id, id):
-        variant = get_selected_section_variant(self.p, section_id)
-        if id in variant["values"]:
-            value = variant["values"][id]["value"]
+    def create_output_key(self, section_id, param_info_id=None):
+        return (section_id, param_info_id)
+
+
+
+
+class SectionNode:
+    def __init__(self, p, used_var_names, sectionId, isTopLevel):
+        self.id = sectionId
+        self.name = get_section_name(p, self.id)
+        self.var_name = self.create_var_name(p, used_var_names)
+        self.isTopLevel = isTopLevel
+        self.used_params, self.unused_params = self.export_params(p)
+        self.callable = get_selected_item_name(p, self.id)
+
+
+    def export_params(self, p):
+        selected_section_variant = get_selected_section_variant(p, self.id)
+        paramIds = get_top_level_param_ids(p, self.id)
+        params = [ParamNode(selected_section_variant, x) for x in paramIds]
+        used_params = []
+        unused_params = []
+        for v in params:
+            if v.has_value:
+                used_params.append(v)
+            else:
+                unused_params.append(v)
+        return used_params, unused_params
+
+
+    def create_var_name(self, p, used_var_names):
+        return get_section_name_for_code_gen(p, self.id, used_var_names)
+    
+
+
+class ParamNode:
+    def __init__(self, p, selected_section_variant, paramInfoId):
+        self.id = paramInfoId
+        self.value = self.export_value(selected_section_variant)
+        self.has_value = not no_entered_value(self.value)
+        self.passing_style = p["codeInfo"][self.id]["passingStyle"]
+
+
+    def export_value(self, variant):
+        if self.id in variant["values"]:
+            value = variant["values"][self.id]["value"]
             used_ref_var_names = []  # TODO: use ast to find references to other sections
         else:
             value = new_ev_entry()["value"]
             used_ref_var_names = []
-        return value, used_ref_var_names
-
-    # def maybe_create_var_name(
-    #     self,
-    #     section_id,
-    #     param_info_id,
-    #     is_args_obj=False,
-    # ):
-    # TODO: figure out new condition for circular reference
-    # elif var_name not in self.output:
-    # this means the var_name has already been created
-    # but it hasn't been added to the output.
-    # This only happens in a circular dependency.
-    # raise RecursionError("There is a circular reference")
-    # return var_name
-
-    def create_var_name(self, section_id, param_info_id=None):
-        section_name = get_section_name_for_code_gen(self.p, section_id, self.slugs)
-        return section_name
-
-    def create_output_key(self, section_id, param_info_id=None):
-        return (section_id, param_info_id)
+        return value
