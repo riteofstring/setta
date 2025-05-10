@@ -149,7 +149,7 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
-def no_entered_value(value):
+def value_exists(value):
     return value is None or value == ""
 
 
