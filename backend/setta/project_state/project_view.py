@@ -1,12 +1,12 @@
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.lsp.reader_fns.diagnostics import (
-    convert_diagnostic_line_cols_to_positions,
-    process_diagnostics,
-)
 from setta.project_state.code import (
     GenCode,
     NonGenCode,
+)
+from setta.project_state.lsp_response_handlers.diagnostics import (
+    convert_diagnostic_line_cols_to_positions,
+    process_diagnostics,
 )
 
 

@@ -80,7 +80,7 @@ class LanguageServerReader(LanguageServerInteractor):
 
         try:
             response = json.loads(response.decode("utf-8"))
-            await self.process_response(response)
+            self.process_response(response)
         except json.JSONDecodeError as e:
             logger.debug(f"Error decoding JSON response: {e}")
             return
@@ -88,16 +88,16 @@ class LanguageServerReader(LanguageServerInteractor):
             logger.debug(f"Error processing response: {e}")
             return
 
-    async def process_response(self, response):
+    def process_response(self, response):
         logger.debug(f"Processing response: {response}")
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
-            await self.process_response_with_id(id, method, response)
+            self.process_response_with_id(id, method, response)
         else:
             self.process_response_without_id(method, response)
 
-    async def process_response_with_id(self, id, method, response):
+    def process_response_with_id(self, id, method, response):
         metadata = self.msg_id_to_metadata.pop(id, {})
         method = method if method else metadata["method"]
 
@@ -109,9 +109,10 @@ class LanguageServerReader(LanguageServerInteractor):
             content = create_notification_dict(
                 "Language Server Started", temporary=True
             )
-            await self.websocket_msg_handler.broadcast_notification(content)
+            # await self.websocket_msg_handler.broadcast_notification(content)
         else:
-            self.maybe_set_pending_result(id, response)
+            if id in self.pending_requests:
+                self.pending_requests[id].set_result(response)
 
     def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
@@ -119,7 +120,3 @@ class LanguageServerReader(LanguageServerInteractor):
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
                 asyncio.create_task(callback(response))
-
-    def maybe_set_pending_result(self, id, response):
-        if id in self.pending_requests:
-            self.pending_requests[id].set_result(response)
