@@ -84,7 +84,7 @@ class SectionView:
         output_key = exporter_obj.create_output_key(self.sectionId, paramInfoId)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
+        code_generator = PythonCodeGenerator(self.lsp_writers)
         code, lines = code_generator.generate_code(
             exporter_obj.output, force_appear_key=output_key
         )
