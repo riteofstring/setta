@@ -6,12 +6,13 @@ from setta.code_gen.dependency_graph import Node, ParamNode, SectionNode
 from ...utils.constants import C, ParameterPassingStyle
 
 SELF_IDENTIFIER = "s"
+CLASS_NAME = "S"
 
 
-S_CLASS = f"""
+CLASS_DEF = f"""
 from setta.code_gen.python.args_obj import SettaArgsObj
 
-class S:
+class {CLASS_NAME}:
     def __init__({SELF_IDENTIFIER}):
         {SELF_IDENTIFIER}.args = SettaArgsObj()
 """.lstrip()
@@ -37,22 +38,24 @@ class PythonCodeLine:
 class PythonCodeGenerator:
     def __init__(self, dep_graph):
         self.dep_graph = dep_graph
+        self.var_name_mapping = {}
+        self.used_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
 
     def generate_code(self, force_appear_key=None):
         lines = {}
-        for key, node in self.dep_graph.graph.items():
-            force_appear = force_appear_key == key
+        for graph_key, node in self.dep_graph.graph.items():
+            force_appear = force_appear_key == graph_key
             var_str, prefix_len, value_len = self.create_line(
-                node, force_appear=force_appear
+                graph_key, node, force_appear=force_appear
             )
             if var_str:
-                lines[key] = PythonCodeLine(var_str, prefix_len, value_len)
+                lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
 
         code = self.generate_wrapper_class(lines)
         return code, lines
 
     def generate_wrapper_class(self, lines):
-        code = S_CLASS
+        code = CLASS_DEF
         indent = "        "
         indent_len = len(indent)
         for key, l in lines.items():
@@ -61,16 +64,27 @@ class PythonCodeGenerator:
             lines[key].pos = curr_pos
         return code
 
-    def create_line(self, node: Node, force_appear):
+    def create_line(self, graph_key, node: Node, force_appear):
         value = self.get_value(node)
         if value or force_appear:
-            var_name = node["var_name"]
-            if node.isTopLevel:
-                var_name = f"{SELF_IDENTIFIER}.{var_name}"
+            var_name = self.create_var_name(graph_key, node)
             prefix = var_declaration(var_name, value, return_prefix=True)
             final_str = f"{prefix}{value}"
             return final_str, len(prefix), len(value)
         return None, None, None
+    
+    def create_var_name(self, graph_key, node:Node):
+        var_name = node.name
+        if node.isTopLevel:
+            var_name = f"{SELF_IDENTIFIER}.{var_name}"
+        counter = 2
+        while var_name in self.used_var_names:
+            var_name = f"{var_name}_{counter}"
+            counter += 1
+    
+        self.var_name_mapping[graph_key] = var_name
+        self.used_var_names.add(var_name)
+        return var_name
 
     def get_value(self, node: Node):
         if isinstance(node, SectionNode):
