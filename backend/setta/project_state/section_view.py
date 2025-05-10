@@ -15,15 +15,16 @@ class SectionViewGenCode(GenCode):
         self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
         self.output_key: Tuple[str, str | None] = output_key
 
-    async def text_field_autocomplete(self, fullText, position):
+    async def text_field_autocomplete(self, messageId, fullText, position):
         code_line = self.original_lines[self.output_key]
         start, end = code_line.value_position
         code = self.original_code[:start] + fullText + self.original_code[end:]
         await self.update_code(code)
         position += start
         line, col = position_to_line_col(code, position)
-        print(code, flush=True)
-        print("line, col", line, col, flush=True)
+        await self.lsp_writer.send_autocomplete_request(
+            filepath=self.temp_file, line=line, character=col, request_id=messageId
+        )
 
 
 class SectionView:
@@ -66,7 +67,7 @@ class SectionView:
         if paramInfoId not in self.text_field_cache:
             await self.text_field_initialize(paramInfoId)
         cache = self.text_field_cache[paramInfoId]
-        await cache.text_field_autocomplete(fullText, position)
+        await cache.text_field_autocomplete(messageId, fullText, position)
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
