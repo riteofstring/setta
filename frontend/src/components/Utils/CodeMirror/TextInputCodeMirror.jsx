@@ -1,7 +1,7 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { dbTextFieldCompletion } from "requests/sections";
+import { wsTextFieldCompletion } from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
@@ -145,7 +145,7 @@ function CoreCodeMirror({
       ? getCompletionsFn(
           dataSectionId,
           paramInfoId,
-          dbTextFieldCompletion,
+          wsTextFieldCompletion,
           language,
         )
       : () => null,

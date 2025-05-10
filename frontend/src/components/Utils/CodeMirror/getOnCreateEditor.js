@@ -89,7 +89,7 @@ function getFromTo(options, before, context) {
 export function getCompletionsFn(
   sectionId,
   paramInfoId,
-  dbCompletionFn,
+  completionFn,
   language,
 ) {
   if (language === "python") {
@@ -109,7 +109,7 @@ export function getCompletionsFn(
         sectionId,
         paramInfoId,
       });
-      const res = await dbCompletionFn({
+      const res = await completionFn({
         sectionId,
         paramInfoId,
         fullText,
@@ -117,11 +117,11 @@ export function getCompletionsFn(
         codeLanguage: language,
       });
       setToNotWaiting();
-      if (res.data) {
+      if (res) {
         return {
           filter: true,
-          ...getFromTo(res.data, before, context),
-          options: res.data,
+          ...getFromTo(res, before, context),
+          options: res,
           // validFor: /([^.=\\(]*)$/,
         };
       }

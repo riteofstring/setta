@@ -22,7 +22,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
 export const debouncedTypeCheckRequest = asyncDebounce(dbRequestTypeCheck, 500);
 
 export async function dbParametersRequest({ sectionId, fullText, position }) {
-  return await dbTextFieldCompletion({
+  return await wsTextFieldCompletion({
     sectionId,
     paramInfoId: null,
     fullText,
@@ -56,7 +56,7 @@ export async function dbCodeAreaCompletion({
   });
 }
 
-export async function dbTextFieldCompletion({
+export async function wsTextFieldCompletion({
   sectionId,
   paramInfoId,
   fullText,

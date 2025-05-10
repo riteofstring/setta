@@ -37,7 +37,6 @@ class ProjectViewGenCode(GenCode):
             "diagnostics": diagnostics,
             "isGenCode": True,
         }
-        print("broadcasting diagnostics", flush=True)
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
 

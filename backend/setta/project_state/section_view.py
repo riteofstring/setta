@@ -4,6 +4,9 @@ from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator, PythonCodeLine
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.project_state.code import GenCode
+from setta.project_state.lsp_response_handlers.completion import (
+    process_completion_response,
+)
 
 
 class SectionViewGenCode(GenCode):
@@ -37,6 +40,8 @@ class SectionViewGenCode(GenCode):
             ),
             messageId,
         )
+        result = process_completion_response(response, self.code)
+        await self.websocket_msg_handler.return_to_requester(result, messageId)
 
 
 class SectionView:
