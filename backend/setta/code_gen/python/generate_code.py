@@ -1,4 +1,6 @@
 import asyncio
+from dataclasses import dataclass
+from typing import Optional
 
 from setta.database.utils import create_new_id
 
@@ -8,22 +10,61 @@ from .ast_utils import find_missing_imports
 SELF_IDENTIFIER = "s"
 
 
+S_CLASS = f"""
+from setta.code_gen.python.args_obj import SettaArgsObj
+
+class S:
+    def __init__({SELF_IDENTIFIER}):
+        {SELF_IDENTIFIER}.args = SettaArgsObj()
+"""
+
+
+@dataclass
+class PythonCodeLine:
+    var_str: str
+    prefix_len: int
+    value_len: int
+    pos: Optional[int] = None
+
+    @property
+    def value_position(self):
+        """Returns a tuple of (value_pos_start, value_pos_end)"""
+        if self.pos is None:
+            return None
+        value_pos_start = self.pos + self.prefix_len
+        value_pos_end = value_pos_start + self.value_len
+        return (value_pos_start, value_pos_end)
+
+
 class PythonCodeGenerator:
     def __init__(self, lsp_writers, temp_folder):
         self.lsp_writer = lsp_writers.full
         self.virtual_filepath_for_import_validator = temp_folder / "validate_imports.py"
 
     async def generate_code(self, exporter_output, force_appear_key=None):
-        lines = []
+        lines = {}
         for key, details in exporter_output.items():
             force_appear = force_appear_key == key
-            var_str = create_line(details, exporter_output, force_appear=force_appear)
-            lines.append(var_str)
+            var_str, prefix_len, value_len = create_line(
+                details, exporter_output, force_appear=force_appear
+            )
+            if var_str:
+                lines[key] = PythonCodeLine(var_str, prefix_len, value_len)
 
-        code = generate_wrapper_class(lines)
-        imports = generate_imports(code)
-        imports = await self.validate_imports(imports)
-        code = f"{imports}{code}"
+        code = self.generate_wrapper_class(lines)
+        # imports = generate_imports(code)
+        # imports = await self.validate_imports(imports)
+        # code = f"{imports}{code}"
+        return code, lines
+
+    def generate_wrapper_class(self, lines):
+        code = S_CLASS.lstrip()
+        indent = "        "
+        indent_len = len(indent)
+        for key, l in lines.items():
+            curr_pos = len(code) + indent_len
+            code = f"{code}{indent}{l.var_str}\n"
+            lines[key].pos = curr_pos
         return code
 
     async def validate_imports(self, generated_imports):
@@ -182,11 +223,12 @@ def create_line(details, exporter_output, force_appear):
     value = get_value(details, exporter_output)
     if value or force_appear:
         var_name = details["var_name"]
-        prefix = var_declaration(var_name, value, return_prefix=True)
-        value = f"{prefix}{value}"
         if details["isTopLevel"]:
-            value = f"{SELF_IDENTIFIER}.{value}"
-    return value
+            var_name = f"{SELF_IDENTIFIER}.{var_name}"
+        prefix = var_declaration(var_name, value, return_prefix=True)
+        final_str = f"{prefix}{value}"
+        return final_str, len(prefix), len(value)
+    return None, None, None
 
 
 def generate_imports(
@@ -206,17 +248,3 @@ def generate_imports(
     if len(imports) > 0:
         imports += "\n"
     return imports
-
-
-def generate_wrapper_class(lines):
-    code = f"""
-from setta.code_gen.python.args_obj import SettaArgsObj
-
-class S:
-    def __init__({SELF_IDENTIFIER}):
-        {SELF_IDENTIFIER}.args = SettaArgsObj()
-"""
-
-    for l in lines:
-        code = f"{code}        {l}\n"
-    return code.lstrip()

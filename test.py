@@ -225,13 +225,18 @@ async def main():
     )
 
     exporter_obj = export_selected(project_state)
-    code = await code_generator.generate_code(exporter_obj.output)
-    # print(json.dumps(exporter_obj.output, indent=2), flush=True)
-    # code = format_python_code(code)
-    print(code, flush=True)
+    code, lines = await code_generator.generate_code(exporter_obj.output)
+    key = exporter_obj.create_output_key("6b28c322-2f09-4a91-8458-7e89c848df8b", None)
+    print(code)
+    line = lines[key]
+    print(line)
+    start, end = line.value_position
+    print(code[start:end])
 
-    with open("test_code.py", "w") as f:
-        f.write(code)
+    # code = format_python_code(code)
+
+    # with open("test_code.py", "w") as f:
+    # f.write(code)
 
 
 if __name__ == "__main__":
