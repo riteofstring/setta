@@ -8,9 +8,18 @@ from setta.project_state.code import GenCode
 
 class SectionViewGenCode(GenCode):
     def __init__(
-        self, lsp_writers, websocket_msg_handler, temp_folder, code, lines, output_key
+        self,
+        lsp_writers,
+        websocket_msg_handler,
+        temp_folder,
+        exporter_output,
+        code,
+        lines,
+        output_key,
     ):
-        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+        super().__init__(
+            lsp_writers, websocket_msg_handler, temp_folder, exporter_output
+        )
         self.original_code: str = code
         self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
         self.output_key: Tuple[str, str | None] = output_key
@@ -55,6 +64,7 @@ class SectionView:
             self.lsp_writers,
             self.websocket_msg_handler,
             project_temp_folder,
+            exporter_obj.output,
             code,
             lines,
             output_key,

@@ -14,7 +14,7 @@ class ProjectViewGenCode(GenCode):
     async def type_check(self):
         await self.send_document_open_request()
 
-    async def process_diagnostics_response(self, lsp_response, exporter_output):
+    async def process_diagnostics_response(self, lsp_response):
         params = lsp_response["params"]
         if self.lsp_writer.get_latest_version_number(self.uri) != params["version"]:
             return
@@ -22,7 +22,7 @@ class ProjectViewGenCode(GenCode):
         diagnostics = process_diagnostics(
             params["diagnostics"],
             self.code,
-            exporter_output,
+            self.exporter_output,
         )
         content = {
             "projectConfigId": self.project_state["projectConfig"]["id"],
@@ -36,7 +36,7 @@ class ProjectViewNonGenCode(NonGenCode):
     async def type_check(self):
         await self.send_document_open_request()
 
-    async def process_diagnostics_response(self, lsp_response, exporter_output):
+    async def process_diagnostics_response(self, lsp_response):
         # TODO
         pass
 
@@ -48,7 +48,6 @@ class ProjectView:
         self.project_state = None
         self.gen_code_preview = None
         self.code_previews = {}
-        self.exporter_output = None
         self.temp_folder = temp_folder
 
     async def update(self, project_state):
@@ -56,35 +55,23 @@ class ProjectView:
         # json.dump(project_state, f, indent=2)
         self.project_state = project_state
         exporter_obj = export_selected(self.project_state)
-        self.exporter_output = exporter_obj.output
-        # print(json.dumps(self.exporter_output, indent=2), flush=True)
+        exporter_output = exporter_obj.output
+        # print(json.dumps(exporter_output, indent=2), flush=True)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
         code, _ = code_generator.generate_code(exporter_obj.output)
         self.gen_code_preview = ProjectViewGenCode(
-            self.lsp_writers, self.websocket_msg_handler, project_temp_folder
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            project_temp_folder,
+            exporter_output,
         )
         await self.gen_code_preview.update(self.project_state, code)
 
     async def type_check(self):
         for v in self.code_previews.values():
             await v.type_check()
-
-    def get_code_preview_by_uri(self, uri):
-        for code_preview in self.code_previews.values():
-            if code_preview.uri == uri:
-                return code_preview
-        return None
-
-    async def process_diagnostics_response(self, lsp_response):
-        params = lsp_response["params"]
-        code_preview = self.get_code_preview_by_uri(params["uri"])
-        if not code_preview:
-            return
-        await code_preview.process_diagnostics_response(
-            lsp_response, self.exporter_output
-        )
 
     def delete_temp_files(self):
         for v in self.code_previews.values():

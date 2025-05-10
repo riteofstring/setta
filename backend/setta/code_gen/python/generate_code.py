@@ -93,7 +93,6 @@ class PythonCodeGenerator:
                     idx, len(line) - 1, filepath, request_id, virtual=virtual
                 ),
                 request_id,
-                local=True,
             )
             # Store the future for waiting later
             future = self.lsp_writer.wait_for_response(request_id)

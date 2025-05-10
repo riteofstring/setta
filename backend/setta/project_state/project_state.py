@@ -48,9 +48,6 @@ class ProjectState:
             messageId, paramInfoId, fullText, position
         )
 
-    async def process_diagnostics_response(self, lsp_response):
-        await self.project_view.process_diagnostics_response(lsp_response)
-
     def delete_temp_files(self):
         self.project_view.delete_temp_files()
         for v in self.section_views.values():

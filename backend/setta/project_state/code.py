@@ -57,6 +57,12 @@ class Code(ABC):
 
 
 class GenCode(Code):
+    def __init__(
+        self, lsp_writers, websocket_msg_handler, temp_folder, exporter_output
+    ):
+        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+        self.exporter_output = exporter_output
+
     def get_base_filename(self):
         return "setta_gen"
 

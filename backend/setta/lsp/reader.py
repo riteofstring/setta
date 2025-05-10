@@ -10,9 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server, project_manager):
+    def __init__(self, server):
         self.server = server
-        self.project_manager = project_manager
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None
@@ -96,7 +95,7 @@ class LanguageServerReader(LanguageServerInteractor):
         if id:
             await self.process_response_with_id(id, method, response)
         else:
-            await self.process_response_without_id(method, response)
+            self.process_response_without_id(method, response)
 
     async def process_response_with_id(self, id, method, response):
         metadata = self.msg_id_to_metadata.pop(id, {})
@@ -112,26 +111,14 @@ class LanguageServerReader(LanguageServerInteractor):
             )
             await self.websocket_msg_handler.broadcast_notification(content)
         else:
-            returnId = id
+            self.maybe_set_pending_result(id, response)
 
-            # if method == "textDocument/completion":
-            #     content = process_completion_response(response, metadata)
-            # elif method == "textDocument/signatureHelp":
-            #     content = process_signature_help_response(response)
-            # elif method == "textDocument/references":
-            #     content, returnId = process_references_response(response, metadata)
-            # elif method == "textDocument/documentHighlight":
-            #     content, returnId = process_document_highlight_response(
-            #         response, metadata
-            #     )
-
-            if id in self.pending_requests:
-                self.pending_requests[id].set_result(response)
-            # else:
-            #     await self.websocket_msg_handler.return_to_requester(content, returnId)
-
-    async def process_response_without_id(self, method, response):
+    def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
-            asyncio.create_task(
-                self.project_manager.process_diagnostics_response(response)
-            )
+            id = self.create_diagnostic_response_request_id(response["params"]["uri"])
+            print("response diagnostic id", id, flush=True)
+            self.maybe_set_pending_result(id, response)
+
+    def maybe_set_pending_result(self, id, response):
+        if id in self.pending_requests:
+            self.pending_requests[id].set_result(response)

@@ -42,9 +42,9 @@ class LSPWriters:
 
 
 class LSPReaders:
-    def __init__(self, servers, project_manager):
-        self.full = LanguageServerReader(servers.full, project_manager)
-        self.basic = LanguageServerReader(servers.basic, project_manager)
+    def __init__(self, servers):
+        self.full = LanguageServerReader(servers.full)
+        self.basic = LanguageServerReader(servers.basic)
 
     async def start(self):
         await self.full.start()
