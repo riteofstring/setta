@@ -18,14 +18,12 @@ class SectionViewGenCode(GenCode):
         lsp_writers,
         websocket_msg_handler,
         temp_folder,
-        exporter_output,
+        dep_graph,
         code,
         lines,
         output_key,
     ):
-        super().__init__(
-            lsp_writers, websocket_msg_handler, temp_folder, exporter_output
-        )
+        super().__init__(lsp_writers, websocket_msg_handler, temp_folder, dep_graph)
         self.original_code: str = code
         self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
         self.output_key: Tuple[str, str | None] = output_key
@@ -80,19 +78,18 @@ class SectionView:
 
     async def text_field_initialize(self, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
-        exporter_obj = DependencyGraph(self.project_state)
-        output_key = exporter_obj.create_output_key(self.sectionId, paramInfoId)
+        dep_graph = DependencyGraph(self.project_state)
+        output_key = dep_graph.create_output_key(self.sectionId, paramInfoId)
+        code_generator = PythonCodeGenerator(dep_graph)
+        code, lines = code_generator.generate_code(orce_appear_key=output_key)
+
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        code_generator = PythonCodeGenerator(self.lsp_writers)
-        code, lines = code_generator.generate_code(
-            exporter_obj.output, force_appear_key=output_key
-        )
         gen_code_preview = SectionViewGenCode(
             self.lsp_writers,
             self.websocket_msg_handler,
             project_temp_folder,
-            exporter_obj.output,
+            dep_graph,
             code,
             lines,
             output_key,

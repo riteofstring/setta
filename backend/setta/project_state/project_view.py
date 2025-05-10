@@ -11,12 +11,8 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 
 
 class ProjectViewGenCode(GenCode):
-    def __init__(
-        self, lsp_writers, websocket_msg_handler, temp_folder, exporter_output
-    ):
-        super().__init__(
-            lsp_writers, websocket_msg_handler, temp_folder, exporter_output
-        )
+    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, dep_graph):
+        super().__init__(lsp_writers, websocket_msg_handler, temp_folder, dep_graph)
         self.diagnostics_callback = self.process_diagnostics_response
 
     async def type_check(self):
@@ -30,7 +26,7 @@ class ProjectViewGenCode(GenCode):
         diagnostics = process_diagnostics(
             params["diagnostics"],
             self.code,
-            self.exporter_output,
+            self.dep_graph,
         )
         content = {
             "projectConfigId": self.project_state["projectConfig"]["id"],
@@ -62,22 +58,20 @@ class ProjectView:
         # with open("project_state.json", "w") as f:
         # json.dump(project_state, f, indent=2)
         self.project_state = project_state
-        exporter_obj = DependencyGraph(self.project_state)
-        exporter_output = exporter_obj.output
-        # print(json.dumps(exporter_output, indent=2), flush=True)
-        projectConfigName = self.project_state["projectConfig"]["name"]
-        project_temp_folder = self.temp_folder / projectConfigName
-        code_generator = PythonCodeGenerator(self.lsp_writers)
-        code, _ = code_generator.generate_code(exporter_obj.output)
+        dep_graph = DependencyGraph(self.project_state)
+        code_generator = PythonCodeGenerator(dep_graph)
+        code, _ = code_generator.generate_code()
 
         if self.gen_code_preview:
             self.gen_code_preview.callback_cleanup()
 
+        projectConfigName = self.project_state["projectConfig"]["name"]
+        project_temp_folder = self.temp_folder / projectConfigName
         self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers,
             self.websocket_msg_handler,
             project_temp_folder,
-            exporter_output,
+            dep_graph,
         )
         await self.gen_code_preview.update(self.project_state, code)
 

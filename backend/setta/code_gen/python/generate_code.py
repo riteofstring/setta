@@ -34,15 +34,15 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, lsp_writers):
-        self.lsp_writer = lsp_writers.full
+    def __init__(self, dep_graph):
+        self.dep_graph = dep_graph
 
-    def generate_code(self, exporter_output, force_appear_key=None):
+    def generate_code(self, force_appear_key=None):
         lines = {}
-        for key, details in exporter_output.items():
+        for key, details in self.dep_graph.graph.items():
             force_appear = force_appear_key == key
             var_str, prefix_len, value_len = create_line(
-                details, exporter_output, force_appear=force_appear
+                details, self.dep_graph.graph, force_appear=force_appear
             )
             if var_str:
                 lines[key] = PythonCodeLine(var_str, prefix_len, value_len)
@@ -61,13 +61,13 @@ class PythonCodeGenerator:
         return code
 
 
-def get_mappings(dependency_keys, exporter_output, is_dict=False, passingStyles=None):
+def get_mappings(dependency_keys, dep_graph, is_dict=False, passingStyles=None):
     if passingStyles is None:
         passingStyles = {}
     output = ""
     curr_position = 0
     for idx, key in enumerate(dependency_keys):
-        v = exporter_output[key]["var_name"]
+        v = dep_graph[key]["var_name"]
         prefix = "" if idx == 0 else ", "
         if passingStyles.get(key) == ParameterPassingStyle.ARGS:
             prefix = "*"
@@ -78,7 +78,7 @@ def get_mappings(dependency_keys, exporter_output, is_dict=False, passingStyles=
             or passingStyles.get(key) == ParameterPassingStyle.KEYWORD_ONLY
         ):
             var_decl_prefix = var_declaration(
-                exporter_output[key]["name"],
+                dep_graph[key]["name"],
                 v,
                 is_dict,
                 return_prefix=True,
@@ -93,16 +93,16 @@ def get_mappings(dependency_keys, exporter_output, is_dict=False, passingStyles=
     return output
 
 
-def get_dict_contents(dependency_keys, exporter_output):
-    return get_mappings(dependency_keys, exporter_output, is_dict=True)
+def get_dict_contents(dependency_keys, dep_graph):
+    return get_mappings(dependency_keys, dep_graph, is_dict=True)
 
 
-def get_callable_params(dependency_keys, passingStyles, exporter_output):
-    return get_mappings(dependency_keys, exporter_output, passingStyles=passingStyles)
+def get_callable_params(dependency_keys, passingStyles, dep_graph):
+    return get_mappings(dependency_keys, dep_graph, passingStyles=passingStyles)
 
 
-def get_list_of_vars(dependency_keys, exporter_output):
-    return get_mappings(dependency_keys, exporter_output)
+def get_list_of_vars(dependency_keys, dep_graph):
+    return get_mappings(dependency_keys, dep_graph)
 
 
 def get_boolean(value):
@@ -122,7 +122,7 @@ def var_declaration(
 
 
 # TODO: remove str(x["value"]). I don't think it's necessary since x["value"] should always be a string already.
-def get_value(x, exporter_output):
+def get_value(x, dep_graph):
     type_value = x["type"]
     if (
         type_value == C.TEXT
@@ -139,20 +139,20 @@ def get_value(x, exporter_output):
         output = f'"""{x["value"]}"""'
     elif type_value == C.SECTION:
         if not x["value"]["callable"]:
-            output = get_dict_contents(x["value"]["usedParams"], exporter_output)
+            output = get_dict_contents(x["value"]["usedParams"], dep_graph)
             prefix = "{"
             output = prefix + output + "}"
         else:
             output = get_callable_params(
-                x["value"]["usedParams"], x["value"]["passingStyles"], exporter_output
+                x["value"]["usedParams"], x["value"]["passingStyles"], dep_graph
             )
             prefix = f"{x['value']['callable']}("
             output = f"{prefix}{output})"
     elif type_value == C.LIST_ROOT:
-        output = get_list_of_vars(x["value"], exporter_output)
+        output = get_list_of_vars(x["value"], dep_graph)
         output = f"[{output}]"
     elif type_value in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
-        output = get_dict_contents(x["value"], exporter_output)
+        output = get_dict_contents(x["value"], dep_graph)
         output = "{" + output + "}"
     else:
         output = None
@@ -160,8 +160,8 @@ def get_value(x, exporter_output):
     return output
 
 
-def create_line(details, exporter_output, force_appear):
-    value = get_value(details, exporter_output)
+def create_line(details, dep_graph, force_appear):
+    value = get_value(details, dep_graph)
     if value or force_appear:
         var_name = details["var_name"]
         if details["isTopLevel"]:

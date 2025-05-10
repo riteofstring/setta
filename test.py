@@ -202,9 +202,9 @@
 
 import asyncio
 import json
-from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.utils.constants import USER_SETTINGS
 
 
@@ -215,15 +215,9 @@ async def main():
 
     USER_SETTINGS["languageServer"] = {}
 
-    # servers = LSPServers()
-    # writers = LSPWriters(servers)
-    # readers = LSPReaders(servers)
-    # await start_lsps(servers, readers, writers)
-    # code_generator = PythonCodeGenerator(
-    #     writers,
-    # )
-    exporter_obj = DependencyGraph(project_state)
-    pprint(exporter_obj.graph)
+    dep_graph = DependencyGraph(project_state)
+    code_generator = PythonCodeGenerator(dep_graph)
+    code_generator.generate_code()
 
 
 if __name__ == "__main__":

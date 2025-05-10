@@ -68,8 +68,8 @@ class DependencyGraph:
                     deps=self.export_sections(children),
                 )
                 self.add_to_graph(graph_key, node)
-            elif type == C.GLOBAL_VARIABLES:
-                self.export_section_params(id)
+            # elif type == C.GLOBAL_VARIABLES:
+            #     self.export_section_params(id)
             # elif type == C.TEXT_BLOCK:
             #     variant = get_selected_section_variant(self.p, id)
             #     info["value"] = variant["description"]
