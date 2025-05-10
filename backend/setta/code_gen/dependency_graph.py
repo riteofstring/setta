@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from setta.code_gen.utils import (
     get_code_info_children,
     get_param_ui_type,
+    get_section_children,
     get_section_name,
     get_section_type,
     get_selected_item_name,
@@ -53,16 +54,20 @@ class DependencyGraph:
                     deps=self.export_section_params(id),
                 )
                 self.add_to_graph(graph_key, node)
-            # elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
-            #     children = get_section_children(self.p, id)
-            #     children = [
-            #         c
-            #         for c in children
-            #         if get_section_type(self.p, c) in self.section_types_to_process
-            #     ]
-            #     info["value"] = self.export_sections(children)
-            #     info["dependencies"] = info["value"]
-            #     self.output[output_key] = info
+            elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
+                children = [
+                    c
+                    for c in get_section_children(self.p, id)
+                    if get_section_type(self.p, c) in self.section_types_to_process
+                ]
+                node = SectionNode(
+                    id=id,
+                    name=get_section_name(self.p, id),
+                    isTopLevel=isTopLevel,
+                    callable=None,
+                    deps=self.export_sections(children),
+                )
+                self.add_to_graph(graph_key, node)
             elif type == C.GLOBAL_VARIABLES:
                 self.export_section_params(id)
             # elif type == C.TEXT_BLOCK:
@@ -72,7 +77,7 @@ class DependencyGraph:
             #     self.output[output_key] = info
             # else:
             #     raise ValueError
-        # return output_key
+        return graph_key
 
     def export_section_params(self, sectionId):
         paramIds = get_top_level_param_ids(self.p, sectionId)
@@ -127,7 +132,7 @@ class SectionNode:
     id: str
     name: str
     isTopLevel: bool
-    callable: str
+    callable: str | None
     deps: list
 
 
