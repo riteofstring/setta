@@ -43,6 +43,7 @@ class LanguageServer:
         self.initialization_request_id = None
         self.is_initialized = False
         self.latest_version_numbers = {}  # uri to version number
+        self.diagnostics_response_callbacks = {}  # uri to callback
 
     def cleanup_pending_requests(self):
         if not hasattr(self, "pending_requests"):
@@ -92,6 +93,10 @@ class LanguageServerInteractor:
     def latest_version_numbers(self):
         return self.server.latest_version_numbers
 
+    @property
+    def diagnostics_response_callbacks(self):
+        return self.server.diagnostics_response_callbacks
+
     async def wait_for_response(self, id, timeout=None):
         future = self.pending_requests.get(id)
         if future:
@@ -107,3 +112,9 @@ class LanguageServerInteractor:
 
     def get_latest_version_number(self, uri):
         return self.latest_version_numbers.get(uri)
+
+    def add_diagnostics_response_callback(self, uri, callback):
+        self.diagnostics_response_callbacks[uri] = callback
+
+    def remove_diagnostics_response_callback(self, uri):
+        self.diagnostics_response_callbacks.pop(uri, None)

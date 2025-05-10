@@ -11,6 +11,14 @@ from setta.project_state.code import (
 
 
 class ProjectViewGenCode(GenCode):
+    def __init__(
+        self, lsp_writers, websocket_msg_handler, temp_folder, exporter_output
+    ):
+        super().__init__(
+            lsp_writers, websocket_msg_handler, temp_folder, exporter_output
+        )
+        self.diagnostics_callback = self.process_diagnostics_response
+
     async def type_check(self):
         await self.send_document_open_request()
 
@@ -29,6 +37,7 @@ class ProjectViewGenCode(GenCode):
             "diagnostics": diagnostics,
             "isGenCode": True,
         }
+        print("broadcasting diagnostics", flush=True)
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
 
@@ -61,6 +70,10 @@ class ProjectView:
         project_temp_folder = self.temp_folder / projectConfigName
         code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
         code, _ = code_generator.generate_code(exporter_obj.output)
+
+        if self.gen_code_preview:
+            self.gen_code_preview.callback_cleanup()
+
         self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers,
             self.websocket_msg_handler,

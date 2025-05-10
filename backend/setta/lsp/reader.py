@@ -115,9 +115,10 @@ class LanguageServerReader(LanguageServerInteractor):
 
     def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
-            id = self.create_diagnostic_response_request_id(response["params"]["uri"])
-            print("response diagnostic id", id, flush=True)
-            self.maybe_set_pending_result(id, response)
+            uri = response["params"]["uri"]
+            callback = self.diagnostics_response_callbacks.get(uri)
+            if callback:
+                asyncio.create_task(callback(response))
 
     def maybe_set_pending_result(self, id, response):
         if id in self.pending_requests:

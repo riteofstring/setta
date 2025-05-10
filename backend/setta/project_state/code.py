@@ -17,6 +17,7 @@ class Code(ABC):
         self.temp_file = None
         self.uri = ""
         self.code = ""
+        self.diagnostics_callback = None
 
     async def update(self, project_state, code):
         self.project_state = project_state
@@ -49,11 +50,16 @@ class Code(ABC):
         self.uri = await self.lsp_writer.send_document_open_request(
             filepath=self.temp_file,
             code=self.code,
+            diagnostics_callback=self.diagnostics_callback,
         )
 
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink()
+
+    def callback_cleanup(self):
+        if self.diagnostics_callback and self.uri:
+            self.lsp_writer.remove_diagnostics_response_callback(self.uri)
 
 
 class GenCode(Code):

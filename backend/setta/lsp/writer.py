@@ -41,13 +41,12 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_didChangeConfiguration()  # pyright requires this step
 
     async def send_document_open_request(
-        self,
-        filepath,
-        code,
-        virtual=None,
+        self, filepath, code, virtual=None, diagnostics_callback=None
     ):
         virtual = self.get_is_virtual(virtual)
         uri = self.get_uri(filepath, virtual)
+        if diagnostics_callback:
+            self.add_diagnostics_response_callback(uri, diagnostics_callback)
         if uri not in self.latest_version_numbers:
             version = 0
             self.latest_version_numbers[uri] = version
