@@ -1,7 +1,9 @@
-from groq import BaseModel
+from dataclasses import dataclass
+from typing import Dict, Tuple
+
 
 from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.code_gen.python.generate_code import PythonCodeGenerator, PythonCodeLine
 from setta.project_state.code import GenCode
 
 
@@ -26,26 +28,31 @@ class SectionView:
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
-        code = await code_generator.generate_code(exporter_obj.output, force_appear_key)
+        code, lines = code_generator.generate_code(
+            exporter_obj.output, force_appear_key
+        )
         gen_code_preview = GenCode(
             self.lsp_writers, self.websocket_msg_handler, project_temp_folder
         )
         await gen_code_preview.update(self.project_state, code)
-        self.text_field_cache[paramInfoId] = TextFieldCache(code=code)
+        self.text_field_cache[paramInfoId] = TextFieldCache(code, lines)
 
     async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.text_field_cache:
             await self.text_field_initialize(paramInfoId)
         cache = self.text_field_cache[paramInfoId]
+        print(cache.lines)
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
             v.delete_temp_file()
 
 
-class TextFieldCache(BaseModel):
+@dataclass
+class TextFieldCache:
     code: str
+    lines: Dict[Tuple[str, str | None], PythonCodeLine]
 
     # if push_var_name:
     #     # TODO: rethink this push_var logic

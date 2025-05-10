@@ -61,7 +61,7 @@ class ProjectView:
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
-        code = await code_generator.generate_code(exporter_obj.output)
+        code, _ = code_generator.generate_code(exporter_obj.output)
         self.gen_code_preview = ProjectViewGenCode(
             self.lsp_writers, self.websocket_msg_handler, project_temp_folder
         )

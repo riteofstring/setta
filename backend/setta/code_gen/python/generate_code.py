@@ -16,7 +16,7 @@ from setta.code_gen.python.args_obj import SettaArgsObj
 class S:
     def __init__({SELF_IDENTIFIER}):
         {SELF_IDENTIFIER}.args = SettaArgsObj()
-"""
+""".lstrip()
 
 
 @dataclass
@@ -41,7 +41,7 @@ class PythonCodeGenerator:
         self.lsp_writer = lsp_writers.full
         self.virtual_filepath_for_import_validator = temp_folder / "validate_imports.py"
 
-    async def generate_code(self, exporter_output, force_appear_key=None):
+    def generate_code(self, exporter_output, force_appear_key=None):
         lines = {}
         for key, details in exporter_output.items():
             force_appear = force_appear_key == key
@@ -58,7 +58,7 @@ class PythonCodeGenerator:
         return code, lines
 
     def generate_wrapper_class(self, lines):
-        code = S_CLASS.lstrip()
+        code = S_CLASS
         indent = "        "
         indent_len = len(indent)
         for key, l in lines.items():

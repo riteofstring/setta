@@ -225,13 +225,16 @@ async def main():
     )
 
     exporter_obj = export_selected(project_state)
-    code, lines = await code_generator.generate_code(exporter_obj.output)
+    code, lines = code_generator.generate_code(exporter_obj.output)
     key = exporter_obj.create_output_key("6b28c322-2f09-4a91-8458-7e89c848df8b", None)
     print(code)
     line = lines[key]
     print(line)
     start, end = line.value_position
-    print(code[start:end])
+    new_value = "torch.nn.Cr"
+    cursor_pos = len(new_value)
+    code = code[:start] + new_value + code[end:]
+    cursor_pos += start
 
     # code = format_python_code(code)
 
