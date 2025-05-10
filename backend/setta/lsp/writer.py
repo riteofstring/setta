@@ -211,8 +211,10 @@ class LanguageServerWriter(LanguageServerInteractor):
         params = {"changes": changes}
         await self.send_request("workspace/didChangeWatchedFiles", params=params)
 
-    def create_future(self, request_id):
+    async def send_and_wait(self, fn_call, request_id):
         self.pending_requests[request_id] = asyncio.Future()
+        asyncio.create_task(fn_call)
+        return await self.wait_for_response(request_id)
 
     def get_is_virtual(self, virtual):
         return virtual if virtual is not None else self.use_virtual_files

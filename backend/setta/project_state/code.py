@@ -47,11 +47,12 @@ class Code(ABC):
         self.temp_file.write_text(code)
 
     async def send_document_open_request(self):
-        self.uri = await self.lsp_writer.send_document_open_request(
-            filepath=self.temp_file,
-            code=self.code,
-            diagnostics_callback=self.diagnostics_callback,
-        )
+        if self.temp_file.exists():
+            self.uri = await self.lsp_writer.send_document_open_request(
+                filepath=self.temp_file,
+                code=self.code,
+                diagnostics_callback=self.diagnostics_callback,
+            )
 
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():

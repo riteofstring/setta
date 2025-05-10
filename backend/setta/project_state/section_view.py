@@ -31,8 +31,11 @@ class SectionViewGenCode(GenCode):
         await self.update_code(code)
         position += start
         line, col = position_to_line_col(code, position)
-        await self.lsp_writer.send_autocomplete_request(
-            filepath=self.temp_file, line=line, character=col, request_id=messageId
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file, line=line, character=col, request_id=messageId
+            ),
+            messageId,
         )
 
 
