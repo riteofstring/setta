@@ -2,27 +2,34 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
 import ProjectsList from "./components/ProjectsList";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Header from "./components/Header";
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
+      <div className="flex min-h-screen flex-col bg-setta-50 dark:bg-setta-900">
+        <Header />
 
-        {/* Protected routes */}
-        <Route
-          path="/projects"
-          element={
-            <ProtectedRoute>
-              <ProjectsList />
-            </ProtectedRoute>
-          }
-        />
+        <main className="flex-1">
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
 
-        {/* Redirect to login if no route matches */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+            {/* Protected routes */}
+            <Route
+              path="/projects"
+              element={
+                <ProtectedRoute>
+                  <ProjectsList />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Redirect to login if no route matches */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </main>
+      </div>
     </BrowserRouter>
   );
 }
