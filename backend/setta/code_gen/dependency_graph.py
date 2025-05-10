@@ -49,6 +49,7 @@ class DependencyGraph:
                 node = SectionNode(
                     id=id,
                     name=get_section_name(self.p, id),
+                    type=type,
                     isTopLevel=isTopLevel,
                     callable=get_selected_item_name(self.p, id),
                     deps=self.export_section_params(id),
@@ -63,6 +64,7 @@ class DependencyGraph:
                 node = SectionNode(
                     id=id,
                     name=get_section_name(self.p, id),
+                    type=type,
                     isTopLevel=isTopLevel,
                     callable=None,
                     deps=self.export_sections(children),
@@ -99,10 +101,11 @@ class DependencyGraph:
                 param = ParamNode(
                     id=pid,
                     name=codeInfo["name"],
+                    type=type,
+                    isTopLevel=False,
                     value=self.export_param_value(sectionId, pid),
                     passing_style=codeInfo["passingStyle"],
                     deps=deps,
-                    type=type,
                 )
                 self.add_to_graph(graph_key, param)
             if param.has_name_and_value:
@@ -128,18 +131,21 @@ class DependencyGraph:
 
 
 @dataclass
-class SectionNode:
+class Node:
     id: str
     name: str
+    type: str
     isTopLevel: bool
+
+
+@dataclass
+class SectionNode(Node):
     callable: str | None
     deps: list
 
 
 @dataclass
-class ParamNode:
-    id: str
-    name: str
+class ParamNode(Node):
     value: str
     passing_style: ParameterPassingStyle
     deps: list
