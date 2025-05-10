@@ -2,8 +2,7 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
-from setta.code_gen.export_selected import (
-    export_selected,
+from setta.code_gen.utils import (
     get_section_type,
     get_selected_section_variant,
 )
@@ -29,7 +28,7 @@ async def runCode(p, lsp_writers, code_state, terminals):
 
 
 async def generateRunCodeCommand(p, lsp_writers, code_state):
-    exporter_obj = export_selected(p)
+    # exporter_obj = export_selected(p)
     folder_path = create_timestamped_folder(CODE_FOLDER)
 
     code_dict = await generate_final_code_for_sections(

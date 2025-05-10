@@ -1,4 +1,4 @@
-from setta.code_gen.export_selected import export_selected
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.project_state.code import (
     GenCode,
@@ -62,7 +62,7 @@ class ProjectView:
         # with open("project_state.json", "w") as f:
         # json.dump(project_state, f, indent=2)
         self.project_state = project_state
-        exporter_obj = export_selected(self.project_state)
+        exporter_obj = DependencyGraph(self.project_state)
         exporter_output = exporter_obj.output
         # print(json.dumps(exporter_output, indent=2), flush=True)
         projectConfigName = self.project_state["projectConfig"]["name"]

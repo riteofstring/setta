@@ -14,7 +14,7 @@ from setta.code_gen.create_runnable_scripts import (
     convert_folder_path_to_module_path,
     relative_to_cwd,
 )
-from setta.code_gen.export_selected import export_for_interactive_fn
+from setta.code_gen.utils import export_for_interactive_fn
 from setta.utils.constants import C
 
 from .logger import SettaLogger

@@ -1,7 +1,7 @@
 import json
 from collections import defaultdict
 
-from setta.code_gen.export_selected import get_section_variants
+from setta.code_gen.utils import get_section_variants
 from setta.database.db.artifacts.save import save_artifact_groups, save_artifacts
 from setta.database.utils import create_new_id
 from setta.utils.constants import (

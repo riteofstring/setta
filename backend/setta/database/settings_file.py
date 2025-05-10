@@ -2,7 +2,7 @@ import json
 import logging
 import os
 
-from setta.code_gen.export_selected import get_selected_section_variant
+from setta.code_gen.utils import get_selected_section_variant
 from setta.database.db.projects.utils import (
     add_defaults_to_project_and_load_json_sources,
     filter_data_for_json_export,

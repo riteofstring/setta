@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
 
-from setta.code_gen.export_selected import export_selected
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator, PythonCodeLine
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.project_state.code import GenCode
@@ -80,7 +80,7 @@ class SectionView:
 
     async def text_field_initialize(self, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
-        exporter_obj = export_selected(self.project_state)
+        exporter_obj = DependencyGraph(self.project_state)
         output_key = exporter_obj.create_output_key(self.sectionId, paramInfoId)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName

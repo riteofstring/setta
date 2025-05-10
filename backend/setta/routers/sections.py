@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import (
+from setta.code_gen.utils import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
     export_single_run_group_to_dict,

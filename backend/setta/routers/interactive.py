@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from setta.code_gen.export_selected import get_section_code, get_section_type
+from setta.code_gen.utils import get_section_code, get_section_type
 from setta.utils.constants import C
 from setta.utils.format_code import ruff_format
 
