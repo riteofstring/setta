@@ -114,7 +114,6 @@ export function getCompletionsFn(
         paramInfoId,
         fullText,
         position: context.pos,
-        codeLanguage: language,
       });
       setToNotWaiting();
       if (res) {

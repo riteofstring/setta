@@ -68,6 +68,20 @@ class LanguageServerWriter(LanguageServerInteractor):
             )
         return uri
 
+    async def send_document_update(self, filepath, code, virtual=None):
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(filepath, virtual)
+        version = self.latest_version_numbers[uri] + 1
+        self.latest_version_numbers[uri] = version
+        params = {
+            "textDocument": {
+                "uri": uri,
+                "version": version,
+            },
+            "contentChanges": [{"text": code}],
+        }
+        await self.send_request("textDocument/didChange", params=params)
+
     async def send_autocomplete_request(
         self,
         filepath,
@@ -89,16 +103,15 @@ class LanguageServerWriter(LanguageServerInteractor):
         )
 
     async def send_signature_help_request(
-        self, line, character, code_id, request_id, otherData=None, virtual=None
+        self, filepath, line, character, request_id, virtual=None
     ):
         virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(filepath, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
             "context": {"triggerKind": 2, "triggerCharacter": "("},
         }
-        self.msg_id_to_metadata[request_id]["otherData"] = otherData
         await self.send_request(
             "textDocument/signatureHelp",
             params=params,
@@ -144,20 +157,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             "workspace/didChangeConfiguration",
             params={"settings": settings},
         )
-
-    async def send_document_update(self, filepath, code, virtual=None):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
-        version = self.latest_version_numbers[uri] + 1
-        self.latest_version_numbers[uri] = version
-        params = {
-            "textDocument": {
-                "uri": uri,
-                "version": version,
-            },
-            "contentChanges": [{"text": code}],
-        }
-        await self.send_request("textDocument/didChange", params=params)
 
     async def send_reference_request(
         self,

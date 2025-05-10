@@ -36,6 +36,10 @@ class ProjectManager:
             messageId, sectionId, paramInfoId, fullText, position
         )
 
+    async def parameters_request(self, messageId, projectConfigId, sectionId, fullText):
+        project_state = self.states[projectConfigId]
+        await project_state.parameters_request(messageId, sectionId, fullText)
+
     def delete_temp_files(self):
         for v in self.states.values():
             v.delete_temp_files()

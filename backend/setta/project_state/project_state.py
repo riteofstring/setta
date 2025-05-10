@@ -48,6 +48,9 @@ class ProjectState:
             messageId, paramInfoId, fullText, position
         )
 
+    async def parameters_request(self, messageId, sectionId, fullText):
+        await self.section_views[sectionId].parameters_request(messageId, fullText)
+
     def delete_temp_files(self):
         self.project_view.delete_temp_files()
         for v in self.section_views.values():

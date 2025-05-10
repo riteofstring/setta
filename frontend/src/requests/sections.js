@@ -21,13 +21,17 @@ export async function dbRequestTypeCheck(userRequested = false) {
 
 export const debouncedTypeCheckRequest = asyncDebounce(dbRequestTypeCheck, 500);
 
-export async function dbParametersRequest({ sectionId, fullText, position }) {
-  return await wsTextFieldCompletion({
-    sectionId,
-    paramInfoId: null,
-    fullText,
-    position,
+export async function wsParametersRequest({ sectionId, fullText }) {
+  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+
+  return await sendMessageAndWait({
+    id: createNewId(),
     messageType: C.WS_PARAMETERS_REQUEST,
+    content: {
+      projectConfigId,
+      sectionId,
+      fullText,
+    },
   });
 }
 
@@ -61,13 +65,12 @@ export async function wsTextFieldCompletion({
   paramInfoId,
   fullText,
   position,
-  messageType = C.WS_TEXT_FIELD_AUTOCOMPLETE,
 }) {
   const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
-    messageType,
+    messageType: C.WS_TEXT_FIELD_AUTOCOMPLETE,
     content: {
       projectConfigId,
       sectionId,

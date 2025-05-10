@@ -7,6 +7,9 @@ from setta.project_state.code import GenCode
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
+from setta.project_state.lsp_response_handlers.signatureHelp import (
+    process_signature_help_response,
+)
 
 
 class SectionViewGenCode(GenCode):
@@ -27,13 +30,17 @@ class SectionViewGenCode(GenCode):
         self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
         self.output_key: Tuple[str, str | None] = output_key
 
-    async def text_field_autocomplete(self, messageId, fullText, position):
+    async def insert_code_at_position(self, fullText, position):
         code_line = self.original_lines[self.output_key]
         start, end = code_line.value_position
         code = self.original_code[:start] + fullText + self.original_code[end:]
         await self.update_code(code)
         position += start
         line, col = position_to_line_col(code, position)
+        return line, col
+
+    async def text_field_autocomplete(self, messageId, fullText, position):
+        line, col = await self.insert_code_at_position(fullText, position)
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
                 filepath=self.temp_file, line=line, character=col, request_id=messageId
@@ -41,6 +48,19 @@ class SectionViewGenCode(GenCode):
             messageId,
         )
         result = process_completion_response(response, self.code)
+        await self.websocket_msg_handler.return_to_requester(result, messageId)
+
+    async def parameters_request(self, messageId, fullText):
+        fullText = f"{fullText}()"
+        line, col = await self.insert_code_at_position(fullText, len(fullText))
+        col -= 1  # put cursor inside parentheses
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_signature_help_request(
+                filepath=self.temp_file, line=line, character=col, request_id=messageId
+            ),
+            messageId,
+        )
+        result = process_signature_help_response(response)
         await self.websocket_msg_handler.return_to_requester(result, messageId)
 
 
@@ -86,6 +106,13 @@ class SectionView:
             await self.text_field_initialize(paramInfoId)
         cache = self.text_field_cache[paramInfoId]
         await cache.text_field_autocomplete(messageId, fullText, position)
+
+    async def parameters_request(self, messageId, fullText):
+        paramInfoId = None
+        if paramInfoId not in self.text_field_cache:
+            await self.text_field_initialize(paramInfoId)
+        cache = self.text_field_cache[paramInfoId]
+        await cache.parameters_request(messageId, fullText)
 
     def delete_temp_files(self):
         for v in self.code_previews.values():

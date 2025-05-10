@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { dbParametersRequest } from "requests/sections";
+import { wsParametersRequest } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -63,10 +63,9 @@ export async function setSelectedItem(
 
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
-  const paramRes = await dbParametersRequest({
+  const paramRes = await wsParametersRequest({
     sectionId: dataSectionId,
     fullText: selectedItemName,
-    position: selectedItemName.length,
   });
 
   useSectionInfos.setState((state) => {

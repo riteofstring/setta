@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from setta.code_gen.create_runnable_scripts import sanitize_section_path_full_name
 from setta.code_gen.export_selected import get_section_path_full_name
 from setta.lsp.writer import LanguageServerWriter
+from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,7 @@ class Code(ABC):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
         self.project_state = None
         self.lsp_writer: LanguageServerWriter = lsp_writers.full
-        self.websocket_msg_handler = websocket_msg_handler
+        self.websocket_msg_handler: WMHProjectManager = websocket_msg_handler
         self.temp_folder = temp_folder
         self.temp_file = None
         self.uri = ""
