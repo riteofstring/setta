@@ -202,11 +202,10 @@
 
 import asyncio
 import json
+from pprint import pprint
 
-from setta.code_gen.export_selected import export_selected
-from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
-from setta.utils.constants import CODE_FOLDER, USER_SETTINGS
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.utils.constants import USER_SETTINGS
 
 
 async def main():
@@ -216,30 +215,15 @@ async def main():
 
     USER_SETTINGS["languageServer"] = {}
 
-    servers = LSPServers()
-    writers = LSPWriters(servers)
-    readers = LSPReaders(servers, None)
-    await start_lsps(servers, readers, writers)
-    code_generator = PythonCodeGenerator(
-        writers, CODE_FOLDER / "temp_folder/leaf_creek"
-    )
-
-    exporter_obj = export_selected(project_state)
-    code, lines = code_generator.generate_code(exporter_obj.output)
-    key = exporter_obj.create_output_key("6b28c322-2f09-4a91-8458-7e89c848df8b", None)
-    print(code)
-    line = lines[key]
-    print(line)
-    start, end = line.value_position
-    new_value = "torch.nn.Cr"
-    cursor_pos = len(new_value)
-    code = code[:start] + new_value + code[end:]
-    cursor_pos += start
-
-    # code = format_python_code(code)
-
-    # with open("test_code.py", "w") as f:
-    # f.write(code)
+    # servers = LSPServers()
+    # writers = LSPWriters(servers)
+    # readers = LSPReaders(servers)
+    # await start_lsps(servers, readers, writers)
+    # code_generator = PythonCodeGenerator(
+    #     writers,
+    # )
+    exporter_obj = DependencyGraph(project_state)
+    pprint(exporter_obj.graph)
 
 
 if __name__ == "__main__":
