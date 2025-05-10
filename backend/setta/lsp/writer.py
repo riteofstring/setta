@@ -71,25 +71,18 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_autocomplete_request(
         self,
+        filepath,
         line,
         character,
-        code_id,
         request_id,
-        cursor_offset,
-        otherData=None,
         virtual=None,
     ):
         virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(code_id, virtual)
+        uri = self.get_uri(filepath, virtual)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
         }
-        self.msg_id_to_metadata[request_id]["cursor_offset"] = cursor_offset
-        self.msg_id_to_metadata[request_id]["otherData"] = otherData
-        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
-            "code"
-        ]
         await self.send_request(
             "textDocument/completion",
             params=params,

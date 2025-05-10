@@ -19,6 +19,9 @@ class Code(ABC):
 
     async def update(self, project_state, code):
         self.project_state = project_state
+        await self.update_code(code)
+
+    async def update_code(self, code):
         self.code = code
         base_filename = self.get_base_filename()
         filepath = self.temp_folder / f"{base_filename}.py"

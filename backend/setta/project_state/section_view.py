@@ -1,10 +1,29 @@
-from dataclasses import dataclass
 from typing import Dict, Tuple
-
 
 from setta.code_gen.export_selected import export_selected
 from setta.code_gen.python.generate_code import PythonCodeGenerator, PythonCodeLine
+from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.project_state.code import GenCode
+
+
+class SectionViewGenCode(GenCode):
+    def __init__(
+        self, lsp_writers, websocket_msg_handler, temp_folder, code, lines, output_key
+    ):
+        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+        self.original_code: str = code
+        self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
+        self.output_key: Tuple[str, str | None] = output_key
+
+    async def text_field_autocomplete(self, fullText, position):
+        code_line = self.original_lines[self.output_key]
+        start, end = code_line.value_position
+        code = self.original_code[:start] + fullText + self.original_code[end:]
+        await self.update_code(code)
+        position += start
+        line, col = position_to_line_col(code, position)
+        print(code, flush=True)
+        print("line, col", line, col, flush=True)
 
 
 class SectionView:
@@ -15,7 +34,7 @@ class SectionView:
         self.temp_folder = temp_folder
         self.project_state = None
         self.code_previews = {}
-        self.text_field_cache = {}
+        self.text_field_cache: Dict[str, SectionViewGenCode] = {}
 
     def update(self, project_state):
         self.project_state = project_state
@@ -24,35 +43,34 @@ class SectionView:
     async def text_field_initialize(self, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
         exporter_obj = export_selected(self.project_state)
-        force_appear_key = exporter_obj.create_output_key(self.sectionId, paramInfoId)
+        output_key = exporter_obj.create_output_key(self.sectionId, paramInfoId)
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         code_generator = PythonCodeGenerator(self.lsp_writers, project_temp_folder)
         code, lines = code_generator.generate_code(
-            exporter_obj.output, force_appear_key
+            exporter_obj.output, force_appear_key=output_key
         )
-        gen_code_preview = GenCode(
-            self.lsp_writers, self.websocket_msg_handler, project_temp_folder
+        gen_code_preview = SectionViewGenCode(
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            project_temp_folder,
+            code,
+            lines,
+            output_key,
         )
         await gen_code_preview.update(self.project_state, code)
-        self.text_field_cache[paramInfoId] = TextFieldCache(code, lines)
+        self.text_field_cache[paramInfoId] = gen_code_preview
 
     async def text_field_autocomplete(self, messageId, paramInfoId, fullText, position):
         print("*************text_field_autocomplete\n\n\n", flush=True)
         if paramInfoId not in self.text_field_cache:
             await self.text_field_initialize(paramInfoId)
         cache = self.text_field_cache[paramInfoId]
-        print(cache.lines)
+        await cache.text_field_autocomplete(fullText, position)
 
     def delete_temp_files(self):
         for v in self.code_previews.values():
             v.delete_temp_file()
-
-
-@dataclass
-class TextFieldCache:
-    code: str
-    lines: Dict[Tuple[str, str | None], PythonCodeLine]
 
     # if push_var_name:
     #     # TODO: rethink this push_var logic
