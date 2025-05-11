@@ -37,12 +37,12 @@ class ProjectManager:
         project_state = self.states[projectConfigId]
         await project_state.parameters_request(messageId, sectionId, fullText)
 
-    def delete_temp_files(self):
+    async def delete_temp_files(self):
         for v in self.states.values():
-            v.delete_temp_files()
+            await v.delete_temp_files()
 
-    def get_gen_python_code_path(self, projectConfigId):
-        return self.states[projectConfigId].get_gen_python_code_path()
+    async def get_gen_python_code_path(self, projectConfigId):
+        return await self.states[projectConfigId].get_gen_python_code_path()
 
     async def cleanup(self):
         """Clean up all project states when shutting down"""

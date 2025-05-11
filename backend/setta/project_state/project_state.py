@@ -66,7 +66,12 @@ class ProjectState:
             self._parameters_request_impl, messageId, sectionId, fullText
         )
 
-    # Actual implementation methods
+    # Change the existing non-async methods to use queuing
+    async def delete_temp_files(self):
+        return await self._enqueue(self._delete_temp_files_impl)
+
+    async def get_gen_python_code_path(self):
+        return await self._enqueue(self._get_gen_python_code_path_impl)
 
     async def _update_impl(self, project_state):
         # Original implementation
@@ -105,13 +110,14 @@ class ProjectState:
         print("parameters_request", flush=True)
         await self.gen_code.parameters_request(messageId, sectionId, fullText)
 
-    # Non-async methods don't need to be queued as they don't yield control
-    def delete_temp_files(self):
-        self.gen_code.delete_temp_file()
+    # Add the implementation methods
+    async def _delete_temp_files_impl(self):
+        if self.gen_code:
+            self.gen_code.delete_temp_file()
         for v in self.code.values():
             v.delete_temp_file()
 
-    def get_gen_python_code_path(self):
+    async def _get_gen_python_code_path_impl(self):
         if self.gen_code:
             return self.gen_code.get_gen_python_code_path()
         return None
