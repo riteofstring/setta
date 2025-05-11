@@ -154,7 +154,7 @@ UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
 )
 
 PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    ["viewport", "previewImgColor", "viewingEditingMode"]
+    ["viewport", "previewImgColor", "viewingEditingMode", "genCodePrefix", "genCodeSuffix"]
 )
 
 

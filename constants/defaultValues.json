@@ -5,7 +5,9 @@
     "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
     "viewport": null,
     "children": {},
-    "viewingEditingMode": "DEV"
+    "viewingEditingMode": "DEV",
+    "genCodePrefix": "",
+    "genCodeSuffix": ""
   },
   "section": {
     "id": null,
