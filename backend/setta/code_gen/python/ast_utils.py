@@ -130,6 +130,63 @@ class UndefinedSpecialVarVisitor(ast.NodeVisitor):
         # Restore original defined vars
         self.defined_vars = old_defined
 
+    def visit_DictComp(self, node):
+        # Create a copy of defined vars for the comprehension scope
+        old_defined = self.defined_vars.copy()
+
+        # Visit the generators first
+        for gen in node.generators:
+            self.visit(gen.iter)
+
+            # Add target variables to defined variables
+            if isinstance(gen.target, ast.Name):
+                self.defined_vars.add(gen.target.id)
+            elif isinstance(gen.target, (ast.Tuple, ast.List)):
+                for (
+                    elt
+                ) in gen.target.elts:  # Fixed: using gen.target instead of node.target
+                    if isinstance(elt, ast.Name):
+                        self.defined_vars.add(elt.id)
+
+            # Visit ifs
+            for if_clause in gen.ifs:
+                self.visit(if_clause)
+
+        # Visit key and value expressions
+        self.visit(node.key)
+        self.visit(node.value)
+
+        # Restore original defined vars
+        self.defined_vars = old_defined
+
+    def visit_SetComp(self, node):
+        # Create a copy of defined vars for the comprehension scope
+        old_defined = self.defined_vars.copy()
+
+        # Visit the generators first
+        for gen in node.generators:
+            self.visit(gen.iter)
+
+            # Add target variables to defined variables
+            if isinstance(gen.target, ast.Name):
+                self.defined_vars.add(gen.target.id)
+            elif isinstance(gen.target, (ast.Tuple, ast.List)):
+                for (
+                    elt
+                ) in gen.target.elts:  # Fixed: using gen.target instead of node.target
+                    if isinstance(elt, ast.Name):
+                        self.defined_vars.add(elt.id)
+
+            # Visit ifs
+            for if_clause in gen.ifs:
+                self.visit(if_clause)
+
+        # Visit element expression
+        self.visit(node.elt)
+
+        # Restore original defined vars
+        self.defined_vars = old_defined
+
 
 def find_undefined_special_var_expressions(code_string, special_var, keep_attr_only):
     if not code_string.strip():
