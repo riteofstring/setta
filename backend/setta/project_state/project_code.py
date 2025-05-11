@@ -7,6 +7,7 @@ from setta.code_gen.utils import (
     sanitize_name,
 )
 from setta.project_state.code import (
+    BashCode,
     PythonCode,
 )
 from setta.project_state.lsp_response_handlers.completion import (
@@ -146,3 +147,19 @@ class ProjectPythonCode(PythonCode):
     async def process_diagnostics_response(self, lsp_response):
         # TODO
         pass
+
+
+class ProjectBashCode(BashCode):
+    def __init__(self, temp_folder, project_state, sectionId):
+        super().__init__(temp_folder)
+        self.section_path_full_name = get_section_path_full_name(
+            project_state, sectionId
+        )
+        self.sectionId = sectionId
+        self.code = get_selected_section_variant(project_state, self.sectionId)["code"]
+
+    def get_base_filename(self):
+        return sanitize_name(self.section_path_full_name)
+
+    async def update_file(self):
+        super().update_file(self.code)

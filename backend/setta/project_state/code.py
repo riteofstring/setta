@@ -73,3 +73,12 @@ class PythonCode(Code):
 
     def get_extension(self):
         return "py"
+
+
+class BashCode(Code):
+    @abstractmethod
+    def get_base_filename(self):
+        pass
+
+    def get_extension(self):
+        return "sh"

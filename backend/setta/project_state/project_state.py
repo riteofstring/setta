@@ -6,7 +6,11 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.utils import get_section_type
 from setta.project_state.code import Code
-from setta.project_state.project_code import ProjectGenPythonCode, ProjectPythonCode
+from setta.project_state.project_code import (
+    ProjectBashCode,
+    ProjectGenPythonCode,
+    ProjectPythonCode,
+)
 from setta.utils.constants import C
 from setta.utils.utils import replace_null_keys_with_none
 
@@ -102,18 +106,17 @@ class ProjectState:
 
         if self.code_dict:
             for c in self.code_dict.values():
-                c.callback_cleanup()
+                if isinstance(c, ProjectPythonCode):
+                    c.callback_cleanup()
 
         self.code_dict = {}
         for sectionId in project_state["sections"].keys():
             if get_section_type(project_state, sectionId) == C.CODE:
-                section_code = ProjectPythonCode(
-                    project_temp_folder,
-                    self.lsp_writers,
-                    self.websocket_msg_handler,
-                    project_state,
-                    sectionId,
+                section_code = self.create_code_obj(
+                    project_temp_folder, project_state, sectionId
                 )
+                if not section_code:
+                    continue
                 await section_code.update_file()
                 self.add_to_used_files(section_code)
                 self.code_dict[sectionId] = section_code
@@ -153,3 +156,17 @@ class ProjectState:
                         print(f"Deleted unused file: {file_path}")
                     except Exception as e:
                         print(f"Error deleting file {file_path}: {e}")
+
+    def create_code_obj(self, project_temp_folder, project_state, sectionId):
+        codeLanguage = project_state["sections"][sectionId]["codeLanguage"]
+        if codeLanguage == "python":
+            return ProjectPythonCode(
+                project_temp_folder,
+                self.lsp_writers,
+                self.websocket_msg_handler,
+                project_state,
+                sectionId,
+            )
+        elif codeLanguage == "bash":
+            return ProjectBashCode(project_temp_folder, project_state, sectionId)
+        return None
