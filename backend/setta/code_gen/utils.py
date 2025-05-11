@@ -148,8 +148,8 @@ def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
 
 
-def value_exists(value):
-    return value is None or value == ""
+def is_valid_value(value):
+    return value is not None and value != ""
 
 
 def get_for_section_id(p, section_id):

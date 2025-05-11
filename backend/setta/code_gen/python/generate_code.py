@@ -15,6 +15,7 @@ CLASS_NAME = "S"
 
 
 CLASS_DEF = f"""
+import torch
 from setta.code_gen.python.args_obj import SettaArgsObj
 
 class {CLASS_NAME}:
@@ -100,7 +101,7 @@ class PythonCodeGenerator:
         t = node.type
         if t == C.SECTION:
             if node.callable:
-                return self.construct_callable(node.deps)
+                return self.construct_callable(node.callable, node.deps)
             else:
                 return self.construct_dict(node.deps)
         elif t == C.LIST_ROOT:
@@ -137,7 +138,7 @@ class PythonCodeGenerator:
         output = ", ".join(self.var_name_mapping[d] for d in dependency_keys)
         return f"[{output}]"
 
-    def construct_callable(self, dependency_keys):
+    def construct_callable(self, callable, dependency_keys):
         output = ""
         for idx, key in enumerate(dependency_keys):
             prefix = "" if idx == 0 else ", "
@@ -157,4 +158,5 @@ class PythonCodeGenerator:
             curr_output = f"{prefix}{var_name}"
             output += curr_output
 
+        output = f"{callable}({output})"
         return output

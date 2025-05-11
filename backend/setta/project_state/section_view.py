@@ -21,15 +21,15 @@ class SectionViewGenCode(GenCode):
         dep_graph,
         code,
         lines,
-        output_key,
+        graph_key,
     ):
         super().__init__(lsp_writers, websocket_msg_handler, temp_folder, dep_graph)
         self.original_code: str = code
         self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
-        self.output_key: Tuple[str, str | None] = output_key
+        self.graph_key: Tuple[str, str | None] = graph_key
 
     async def insert_code_at_position(self, fullText, position):
-        code_line = self.original_lines[self.output_key]
+        code_line = self.original_lines[self.graph_key]
         start, end = code_line.value_position
         code = self.original_code[:start] + fullText + self.original_code[end:]
         await self.update_code(code)
@@ -79,9 +79,9 @@ class SectionView:
     async def text_field_initialize(self, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
         dep_graph = DependencyGraph(self.project_state)
-        output_key = dep_graph.create_output_key(self.sectionId, paramInfoId)
+        graph_key = dep_graph.create_graph_key(self.sectionId, paramInfoId)
         code_generator = PythonCodeGenerator(dep_graph)
-        code, lines = code_generator.generate_code(orce_appear_key=output_key)
+        code, lines = code_generator.generate_code(force_appear_key=graph_key)
 
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
@@ -92,7 +92,7 @@ class SectionView:
             dep_graph,
             code,
             lines,
-            output_key,
+            graph_key,
         )
         await gen_code_preview.update(self.project_state, code)
         self.text_field_cache[paramInfoId] = gen_code_preview

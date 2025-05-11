@@ -11,7 +11,7 @@ from setta.code_gen.utils import (
     get_selected_item_name,
     get_selected_section_variant,
     get_top_level_param_ids,
-    value_exists,
+    is_valid_value,
 )
 from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.utils.utils import replace_null_keys_with_none
@@ -96,7 +96,7 @@ class DependencyGraph:
         return self.export_params(sectionId, paramIds, parent_node=parent_node)
 
     def export_params(self, sectionId, paramIds, parent_node=None):
-        output_nodes = []
+        output_node_keys = []
         for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
             param = self.get_node(graph_key)
@@ -124,8 +124,8 @@ class DependencyGraph:
                 )
                 self.add_to_graph(graph_key, param)
             if param.has_name_and_value:
-                output_nodes.append(param)
-        return output_nodes
+                output_node_keys.append(graph_key)
+        return output_node_keys
 
     def export_param_value(self, sectionId, paramId):
         variant = get_selected_section_variant(self.p, sectionId)
@@ -183,4 +183,4 @@ class ParamNode(Node):
 
     @property
     def has_name_and_value(self):
-        return self.name and value_exists(self.value)
+        return self.name and is_valid_value(self.value)
