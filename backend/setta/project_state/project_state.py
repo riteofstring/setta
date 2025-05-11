@@ -53,9 +53,6 @@ class ProjectState:
         # Wait for the message to be processed and return the result
         return await future
 
-    async def run(self, project_state):
-        return await self._enqueue(self._run_impl, project_state)
-
     async def create_run_command(self, project_state):
         return await self._enqueue(self._create_run_command_impl, project_state)
 
@@ -90,12 +87,8 @@ class ProjectState:
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
 
-    async def _run_impl(self, project_state):
-        await self._update_impl(project_state)
-        run_command = await self._create_run_command_impl(project_state)
-        print("run_command\n\n", run_command, flush=True)
-
     async def _create_run_command_impl(self, project_state):
+        await self._update_impl(project_state)
         target_folder = create_timestamped_folder(CODE_FOLDER)
         entry_id = project_state["entryCodeBlock"]
         gen_code_path = self.gen_code.write_to_folder(
