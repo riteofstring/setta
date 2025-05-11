@@ -3,9 +3,10 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { useCallback, useState } from "react";
 import { wsTextFieldCompletion } from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
+import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
-import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
+import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
   dataSectionId,
@@ -134,12 +135,7 @@ function CoreCodeMirror({
 
   const completionsFn = useCallback(
     autocomplete
-      ? getCompletionsFn(
-          dataSectionId,
-          paramInfoId,
-          wsTextFieldCompletion,
-          language,
-        )
+      ? getTextFieldCompletionsFn(dataSectionId, paramInfoId, language)
       : () => null,
     [dataSectionId, paramInfoId, autocomplete, language],
   );
@@ -184,4 +180,26 @@ function CoreCodeMirror({
       tabIndex="0" // need this for tabbingLogic to work
     />
   );
+}
+
+function getTextFieldCompletionsFn(sectionId, paramInfoId, language) {
+  const fn = async (fullText, position) => {
+    const setToNotWaiting = setTextFieldWaitingForLSP({
+      sectionId,
+      paramInfoId,
+    });
+
+    const res = await wsTextFieldCompletion({
+      sectionId,
+      paramInfoId,
+      fullText,
+      position,
+    });
+
+    setToNotWaiting();
+
+    return res;
+  };
+
+  return wrappedCompletionsFn(fn, language);
 }

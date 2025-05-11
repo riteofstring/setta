@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
@@ -41,12 +40,7 @@ function getFromTo(options, before, context) {
   return { from: before ? before.from : context.pos };
 }
 
-export function getCompletionsFn(
-  sectionId,
-  paramInfoId,
-  completionFn,
-  language,
-) {
+export function wrappedCompletionsFn(completionFn, language) {
   if (language === "python") {
     return async (context) => {
       const fullText = context.state.doc.toString();
@@ -60,17 +54,7 @@ export function getCompletionsFn(
       //   { onDocChange: true },
       // );
       const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-      const setToNotWaiting = setTextFieldWaitingForLSP({
-        sectionId,
-        paramInfoId,
-      });
-      const res = await completionFn({
-        sectionId,
-        paramInfoId,
-        fullText,
-        position: context.pos,
-      });
-      setToNotWaiting();
+      const res = await completionFn(fullText, context.pos);
       if (res) {
         return {
           filter: true,

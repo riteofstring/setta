@@ -1,12 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { wsCodeAreaCompletion } from "requests/sections";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
@@ -35,7 +33,7 @@ export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
   const completionsFn = useCallback(
-    getCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
+    // wrappedCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
     [sectionId],
   );
 

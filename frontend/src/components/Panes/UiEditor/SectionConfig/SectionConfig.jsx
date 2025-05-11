@@ -9,6 +9,7 @@ import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
+import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return <SectionConfigCore sectionId={sectionId} />;
@@ -47,7 +48,6 @@ function SpecializedConfiguration({ sectionId }) {
     case C.CHAT:
       return <ChatAreaSettings sectionId={sectionId} />;
     case C.GEN_PYTHON_CODE:
-      // return <GenPythonCodeSettings />;
-      return null;
+      return <GenPythonCodeSettings />;
   }
 }

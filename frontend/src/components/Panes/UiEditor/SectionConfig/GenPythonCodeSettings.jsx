@@ -1,30 +1,31 @@
+import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useSectionInfos } from "state/definitions";
 
 export function GenPythonCodeSettings() {
-  const genCodePrefix = useSectionInfos((x) => x.projectConfig.genCodePrefx);
-
+  const genCodePrefix = useSectionInfos((x) => x.projectConfig.genCodePrefix);
   const theme = useCodeMirrorStyle();
 
-  const completionsFn = useCallback(
-    getCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
-    [sectionId],
-  );
+  function onChange(v) {
+    useSectionInfos.setState((state) => {
+      state.projectConfig.genCodePrefix = v;
+    });
+  }
+
+  //   const completionsFn = useCallback(
+  //     // wrappedCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
+  //     [sectionId],
+  //   );
 
   const extensions = getExtensions({
     language: "python",
-    completionsFn,
-    onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
-    isDisabled: variantIsFrozen,
   });
 
   return (
     <article
-      ref={ref}
       className="cursor-auto overflow-y-scroll [&_*]:!outline-0"
       tabIndex="0"
     >
@@ -33,10 +34,26 @@ export function GenPythonCodeSettings() {
         theme={theme}
         extensions={extensions}
         onChange={onChange}
-        onCreateEditor={onCreateEditor}
         indentWithTab={false} // I take care of this in getExtensions
         basicSetup={{ tabSize: 4 }}
       />
     </article>
   );
 }
+
+// function getTextFieldCompletionsFn(sectionId, paramInfoId, language) {
+//   const fn = async (fullText, position) => {
+//     const res = await wsTextFieldCompletion({
+//       sectionId,
+//       paramInfoId,
+//       fullText,
+//       position,
+//     });
+
+//     setToNotWaiting();
+
+//     return res;
+//   };
+
+//   return wrappedCompletionsFn(fn, language);
+// }
