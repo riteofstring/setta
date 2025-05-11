@@ -173,16 +173,6 @@ def get_param_full_path_name(id, pathMap, codeInfo):
 
 
 def get_section_path_full_name(p, section_id):
-    def list_constructor(idx, existing_output):
-        return f"[{idx}]{existing_output}"
-
-    def dict_constructor(parent_id, child_id, child_name, existing_output):
-        return f'["{child_name}"]{existing_output}'
-
-    return section_name_constructor(p, section_id, list_constructor, dict_constructor)
-
-
-def section_name_constructor(p, section_id, list_constructor, dict_constructor):
     parent_id = p["sections"][section_id]["parentId"]
     if not parent_id:
         return p["sections"][section_id]["name"]
@@ -192,10 +182,10 @@ def section_name_constructor(p, section_id, list_constructor, dict_constructor):
     while parent_id:
         if get_section_type(p, parent_id) == C.LIST_ROOT:
             idx = get_section_children(p, parent_id).index(section_id)
-            output = list_constructor(idx, output)
+            output = f"[{idx}]{output}"
         else:
             child_name = p["sections"][child_id]["name"]
-            output = dict_constructor(parent_id, child_id, child_name, output)
+            output = f'["{child_name}"]{output}'
 
         child_id = parent_id
         parent_id = p["sections"][parent_id]["parentId"]
