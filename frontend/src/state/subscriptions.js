@@ -22,15 +22,12 @@ import {
   updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
-import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
-  getCodeInfoCol,
   getDisplayedSectionIdToChildren,
   getSectionIdToParentId,
   getSectionShouldRender,
   getSectionType,
-  getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
 
@@ -45,18 +42,6 @@ export function subscribe() {
         watch: Boolean(x[C.GEN_PYTHON_CODE]),
         projectConfigId: useSectionInfos.getState().projectConfig.id,
       });
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useSectionInfos.subscribe(
-    regexSubscriptionFn,
-    (x) => {
-      if (useSectionInfos.getState().shouldRenameReferences) {
-        // reset the flag used by subscriptions
-        useSectionInfos.setState({ shouldRenameReferences: false });
-        maybeOpenRenameReferencesModal();
-      }
     },
     { equalityFn: _.isEqual },
   );
@@ -215,54 +200,6 @@ function singletonSectionsSubscriptionFn(state) {
       output.temporaryTerminalGroup = s.id;
     }
   }
-  return output;
-}
-
-function regexSubscriptionFn(x) {
-  const output = {
-    details: {},
-    codeInfo: _.mapValues(x.codeInfo, (c) => ({
-      id: c.id,
-      name: c.name,
-      rcType: c.rcType,
-    })),
-    globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
-    templateVarEligibleSections: {},
-  };
-
-  let sectionVariant, sectionTypeName;
-  for (const [id, s] of Object.entries(x.x)) {
-    sectionVariant = getSectionVariant(id, x);
-    sectionTypeName = getSectionType(id, x);
-    output.details[id] = {
-      name: s.name,
-      sectionChildren: sectionVariant.children,
-      codeInfoChildren: getCodeInfoCol(id, x).children,
-      sectionTypeName,
-      selectedItem: sectionVariant.selectedItem,
-      isTopLevelAndCanBeReferredTo:
-        !s.parentId &&
-        [
-          C.GLOBAL_VARIABLES,
-          C.SECTION,
-          C.LIST_ROOT,
-          C.DICT_ROOT,
-          C.GROUP,
-          C.TEXT_BLOCK,
-        ].includes(sectionTypeName),
-    };
-
-    if (sectionTypeName === C.CODE) {
-      output.templateVarEligibleSections[id] = [
-        C.TEMPLATE_VAR_VERSION_SUFFIX,
-        C.TEMPLATE_VAR_IMPORT_PATH_SUFFIX,
-        C.TEMPLATE_VAR_FILE_PATH_SUFFIX,
-      ];
-    } else {
-      output.templateVarEligibleSections[id] = [C.TEMPLATE_VAR_VERSION_SUFFIX];
-    }
-  }
-
   return output;
 }
 
