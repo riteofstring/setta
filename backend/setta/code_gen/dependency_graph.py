@@ -161,6 +161,13 @@ class DependencyGraph:
         self.graph[graph_key] = node
         self.full_path_name_to_graph_key[node.full_path_name] = graph_key
 
+    def change_node_value(self, graph_key, value):
+        node = self.graph[graph_key]
+        if isinstance(node, SectionNode):
+            node.callable = value
+        elif isinstance(node, ParamNode):
+            node.value = value
+
     def get_node(self, graph_key):
         return self.graph.get(graph_key)
 
