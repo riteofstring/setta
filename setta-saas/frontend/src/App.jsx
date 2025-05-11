@@ -7,7 +7,7 @@ import Header from "./components/Header";
 function App() {
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen flex-col bg-setta-50 dark:bg-setta-900">
+      <div className="flex min-h-screen flex-col bg-setta-100 dark:bg-setta-dark">
         <Header />
 
         <main className="flex-1">

@@ -22,16 +22,16 @@ export default function ProjectsList() {
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex items-center justify-between pb-6">
         <h1 className="text-3xl font-heading font-bold text-setta-800 dark:text-setta-100">
-          Your Projects
+          Projects
         </h1>
         <div className="flex space-x-2">
-          <button className="inline-flex items-center rounded-md bg-setta-600 px-4 py-2 text-xs font-medium text-white hover:bg-setta-500 dark:bg-setta-700 dark:hover:bg-setta-600">
+          <button className="inline-flex items-center rounded-full bg-setta-600 px-4 py-2 text-xs font-medium text-white hover:bg-setta-500 dark:bg-setta-700 dark:hover:bg-setta-600">
             <PlusIcon className="mr-1 h-3 w-3" />
             New Project
           </button>
           <button
             onClick={handleLogout}
-            className="rounded-md bg-red-500 px-4 py-2 text-xs font-medium text-white hover:bg-red-600"
+            className="rounded-full bg-red-500 px-4 py-2 text-xs font-medium text-white hover:bg-red-600"
           >
             Logout
           </button>
@@ -39,11 +39,11 @@ export default function ProjectsList() {
       </div>
 
       <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-setta-850">
-        <ul className="divide-y divide-setta-200 dark:divide-setta-700">
+        <ul className="divide-y divide-setta-200/50 dark:divide-setta-700/50">
           {projects.map((project) => (
             <li
               key={project.id}
-              className="px-6 py-4 hover:bg-setta-50 dark:hover:bg-setta-800"
+              className="px-6 py-4 cursor-pointer hover:bg-setta-50 dark:hover:bg-setta-800"
             >
               <div className="flex items-center justify-between">
                 <div>
