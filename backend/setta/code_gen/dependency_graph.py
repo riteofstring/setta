@@ -1,5 +1,6 @@
 import copy
 from dataclasses import dataclass
+from typing import Tuple
 
 from setta.code_gen.utils import (
     get_code_info_children,
@@ -20,7 +21,7 @@ from ..utils.constants import C, ParameterPassingStyle
 
 class DependencyGraph:
     def __init__(self, p):
-        self.graph = {}
+        self.graph: dict[Tuple[str, str | None], Node] = {}
         self.p = copy.deepcopy(p)
         self.p["codeInfoCols"] = replace_null_keys_with_none(self.p["codeInfoCols"])
         self.section_types_to_process = set(

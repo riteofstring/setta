@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from setta.code_gen.dependency_graph import Node, ParamNode, SectionNode
+from setta.code_gen.dependency_graph import DependencyGraph, Node, ParamNode, SectionNode
 
 from ...utils.constants import C, ParameterPassingStyle
 
@@ -36,7 +36,7 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, dep_graph):
+    def __init__(self, dep_graph: DependencyGraph):
         self.dep_graph = dep_graph
         self.var_name_mapping = {}
         self.used_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
@@ -95,17 +95,15 @@ class PythonCodeGenerator:
         t = node.type
         if t == C.SECTION:
             if not node.callable:
-                output = self.get_dict_contents(node.deps)
-                return "{" + output + "}"
+                return self.construct_dict(node.deps)
             else:
                 output = self.get_callable_params(
                     x["value"]["usedParams"], x["value"]["passingStyles"]
                 )
                 prefix = f"{x['value']['callable']}("
                 output = f"{prefix}{output})"
-        # elif t == C.LIST_ROOT:
-        #     output = get_list_of_vars(x["value"], dep_graph)
-        #     output = f"[{output}]"
+        elif t == C.LIST_ROOT:
+            return self.construct_list(node.deps)
         # elif t in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
         #     output = get_dict_contents(x["value"], dep_graph)
         #     output = "{" + output + "}"
@@ -123,21 +121,30 @@ class PythonCodeGenerator:
         elif t == C.COLOR_PICKER:
             return f'"{node.value}"'
 
-    def get_dict_contents(self, dependency_keys):
-        return self.get_mappings(dependency_keys, is_dict=True)
-
     def get_callable_params(self, dependency_keys):
         return self.get_mappings(dependency_keys)
 
-    def get_list_of_vars(self, dependency_keys):
-        return self.get_mappings(dependency_keys)
+    def construct_dict(self, dependency_keys):
+        output = ""
+        idx = 0
+        for idx, d in enumerate(dependency_keys):
+            prefix = "" if idx == 0 else ", "
+            name = self.dep_graph.graph[d].name
+            var_name = self.var_name_mapping[d]
+            output += f'{prefix}"{name}": {var_name}'
+        return "{" + output + "}"
+
+    def construct_list(self, dependency_keys):
+        output = ", ".join(self.var_name_mapping[d] for d in dependency_keys)
+        return f"[{output}]"
 
     def get_mappings(self, dependency_keys, is_dict=False):
         output = ""
         curr_position = 0
         for idx, key in enumerate(dependency_keys):
-            v = dep_graph[key]["var_name"]
+            v = self.var_name_mapping[key]
             prefix = "" if idx == 0 else ", "
+            node = self.dep_graph[key]
             if passingStyles.get(key) == ParameterPassingStyle.ARGS:
                 prefix = "*"
             elif passingStyles.get(key) == ParameterPassingStyle.KWARGS:
