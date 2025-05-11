@@ -38,23 +38,30 @@ class DependencyGraph:
             list(self.p["projectConfig"]["children"].keys()), isTopLevel=True
         )
 
-    def export_sections(self, ids, isTopLevel=False):
-        return [self.export_section(x, isTopLevel) for x in ids]
+    def export_sections(self, ids, isTopLevel=False, parent_node=None):
+        return [
+            self.export_section(x, isTopLevel, parent_node, idx)
+            for idx, x in enumerate(ids)
+        ]
 
-    def export_section(self, id, isTopLevel=False):
+    def export_section(self, id, isTopLevel=False, parent_node=None, idx=None):
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
             type = get_section_type(self.p, id)
+            name = get_section_name(self.p, id)
+            full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
                 node = SectionNode(
                     id=id,
-                    name=get_section_name(self.p, id),
+                    name=name,
+                    full_path_name=full_path_name,
                     type=type,
                     isTopLevel=isTopLevel,
                     callable=get_selected_item_name(self.p, id),
-                    deps=self.export_section_params(id),
+                    deps=[],
                 )
+                node.deps = self.export_section_params(id, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = [
@@ -64,12 +71,14 @@ class DependencyGraph:
                 ]
                 node = SectionNode(
                     id=id,
-                    name=get_section_name(self.p, id),
+                    name=name,
+                    full_path_name=full_path_name,
                     type=type,
                     isTopLevel=isTopLevel,
                     callable=None,
-                    deps=self.export_sections(children),
+                    deps=[],
                 )
+                node.deps = self.export_sections(children, parent_node=node)
                 self.add_to_graph(graph_key, node)
             # elif type == C.GLOBAL_VARIABLES:
             #     self.export_section_params(id)
@@ -82,36 +91,41 @@ class DependencyGraph:
             #     raise ValueError
         return graph_key
 
-    def export_section_params(self, sectionId):
+    def export_section_params(self, sectionId, parent_node=None):
         paramIds = get_top_level_param_ids(self.p, sectionId)
-        return self.export_params(sectionId, paramIds)
+        return self.export_params(sectionId, paramIds, parent_node=parent_node)
 
-    def export_params(self, sectionId, paramIds):
-        deps = []
-        for pid in paramIds:
+    def export_params(self, sectionId, paramIds, parent_node=None):
+        output_nodes = []
+        for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
             param = self.get_node(graph_key)
             if not param:
                 codeInfo = self.p["codeInfo"][pid]
                 param_children = get_code_info_children(self.p, sectionId, pid)
-                deps = self.export_params(sectionId, param_children)
-                if len(self.deps) > 0:
+                if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
                     type = get_param_ui_type(self.p, sectionId, pid)
+                name = codeInfo["name"]
+                full_path_name = self.create_full_path_name(parent_node, idx, name)
                 param = ParamNode(
                     id=pid,
-                    name=codeInfo["name"],
+                    name=name,
+                    full_path_name=full_path_name,
                     type=type,
                     isTopLevel=False,
                     value=self.export_param_value(sectionId, pid),
                     passing_style=codeInfo["passingStyle"],
-                    deps=deps,
+                    deps=[],
+                )
+                param.deps = self.export_params(
+                    sectionId, param_children, parent_node=param
                 )
                 self.add_to_graph(graph_key, param)
             if param.has_name_and_value:
-                deps.append(param)
-        return deps
+                output_nodes.append(param)
+        return output_nodes
 
     def export_param_value(self, sectionId, paramId):
         variant = get_selected_section_variant(self.p, sectionId)
@@ -130,11 +144,26 @@ class DependencyGraph:
     def get_node(self, graph_key):
         return self.graph.get(graph_key)
 
+    def create_full_path_name(self, parent_node, idx, name):
+        if not parent_node:
+            return name
+        if parent_node.type == C.LIST_ROOT:
+            return f"{parent_node.full_path_name}[{idx}]"
+        elif (
+            parent_node.type == C.SECTION
+            or parent_node.type == C.DICT_ROOT
+            or parent_node.type == C.GROUP
+            or parent_node.type == C.NESTED_PARAM
+        ):
+            return f'{parent_node.full_path_name}["{name}"]'
+        return name
+
 
 @dataclass
 class Node:
     id: str
     name: str
+    full_path_name: str
     type: str
     isTopLevel: bool
 
