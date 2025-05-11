@@ -13,12 +13,10 @@ export function GenPythonCodeSettings() {
     [sectionId],
   );
 
-
   const extensions = getExtensions({
     sectionId,
     language: "python",
     completionsFn,
-    keywordStylizer,
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,

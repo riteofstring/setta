@@ -1,6 +1,5 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
 import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "forks/xyflow/core/store";
@@ -35,13 +34,6 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const evRefs = useSectionInfos(
-    (x) => getDisplayedSectionVariant(sectionId, x).evRefs,
-    _.isEqual,
-  );
-
-  const keywordStylizer = useKeywordStylizer(evRefs);
-
   const completionsFn = useCallback(
     getCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
     [sectionId],
@@ -52,7 +44,6 @@ function PythonCodeArea({ sectionId, language }) {
       sectionId={sectionId}
       language={language}
       completionsFn={completionsFn}
-      keywordStylizer={keywordStylizer}
     />
   );
 }
@@ -110,7 +101,7 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
   );
 }
 
-function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
+function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useSectionInfos((x) => {
     return {
       value: getDisplayedSectionVariant(sectionId, x).code,
@@ -142,7 +133,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
     sectionId,
     language,
     completionsFn,
-    keywordStylizer,
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,

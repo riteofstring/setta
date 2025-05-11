@@ -3,14 +3,11 @@ import { useEffect, useState } from "react";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
-import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
+import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const { value: enteredValue, evRefs } = useGetParamEnteredValueAndEVRefs(
-    sectionId,
-    paramInfoId,
-  );
+  const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
   const [value, setValue] = useState(enteredValue);
 
   // value and enteredValue should always be string
@@ -33,7 +30,6 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       value={value}
       onChange={onChange}
       maybeErrorMessage={maybeErrorMessage}
-      evRefs={evRefs}
     />
   );
 }

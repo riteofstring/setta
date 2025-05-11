@@ -5,7 +5,6 @@ import { wsTextFieldCompletion } from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
-import { useKeywordStylizer } from "./getKeywordStylizer";
 import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
@@ -25,10 +24,8 @@ export function TextInputCodeMirror({
   onTab,
   color,
   language,
-  evRefs,
   dummyDivId,
   autocomplete = true,
-  initializeGenCode = true,
   isKeyName = false,
   isDisabled = false,
 }) {
@@ -81,7 +78,6 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
-          evRefs={evRefs}
           placeholder={defaultVal}
           language={language}
         />
@@ -104,7 +100,6 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
-          evRefs={evRefs}
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
@@ -131,14 +126,11 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
-  evRefs,
   language,
   autocomplete,
   isKeyName,
 }) {
   const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
-
-  const keywordStylizer = useKeywordStylizer(evRefs);
 
   const completionsFn = useCallback(
     autocomplete
@@ -156,7 +148,6 @@ function CoreCodeMirror({
     sectionId: visualSectionId,
     language,
     completionsFn,
-    keywordStylizer,
     singleLine,
     tabToAutocomplete: true,
     keyComboActions,
@@ -165,7 +156,6 @@ function CoreCodeMirror({
   });
 
   const onCreateEditor = getOnCreateEditor({
-    evRefs,
     initialEvent,
     setRealIsInitialized,
     divId,

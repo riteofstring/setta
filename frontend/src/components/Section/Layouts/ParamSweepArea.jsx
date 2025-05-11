@@ -339,7 +339,6 @@ function Input({
           value={value}
           onChange={onChange}
           className="nodrag"
-          evRefs={[]}
           isDisabled={isDisabled}
         />
       </article>

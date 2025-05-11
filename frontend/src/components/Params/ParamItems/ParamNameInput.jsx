@@ -31,7 +31,7 @@ export function ParamNameInput({
     useSectionInfos.setState((state) => {
       state.codeInfo[paramInfoId].name = v;
     });
-    maybeIncrementProjectStateVersion(true)
+    maybeIncrementProjectStateVersion(true);
   }
 
   function onEscape(completionResult) {
@@ -57,8 +57,6 @@ export function ParamNameInput({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} peer/nameinput font-mono dark:focus-visible:border-blue-400`}
         color="green"
         language={configLanguage}
-        evRefs={[]}
-        initializeGenCode={false}
         autocomplete={false}
         isKeyName={true}
         isDisabled={isDisabled}

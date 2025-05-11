@@ -19,7 +19,6 @@ export function getExtensions({
   sectionId,
   language,
   completionsFn,
-  keywordStylizer,
   singleLine,
   tabToAutocomplete,
   indentWithTab,
@@ -55,10 +54,6 @@ export function getExtensions({
         tooltipClass: () => "nowheel",
       }),
     );
-  }
-
-  if (keywordStylizer) {
-    extensions.push(keywordStylizer);
   }
 
   if (singleLine) {

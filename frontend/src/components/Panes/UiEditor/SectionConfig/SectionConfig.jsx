@@ -5,7 +5,6 @@ import { useSectionInfos } from "state/definitions";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
-import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
@@ -49,6 +48,6 @@ function SpecializedConfiguration({ sectionId }) {
       return <ChatAreaSettings sectionId={sectionId} />;
     case C.GEN_PYTHON_CODE:
       // return <GenPythonCodeSettings />;
-      return null
+      return null;
   }
 }
