@@ -43,3 +43,8 @@ class ProjectManager:
 
     def get_gen_python_code_path(self, projectConfigId):
         return self.states[projectConfigId].get_gen_python_code_path()
+
+    async def cleanup(self):
+        """Clean up all project states when shutting down"""
+        for state in self.states.values():
+            await state.cleanup()
