@@ -145,7 +145,7 @@ function CoreCodeMirror({
   );
 
   const extensions = getExtensions({
-    sectionId: visualSectionId,
+    parentDivId: `${visualSectionId}-CustomResizable`,
     language,
     completionsFn,
     singleLine,

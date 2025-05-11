@@ -80,7 +80,6 @@ const _MarkdownEditorCore = React.forwardRef(
     const theme = useCodeMirrorStyle();
 
     const extensions = getExtensions({
-      sectionId,
       language: renderMarkdown ? "markdown" : null,
       tabToAutocomplete: true,
       indentWithTab: true,

@@ -76,7 +76,6 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
   const extensions = getExtensions({
-    sectionId,
     language,
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled: true,
@@ -130,7 +129,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
   const extensions = getExtensions({
-    sectionId,
+    parentDivId: `${sectionId}-CustomResizable`,
     language,
     completionsFn,
     onEscape: onEscapeFocusOnArticleDiv,

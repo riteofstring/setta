@@ -16,7 +16,7 @@ import { useSettings } from "state/definitions";
 import { shortcutCodemirrorFormat } from "utils/utils";
 
 export function getExtensions({
-  sectionId,
+  parentDivId,
   language,
   completionsFn,
   singleLine,
@@ -27,12 +27,15 @@ export function getExtensions({
   keyComboActions,
   isDisabled,
 }) {
-  const extensions = [
-    EditorView.lineWrapping,
-    tooltips({
-      parent: document.getElementById(`${sectionId}-CustomResizable`),
-    }),
-  ];
+  const extensions = [EditorView.lineWrapping];
+
+  if (parentDivId) {
+    extensions.push(
+      tooltips({
+        parent: document.getElementById(parentDivId),
+      }),
+    );
+  }
 
   if (language === "python") {
     extensions.push(python());

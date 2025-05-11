@@ -43,7 +43,7 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
 
   const theme = useCodeMirrorStyle();
   const extensions = getExtensions({
-    sectionId,
+    parentDivId: `${sectionId}-CustomResizable`,
     language: "yaml",
     indentWithTab: true,
     onEscape: onEscapeFocusOnArticleDiv,

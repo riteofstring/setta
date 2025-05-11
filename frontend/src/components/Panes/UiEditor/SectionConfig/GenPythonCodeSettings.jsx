@@ -14,7 +14,6 @@ export function GenPythonCodeSettings() {
   );
 
   const extensions = getExtensions({
-    sectionId,
     language: "python",
     completionsFn,
     onEscape: onEscapeFocusOnArticleDiv,
