@@ -141,6 +141,22 @@ class ProjectPythonCode(PythonCode):
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)
 
+    async def code_area_autocomplete(self, messageId, fullText, position):
+        self.code = fullText
+        await self.update_file()
+        line, col = position_to_line_col(fullText, position)
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=messageId,
+            ),
+            messageId,
+        )
+        result = process_completion_response(response, self.code)
+        await self.websocket_msg_handler.return_to_requester(result, messageId)
+
     async def type_check(self):
         await self.send_document_open_request(self.code)
 

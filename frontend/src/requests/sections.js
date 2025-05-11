@@ -1,6 +1,5 @@
 import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getSectionInfo } from "state/actions/sectionInfos";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useSectionInfos, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
@@ -32,25 +31,15 @@ export async function wsParametersRequest({ sectionId, fullText }) {
   });
 }
 
-export async function wsCodeAreaCompletion({
-  sectionId,
-  fullText,
-  position,
-  codeLanguage,
-}) {
-  const { id: projectConfigId, name: projectConfigName } =
-    useSectionInfos.getState().projectConfig;
-  const { name: sectionName } = getSectionInfo(sectionId);
+export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
+  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
     messageType: C.WS_CODE_AREA_AUTOCOMPLETE,
     content: {
       projectConfigId,
-      projectConfigName,
-      codeLanguage,
       sectionId,
-      sectionName,
       fullText,
       position,
     },

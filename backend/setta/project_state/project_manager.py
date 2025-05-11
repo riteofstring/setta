@@ -8,7 +8,7 @@ from .project_state import ProjectState
 
 class ProjectManager:
     def __init__(self, lsp_writers, websocket_manager):
-        self.states = {}  # project config id to current state
+        self.states: dict[str, ProjectState] = {}  # project config id to current state
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHProjectManager(websocket_manager)
         self.temp_folder = CODE_FOLDER / "temp_folder"
@@ -38,6 +38,14 @@ class ProjectManager:
     async def parameters_request(self, messageId, projectConfigId, sectionId, fullText):
         project_state = self.states[projectConfigId]
         await project_state.parameters_request(messageId, sectionId, fullText)
+
+    async def code_area_autocomplete(
+        self, messageId, projectConfigId, sectionId, fullText, position
+    ):
+        project_state = self.states[projectConfigId]
+        await project_state.code_area_autocomplete(
+            messageId, sectionId, fullText, position
+        )
 
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)

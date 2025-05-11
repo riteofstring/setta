@@ -75,6 +75,11 @@ class ProjectState:
             self._parameters_request_impl, messageId, sectionId, fullText
         )
 
+    async def code_area_autocomplete(self, messageId, sectionId, fullText, position):
+        return await self._enqueue(
+            self._code_area_autocomplete_impl, messageId, sectionId, fullText, position
+        )
+
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
 
@@ -137,6 +142,14 @@ class ProjectState:
     async def _parameters_request_impl(self, messageId, sectionId, fullText):
         print("parameters_request", flush=True)
         await self.gen_code.parameters_request(messageId, sectionId, fullText)
+
+    async def _code_area_autocomplete_impl(
+        self, messageId, sectionId, fullText, position
+    ):
+        print("*************code_area_autocomplete\n\n\n", flush=True)
+        await self.code_dict[sectionId].code_area_autocomplete(
+            messageId, fullText, position
+        )
 
     async def _get_gen_python_code_path_impl(self):
         if self.gen_code:
