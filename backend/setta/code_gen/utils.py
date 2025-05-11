@@ -1,5 +1,4 @@
 import copy
-import re
 
 from setta.database.db.codeInfo.utils import new_code_info_col
 from setta.database.db.sectionVariants.utils import new_ev_entry
@@ -181,44 +180,6 @@ def get_section_path_full_name(p, section_id):
         return f'["{child_name}"]{existing_output}'
 
     return section_name_constructor(p, section_id, list_constructor, dict_constructor)
-
-
-def get_section_name_for_code_gen(p, section_id, existing_slugs):
-    def list_constructor(idx, existing_output):
-        return f"{PREFIX}{idx}{existing_output}"
-
-    def dict_constructor(parent_id, child_id, child_name, existing_output):
-        if parent_id not in existing_slugs:
-            existing_slugs[parent_id] = {"map": {}, "reverse_map": {}}
-        es = existing_slugs[parent_id]
-        if child_id not in es["map"]:
-            slug = get_unique_slug(child_name, es["reverse_map"])
-            es["map"][child_id] = slug
-            es["reverse_map"][slug] = child_id
-        return f"{PREFIX}{es['map'][child_id]}{existing_output}"
-
-    return section_name_constructor(p, section_id, list_constructor, dict_constructor)
-
-
-def get_unique_slug(key, existing_slugs):
-    # Convert to string and lowercase first
-    slug = str(key).lower()
-
-    # Replace spaces and special chars with nothing
-    slug = re.sub(r"[^a-z0-9]", "", slug)
-
-    # Ensure it starts with a letter
-    if not slug or not slug[0].isalpha():
-        slug = "var" + slug
-
-    # Handle collisions without underscores
-    final_slug = slug
-    counter = 1
-    while final_slug in existing_slugs:
-        final_slug = f"{slug}{counter}"
-        counter += 1
-
-    return final_slug
 
 
 def section_name_constructor(p, section_id, list_constructor, dict_constructor):
