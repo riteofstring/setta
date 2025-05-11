@@ -11,7 +11,8 @@ from setta.project_state.project_code import (
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
-from setta.utils.constants import C
+from setta.project_state.utils import create_timestamped_folder
+from setta.utils.constants import CODE_FOLDER, C
 from setta.utils.utils import replace_null_keys_with_none
 
 
@@ -52,6 +53,12 @@ class ProjectState:
         # Wait for the message to be processed and return the result
         return await future
 
+    async def run(self, project_state):
+        return await self._enqueue(self._run_impl, project_state)
+
+    async def create_run_command(self, project_state):
+        return await self._enqueue(self._create_run_command_impl, project_state)
+
     async def update(self, project_state):
         return await self._enqueue(self._update_impl, project_state)
 
@@ -82,6 +89,25 @@ class ProjectState:
 
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
+
+    async def _run_impl(self, project_state):
+        await self._update_impl(project_state)
+        run_command = await self._create_run_command_impl(project_state)
+        print("run_command\n\n", run_command, flush=True)
+
+    async def _create_run_command_impl(self, project_state):
+        target_folder = create_timestamped_folder(CODE_FOLDER)
+        entry_id = project_state["entryCodeBlock"]
+        gen_code_path = self.gen_code.write_to_folder(
+            target_folder, as_entry_code_block=not entry_id
+        )
+        code_paths = {}
+        for sectionId, c in self.code_dict.items():
+            code_paths[sectionId] = c.write_to_folder(target_folder)
+
+        if entry_id:
+            return self.code_dict[entry_id].get_run_command(code_paths[entry_id])
+        return self.gen_code.get_run_command(gen_code_path)
 
     async def _update_impl(self, project_state):
         # Original implementation

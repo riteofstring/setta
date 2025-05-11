@@ -14,6 +14,14 @@ class ProjectManager:
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
 
+    async def run(self, project_state):
+        projectConfigId = project_state["projectConfig"]["id"]
+        await self.states[projectConfigId].run(project_state)
+
+    async def create_run_command(self, project_state):
+        projectConfigId = project_state["projectConfig"]["id"]
+        await self.states[projectConfigId].create_run_command(project_state)
+
     async def update(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:

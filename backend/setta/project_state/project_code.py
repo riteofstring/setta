@@ -2,6 +2,7 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import (
+    CLASS_NAME,
     get_section_path_full_name,
     get_selected_section_variant,
     sanitize_name,
@@ -122,6 +123,13 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code_path(self):
         return self.temp_file
 
+    def write_to_folder(self, folder, as_entry_code_block):
+        code = self.code_generator.code
+        if as_entry_code_block:
+            # if we're using this as the entry code block, then just append S()
+            code = f"{code}\n\n{CLASS_NAME}()"
+        return super().write_to_folder(code, folder)
+
 
 class ProjectPythonCode(PythonCode):
     def __init__(
@@ -164,6 +172,9 @@ class ProjectPythonCode(PythonCode):
         # TODO
         pass
 
+    def write_to_folder(self, folder):
+        return super().write_to_folder(self.code, folder)
+
 
 class ProjectBashCode(BashCode):
     def __init__(self, temp_folder, project_state, sectionId):
@@ -179,3 +190,6 @@ class ProjectBashCode(BashCode):
 
     async def update_file(self):
         super().update_file(self.code)
+
+    def write_to_folder(self, folder):
+        return super().write_to_folder(self.code, folder)

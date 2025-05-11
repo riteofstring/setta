@@ -5,13 +5,12 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
-from setta.code_gen.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import C
 
 from .dependencies import (
-    get_code_state,
     get_lsp_writers,
+    get_project_manager,
     get_terminals,
     get_terminals_from_websocket,
     get_wmh_terminals,
@@ -104,22 +103,17 @@ async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,
     lsp_writers=Depends(get_lsp_writers),
-    project_manager=Depends(get_code_state),
+    project_manager=Depends(get_project_manager),
     terminals=Depends(get_terminals),
     websocket_msg_handler=Depends(get_wmh_terminals),
 ):
     terminal_id, new_terminal_created = None, None
 
     if x.cliId:
-        command = await generateRunCodeCommand(x.project, lsp_writers, project_manager)
+        command = await project_manager(x.project, lsp_writers, project_manager)
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
-        terminal_id, new_terminal_created = await runCode(
-            x.project,
-            lsp_writers,
-            project_manager,
-            terminals,
-        )
+        terminal_id, new_terminal_created = await project_manager.run(x.project)
 
     notification = create_notification_dict(message="Started", temporary=True)
     background_tasks.add_task(
@@ -128,4 +122,6 @@ async def route_run_code(
         x.project["projectConfig"]["id"],
     )
 
-    return {"terminalId": terminal_id, "newTerminalCreated": new_terminal_created}
+    # return {"terminalId": terminal_id, "newTerminalCreated": new_terminal_created}
+
+    return {"terminalId": None, "newTerminalCreated": False}

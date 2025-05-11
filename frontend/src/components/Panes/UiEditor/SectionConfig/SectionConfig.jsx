@@ -5,11 +5,11 @@ import { useSectionInfos } from "state/definitions";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
+import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 import { IframeSettings } from "./IframeSettings";
 import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
-import { GenPythonCodeSettings } from "./GenPythonCodeSettings";
 
 const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
   return <SectionConfigCore sectionId={sectionId} />;

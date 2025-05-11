@@ -119,7 +119,9 @@ async def route_load_project_config(
     try:
         with dbq as db:
             project_state = load_project_config(db, x.projectConfigName)
+            print("calling project_manager.update", flush=True)
             await project_manager.update(project_state)
+            print("returning", flush=True)
             return project_state
     except ProjectNotFound as e:
         raise HTTPException(status_code=404, detail=repr(e))

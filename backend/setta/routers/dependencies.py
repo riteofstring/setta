@@ -69,10 +69,6 @@ def get_project_manager(request: Request):
     return request.app.state.project_manager
 
 
-def get_code_state(request: Request):
-    return request.app.state.code_state
-
-
 def get_code_state_from_websocket(websocket: WebSocket):
     return websocket.app.state.code_state
 

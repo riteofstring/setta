@@ -1,7 +1,10 @@
 import logging
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from setta.lsp.writer import LanguageServerWriter
+from setta.project_state.utils import convert_path_to_module_path
+from setta.utils.constants import CWD
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 logger = logging.getLogger(__name__)
@@ -18,6 +21,10 @@ class Code(ABC):
 
     @abstractmethod
     def get_extension(self):
+        pass
+
+    @abstractmethod
+    def get_run_command(self):
         pass
 
     def update_file(self, code):
@@ -41,6 +48,11 @@ class Code(ABC):
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink()
+
+    def write_to_folder(self, code, folder):
+        full_path = folder / self.temp_file.name
+        full_path.write_text(code)
+        return full_path
 
 
 class PythonCode(Code):
@@ -74,6 +86,11 @@ class PythonCode(Code):
     def get_extension(self):
         return "py"
 
+    def get_run_command(self, path: Path):
+        path = path.relative_to(CWD)
+        path = convert_path_to_module_path(path)
+        return f"python -m {path}"
+
 
 class BashCode(Code):
     @abstractmethod
@@ -82,3 +99,7 @@ class BashCode(Code):
 
     def get_extension(self):
         return "sh"
+
+    def get_run_command(self, path: Path):
+        path = path.relative_to(CWD)
+        return f"bash {path}"
