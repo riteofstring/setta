@@ -178,7 +178,7 @@ class DependencyGraph:
             )
 
         return name
-    
+
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""
         for graph_key, potential_refs in self.nodes_with_potential_refs.items():
@@ -187,6 +187,10 @@ class DependencyGraph:
                 if ref in self.full_path_name_to_graph_key:
                     # Found a reference, add it to dependencies if not already there
                     target_key = self.full_path_name_to_graph_key[ref]
+                    if target_key == graph_key:
+                        # TODO: send a warning message to the frontend?
+                        # This case is when you do a self-reference like s.x = s.x, which isn't valid
+                        continue
                     if target_key not in node.deps:
                         node.deps.append(target_key)
 
