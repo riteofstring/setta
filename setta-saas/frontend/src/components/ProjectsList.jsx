@@ -6,11 +6,11 @@ export default function ProjectsList() {
 
   // Dummy project data - in a real app, you would fetch this from your API
   const projects = [
-    { id: 1, name: "Website Redesign", status: "In Progress" },
-    { id: 2, name: "Mobile App", status: "Planning" },
-    { id: 3, name: "E-commerce Platform", status: "Completed" },
-    { id: 4, name: "CRM Integration", status: "In Progress" },
-    { id: 5, name: "API Development", status: "Planning" },
+    { id: 1, name: "ollama test", status: "In Progress" },
+    { id: 2, name: "Agentic Multi-Prompter", status: "Planning" },
+    { id: 3, name: "Flux image gen", status: "Completed" },
+    { id: 4, name: "Website Automation Agent", status: "In Progress" },
+    { id: 5, name: "Pytorch Metric Learning", status: "Planning" },
   ];
 
   const handleLogout = () => {
@@ -38,12 +38,12 @@ export default function ProjectsList() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-setta-850">
+      <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-setta-875">
         <ul className="divide-y divide-setta-200/50 dark:divide-setta-700/50">
           {projects.map((project) => (
             <li
               key={project.id}
-              className="px-6 py-4 cursor-pointer hover:bg-setta-50 dark:hover:bg-setta-800"
+              className="px-6 py-4 cursor-pointer hover:bg-setta-50 dark:hover:bg-setta-850"
             >
               <div className="flex items-center justify-between">
                 <div>

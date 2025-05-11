@@ -14,7 +14,7 @@ export default function Header() {
 
       {!isLoginPage && (
         <>
-          <ProjectMenu />
+          {/* <ProjectMenu /> */}
           <SearchBar />
         </>
       )}
