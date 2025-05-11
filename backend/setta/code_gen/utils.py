@@ -8,8 +8,6 @@ from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import BASE_UI_TYPES, C
 
-PREFIX = "__"
-
 
 def push_var_deep(objects, target_var_name):
     def find_dependents(obj_list, var_name):
@@ -193,6 +191,21 @@ def get_section_path_full_name(p, section_id):
     # child_id will contain the highest parent's id
     child_name = p["sections"][child_id]["name"]
     return f"{child_name}{output}"
+
+
+def sanitize_name(name):
+    # Replace brackets, quotes and other invalid chars with underscores
+    invalid_chars = "[]\"' "
+    name = "".join("_" if c in invalid_chars else c for c in name)
+
+    # Remove consecutive underscores
+    while "__" in name:
+        name = name.replace("__", "_")
+
+    # Remove leading/trailing underscores
+    name = name.strip("_")
+
+    return name
 
 
 def export_for_interactive_fn(p):

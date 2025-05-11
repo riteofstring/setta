@@ -78,9 +78,12 @@ class PythonCodeGenerator:
         return None, None, None
 
     def create_var_name(self, graph_key, node: Node):
-        var_name = node.name
-        if node.isTopLevel:
-            var_name = f"{SELF_IDENTIFIER}.{var_name}"
+        if isinstance(node, ParamNode):
+            var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
+        elif node.isTopLevel:
+            var_name = f"{SELF_IDENTIFIER}.{node.name}"
+        else:
+            var_name = node.name
         counter = 2
         while var_name in self.used_var_names:
             var_name = f"{var_name}_{counter}"

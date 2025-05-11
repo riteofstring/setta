@@ -12,6 +12,7 @@ from setta.code_gen.utils import (
     get_selected_section_variant,
     get_top_level_param_ids,
     is_valid_value,
+    sanitize_name,
 )
 from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.utils.utils import replace_null_keys_with_none
@@ -148,14 +149,14 @@ class DependencyGraph:
         if not parent_node:
             return name
         if parent_node.type == C.LIST_ROOT:
-            return f"{parent_node.full_path_name}[{idx}]"
+            return f"{parent_node.full_path_name}__{idx}"
         elif (
             parent_node.type == C.SECTION
             or parent_node.type == C.DICT_ROOT
             or parent_node.type == C.GROUP
             or parent_node.type == C.NESTED_PARAM
         ):
-            return f'{parent_node.full_path_name}["{name}"]'
+            return f"{parent_node.full_path_name}__{sanitize_name(name)}"
         return name
 
 

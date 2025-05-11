@@ -1,8 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 
-from setta.code_gen.create_runnable_scripts import sanitize_section_path_full_name
-from setta.code_gen.utils import get_section_path_full_name
+from setta.code_gen.utils import get_section_path_full_name, sanitize_name
 from setta.lsp.writer import LanguageServerWriter
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
@@ -85,4 +84,4 @@ class NonGenCode(Code):
         section_path_full_name = get_section_path_full_name(
             self.project_state, self.sectionId
         )
-        return sanitize_section_path_full_name(section_path_full_name)
+        return sanitize_name(section_path_full_name)

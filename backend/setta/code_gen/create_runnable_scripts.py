@@ -2,12 +2,8 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
-from setta.code_gen.utils import (
-    get_section_type,
-    get_selected_section_variant,
-)
 from setta.database.utils import create_new_id
-from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
+from setta.utils.constants import CODE_FOLDER, CWD, C
 from setta.utils.utils import prune_dict
 
 
@@ -76,65 +72,6 @@ async def generateRunCodeCommand(p, lsp_writers, code_state):
         command = codeCallStr(id_to_relpath[sid], code_dict[sid]["codeLanguage"])
 
     return command
-
-
-async def generate_final_code_for_sections(
-    p,
-    exporter_obj,
-    lsp_writers,
-    folder_path,
-    push_var_name=None,
-):
-    code_sections = {
-        k: v for k, v in p["sections"].items() if get_section_type(p, k) == C.CODE
-    }
-
-    code_dict = {}
-    for s in code_sections.values():
-        section_variant = get_selected_section_variant(p, s["id"])
-
-        (
-            curr_code,
-            curr_section_dependencies,
-        ) = await generate_final_code_for_section(
-            sectionId=s["id"],
-            code=section_variant["code"],
-            codeLanguage=s["codeLanguage"],
-            exporter_obj=exporter_obj,
-            lsp_writers=lsp_writers,
-            folder_path=folder_path,
-            projectConfigName=p["projectConfig"]["name"],
-            push_var_name=push_var_name,
-        )
-
-        code_dict[s["id"]] = {
-            "name": s["name"],
-            "code": curr_code,
-            "codeLanguage": s["codeLanguage"],
-            "section_dependencies": curr_section_dependencies,
-        }
-
-    return code_dict
-
-
-async def generate_final_code_for_section(
-    sectionId,
-    code,
-    codeLanguage,
-    lsp_writers,
-    folder_path,
-    projectConfigName=None,
-):
-    section_dependencies = []
-
-    # TODO: code needs to be generated somewhere here
-
-    if USER_SETTINGS["backend"]["inferImports"]:
-        code = await maybe_validate_imports_and_update_code(
-            sectionId, code, lsp_writers
-        )
-
-    return code, section_dependencies
 
 
 def convert_folder_path_to_module_path(folder_path):
@@ -226,18 +163,3 @@ def write_string_to_file(folder, filename, content):
 
 def relative_to_cwd(folder_path):
     return Path(folder_path).relative_to(CWD)
-
-
-def sanitize_section_path_full_name(name):
-    # Replace brackets, quotes and other invalid chars with underscores
-    invalid_chars = "[]\"' "
-    name = "".join("_" if c in invalid_chars else c for c in name)
-
-    # Remove consecutive underscores
-    while "__" in name:
-        name = name.replace("__", "_")
-
-    # Remove leading/trailing underscores
-    name = name.strip("_")
-
-    return name
