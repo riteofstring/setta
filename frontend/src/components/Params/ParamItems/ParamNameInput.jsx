@@ -1,6 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import { getSectionVariant } from "state/actions/sectionInfos";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useSectionInfos } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
@@ -30,6 +31,7 @@ export function ParamNameInput({
     useSectionInfos.setState((state) => {
       state.codeInfo[paramInfoId].name = v;
     });
+    maybeIncrementProjectStateVersion(true)
   }
 
   function onEscape(completionResult) {

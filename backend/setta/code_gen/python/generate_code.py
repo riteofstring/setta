@@ -215,4 +215,7 @@ class PythonCodeGenerator:
     def change_value(self, graph_key, value):
         self.dep_graph.change_value(graph_key, value)
         self.generate_code()
-        return self.lines[graph_key].value_position[0]
+        code_line = self.lines.get(graph_key)
+        if code_line:
+            return code_line.value_position[0]
+        return None

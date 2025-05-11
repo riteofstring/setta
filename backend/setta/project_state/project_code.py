@@ -40,6 +40,8 @@ class ProjectGenCode(Code):
         graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
         start = self.code_generator.change_value(graph_key, fullText)
         await self.update_file()
+        if start is None:
+            return None
         position += start
         line, col = position_to_line_col(self.code_generator.code, position)
         return line, col
@@ -47,31 +49,39 @@ class ProjectGenCode(Code):
     async def text_field_autocomplete(
         self, messageId, sectionId, paramInfoId, fullText, position
     ):
-        line, col = await self.insert_code_at_position(
+        line_col = await self.insert_code_at_position(
             sectionId, paramInfoId, fullText, position
         )
-        response = await self.lsp_writer.send_and_wait(
-            self.lsp_writer.send_autocomplete_request(
-                filepath=self.temp_file, line=line, character=col, request_id=messageId
-            ),
-            messageId,
-        )
-        result = process_completion_response(response, self.code_generator.code)
-        await self.websocket_msg_handler.return_to_requester(result, messageId)
+        if line_col is None:
+            await self.websocket_msg_handler.return_to_requester(None, messageId)
+        else:
+            line, col = line_col
+            response = await self.lsp_writer.send_and_wait(
+                self.lsp_writer.send_autocomplete_request(
+                    filepath=self.temp_file, line=line, character=col, request_id=messageId
+                ),
+                messageId,
+            )
+            result = process_completion_response(response, self.code_generator.code)
+            await self.websocket_msg_handler.return_to_requester(result, messageId)
 
     async def parameters_request(self, messageId, sectionId, fullText):
-        line, col = await self.insert_code_at_position(
+        line_col = await self.insert_code_at_position(
             sectionId, None, fullText, len(fullText)
         )
-        col += 1  # put cursor inside parentheses
-        response = await self.lsp_writer.send_and_wait(
-            self.lsp_writer.send_signature_help_request(
-                filepath=self.temp_file, line=line, character=col, request_id=messageId
-            ),
-            messageId,
-        )
-        result = process_signature_help_response(response)
-        await self.websocket_msg_handler.return_to_requester(result, messageId)
+        if line_col is None:
+            await self.websocket_msg_handler.return_to_requester(None, messageId)
+        else:
+            line, col = line_col
+            col += 1  # put cursor inside parentheses
+            response = await self.lsp_writer.send_and_wait(
+                self.lsp_writer.send_signature_help_request(
+                    filepath=self.temp_file, line=line, character=col, request_id=messageId
+                ),
+                messageId,
+            )
+            result = process_signature_help_response(response)
+            await self.websocket_msg_handler.return_to_requester(result, messageId)
 
     async def type_check(self):
         await self.send_document_open_request(self.code_generator.code)
