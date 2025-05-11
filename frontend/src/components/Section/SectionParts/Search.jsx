@@ -167,6 +167,8 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
+      // we have to explicitly call this here because the global state
+      // won't have captured any intermediate updates
       updateBackendProjectState();
     }
     shouldResetValueOnBlur.current = false;

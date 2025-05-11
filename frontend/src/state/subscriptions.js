@@ -21,6 +21,7 @@ import {
   updateNodeDimensions,
   updateNodeVisibility,
 } from "./actions/nodeInternals";
+import { updateBackendProjectState } from "./actions/project/generateCode";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getDisplayedSectionIdToChildren,
@@ -87,6 +88,10 @@ export function subscribe() {
         }
       });
     }
+  });
+
+  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
+    updateBackendProjectState();
   });
 
   useReactFlow.subscribe(
@@ -266,4 +271,8 @@ function entryCodeBlockSubscriptionFn(state) {
 
 function apiKeysFilepathSubscriptionFn(state) {
   return [state.apiKeysFilepath];
+}
+
+function updateBackendSubscriptionFn(state) {
+  return state.version;
 }
