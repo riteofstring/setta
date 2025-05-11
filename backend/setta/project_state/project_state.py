@@ -76,7 +76,8 @@ class ProjectState:
         # Original implementation
         project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
-        code_generator = PythonCodeGenerator(dep_graph)
+        gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
+        code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
         code_generator.generate_code()
 
         if self.gen_code:

@@ -1,16 +1,26 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import _ from "lodash";
+import { useEffect, useState } from "react";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 
 export function GenPythonCodeSettings() {
-  const genCodePrefix = useSectionInfos((x) => x.projectConfig.genCodePrefix);
+  const value = useSectionInfos((x) => x.projectConfig.genCodePrefix);
   const theme = useCodeMirrorStyle();
 
+  const [localValue, setLocalValue] = useState(value);
+
+  useEffect(() => {
+    if (value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value]);
+
   function onChange(v) {
-    useSectionInfos.setState((state) => {
-      state.projectConfig.genCodePrefix = v;
-    });
+    setLocalValue(v);
+    debouncedSetCode(v);
   }
 
   //   const completionsFn = useCallback(
@@ -19,6 +29,7 @@ export function GenPythonCodeSettings() {
   //   );
 
   const extensions = getExtensions({
+    parentDivId: "UiEditorPane",
     language: "python",
     tabToAutocomplete: true,
     indentWithTab: true,
@@ -30,7 +41,7 @@ export function GenPythonCodeSettings() {
       tabIndex="0"
     >
       <CodeMirror
-        value={genCodePrefix}
+        value={localValue}
         theme={theme}
         extensions={extensions}
         onChange={onChange}
@@ -41,19 +52,9 @@ export function GenPythonCodeSettings() {
   );
 }
 
-// function getTextFieldCompletionsFn(sectionId, paramInfoId, language) {
-//   const fn = async (fullText, position) => {
-//     const res = await wsTextFieldCompletion({
-//       sectionId,
-//       paramInfoId,
-//       fullText,
-//       position,
-//     });
-
-//     setToNotWaiting();
-
-//     return res;
-//   };
-
-//   return wrappedCompletionsFn(fn, language);
-// }
+const debouncedSetCode = _.debounce((value) => {
+  useSectionInfos.setState((state) => {
+    state.projectConfig.genCodePrefix = value;
+  });
+  maybeIncrementProjectStateVersion(true);
+}, 50);

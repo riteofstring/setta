@@ -36,8 +36,9 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, dep_graph: DependencyGraph):
+    def __init__(self, dep_graph: DependencyGraph, gen_code_prefix):
         self.dep_graph = dep_graph
+        self.gen_code_prefix = gen_code_prefix
         self.reset()
 
     def reset(self):
@@ -108,6 +109,8 @@ class PythonCodeGenerator:
 
     def generate_wrapper_class(self):
         code = CLASS_DEF
+        if self.gen_code_prefix:
+            code = f"{self.gen_code_prefix}\n{code}"
         indent = "        "
         indent_len = len(indent)
         for key, l in self.lines.items():
