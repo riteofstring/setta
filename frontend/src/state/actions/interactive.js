@@ -1,13 +1,11 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import C from "constants/constants.json";
 import { dbFormateCode } from "requests/interactive";
-import { sendMessage } from "requests/websocket";
 import {
   useArtifacts,
   useInteractiveDependencies,
   useSectionInfos,
 } from "state/definitions";
-import { createNewId } from "utils/idNameCreation";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
 
@@ -22,14 +20,6 @@ export async function formatCode() {
       }
     });
   }
-}
-
-export function sendToInteractiveTasks(sourceInfo, value, valueCallback) {
-  sendMessage({
-    id: createNewId(),
-    content: [sourceInfo, valueCallback ? valueCallback() : value],
-    messageType: C.WS_CALL_INTERACTIVE_FNS,
-  });
 }
 
 export async function updateInteractiveArtifacts(artifacts) {
