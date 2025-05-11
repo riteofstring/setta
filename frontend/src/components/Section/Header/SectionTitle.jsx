@@ -93,6 +93,7 @@ function useTitleIsEditable(sectionId) {
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,
+      C.GEN_PYTHON_CODE,
     ].includes(getSectionType(sectionId, x));
 
     const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);

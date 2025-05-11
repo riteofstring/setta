@@ -11,8 +11,6 @@ from ..utils.constants import BASE_UI_TYPES, C
 SELF_IDENTIFIER = "s"
 CLASS_NAME = "S"
 CLASS_DEF = f"""
-import torch
-
 class {CLASS_NAME}:
     def __init__({SELF_IDENTIFIER}):
 """.lstrip()
