@@ -29,6 +29,7 @@ class DependencyGraph:
     def __init__(self, p):
         self.graph: dict[GraphKeyType, Node] = {}
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
+        self.nodes_with_potential_refs: dict[GraphKeyType, set[str]] = {}
         self.p = copy.deepcopy(p)
         self.p["codeInfoCols"] = replace_null_keys_with_none(self.p["codeInfoCols"])
         self.section_types_to_process = set(
@@ -44,6 +45,7 @@ class DependencyGraph:
         self.export_sections(
             list(self.p["projectConfig"]["children"].keys()), isTopLevel=True
         )
+        self.resolve_references()
 
     def export_sections(self, ids, isTopLevel=False, parent_node=None):
         return [
@@ -116,13 +118,16 @@ class DependencyGraph:
                     type = get_param_ui_type(self.p, sectionId, pid)
                 name = codeInfo["name"]
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
+                value, potential_refs = self.export_param_value(sectionId, pid)
+                if potential_refs:
+                    self.nodes_with_potential_refs[graph_key] = potential_refs
                 param = ParamNode(
                     id=pid,
                     name=name,
                     full_path_name=full_path_name,
                     type=type,
                     isTopLevel=False,
-                    value=self.export_param_value(sectionId, pid),
+                    value=value,
                     passing_style=codeInfo["passingStyle"],
                     deps=[],
                 )
@@ -139,11 +144,12 @@ class DependencyGraph:
         if paramId in variant["values"]:
             value = variant["values"][paramId]["value"]
             potential_refs = find_undefined_special_var_expressions(
-                value, SELF_IDENTIFIER
+                value, SELF_IDENTIFIER, keep_attr_only=True
             )
+            return value, potential_refs
         else:
             value = new_ev_entry()["value"]
-        return value
+            return value, None
 
     def create_graph_key(self, section_id, param_info_id=None):
         return (section_id, param_info_id)
@@ -172,6 +178,17 @@ class DependencyGraph:
             )
 
         return name
+    
+    def resolve_references(self):
+        """Resolve all potential references and update dependencies."""
+        for graph_key, potential_refs in self.nodes_with_potential_refs.items():
+            node = self.graph[graph_key]
+            for ref in potential_refs:
+                if ref in self.full_path_name_to_graph_key:
+                    # Found a reference, add it to dependencies if not already there
+                    target_key = self.full_path_name_to_graph_key[ref]
+                    if target_key not in node.deps:
+                        node.deps.append(target_key)
 
 
 @dataclass

@@ -47,18 +47,22 @@ def find_top_level_symbols(source: str) -> set[str]:
 
 
 class UndefinedSpecialVarVisitor(ast.NodeVisitor):
-    def __init__(self, special_var):
+    def __init__(self, special_var, keep_attr_only):
         self.expressions = set()
         self.defined_vars = set(dir(builtins))  # Start with builtins
         self.special_var = special_var
+        self.keep_attr_only = keep_attr_only
 
     def visit_Attribute(self, node):
         # Check for s.* expression (only 1-level deep)
         if isinstance(node.value, ast.Name) and node.value.id == self.special_var:
             if self.special_var not in self.defined_vars:
                 # Capture attribute expression
-                attr_name = f"{self.special_var}.{node.attr}"
-                self.expressions.add(attr_name)
+                if self.keep_attr_only:
+                    self.expressions.add(node.attr)
+                else:
+                    attr_name = f"{self.special_var}.{node.attr}"
+                    self.expressions.add(attr_name)
         self.generic_visit(node)
 
     def visit_Name(self, node):
@@ -127,7 +131,7 @@ class UndefinedSpecialVarVisitor(ast.NodeVisitor):
         self.defined_vars = old_defined
 
 
-def find_undefined_special_var_expressions(code_string, special_var):
+def find_undefined_special_var_expressions(code_string, special_var, keep_attr_only):
     if not code_string.strip():
         return set()
 
@@ -136,7 +140,7 @@ def find_undefined_special_var_expressions(code_string, special_var):
     except SyntaxError:
         return set()
 
-    visitor = UndefinedSpecialVarVisitor(special_var)
+    visitor = UndefinedSpecialVarVisitor(special_var, keep_attr_only)
     visitor.visit(tree)
 
     return visitor.expressions
