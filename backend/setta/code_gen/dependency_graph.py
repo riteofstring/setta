@@ -42,6 +42,9 @@ class DependencyGraph:
                 C.TEXT_BLOCK,
             ]
         )
+        self.construct_graph()
+
+    def construct_graph(self):
         self.export_sections(
             list(self.p["projectConfig"]["children"].keys()), isTopLevel=True
         )
@@ -187,10 +190,6 @@ class DependencyGraph:
                 if ref in self.full_path_name_to_graph_key:
                     # Found a reference, add it to dependencies if not already there
                     target_key = self.full_path_name_to_graph_key[ref]
-                    if target_key == graph_key:
-                        # TODO: send a warning message to the frontend?
-                        # This case is when you do a self-reference like s.x = s.x, which isn't valid
-                        continue
                     if target_key not in node.deps:
                         node.deps.append(target_key)
 

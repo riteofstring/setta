@@ -51,20 +51,40 @@ class PythonCodeGenerator:
         code = self.generate_wrapper_class(lines)
         return code, lines
 
-    def _process_node_and_deps(self, graph_key, node, lines, processed_nodes):
+    def _process_node_and_deps(
+        self, graph_key, node, lines, processed_nodes, in_progress=None
+    ):
+        """Process a node and its dependencies, handling cycles."""
         if graph_key in processed_nodes:
             return
 
+        # Track nodes being processed in current branch to detect cycles
+        if in_progress is None:
+            in_progress = set()
+
+        # Detect cycle during traversal
+        if graph_key in in_progress:
+            print(f"Warning: Cycle detected involving {node.name}, breaking cycle")
+            return  # Break the cycle here
+
+        in_progress.add(graph_key)
+
+        # Process dependencies first
         for dep_key in node.deps:
             if dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[dep_key]
-                self._process_node_and_deps(dep_key, dep_node, lines, processed_nodes)
+                self._process_node_and_deps(
+                    dep_key, dep_node, lines, processed_nodes, in_progress
+                )
 
+        # Now process this node
         var_str, prefix_len, value_len = self.create_line(graph_key, node)
         if var_str:
             lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
 
+        # Mark as processed and remove from in-progress
         processed_nodes.add(graph_key)
+        in_progress.remove(graph_key)
 
     def generate_wrapper_class(self, lines):
         code = CLASS_DEF
