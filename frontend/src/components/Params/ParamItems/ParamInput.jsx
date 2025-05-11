@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { debouncedTypeCheckRequest } from "requests/sections";
 import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
@@ -29,7 +28,6 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       vStr,
       abortController,
     );
-    debouncedTypeCheckRequest();
   }
 
   useEffect(() => {

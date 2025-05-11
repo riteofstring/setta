@@ -76,8 +76,9 @@ class ProjectView:
         await self.gen_code_preview.update(self.project_state, code)
 
     async def type_check(self):
-        for v in self.code_previews.values():
-            await v.type_check()
+        await self.gen_code_preview.type_check()
+        # for v in self.code_previews.values():
+        #     await v.type_check()
 
     def delete_temp_files(self):
         for v in self.code_previews.values():

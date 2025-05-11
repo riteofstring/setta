@@ -4,7 +4,6 @@ import { getSectionInfo } from "state/actions/sectionInfos";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useSectionInfos, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
-import { asyncDebounce } from "utils/utils";
 import { post } from "./utils";
 
 export async function dbRequestTypeCheck(userRequested = false) {
@@ -18,8 +17,6 @@ export async function dbRequestTypeCheck(userRequested = false) {
     address: C.ROUTE_TYPE_CHECK,
   });
 }
-
-export const debouncedTypeCheckRequest = asyncDebounce(dbRequestTypeCheck, 500);
 
 export async function wsParametersRequest({ sectionId, fullText }) {
   const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
