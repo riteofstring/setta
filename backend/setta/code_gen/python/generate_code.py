@@ -33,7 +33,7 @@ class PythonCodeGenerator:
     def __init__(self, dep_graph: DependencyGraph):
         self.dep_graph = dep_graph
         self.var_name_mapping = {}
-        self.used_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
+        self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
 
     def generate_code(self):
         lines = {}
@@ -85,13 +85,13 @@ class PythonCodeGenerator:
             var_name = f"{SELF_IDENTIFIER}.{node.name}"
         else:
             var_name = node.name
-        counter = 2
-        while var_name in self.used_var_names:
-            var_name = f"{var_name}_{counter}"
-            counter += 1
+            counter = 2
+            while var_name in self.used_temp_var_names:
+                var_name = f"{var_name}_{counter}"
+                counter += 1
+            self.used_temp_var_names.add(var_name)
 
         self.var_name_mapping[graph_key] = var_name
-        self.used_var_names.add(var_name)
         return var_name
 
     def get_value(self, node: Node):
