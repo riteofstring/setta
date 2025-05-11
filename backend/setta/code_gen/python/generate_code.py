@@ -55,6 +55,7 @@ class PythonCodeGenerator:
 
         if cycles_detected:
             print(f"Found {len(cycles_detected)} cycles during code generation")
+            print(cycles_detected)
 
         code = self.generate_wrapper_class(lines)
         return code, lines
@@ -72,20 +73,10 @@ class PythonCodeGenerator:
 
         # Check if we've encountered this node before in current path
         if graph_key in path:
-            # Cycle detected! Extract the full cycle
+            # Cycle detected! Extract the full cycle as graph keys
             cycle_start = path.index(graph_key)
             cycle = path[cycle_start:] + [graph_key]
-
-            # Create a readable representation of the cycle
-            cycle_info = []
-            for key in cycle:
-                node_info = self.dep_graph.graph[key]
-                cycle_info.append(f"{node_info.name} ({node_info.full_path_name})")
-
-            cycle_str = " → ".join(cycle_info)
-            print(f"Warning: Cycle detected: {cycle_str}")
-
-            return cycle  # Return the cycle for possible handling by caller
+            return cycle  # Return the cycle keys directly
 
         # Add current node to path
         path.append(graph_key)
