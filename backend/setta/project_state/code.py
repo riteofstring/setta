@@ -1,7 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
 
-from setta.code_gen.utils import get_section_path_full_name, sanitize_name
 from setta.lsp.writer import LanguageServerWriter
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
@@ -61,27 +60,3 @@ class Code(ABC):
     def callback_cleanup(self):
         if self.diagnostics_callback and self.uri:
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
-
-
-class GenCode(Code):
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, dep_graph):
-        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
-        self.dep_graph = dep_graph
-
-    def get_base_filename(self):
-        return "setta_gen"
-
-    def get_gen_python_code_path(self):
-        return self.temp_file
-
-
-class NonGenCode(Code):
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, sectionId):
-        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
-        self.sectionId = sectionId
-
-    def get_base_filename(self):
-        section_path_full_name = get_section_path_full_name(
-            self.project_state, self.sectionId
-        )
-        return sanitize_name(section_path_full_name)

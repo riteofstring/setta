@@ -1,60 +1,75 @@
-from setta.project_state.project_view import (
-    ProjectView,
-)
-from setta.project_state.section_view import (
-    SectionView,
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.project_state.project_code import (
+    ProjectGenCode,
 )
 
 
 class ProjectState:
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, temp_folder_sv):
+    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
-        self.temp_folder_sv = temp_folder_sv
-        self.project_view = ProjectView(
-            self.lsp_writers, self.websocket_msg_handler, self.temp_folder
-        )
-        self.section_views = {}
+        self.project_state = None
+        self.gen_code_preview = None
+        self.code_previews = {}
 
     async def update(self, project_state):
-        # filter out sections that are no longer in the project
-        self.section_views = {
-            k: v
-            for k, v in self.section_views.items()
-            if k in project_state["sections"]
-        }
+        # with open("project_state.json", "w") as f:
+        # json.dump(project_state, f, indent=2)
+        self.project_state = project_state
+        dep_graph = DependencyGraph(self.project_state)
+        code_generator = PythonCodeGenerator(dep_graph)
+        code, lines = code_generator.generate_code()
 
-        # add new sections or update existing sections
-        for sectionId in project_state["sections"].keys():
-            if sectionId not in self.section_views:
-                self.section_views[sectionId] = SectionView(
-                    sectionId,
-                    self.lsp_writers,
-                    self.websocket_msg_handler,
-                    self.temp_folder_sv,
-                )
-            self.section_views[sectionId].update(project_state)
+        if self.gen_code_preview:
+            self.gen_code_preview.callback_cleanup()
 
-        await self.project_view.update(project_state)
+        projectConfigName = self.project_state["projectConfig"]["name"]
+        project_temp_folder = self.temp_folder / projectConfigName
+        self.gen_code_preview = ProjectGenCode(
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            project_temp_folder,
+            dep_graph,
+            code,
+            lines,
+        )
+        await self.gen_code_preview.update(self.project_state, code)
 
     async def type_check(self):
-        await self.project_view.type_check()
+        await self.gen_code_preview.type_check()
+        # for v in self.code_previews.values():
+        #     await v.type_check()
+
+    async def text_field_initialize(self, sectionId, paramInfoId):
+        print("*************text_field_initialize\n\n\n", flush=True)
+        # await gen_code_preview.update(self.project_state, code)
+        # self.text_field_cache[paramInfoId] = gen_code_preview
 
     async def text_field_autocomplete(
         self, messageId, sectionId, paramInfoId, fullText, position
     ):
-        await self.section_views[sectionId].text_field_autocomplete(
-            messageId, paramInfoId, fullText, position
-        )
+        print("*************text_field_autocomplete\n\n\n", flush=True)
+        # if paramInfoId not in self.text_field_cache:
+        #     await self.text_field_initialize(paramInfoId)
+        # cache = self.text_field_cache[paramInfoId]
+        # await cache.text_field_autocomplete(messageId, fullText, position)
 
-    async def parameters_request(self, messageId, sectionId, fullText):
-        await self.section_views[sectionId].parameters_request(messageId, fullText)
+    async def parameters_request(self, messageId, fullText):
+        print("parameters_request", flush=True)
+        # paramInfoId = None
+        # if paramInfoId not in self.text_field_cache:
+        #     await self.text_field_initialize(paramInfoId)
+        # cache = self.text_field_cache[paramInfoId]
+        # await cache.parameters_request(messageId, fullText)
 
     def delete_temp_files(self):
-        self.project_view.delete_temp_files()
-        for v in self.section_views.values():
-            v.delete_temp_files()
+        self.gen_code_preview.delete_temp_file()
+        for v in self.code_previews.values():
+            v.delete_temp_file()
 
     def get_gen_python_code_path(self):
-        return self.project_view.get_gen_python_code_path()
+        if self.gen_code_preview:
+            return self.gen_code_preview.get_gen_python_code_path()
+        return None
