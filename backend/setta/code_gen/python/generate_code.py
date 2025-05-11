@@ -97,8 +97,7 @@ class PythonCodeGenerator:
 
         # Now process this node
         var_str, prefix_len, value_len = self.create_line(graph_key, node)
-        if var_str:
-            lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
+        lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
 
         # Mark as processed and remove from path
         processed_nodes.add(graph_key)
@@ -118,12 +117,10 @@ class PythonCodeGenerator:
 
     def create_line(self, graph_key, node: Node):
         value = self.get_value(node)
-        if value:
-            var_name = self.create_var_name(graph_key, node)
-            prefix = f"{var_name} = "
-            final_str = f"{prefix}{value}"
-            return final_str, len(prefix), len(value)
-        return None, None, None
+        var_name = self.create_var_name(graph_key, node)
+        prefix = f"{var_name} = "
+        final_str = f"{prefix}{value}"
+        return final_str, len(prefix), len(value)
 
     def create_var_name(self, graph_key, node: Node):
         if isinstance(node, ParamNode):
