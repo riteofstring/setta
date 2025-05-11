@@ -9,25 +9,18 @@ logger = logging.getLogger(__name__)
 
 class Code(ABC):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
-        self.project_state = None
         self.lsp_writer: LanguageServerWriter = lsp_writers.full
         self.websocket_msg_handler: WMHProjectManager = websocket_msg_handler
         self.temp_folder = temp_folder
         self.temp_file = None
         self.uri = ""
-        self.code = ""
         self.diagnostics_callback = None
 
-    async def update(self, project_state, code):
-        self.project_state = project_state
-        await self.update_code(code)
-
-    async def update_code(self, code):
-        self.code = code
+    async def update_file(self, code):
         base_filename = self.get_base_filename()
         filepath = self.temp_folder / f"{base_filename}.py"
-        self.create_or_update_temp_file(filepath, self.code)
-        await self.send_document_open_request()
+        self.create_or_update_temp_file(filepath, code)
+        await self.send_document_open_request(code)
 
     @abstractmethod
     def get_base_filename(self):
@@ -45,11 +38,11 @@ class Code(ABC):
             self.create_temp_file(filepath, code)
         self.temp_file.write_text(code)
 
-    async def send_document_open_request(self):
+    async def send_document_open_request(self, code):
         if self.temp_file.exists():
             self.uri = await self.lsp_writer.send_document_open_request(
                 filepath=self.temp_file,
-                code=self.code,
+                code=code,
                 diagnostics_callback=self.diagnostics_callback,
             )
 

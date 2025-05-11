@@ -11,9 +11,7 @@ class ProjectState:
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
-        self.project_state = None
         self.gen_code = None
-        self.code = {}
         self.message_queue = asyncio.Queue()
         self.queue_task = asyncio.create_task(self._process_queue())
 
@@ -75,25 +73,24 @@ class ProjectState:
 
     async def _update_impl(self, project_state):
         # Original implementation
-        self.project_state = project_state
-        dep_graph = DependencyGraph(self.project_state)
+        dep_graph = DependencyGraph(project_state)
         code_generator = PythonCodeGenerator(dep_graph)
-        code, lines = code_generator.generate_code()
+        code_generator.generate_code()
 
         if self.gen_code:
             self.gen_code.callback_cleanup()
 
-        projectConfigName = self.project_state["projectConfig"]["name"]
+        projectConfigName = project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         self.gen_code = ProjectGenCode(
             self.lsp_writers,
             self.websocket_msg_handler,
             project_temp_folder,
+            project_state,
             dep_graph,
-            code,
-            lines,
+            code_generator,
         )
-        return await self.gen_code.update(self.project_state, code)
+        return await self.gen_code.update_file()
 
     async def _type_check_impl(self):
         await self.gen_code.type_check()
@@ -114,8 +111,6 @@ class ProjectState:
     async def _delete_temp_files_impl(self):
         if self.gen_code:
             self.gen_code.delete_temp_file()
-        for v in self.code.values():
-            v.delete_temp_file()
 
     async def _get_gen_python_code_path_impl(self):
         if self.gen_code:

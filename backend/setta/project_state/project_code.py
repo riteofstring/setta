@@ -1,7 +1,5 @@
-from typing import Dict
-
-from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType
-from setta.code_gen.python.generate_code import PythonCodeLine
+from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import get_section_path_full_name, sanitize_name
 from setta.project_state.code import (
@@ -25,25 +23,25 @@ class ProjectGenCode(Code):
         lsp_writers,
         websocket_msg_handler,
         temp_folder,
+        project_state,
         dep_graph: DependencyGraph,
-        code,
-        lines,
+        code_generator: PythonCodeGenerator,
     ):
         super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+        self.project_state = project_state
         self.dep_graph = dep_graph
+        self.code_generator = code_generator
         self.diagnostics_callback = self.process_diagnostics_response
-        self.original_code: str = code
-        self.original_lines: Dict[GraphKeyType, PythonCodeLine] = lines
+
+    async def update_file(self):
+        await super().update_file(self.code_generator.code)
 
     async def insert_code_at_position(self, sectionId, paramInfoId, fullText, position):
         graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
-        self.dep_graph.change_node_value(graph_key, fullText)
-        code_line = self.original_lines[graph_key]
-        start, end = code_line.value_position
-        code = self.original_code[:start] + fullText + self.original_code[end:]
-        await self.update_code(code)
+        start = self.code_generator.insert_code_at_position(graph_key, fullText)
+        await self.update_file()
         position += start
-        line, col = position_to_line_col(code, position)
+        line, col = position_to_line_col(self.code_generator.code, position)
         return line, col
 
     async def text_field_autocomplete(
@@ -58,7 +56,7 @@ class ProjectGenCode(Code):
             ),
             messageId,
         )
-        result = process_completion_response(response, self.code)
+        result = process_completion_response(response, self.code_generator.code)
         await self.websocket_msg_handler.return_to_requester(result, messageId)
 
     async def parameters_request(self, messageId, sectionId, fullText):
@@ -77,16 +75,18 @@ class ProjectGenCode(Code):
         await self.websocket_msg_handler.return_to_requester(result, messageId)
 
     async def type_check(self):
-        await self.send_document_open_request()
+        await self.send_document_open_request(self.code_generator.code)
 
     async def process_diagnostics_response(self, lsp_response):
         params = lsp_response["params"]
         if self.lsp_writer.get_latest_version_number(self.uri) != params["version"]:
             return
-        convert_diagnostic_line_cols_to_positions(self.code, params["diagnostics"])
+        convert_diagnostic_line_cols_to_positions(
+            self.code_generator.code, params["diagnostics"]
+        )
         diagnostics = process_diagnostics(
             params["diagnostics"],
-            self.code,
+            self.code_generator.code,
             self.dep_graph,
         )
         content = {

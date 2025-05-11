@@ -3,6 +3,7 @@ from typing import Optional
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
+    GraphKeyType,
     Node,
     ParamNode,
     SectionNode,
@@ -39,6 +40,8 @@ class PythonCodeGenerator:
         self.dep_graph = dep_graph
         self.var_name_mapping = {}
         self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
+        self.code = ""
+        self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
     def generate_code(self):
         lines = {}
@@ -57,8 +60,8 @@ class PythonCodeGenerator:
             print(f"Found {len(cycles_detected)} cycles during code generation")
             print(cycles_detected)
 
-        code = self.generate_wrapper_class(lines)
-        return code, lines
+        self.code = self.generate_wrapper_class(lines)
+        self.lines = lines
 
     def _process_node_and_deps(
         self, graph_key, node, lines, processed_nodes, path=None
@@ -201,3 +204,8 @@ class PythonCodeGenerator:
 
         output = f"{callable}({output})"
         return output
+
+    def insert_code_at_position(self, graph_key, fullText):
+        self.dep_graph.change_node_value(graph_key, fullText)
+        self.generate_code()
+        return self.lines[graph_key].value_position[0]
