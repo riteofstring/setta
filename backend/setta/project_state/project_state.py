@@ -3,7 +3,7 @@ from typing import Any, Callable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.project_state.project_code import ProjectGenCode
+from setta.project_state.project_code import ProjectGenPythonCode
 from setta.utils.utils import replace_null_keys_with_none
 
 
@@ -85,10 +85,10 @@ class ProjectState:
 
         projectConfigName = project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        self.gen_code = ProjectGenCode(
+        self.gen_code = ProjectGenPythonCode(
+            project_temp_folder,
             self.lsp_writers,
             self.websocket_msg_handler,
-            project_temp_folder,
             project_state,
             dep_graph,
             code_generator,

@@ -3,7 +3,7 @@ from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import get_section_path_full_name, sanitize_name
 from setta.project_state.code import (
-    Code,
+    PythonCode,
 )
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
@@ -17,17 +17,17 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 
 
-class ProjectGenCode(Code):
+class ProjectGenPythonCode(PythonCode):
     def __init__(
         self,
+        temp_folder,
         lsp_writers,
         websocket_msg_handler,
-        temp_folder,
         project_state,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
-        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
         self.project_state = project_state
         self.dep_graph = dep_graph
         self.code_generator = code_generator
@@ -118,7 +118,7 @@ class ProjectGenCode(Code):
         return self.temp_file
 
 
-class ProjectNonGenCode(Code):
+class ProjectNonGenCode(PythonCode):
     def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, sectionId):
         super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
         self.sectionId = sectionId
