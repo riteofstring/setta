@@ -43,48 +43,74 @@ class PythonCodeGenerator:
     def generate_code(self):
         lines = {}
         processed_nodes = set()
+        cycles_detected = []
+
         for key, node in self.dep_graph.graph.items():
             if not node.isTopLevel:
                 continue
-            self._process_node_and_deps(key, node, lines, processed_nodes)
+
+            cycle = self._process_node_and_deps(key, node, lines, processed_nodes)
+            if cycle and cycle not in cycles_detected:
+                cycles_detected.append(cycle)
+
+        if cycles_detected:
+            print(f"Found {len(cycles_detected)} cycles during code generation")
 
         code = self.generate_wrapper_class(lines)
         return code, lines
 
     def _process_node_and_deps(
-        self, graph_key, node, lines, processed_nodes, in_progress=None
+        self, graph_key, node, lines, processed_nodes, path=None
     ):
-        """Process a node and its dependencies, handling cycles."""
+        """Process a node and its dependencies, recording any cycles found."""
         if graph_key in processed_nodes:
-            return
+            return None  # Already processed, no cycle
 
-        # Track nodes being processed in current branch to detect cycles
-        if in_progress is None:
-            in_progress = set()
+        # Initialize the path if this is the top-level call
+        if path is None:
+            path = []
 
-        # Detect cycle during traversal
-        if graph_key in in_progress:
-            print(f"Warning: Cycle detected involving {node.name}, breaking cycle")
-            return  # Break the cycle here
+        # Check if we've encountered this node before in current path
+        if graph_key in path:
+            # Cycle detected! Extract the full cycle
+            cycle_start = path.index(graph_key)
+            cycle = path[cycle_start:] + [graph_key]
 
-        in_progress.add(graph_key)
+            # Create a readable representation of the cycle
+            cycle_info = []
+            for key in cycle:
+                node_info = self.dep_graph.graph[key]
+                cycle_info.append(f"{node_info.name} ({node_info.full_path_name})")
+
+            cycle_str = " → ".join(cycle_info)
+            print(f"Warning: Cycle detected: {cycle_str}")
+
+            return cycle  # Return the cycle for possible handling by caller
+
+        # Add current node to path
+        path.append(graph_key)
 
         # Process dependencies first
         for dep_key in node.deps:
             if dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[dep_key]
-                self._process_node_and_deps(
-                    dep_key, dep_node, lines, processed_nodes, in_progress
+                cycle = self._process_node_and_deps(
+                    dep_key, dep_node, lines, processed_nodes, path
                 )
+                if cycle:
+                    # Propagate cycle information upward
+                    return cycle
 
         # Now process this node
         var_str, prefix_len, value_len = self.create_line(graph_key, node)
         if var_str:
             lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
 
-        # Mark as processed and remove from in-progress
+        # Mark as processed and remove from path
         processed_nodes.add(graph_key)
-        in_progress.remove(graph_key)
+        path.pop()
+
+        return None  # No cycle detected in this branch
 
     def generate_wrapper_class(self, lines):
         code = CLASS_DEF
