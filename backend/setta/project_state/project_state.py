@@ -58,11 +58,7 @@ class ProjectState:
 
     async def parameters_request(self, messageId, sectionId, fullText):
         print("parameters_request", flush=True)
-        # paramInfoId = None
-        # if paramInfoId not in self.text_field_cache:
-        #     await self.text_field_initialize(paramInfoId)
-        # cache = self.text_field_cache[paramInfoId]
-        # await cache.parameters_request(messageId, fullText)
+        await self.gen_code.parameters_request(messageId, sectionId, fullText)
 
     def delete_temp_files(self):
         self.gen_code.delete_temp_file()

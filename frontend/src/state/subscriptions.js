@@ -90,9 +90,6 @@ export function subscribe() {
     }
   });
 
-  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
-    updateBackendProjectState();
-  });
 
   useReactFlow.subscribe(
     reactFitViewOnInitSubscriptionFn,
@@ -273,6 +270,3 @@ function apiKeysFilepathSubscriptionFn(state) {
   return [state.apiKeysFilepath];
 }
 
-function updateBackendSubscriptionFn(state) {
-  return state;
-}

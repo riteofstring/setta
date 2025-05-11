@@ -1,6 +1,6 @@
 from typing import Dict
 
-from setta.code_gen.dependency_graph import GraphKeyType
+from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType
 from setta.code_gen.python.generate_code import PythonCodeLine
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import get_section_path_full_name, sanitize_name
@@ -25,7 +25,7 @@ class ProjectGenCode(Code):
         lsp_writers,
         websocket_msg_handler,
         temp_folder,
-        dep_graph,
+        dep_graph: DependencyGraph,
         code,
         lines,
     ):
@@ -35,7 +35,8 @@ class ProjectGenCode(Code):
         self.original_code: str = code
         self.original_lines: Dict[GraphKeyType, PythonCodeLine] = lines
 
-    async def insert_code_at_position(self, graph_key, fullText, position):
+    async def insert_code_at_position(self, sectionId, paramInfoId, fullText, position):
+        graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
         code_line = self.original_lines[graph_key]
         start, end = code_line.value_position
         code = self.original_code[:start] + fullText + self.original_code[end:]
@@ -57,7 +58,9 @@ class ProjectGenCode(Code):
 
     async def parameters_request(self, messageId, sectionId, fullText):
         fullText = f"{fullText}()"
-        line, col = await self.insert_code_at_position(fullText, len(fullText))
+        line, col = await self.insert_code_at_position(
+            sectionId, None, fullText, len(fullText)
+        )
         col -= 1  # put cursor inside parentheses
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_signature_help_request(
