@@ -165,10 +165,9 @@ class DependencyGraph:
         node = self.graph[graph_key]
         if isinstance(node, SectionNode):
             node.callable = value
-            is_used = True
         elif isinstance(node, ParamNode):
             node.value = value
-            is_used = node.has_name_and_value
+        is_used = self.get_is_used(node)
         for other_node in self.graph.values():
             if graph_key in other_node.deps:
                 other_node.deps[graph_key] = is_used
@@ -203,13 +202,12 @@ class DependencyGraph:
                     # Found a reference, add it to dependencies if not already there
                     target_key = self.full_path_name_to_graph_key[ref]
                     target_node = self.graph[target_key]
-                    if (
-                        isinstance(target_node, ParamNode)
-                        and not target_node.has_name_and_value
-                    ):
-                        continue
-                    if target_key not in node.deps:
-                        node.deps.append(target_key)
+                    node.deps[target_key] = self.get_is_used(target_node)
+
+    def get_is_used(self, node):
+        return isinstance(node, SectionNode) or (
+            isinstance(node, ParamNode) and node.has_name_and_value
+        )
 
 
 @dataclass
