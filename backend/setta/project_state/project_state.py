@@ -1,9 +1,13 @@
 import asyncio
+from pathlib import Path
 from typing import Any, Callable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.project_state.project_code import ProjectGenPythonCode
+from setta.code_gen.utils import get_section_type
+from setta.project_state.code import Code
+from setta.project_state.project_code import ProjectGenPythonCode, ProjectPythonCode
+from setta.utils.constants import C
 from setta.utils.utils import replace_null_keys_with_none
 
 
@@ -13,6 +17,8 @@ class ProjectState:
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
         self.gen_code = None
+        self.code_dict: dict[str, ProjectPythonCode] = {}
+        self.used_files: set[Path] = set()
         self.message_queue = asyncio.Queue()
         self.queue_task = asyncio.create_task(self._process_queue())
 
@@ -74,6 +80,8 @@ class ProjectState:
 
     async def _update_impl(self, project_state):
         # Original implementation
+        self.used_files = set()
+
         project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
         gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
@@ -93,7 +101,28 @@ class ProjectState:
             dep_graph,
             code_generator,
         )
-        return await self.gen_code.update_file()
+        await self.gen_code.update_file()
+        self.add_to_used_files(self.gen_code)
+
+        if self.code_dict:
+            for c in self.code_dict.values():
+                c.callback_cleanup()
+
+        self.code_dict = {}
+        for sectionId in project_state["sections"].keys():
+            if get_section_type(project_state, sectionId) == C.CODE:
+                section_code = ProjectPythonCode(
+                    project_temp_folder,
+                    self.lsp_writers,
+                    self.websocket_msg_handler,
+                    project_state,
+                    sectionId,
+                )
+                await section_code.update_file()
+                self.add_to_used_files(section_code)
+                self.code_dict[sectionId] = section_code
+
+        self.delete_unused_files(project_temp_folder)
 
     async def _type_check_impl(self):
         await self.gen_code.type_check()
@@ -129,3 +158,17 @@ class ProjectState:
                 await self.queue_task
             except asyncio.CancelledError:
                 pass
+
+    def add_to_used_files(self, code_obj: Code):
+        self.used_files.add(code_obj.temp_file.resolve())
+
+    def delete_unused_files(self, project_temp_folder: Path):
+        # Get all files in the project temp folder and delete unused ones
+        if project_temp_folder.exists():
+            for file_path in project_temp_folder.glob("**/*"):
+                if file_path.is_file() and file_path.resolve() not in self.used_files:
+                    try:
+                        file_path.unlink()
+                        print(f"Deleted unused file: {file_path}")
+                    except Exception as e:
+                        print(f"Error deleting file {file_path}: {e}")

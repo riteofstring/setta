@@ -1,7 +1,11 @@
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
-from setta.code_gen.utils import get_section_path_full_name, sanitize_name
+from setta.code_gen.utils import (
+    get_section_path_full_name,
+    get_selected_section_variant,
+    sanitize_name,
+)
 from setta.project_state.code import (
     PythonCode,
 )
@@ -118,19 +122,26 @@ class ProjectGenPythonCode(PythonCode):
         return self.temp_file
 
 
-class ProjectNonGenCode(PythonCode):
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder, sectionId):
-        super().__init__(lsp_writers, websocket_msg_handler, temp_folder)
+class ProjectPythonCode(PythonCode):
+    def __init__(
+        self, temp_folder, lsp_writers, websocket_msg_handler, project_state, sectionId
+    ):
+        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
+        self.section_path_full_name = get_section_path_full_name(
+            project_state, sectionId
+        )
         self.sectionId = sectionId
+        self.code = get_selected_section_variant(project_state, self.sectionId)["code"]
+        self.diagnostics_callback = self.process_diagnostics_response
+
+    async def update_file(self):
+        await super().update_file(self.code)
 
     def get_base_filename(self):
-        section_path_full_name = get_section_path_full_name(
-            self.project_state, self.sectionId
-        )
-        return sanitize_name(section_path_full_name)
+        return sanitize_name(self.section_path_full_name)
 
     async def type_check(self):
-        await self.send_document_open_request()
+        await self.send_document_open_request(self.code)
 
     async def process_diagnostics_response(self, lsp_response):
         # TODO
