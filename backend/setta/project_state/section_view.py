@@ -1,6 +1,6 @@
-from typing import Dict, Tuple
+from typing import Dict
 
-from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType
 from setta.code_gen.python.generate_code import PythonCodeGenerator, PythonCodeLine
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.project_state.code import GenCode
@@ -25,8 +25,8 @@ class SectionViewGenCode(GenCode):
     ):
         super().__init__(lsp_writers, websocket_msg_handler, temp_folder, dep_graph)
         self.original_code: str = code
-        self.original_lines: Dict[Tuple[str, str | None], PythonCodeLine] = lines
-        self.graph_key: Tuple[str, str | None] = graph_key
+        self.original_lines: Dict[GraphKeyType, PythonCodeLine] = lines
+        self.graph_key: GraphKeyType = graph_key
 
     async def insert_code_at_position(self, fullText, position):
         code_line = self.original_lines[self.graph_key]

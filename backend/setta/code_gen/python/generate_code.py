@@ -7,7 +7,12 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
-from setta.code_gen.utils import CLASS_DEF, CLASS_NAME, SELF_IDENTIFIER
+from setta.code_gen.utils import (
+    CLASS_DEF,
+    CLASS_NAME,
+    SELF_IDENTIFIER,
+    create_unique_name,
+)
 
 from ...utils.constants import C, ParameterPassingStyle
 
@@ -84,11 +89,7 @@ class PythonCodeGenerator:
         elif node.isTopLevel:
             var_name = f"{SELF_IDENTIFIER}.{node.name}"
         else:
-            var_name = node.name
-            counter = 2
-            while var_name in self.used_temp_var_names:
-                var_name = f"{var_name}_{counter}"
-                counter += 1
+            var_name = create_unique_name(node.name, self.used_temp_var_names)
             self.used_temp_var_names.add(var_name)
 
         self.var_name_mapping[graph_key] = var_name

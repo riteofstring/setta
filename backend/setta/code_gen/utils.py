@@ -217,6 +217,14 @@ def sanitize_name(name):
     return name
 
 
+def create_unique_name(name, used_names):
+    counter = 2
+    while name in used_names:
+        name = f"{name}_{counter}"
+        counter += 1
+    return name
+
+
 def export_for_interactive_fn(p):
     p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
     e = ExporterForInteractiveFn(p)

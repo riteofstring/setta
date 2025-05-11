@@ -5,6 +5,7 @@ from typing import Tuple
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
+    create_unique_name,
     get_code_info_children,
     get_param_ui_type,
     get_section_children,
@@ -21,10 +22,13 @@ from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import C, ParameterPassingStyle
 
+GraphKeyType = Tuple[str, str | None]
+
 
 class DependencyGraph:
     def __init__(self, p):
-        self.graph: dict[Tuple[str, str | None], Node] = {}
+        self.graph: dict[GraphKeyType, Node] = {}
+        self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
         self.p = copy.deepcopy(p)
         self.p["codeInfoCols"] = replace_null_keys_with_none(self.p["codeInfoCols"])
         self.section_types_to_process = set(
@@ -144,8 +148,9 @@ class DependencyGraph:
     def create_graph_key(self, section_id, param_info_id=None):
         return (section_id, param_info_id)
 
-    def add_to_graph(self, graph_key, obj):
-        self.graph[graph_key] = obj
+    def add_to_graph(self, graph_key, node):
+        self.graph[graph_key] = node
+        self.full_path_name_to_graph_key[node.full_path_name] = graph_key
 
     def get_node(self, graph_key):
         return self.graph.get(graph_key)
@@ -161,7 +166,11 @@ class DependencyGraph:
             or parent_node.type == C.GROUP
             or parent_node.type == C.NESTED_PARAM
         ):
-            return f"{parent_node.full_path_name}__{sanitize_name(name)}"
+            return create_unique_name(
+                f"{parent_node.full_path_name}__{sanitize_name(name)}",
+                self.full_path_name_to_graph_key,
+            )
+
         return name
 
 
