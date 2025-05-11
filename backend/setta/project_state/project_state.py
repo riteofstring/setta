@@ -71,10 +71,6 @@ class ProjectState:
             self._parameters_request_impl, messageId, sectionId, fullText
         )
 
-    # Change the existing non-async methods to use queuing
-    async def delete_temp_files(self):
-        return await self._enqueue(self._delete_temp_files_impl)
-
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
 
@@ -139,25 +135,10 @@ class ProjectState:
         print("parameters_request", flush=True)
         await self.gen_code.parameters_request(messageId, sectionId, fullText)
 
-    # Add the implementation methods
-    async def _delete_temp_files_impl(self):
-        if self.gen_code:
-            self.gen_code.delete_temp_file()
-
     async def _get_gen_python_code_path_impl(self):
         if self.gen_code:
             return self.gen_code.get_gen_python_code_path()
         return None
-
-    # Cleanup method to properly close the queue processor when needed
-    async def cleanup(self):
-        """Cancel the queue processor task when shutting down"""
-        if self.queue_task and not self.queue_task.done():
-            self.queue_task.cancel()
-            try:
-                await self.queue_task
-            except asyncio.CancelledError:
-                pass
 
     def add_to_used_files(self, code_obj: Code):
         self.used_files.add(code_obj.temp_file.resolve())

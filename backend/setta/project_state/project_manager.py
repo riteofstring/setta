@@ -1,3 +1,5 @@
+import shutil
+
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
@@ -37,14 +39,8 @@ class ProjectManager:
         project_state = self.states[projectConfigId]
         await project_state.parameters_request(messageId, sectionId, fullText)
 
-    async def delete_temp_files(self):
-        for v in self.states.values():
-            await v.delete_temp_files()
+    def delete_temp_folder(self):
+        shutil.rmtree(self.temp_folder)
 
     async def get_gen_python_code_path(self, projectConfigId):
         return await self.states[projectConfigId].get_gen_python_code_path()
-
-    async def cleanup(self):
-        """Clean up all project states when shutting down"""
-        for state in self.states.values():
-            await state.cleanup()
