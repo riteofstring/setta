@@ -207,6 +207,7 @@ class PythonCodeGenerator:
                 prefix += f"{node.name}="
 
             output += f"{prefix}{var_name}"
+            idx += 1
 
         output = f"{callable}({output})"
         return output
