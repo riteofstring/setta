@@ -216,6 +216,8 @@ class PythonCodeGenerator:
         self.dep_graph.change_value(graph_key, value)
         self.generate_code()
         code_line = self.lines.get(graph_key)
+        # code_line still might not exist if value is empty
+        # or if the node doesn't have a name (e.g. a kwarg whose name hasn't been set yet)
         if code_line:
             return code_line.value_position[0]
         return None

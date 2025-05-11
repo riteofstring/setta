@@ -58,7 +58,10 @@ class ProjectGenCode(Code):
             line, col = line_col
             response = await self.lsp_writer.send_and_wait(
                 self.lsp_writer.send_autocomplete_request(
-                    filepath=self.temp_file, line=line, character=col, request_id=messageId
+                    filepath=self.temp_file,
+                    line=line,
+                    character=col,
+                    request_id=messageId,
                 ),
                 messageId,
             )
@@ -76,7 +79,10 @@ class ProjectGenCode(Code):
             col += 1  # put cursor inside parentheses
             response = await self.lsp_writer.send_and_wait(
                 self.lsp_writer.send_signature_help_request(
-                    filepath=self.temp_file, line=line, character=col, request_id=messageId
+                    filepath=self.temp_file,
+                    line=line,
+                    character=col,
+                    request_id=messageId,
                 ),
                 messageId,
             )

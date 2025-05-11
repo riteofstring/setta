@@ -93,8 +93,8 @@ class DependencyGraph:
                 )
                 node.deps = self.export_sections(children, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            # elif type == C.GLOBAL_VARIABLES:
-            #     self.export_section_params(id)
+            elif type == C.GLOBAL_VARIABLES:
+                self.export_section_params(id, isTopLevel=True)
             # elif type == C.TEXT_BLOCK:
             #     variant = get_selected_section_variant(self.p, id)
             #     info["value"] = variant["description"]
@@ -104,11 +104,13 @@ class DependencyGraph:
             #     raise ValueError
         return graph_key
 
-    def export_section_params(self, sectionId, parent_node=None):
+    def export_section_params(self, sectionId, parent_node=None, isTopLevel=False):
         paramIds = get_top_level_param_ids(self.p, sectionId)
-        return self.export_params(sectionId, paramIds, parent_node=parent_node)
+        return self.export_params(
+            sectionId, paramIds, parent_node=parent_node, isTopLevel=isTopLevel
+        )
 
-    def export_params(self, sectionId, paramIds, parent_node=None):
+    def export_params(self, sectionId, paramIds, parent_node=None, isTopLevel=False):
         output_deps = {}
         for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
@@ -130,7 +132,7 @@ class DependencyGraph:
                     name=name,
                     full_path_name=full_path_name,
                     type=type,
-                    isTopLevel=False,
+                    isTopLevel=isTopLevel,
                     value=value,
                     passing_style=codeInfo["passingStyle"],
                     deps=[],
