@@ -2,7 +2,9 @@ import copy
 from dataclasses import dataclass
 from typing import Tuple
 
+from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
+    SELF_IDENTIFIER,
     get_code_info_children,
     get_param_ui_type,
     get_section_children,
@@ -132,6 +134,9 @@ class DependencyGraph:
         variant = get_selected_section_variant(self.p, sectionId)
         if paramId in variant["values"]:
             value = variant["values"][paramId]["value"]
+            potential_refs = find_undefined_special_var_expressions(
+                value, SELF_IDENTIFIER
+            )
         else:
             value = new_ev_entry()["value"]
         return value

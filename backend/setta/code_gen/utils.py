@@ -8,6 +8,8 @@ from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import BASE_UI_TYPES, C
 
+SELF_IDENTIFIER = "s"
+
 
 def push_var_deep(objects, target_var_name):
     def find_dependents(obj_list, var_name):

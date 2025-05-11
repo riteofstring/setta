@@ -7,10 +7,10 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
+from setta.code_gen.utils import SELF_IDENTIFIER
 
 from ...utils.constants import C, ParameterPassingStyle
 
-SELF_IDENTIFIER = "s"
 CLASS_NAME = "S"
 
 
