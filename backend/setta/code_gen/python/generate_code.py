@@ -73,7 +73,7 @@ class PythonCodeGenerator:
         value = self.get_value(node)
         if value or force_appear:
             var_name = self.create_var_name(graph_key, node)
-            prefix = var_declaration(var_name, value, return_prefix=True)
+            prefix = f"{var_name} = "
             final_str = f"{prefix}{value}"
             return final_str, len(prefix), len(value)
         return None, None, None
@@ -158,15 +158,3 @@ class PythonCodeGenerator:
             output += curr_output
 
         return output
-
-
-def var_declaration(
-    var_name, value, is_dict=False, return_prefix=False, is_callable_param=False
-):
-    if is_dict:
-        prefix = f'"{var_name}": '
-    else:
-        prefix = f"{var_name}=" if is_callable_param else f"{var_name} = "
-    if return_prefix:
-        return prefix
-    return f"{prefix}{value}"
