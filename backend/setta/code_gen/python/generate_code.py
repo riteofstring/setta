@@ -7,19 +7,9 @@ from setta.code_gen.dependency_graph import (
     ParamNode,
     SectionNode,
 )
-from setta.code_gen.utils import SELF_IDENTIFIER
+from setta.code_gen.utils import CLASS_DEF, CLASS_NAME, SELF_IDENTIFIER
 
 from ...utils.constants import C, ParameterPassingStyle
-
-CLASS_NAME = "S"
-
-
-CLASS_DEF = f"""
-import torch
-
-class {CLASS_NAME}:
-    def __init__({SELF_IDENTIFIER}):
-""".lstrip()
 
 
 @dataclass

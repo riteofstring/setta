@@ -9,6 +9,13 @@ from setta.utils.utils import replace_null_keys_with_none
 from ..utils.constants import BASE_UI_TYPES, C
 
 SELF_IDENTIFIER = "s"
+CLASS_NAME = "S"
+CLASS_DEF = f"""
+import torch
+
+class {CLASS_NAME}:
+    def __init__({SELF_IDENTIFIER}):
+""".lstrip()
 
 
 def push_var_deep(objects, target_var_name):
