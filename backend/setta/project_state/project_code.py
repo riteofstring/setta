@@ -55,7 +55,7 @@ class ProjectGenCode(Code):
         result = process_completion_response(response, self.code)
         await self.websocket_msg_handler.return_to_requester(result, messageId)
 
-    async def parameters_request(self, messageId, fullText):
+    async def parameters_request(self, messageId, sectionId, fullText):
         fullText = f"{fullText}()"
         line, col = await self.insert_code_at_position(fullText, len(fullText))
         col -= 1  # put cursor inside parentheses

@@ -11,8 +11,8 @@ class ProjectState:
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
         self.project_state = None
-        self.gen_code_preview = None
-        self.code_previews = {}
+        self.gen_code = None
+        self.code = {}
 
     async def update(self, project_state):
         # with open("project_state.json", "w") as f:
@@ -22,12 +22,12 @@ class ProjectState:
         code_generator = PythonCodeGenerator(dep_graph)
         code, lines = code_generator.generate_code()
 
-        if self.gen_code_preview:
-            self.gen_code_preview.callback_cleanup()
+        if self.gen_code:
+            self.gen_code.callback_cleanup()
 
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        self.gen_code_preview = ProjectGenCode(
+        self.gen_code = ProjectGenCode(
             self.lsp_writers,
             self.websocket_msg_handler,
             project_temp_folder,
@@ -35,17 +35,17 @@ class ProjectState:
             code,
             lines,
         )
-        await self.gen_code_preview.update(self.project_state, code)
+        await self.gen_code.update(self.project_state, code)
 
     async def type_check(self):
-        await self.gen_code_preview.type_check()
-        # for v in self.code_previews.values():
+        await self.gen_code.type_check()
+        # for v in self.code.values():
         #     await v.type_check()
 
     async def text_field_initialize(self, sectionId, paramInfoId):
         print("*************text_field_initialize\n\n\n", flush=True)
-        # await gen_code_preview.update(self.project_state, code)
-        # self.text_field_cache[paramInfoId] = gen_code_preview
+        # await gen_code.update(self.project_state, code)
+        # self.text_field_cache[paramInfoId] = gen_code
 
     async def text_field_autocomplete(
         self, messageId, sectionId, paramInfoId, fullText, position
@@ -56,7 +56,7 @@ class ProjectState:
         # cache = self.text_field_cache[paramInfoId]
         # await cache.text_field_autocomplete(messageId, fullText, position)
 
-    async def parameters_request(self, messageId, fullText):
+    async def parameters_request(self, messageId, sectionId, fullText):
         print("parameters_request", flush=True)
         # paramInfoId = None
         # if paramInfoId not in self.text_field_cache:
@@ -65,11 +65,11 @@ class ProjectState:
         # await cache.parameters_request(messageId, fullText)
 
     def delete_temp_files(self):
-        self.gen_code_preview.delete_temp_file()
-        for v in self.code_previews.values():
+        self.gen_code.delete_temp_file()
+        for v in self.code.values():
             v.delete_temp_file()
 
     def get_gen_python_code_path(self):
-        if self.gen_code_preview:
-            return self.gen_code_preview.get_gen_python_code_path()
+        if self.gen_code:
+            return self.gen_code.get_gen_python_code_path()
         return None
