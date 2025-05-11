@@ -38,12 +38,16 @@ class PythonCodeLine:
 class PythonCodeGenerator:
     def __init__(self, dep_graph: DependencyGraph):
         self.dep_graph = dep_graph
+        self.reset()
+
+    def reset(self):
         self.var_name_mapping = {}
         self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
         self.code = ""
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
     def generate_code(self):
+        self.reset()
         processed_nodes = set()
         cycles_detected = []
 
@@ -82,7 +86,9 @@ class PythonCodeGenerator:
 
         cycles = []
         # Process dependencies first
-        for dep_key in node.deps:
+        for dep_key, is_used in node.deps.items():
+            if not is_used:
+                continue
             if dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[dep_key]
                 cycles.extend(
@@ -161,26 +167,34 @@ class PythonCodeGenerator:
         elif t == C.NESTED_PARAM:
             return self.construct_dict(node.deps)
 
-    def construct_dict(self, dependency_keys):
+    def construct_dict(self, deps):
         output = ""
         idx = 0
-        for idx, d in enumerate(dependency_keys):
+        for d, is_used in deps.items():
+            if not is_used:
+                continue
             prefix = "" if idx == 0 else ", "
             name = self.dep_graph.graph[d].name
             var_name = self.var_name_mapping[d]
             output += f'{prefix}"{name}": {var_name}'
+            idx += 1
         return "{" + output + "}"
 
-    def construct_list(self, dependency_keys):
-        output = ", ".join(self.var_name_mapping[d] for d in dependency_keys)
+    def construct_list(self, deps):
+        output = ", ".join(
+            self.var_name_mapping[d] for d, is_used in deps.items() if is_used
+        )
         return f"[{output}]"
 
-    def construct_callable(self, callable, dependency_keys):
+    def construct_callable(self, callable, deps):
         output = ""
-        for idx, key in enumerate(dependency_keys):
+        idx = 0
+        for d, is_used in deps.items():
+            if not is_used:
+                continue
             prefix = "" if idx == 0 else ", "
-            var_name = self.var_name_mapping[key]
-            node: ParamNode = self.dep_graph.graph[key]
+            var_name = self.var_name_mapping[d]
+            node: ParamNode = self.dep_graph.graph[d]
             passing_style = node.passing_style
             if passing_style == ParameterPassingStyle.ARGS:
                 prefix = "*"
@@ -197,7 +211,7 @@ class PythonCodeGenerator:
         output = f"{callable}({output})"
         return output
 
-    def change_line_value(self, graph_key, value):
-        self.dep_graph.change_node_value(graph_key, value)
+    def change_value(self, graph_key, value):
+        self.dep_graph.change_value(graph_key, value)
         self.generate_code()
         return self.lines[graph_key].value_position[0]

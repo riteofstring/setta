@@ -4,6 +4,7 @@ import { setParamEnteredValue } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
 import { useGetParamEnteredValueAndEVRefs } from "state/hooks/sectionVariants";
 import { ParamUI } from "../ParamUIs/ParamUI";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const { value: enteredValue, evRefs } = useGetParamEnteredValueAndEVRefs(
@@ -42,6 +43,7 @@ const debouncedSetParamEnteredValue = _.debounce(
     useSectionInfos.setState((state) => {
       setParamEnteredValue(sectionId, paramInfoId, vStr, state);
     });
+    maybeIncrementProjectStateVersion(true)
   },
   50,
 );

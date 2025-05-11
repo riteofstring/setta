@@ -4,6 +4,7 @@ from typing import Any, Callable
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.project_state.project_code import ProjectGenCode
+from setta.utils.utils import replace_null_keys_with_none
 
 
 class ProjectState:
@@ -73,6 +74,7 @@ class ProjectState:
 
     async def _update_impl(self, project_state):
         # Original implementation
+        project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
         code_generator = PythonCodeGenerator(dep_graph)
         code_generator.generate_code()

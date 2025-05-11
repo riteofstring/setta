@@ -38,7 +38,7 @@ class ProjectGenCode(Code):
 
     async def insert_code_at_position(self, sectionId, paramInfoId, fullText, position):
         graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
-        start = self.code_generator.change_line_value(graph_key, fullText)
+        start = self.code_generator.change_value(graph_key, fullText)
         await self.update_file()
         position += start
         line, col = position_to_line_col(self.code_generator.code, position)

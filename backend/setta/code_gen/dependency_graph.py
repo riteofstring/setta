@@ -1,4 +1,3 @@
-import copy
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -18,7 +17,6 @@ from setta.code_gen.utils import (
     sanitize_name,
 )
 from setta.database.db.sectionVariants.utils import new_ev_entry
-from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import C, ParameterPassingStyle
 
@@ -27,11 +25,7 @@ GraphKeyType = Tuple[str, str | None]
 
 class DependencyGraph:
     def __init__(self, p):
-        self.graph: dict[GraphKeyType, Node] = {}
-        self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
-        self.nodes_with_potential_refs: dict[GraphKeyType, set[str]] = {}
-        self.p = copy.deepcopy(p)
-        self.p["codeInfoCols"] = replace_null_keys_with_none(self.p["codeInfoCols"])
+        self.p = p
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -44,17 +38,24 @@ class DependencyGraph:
         )
         self.construct_graph()
 
+    def reset(self):
+        self.graph: dict[GraphKeyType, Node] = {}
+        self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
+        self.nodes_with_potential_refs: dict[GraphKeyType, set[str]] = {}
+
     def construct_graph(self):
+        self.reset()
         self.export_sections(
             list(self.p["projectConfig"]["children"].keys()), isTopLevel=True
         )
         self.resolve_references()
 
     def export_sections(self, ids, isTopLevel=False, parent_node=None):
-        return [
-            self.export_section(x, isTopLevel, parent_node, idx)
-            for idx, x in enumerate(ids)
-        ]
+        deps = {}
+        for idx, x in enumerate(ids):
+            graph_key = self.export_section(x, isTopLevel, parent_node, idx)
+            deps[graph_key] = True
+        return deps
 
     def export_section(self, id, isTopLevel=False, parent_node=None, idx=None):
         graph_key = self.create_graph_key(id)
@@ -108,7 +109,7 @@ class DependencyGraph:
         return self.export_params(sectionId, paramIds, parent_node=parent_node)
 
     def export_params(self, sectionId, paramIds, parent_node=None):
-        output_node_keys = []
+        output_deps = {}
         for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
             param = self.get_node(graph_key)
@@ -138,9 +139,8 @@ class DependencyGraph:
                     sectionId, param_children, parent_node=param
                 )
                 self.add_to_graph(graph_key, param)
-            if param.has_name_and_value:
-                output_node_keys.append(graph_key)
-        return output_node_keys
+            output_deps[graph_key] = param.has_name_and_value
+        return output_deps
 
     def export_param_value(self, sectionId, paramId):
         variant = get_selected_section_variant(self.p, sectionId)
@@ -161,12 +161,17 @@ class DependencyGraph:
         self.graph[graph_key] = node
         self.full_path_name_to_graph_key[node.full_path_name] = graph_key
 
-    def change_node_value(self, graph_key, value):
+    def change_value(self, graph_key, value):
         node = self.graph[graph_key]
         if isinstance(node, SectionNode):
             node.callable = value
+            is_used = True
         elif isinstance(node, ParamNode):
             node.value = value
+            is_used = node.has_name_and_value
+        for other_node in self.graph.values():
+            if graph_key in other_node.deps:
+                other_node.deps[graph_key] = is_used
 
     def get_node(self, graph_key):
         return self.graph.get(graph_key)
@@ -214,20 +219,18 @@ class Node:
     full_path_name: str
     type: str
     isTopLevel: bool
+    deps: dict
 
 
 @dataclass
 class SectionNode(Node):
     callable: str | None
-    deps: list
 
 
 @dataclass
 class ParamNode(Node):
     value: str
     passing_style: ParameterPassingStyle
-    deps: list
-    type: str
 
     @property
     def has_name_and_value(self):
