@@ -60,11 +60,10 @@ class ProjectGenCode(Code):
         await self.websocket_msg_handler.return_to_requester(result, messageId)
 
     async def parameters_request(self, messageId, sectionId, fullText):
-        fullText = f"{fullText}()"
         line, col = await self.insert_code_at_position(
             sectionId, None, fullText, len(fullText)
         )
-        col -= 1  # put cursor inside parentheses
+        col += 1  # put cursor inside parentheses
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_signature_help_request(
                 filepath=self.temp_file, line=line, character=col, request_id=messageId

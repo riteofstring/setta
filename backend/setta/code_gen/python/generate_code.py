@@ -205,7 +205,7 @@ class PythonCodeGenerator:
         output = f"{callable}({output})"
         return output
 
-    def insert_code_at_position(self, graph_key, fullText):
-        self.dep_graph.change_node_value(graph_key, fullText)
+    def insert_code_at_position(self, graph_key, value):
+        self.dep_graph.change_node_value(graph_key, value)
         self.generate_code()
         return self.lines[graph_key].value_position[0]
