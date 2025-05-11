@@ -16,11 +16,9 @@ CLASS_NAME = "S"
 
 CLASS_DEF = f"""
 import torch
-from setta.code_gen.python.args_obj import SettaArgsObj
 
 class {CLASS_NAME}:
     def __init__({SELF_IDENTIFIER}):
-        {SELF_IDENTIFIER}.args = SettaArgsObj()
 """.lstrip()
 
 
@@ -155,8 +153,7 @@ class PythonCodeGenerator:
             ):
                 prefix += f"{node.name}="
 
-            curr_output = f"{prefix}{var_name}"
-            output += curr_output
+            output += f"{prefix}{var_name}"
 
         output = f"{callable}({output})"
         return output
