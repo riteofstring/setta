@@ -202,6 +202,7 @@
 
 import asyncio
 import json
+from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -216,8 +217,11 @@ async def main():
     USER_SETTINGS["languageServer"] = {}
 
     dep_graph = DependencyGraph(project_state)
+    pprint(dep_graph.graph)
     code_generator = PythonCodeGenerator(dep_graph)
-    code_generator.generate_code()
+    code, _ = code_generator.generate_code()
+
+    print(code)
 
 
 if __name__ == "__main__":

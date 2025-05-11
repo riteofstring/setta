@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from setta.code_gen.dependency_graph import DependencyGraph, Node, ParamNode, SectionNode
+from setta.code_gen.dependency_graph import (
+    DependencyGraph,
+    Node,
+    ParamNode,
+    SectionNode,
+)
 
 from ...utils.constants import C, ParameterPassingStyle
 
@@ -72,8 +77,8 @@ class PythonCodeGenerator:
             final_str = f"{prefix}{value}"
             return final_str, len(prefix), len(value)
         return None, None, None
-    
-    def create_var_name(self, graph_key, node:Node):
+
+    def create_var_name(self, graph_key, node: Node):
         var_name = node.name
         if node.isTopLevel:
             var_name = f"{SELF_IDENTIFIER}.{var_name}"
@@ -81,7 +86,7 @@ class PythonCodeGenerator:
         while var_name in self.used_var_names:
             var_name = f"{var_name}_{counter}"
             counter += 1
-    
+
         self.var_name_mapping[graph_key] = var_name
         self.used_var_names.add(var_name)
         return var_name
@@ -94,19 +99,14 @@ class PythonCodeGenerator:
     def get_section_value(self, node: SectionNode):
         t = node.type
         if t == C.SECTION:
-            if not node.callable:
-                return self.construct_dict(node.deps)
+            if node.callable:
+                return self.construct_callable(node.deps)
             else:
-                output = self.get_callable_params(
-                    x["value"]["usedParams"], x["value"]["passingStyles"]
-                )
-                prefix = f"{x['value']['callable']}("
-                output = f"{prefix}{output})"
+                return self.construct_dict(node.deps)
         elif t == C.LIST_ROOT:
             return self.construct_list(node.deps)
-        # elif t in [C.DICT_ROOT, C.GROUP, C.NESTED_PARAM]:
-        #     output = get_dict_contents(x["value"], dep_graph)
-        #     output = "{" + output + "}"
+        elif t in [C.DICT_ROOT, C.GROUP]:
+            return self.construct_dict(node.deps)
         # elif t == C.TEXT_BLOCK:
         #     output = f'"""{x["value"]}"""'
         # else:
@@ -120,9 +120,8 @@ class PythonCodeGenerator:
             return "True" if node.value == "true" else "False"
         elif t == C.COLOR_PICKER:
             return f'"{node.value}"'
-
-    def get_callable_params(self, dependency_keys):
-        return self.get_mappings(dependency_keys)
+        elif t == C.NESTED_PARAM:
+            return self.construct_dict(node.deps)
 
     def construct_dict(self, dependency_keys):
         output = ""
@@ -138,32 +137,24 @@ class PythonCodeGenerator:
         output = ", ".join(self.var_name_mapping[d] for d in dependency_keys)
         return f"[{output}]"
 
-    def get_mappings(self, dependency_keys, is_dict=False):
+    def construct_callable(self, dependency_keys):
         output = ""
-        curr_position = 0
         for idx, key in enumerate(dependency_keys):
-            v = self.var_name_mapping[key]
             prefix = "" if idx == 0 else ", "
-            node = self.dep_graph[key]
-            if passingStyles.get(key) == ParameterPassingStyle.ARGS:
+            var_name = self.var_name_mapping[key]
+            node: ParamNode = self.dep_graph.graph[key]
+            passing_style = node.passing_style
+            if passing_style == ParameterPassingStyle.ARGS:
                 prefix = "*"
-            elif passingStyles.get(key) == ParameterPassingStyle.KWARGS:
+            elif passing_style == ParameterPassingStyle.KWARGS:
                 prefix = "**"
-            elif is_dict or (
-                passingStyles.get(key) == ParameterPassingStyle.DEFAULT
-                or passingStyles.get(key) == ParameterPassingStyle.KEYWORD_ONLY
+            elif (
+                passing_style == ParameterPassingStyle.DEFAULT
+                or passing_style == ParameterPassingStyle.KEYWORD_ONLY
             ):
-                var_decl_prefix = var_declaration(
-                    dep_graph[key]["name"],
-                    v,
-                    is_dict,
-                    return_prefix=True,
-                    is_callable_param=True,
-                )
-                prefix += var_decl_prefix
+                prefix += f"{node.name}="
 
-            curr_output = f"{prefix}{v}"
-            curr_position += len(curr_output)
+            curr_output = f"{prefix}{var_name}"
             output += curr_output
 
         return output
