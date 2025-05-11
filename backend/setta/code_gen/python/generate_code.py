@@ -44,7 +44,6 @@ class PythonCodeGenerator:
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
     def generate_code(self):
-        lines = {}
         processed_nodes = set()
         cycles_detected = []
 
@@ -52,23 +51,20 @@ class PythonCodeGenerator:
             if not node.isTopLevel:
                 continue
 
-            cycle = self._process_node_and_deps(key, node, lines, processed_nodes)
-            if cycle and cycle not in cycles_detected:
-                cycles_detected.append(cycle)
+            cycles_detected.extend(
+                self._process_node_and_deps(key, node, processed_nodes)
+            )
 
         if cycles_detected:
             print(f"Found {len(cycles_detected)} cycles during code generation")
             print(cycles_detected)
 
-        self.code = self.generate_wrapper_class(lines)
-        self.lines = lines
+        self.code = self.generate_wrapper_class()
 
-    def _process_node_and_deps(
-        self, graph_key, node, lines, processed_nodes, path=None
-    ):
+    def _process_node_and_deps(self, graph_key, node, processed_nodes, path=None):
         """Process a node and its dependencies, recording any cycles found."""
         if graph_key in processed_nodes:
-            return None  # Already processed, no cycle
+            return []  # Already processed, no cycle
 
         # Initialize the path if this is the top-level call
         if path is None:
@@ -79,40 +75,39 @@ class PythonCodeGenerator:
             # Cycle detected! Extract the full cycle as graph keys
             cycle_start = path.index(graph_key)
             cycle = path[cycle_start:] + [graph_key]
-            return cycle  # Return the cycle keys directly
+            return [cycle]
 
         # Add current node to path
         path.append(graph_key)
 
+        cycles = []
         # Process dependencies first
         for dep_key in node.deps:
             if dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[dep_key]
-                cycle = self._process_node_and_deps(
-                    dep_key, dep_node, lines, processed_nodes, path
+                cycles.extend(
+                    self._process_node_and_deps(
+                        dep_key, dep_node, processed_nodes, path
+                    )
                 )
-                if cycle:
-                    # Propagate cycle information upward
-                    return cycle
 
         # Now process this node
-        var_str, prefix_len, value_len = self.create_line(graph_key, node)
-        lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
+        self.create_line(graph_key, node)
 
         # Mark as processed and remove from path
         processed_nodes.add(graph_key)
         path.pop()
 
-        return None  # No cycle detected in this branch
+        return cycles  # Return all cycles found
 
-    def generate_wrapper_class(self, lines):
+    def generate_wrapper_class(self):
         code = CLASS_DEF
         indent = "        "
         indent_len = len(indent)
-        for key, l in lines.items():
+        for key, l in self.lines.items():
             curr_pos = len(code) + indent_len
             code = f"{code}{indent}{l.var_str}\n"
-            lines[key].pos = curr_pos
+            self.lines[key].pos = curr_pos
         return code
 
     def create_line(self, graph_key, node: Node):
@@ -120,7 +115,7 @@ class PythonCodeGenerator:
         var_name = self.create_var_name(graph_key, node)
         prefix = f"{var_name} = "
         final_str = f"{prefix}{value}"
-        return final_str, len(prefix), len(value)
+        self.lines[graph_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
     def create_var_name(self, graph_key, node: Node):
         if isinstance(node, ParamNode):
@@ -202,7 +197,7 @@ class PythonCodeGenerator:
         output = f"{callable}({output})"
         return output
 
-    def insert_code_at_position(self, graph_key, value):
+    def change_line_value(self, graph_key, value):
         self.dep_graph.change_node_value(graph_key, value)
         self.generate_code()
         return self.lines[graph_key].value_position[0]
