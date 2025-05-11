@@ -18,7 +18,6 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { asyncDebounce } from "utils/utils";
 
 function _CodeArea({ sectionId }) {
   const language = useSectionInfos((x) => x.x[sectionId].codeLanguage);
@@ -124,7 +123,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
 
   const theme = useCodeMirrorStyle();
   const [localValue, setLocalValue] = useState(value);
-  const abortController = useRef();
 
   useEffect(() => {
     if (value !== localValue) {
@@ -133,9 +131,8 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }, [value]);
 
   function onChange(v) {
-    abortController.current?.abort();
     setLocalValue(v);
-    debouncedSetCode(sectionId, v, abortController);
+    debouncedSetCode(sectionId, v);
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -305,24 +302,10 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = asyncDebounce(
-  async (sectionId, value, abortControllerRef) => {
-    const ac = new AbortController();
-    abortControllerRef.current = ac;
-
-    if (ac.signal.aborted) {
-      return;
-    }
-
-    if (ac.signal.aborted) {
-      return;
-    }
-    useSectionInfos.setState((x) => {
-      const sectionVariant = getSectionVariant(sectionId, x);
-      sectionVariant.code = value;
-    });
-
-    maybeIncrementProjectStateVersion(true);
-  },
-  50,
-);
+const debouncedSetCode = _.debounce((sectionId, value) => {
+  useSectionInfos.setState((x) => {
+    const sectionVariant = getSectionVariant(sectionId, x);
+    sectionVariant.code = value;
+  });
+  maybeIncrementProjectStateVersion(true);
+}, 50);
