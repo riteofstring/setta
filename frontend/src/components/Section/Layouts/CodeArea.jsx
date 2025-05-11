@@ -7,7 +7,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { dbCodeAreaCompletion } from "requests/sections";
+import { wsCodeAreaCompletion } from "requests/sections";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
@@ -43,7 +43,7 @@ function PythonCodeArea({ sectionId, language }) {
   const keywordStylizer = useKeywordStylizer(evRefs);
 
   const completionsFn = useCallback(
-    getCompletionsFn(sectionId, null, dbCodeAreaCompletion, language),
+    getCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
     [sectionId],
   );
 

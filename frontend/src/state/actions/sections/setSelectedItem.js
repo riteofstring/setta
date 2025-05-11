@@ -5,6 +5,7 @@ import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";
+import { updateBackendProjectState } from "../project/generateCode";
 import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { getSectionCurrentCodeInfoMcp } from "./sectionContents";
@@ -58,6 +59,7 @@ export async function setSelectedItem(
     useSectionInfos.setState((state) => {
       callbackSetAttr(prevSelected, state);
     });
+    await updateBackendProjectState();
     return;
   }
 
@@ -97,6 +99,7 @@ export async function setSelectedItem(
   });
 
   maybeIncrementProjectStateVersion(true);
+  await updateBackendProjectState();
 }
 
 function createChildrenCodeInfo(sectionId, parent, params, state) {

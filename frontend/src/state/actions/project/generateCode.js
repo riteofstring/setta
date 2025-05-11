@@ -3,7 +3,6 @@ import _ from "lodash";
 import { sendMessage } from "requests/websocket";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
-import { asyncDebounce } from "utils/utils";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
 
@@ -33,8 +32,8 @@ export async function getProjectDataToGenerateCode({
   return project;
 }
 
-export const updateBackendProjectState = asyncDebounce(async () => {
+export async function updateBackendProjectState() {
+  console.log("updateBackendProjectState")
   const project = await getProjectDataToGenerateCode({});
-  console.log("updateBackendProjectState");
-  sendMessage({ content: project, messageType: C.WS_PROJECT_STATE_UPDATE });
-}, 50);
+  sendMessage({ content: project, messageType: C.WS_UPDATE_PROJECT_STATE });
+}

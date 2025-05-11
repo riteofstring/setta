@@ -32,7 +32,7 @@ export async function wsParametersRequest({ sectionId, fullText }) {
   });
 }
 
-export async function dbCodeAreaCompletion({
+export async function wsCodeAreaCompletion({
   sectionId,
   fullText,
   position,
