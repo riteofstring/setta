@@ -115,10 +115,12 @@ class PythonCodeGenerator:
 
     def create_line(self, graph_key, node: Node):
         value = self.get_value(node)
-        var_name = self.create_var_name(graph_key, node)
-        prefix = f"{var_name} = "
-        final_str = f"{prefix}{value}"
-        return final_str, len(prefix), len(value)
+        if value:
+            var_name = self.create_var_name(graph_key, node)
+            prefix = f"{var_name} = "
+            final_str = f"{prefix}{value}"
+            return final_str, len(prefix), len(value)
+        return None, None, None
 
     def create_var_name(self, graph_key, node: Node):
         if isinstance(node, ParamNode):
