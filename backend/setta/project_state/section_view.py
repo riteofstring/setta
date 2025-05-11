@@ -81,7 +81,7 @@ class SectionView:
         dep_graph = DependencyGraph(self.project_state)
         graph_key = dep_graph.create_graph_key(self.sectionId, paramInfoId)
         code_generator = PythonCodeGenerator(dep_graph)
-        code, lines = code_generator.generate_code(force_appear_key=graph_key)
+        code, lines = code_generator.generate_code()
 
         projectConfigName = self.project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName

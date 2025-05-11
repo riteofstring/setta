@@ -35,18 +35,31 @@ class PythonCodeGenerator:
         self.var_name_mapping = {}
         self.used_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
 
-    def generate_code(self, force_appear_key=None):
+    def generate_code(self):
         lines = {}
-        for graph_key, node in self.dep_graph.graph.items():
-            force_appear = force_appear_key == graph_key
-            var_str, prefix_len, value_len = self.create_line(
-                graph_key, node, force_appear=force_appear
-            )
-            if var_str:
-                lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
+        processed_nodes = set()
+        for key, node in self.dep_graph.graph.items():
+            if not node.isTopLevel:
+                continue
+            self._process_node_and_deps(key, node, lines, processed_nodes)
 
         code = self.generate_wrapper_class(lines)
         return code, lines
+
+    def _process_node_and_deps(self, graph_key, node, lines, processed_nodes):
+        if graph_key in processed_nodes:
+            return
+
+        for dep_key in node.deps:
+            if dep_key not in processed_nodes:
+                dep_node = self.dep_graph.graph[dep_key]
+                self._process_node_and_deps(dep_key, dep_node, lines, processed_nodes)
+
+        var_str, prefix_len, value_len = self.create_line(graph_key, node)
+        if var_str:
+            lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
+
+        processed_nodes.add(graph_key)
 
     def generate_wrapper_class(self, lines):
         code = CLASS_DEF
@@ -58,14 +71,12 @@ class PythonCodeGenerator:
             lines[key].pos = curr_pos
         return code
 
-    def create_line(self, graph_key, node: Node, force_appear):
+    def create_line(self, graph_key, node: Node):
         value = self.get_value(node)
-        if value or force_appear:
-            var_name = self.create_var_name(graph_key, node)
-            prefix = f"{var_name} = "
-            final_str = f"{prefix}{value}"
-            return final_str, len(prefix), len(value)
-        return None, None, None
+        var_name = self.create_var_name(graph_key, node)
+        prefix = f"{var_name} = "
+        final_str = f"{prefix}{value}"
+        return final_str, len(prefix), len(value)
 
     def create_var_name(self, graph_key, node: Node):
         if isinstance(node, ParamNode):
