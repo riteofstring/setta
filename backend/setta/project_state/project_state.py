@@ -42,19 +42,13 @@ class ProjectState:
         # for v in self.code.values():
         #     await v.type_check()
 
-    async def text_field_initialize(self, sectionId, paramInfoId):
-        print("*************text_field_initialize\n\n\n", flush=True)
-        # await gen_code.update(self.project_state, code)
-        # self.text_field_cache[paramInfoId] = gen_code
-
     async def text_field_autocomplete(
         self, messageId, sectionId, paramInfoId, fullText, position
     ):
         print("*************text_field_autocomplete\n\n\n", flush=True)
-        # if paramInfoId not in self.text_field_cache:
-        #     await self.text_field_initialize(paramInfoId)
-        # cache = self.text_field_cache[paramInfoId]
-        # await cache.text_field_autocomplete(messageId, fullText, position)
+        await self.gen_code.text_field_autocomplete(
+            messageId, sectionId, paramInfoId, fullText, position
+        )
 
     async def parameters_request(self, messageId, sectionId, fullText):
         print("parameters_request", flush=True)

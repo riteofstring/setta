@@ -45,8 +45,12 @@ class ProjectGenCode(Code):
         line, col = position_to_line_col(code, position)
         return line, col
 
-    async def text_field_autocomplete(self, messageId, fullText, position):
-        line, col = await self.insert_code_at_position(fullText, position)
+    async def text_field_autocomplete(
+        self, messageId, sectionId, paramInfoId, fullText, position
+    ):
+        line, col = await self.insert_code_at_position(
+            sectionId, paramInfoId, fullText, position
+        )
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
                 filepath=self.temp_file, line=line, character=col, request_id=messageId
