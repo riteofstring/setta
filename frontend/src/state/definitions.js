@@ -57,7 +57,7 @@ export const useSectionInfos = withProjectState(
                 [C.GEN_PYTHON_CODE]: null,
                 temporaryTerminalGroup: null,
               },
-              shouldRenameReferences: false,
+              requestRenameRefactor: false,
             }),
           ),
         ),

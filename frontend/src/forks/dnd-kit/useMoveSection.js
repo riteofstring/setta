@@ -107,7 +107,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       state,
     });
 
-    state.shouldRenameReferences = true;
+    state.requestRenameRefactor = true;
   });
 
   maybeIncrementProjectStateVersion(true);

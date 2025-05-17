@@ -29,10 +29,16 @@ export async function getProjectDataToGenerateCode({
     }
     project.sections = sections;
   }
+  project.requestRenameRefactor =
+    useSectionInfos.getState().requestRenameRefactor;
   return project;
 }
 
 export const updateBackendProjectState = asyncDebounce(async () => {
   const project = await getProjectDataToGenerateCode({});
   sendMessage({ content: project, messageType: C.WS_UPDATE_PROJECT_STATE });
+  // have to reset requestRenameRefactor to false, in case it was set to true
+  useSectionInfos.setState((state) => {
+    state.requestRenameRefactor = false;
+  });
 }, 200);

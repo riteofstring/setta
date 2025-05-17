@@ -40,10 +40,10 @@ class ProjectState:
             # Get the next message handler and its arguments
             print("[DEBUG] Waiting for next message in queue...", flush=True)
             handler, args, future = await self.message_queue.get()
-            print(
-                f"[DEBUG] Got message from queue: handler={handler.__name__}, args={args}",
-                flush=True,
-            )
+            # print(
+            #     f"[DEBUG] Got message from queue: handler={handler.__name__}, args={args}",
+            #     flush=True,
+            # )
             try:
                 # Execute the actual implementation
                 print(f"[DEBUG] Starting handler {handler.__name__}", flush=True)
@@ -66,7 +66,7 @@ class ProjectState:
 
     async def _enqueue(self, handler: Callable, *args: Any):
         """Enqueue a message for processing and wait for its completion"""
-        print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
+        # print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
         print(
             f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
             flush=True,

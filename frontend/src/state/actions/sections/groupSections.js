@@ -38,7 +38,7 @@ export function groupSections({ sectionIds, position, name }) {
       state,
     });
 
-    state.shouldRenameReferences = true;
+    state.requestRenameRefactor = true;
   });
 
   setActiveSectionIds([groupId]);
@@ -84,7 +84,7 @@ export function ungroupGroup(groupId, state) {
 
   deleteSections([groupId], state);
 
-  state.shouldRenameReferences = true;
+  state.requestRenameRefactor = true;
 }
 
 export function ungroupActiveGroup() {
