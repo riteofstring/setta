@@ -13,6 +13,7 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
+import { processRenameRefactorResults } from "state/actions/referenceRenaming";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import {
@@ -100,7 +101,7 @@ function receiveMessage(message) {
   } else if (m.messageType === C.WS_UUID_MAPPING_FOR_LLM) {
     updateUUIDMappingForLLM(m.content);
   } else if (m.messageType === C.WS_RETURN_RENAME_REFACTOR_RESULTS) {
-    console.log("WS_RETURN_RENAME_REFACTOR_RESULTS", m);
+    processRenameRefactorResults(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

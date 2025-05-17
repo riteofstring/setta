@@ -88,7 +88,6 @@
   "ROUTE_FILTER_DATA_FOR_JSON_EXPORT": "/filterDataForJSONExport",
   "ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT": "/addDefaultDataForJSONImport",
   "ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED": "/getJsonSourcePathToBeDeleted",
-  "ROUTE_MAKE_REPLACEMENTS": "/makeReplacements",
   "ROUTE_CREATE_FILE": "/createFile",
   "ROUTE_DELETE_FILE": "/deleteFile",
   "ROUTE_CHECK_IF_FILE_EXISTS": "/checkIfFileExists",

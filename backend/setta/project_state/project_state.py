@@ -276,7 +276,13 @@ class ProjectState:
         changed_node_values = new_dep_graph.rename_references(old_dep_graph)
 
         # messageId can be None when update() is called from backend
-        if messageId:
+        if len(changed_node_values) > 0 and messageId:
+            # convert to a list of dicts, where each dict has keys "sectionId", "paramInfoId", "value"
+            changed_node_values = [
+                {**new_dep_graph.extract_ids_from_graph_key(k), "value": v}
+                for k, v in changed_node_values.items()
+            ]
+
             await self.websocket_msg_handler.return_rename_refactor_results(
                 changed_node_values,
                 messageId,

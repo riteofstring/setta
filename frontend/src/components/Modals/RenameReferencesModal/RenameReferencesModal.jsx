@@ -37,7 +37,7 @@ export function RenameReferencesModal() {
 
       dbSaveSettings(useSettings.getState());
     }
-    await makeReplacements(...modalData);
+    await makeReplacements(modalData);
     setModalOpen(false);
   };
 
@@ -51,8 +51,8 @@ export function RenameReferencesModal() {
           </Dialog.Title>
         </div>
         <Dialog.Description className="mb-4 text-sm text-setta-600 dark:text-setta-300">
-          The section you moved is referenced to by other sections. Would you
-          like to update those references?
+          The section you renamed/moved is referenced to by other sections.
+          Would you like to update those references?
         </Dialog.Description>
       </header>
       {/* Scrollable content section */}
