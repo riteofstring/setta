@@ -109,8 +109,6 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 
     state.shouldRenameReferences = true;
   });
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function useOnDragEnd() {

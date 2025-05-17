@@ -61,7 +61,7 @@ class DB:
 
 
 class DBQueue:
-    def __init__(self, path, n=2):
+    def __init__(self, path, n=1):
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))

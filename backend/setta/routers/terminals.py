@@ -5,12 +5,13 @@ from typing import List, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
+from setta.code_gen.create_runnable_scripts import generateRunCodeCommand, runCode
 from setta.database.db.notifications.load import create_notification_dict
-from setta.database.utils import create_new_id
 from setta.utils.constants import C
 
 from .dependencies import (
-    get_project_manager,
+    get_code_state,
+    get_lsp_writers,
     get_terminals,
     get_terminals_from_websocket,
     get_wmh_terminals,
@@ -102,26 +103,23 @@ def route_kill_subprocesses(
 async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,
-    project_manager=Depends(get_project_manager),
+    lsp_writers=Depends(get_lsp_writers),
+    project_manager=Depends(get_code_state),
     terminals=Depends(get_terminals),
     websocket_msg_handler=Depends(get_wmh_terminals),
 ):
     terminal_id, new_terminal_created = None, None
 
-    command = await project_manager.create_run_command(x.project)
     if x.cliId:
+        command = await generateRunCodeCommand(x.project, lsp_writers, project_manager)
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
-        projectConfigId = x.project["projectConfig"]["id"]
-        terminal_id = terminals.get_free_terminal(projectConfigId)
-
-        new_terminal_created = False
-        if not terminal_id:
-            terminal_id = create_new_id()
-            terminals.new_terminal(projectConfigId, terminal_id, True)
-            new_terminal_created = True
-
-        asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
+        terminal_id, new_terminal_created = await runCode(
+            x.project,
+            lsp_writers,
+            project_manager,
+            terminals,
+        )
 
     notification = create_notification_dict(message="Started", temporary=True)
     background_tasks.add_task(

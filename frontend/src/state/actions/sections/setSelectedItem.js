@@ -58,7 +58,6 @@ export async function setSelectedItem(
     useSectionInfos.setState((state) => {
       callbackSetAttr(prevSelected, state);
     });
-    maybeIncrementProjectStateVersion(true);
     return;
   }
 

@@ -203,7 +203,7 @@ def route_file_watch_list(
 
 
 @router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
-async def route_file_watch_gen_python_code(
+def route_file_watch_gen_python_code(
     x: FileWatchGenPythonCodeRequest,
     specific_file_watcher=Depends(get_specific_file_watcher),
     project_manager=Depends(get_project_manager),
@@ -211,7 +211,7 @@ async def route_file_watch_gen_python_code(
     filepaths = []
 
     if x.watch:
-        path = await project_manager.get_gen_python_code_path(x.projectConfigId)
+        path = project_manager.get_gen_python_code_path(x.projectConfigId)
         if not path:
             raise HTTPException(status_code=404, detail="Path not found")
         filepaths = [str(path)]

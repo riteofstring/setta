@@ -45,7 +45,7 @@ import { formatCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
-import { runEntryCodeBlock } from "./runOrImportCode";
+import { runActiveCode, runEntryCodeBlock } from "./runOrImportCode";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
@@ -476,7 +476,7 @@ export function attachKeyEventListeners() {
     [shortcuts.copyShortcut, copy],
     [shortcuts.pasteShortcut, paste],
     [shortcuts.pasteAsRefShortcut, () => paste({ asRef: true })],
-    // [shortcuts.runCodeShortcut, runActiveCode],
+    [shortcuts.runCodeShortcut, runActiveCode],
     [shortcuts.runEntryCodeBlockShortcut, runEntryCodeBlock],
     // [
     //   shortcuts.sendProjectToAllInteractiveCode,
