@@ -42,7 +42,8 @@ class PythonCodeGenerator:
         self.reset()
 
     def reset(self):
-        self.var_name_mapping = {}
+        self.var_name_mapping = {} # graph_key to var name
+        self.reverse_var_name_mapping = {} # var name to graph_key
         self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
         self.code = ""
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
@@ -136,6 +137,7 @@ class PythonCodeGenerator:
             self.used_temp_var_names.add(var_name)
 
         self.var_name_mapping[graph_key] = var_name
+        self.reverse_var_name_mapping[var_name] = graph_key
         return var_name
 
     def get_value(self, node: Node):

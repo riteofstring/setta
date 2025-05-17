@@ -1,37 +1,46 @@
 import re
 
+from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
-def process_diagnostics(diagnostics, code, codeJson):
-    code_split = code.split("\n")
+def process_gen_code_diagnostics(diagnostics, code, reverse_var_name_mapping):
     output = []
     for d in diagnostics:
-        pass  # TODO
+        print(f"{d}\n", flush=True)
+        output.extend(process_gen_code_diagnostic(d, code, reverse_var_name_mapping))
+    print(output)
     return output
 
 
-def process_gen_code_diagnostic(d, code_split, codeJson, start, end):
-    if "code" not in d or not codeJson:
+def process_gen_code_diagnostic(d, code, reverse_var_name_mapping):
+    if "code" not in d:
         return []
+    start = d["range"]["start"]
+    end = d["range"]["end"]
     if d["code"] == "reportArgumentType":
-        problem_var = code_split[start["line"]][
-            start["character"] : end["character"]
-        ].strip()
-        return [get_message_with_ids(codeJson, problem_var, d["message"])]
-    elif d["code"] == "reportCallIssue" and "missing" in d["message"]:
-        missing_params = extract_parameters(d["message"])
-        # get variable to the left of the equal sign
-        assigned_to = code_split[start["line"]].split("=")[0].strip()
-        unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
-        output = []
-        for potential_problem_var in unusedParams:
-            if codeJson[potential_problem_var]["name"] in missing_params:
-                output.append(
-                    get_message_with_ids(codeJson, potential_problem_var, d["message"])
-                )
-        return output
+        problem_var = code[start["position"]:end["position"]]
+        graph_key = reverse_var_name_mapping.get(problem_var)   
+        if graph_key:
+            return [{**DependencyGraph.extract_ids_from_graph_key(graph_key), "message": d["message"]}]
+
     return []
+
+
+        # return [get_message_with_ids(codeJson, problem_var, d["message"])]
+    # elif d["code"] == "reportCallIssue" and "missing" in d["message"]:
+    #     missing_params = extract_parameters(d["message"])
+    #     # get variable to the left of the equal sign
+    #     assigned_to = code_split[start["line"]].split("=")[0].strip()
+    #     unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
+    #     output = []
+    #     for potential_problem_var in unusedParams:
+    #         if codeJson[potential_problem_var]["name"] in missing_params:
+    #             output.append(
+    #                 get_message_with_ids(codeJson, potential_problem_var, d["message"])
+    #             )
+    #     return output
+    # return []
 
 
 def get_message_with_ids(code_json, problem_var, message):

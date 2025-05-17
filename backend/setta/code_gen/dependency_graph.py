@@ -156,9 +156,6 @@ class DependencyGraph:
             value = new_ev_entry()["value"]
             return value, None
 
-    def create_graph_key(self, section_id, param_info_id=None):
-        return (section_id, param_info_id)
-
     def add_to_graph(self, graph_key, node):
         self.graph[graph_key] = node
         self.full_path_name_to_graph_key[node.full_path_name] = graph_key
@@ -210,6 +207,14 @@ class DependencyGraph:
         return isinstance(node, SectionNode) or (
             isinstance(node, ParamNode) and node.has_name_and_value
         )
+
+    @staticmethod
+    def create_graph_key(section_id, param_info_id=None):
+        return (section_id, param_info_id)
+
+    @staticmethod
+    def extract_ids_from_graph_key(graph_key):
+        return {"sectionId": graph_key[0], "paramInfoId": graph_key[1]}
 
 
 @dataclass

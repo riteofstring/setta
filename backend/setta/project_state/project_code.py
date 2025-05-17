@@ -1,3 +1,4 @@
+import json
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
@@ -16,7 +17,7 @@ from setta.project_state.lsp_response_handlers.completion import (
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
     convert_diagnostic_line_cols_to_positions,
-    process_diagnostics,
+    process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
@@ -105,10 +106,10 @@ class ProjectGenPythonCode(PythonCode):
         convert_diagnostic_line_cols_to_positions(
             self.code_generator.code, params["diagnostics"]
         )
-        diagnostics = process_diagnostics(
+        diagnostics = process_gen_code_diagnostics(
             params["diagnostics"],
             self.code_generator.code,
-            self.dep_graph,
+            self.code_generator.reverse_var_name_mapping,
         )
         content = {
             "projectConfigId": self.project_state["projectConfig"]["id"],

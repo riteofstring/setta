@@ -235,11 +235,12 @@ async def main():
 
 
     dep_graph = DependencyGraph(project_state)
-    pprint(dep_graph.graph)
+    # pprint(dep_graph.graph)
     code_generator = PythonCodeGenerator(dep_graph, "")
     code_generator.generate_code()
 
     print(code_generator.code)
+    pprint(code_generator.lines)
 
 
     gen_code = ProjectGenPythonCode(
