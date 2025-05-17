@@ -2,19 +2,18 @@ import asyncio
 import json
 import logging
 
-from setta.database.db.notifications.load import create_notification_dict
-
 from .server import LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server):
+    def __init__(self, server, initialized_callback=None):
         self.server = server
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None
+        self.initialized_callback = initialized_callback
 
     async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
@@ -106,10 +105,8 @@ class LanguageServerReader(LanguageServerInteractor):
             and id == self.server.initialization_request_id
         ):
             self.server.is_initialized = True
-            content = create_notification_dict(
-                "Language Server Started", temporary=True
-            )
-            # await self.websocket_msg_handler.broadcast_notification(content)
+            if self.initialized_callback:
+                self.initialized_callback()
         else:
             if id in self.pending_requests:
                 self.pending_requests[id].set_result(response)

@@ -1,4 +1,8 @@
+import asyncio
+
+from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import CWD, USER_SETTINGS
+from setta.websockets.websocket_msg_handlers import BaseWebsocketMsgHandler
 
 from .file_watcher import LSPFileWatcher
 from .reader import LanguageServerReader
@@ -32,8 +36,18 @@ class LSPWriters:
 
 
 class LSPReaders:
-    def __init__(self, servers):
-        self.full = LanguageServerReader(servers.full)
+    def __init__(self, servers, websocket_manager):
+        websocket_msg_handler = BaseWebsocketMsgHandler(websocket_manager)
+
+        def initialization_callback():
+            content = create_notification_dict(
+                "Language Server Started", temporary=True
+            )
+            asyncio.create_task(
+                websocket_msg_handler.broadcast_notification_to_all_projects(content)
+            )
+
+        self.full = LanguageServerReader(servers.full, initialization_callback)
 
     async def start(self):
         await self.full.start()
@@ -51,3 +65,8 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
 async def stop_lsps(lsps, lsp_readers):
     await lsp_readers.stop()
     lsps.stop()
+
+
+async def restart_lsps(lsps, lsp_readers, lsp_writers):
+    await stop_lsps(lsps, lsp_readers)
+    await start_lsps(lsps, lsp_readers, lsp_writers)

@@ -45,9 +45,10 @@ from setta.websockets.websocket_msg_handlers import WebsocketMsgHandlers
 async def lifespan(app: FastAPI):
     # startup
     app.state.settings_file = SettingsFile()
+    app.state.websocket_manager = WebsocketManager()
     app.state.lsps = LSPServers()
     app.state.lsp_writers = LSPWriters(app.state.lsps)
-    app.state.websocket_manager = WebsocketManager()
+    app.state.lsp_readers = LSPReaders(app.state.lsps, app.state.websocket_manager)
     app.state.project_manager = ProjectManager(
         app.state.lsp_writers, app.state.websocket_manager
     )
@@ -74,7 +75,6 @@ async def lifespan(app: FastAPI):
         app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
-    app.state.lsp_readers = LSPReaders(app.state.lsps)
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(
