@@ -107,7 +107,7 @@ class ProjectState:
     async def create_run_command(self, project_state):
         return await self._enqueue(self._create_run_command_impl, project_state)
 
-    async def update(self, project_state, messageId):
+    async def update(self, project_state, messageId=None):
         return await self._enqueue(self._update_impl, project_state, messageId)
 
     async def type_check(self):
@@ -153,7 +153,7 @@ class ProjectState:
             return self.code_dict[entry_id].get_run_command(code_paths[entry_id])
         return self.gen_code.get_run_command(gen_code_path)
 
-    async def _update_impl(self, project_state, messageId):
+    async def _update_impl(self, project_state, messageId=None):
         self.used_files = set()
         project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
