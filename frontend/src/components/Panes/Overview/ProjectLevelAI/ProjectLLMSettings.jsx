@@ -1,8 +1,6 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import C from "constants/constants.json";
-import { useEffect } from "react";
 import { dbSetLLMApiKeys } from "requests/ai";
-import { updateLLMApiKeyInfo } from "state/actions/fileUpdates";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { MODEL_GROUPS } from "utils/constants";
@@ -41,10 +39,6 @@ const IsolatedInput = ({ apiKeyName }) => {
 };
 
 export function ProjectLLMSettings() {
-  useEffect(() => {
-    updateLLMApiKeyInfo(useAIStore.getState().apiKeysFilepath);
-  }, []);
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto pb-[30dvh] text-setta-600 dark:text-setta-400">
       {MODEL_GROUPS.map((group) => (

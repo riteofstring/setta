@@ -25,10 +25,6 @@ def get_wmh_artifact(request: Request):
     return request.app.state.websocket_msg_handlers.artifact
 
 
-def get_wmh_database(request: Request):
-    return request.app.state.websocket_msg_handlers.database
-
-
 def get_wmh_terminals(request: Request):
     return request.app.state.websocket_msg_handlers.terminals
 
@@ -49,8 +45,8 @@ def get_wmh_python_logger_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.python_logger
 
 
-def get_wmh_specific_file_watcher(request: Request):
-    return request.app.state.websocket_msg_handlers.specific_file_watcher
+def get_wmh_base(request: Request):
+    return request.app.state.websocket_msg_handlers.base
 
 
 def get_lsps(request: Request):
@@ -69,12 +65,8 @@ def get_lsp_writers_from_websocket(websocket: WebSocket):
     return websocket.app.state.lsp_writers
 
 
-def get_code_tasks(request: Request):
-    return request.app.state.code_tasks
-
-
-def get_code_state(request: Request):
-    return request.app.state.code_state
+def get_project_manager(request: Request):
+    return request.app.state.project_manager
 
 
 def get_code_state_from_websocket(websocket: WebSocket):

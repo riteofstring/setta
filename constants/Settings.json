@@ -87,7 +87,7 @@
     "exportDbRawOnSave": false,
     "exportDbReadableOnSave": false,
     "exportDbReadableWithVariantsOnSave": false,
-    "renameReferencesOnSectionMoveMode": "Always Ask",
+    "renameRefactorMode": "Always Ask",
     "saveRenderedValues": false
   },
   "languageServer": {},
@@ -106,6 +106,9 @@
     },
     "GLOBAL_PARAM_SWEEP": {
       "name": "Global Param Sweep"
+    },
+    "GEN_PYTHON_CODE": {
+      "name": "Generated Python Code"
     },
     "TEXT_BLOCK": {
       "displayMode": "RENDER"

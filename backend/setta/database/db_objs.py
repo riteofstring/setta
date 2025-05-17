@@ -18,7 +18,7 @@ class DB:
             )
             self.conn.row_factory = sqlite3.Row
             self.cursor = self.conn.cursor()
-        self.execute("PRAGMA foreign_keys = ON;")
+            self.execute("PRAGMA foreign_keys = ON;")
 
     def disconnect(self):
         if self.conn:
@@ -53,6 +53,7 @@ class DB:
         return self.cursor.description
 
     def __enter__(self, *args, **kwargs):
+        self.connect()
         self.conn.__enter__(*args, **kwargs)
         return self
 
@@ -61,7 +62,7 @@ class DB:
 
 
 class DBQueue:
-    def __init__(self, path, n=1):
+    def __init__(self, path, n=2):
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))
@@ -97,11 +98,15 @@ class DBQueue:
 
     def __enter__(self, *args, **kwargs):
         self.set_curr()
-        return self.curr.__enter__(*args, **kwargs)
+        self.curr.__enter__(*args, **kwargs)
+        return self.curr
 
     def __exit__(self, *args, **kwargs):
-        self.curr.__exit__(*args, **kwargs)
-        self.put_back_curr()
+        if self.curr is not None:
+            result = self.curr.__exit__(*args, **kwargs)
+            self.put_back_curr()
+            return result
+        return None
 
 
 def get_default_db_path():

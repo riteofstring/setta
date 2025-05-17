@@ -2,28 +2,20 @@ import asyncio
 import json
 import logging
 
-from setta.database.db.notifications.load import create_notification_dict
-from setta.lsp.reader_fns.completion import process_completion_response
-from setta.lsp.reader_fns.definition import process_definition_response
-from setta.lsp.reader_fns.diagnostics import process_diagnostics_response
-from setta.lsp.reader_fns.documentHighlight import process_document_highlight_response
-from setta.lsp.reader_fns.references import process_references_response
-from setta.lsp.reader_fns.signatureHelp import process_signature_help_response
-
 from .server import LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server, websocket_msg_handler):
+    def __init__(self, server, initialized_callback=None):
         self.server = server
-        self.websocket_msg_handler = websocket_msg_handler
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None
+        self.initialized_callback = initialized_callback
 
-    async def start_listener(self):
+    async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
         self.stop_event.clear()  # Reset the stop event
         self.reader_task = asyncio.create_task(self.read_response())
@@ -87,7 +79,7 @@ class LanguageServerReader(LanguageServerInteractor):
 
         try:
             response = json.loads(response.decode("utf-8"))
-            await self.process_response(response)
+            self.process_response(response)
         except json.JSONDecodeError as e:
             logger.debug(f"Error decoding JSON response: {e}")
             return
@@ -95,16 +87,16 @@ class LanguageServerReader(LanguageServerInteractor):
             logger.debug(f"Error processing response: {e}")
             return
 
-    async def process_response(self, response):
+    def process_response(self, response):
         logger.debug(f"Processing response: {response}")
         id = response.get("id", None)
         method = response.get("method", None)
         if id:
-            await self.process_response_with_id(id, method, response)
+            self.process_response_with_id(id, method, response)
         else:
-            await self.process_response_without_id(method, response)
+            self.process_response_without_id(method, response)
 
-    async def process_response_with_id(self, id, method, response):
+    def process_response_with_id(self, id, method, response):
         metadata = self.msg_id_to_metadata.pop(id, {})
         method = method if method else metadata["method"]
 
@@ -113,38 +105,15 @@ class LanguageServerReader(LanguageServerInteractor):
             and id == self.server.initialization_request_id
         ):
             self.server.is_initialized = True
-            content = create_notification_dict(
-                "Language Server Started", temporary=True
-            )
-            await self.websocket_msg_handler.broadcast_notification(content)
+            if self.initialized_callback:
+                self.initialized_callback()
         else:
-            returnId = id
-            otherData = metadata.get("otherData")
-
-            if method == "textDocument/completion":
-                content = process_completion_response(response, metadata)
-            elif method == "textDocument/signatureHelp":
-                content = process_signature_help_response(response)
-            elif method == "textDocument/references":
-                content, returnId = process_references_response(response, metadata)
-            elif method == "textDocument/documentHighlight":
-                content, returnId = process_document_highlight_response(
-                    response, metadata
-                )
-            elif method == "textDocument/definition":
-                content = process_definition_response(response)
-
-            content = {"data": content, "otherData": otherData}
-
             if id in self.pending_requests:
-                self.pending_requests[id].set_result(content)
-            else:
-                await self.websocket_msg_handler.return_to_requester(content, returnId)
+                self.pending_requests[id].set_result(response)
 
-    async def process_response_without_id(self, method, response):
+    def process_response_without_id(self, method, response):
         if method == "textDocument/publishDiagnostics":
-            content, needsDiagnostics = process_diagnostics_response(
-                response, self.get_code_metadata
-            )
-            if needsDiagnostics:
-                await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
+            uri = response["params"]["uri"]
+            callback = self.diagnostics_response_callbacks.get(uri)
+            if callback:
+                asyncio.create_task(callback(response))

@@ -1,18 +1,21 @@
-import { dbGetLLMApiKeys } from "requests/ai";
+import C from "constants/constants.json";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useSectionInfos } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
-  const { metadata } = updatedFileInfo;
+  const { fileWatchGroupName } = updatedFileInfo;
 
-  if (metadata === "jsonSource") {
+  if (fileWatchGroupName === "jsonSource") {
     await updateJSONSourceContents(updatedFileInfo);
-  } else if (metadata === "apiKeysFile") {
-    await updateApiKeyInfo(updatedFileInfo);
+  } else if (fileWatchGroupName === "apiKeys") {
+    updateApiKeyInfo(updatedFileInfo);
+  } else if (fileWatchGroupName === "genPythonCode") {
+    updateGenPythonCode(updatedFileInfo);
   }
 }
 
+// TODO: this logic should be on the backend
 async function updateJSONSourceContents(updatedFileInfo) {
   const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
     updatedFileInfo;
@@ -63,16 +66,19 @@ export async function loadJsonContents(variantIdsToLoad) {
 }
 
 async function updateApiKeyInfo(updatedFileInfo) {
-  const { absPath, destAbsPath } = updatedFileInfo;
-  await updateLLMApiKeyInfo(destAbsPath ?? absPath);
+  const { fileContent } = updatedFileInfo;
+  useAIStore.setState({
+    apiKeys: fileContent,
+    apiKeysInitialLoadComplete: true,
+  });
 }
 
-export async function updateLLMApiKeyInfo(apiKeysFilepath) {
-  const res = await dbGetLLMApiKeys(apiKeysFilepath);
-  if (res.status == 200) {
-    useAIStore.setState({
-      apiKeys: res.data,
-      apiKeysInitialLoadComplete: true,
-    });
-  }
+function updateGenPythonCode(updatedFileInfo) {
+  const { fileContent } = updatedFileInfo;
+  useSectionInfos.setState((state) => {
+    const id = state.singletonSections[C.GEN_PYTHON_CODE];
+    if (id) {
+      state.x[id].code = fileContent;
+    }
+  });
 }

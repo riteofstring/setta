@@ -54,7 +54,7 @@ class Terminals:
         self.sockets = {}
         self.PTY_PIDS = {}
         self.websocket_msg_handler_meta = websocket_msg_handler_meta
-        asyncio.create_task(self.monitor_child_processes())
+        # asyncio.create_task(self.monitor_child_processes())
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:

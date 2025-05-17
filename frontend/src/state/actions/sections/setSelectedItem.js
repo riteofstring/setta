@@ -1,8 +1,5 @@
 import C from "constants/constants.json";
-import {
-  dbParametersRequest,
-  dbTextFieldInitializeCode,
-} from "requests/sections";
+import { wsParametersRequest } from "requests/sections";
 import { useSectionInfos } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
@@ -26,7 +23,6 @@ export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
       getSectionVariant(sectionId, state).selectedItem = id;
     }
   }
-  await dbTextFieldInitializeCode({ sectionId, paramInfoId: null });
   await setSelectedItem(
     sectionId,
     sectionId,
@@ -62,15 +58,15 @@ export async function setSelectedItem(
     useSectionInfos.setState((state) => {
       callbackSetAttr(prevSelected, state);
     });
+    maybeIncrementProjectStateVersion(true);
     return;
   }
 
   const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
 
-  const paramRes = await dbParametersRequest({
+  const paramRes = await wsParametersRequest({
     sectionId: dataSectionId,
     fullText: selectedItemName,
-    position: selectedItemName.length,
   });
 
   useSectionInfos.setState((state) => {
@@ -80,15 +76,14 @@ export async function setSelectedItem(
         name: selectedItemName,
         editable: false,
         rcType: C.CALLABLE,
-        evRefs: paramRes.otherData.evRefs,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {
       info = state.codeInfo[prevSelected];
     }
 
-    if (paramRes.data) {
-      const [documentation, params] = paramRes.data;
+    if (paramRes) {
+      const [documentation, params] = paramRes;
       if (params) {
         createChildrenCodeInfo(dataSectionId, info.id, params, state);
       } else {

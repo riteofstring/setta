@@ -52,9 +52,12 @@ class WebsocketManager:
         websocket = self.sockets[toWebsocketId]["websocket"]
         await websocket.send_text(json.dumps(message))
 
-    async def return_to_requester(self, content, request_msg_id):
+    async def return_to_requester(self, content, request_msg_id, messageType=None):
+        message = {"id": request_msg_id, "content": content}
+        if messageType:
+            message["messageType"] = messageType
         await self.send_message(
-            {"id": request_msg_id, "content": content},
+            message,
             self.message_id_to_sender_id[request_msg_id],
         )
 

@@ -39,7 +39,6 @@ export function ParamUI({
   value,
   onChange,
   maybeErrorMessage,
-  evRefs,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
@@ -84,7 +83,6 @@ export function ParamUI({
             dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
             realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
             language={configLanguage}
-            evRefs={evRefs}
             isDisabled={isDisabled}
           />
           {waitingForResult && (
@@ -178,7 +176,6 @@ export function ParamSweepUI({
   value,
   defaultVal,
   onChange,
-  evRefs,
   isDisabled,
 }) {
   const { uiType, configLanguage } = useSectionInfos((x) => {
@@ -207,7 +204,6 @@ export function ParamSweepUI({
             dummyCodeClassName="section-key-value peer/textinput self-end grid-row-start-1 mx-3 py-[.125rem] nodrag cursor-text select-text break-words px-0 font-mono text-xs [tab-size:4] [word-break:break-word]"
             realCodeClassName="section-key-value peer/textinput self-end grid-row-start-1 py-[.125rem] mx-3 nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px]"
             language={configLanguage}
-            evRefs={evRefs}
             isDisabled={isDisabled}
           />
           {waitingForResult && (
