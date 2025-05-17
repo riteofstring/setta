@@ -23,7 +23,7 @@ async def main():
         settings={},
         name="test",
     )
-    lsp_writer = LanguageServerWriter(lsp, use_virtual_files=True)
+    lsp_writer = LanguageServerWriter(lsp)
     lsp_listener = LanguageServerReader(lsp, FakeWebsocketManager())
 
     await lsp.start_server()

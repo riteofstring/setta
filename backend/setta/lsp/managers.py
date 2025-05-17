@@ -23,8 +23,7 @@ class LSPServers:
 
 class LSPWriters:
     def __init__(self, servers):
-        self.full = LanguageServerWriter(servers.full, use_virtual_files=False)
-
+        self.full = LanguageServerWriter(servers.full)
         self.file_watcher = LSPFileWatcher(self.full.send_did_change_watched_files)
         self.file_watcher.add_workspace_folder(self.full.workspace_folder)
 

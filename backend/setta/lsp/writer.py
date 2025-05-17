@@ -11,9 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class LanguageServerWriter(LanguageServerInteractor):
-    def __init__(self, server, use_virtual_files):
+    def __init__(self, server):
         self.server = server
-        self.use_virtual_files = use_virtual_files
 
     async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}
@@ -41,10 +40,9 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_did_change_configuration()  # pyright requires this step
 
     async def send_document_open_request(
-        self, filepath, code, virtual=None, diagnostics_callback=None
+        self, filepath, code, diagnostics_callback=None
     ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
+        uri = self.get_uri(filepath)
         if diagnostics_callback:
             self.add_diagnostics_response_callback(uri, diagnostics_callback)
         if uri not in self.latest_version_numbers:
@@ -68,9 +66,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             )
         return uri
 
-    async def send_document_update(self, filepath, code, virtual=None):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
+    async def send_document_update(self, filepath, code):
+        uri = self.get_uri(filepath)
         version = self.latest_version_numbers[uri] + 1
         self.latest_version_numbers[uri] = version
         params = {
@@ -88,10 +85,8 @@ class LanguageServerWriter(LanguageServerInteractor):
         line,
         character,
         request_id,
-        virtual=None,
     ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
+        uri = self.get_uri(filepath)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -102,11 +97,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_signature_help_request(
-        self, filepath, line, character, request_id, virtual=None
-    ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
+    async def send_signature_help_request(self, filepath, line, character, request_id):
+        uri = self.get_uri(filepath)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -118,11 +110,8 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_rename_request(
-        self, filepath, line, character, newName, request_id, virtual=None
-    ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
+    async def send_rename_request(self, filepath, line, character, newName, request_id):
+        uri = self.get_uri(filepath)
         params = {
             "textDocument": {"uri": uri},
             "position": {"line": line, "character": character},
@@ -156,12 +145,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         asyncio.create_task(fn_call)
         return await self.wait_for_response(request_id)
 
-    def get_is_virtual(self, virtual):
-        return virtual if virtual is not None else self.use_virtual_files
-
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, filepath, virtual):
-        uri = filepath.as_uri()
-        if virtual:
-            uri = uri.replace("file://", "untitled:", 1)
-        return uri
+    def get_uri(self, filepath):
+        return filepath.as_uri()
