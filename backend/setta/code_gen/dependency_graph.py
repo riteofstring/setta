@@ -17,6 +17,7 @@ from setta.code_gen.utils import (
     sanitize_name,
 )
 from setta.database.db.sectionVariants.utils import new_ev_entry
+from setta.utils.utils import replace_at_positions
 
 from ..utils.constants import C, ParameterPassingStyle
 
@@ -206,6 +207,38 @@ class DependencyGraph:
         return isinstance(node, SectionNode) or (
             isinstance(node, ParamNode) and node.has_name_and_value
         )
+
+    # compares with "previous" dep graph to find nodes that have been renamed
+    # and then changes the values of nodes that contain those old names
+    def rename_references(self, old_dep_graph: "DependencyGraph"):
+        renamings = {}
+        for k, v in old_dep_graph.graph.items():
+            node = self.get_node(k)
+            if not node:
+                continue
+            if v.name != node.name:
+                renamings[k] = (v.name, node.name)
+
+        for k, v in self.nodes_with_potential_refs.items():
+            replacements = []
+            for ref, location in v.items():
+                graph_key = old_dep_graph.full_path_name_to_graph_key.get(ref)
+                if not graph_key:
+                    continue
+                details = renamings.get(graph_key)
+                if details:
+                    old_name, new_name = details
+                    replacements.append((location, old_name, new_name))
+            if replacements:
+                node = self.get_node(k)
+                node.value, positions = replace_at_positions(
+                    node.value, replacements, return_positions=True
+                )
+                self.nodes_with_potential_refs[k] = {
+                    name: position for position, name in positions
+                }
+
+        self.resolve_references()
 
     @staticmethod
     def create_graph_key(section_id, param_info_id=None):

@@ -33,7 +33,9 @@ class ProjectGenPythonCode(PythonCode):
         code_generator: PythonCodeGenerator,
     ):
         super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
-        self.project_state = project_state
+        # with open("test_project_state.json", "w") as f:
+        # json.dump(project_state, f)
+        self.project_config_id = project_state["projectConfig"]["id"]
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.diagnostics_callback = self.process_diagnostics_response
@@ -107,7 +109,7 @@ class ProjectGenPythonCode(PythonCode):
             self.dep_graph,
         )
         content = {
-            "projectConfigId": self.project_state["projectConfig"]["id"],
+            "projectConfigId": self.project_config_id,
             "diagnostics": diagnostics,
             "isGenCode": True,
         }
