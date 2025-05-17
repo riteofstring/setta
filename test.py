@@ -203,14 +203,14 @@
 import asyncio
 import copy
 import json
-from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
+from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.database.utils import create_new_id
+from setta.code_gen.utils import SELF_IDENTIFIER
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
-from setta.project_state.project_code import ProjectGenPythonCode
-from setta.utils.constants import CODE_FOLDER, USER_SETTINGS
+from setta.utils.constants import USER_SETTINGS
+from setta.utils.utils import replace_at_positions
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -243,7 +243,7 @@ def old_code(project_state, writers):
 
 def new_code(project_state, writers):
     project_state = copy.deepcopy(project_state)
-    project_state["sections"]["0387fa87-e39d-4468-bf82-4a0691ed83c3"]["name"] = "dogs"
+    project_state["sections"]["05b291e9-d84e-4744-a3f7-490beb8fc981"]["name"] = "dogs"
     dep_graph = DependencyGraph(project_state)
     return dep_graph
     # code_generator = PythonCodeGenerator(
@@ -262,16 +262,42 @@ def new_code(project_state, writers):
     # return gen_code
 
 
-
-def get_differences(old_dep_graph, new_dep_graph):
-    for k,v in old_dep_graph.graph.items():
-        node = new_dep_graph.graph.get(k)
+def get_differences(old_dep_graph: DependencyGraph, new_dep_graph: DependencyGraph):
+    renamings = {}
+    for k, v in old_dep_graph.graph.items():
+        node = new_dep_graph.get_node(k)
         if not node:
             continue
         if v.name != node.name:
-            print("difference:", v.name, node.name)
+            renamings[k] = (v.name, node.name)
 
+    for k, v in new_dep_graph.nodes_with_potential_refs.items():
+        replacements = []
+        for ref, location in v.items():
+            graph_key = old_dep_graph.full_path_name_to_graph_key.get(ref)
+            if not graph_key:
+                continue
+            details = renamings.get(graph_key)
+            if details:
+                old_name, new_name = details
+                replacements.append((location, old_name, new_name))
+        if replacements:
+            node = new_dep_graph.get_node(k)
+            new_value, positions = replace_at_positions(
+                node.value, replacements, return_positions=True
+            )
+            node.value = new_value
+            potential_refs = find_undefined_special_var_expressions(
+                node.value, SELF_IDENTIFIER, True
+            )
+            new_dep_graph.nodes_with_potential_refs[k] = potential_refs
 
+    # print(new_dep_graph.graph)
+    new_dep_graph.resolve_references()
+
+    # node = new_dep_graph.get_node(k)
+    # if isinstance(node, ParamNode):
+    #     print(node)
 
 
 async def main():
@@ -291,8 +317,30 @@ async def main():
 
     old_dep_graph = old_code(project_state, writers)
 
+    code_generator = PythonCodeGenerator(
+        old_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
+    )
+    code_generator.generate_code()
+
+    print(code_generator.code)
+
     new_dep_graph = new_code(project_state, writers)
     get_differences(old_dep_graph, new_dep_graph)
+
+    code_generator = PythonCodeGenerator(
+        new_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
+    )
+    code_generator.generate_code()
+
+    print(code_generator.code)
+    # gen_code = ProjectGenPythonCode(
+    #     CODE_FOLDER / "temp_folder",
+    #     writers,
+    #     WMHProjectManager(),
+    #     project_state,
+    #     new_dep_graph,
+    #     code_generator,
+    # )
 
     # await gen_code.update_file()
 
@@ -316,5 +364,3 @@ if __name__ == "__main__":
 
 
 # extract_parameters("argu")
-
-

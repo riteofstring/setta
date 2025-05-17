@@ -1,6 +1,8 @@
 import ast
 import builtins
 
+from setta.code_gen.python.position_line_col import line_col_to_position_batch
+
 
 def find_top_level_symbols(source: str) -> set[str]:
     """Find all top-level symbol names that could cause naming conflicts."""
@@ -48,7 +50,7 @@ def find_top_level_symbols(source: str) -> set[str]:
 
 class UndefinedSpecialVarVisitor(ast.NodeVisitor):
     def __init__(self, special_var, keep_attr_only):
-        self.expressions = set()
+        self.expressions = {}
         self.defined_vars = set(dir(builtins))  # Start with builtins
         self.special_var = special_var
         self.keep_attr_only = keep_attr_only
@@ -59,10 +61,17 @@ class UndefinedSpecialVarVisitor(ast.NodeVisitor):
             if self.special_var not in self.defined_vars:
                 # Capture attribute expression
                 if self.keep_attr_only:
-                    self.expressions.add(node.attr)
+                    expr = node.attr
                 else:
-                    attr_name = f"{self.special_var}.{node.attr}"
-                    self.expressions.add(attr_name)
+                    expr = f"{self.special_var}.{node.attr}"
+
+                # Store expression with its line,col position
+                # Note: Need to adjust from 1-indexed to 0-indexed line numbers
+                # Adjust column to take into account special var and dot.
+                self.expressions[expr] = (
+                    node.lineno - 1,
+                    node.col_offset + len(self.special_var) + 1,
+                )
         self.generic_visit(node)
 
     def visit_Name(self, node):
@@ -190,14 +199,26 @@ class UndefinedSpecialVarVisitor(ast.NodeVisitor):
 
 def find_undefined_special_var_expressions(code_string, special_var, keep_attr_only):
     if not code_string.strip():
-        return set()
+        return {}
 
     try:
         tree = ast.parse(code_string)
     except SyntaxError:
-        return set()
+        return {}
 
     visitor = UndefinedSpecialVarVisitor(special_var, keep_attr_only)
     visitor.visit(tree)
 
-    return visitor.expressions
+    # Convert line,col positions to absolute positions
+    if visitor.expressions:
+        # Get all line,col pairs
+        positions = line_col_to_position_batch(
+            code_string, visitor.expressions.values()
+        )
+        idx = 0
+        for k in visitor.expressions.keys():
+            visitor.expressions[k] = positions[idx]
+            idx += 1
+        return visitor.expressions
+
+    return {}

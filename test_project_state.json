@@ -1,56 +1,114 @@
 {
   "projectConfig": {
-    "id": "28c8b0b6-3638-42a3-b2e5-83500547e3f4",
-    "name": "drawing_wandering",
-    "previewImgColor": "bg-green-500/60 dark:bg-green-600/30",
+    "id": "c046a074-76ce-4174-889d-07ecd03fdae5",
+    "name": "standing_spare",
+    "previewImgColor": "bg-yellow-500/60 dark:bg-yellow-600/30",
     "viewingEditingMode": "DEV",
-    "viewport": {
-      "x": -233,
-      "y": 2,
-      "zoom": 1
-    },
+    "genCodePrefix": "import torch\nfrom .pregnant_salmon import fn",
+    "genCodeSuffix": "",
+    "viewport": { "x": -123, "y": 173, "zoom": 1 },
     "children": {
-      "6b28c322-2f09-4a91-8458-7e89c848df8b": {
-        "x": 345,
-        "y": 105,
+      "0387fa87-e39d-4468-bf82-4a0691ed83c3": {
+        "x": 870,
+        "y": 150,
+        "zIndex": 5,
+        "w": 202,
+        "h": 252
+      },
+      "05b291e9-d84e-4744-a3f7-490beb8fc981": {
+        "x": 480,
+        "y": 60,
         "zIndex": 0,
         "w": 202,
+        "h": 260
+      },
+      "59af76d7-d6da-431f-a5e1-4d86649e44fc": {
+        "x": 690,
+        "y": -90,
+        "zIndex": 3,
+        "w": 392,
+        "h": 313
+      },
+      "7f18a97e-837f-4074-8489-a385104fedb2": {
+        "x": 1140,
+        "y": -45,
+        "zIndex": 2,
+        "w": 502,
+        "h": 76
+      },
+      "e2a14038-b2a5-4d02-b69f-b2c44f60e625": {
+        "x": 480,
+        "y": 390,
+        "zIndex": 1,
+        "w": 202,
         "h": 106
-      },
-      "25c78963-7a2c-4261-9fac-9e7eeb7a5056": {
-        "x": 615,
-        "y": 90,
-        "zIndex": 0,
-        "w": 218,
-        "h": 280
-      },
-      "520d1adf-9b9f-491b-9d88-3f045e28b121": {
-        "x": 870,
-        "y": 90,
-        "zIndex": 0,
-        "w": 218,
-        "h": 166
-      },
-      "a5fe410b-9760-4d66-a7ab-c0bdca0ad689": {
-        "x": 1215,
-        "y": 105,
-        "zIndex": 0,
-        "w": 250,
-        "h": 300
       }
     }
   },
   "sectionVariants": {
-    "885424f5-349f-411e-9ba5-d8fe63bd9582": {
-      "name": "delighted_olive",
+    "3ebc2f95-2580-43a4-ac91-7832a270f394": {
+      "name": "unemployed_chocolate",
+      "values": {},
+      "children": [],
+      "selectedItem": "ba78db13-51fd-47f5-be23-4eccbce9a922",
+      "code": "",
+      "codeInfoColId": "c178688c-e746-4f01-bd9a-ae34ab866841",
+      "description": "",
+      "isFrozen": false,
+      "sweep": [],
+      "runGroup": {},
+      "configLanguage": "python",
+      "isJsonSource": false,
+      "jsonSourceKeys": [],
+      "jsonSourceMissing": false
+    },
+    "7a93c4ce-2c20-4427-abe8-aeac57ed5dbf": {
+      "name": "broad_crimson",
+      "values": {
+        "abc272ec-c49e-46ce-b7be-62a84d16849a": {
+          "value": "s.unexpected_fuchsia"
+        },
+        "64b3a1ce-3d39-4576-9189-42ea31f25e79": {
+          "value": "(s.puzzled_yellow, s.unexpected_fuchsia)"
+        }
+      },
+      "children": [],
+      "selectedItem": "bb84ab4a-5108-4ea8-873a-96b51e5afb01",
+      "code": "",
+      "codeInfoColId": "0e95ed12-28ef-46c2-9afb-f848fb478729",
+      "description": "",
+      "isFrozen": false,
+      "sweep": [],
+      "runGroup": {},
+      "configLanguage": "python",
+      "isJsonSource": false,
+      "jsonSourceKeys": [],
+      "jsonSourceMissing": false
+    },
+    "85426989-8cad-41f9-9db3-0b49f59694c6": {
+      "name": "legislative_lime",
+      "values": {},
+      "children": [],
+      "selectedItem": null,
+      "code": "def fn(a,b,c):\n    print(a,b,c)",
+      "codeInfoColId": null,
+      "description": "",
+      "isFrozen": false,
+      "sweep": [],
+      "runGroup": {},
+      "configLanguage": "python",
+      "isJsonSource": false,
+      "jsonSourceKeys": [],
+      "jsonSourceMissing": false
+    },
+    "94377460-e01b-4424-ae10-852dfbc01eb9": {
+      "name": "medical_tan",
       "values": {},
       "children": [],
       "selectedItem": null,
       "code": "",
       "codeInfoColId": null,
       "description": "",
-      "evRefs": [],
-      "templateVars": [],
       "isFrozen": false,
       "sweep": [],
       "runGroup": {},
@@ -59,150 +117,14 @@
       "jsonSourceKeys": [],
       "jsonSourceMissing": false
     },
-    "c0b9444e-ba37-445b-9386-4797a5f3d851": {
-      "name": "mere_coral",
-      "values": {},
-      "children": [
-        "852701b5-38e3-4f4c-a53d-cff5318b395f",
-        "4032299b-4bae-4534-88ca-fa2a03b5dc8a"
-      ],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "41dc96d4-3715-4262-9dcf-432a71df5fd5": {
-      "name": "back_blush",
+    "4374fdda-c24b-447b-9a8c-22e0b0c90105": {
+      "name": "developing_black",
       "values": {},
       "children": [],
       "selectedItem": null,
       "code": "",
       "codeInfoColId": null,
       "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "da564bdf-542b-4e12-83f0-6de6ebb8cef4": {
-      "name": "tight_jade",
-      "values": {},
-      "children": [
-        "9a837865-5f70-4bc7-a2a2-84adaabd4aac"
-      ],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "00fc1a90-910b-47f1-a56c-f9a09ebede60": {
-      "name": "insufficient_orange",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "84ddefd6-c4fd-4548-993d-ba1a6c90a532": {
-      "name": "printed_blue",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "90f8448f-0957-4d94-8068-97d89f6e79d2": {
-      "name": "traditional_coffee",
-      "values": {},
-      "children": [
-        "7356f88c-3052-4598-ac1c-83c41d948e71",
-        "30ab6837-d361-41eb-b45a-3c30c25aa2fa"
-      ],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "40094673-49e4-40e6-b2d6-f2b60b295d9e": {
-      "name": "stale_harlequin",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
-      "isFrozen": false,
-      "sweep": [],
-      "runGroup": {},
-      "configLanguage": "python",
-      "isJsonSource": false,
-      "jsonSourceKeys": [],
-      "jsonSourceMissing": false
-    },
-    "4c9e2641-a9eb-4a5a-a3f2-9e40aa388015": {
-      "name": "quaint_jade",
-      "values": {},
-      "children": [],
-      "selectedItem": null,
-      "code": "",
-      "codeInfoColId": null,
-      "description": "",
-      "evRefs": [],
-      "templateVars": [],
       "isFrozen": false,
       "sweep": [],
       "runGroup": {},
@@ -217,23 +139,18 @@
   "uiTypes": {},
   "uiTypeCols": {},
   "sections": {
-    "6b28c322-2f09-4a91-8458-7e89c848df8b": {
-      "id": "6b28c322-2f09-4a91-8458-7e89c848df8b",
-      "name": "oral_chocolate",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
+    "0387fa87-e39d-4468-bf82-4a0691ed83c3": {
+      "id": "0387fa87-e39d-4468-bf82-4a0691ed83c3",
+      "name": "appalling_azure",
+      "size": { "width": "auto", "height": "auto" },
       "parentId": null,
-      "variantId": "885424f5-349f-411e-9ba5-d8fe63bd9582",
+      "variantId": "7a93c4ce-2c20-4427-abe8-aeac57ed5dbf",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": null,
       "social": "",
       "artifactGroupIds": [],
-      "defaultVariantId": "885424f5-349f-411e-9ba5-d8fe63bd9582",
-      "variantIds": [
-        "885424f5-349f-411e-9ba5-d8fe63bd9582"
-      ],
+      "defaultVariantId": "7a93c4ce-2c20-4427-abe8-aeac57ed5dbf",
+      "variantIds": ["7a93c4ce-2c20-4427-abe8-aeac57ed5dbf"],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "codeLanguage": "python",
@@ -245,10 +162,7 @@
       "hideUnpinnedParams": false,
       "hideColumn": false,
       "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
+      "visibility": { "DEV": true, "USER": true },
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "canvasSettings": {
@@ -282,87 +196,18 @@
       "renderedValue": null,
       "headingAsSectionName": false
     },
-    "25c78963-7a2c-4261-9fac-9e7eeb7a5056": {
-      "id": "25c78963-7a2c-4261-9fac-9e7eeb7a5056",
-      "name": "applicable_amethyst",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
+    "05b291e9-d84e-4744-a3f7-490beb8fc981": {
+      "id": "05b291e9-d84e-4744-a3f7-490beb8fc981",
+      "name": "unexpected_fuchsia",
+      "size": { "width": "auto", "height": "auto" },
       "parentId": null,
-      "variantId": "c0b9444e-ba37-445b-9386-4797a5f3d851",
-      "uiTypeId": "ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-      "uiTypeColId": null,
-      "social": "",
-      "artifactGroupIds": [],
-      "defaultVariantId": "c0b9444e-ba37-445b-9386-4797a5f3d851",
-      "variantIds": [
-        "c0b9444e-ba37-445b-9386-4797a5f3d851"
-      ],
-      "paramSweepSectionId": null,
-      "nonPresetUITypeIds": [],
-      "codeLanguage": "python",
-      "isEntryCodeBlock": false,
-      "isFrozen": false,
-      "isHorizontalOrientation": false,
-      "hideParams": false,
-      "hideSearch": false,
-      "hideUnpinnedParams": false,
-      "hideColumn": false,
-      "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "canvasSettings": {
-        "activeLayerId": null,
-        "color": "#ff0000",
-        "brushSize": 16,
-        "brushShape": "butt",
-        "eraserBrushSize": 16,
-        "drawThrottleDelay": 0,
-        "canvasTransferQueueLength": 50,
-        "mode": "draw"
-      },
-      "chartSettings": {
-        "type": "line",
-        "xAxisColumn": "",
-        "secondYAxisColumns": [],
-        "xAxisLog": false,
-        "y1AxisLog": false,
-        "y2AxisLog": false
-      },
-      "isTemporary": false,
-      "renderMarkdown": false,
-      "positionAndSizeLocked": false,
-      "selectedVariantIds": {},
-      "paramFilter": "",
-      "isInOtherProjectConfigs": false,
-      "aspectRatio": false,
-      "aspectRatioExtraHeight": 0,
-      "aspectRatioExtraWidth": 0,
-      "renderedValue": null,
-      "headingAsSectionName": false
-    },
-    "4032299b-4bae-4534-88ca-fa2a03b5dc8a": {
-      "id": "4032299b-4bae-4534-88ca-fa2a03b5dc8a",
-      "name": "related_coral",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "parentId": "25c78963-7a2c-4261-9fac-9e7eeb7a5056",
-      "variantId": "41dc96d4-3715-4262-9dcf-432a71df5fd5",
+      "variantId": "3ebc2f95-2580-43a4-ac91-7832a270f394",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": null,
       "social": "",
       "artifactGroupIds": [],
-      "defaultVariantId": "41dc96d4-3715-4262-9dcf-432a71df5fd5",
-      "variantIds": [
-        "41dc96d4-3715-4262-9dcf-432a71df5fd5"
-      ],
+      "defaultVariantId": "3ebc2f95-2580-43a4-ac91-7832a270f394",
+      "variantIds": ["3ebc2f95-2580-43a4-ac91-7832a270f394"],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "codeLanguage": "python",
@@ -374,10 +219,7 @@
       "hideUnpinnedParams": false,
       "hideColumn": false,
       "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
+      "visibility": { "DEV": true, "USER": true },
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "canvasSettings": {
@@ -411,23 +253,18 @@
       "renderedValue": null,
       "headingAsSectionName": false
     },
-    "520d1adf-9b9f-491b-9d88-3f045e28b121": {
-      "id": "520d1adf-9b9f-491b-9d88-3f045e28b121",
-      "name": "vitreous_purple",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
+    "59af76d7-d6da-431f-a5e1-4d86649e44fc": {
+      "id": "59af76d7-d6da-431f-a5e1-4d86649e44fc",
+      "name": "Generated Python Code",
+      "size": { "width": 390, "height": "auto" },
       "parentId": null,
-      "variantId": "da564bdf-542b-4e12-83f0-6de6ebb8cef4",
-      "uiTypeId": "623a9242-53e9-4b42-b695-431e9754a836",
+      "variantId": "94377460-e01b-4424-ae10-852dfbc01eb9",
+      "uiTypeId": "2b516ed4-6b82-4445-95bf-6c7dac7f410a",
       "uiTypeColId": null,
       "social": "",
       "artifactGroupIds": [],
-      "defaultVariantId": "da564bdf-542b-4e12-83f0-6de6ebb8cef4",
-      "variantIds": [
-        "da564bdf-542b-4e12-83f0-6de6ebb8cef4"
-      ],
+      "defaultVariantId": "94377460-e01b-4424-ae10-852dfbc01eb9",
+      "variantIds": ["94377460-e01b-4424-ae10-852dfbc01eb9"],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "codeLanguage": "python",
@@ -439,10 +276,7 @@
       "hideUnpinnedParams": false,
       "hideColumn": false,
       "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
+      "visibility": { "DEV": true, "USER": true },
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "canvasSettings": {
@@ -472,160 +306,27 @@
       "aspectRatio": false,
       "aspectRatioExtraHeight": 0,
       "aspectRatioExtraWidth": 0,
+      "columnWidth": null,
       "renderedValue": null,
-      "headingAsSectionName": false
+      "headingAsSectionName": false,
+      "code": "import torch\nfrom .pregnant_salmon import fn\nclass S:\n    def __init__(s):\n        s.unexpected_fuchsia = torch.nn.CrossEntropyLoss()\n        s.appalling_azure__a = s.unexpected_fuchsia\n        s.puzzled_yellow = {}\n        s.appalling_azure__b = (s.puzzled_yellow, s.un)\n        s.appalling_azure = fn(a=s.appalling_azure__a, b=s.appalling_azure__b)\n"
     },
-    "9a837865-5f70-4bc7-a2a2-84adaabd4aac": {
-      "id": "9a837865-5f70-4bc7-a2a2-84adaabd4aac",
-      "name": "fixed_beige",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "parentId": "520d1adf-9b9f-491b-9d88-3f045e28b121",
-      "variantId": "00fc1a90-910b-47f1-a56c-f9a09ebede60",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": null,
-      "social": "",
-      "artifactGroupIds": [],
-      "defaultVariantId": "00fc1a90-910b-47f1-a56c-f9a09ebede60",
-      "variantIds": [
-        "00fc1a90-910b-47f1-a56c-f9a09ebede60"
-      ],
-      "paramSweepSectionId": null,
-      "nonPresetUITypeIds": [],
-      "codeLanguage": "python",
-      "isEntryCodeBlock": false,
-      "isFrozen": false,
-      "isHorizontalOrientation": false,
-      "hideParams": false,
-      "hideSearch": false,
-      "hideUnpinnedParams": false,
-      "hideColumn": false,
-      "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "canvasSettings": {
-        "activeLayerId": null,
-        "color": "#ff0000",
-        "brushSize": 16,
-        "brushShape": "butt",
-        "eraserBrushSize": 16,
-        "drawThrottleDelay": 0,
-        "canvasTransferQueueLength": 50,
-        "mode": "draw"
-      },
-      "chartSettings": {
-        "type": "line",
-        "xAxisColumn": "",
-        "secondYAxisColumns": [],
-        "xAxisLog": false,
-        "y1AxisLog": false,
-        "y2AxisLog": false
-      },
-      "isTemporary": false,
-      "renderMarkdown": false,
-      "positionAndSizeLocked": false,
-      "selectedVariantIds": {},
-      "paramFilter": "",
-      "isInOtherProjectConfigs": false,
-      "aspectRatio": false,
-      "aspectRatioExtraHeight": 0,
-      "aspectRatioExtraWidth": 0,
-      "columnWidth": 82,
-      "renderedValue": null,
-      "headingAsSectionName": false
-    },
-    "852701b5-38e3-4f4c-a53d-cff5318b395f": {
-      "id": "852701b5-38e3-4f4c-a53d-cff5318b395f",
-      "name": "specified_coffee",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "parentId": "25c78963-7a2c-4261-9fac-9e7eeb7a5056",
-      "variantId": "84ddefd6-c4fd-4548-993d-ba1a6c90a532",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": null,
-      "social": "",
-      "artifactGroupIds": [],
-      "defaultVariantId": "84ddefd6-c4fd-4548-993d-ba1a6c90a532",
-      "variantIds": [
-        "84ddefd6-c4fd-4548-993d-ba1a6c90a532"
-      ],
-      "paramSweepSectionId": null,
-      "nonPresetUITypeIds": [],
-      "codeLanguage": "python",
-      "isEntryCodeBlock": false,
-      "isFrozen": false,
-      "isHorizontalOrientation": false,
-      "hideParams": false,
-      "hideSearch": false,
-      "hideUnpinnedParams": false,
-      "hideColumn": false,
-      "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "canvasSettings": {
-        "activeLayerId": null,
-        "color": "#ff0000",
-        "brushSize": 16,
-        "brushShape": "butt",
-        "eraserBrushSize": 16,
-        "drawThrottleDelay": 0,
-        "canvasTransferQueueLength": 50,
-        "mode": "draw"
-      },
-      "chartSettings": {
-        "type": "line",
-        "xAxisColumn": "",
-        "secondYAxisColumns": [],
-        "xAxisLog": false,
-        "y1AxisLog": false,
-        "y2AxisLog": false
-      },
-      "isTemporary": false,
-      "renderMarkdown": false,
-      "positionAndSizeLocked": false,
-      "selectedVariantIds": {},
-      "paramFilter": "",
-      "isInOtherProjectConfigs": false,
-      "aspectRatio": false,
-      "aspectRatioExtraHeight": 0,
-      "aspectRatioExtraWidth": 0,
-      "columnWidth": 82,
-      "renderedValue": null,
-      "headingAsSectionName": false
-    },
-    "a5fe410b-9760-4d66-a7ab-c0bdca0ad689": {
-      "id": "a5fe410b-9760-4d66-a7ab-c0bdca0ad689",
-      "name": "relative_red",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
+    "7f18a97e-837f-4074-8489-a385104fedb2": {
+      "id": "7f18a97e-837f-4074-8489-a385104fedb2",
+      "name": "pregnant_salmon",
+      "size": { "width": 500, "height": "auto" },
       "parentId": null,
-      "variantId": "90f8448f-0957-4d94-8068-97d89f6e79d2",
-      "uiTypeId": "0e050316-06ca-48f4-92c1-9845abdf85f7",
+      "variantId": "85426989-8cad-41f9-9db3-0b49f59694c6",
+      "uiTypeId": "af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
       "uiTypeColId": null,
       "social": "",
       "artifactGroupIds": [],
-      "defaultVariantId": "90f8448f-0957-4d94-8068-97d89f6e79d2",
-      "variantIds": [
-        "90f8448f-0957-4d94-8068-97d89f6e79d2"
-      ],
+      "defaultVariantId": "85426989-8cad-41f9-9db3-0b49f59694c6",
+      "variantIds": ["85426989-8cad-41f9-9db3-0b49f59694c6"],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "codeLanguage": "python",
-      "isEntryCodeBlock": false,
+      "isEntryCodeBlock": true,
       "isFrozen": false,
       "isHorizontalOrientation": false,
       "hideParams": false,
@@ -633,10 +334,7 @@
       "hideUnpinnedParams": false,
       "hideColumn": false,
       "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
+      "visibility": { "DEV": true, "USER": true },
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "canvasSettings": {
@@ -666,26 +364,22 @@
       "aspectRatio": false,
       "aspectRatioExtraHeight": 0,
       "aspectRatioExtraWidth": 0,
+      "columnWidth": null,
       "renderedValue": null,
       "headingAsSectionName": false
     },
-    "7356f88c-3052-4598-ac1c-83c41d948e71": {
-      "id": "7356f88c-3052-4598-ac1c-83c41d948e71",
-      "name": "disastrous_beige",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "parentId": "a5fe410b-9760-4d66-a7ab-c0bdca0ad689",
-      "variantId": "40094673-49e4-40e6-b2d6-f2b60b295d9e",
+    "e2a14038-b2a5-4d02-b69f-b2c44f60e625": {
+      "id": "e2a14038-b2a5-4d02-b69f-b2c44f60e625",
+      "name": "puzzled_yellow",
+      "size": { "width": "auto", "height": "auto" },
+      "parentId": null,
+      "variantId": "4374fdda-c24b-447b-9a8c-22e0b0c90105",
       "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
       "uiTypeColId": null,
       "social": "",
       "artifactGroupIds": [],
-      "defaultVariantId": "40094673-49e4-40e6-b2d6-f2b60b295d9e",
-      "variantIds": [
-        "40094673-49e4-40e6-b2d6-f2b60b295d9e"
-      ],
+      "defaultVariantId": "4374fdda-c24b-447b-9a8c-22e0b0c90105",
+      "variantIds": ["4374fdda-c24b-447b-9a8c-22e0b0c90105"],
       "paramSweepSectionId": null,
       "nonPresetUITypeIds": [],
       "codeLanguage": "python",
@@ -697,75 +391,7 @@
       "hideUnpinnedParams": false,
       "hideColumn": false,
       "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
-      "pinnedAreaHeight": "auto",
-      "isMinimized": false,
-      "canvasSettings": {
-        "activeLayerId": null,
-        "color": "#ff0000",
-        "brushSize": 16,
-        "brushShape": "butt",
-        "eraserBrushSize": 16,
-        "drawThrottleDelay": 0,
-        "canvasTransferQueueLength": 50,
-        "mode": "draw"
-      },
-      "chartSettings": {
-        "type": "line",
-        "xAxisColumn": "",
-        "secondYAxisColumns": [],
-        "xAxisLog": false,
-        "y1AxisLog": false,
-        "y2AxisLog": false
-      },
-      "isTemporary": false,
-      "renderMarkdown": false,
-      "positionAndSizeLocked": false,
-      "selectedVariantIds": {},
-      "paramFilter": "",
-      "isInOtherProjectConfigs": false,
-      "aspectRatio": false,
-      "aspectRatioExtraHeight": 0,
-      "aspectRatioExtraWidth": 0,
-      "columnWidth": 82,
-      "renderedValue": null,
-      "headingAsSectionName": false
-    },
-    "30ab6837-d361-41eb-b45a-3c30c25aa2fa": {
-      "id": "30ab6837-d361-41eb-b45a-3c30c25aa2fa",
-      "name": "associated_coffee",
-      "size": {
-        "width": "auto",
-        "height": "auto"
-      },
-      "parentId": "a5fe410b-9760-4d66-a7ab-c0bdca0ad689",
-      "variantId": "4c9e2641-a9eb-4a5a-a3f2-9e40aa388015",
-      "uiTypeId": "0191cde4-3d98-4ba0-972a-fead19b8ac73",
-      "uiTypeColId": null,
-      "social": "",
-      "artifactGroupIds": [],
-      "defaultVariantId": "4c9e2641-a9eb-4a5a-a3f2-9e40aa388015",
-      "variantIds": [
-        "4c9e2641-a9eb-4a5a-a3f2-9e40aa388015"
-      ],
-      "paramSweepSectionId": null,
-      "nonPresetUITypeIds": [],
-      "codeLanguage": "python",
-      "isEntryCodeBlock": false,
-      "isFrozen": false,
-      "isHorizontalOrientation": false,
-      "hideParams": false,
-      "hideSearch": false,
-      "hideUnpinnedParams": false,
-      "hideColumn": false,
-      "displayMode": "GUI",
-      "visibility": {
-        "DEV": true,
-        "USER": true
-      },
+      "visibility": { "DEV": true, "USER": true },
       "pinnedAreaHeight": "auto",
       "isMinimized": false,
       "canvasSettings": {
@@ -800,6 +426,184 @@
       "headingAsSectionName": false
     }
   },
-  "codeInfo": {},
-  "codeInfoCols": {}
+  "codeInfo": {
+    "2465a561-6088-4b71-ac27-f7d03aa0fbdf": {
+      "id": "2465a561-6088-4b71-ac27-f7d03aa0fbdf",
+      "name": "reduce",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "Deprecated (see :attr:`reduction`). By default, the\nlosses are averaged or summed over observations for each minibatch depending\non :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\nbatch element instead and ignores :attr:`size_average`. Default: ``True``",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "5f97e64e-3dbb-4d33-85b3-6bd96393913b": {
+      "id": "5f97e64e-3dbb-4d33-85b3-6bd96393913b",
+      "name": "label_smoothing",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "0",
+      "description": "A float in [0.0, 1.0]. Specifies the amount\nof smoothing when computing the loss, where 0.0 means no smoothing. The targets\nbecome a mixture of the original ground truth and a uniform distribution as described in\n`Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`.",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "64b3a1ce-3d39-4576-9189-42ea31f25e79": {
+      "id": "64b3a1ce-3d39-4576-9189-42ea31f25e79",
+      "name": "b",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "8194b365-dd95-41eb-acf0-a46a25cfac3f": {
+      "id": "8194b365-dd95-41eb-acf0-a46a25cfac3f",
+      "name": "c",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "abc272ec-c49e-46ce-b7be-62a84d16849a": {
+      "id": "abc272ec-c49e-46ce-b7be-62a84d16849a",
+      "name": "a",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "",
+      "description": "",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "ba78db13-51fd-47f5-be23-4eccbce9a922": {
+      "id": "ba78db13-51fd-47f5-be23-4eccbce9a922",
+      "name": "torch.nn.CrossEntropyLoss",
+      "editable": false,
+      "rcType": "callable",
+      "defaultVal": "",
+      "description": "This criterion computes the cross entropy loss between input logits\nand target.\n\nIt is useful when training a classification problem with `C` classes.\nIf provided, the optional argument :attr:`weight` should be a 1D `Tensor`\nassigning weight to each of the classes.\nThis is particularly useful when you have an unbalanced training set.\n\nThe `input` is expected to contain the unnormalized logits for each class (which do `not` need\nto be positive or sum to 1, in general).\n`input` has to be a Tensor of size :math:`(C)` for unbatched input,\n:math:`(minibatch, C)` or :math:`(minibatch, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1` for the\n`K`-dimensional case. The last being useful for higher dimension inputs, such\nas computing cross entropy loss per-pixel for 2D images.\n\nThe `target` that this criterion expects should contain either:\n\n- Class indices in the range :math:`[0, C)` where :math:`C` is the number of classes; if\n  `ignore_index` is specified, this loss also accepts this class index (this index\n  may not necessarily be in the class range). The unreduced (i.e. with :attr:`reduction`\n  set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - w_{y_n} \\log \\frac{\\exp(x_{n,y_n})}{\\sum_{c=1}^C \\exp(x_{n,c})}\n      \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\sum_{n=1}^N \\frac{1}{\\sum_{n=1}^N w_{y_n} \\cdot \\mathbb{1}\\{y_n \\not= \\text{ignore\\_index}\\}} l_n, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n  Note that this case is equivalent to applying :class:`~torch.nn.LogSoftmax`\n  on an input, followed by :class:`~torch.nn.NLLLoss`.\n\n- Probabilities for each class; useful when labels beyond a single class per minibatch item\n  are required, such as for blended labels, label smoothing, etc. The unreduced (i.e. with\n  :attr:`reduction` set to ``'none'``) loss for this case can be described as:\n\n  .. math::\n      \\ell(x, y) = L = \\{l_1,\\dots,l_N\\}^\\top, \\quad\n      l_n = - \\sum_{c=1}^C w_c \\log \\frac{\\exp(x_{n,c})}{\\sum_{i=1}^C \\exp(x_{n,i})} y_{n,c}\n\n  where :math:`x` is the input, :math:`y` is the target, :math:`w` is the weight,\n  :math:`C` is the number of classes, and :math:`N` spans the minibatch dimension as well as\n  :math:`d_1, ..., d_k` for the `K`-dimensional case. If\n  :attr:`reduction` is not ``'none'`` (default ``'mean'``), then\n\n  .. math::\n      \\ell(x, y) = \\begin{cases}\n          \\frac{\\sum_{n=1}^N l_n}{N}, &\n           \\text{if reduction} = \\text{`mean';}\\\\\n            \\sum_{n=1}^N l_n,  &\n            \\text{if reduction} = \\text{`sum'.}\n        \\end{cases}\n\n.. note::\n    The performance of this criterion is generally better when `target` contains class\n    indices, as this allows for optimized computation. Consider providing `target` as\n    class probabilities only when a single class label per minibatch item is too restrictive.\n\nArgs:\n    weight (Tensor, optional): a manual rescaling weight given to each class.\n        If given, has to be a Tensor of size `C` and floating point dtype\n    size_average (bool, optional): Deprecated (see :attr:`reduction`). By default,\n        the losses are averaged over each loss element in the batch. Note that for\n        some losses, there are multiple elements per sample. If the field :attr:`size_average`\n        is set to ``False``, the losses are instead summed for each minibatch. Ignored\n        when :attr:`reduce` is ``False``. Default: ``True``\n    ignore_index (int, optional): Specifies a target value that is ignored\n        and does not contribute to the input gradient. When :attr:`size_average` is\n        ``True``, the loss is averaged over non-ignored targets. Note that\n        :attr:`ignore_index` is only applicable when the target contains class indices.\n    reduce (bool, optional): Deprecated (see :attr:`reduction`). By default, the\n        losses are averaged or summed over observations for each minibatch depending\n        on :attr:`size_average`. When :attr:`reduce` is ``False``, returns a loss per\n        batch element instead and ignores :attr:`size_average`. Default: ``True``\n    reduction (str, optional): Specifies the reduction to apply to the output:\n        ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will\n        be applied, ``'mean'``: the weighted mean of the output is taken,\n        ``'sum'``: the output will be summed. Note: :attr:`size_average`\n        and :attr:`reduce` are in the process of being deprecated, and in\n        the meantime, specifying either of those two args will override\n        :attr:`reduction`. Default: ``'mean'``\n    label_smoothing (float, optional): A float in [0.0, 1.0]. Specifies the amount\n        of smoothing when computing the loss, where 0.0 means no smoothing. The targets\n        become a mixture of the original ground truth and a uniform distribution as described in\n        `Rethinking the Inception Architecture for Computer Vision <https://arxiv.org/abs/1512.00567>`__. Default: :math:`0.0`.\n\nShape:\n    - Input: Shape :math:`(C)`, :math:`(N, C)` or :math:`(N, C, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of `K`-dimensional loss.\n    - Target: If containing class indices, shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with\n      :math:`K \\geq 1` in the case of K-dimensional loss where each value should be between :math:`[0, C)`.\n      If containing class probabilities, same shape as the input and each value should be between :math:`[0, 1]`.\n    - Output: If reduction is 'none', shape :math:`()`, :math:`(N)` or :math:`(N, d_1, d_2, ..., d_K)` with :math:`K \\geq 1`\n      in the case of K-dimensional loss, depending on the shape of the input. Otherwise, scalar.\n\n    where:\n\n    .. math::\n        \\begin{aligned}\n            C ={} & \\text{number of classes} \\\\\n            N ={} & \\text{batch size} \\\\\n        \\end{aligned}\n\nExamples::\n\n    >>> # Example of target with class indices\n    >>> loss = nn.CrossEntropyLoss()\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.empty(3, dtype=torch.long).random_(5)\n    >>> output = loss(input, target)\n    >>> output.backward()\n    >>>\n    >>> # Example of target with class probabilities\n    >>> input = torch.randn(3, 5, requires_grad=True)\n    >>> target = torch.randn(3, 5).softmax(dim=1)\n    >>> output = loss(input, target)\n    >>> output.backward()",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "bb84ab4a-5108-4ea8-873a-96b51e5afb01": {
+      "id": "bb84ab4a-5108-4ea8-873a-96b51e5afb01",
+      "name": "fn",
+      "editable": false,
+      "rcType": "callable",
+      "defaultVal": "",
+      "description": "",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "d6bcafeb-38a4-4c0e-ad06-c73aebd4cf0d": {
+      "id": "d6bcafeb-38a4-4c0e-ad06-c73aebd4cf0d",
+      "name": "ignore_index",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "-100",
+      "description": "Specifies a target value that is ignored\nand does not contribute to the input gradient. When :attr:`size_average` is\n``True``, the loss is averaged over non-ignored targets. Note that\n:attr:`ignore_index` is only applicable when the target contains class indices.",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "da8a4146-4028-499f-831d-f154c153d868": {
+      "id": "da8a4146-4028-499f-831d-f154c153d868",
+      "name": "size_average",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "Deprecated (see :attr:`reduction`). By default,\nthe losses are averaged over each loss element in the batch. Note that for\nsome losses, there are multiple elements per sample. If the field :attr:`size_average`\nis set to ``False``, the losses are instead summed for each minibatch. Ignored\nwhen :attr:`reduce` is ``False``. Default: ``True``",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "ede25640-617c-4d45-9ac6-f4198ad4bbbf": {
+      "id": "ede25640-617c-4d45-9ac6-f4198ad4bbbf",
+      "name": "weight",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "None",
+      "description": "weight (Tensor, optional): a manual rescaling weight given to each class.",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    },
+    "ef6bedd0-e2e1-4aae-b13d-5a2fb8645bf8": {
+      "id": "ef6bedd0-e2e1-4aae-b13d-5a2fb8645bf8",
+      "name": "reduction",
+      "editable": false,
+      "rcType": "parameter",
+      "defaultVal": "\"mean\"",
+      "description": "Specifies the reduction to apply to the output:\n``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will\nbe applied, ``'mean'``: the weighted mean of the output is taken,\n``'sum'``: the output will be summed. Note: :attr:`size_average`\nand :attr:`reduce` are in the process of being deprecated, and in\nthe meantime, specifying either of those two args will override\n:attr:`reduction`. Default: ``'mean'``",
+      "passingStyle": "DEFAULT",
+      "isPinned": false,
+      "isFrozen": false,
+      "isSelected": false,
+      "ignoreTypeErrors": false
+    }
+  },
+  "codeInfoCols": {
+    "c178688c-e746-4f01-bd9a-ae34ab866841": {
+      "children": {
+        "null": ["ba78db13-51fd-47f5-be23-4eccbce9a922"],
+        "ba78db13-51fd-47f5-be23-4eccbce9a922": [
+          "ede25640-617c-4d45-9ac6-f4198ad4bbbf",
+          "da8a4146-4028-499f-831d-f154c153d868",
+          "d6bcafeb-38a4-4c0e-ad06-c73aebd4cf0d",
+          "2465a561-6088-4b71-ac27-f7d03aa0fbdf",
+          "ef6bedd0-e2e1-4aae-b13d-5a2fb8645bf8",
+          "5f97e64e-3dbb-4d33-85b3-6bd96393913b"
+        ],
+        "ede25640-617c-4d45-9ac6-f4198ad4bbbf": [],
+        "da8a4146-4028-499f-831d-f154c153d868": [],
+        "d6bcafeb-38a4-4c0e-ad06-c73aebd4cf0d": [],
+        "2465a561-6088-4b71-ac27-f7d03aa0fbdf": [],
+        "ef6bedd0-e2e1-4aae-b13d-5a2fb8645bf8": [],
+        "5f97e64e-3dbb-4d33-85b3-6bd96393913b": []
+      }
+    },
+    "0e95ed12-28ef-46c2-9afb-f848fb478729": {
+      "children": {
+        "null": ["bb84ab4a-5108-4ea8-873a-96b51e5afb01"],
+        "bb84ab4a-5108-4ea8-873a-96b51e5afb01": [
+          "abc272ec-c49e-46ce-b7be-62a84d16849a",
+          "64b3a1ce-3d39-4576-9189-42ea31f25e79",
+          "8194b365-dd95-41eb-acf0-a46a25cfac3f"
+        ],
+        "abc272ec-c49e-46ce-b7be-62a84d16849a": [],
+        "64b3a1ce-3d39-4576-9189-42ea31f25e79": [],
+        "8194b365-dd95-41eb-acf0-a46a25cfac3f": []
+      }
+    }
+  },
+  "requestRenameRefactor": false
 }
