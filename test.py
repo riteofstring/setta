@@ -206,7 +206,16 @@ from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.utils.constants import USER_SETTINGS
+from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
+from setta.project_state.project_code import ProjectGenPythonCode
+from setta.utils.constants import CODE_FOLDER, USER_SETTINGS
+
+class WMHProjectManager:
+    async def return_to_requester(self, content, returnId):
+        pass
+
+    async def broadcast_lsp_diagnostics(self, content):
+        pass
 
 
 async def main():
@@ -216,13 +225,35 @@ async def main():
 
     USER_SETTINGS["languageServer"] = {}
 
+    servers = LSPServers()
+    writers = LSPWriters(servers)
+    readers = LSPReaders(servers)
+
+    await servers.full.start()
+    await readers.full.start()
+    await writers.full.start()
+
+
     dep_graph = DependencyGraph(project_state)
     pprint(dep_graph.graph)
-    code_generator = PythonCodeGenerator(dep_graph)
-    code, _ = code_generator.generate_code()
+    code_generator = PythonCodeGenerator(dep_graph, "")
+    code_generator.generate_code()
 
-    print(code)
+    print(code_generator.code)
 
+
+    gen_code = ProjectGenPythonCode(
+                CODE_FOLDER / "temp_folder",
+                writers,
+                WMHProjectManager(),
+                project_state,
+                dep_graph,
+                code_generator,
+            )
+
+    await gen_code.update_file()
+    
+    await servers.full.server.wait()
 
 if __name__ == "__main__":
     asyncio.run(main())
