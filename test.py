@@ -201,8 +201,8 @@
 
 
 import asyncio
+import copy
 import json
-from pathlib import Path
 from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
@@ -211,6 +211,7 @@ from setta.database.utils import create_new_id
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
 from setta.project_state.project_code import ProjectGenPythonCode
 from setta.utils.constants import CODE_FOLDER, USER_SETTINGS
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class WMHProjectManager:
@@ -219,6 +220,58 @@ class WMHProjectManager:
 
     async def broadcast_lsp_diagnostics(self, content):
         pass
+
+
+def old_code(project_state, writers):
+    dep_graph = DependencyGraph(project_state)
+    return dep_graph
+    # code_generator = PythonCodeGenerator(
+    #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
+    # )
+    # code_generator.generate_code()
+    # gen_code = ProjectGenPythonCode(
+    #     CODE_FOLDER / "temp_folder",
+    #     writers,
+    #     WMHProjectManager(),
+    #     project_state,
+    #     dep_graph,
+    #     code_generator,
+    # )
+
+    # return gen_code
+
+
+def new_code(project_state, writers):
+    project_state = copy.deepcopy(project_state)
+    project_state["sections"]["0387fa87-e39d-4468-bf82-4a0691ed83c3"]["name"] = "dogs"
+    dep_graph = DependencyGraph(project_state)
+    return dep_graph
+    # code_generator = PythonCodeGenerator(
+    #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
+    # )
+    # code_generator.generate_code()
+    # gen_code = ProjectGenPythonCode(
+    #     CODE_FOLDER / "temp_folder",
+    #     writers,
+    #     WMHProjectManager(),
+    #     project_state,
+    #     dep_graph,
+    #     code_generator,
+    # )
+
+    # return gen_code
+
+
+
+def get_differences(old_dep_graph, new_dep_graph):
+    for k,v in old_dep_graph.graph.items():
+        node = new_dep_graph.graph.get(k)
+        if not node:
+            continue
+        if v.name != node.name:
+            print("difference:", v.name, node.name)
+
+
 
 
 async def main():
@@ -230,46 +283,32 @@ async def main():
 
     servers = LSPServers()
     writers = LSPWriters(servers)
-    readers = LSPReaders(servers)
+    readers = LSPReaders(servers, WebsocketManager())
 
     await servers.full.start()
     await readers.full.start()
     await writers.full.start()
 
-    dep_graph = DependencyGraph(project_state)
-    # pprint(dep_graph.graph)
-    code_generator = PythonCodeGenerator(
-        dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
-    )
-    code_generator.generate_code()
+    old_dep_graph = old_code(project_state, writers)
 
-    print(code_generator.code)
-    pprint(code_generator.lines)
+    new_dep_graph = new_code(project_state, writers)
+    get_differences(old_dep_graph, new_dep_graph)
 
-    gen_code = ProjectGenPythonCode(
-        CODE_FOLDER / "temp_folder",
-        writers,
-        WMHProjectManager(),
-        project_state,
-        dep_graph,
-        code_generator,
-    )
+    # await gen_code.update_file()
 
-    await gen_code.update_file()
-
-    request_id=create_new_id()
-    response = await writers.full.send_and_wait(
-        writers.full.send_rename_request(
-            filepath=CODE_FOLDER / "temp_folder"/ "setta_gen.py",
-            line=7,
-            character=11,
-            request_id=request_id,
-            newName="doggy",
-        ),
-        request_id,
-    )
-    print('response', response, flush=True)
-    await servers.full.server.wait()
+    # request_id = create_new_id()
+    # response = await writers.full.send_and_wait(
+    #     writers.full.send_rename_request(
+    #         filepath=CODE_FOLDER / "temp_folder" / "setta_gen.py",
+    #         line=7,
+    #         character=11,
+    #         request_id=request_id,
+    #         newName="doggy",
+    #     ),
+    #     request_id,
+    # )
+    # print("response", response, flush=True)
+    # await servers.full.server.wait()
 
 
 if __name__ == "__main__":
@@ -277,3 +316,5 @@ if __name__ == "__main__":
 
 
 # extract_parameters("argu")
+
+
