@@ -112,6 +112,11 @@ class PythonCodeGenerator:
             code = f"{self.gen_code_prefix}\n{code}"
         indent = "        "
         indent_len = len(indent)
+
+        # no sections or params? Then just pass.
+        if len(self.lines) == 0:
+            return f"{code}{indent}pass\n"
+
         for key, l in self.lines.items():
             curr_pos = len(code) + indent_len
             code = f"{code}{indent}{l.var_str}\n"
