@@ -25,26 +25,35 @@ class ProjectState:
         self.code_dict: dict[str, ProjectPythonCode] = {}
         self.used_files: set[Path] = set()
         self.message_queue = asyncio.Queue()
-        print(f"[DEBUG] Creating queue task in ProjectState.__init__", flush=True)
+        print("[DEBUG] Creating queue task in ProjectState.__init__", flush=True)
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
-        print(f"[DEBUG] Starting _process_queue background task", flush=True)
+        print("[DEBUG] Starting _process_queue background task", flush=True)
         while True:
-            print(f"[DEBUG] Queue size before get: {self.message_queue.qsize()}", flush=True)
+            print(
+                f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
+                flush=True,
+            )
             # Get the next message handler and its arguments
-            print(f"[DEBUG] Waiting for next message in queue...", flush=True)
+            print("[DEBUG] Waiting for next message in queue...", flush=True)
             handler, args, future = await self.message_queue.get()
-            print(f"[DEBUG] Got message from queue: handler={handler.__name__}, args={args}", flush=True)
+            print(
+                f"[DEBUG] Got message from queue: handler={handler.__name__}, args={args}",
+                flush=True,
+            )
             try:
                 # Execute the actual implementation
                 print(f"[DEBUG] Starting handler {handler.__name__}", flush=True)
                 result = await handler(*args)
                 print(f"[DEBUG] Completed handler {handler.__name__}", flush=True)
                 # Set the result for the waiting call
-                print(f"[DEBUG] Setting result on future (cancelled={future.cancelled()})", flush=True)
+                print(
+                    f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
+                    flush=True,
+                )
                 future.set_result(result)
             except Exception as e:
                 # Propagate any exceptions back to the caller
@@ -52,41 +61,53 @@ class ProjectState:
                 future.set_exception(e)
             finally:
                 # Mark the task as done
-                print(f"[DEBUG] Marking queue task as done", flush=True)
+                print("[DEBUG] Marking queue task as done", flush=True)
                 self.message_queue.task_done()
 
     async def _enqueue(self, handler: Callable, *args: Any):
         """Enqueue a message for processing and wait for its completion"""
         print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
-        print(f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}", flush=True)
-        
+        print(
+            f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
+            flush=True,
+        )
+
         # Create a future to hold the result
         future = asyncio.Future()
         print(f"[DEBUG] Created future {id(future)}", flush=True)
-        
+
         # Put the message in the queue
-        print(f"[DEBUG] Putting message in queue", flush=True)
+        print("[DEBUG] Putting message in queue", flush=True)
         await self.message_queue.put((handler, args, future))
-        print(f"[DEBUG] Message in queue, waiting for result", flush=True)
-        
+        print("[DEBUG] Message in queue, waiting for result", flush=True)
+
         # Wait for the message to be processed and return the result
         print(f"[DEBUG] Awaiting future {id(future)}", flush=True)
         start_time = asyncio.get_event_loop().time()
         try:
             result = await future
             end_time = asyncio.get_event_loop().time()
-            print(f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result", flush=True)
+            print(
+                f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result",
+                flush=True,
+            )
             return result
         except Exception as e:
             end_time = asyncio.get_event_loop().time()
-            print(f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}", flush=True)
+            print(
+                f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}",
+                flush=True,
+            )
             raise
 
     async def create_run_command(self, project_state):
         return await self._enqueue(self._create_run_command_impl, project_state)
 
     async def update(self, project_state):
-        print(f"[DEBUG] update called with project_state {project_state.get('projectConfig', {}).get('name')}", flush=True)
+        print(
+            f"[DEBUG] update called with project_state {project_state.get('projectConfig', {}).get('name')}",
+            flush=True,
+        )
         return await self._enqueue(self._update_impl, project_state)
 
     async def type_check(self):
@@ -133,35 +154,35 @@ class ProjectState:
         return self.gen_code.get_run_command(gen_code_path)
 
     async def _update_impl(self, project_state):
-        print(f"[DEBUG] _update_impl starting", flush=True)
+        print("[DEBUG] _update_impl starting", flush=True)
         # Original implementation
         self.used_files = set()
 
-        print(f"[DEBUG] Calling replace_null_keys_with_none", flush=True)
+        print("[DEBUG] Calling replace_null_keys_with_none", flush=True)
         project_state = replace_null_keys_with_none(project_state)
-        
-        print(f"[DEBUG] Creating DependencyGraph", flush=True)
+
+        print("[DEBUG] Creating DependencyGraph", flush=True)
         dep_graph = DependencyGraph(project_state)
-        
-        print(f"[DEBUG] Getting genCodePrefix", flush=True)
+
+        print("[DEBUG] Getting genCodePrefix", flush=True)
         gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
-        
-        print(f"[DEBUG] Creating PythonCodeGenerator", flush=True)
+
+        print("[DEBUG] Creating PythonCodeGenerator", flush=True)
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
-        
-        print(f"[DEBUG] Calling generate_code()", flush=True)
+
+        print("[DEBUG] Calling generate_code()", flush=True)
         code_generator.generate_code()
 
-        print(f"[DEBUG] Checking if gen_code exists", flush=True)
+        print("[DEBUG] Checking if gen_code exists", flush=True)
         if self.gen_code:
-            print(f"[DEBUG] Calling gen_code.callback_cleanup()", flush=True)
+            print("[DEBUG] Calling gen_code.callback_cleanup()", flush=True)
             self.gen_code.callback_cleanup()
 
-        print(f"[DEBUG] Creating project_temp_folder", flush=True)
+        print("[DEBUG] Creating project_temp_folder", flush=True)
         projectConfigName = project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-        
-        print(f"[DEBUG] Creating ProjectGenPythonCode", flush=True)
+
+        print("[DEBUG] Creating ProjectGenPythonCode", flush=True)
         self.gen_code = ProjectGenPythonCode(
             project_temp_folder,
             self.lsp_writers,
@@ -170,60 +191,80 @@ class ProjectState:
             dep_graph,
             code_generator,
         )
-        
-        print(f"[DEBUG] Calling gen_code.update_file()", flush=True)
+
+        print("[DEBUG] Calling gen_code.update_file()", flush=True)
         start_time = asyncio.get_event_loop().time()
         await self.gen_code.update_file()
         end_time = asyncio.get_event_loop().time()
-        print(f"[DEBUG] gen_code.update_file() completed in {end_time - start_time:.2f}s", flush=True)
-        
-        print(f"[DEBUG] Adding gen_code to used_files", flush=True)
+        print(
+            f"[DEBUG] gen_code.update_file() completed in {end_time - start_time:.2f}s",
+            flush=True,
+        )
+
+        print("[DEBUG] Adding gen_code to used_files", flush=True)
         self.add_to_used_files(self.gen_code)
 
-        print(f"[DEBUG] Checking existing code_dict", flush=True)
+        print("[DEBUG] Checking existing code_dict", flush=True)
         if self.code_dict:
-            print(f"[DEBUG] Cleaning up existing code objects ({len(self.code_dict)} items)", flush=True)
+            print(
+                f"[DEBUG] Cleaning up existing code objects ({len(self.code_dict)} items)",
+                flush=True,
+            )
             for c in self.code_dict.values():
                 if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
 
-        print(f"[DEBUG] Creating new code_dict", flush=True)
+        print("[DEBUG] Creating new code_dict", flush=True)
         self.code_dict = {}
-        
-        print(f"[DEBUG] Processing sections", flush=True)
+
+        print("[DEBUG] Processing sections", flush=True)
         section_count = len(project_state["sections"].keys())
         print(f"[DEBUG] Found {section_count} sections to process", flush=True)
-        
+
         for i, sectionId in enumerate(project_state["sections"].keys()):
-            print(f"[DEBUG] Processing section {i+1}/{section_count}: {sectionId}", flush=True)
+            print(
+                f"[DEBUG] Processing section {i + 1}/{section_count}: {sectionId}",
+                flush=True,
+            )
             section_type = get_section_type(project_state, sectionId)
             print(f"[DEBUG] Section type: {section_type}", flush=True)
-            
+
             if section_type == C.CODE:
-                print(f"[DEBUG] Creating code object for section {sectionId}", flush=True)
+                print(
+                    f"[DEBUG] Creating code object for section {sectionId}", flush=True
+                )
                 section_code = self.create_code_obj(
                     project_temp_folder, project_state, sectionId
                 )
-                
+
                 if not section_code:
-                    print(f"[DEBUG] No code object created for section {sectionId}", flush=True)
+                    print(
+                        f"[DEBUG] No code object created for section {sectionId}",
+                        flush=True,
+                    )
                     continue
-                    
-                print(f"[DEBUG] Calling section_code.update_file() for {sectionId}", flush=True)
+
+                print(
+                    f"[DEBUG] Calling section_code.update_file() for {sectionId}",
+                    flush=True,
+                )
                 start_time = asyncio.get_event_loop().time()
                 await section_code.update_file()
                 end_time = asyncio.get_event_loop().time()
-                print(f"[DEBUG] section_code.update_file() completed in {end_time - start_time:.2f}s", flush=True)
-                
-                print(f"[DEBUG] Adding section_code to used_files", flush=True)
+                print(
+                    f"[DEBUG] section_code.update_file() completed in {end_time - start_time:.2f}s",
+                    flush=True,
+                )
+
+                print("[DEBUG] Adding section_code to used_files", flush=True)
                 self.add_to_used_files(section_code)
-                
-                print(f"[DEBUG] Adding section_code to code_dict", flush=True)
+
+                print("[DEBUG] Adding section_code to code_dict", flush=True)
                 self.code_dict[sectionId] = section_code
 
-        print(f"[DEBUG] Deleting unused files", flush=True)
+        print("[DEBUG] Deleting unused files", flush=True)
         self.delete_unused_files(project_temp_folder)
-        print(f"[DEBUG] _update_impl completed", flush=True)
+        print("[DEBUG] _update_impl completed", flush=True)
 
     async def _type_check_impl(self):
         await self.gen_code.type_check()

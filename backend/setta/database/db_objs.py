@@ -97,11 +97,13 @@ class DBQueue:
 
     def __enter__(self, *args, **kwargs):
         self.set_curr()
-        return self.curr.__enter__(*args, **kwargs)
+        self.curr.__enter__(*args, **kwargs)
+        return self.curr  # Return the DB object, not connection
 
     def __exit__(self, *args, **kwargs):
-        self.curr.__exit__(*args, **kwargs)
-        self.put_back_curr()
+        if self.curr is not None:
+            self.curr.__exit__(*args, **kwargs)
+            self.put_back_curr()
 
 
 def get_default_db_path():

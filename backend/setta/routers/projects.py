@@ -117,21 +117,30 @@ async def route_load_project_config(
     dbq=Depends(get_dbq),
     project_manager=Depends(get_project_manager),
 ):
-    print(f"[DEBUG] route_load_project_config started for project {x.projectConfigName}", flush=True)
+    print(
+        f"[DEBUG] route_load_project_config started for project {x.projectConfigName}",
+        flush=True,
+    )
     try:
-        print(f"[DEBUG] Opening database connection", flush=True)
+        print("[DEBUG] Opening database connection", flush=True)
         with dbq as db:
-            print(f"[DEBUG] Loading project config from database", flush=True)
+            print("[DEBUG] Loading project config from database", flush=True)
             project_state = load_project_config(db, x.projectConfigName)
-            print(f"[DEBUG] Project state loaded, size: {len(str(project_state))} chars", flush=True)
-            print(f"[DEBUG] Calling project_manager.update", flush=True)
+            print(
+                f"[DEBUG] Project state loaded, size: {len(str(project_state))} chars",
+                flush=True,
+            )
+            print("[DEBUG] Calling project_manager.update", flush=True)
             start_time = time.time()
             await project_manager.update(project_state)
-            print(f"[DEBUG] Update completed in {time.time() - start_time:.2f}s", flush=True)
-            print(f"[DEBUG] Preparing response", flush=True)
+            print(
+                f"[DEBUG] Update completed in {time.time() - start_time:.2f}s",
+                flush=True,
+            )
+            print("[DEBUG] Preparing response", flush=True)
             # Try returning a simplified response first to test
             # return {"status": "success", "project_name": project_state["projectConfig"]["name"]}
-            print(f"[DEBUG] Returning full project state", flush=True)
+            print("[DEBUG] Returning full project state", flush=True)
             return project_state
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
@@ -140,7 +149,7 @@ async def route_load_project_config(
         print(f"[DEBUG] Unexpected error: {e}", flush=True)
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        print(f"[DEBUG] route_load_project_config finished", flush=True)
+        print("[DEBUG] route_load_project_config finished", flush=True)
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
