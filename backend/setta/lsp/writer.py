@@ -118,6 +118,22 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
+    async def send_rename_request(
+        self, filepath, line, character, newName, request_id, virtual=None
+    ):
+        virtual = self.get_is_virtual(virtual)
+        uri = self.get_uri(filepath, virtual)
+        params = {
+            "textDocument": {"uri": uri},
+            "position": {"line": line, "character": character},
+            "newName": newName,
+        }
+        await self.send_request(
+            "textDocument/rename",
+            params=params,
+            id=request_id,
+        )
+
     async def send_did_change_configuration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {
