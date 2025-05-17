@@ -232,8 +232,8 @@ class DependencyGraph:
             node = self.get_node(k)
             if not node:
                 continue
-            if v.name != node.name:
-                renamings[k] = (v.name, node.name)
+            if v.full_path_name != node.full_path_name:
+                renamings[k] = (v.full_path_name, node.full_path_name)
 
         changed_node_values = {}
         for k, v in self.nodes_with_potential_refs.items():

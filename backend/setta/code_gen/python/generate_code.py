@@ -10,9 +10,7 @@ from setta.code_gen.dependency_graph import (
 )
 from setta.code_gen.utils import (
     CLASS_DEF,
-    CLASS_NAME,
     SELF_IDENTIFIER,
-    create_unique_name,
 )
 
 from ...utils.constants import C, ParameterPassingStyle
@@ -45,7 +43,6 @@ class PythonCodeGenerator:
         self.var_name_mapping = {}  # graph_key to var name
         self.reverse_var_name_mapping = {}  # var name to graph_key
         self.value_pos_start_to_graph_key = {}
-        self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
         self.code = ""
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
@@ -131,13 +128,10 @@ class PythonCodeGenerator:
         self.lines[graph_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
     def create_var_name(self, graph_key, node: Node):
-        if isinstance(node, ParamNode):
-            var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
-        elif node.isTopLevel:
+        if node.isTopLevel:
             var_name = f"{SELF_IDENTIFIER}.{node.name}"
         else:
-            var_name = create_unique_name(node.name, self.used_temp_var_names)
-            self.used_temp_var_names.add(var_name)
+            var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
 
         self.var_name_mapping[graph_key] = var_name
         self.reverse_var_name_mapping[var_name] = graph_key
