@@ -118,33 +118,6 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_document_highlight_request(
-        self,
-        line,
-        character,
-        code_id,
-        request_id,
-        return_id,
-        num_messages,
-        virtual=None,
-    ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(code_id, virtual)
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": character},
-        }
-        self.msg_id_to_metadata[request_id]["return_id"] = return_id
-        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
-        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
-            "code"
-        ]
-        await self.send_request(
-            "textDocument/documentHighlight",
-            params=params,
-            id=request_id,
-        )
-
     async def send_didChangeConfiguration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {
@@ -156,54 +129,6 @@ class LanguageServerWriter(LanguageServerInteractor):
         await self.send_request(
             "workspace/didChangeConfiguration",
             params={"settings": settings},
-        )
-
-    async def send_reference_request(
-        self,
-        position_offset,
-        line,
-        character,
-        code_id,
-        request_id,
-        return_id,
-        num_messages,
-        virtual=None,
-    ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(code_id, virtual)
-        params = {
-            "textDocument": {
-                "uri": uri,
-            },
-            "position": {"line": line, "character": character},
-            "context": {"includeDeclaration": False},
-        }
-        self.msg_id_to_metadata[request_id]["position_offset"] = position_offset
-        self.msg_id_to_metadata[request_id]["return_id"] = return_id
-        self.msg_id_to_metadata[request_id]["num_messages"] = num_messages
-        self.msg_id_to_metadata[request_id]["code"] = self.get_code_metadata(uri)[
-            "code"
-        ]
-        await self.send_request("textDocument/references", params=params, id=request_id)
-
-    async def send_definition_request(
-        self,
-        line,
-        character,
-        filepath,
-        request_id,
-        virtual=None,
-    ):
-        virtual = self.get_is_virtual(virtual)
-        uri = self.get_uri(filepath, virtual)
-        params = {
-            "textDocument": {"uri": uri},
-            "position": {"line": line, "character": character},
-        }
-        await self.send_request(
-            "textDocument/definition",
-            params=params,
-            id=request_id,
         )
 
     async def send_did_change_watched_files(self, changes):
