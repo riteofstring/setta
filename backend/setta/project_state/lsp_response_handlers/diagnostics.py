@@ -12,7 +12,7 @@ def process_gen_code_diagnostics(
     convert_diagnostic_line_cols_to_positions(code_generator.code, diagnostics)
     output = []
     for d in diagnostics:
-        # print(f"{d}\n", flush=True)
+        print(f"{d}\n", flush=True)
         output.extend(process_gen_code_diagnostic(d, code_generator, dep_graph))
     print(output)
     return output
@@ -30,18 +30,6 @@ def process_gen_code_diagnostic(
         )
     elif d["code"] == "reportCallIssue":
         return process_report_call_issue(start, end, message, code_generator, dep_graph)
-
-        # missing_params = extract_parameters(d["message"])
-        # # get variable to the left of the equal sign
-        # assigned_to = code_split[start["line"]].split("=")[0].strip()
-        # unusedParams = codeJson[assigned_to]["value"]["unusedParams"]
-        # output = []
-        # for potential_problem_var in unusedParams:
-        #     if codeJson[potential_problem_var]["name"] in missing_params:
-        #         output.append(
-        #             get_message_with_ids(codeJson, potential_problem_var, d["message"])
-        #         )
-        # return output
     return []
 
 
@@ -58,6 +46,9 @@ def process_report_call_issue(start, end, message, code_generator, dep_graph):
         return process_positional_argument_issue(
             start, message, code_generator, dep_graph
         )
+    elif "parameter" in message:
+        return process_named_argument_issue(start, message, code_generator, dep_graph)
+    return []
 
 
 def process_positional_argument_issue(start, message, code_generator, dep_graph):
@@ -67,8 +58,10 @@ def process_positional_argument_issue(start, message, code_generator, dep_graph)
     node = dep_graph.graph.get(graph_key)
     if not node:
         return []
-    positional_only_deps = []
-    for dep_graph_key in node.deps.keys():
+    missing_deps = []
+    for dep_graph_key, is_used in node.deps.items():
+        if is_used:
+            continue
         param = dep_graph.graph.get(dep_graph_key)
         if not param:
             continue
@@ -76,10 +69,28 @@ def process_positional_argument_issue(start, message, code_generator, dep_graph)
             isinstance(param, ParamNode)
             and param.passing_style == ParameterPassingStyle.POSITIONAL_ONLY
         ):
-            positional_only_deps.append(
-                get_message_with_ids(message, dep_graph_key, dep_graph)
-            )
-    return positional_only_deps
+            missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
+    return missing_deps
+
+
+def process_named_argument_issue(start, message, code_generator, dep_graph):
+    graph_key = code_generator.value_pos_start_to_graph_key.get(start["position"])
+    if not graph_key:
+        return []
+    node = dep_graph.graph.get(graph_key)
+    if not node:
+        return []
+    missing_param_names = extract_parameters(message)
+    missing_deps = []
+    for dep_graph_key, is_used in node.deps.items():
+        if is_used:
+            continue
+        param = dep_graph.graph.get(dep_graph_key)
+        if not param:
+            continue
+        if isinstance(param, ParamNode) and param.name in missing_param_names:
+            missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
+    return missing_deps
 
 
 def get_message_with_ids(message, graph_key, dep_graph):
@@ -89,7 +100,7 @@ def get_message_with_ids(message, graph_key, dep_graph):
 def extract_parameters(error_string):
     pattern = r'"([^"]+)"'
     parameters = re.findall(pattern, error_string)
-    return parameters
+    return set(parameters)
 
 
 def convert_diagnostic_line_cols_to_positions(code, diagnostics):
