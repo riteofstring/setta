@@ -128,11 +128,7 @@ class PythonCodeGenerator:
         self.lines[graph_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
     def create_var_name(self, graph_key, node: Node):
-        if node.isTopLevel:
-            var_name = f"{SELF_IDENTIFIER}.{node.name}"
-        else:
-            var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
-
+        var_name = f"{SELF_IDENTIFIER}.{node.full_path_name}"
         self.var_name_mapping[graph_key] = var_name
         self.reverse_var_name_mapping[var_name] = graph_key
         return var_name
