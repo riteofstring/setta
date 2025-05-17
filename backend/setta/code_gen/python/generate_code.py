@@ -52,7 +52,7 @@ class PythonCodeGenerator:
         cycles_detected = []
 
         for key, node in self.dep_graph.graph.items():
-            if not node.isTopLevel:
+            if not node.isTopLevel or not node.has_name_and_value:
                 continue
 
             cycles_detected.extend(

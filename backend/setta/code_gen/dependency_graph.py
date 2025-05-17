@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -61,7 +62,9 @@ class DependencyGraph:
         deps = {}
         for idx, x in enumerate(ids):
             graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
-            deps[graph_key] = True
+            node = self.get_node(graph_key)
+            if node:
+                deps[graph_key] = node.has_name_and_value
         return deps
 
     def export_section(self, p, id, isTopLevel=False, parent_node=None, idx=None):
@@ -182,7 +185,7 @@ class DependencyGraph:
     def change_value(self, graph_key, value):
         node = self.graph[graph_key]
         node.value = value
-        is_used = self.get_is_used(node)
+        is_used = node.has_name_and_value
         for other_node in self.graph.values():
             if graph_key in other_node.deps:
                 other_node.deps[graph_key] = is_used
@@ -217,12 +220,7 @@ class DependencyGraph:
                     # Found a reference, add it to dependencies if not already there
                     target_key = self.full_path_name_to_graph_key[ref]
                     target_node = self.graph[target_key]
-                    node.deps[target_key] = self.get_is_used(target_node)
-
-    def get_is_used(self, node):
-        return isinstance(node, SectionNode) or (
-            isinstance(node, ParamNode) and node.has_name_and_value
-        )
+                    node.deps[target_key] = target_node.has_name_and_value
 
     # compares with "previous" dep graph to find nodes that have been renamed
     # and then changes the values of nodes that contain those old names
@@ -269,7 +267,7 @@ class DependencyGraph:
 
 
 @dataclass
-class Node:
+class Node(ABC):
     id: str
     name: str
     full_path_name: str
@@ -277,10 +275,19 @@ class Node:
     isTopLevel: bool
     deps: dict
 
+    @property
+    @abstractmethod
+    def has_name_and_value(self) -> bool:
+        pass
+
 
 @dataclass
 class SectionNode(Node):
     value: str | None
+
+    @property
+    def has_name_and_value(self) -> bool:
+        return True
 
 
 @dataclass
