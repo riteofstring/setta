@@ -134,10 +134,10 @@ function CoreCodeMirror({
   const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const completionsFn = useCallback(
-    autocomplete
-      ? getTextFieldCompletionsFn(dataSectionId, paramInfoId, language)
+    autocomplete && language === "python"
+      ? getTextFieldCompletionsFn(dataSectionId, paramInfoId)
       : () => null,
-    [dataSectionId, paramInfoId, autocomplete, language],
+    [dataSectionId, paramInfoId, autocomplete],
   );
 
   const extensions = getExtensions({
@@ -182,7 +182,7 @@ function CoreCodeMirror({
   );
 }
 
-function getTextFieldCompletionsFn(sectionId, paramInfoId, language) {
+function getTextFieldCompletionsFn(sectionId, paramInfoId) {
   const fn = async (fullText, position) => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
@@ -201,5 +201,5 @@ function getTextFieldCompletionsFn(sectionId, paramInfoId, language) {
     return res;
   };
 
-  return wrappedCompletionsFn(fn, language);
+  return wrappedCompletionsFn(fn);
 }

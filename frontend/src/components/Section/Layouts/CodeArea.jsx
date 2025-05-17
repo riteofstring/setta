@@ -35,7 +35,7 @@ export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
   const completionsFn = useCallback(
-    getCodeAreaCompletionsFn(sectionId, language),
+    getPythonCodeAreaCompletionsFn(sectionId),
     [sectionId],
   );
 
@@ -299,11 +299,11 @@ const debouncedSetCode = _.debounce((sectionId, value) => {
   maybeIncrementProjectStateVersion(true);
 }, 50);
 
-function getCodeAreaCompletionsFn(sectionId, language) {
+function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText, position) => {
     const res = await wsCodeAreaCompletion({ sectionId, fullText, position });
     return res;
   };
 
-  return wrappedCompletionsFn(fn, language);
+  return wrappedCompletionsFn(fn);
 }

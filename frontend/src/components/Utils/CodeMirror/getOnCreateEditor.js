@@ -40,32 +40,28 @@ function getFromTo(options, before, context) {
   return { from: before ? before.from : context.pos };
 }
 
-export function wrappedCompletionsFn(completionFn, language) {
-  if (language === "python") {
-    return async (context) => {
-      const fullText = context.state.doc.toString();
-      if (!fullText.trim()) return null;
-      // TODO: implement this
-      // context.addEventListener(
-      //   "abort",
-      //   () => {
-      //     console.log("aborted");
-      //   },
-      //   { onDocChange: true },
-      // );
-      const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-      const res = await completionFn(fullText, context.pos);
-      if (res) {
-        return {
-          filter: true,
-          ...getFromTo(res, before, context),
-          options: res,
-          // validFor: /([^.=\\(]*)$/,
-        };
-      }
-      return null;
-    };
-  }
-
-  return () => null;
+export function wrappedCompletionsFn(completionFn) {
+  return async (context) => {
+    const fullText = context.state.doc.toString();
+    if (!fullText.trim()) return null;
+    // TODO: implement this
+    // context.addEventListener(
+    //   "abort",
+    //   () => {
+    //     console.log("aborted");
+    //   },
+    //   { onDocChange: true },
+    // );
+    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    const res = await completionFn(fullText, context.pos);
+    if (res) {
+      return {
+        filter: true,
+        ...getFromTo(res, before, context),
+        options: res,
+        // validFor: /([^.=\\(]*)$/,
+      };
+    }
+    return null;
+  };
 }
