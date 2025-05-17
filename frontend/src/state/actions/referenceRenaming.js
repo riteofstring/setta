@@ -1,6 +1,8 @@
 import C from "constants/constants.json";
-import { useSettings } from "state/definitions";
+import { useSectionInfos, useSettings } from "state/definitions";
 import { openRenameReferencesModal } from "./modal";
+import { getSectionVariant } from "./sectionInfos";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function processRenameRefactorResults(changedValues) {
   const renameMode = useSettings.getState().backend.renameRefactorMode;
@@ -17,30 +19,18 @@ export function processRenameRefactorResults(changedValues) {
 }
 
 export async function makeReplacements(changedValues) {
-  console.log("makeReplacements", changedValues);
-  // const res = await dbMakeReplacements(
-  //   codeAreaReplacements,
-  //   codeInfoReplacements,
-  //   paramEVReplacements,
-  // );
-  // if (res.status === 200) {
-  //   const { newCodeAreaValues, newCodeInfoValues, newParamEVValues } = res.data;
-  //   useSectionInfos.setState((state) => {
-  //     let curr;
-  //     for (const [variantId, newData] of Object.entries(newCodeAreaValues)) {
-  //       curr = state.variants[variantId];
-  //       curr.code = newData[0];
-  //     }
-  //     for (const [codeInfoId, newData] of Object.entries(newCodeInfoValues)) {
-  //       curr = state.codeInfo[codeInfoId];
-  //       curr.name = newData[0];
-  //     }
-  //     for (const [variantId, params] of Object.entries(newParamEVValues)) {
-  //       for (const [referringParamInfoId, newData] of Object.entries(params)) {
-  //         curr = state.variants[variantId].values[referringParamInfoId];
-  //         curr.value = newData[0];
-  //       }
-  //     }
-  //   });
-  // }
+  useSectionInfos.setState((state) => {
+    for (const c of changedValues) {
+      const { sectionId, paramInfoId, value } = c;
+      const { selectedItem, values } = getSectionVariant(sectionId, state);
+      // changing name of callable
+      if (!paramInfoId) {
+        state.codeInfo[selectedItem].name = value;
+      } else if (paramInfoId) {
+        values[paramInfoId].value = value;
+      }
+    }
+  });
+
+  maybeIncrementProjectStateVersion(true);
 }
