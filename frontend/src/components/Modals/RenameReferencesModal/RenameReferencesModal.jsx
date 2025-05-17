@@ -1,11 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import C from "constants/constants.json";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { dbSaveSettings } from "requests/settings";
 import { setModalOpen } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
-import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 
 export function RenameReferencesModal() {
   const modalData = useModal((x) => x.modalData);
@@ -18,8 +18,7 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameReferencesOnSectionMoveMode:
-            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.NEVER_RENAME,
+          renameRefactorMode: C.RENAME_REFACTOR_NEVER_RENAME,
         },
       }));
 
@@ -32,8 +31,7 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameReferencesOnSectionMoveMode:
-            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.ALWAYS_RENAME,
+          renameRefactorMode: C.RENAME_REFACTOR_ALWAYS_RENAME,
         },
       }));
 

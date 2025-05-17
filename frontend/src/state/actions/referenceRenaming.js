@@ -1,6 +1,5 @@
 import { dbMakeReplacements } from "requests/sections";
 import { useSectionInfos, useSettings } from "state/definitions";
-import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 
 export async function maybeOpenRenameReferencesModal() {
   const renameMode =

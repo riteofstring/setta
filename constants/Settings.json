@@ -87,7 +87,7 @@
     "exportDbRawOnSave": false,
     "exportDbReadableOnSave": false,
     "exportDbReadableWithVariantsOnSave": false,
-    "renameReferencesOnSectionMoveMode": "Always Ask",
+    "renameRefactorMode": "Always Ask",
     "saveRenderedValues": false
   },
   "languageServer": {},

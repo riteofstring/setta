@@ -3,6 +3,7 @@ import _ from "lodash";
 import { sendMessage } from "requests/websocket";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useSectionInfos } from "state/definitions";
+import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 import { getProjectData } from "./saveProject";
@@ -36,7 +37,11 @@ export async function getProjectDataToGenerateCode({
 
 export const updateBackendProjectState = asyncDebounce(async () => {
   const project = await getProjectDataToGenerateCode({});
-  sendMessage({ content: project, messageType: C.WS_UPDATE_PROJECT_STATE });
+  sendMessage({
+    id: createNewId(),
+    content: project,
+    messageType: C.WS_UPDATE_PROJECT_STATE,
+  });
   // have to reset requestRenameRefactor to false, in case it was set to true
   useSectionInfos.setState((state) => {
     state.requestRenameRefactor = false;

@@ -1,4 +1,5 @@
 import asyncio
+import copy
 from pathlib import Path
 from typing import Any, Callable
 
@@ -12,13 +13,15 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.utils.constants import CODE_FOLDER, C
+from setta.utils.constants import CODE_FOLDER, USER_SETTINGS, C
 from setta.utils.utils import replace_null_keys_with_none
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
 class ProjectState:
-    def __init__(self, lsp_writers, websocket_msg_handler: WMHProjectManager, temp_folder):
+    def __init__(
+        self, lsp_writers, websocket_msg_handler: WMHProjectManager, temp_folder
+    ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
@@ -104,8 +107,8 @@ class ProjectState:
     async def create_run_command(self, project_state):
         return await self._enqueue(self._create_run_command_impl, project_state)
 
-    async def update(self, project_state):
-        return await self._enqueue(self._update_impl, project_state)
+    async def update(self, project_state, messageId):
+        return await self._enqueue(self._update_impl, project_state, messageId)
 
     async def type_check(self):
         return await self._enqueue(self._type_check_impl)
@@ -150,14 +153,12 @@ class ProjectState:
             return self.code_dict[entry_id].get_run_command(code_paths[entry_id])
         return self.gen_code.get_run_command(gen_code_path)
 
-    async def _update_impl(self, project_state):
+    async def _update_impl(self, project_state, messageId):
         self.used_files = set()
         project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
         if self.gen_code:
-            if project_state.get("requestRenameRefactor"):
-                changed_node_values = dep_graph.rename_references(self.gen_code.dep_graph)
-                await self.websocket_msg_handler
+            await self.maybe_do_rename_refactor(messageId, project_state, dep_graph)
             self.gen_code.callback_cleanup()
 
         gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
@@ -255,3 +256,28 @@ class ProjectState:
         elif codeLanguage == "bash":
             return ProjectBashCode(project_temp_folder, project_state, sectionId)
         return None
+
+    async def maybe_do_rename_refactor(
+        self, messageId, project_state, new_dep_graph: DependencyGraph
+    ):
+        if not project_state.get("requestRenameRefactor"):
+            return
+
+        renameRefactorMode = USER_SETTINGS["backend"]["renameRefactorMode"]
+        if renameRefactorMode == C.RENAME_REFACTOR_NEVER_RENAME:
+            return
+
+        old_dep_graph = self.gen_code.dep_graph
+        if renameRefactorMode == C.RENAME_REFACTOR_ALWAYS_ASK:
+            # we operate on a copy in this case, because we don't want to
+            # immediately apply any of the renaming operations
+            new_dep_graph = copy.deepcopy(new_dep_graph)
+
+        changed_node_values = new_dep_graph.rename_references(old_dep_graph)
+
+        # messageId can be None when update() is called from backend
+        if messageId:
+            await self.websocket_msg_handler.return_rename_refactor_results(
+                changed_node_values,
+                messageId,
+            )

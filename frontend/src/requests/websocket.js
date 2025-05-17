@@ -99,6 +99,8 @@ function receiveMessage(message) {
     mcpToolUse(m.content);
   } else if (m.messageType === C.WS_UUID_MAPPING_FOR_LLM) {
     updateUUIDMappingForLLM(m.content);
+  } else if (m.messageType === C.WS_RETURN_RENAME_REFACTOR_RESULTS) {
+    console.log("WS_RETURN_RENAME_REFACTOR_RESULTS", m);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

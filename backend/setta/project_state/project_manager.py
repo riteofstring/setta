@@ -18,7 +18,7 @@ class ProjectManager:
         projectConfigId = project_state["projectConfig"]["id"]
         return await self.states[projectConfigId].create_run_command(project_state)
 
-    async def update(self, project_state):
+    async def update(self, project_state, messageId=None):
         projectConfigId = project_state["projectConfig"]["id"]
         if projectConfigId not in self.states:
             self.states[projectConfigId] = ProjectState(
@@ -26,7 +26,7 @@ class ProjectManager:
                 self.websocket_msg_handler,
                 self.temp_folder,
             )
-        await self.states[projectConfigId].update(project_state)
+        await self.states[projectConfigId].update(project_state, messageId)
 
     async def type_check(self, projectConfigId):
         await self.states[projectConfigId].type_check()

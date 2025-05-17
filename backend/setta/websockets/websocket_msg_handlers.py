@@ -71,14 +71,19 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def return_to_requester(self, content, returnId):
-        await self.websocket_manager.return_to_requester(content, returnId)
+    async def return_to_requester(self, content, messageId):
+        await self.websocket_manager.return_to_requester(content, messageId)
 
     async def broadcast_lsp_diagnostics(self, content):
         await self.websocket_manager.broadcast(
             content,
             C.WS_LSP_DIAGNOSTICS,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+    async def return_rename_refactor_results(self, content, messageId):
+        await self.websocket_manager.return_to_requester(
+            content, messageId, messageType=C.WS_RETURN_RENAME_REFACTOR_RESULTS
         )
 
 
@@ -156,7 +161,9 @@ class WMHFrontend(BaseWebsocketMsgHandler):
                 messageId=message["id"], **message["content"]
             )
         elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
-            await self.project_manager.update(message["content"])
+            await self.project_manager.update(
+                project_state=message["content"], messageId=message["id"]
+            )
         elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
             await self.project_manager.code_area_autocomplete(
                 messageId=message["id"], **message["content"]
