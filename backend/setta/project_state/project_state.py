@@ -104,10 +104,6 @@ class ProjectState:
         return await self._enqueue(self._create_run_command_impl, project_state)
 
     async def update(self, project_state):
-        print(
-            f"[DEBUG] update called with project_state {project_state.get('projectConfig', {}).get('name')}",
-            flush=True,
-        )
         return await self._enqueue(self._update_impl, project_state)
 
     async def type_check(self):
@@ -154,35 +150,16 @@ class ProjectState:
         return self.gen_code.get_run_command(gen_code_path)
 
     async def _update_impl(self, project_state):
-        print("[DEBUG] _update_impl starting", flush=True)
-        # Original implementation
         self.used_files = set()
-
-        print("[DEBUG] Calling replace_null_keys_with_none", flush=True)
         project_state = replace_null_keys_with_none(project_state)
-
-        print("[DEBUG] Creating DependencyGraph", flush=True)
         dep_graph = DependencyGraph(project_state)
-
-        print("[DEBUG] Getting genCodePrefix", flush=True)
         gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
-
-        print("[DEBUG] Creating PythonCodeGenerator", flush=True)
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
-
-        print("[DEBUG] Calling generate_code()", flush=True)
         code_generator.generate_code()
-
-        print("[DEBUG] Checking if gen_code exists", flush=True)
         if self.gen_code:
-            print("[DEBUG] Calling gen_code.callback_cleanup()", flush=True)
             self.gen_code.callback_cleanup()
-
-        print("[DEBUG] Creating project_temp_folder", flush=True)
         projectConfigName = project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
-
-        print("[DEBUG] Creating ProjectGenPythonCode", flush=True)
         self.gen_code = ProjectGenPythonCode(
             project_temp_folder,
             self.lsp_writers,
@@ -191,80 +168,31 @@ class ProjectState:
             dep_graph,
             code_generator,
         )
-
-        print("[DEBUG] Calling gen_code.update_file()", flush=True)
-        start_time = asyncio.get_event_loop().time()
         await self.gen_code.update_file()
-        end_time = asyncio.get_event_loop().time()
-        print(
-            f"[DEBUG] gen_code.update_file() completed in {end_time - start_time:.2f}s",
-            flush=True,
-        )
-
-        print("[DEBUG] Adding gen_code to used_files", flush=True)
         self.add_to_used_files(self.gen_code)
 
-        print("[DEBUG] Checking existing code_dict", flush=True)
         if self.code_dict:
-            print(
-                f"[DEBUG] Cleaning up existing code objects ({len(self.code_dict)} items)",
-                flush=True,
-            )
             for c in self.code_dict.values():
                 if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
-
-        print("[DEBUG] Creating new code_dict", flush=True)
         self.code_dict = {}
 
-        print("[DEBUG] Processing sections", flush=True)
-        section_count = len(project_state["sections"].keys())
-        print(f"[DEBUG] Found {section_count} sections to process", flush=True)
-
         for i, sectionId in enumerate(project_state["sections"].keys()):
-            print(
-                f"[DEBUG] Processing section {i + 1}/{section_count}: {sectionId}",
-                flush=True,
-            )
             section_type = get_section_type(project_state, sectionId)
-            print(f"[DEBUG] Section type: {section_type}", flush=True)
 
             if section_type == C.CODE:
-                print(
-                    f"[DEBUG] Creating code object for section {sectionId}", flush=True
-                )
                 section_code = self.create_code_obj(
                     project_temp_folder, project_state, sectionId
                 )
 
                 if not section_code:
-                    print(
-                        f"[DEBUG] No code object created for section {sectionId}",
-                        flush=True,
-                    )
                     continue
 
-                print(
-                    f"[DEBUG] Calling section_code.update_file() for {sectionId}",
-                    flush=True,
-                )
-                start_time = asyncio.get_event_loop().time()
                 await section_code.update_file()
-                end_time = asyncio.get_event_loop().time()
-                print(
-                    f"[DEBUG] section_code.update_file() completed in {end_time - start_time:.2f}s",
-                    flush=True,
-                )
-
-                print("[DEBUG] Adding section_code to used_files", flush=True)
                 self.add_to_used_files(section_code)
-
-                print("[DEBUG] Adding section_code to code_dict", flush=True)
                 self.code_dict[sectionId] = section_code
 
-        print("[DEBUG] Deleting unused files", flush=True)
         self.delete_unused_files(project_temp_folder)
-        print("[DEBUG] _update_impl completed", flush=True)
 
     async def _type_check_impl(self):
         await self.gen_code.type_check()
