@@ -202,13 +202,16 @@
 
 import asyncio
 import json
+from pathlib import Path
 from pprint import pprint
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.database.utils import create_new_id
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
 from setta.project_state.project_code import ProjectGenPythonCode
 from setta.utils.constants import CODE_FOLDER, USER_SETTINGS
+
 
 class WMHProjectManager:
     async def return_to_requester(self, content, returnId):
@@ -233,28 +236,44 @@ async def main():
     await readers.full.start()
     await writers.full.start()
 
-
     dep_graph = DependencyGraph(project_state)
     # pprint(dep_graph.graph)
-    code_generator = PythonCodeGenerator(dep_graph, "")
+    code_generator = PythonCodeGenerator(
+        dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
+    )
     code_generator.generate_code()
 
     print(code_generator.code)
     pprint(code_generator.lines)
 
-
     gen_code = ProjectGenPythonCode(
-                CODE_FOLDER / "temp_folder",
-                writers,
-                WMHProjectManager(),
-                project_state,
-                dep_graph,
-                code_generator,
-            )
+        CODE_FOLDER / "temp_folder",
+        writers,
+        WMHProjectManager(),
+        project_state,
+        dep_graph,
+        code_generator,
+    )
 
     await gen_code.update_file()
-    
+
+    request_id=create_new_id()
+    response = await writers.full.send_and_wait(
+        writers.full.send_rename_request(
+            filepath=CODE_FOLDER / "temp_folder"/ "setta_gen.py",
+            line=7,
+            character=11,
+            request_id=request_id,
+            newName="doggy",
+        ),
+        request_id,
+    )
+    print('response', response, flush=True)
     await servers.full.server.wait()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+# extract_parameters("argu")

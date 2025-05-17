@@ -12,9 +12,9 @@ def process_gen_code_diagnostics(
     convert_diagnostic_line_cols_to_positions(code_generator.code, diagnostics)
     output = []
     for d in diagnostics:
-        print(f"{d}\n", flush=True)
+        # print(f"{d}\n", flush=True)
         output.extend(process_gen_code_diagnostic(d, code_generator, dep_graph))
-    print(output)
+    # print(output)
     return output
 
 
