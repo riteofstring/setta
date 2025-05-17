@@ -38,7 +38,7 @@ class LanguageServerWriter(LanguageServerInteractor):
         request_id = str(uuid.uuid4())
         self.server.initialization_request_id = request_id
         await self.send_request("initialize", params=params, id=request_id)
-        await self.send_didChangeConfiguration()  # pyright requires this step
+        await self.send_did_change_configuration()  # pyright requires this step
 
     async def send_document_open_request(
         self, filepath, code, virtual=None, diagnostics_callback=None
@@ -118,7 +118,7 @@ class LanguageServerWriter(LanguageServerInteractor):
             id=request_id,
         )
 
-    async def send_didChangeConfiguration(self):
+    async def send_did_change_configuration(self):
         # THIS FORMAT WORKS
         # hardcoded_settings = {
         #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
