@@ -26,13 +26,13 @@ class PythonCodeLine:
     pos: Optional[int] = None
 
     @property
-    def value_position(self):
+    def value_pos_start(self):
         """Returns a tuple of (value_pos_start, value_pos_end)"""
         if self.pos is None:
             return None
         value_pos_start = self.pos + self.prefix_len
-        value_pos_end = value_pos_start + self.value_len
-        return (value_pos_start, value_pos_end)
+        # value_pos_end = value_pos_start + self.value_len
+        return value_pos_start
 
 
 class PythonCodeGenerator:
@@ -44,6 +44,7 @@ class PythonCodeGenerator:
     def reset(self):
         self.var_name_mapping = {}  # graph_key to var name
         self.reverse_var_name_mapping = {}  # var name to graph_key
+        self.value_pos_start_to_graph_key = {}
         self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
         self.code = ""
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
@@ -118,6 +119,8 @@ class PythonCodeGenerator:
             curr_pos = len(code) + indent_len
             code = f"{code}{indent}{l.var_str}\n"
             self.lines[key].pos = curr_pos
+            value_pos_start = self.lines[key].value_pos_start
+            self.value_pos_start_to_graph_key[value_pos_start] = key
         return code
 
     def create_line(self, graph_key, node: Node):
@@ -224,5 +227,5 @@ class PythonCodeGenerator:
         # code_line still might not exist if value is empty
         # or if the node doesn't have a name (e.g. a kwarg whose name hasn't been set yet)
         if code_line:
-            return code_line.value_position[0]
+            return code_line.value_pos_start
         return None

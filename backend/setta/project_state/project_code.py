@@ -15,7 +15,6 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
-    convert_diagnostic_line_cols_to_positions,
     process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
@@ -102,13 +101,10 @@ class ProjectGenPythonCode(PythonCode):
         params = lsp_response["params"]
         if self.lsp_writer.get_latest_version_number(self.uri) != params["version"]:
             return
-        convert_diagnostic_line_cols_to_positions(
-            self.code_generator.code, params["diagnostics"]
-        )
         diagnostics = process_gen_code_diagnostics(
             params["diagnostics"],
-            self.code_generator.code,
-            self.code_generator.reverse_var_name_mapping,
+            self.code_generator,
+            self.dep_graph,
         )
         content = {
             "projectConfigId": self.project_state["projectConfig"]["id"],
