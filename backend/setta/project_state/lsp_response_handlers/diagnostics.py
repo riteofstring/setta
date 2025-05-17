@@ -24,11 +24,11 @@ def process_gen_code_diagnostic(
     start = d["range"]["start"]
     end = d["range"]["end"]
     message = d["message"]
-    if d["code"] == "reportArgumentType":
+    if d.get("code") == "reportArgumentType":
         return process_report_argument_type(
             start, end, message, code_generator, dep_graph
         )
-    elif d["code"] == "reportCallIssue":
+    elif d.get("code") == "reportCallIssue":
         return process_report_call_issue(start, end, message, code_generator, dep_graph)
     return []
 

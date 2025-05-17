@@ -151,8 +151,8 @@ class PythonCodeGenerator:
     def get_section_value(self, node: SectionNode):
         t = node.type
         if t == C.SECTION:
-            if node.callable:
-                return self.construct_callable(node.callable, node.deps)
+            if node.value:
+                return self.construct_callable(node.value, node.deps)
             else:
                 return self.construct_dict(node.deps)
         elif t == C.LIST_ROOT:
@@ -194,15 +194,20 @@ class PythonCodeGenerator:
         )
         return f"[{output}]"
 
-    def construct_callable(self, callable, deps):
+    def construct_callable(self, value, deps):
         output = ""
         idx = 0
         for d, is_used in deps.items():
             if not is_used:
                 continue
+            node = self.dep_graph.graph[d]
+            # it's possible for a section node to have a callable
+            # that depends on another section. So here we only want ParamNodes
+            # when constructing the parameters of a callable.
+            if not isinstance(node, ParamNode):
+                continue
             prefix = "" if idx == 0 else ", "
             var_name = self.var_name_mapping[d]
-            node: ParamNode = self.dep_graph.graph[d]
             passing_style = node.passing_style
             if passing_style == ParameterPassingStyle.ARGS:
                 prefix = "*"
@@ -217,7 +222,7 @@ class PythonCodeGenerator:
             output += f"{prefix}{var_name}"
             idx += 1
 
-        output = f"{callable}({output})"
+        output = f"{value}({output})"
         return output
 
     def change_value(self, graph_key, value):

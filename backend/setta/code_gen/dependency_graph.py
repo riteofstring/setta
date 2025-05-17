@@ -23,6 +23,13 @@ from ..utils.constants import C, ParameterPassingStyle
 
 GraphKeyType = Tuple[str, str | None]
 
+# TODO:
+# 1. If the user setting is to "always ask" when renaming references, then compute the name change
+# and send them back to the frontend and return early. If the user accepts the changes on the frontend
+# then a new version will be triggered, and the backend state will be updated.
+# If the user setting is "always rename", then send the changed names, but don't return early.
+# If the user setting is "never" then don't even try renaming.
+
 
 class DependencyGraph:
     def __init__(self, p):
@@ -65,13 +72,16 @@ class DependencyGraph:
             name = get_section_name(p, id)
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
+                value, potential_refs = self.export_section_value(p, id)
+                if potential_refs:
+                    self.nodes_with_potential_refs[graph_key] = potential_refs
                 node = SectionNode(
                     id=id,
                     name=name,
                     full_path_name=full_path_name,
                     type=type,
                     isTopLevel=isTopLevel,
-                    callable=get_selected_item_name(p, id),
+                    value=value,
                     deps=[],
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
@@ -88,7 +98,7 @@ class DependencyGraph:
                     full_path_name=full_path_name,
                     type=type,
                     isTopLevel=isTopLevel,
-                    callable=None,
+                    value=None,
                     deps=[],
                 )
                 node.deps = self.export_sections(p, children, parent_node=node)
@@ -103,6 +113,15 @@ class DependencyGraph:
             # else:
             #     raise ValueError
         return graph_key
+
+    def export_section_value(self, p, sectionId):
+        selected_item_name = get_selected_item_name(p, sectionId)
+        if selected_item_name:
+            potential_refs = find_undefined_special_var_expressions(
+                selected_item_name, SELF_IDENTIFIER, keep_attr_only=True
+            )
+            return selected_item_name, potential_refs
+        return selected_item_name, None
 
     def export_section_params(self, p, sectionId, parent_node=None, isTopLevel=False):
         paramIds = get_top_level_param_ids(p, sectionId)
@@ -162,10 +181,7 @@ class DependencyGraph:
 
     def change_value(self, graph_key, value):
         node = self.graph[graph_key]
-        if isinstance(node, SectionNode):
-            node.callable = value
-        elif isinstance(node, ParamNode):
-            node.value = value
+        node.value = value
         is_used = self.get_is_used(node)
         for other_node in self.graph.values():
             if graph_key in other_node.deps:
@@ -264,7 +280,7 @@ class Node:
 
 @dataclass
 class SectionNode(Node):
-    callable: str | None
+    value: str | None
 
 
 @dataclass
