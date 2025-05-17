@@ -19,15 +19,19 @@ def process_gen_code_diagnostic(d, code, reverse_var_name_mapping):
     start = d["range"]["start"]
     end = d["range"]["end"]
     if d["code"] == "reportArgumentType":
-        problem_var = code[start["position"]:end["position"]]
-        graph_key = reverse_var_name_mapping.get(problem_var)   
+        problem_var = code[start["position"] : end["position"]]
+        graph_key = reverse_var_name_mapping.get(problem_var)
         if graph_key:
-            return [{**DependencyGraph.extract_ids_from_graph_key(graph_key), "message": d["message"]}]
+            return [
+                {
+                    **DependencyGraph.extract_ids_from_graph_key(graph_key),
+                    "message": d["message"],
+                }
+            ]
 
     return []
 
-
-        # return [get_message_with_ids(codeJson, problem_var, d["message"])]
+    # return [get_message_with_ids(codeJson, problem_var, d["message"])]
     # elif d["code"] == "reportCallIssue" and "missing" in d["message"]:
     #     missing_params = extract_parameters(d["message"])
     #     # get variable to the left of the equal sign
