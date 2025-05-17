@@ -14,10 +14,11 @@ from setta.project_state.project_code import (
 from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, C
 from setta.utils.utils import replace_null_keys_with_none
+from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
 class ProjectState:
-    def __init__(self, lsp_writers, websocket_msg_handler, temp_folder):
+    def __init__(self, lsp_writers, websocket_msg_handler: WMHProjectManager, temp_folder):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.temp_folder = temp_folder
@@ -153,11 +154,16 @@ class ProjectState:
         self.used_files = set()
         project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
+        if self.gen_code:
+            if project_state.get("requestRenameRefactor"):
+                changed_node_values = dep_graph.rename_references(self.gen_code.dep_graph)
+                await self.websocket_msg_handler
+            self.gen_code.callback_cleanup()
+
         gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
         code_generator.generate_code()
-        if self.gen_code:
-            self.gen_code.callback_cleanup()
+
         projectConfigName = project_state["projectConfig"]["name"]
         project_temp_folder = self.temp_folder / projectConfigName
         self.gen_code = ProjectGenPythonCode(

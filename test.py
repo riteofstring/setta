@@ -205,12 +205,9 @@ import copy
 import json
 
 from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.code_gen.utils import SELF_IDENTIFIER
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
 from setta.utils.constants import USER_SETTINGS
-from setta.utils.utils import replace_at_positions
 from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -262,44 +259,6 @@ def new_code(project_state, writers):
     # return gen_code
 
 
-def get_differences(old_dep_graph: DependencyGraph, new_dep_graph: DependencyGraph):
-    renamings = {}
-    for k, v in old_dep_graph.graph.items():
-        node = new_dep_graph.get_node(k)
-        if not node:
-            continue
-        if v.name != node.name:
-            renamings[k] = (v.name, node.name)
-
-    for k, v in new_dep_graph.nodes_with_potential_refs.items():
-        replacements = []
-        for ref, location in v.items():
-            graph_key = old_dep_graph.full_path_name_to_graph_key.get(ref)
-            if not graph_key:
-                continue
-            details = renamings.get(graph_key)
-            if details:
-                old_name, new_name = details
-                replacements.append((location, old_name, new_name))
-        if replacements:
-            node = new_dep_graph.get_node(k)
-            new_value, positions = replace_at_positions(
-                node.value, replacements, return_positions=True
-            )
-            node.value = new_value
-            potential_refs = find_undefined_special_var_expressions(
-                node.value, SELF_IDENTIFIER, True
-            )
-            new_dep_graph.nodes_with_potential_refs[k] = potential_refs
-
-    # print(new_dep_graph.graph)
-    new_dep_graph.resolve_references()
-
-    # node = new_dep_graph.get_node(k)
-    # if isinstance(node, ParamNode):
-    #     print(node)
-
-
 async def main():
     with open("test_project_state.json", "r") as f:
         project_state = json.load(f)
@@ -325,7 +284,8 @@ async def main():
     print(code_generator.code)
 
     new_dep_graph = new_code(project_state, writers)
-    get_differences(old_dep_graph, new_dep_graph)
+    changed_node_values = new_dep_graph.rename_references(old_dep_graph)
+    print(changed_node_values)
 
     code_generator = PythonCodeGenerator(
         new_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"

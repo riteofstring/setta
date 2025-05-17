@@ -219,6 +219,7 @@ class DependencyGraph:
             if v.name != node.name:
                 renamings[k] = (v.name, node.name)
 
+        changed_node_values = {}
         for k, v in self.nodes_with_potential_refs.items():
             replacements = []
             for ref, location in v.items():
@@ -237,8 +238,10 @@ class DependencyGraph:
                 self.nodes_with_potential_refs[k] = {
                     name: position for position, name in positions
                 }
+                changed_node_values[k] = node.value
 
         self.resolve_references()
+        return changed_node_values
 
     @staticmethod
     def create_graph_key(section_id, param_info_id=None):
