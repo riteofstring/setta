@@ -46,8 +46,7 @@ class LSPFileWatcher:
 
     def start(self) -> None:
         """Start the file watcher."""
-        if not self.observer.is_alive():
-            self.observer.start()
+        self.observer.start()
 
     def stop(self) -> None:
         """Stop the file watcher."""

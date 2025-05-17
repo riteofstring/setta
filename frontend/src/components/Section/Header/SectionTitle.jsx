@@ -82,7 +82,7 @@ function setSectionName(sectionId, name) {
     if (s.paramSweepSectionId) {
       x.x[paramSweepSectionId].name = createParamSweepSectionName(name);
     }
-    x.requestRenameRefactor = true;
+    x.shouldRenameReferences = true;
   });
   maybeIncrementProjectStateVersion(true);
 }
@@ -93,7 +93,6 @@ function useTitleIsEditable(sectionId) {
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
       C.GLOBAL_PARAM_SWEEP,
-      C.GEN_PYTHON_CODE,
     ].includes(getSectionType(sectionId, x));
 
     const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);

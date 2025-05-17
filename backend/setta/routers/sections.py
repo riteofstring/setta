@@ -1,28 +1,27 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from setta.code_gen.utils import (
-    export_param_sweep_section_to_dict,
-    export_section_to_dict,
-    export_single_run_group_to_dict,
-)
-from setta.code_gen.yaml.section_dict import (
-    param_sweep_dict_to_yaml,
-    run_group_dict_to_yaml,
-    section_dict_to_yaml,
-)
 from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
 from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
-from setta.routers.dependencies import get_project_manager, get_specific_file_watcher
-from setta.routers.utils import get_content_processor
+from setta.gen_code.export_selected import (
+    export_param_sweep_section_to_dict,
+    export_section_to_dict,
+    export_single_run_group_to_dict,
+)
+from setta.gen_code.yaml.section_dict import (
+    param_sweep_dict_to_yaml,
+    run_group_dict_to_yaml,
+    section_dict_to_yaml,
+)
+from setta.routers.dependencies import get_specific_file_watcher
 from setta.utils.constants import C
 from setta.utils.generate_new_filename import generate_new_filename
 
@@ -81,12 +80,13 @@ class DeleteFileRequest(BaseModel):
 
 class FileWatchListRequest(BaseModel):
     filepaths: List[str]
-    fileWatchGroupName: str
+    metadata: Any
 
 
-class FileWatchGenPythonCodeRequest(BaseModel):
-    projectConfigId: str
-    watch: bool
+class FileWatchReplacePathRequest(BaseModel):
+    newPath: str
+    oldPath: str
+    metadata: Any
 
 
 @router.post(C.ROUTE_COPY_SECTIONS)
@@ -197,27 +197,14 @@ def route_file_watch_list(
     x: FileWatchListRequest, specific_file_watcher=Depends(get_specific_file_watcher)
 ):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
-    specific_file_watcher.update_watch_list(
-        x.filepaths, x.fileWatchGroupName, get_content_processor(x.fileWatchGroupName)
-    )
+    specific_file_watcher.update_watch_list(x.filepaths, x.metadata)
 
 
-@router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
-async def route_file_watch_gen_python_code(
-    x: FileWatchGenPythonCodeRequest,
+@router.post(C.ROUTE_FILE_WATCH_REPLACE_PATH)
+def route_file_watch_replace_path(
+    x: FileWatchReplacePathRequest,
     specific_file_watcher=Depends(get_specific_file_watcher),
-    project_manager=Depends(get_project_manager),
 ):
-    filepaths = []
-
-    if x.watch:
-        path = await project_manager.get_gen_python_code_path(x.projectConfigId)
-        if not path:
-            raise HTTPException(status_code=404, detail="Path not found")
-        filepaths = [str(path)]
-
-    specific_file_watcher.update_watch_list(
-        filepaths,
-        "genPythonCode",
-        get_content_processor("genPythonCode"),
-    )
+    specific_file_watcher.add_file(x.newPath, x.metadata)
+    if x.oldPath != x.newPath:
+        specific_file_watcher.remove_file(x.oldPath)

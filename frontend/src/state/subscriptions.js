@@ -2,34 +2,36 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import {
-  dbFileWatchApiKeys,
-  dbFileWatchGenPythonCode,
-  dbFileWatchJsonSource,
-} from "requests/jsonSource";
+import { dbFileWatchList, dbFileWatchReplacePath } from "requests/jsonSource";
 import {
   useAIStore,
   useArtifacts,
+  useEVRefRegex,
   useMisc,
   useNodeInternals,
   useSectionInfos,
+  useTemplateVarRegex,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
+import { getEVRefRegexAndColorMap } from "./actions/evRefRegex";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
   updateNodeVisibility,
 } from "./actions/nodeInternals";
-import { updateBackendProjectState } from "./actions/project/generateCode";
+import { maybeOpenRenameReferencesModal } from "./actions/referenceRenaming";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
+  getCodeInfoCol,
   getDisplayedSectionIdToChildren,
   getSectionIdToParentId,
   getSectionShouldRender,
   getSectionType,
+  getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
+import { getTemplateVarsRegexAndColorMap } from "./actions/templateVarsRegex";
 
 export function subscribe() {
   useSectionInfos.subscribe(
@@ -38,10 +40,20 @@ export function subscribe() {
       useSectionInfos.setState((state) => {
         state.singletonSections = x;
       });
-      dbFileWatchGenPythonCode({
-        watch: Boolean(x[C.GEN_PYTHON_CODE]),
-        projectConfigId: useSectionInfos.getState().projectConfig.id,
-      });
+    },
+    { equalityFn: _.isEqual },
+  );
+
+  useSectionInfos.subscribe(
+    regexSubscriptionFn,
+    (x) => {
+      useEVRefRegex.setState(getEVRefRegexAndColorMap(x));
+      useTemplateVarRegex.setState(getTemplateVarsRegexAndColorMap(x));
+      if (useSectionInfos.getState().shouldRenameReferences) {
+        // reset the flag used by subscriptions
+        useSectionInfos.setState({ shouldRenameReferences: false });
+        maybeOpenRenameReferencesModal();
+      }
     },
     { equalityFn: _.isEqual },
   );
@@ -62,9 +74,15 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(jsonFilenameSubscriptionFn, dbFileWatchJsonSource, {
-    equalityFn: _.isEqual,
-  });
+  useSectionInfos.subscribe(
+    jsonFilenameSubscriptionFn,
+    (newVal) => {
+      dbFileWatchList([...newVal], "jsonSource");
+    },
+    {
+      equalityFn: _.isEqual,
+    },
+  );
 
   useSectionInfos.subscribe(
     topLevelSectionVisibilitySubscriptionFn,
@@ -88,10 +106,6 @@ export function subscribe() {
         }
       });
     }
-  });
-
-  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
-    updateBackendProjectState();
   });
 
   useReactFlow.subscribe(
@@ -164,24 +178,23 @@ export function subscribe() {
     },
   );
 
-  useAIStore.subscribe(apiKeysFilepathSubscriptionFn, dbFileWatchApiKeys, {
-    equalityFn: _.isEqual,
-    fireImmediately: true,
-  });
+  useAIStore.subscribe(
+    apiKeysFilepathSubscriptionFn,
+    (newVal, oldVal) => dbFileWatchReplacePath(newVal, oldVal, "apiKeysFile"),
+    { fireImmediately: true },
+  );
 }
 
 function singletonSectionsSubscriptionFn(state) {
   const output = {
     [C.GLOBAL_VARIABLES]: null,
     [C.GLOBAL_PARAM_SWEEP]: null,
-    [C.GEN_PYTHON_CODE]: null,
   };
   for (const s of Object.values(state.x)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[C.GLOBAL_VARIABLES] &&
       output[C.GLOBAL_PARAM_SWEEP] &&
-      output[C.GEN_PYTHON_CODE] &&
       output.temporaryTerminalGroup
     ) {
       break;
@@ -192,14 +205,59 @@ function singletonSectionsSubscriptionFn(state) {
     if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
       output[C.GLOBAL_PARAM_SWEEP] = s.id;
     }
-    if (!output[C.GEN_PYTHON_CODE] && uiType === C.GEN_PYTHON_CODE) {
-      output[C.GEN_PYTHON_CODE] = s.id;
-    }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (!output.temporaryTerminalGroup && uiType === C.GROUP && s.isTemporary) {
       output.temporaryTerminalGroup = s.id;
     }
   }
+  return output;
+}
+
+function regexSubscriptionFn(x) {
+  const output = {
+    details: {},
+    codeInfo: _.mapValues(x.codeInfo, (c) => ({
+      id: c.id,
+      name: c.name,
+      rcType: c.rcType,
+    })),
+    globalVariableId: x.singletonSections[C.GLOBAL_VARIABLES],
+    templateVarEligibleSections: {},
+  };
+
+  let sectionVariant, sectionTypeName;
+  for (const [id, s] of Object.entries(x.x)) {
+    sectionVariant = getSectionVariant(id, x);
+    sectionTypeName = getSectionType(id, x);
+    output.details[id] = {
+      name: s.name,
+      sectionChildren: sectionVariant.children,
+      codeInfoChildren: getCodeInfoCol(id, x).children,
+      sectionTypeName,
+      selectedItem: sectionVariant.selectedItem,
+      isTopLevelAndCanBeReferredTo:
+        !s.parentId &&
+        [
+          C.GLOBAL_VARIABLES,
+          C.SECTION,
+          C.LIST_ROOT,
+          C.DICT_ROOT,
+          C.GROUP,
+          C.TEXT_BLOCK,
+        ].includes(sectionTypeName),
+    };
+
+    if (sectionTypeName === C.CODE) {
+      output.templateVarEligibleSections[id] = [
+        C.TEMPLATE_VAR_VERSION_SUFFIX,
+        C.TEMPLATE_VAR_IMPORT_PATH_SUFFIX,
+        C.TEMPLATE_VAR_FILE_PATH_SUFFIX,
+      ];
+    } else {
+      output.templateVarEligibleSections[id] = [C.TEMPLATE_VAR_VERSION_SUFFIX];
+    }
+  }
+
   return output;
 }
 
@@ -240,7 +298,7 @@ function jsonFilenameSubscriptionFn(state) {
       filenameSet.add(v.name);
     }
   }
-  return Array.from(filenameSet);
+  return filenameSet;
 }
 
 function topLevelSectionVisibilitySubscriptionFn(state) {
@@ -270,9 +328,5 @@ function entryCodeBlockSubscriptionFn(state) {
 }
 
 function apiKeysFilepathSubscriptionFn(state) {
-  return [state.apiKeysFilepath];
-}
-
-function updateBackendSubscriptionFn(state) {
-  return state.version;
+  return state.apiKeysFilepath;
 }

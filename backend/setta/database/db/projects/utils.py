@@ -54,6 +54,12 @@ def filter_data_for_json_export(p):
             DEFAULT_VALUES["codeInfo"].keys(),
             DEFAULT_VALUES["codeInfo"],
         )
+        for idx in range(len(v["evRefs"])):
+            v["evRefs"][idx] = filter_dict(
+                v["evRefs"][idx],
+                DEFAULT_VALUES["evRefEntry"].keys(),
+                DEFAULT_VALUES["evRefEntry"],
+            )
 
     for k, v in p["codeInfoCols"].items():
         p["codeInfoCols"][k] = filter_dict(
@@ -100,8 +106,25 @@ def filter_data_for_json_export(p):
             DEFAULT_VALUES["sectionVariant"],
         )
 
+        if "evRefs" in curr[k]:
+            evRefs = curr[k]["evRefs"]
+            for idx in range(len(evRefs)):
+                evRefs[idx] = filter_dict(
+                    evRefs[idx],
+                    DEFAULT_VALUES["evRefEntry"].keys(),
+                    DEFAULT_VALUES["evRefEntry"],
+                )
+
         if "values" in curr[k]:
             for paramId in curr[k]["values"].keys():
+                evRefs = curr[k]["values"][paramId]["evRefs"]
+                for idx in range(len(evRefs)):
+                    evRefs[idx] = filter_dict(
+                        evRefs[idx],
+                        DEFAULT_VALUES["evRefEntry"].keys(),
+                        DEFAULT_VALUES["evRefEntry"],
+                    )
+
                 curr[k]["values"][paramId] = filter_dict(
                     curr[k]["values"][paramId],
                     DEFAULT_VALUES["evEntry"].keys(),

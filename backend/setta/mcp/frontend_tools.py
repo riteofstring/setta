@@ -41,7 +41,6 @@ SectionUIType = Literal[
     "SOCIAL",
     "GLOBAL_VARIABLES",
     "CODE",
-    "GEN_PYTHON_CODE",
     "PARAM_SWEEP",
     "TERMINAL",
     "GLOBAL_PARAM_SWEEP",

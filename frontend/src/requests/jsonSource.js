@@ -59,30 +59,23 @@ export async function dbDeleteFile(filepath) {
   });
 }
 
-async function dbFileWatch(filepaths, fileWatchGroupName) {
+export async function dbFileWatchList(filepaths, metadata) {
   return await post({
     body: {
       filepaths,
-      fileWatchGroupName,
+      metadata,
     },
     address: C.ROUTE_FILE_WATCH_LIST,
   });
 }
 
-export async function dbFileWatchJsonSource(filepaths) {
-  return await dbFileWatch(filepaths, "jsonSource");
-}
-
-export async function dbFileWatchApiKeys(filepaths) {
-  return await dbFileWatch(filepaths, "apiKeys");
-}
-
-export async function dbFileWatchGenPythonCode({ watch, projectConfigId }) {
+export async function dbFileWatchReplacePath(newPath, oldPath, metadata) {
   return await post({
     body: {
-      watch,
-      projectConfigId,
+      newPath,
+      oldPath,
+      metadata,
     },
-    address: C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE,
+    address: C.ROUTE_FILE_WATCH_REPLACE_PATH,
   });
 }

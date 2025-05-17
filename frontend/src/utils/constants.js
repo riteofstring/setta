@@ -145,6 +145,12 @@ export const SECTION_DISPLAY_MODES = {
   GUI: "GUI",
 };
 
+export const RENAME_REFERENCES_ON_SECTION_MOVE_MODES = {
+  ALWAYS_ASK: "Always Ask",
+  ALWAYS_RENAME: "Always Rename",
+  NEVER_RENAME: "Never Rename",
+};
+
 export const VIEWING_EDITING_MODE = {
   DEV: "DEV",
   USER: "USER",

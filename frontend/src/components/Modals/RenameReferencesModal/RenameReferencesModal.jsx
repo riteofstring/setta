@@ -1,11 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import C from "constants/constants.json";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { dbSaveSettings } from "requests/settings";
 import { setModalOpen } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
+import { RENAME_REFERENCES_ON_SECTION_MOVE_MODES } from "utils/constants";
 
 export function RenameReferencesModal() {
   const modalData = useModal((x) => x.modalData);
@@ -18,7 +18,8 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameRefactorMode: C.RENAME_REFACTOR_NEVER_RENAME,
+          renameReferencesOnSectionMoveMode:
+            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.NEVER_RENAME,
         },
       }));
 
@@ -31,13 +32,14 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameRefactorMode: C.RENAME_REFACTOR_ALWAYS_RENAME,
+          renameReferencesOnSectionMoveMode:
+            RENAME_REFERENCES_ON_SECTION_MOVE_MODES.ALWAYS_RENAME,
         },
       }));
 
       dbSaveSettings(useSettings.getState());
     }
-    await makeReplacements(modalData);
+    await makeReplacements(...modalData);
     setModalOpen(false);
   };
 
@@ -51,8 +53,8 @@ export function RenameReferencesModal() {
           </Dialog.Title>
         </div>
         <Dialog.Description className="mb-4 text-sm text-setta-600 dark:text-setta-300">
-          The section you renamed/moved is referenced to by other sections.
-          Would you like to update those references?
+          The section you moved is referenced to by other sections. Would you
+          like to update those references?
         </Dialog.Description>
       </header>
       {/* Scrollable content section */}

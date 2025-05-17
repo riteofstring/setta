@@ -122,13 +122,6 @@
     "presetType": "BASE",
     "config": {}
   },
-  "2b516ed4-6b82-4445-95bf-6c7dac7f410a": {
-    "id": "2b516ed4-6b82-4445-95bf-6c7dac7f410a",
-    "type": "GEN_PYTHON_CODE",
-    "name": "",
-    "presetType": "BASE",
-    "config": {}
-  },
   "af0538a7-9667-400e-987e-ae3c844e0fcd": {
     "id": "af0538a7-9667-400e-987e-ae3c844e0fcd",
     "type": "PARAM_SWEEP",

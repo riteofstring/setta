@@ -1,12 +1,15 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { wsTextFieldCompletion } from "requests/sections";
+import {
+  dbTextFieldCompletion,
+  dbTextFieldInitializeCode,
+} from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
-import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
+import { useKeywordStylizer } from "./getKeywordStylizer";
+import { getCompletionsFn, getOnCreateEditor } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
   dataSectionId,
@@ -25,8 +28,10 @@ export function TextInputCodeMirror({
   onTab,
   color,
   language,
+  evRefs,
   dummyDivId,
   autocomplete = true,
+  initializeGenCode = true,
   isKeyName = false,
   isDisabled = false,
 }) {
@@ -64,6 +69,9 @@ export function TextInputCodeMirror({
     if (isDisabled) {
       return;
     }
+    if (language === "python" && initializeGenCode) {
+      dbTextFieldInitializeCode({ sectionId: dataSectionId, paramInfoId });
+    }
     if (!activationEvent) {
       setActivationEvent("tab");
     }
@@ -79,6 +87,7 @@ export function TextInputCodeMirror({
           onFocus={onFocus}
           className={dummyCodeClassName}
           theme={theme}
+          evRefs={evRefs}
           placeholder={defaultVal}
           language={language}
         />
@@ -101,6 +110,7 @@ export function TextInputCodeMirror({
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
           theme={theme}
+          evRefs={evRefs}
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
@@ -127,23 +137,32 @@ function CoreCodeMirror({
   realIsInitialized,
   setRealIsInitialized,
   theme,
+  evRefs,
   language,
   autocomplete,
   isKeyName,
 }) {
   const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
+  const keywordStylizer = useKeywordStylizer(evRefs);
+
   const completionsFn = useCallback(
-    autocomplete && language === "python"
-      ? getTextFieldCompletionsFn(dataSectionId, paramInfoId)
+    autocomplete
+      ? getCompletionsFn(
+          dataSectionId,
+          paramInfoId,
+          dbTextFieldCompletion,
+          language,
+        )
       : () => null,
-    [dataSectionId, paramInfoId, autocomplete],
+    [dataSectionId, paramInfoId, autocomplete, language],
   );
 
   const extensions = getExtensions({
-    parentDivId: `${visualSectionId}-CustomResizable`,
+    sectionId: visualSectionId,
     language,
     completionsFn,
+    keywordStylizer,
     singleLine,
     tabToAutocomplete: true,
     keyComboActions,
@@ -152,6 +171,7 @@ function CoreCodeMirror({
   });
 
   const onCreateEditor = getOnCreateEditor({
+    evRefs,
     initialEvent,
     setRealIsInitialized,
     divId,
@@ -180,26 +200,4 @@ function CoreCodeMirror({
       tabIndex="0" // need this for tabbingLogic to work
     />
   );
-}
-
-function getTextFieldCompletionsFn(sectionId, paramInfoId) {
-  const fn = async (fullText, position) => {
-    const setToNotWaiting = setTextFieldWaitingForLSP({
-      sectionId,
-      paramInfoId,
-    });
-
-    const res = await wsTextFieldCompletion({
-      sectionId,
-      paramInfoId,
-      fullText,
-      position,
-    });
-
-    setToNotWaiting();
-
-    return res;
-  };
-
-  return wrappedCompletionsFn(fn);
 }

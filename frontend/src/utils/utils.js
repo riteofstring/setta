@@ -1,3 +1,4 @@
+import C from "constants/constants.json";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
 
@@ -76,6 +77,22 @@ export function shortcutCodemirrorFormat(shortcut) {
 
   // Join back with '-'
   return convertedParts.join("-");
+}
+
+export function dummyRegExpObject() {
+  return {
+    exec: function () {
+      return null;
+    },
+  };
+}
+
+export function templatePrefix(x) {
+  return `${C.TEMPLATE_PREFIX}${x}`;
+}
+
+export function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export function positiveMod(n, m) {

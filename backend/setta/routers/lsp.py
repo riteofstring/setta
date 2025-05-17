@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.lsp.managers import restart_lsps
+from setta.lsp.utils import restart_lsps
 from setta.utils.constants import C
 
-from .dependencies import get_lsps, get_project_manager
+from .dependencies import get_code_tasks, get_lsps
 
 router = APIRouter()
 
 
 class TypeCheckRequest(BaseModel):
-    projectConfigId: str
+    project: dict
 
 
 @router.post(C.ROUTE_RESTART_LANGUAGE_SERVER)
@@ -20,7 +20,5 @@ async def route_restart_language_server(lsps=Depends(get_lsps)):
 
 
 @router.post(C.ROUTE_TYPE_CHECK)
-async def route_type_check(
-    x: TypeCheckRequest, project_manager=Depends(get_project_manager)
-):
-    return await project_manager.type_check(x.projectConfigId)
+async def route_type_check(x: TypeCheckRequest, code_tasks=Depends(get_code_tasks)):
+    return await code_tasks.process_post_request(x.project, C.ROUTE_TYPE_CHECK)

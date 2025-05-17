@@ -11,22 +11,23 @@ from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.backend_tools  # noqa: F401
 import setta.mcp.frontend_tools  # noqa: F401
+from setta.code_state.code_state import CodeState
+from setta.code_state.code_tasks import CodeTasks
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
-from setta.lsp.managers import (
-    LSPReaders,
-    LSPServers,
-    LSPWriters,
+from setta.lsp.utils import (
+    create_file_watcher,
+    create_lsp_readers,
+    create_lsp_writers,
+    create_lsps,
+    create_specific_file_watcher,
+    kill_lsps,
     start_lsps,
-    stop_file_watcher,
-    stop_lsps,
 )
-from setta.lsp.specific_file_watcher import create_specific_file_watcher
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import add_mcp_server_to_fastapi_server
-from setta.project_state.project_manager import ProjectManager
 from setta.routers import (
     ai_router,
     artifact_router,
@@ -34,13 +35,14 @@ from setta.routers import (
     interactive_code_router,
     lsp_router,
     projects_router,
+    reference_renaming_router,
     sections_router,
     settings_router,
     terminals_router,
     websocket_router,
 )
 from setta.terminals.terminals import Terminals
-from setta.utils.constants import C
+from setta.utils.constants import CODE_FOLDER, CWD, USER_SETTINGS, C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.websockets.script_metadata import ScriptMetadata
 from setta.websockets.websocket_manager import WebsocketManager
@@ -51,13 +53,16 @@ from setta.websockets.websocket_msg_handlers import WebsocketMsgHandlers
 async def lifespan(app: FastAPI):
     # startup
     app.state.settings_file = SettingsFile()
-    app.state.websocket_manager = WebsocketManager()
-    app.state.lsps = LSPServers()
-    app.state.lsp_writers = LSPWriters(app.state.lsps)
-    app.state.lsp_readers = LSPReaders(app.state.lsps, app.state.websocket_manager)
-    app.state.project_manager = ProjectManager(
-        app.state.lsp_writers, app.state.websocket_manager
+    app.state.lsps = create_lsps(
+        workspace_folder=CWD,
+        code_folder=CODE_FOLDER / "temp_folder",
+        settings=USER_SETTINGS["languageServer"],
     )
+    app.state.lsp_writers = create_lsp_writers(app.state.lsps)
+    app.state.file_watcher = create_file_watcher(app.state.lsps, app.state.lsp_writers)
+    app.state.websocket_manager = WebsocketManager()
+    app.state.code_state = CodeState()
+    app.state.code_tasks = CodeTasks(app.state.code_state, app.state.lsp_writers)
     app.state.script_metadata = ScriptMetadata()
     app.state.dbq = DBQueue(
         C.DB_PATH,
@@ -69,18 +74,21 @@ async def lifespan(app: FastAPI):
     )
     app.state.dbq.connect()
 
-    app.state.specific_file_watcher = create_specific_file_watcher(
-        app.state.websocket_manager
-    )
     app.state.websocket_msg_handlers = WebsocketMsgHandlers(
         app.state.websocket_manager,
         app.state.lsp_writers,
-        app.state.project_manager,
+        app.state.code_state,
+        app.state.code_tasks,
         app.state.script_metadata,
         app.state.dbq,
-        app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(app.state.websocket_msg_handlers.terminals)
+    app.state.specific_file_watcher = create_specific_file_watcher(
+        app.state.websocket_msg_handlers.specific_file_watcher
+    )
+    app.state.lsp_readers = create_lsp_readers(
+        app.state.lsps, app.state.websocket_msg_handlers.lsp_reader
+    )
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(
@@ -93,9 +101,15 @@ async def lifespan(app: FastAPI):
     )
 
     asyncio.create_task(app.state.mcp_client.connect_to_server())
+
     asyncio.create_task(
-        start_lsps(app.state.lsps, app.state.lsp_readers, app.state.lsp_writers)
+        start_lsps(
+            app.state.lsps,
+            app.state.lsp_readers,
+            app.state.lsp_writers,
+        )
     )
+    app.state.file_watcher.start()
     app.state.specific_file_watcher.start()
 
     if not is_dev_mode():
@@ -120,11 +134,10 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.project_manager.delete_temp_folder()
+        app.state.file_watcher.stop()
         app.state.specific_file_watcher.stop()
         await app.state.mcp_client.stop()
-        await stop_lsps(app.state.lsps, app.state.lsp_readers)
-        stop_file_watcher(app.state.lsp_writers)
+        await kill_lsps(app.state.lsps, app.state.lsp_readers)
 
 
 app = FastAPI(
@@ -151,6 +164,7 @@ app.include_router(code_info_router, **kwargs)
 app.include_router(settings_router, **kwargs)
 app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
+app.include_router(reference_renaming_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)
 

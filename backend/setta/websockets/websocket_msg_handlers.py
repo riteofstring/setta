@@ -16,24 +16,26 @@ class WebsocketMsgHandlers:
         self,
         websocket_manager,
         lsp_writers,
-        project_manager,
+        code_state,
+        code_tasks,
         script_metadata,
         dbq,
-        specific_file_watcher,
     ):
-        self.base = BaseWebsocketMsgHandler(websocket_manager)
+        self.lsp_reader = WMHLSPReader(websocket_manager)
+        self.specific_file_watcher = WMHSpecificFileWatcher(websocket_manager)
         self.artifact = WMHArtifact(websocket_manager)
+        self.database = WMHDatabase(websocket_manager)
         self.terminals = WMHTerminals(websocket_manager)
         self.frontend = WMHFrontend(
             websocket_manager,
             lsp_writers,
-            project_manager,
+            code_state,
+            code_tasks,
             script_metadata,
-            specific_file_watcher,
         )
         self.cli = WMHCLI(websocket_manager)
         self.python_script = WMHPythonScript(
-            websocket_manager, script_metadata, project_manager
+            websocket_manager, script_metadata, code_state
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
         self.mcp = WMHMCP(websocket_manager, dbq)
@@ -41,16 +43,18 @@ class WebsocketMsgHandlers:
 
 
 class BaseWebsocketMsgHandler:
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-
     async def on_connect(self, websocket_id):
         pass
 
     async def on_disconnect(self, websocket_id):
         pass
 
-    async def broadcast_notification_to_all_projects(self, content):
+
+class WMHLSPReader(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def broadcast_notification(self, content):
         content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
         await self.websocket_manager.broadcast(
             content,
@@ -58,32 +62,14 @@ class BaseWebsocketMsgHandler:
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
-    async def broadcast_notification(self, content, projectConfigId):
-        content["projectConfigId"] = projectConfigId
-        await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-
-class WMHProjectManager(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-
-    async def return_to_requester(self, content, messageId):
-        await self.websocket_manager.return_to_requester(content, messageId)
+    async def return_to_requester(self, content, returnId):
+        await self.websocket_manager.return_to_requester(content, returnId)
 
     async def broadcast_lsp_diagnostics(self, content):
         await self.websocket_manager.broadcast(
             content,
             C.WS_LSP_DIAGNOSTICS,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-    async def return_rename_refactor_results(self, content, messageId):
-        await self.websocket_manager.return_to_requester(
-            content, messageId, messageType=C.WS_RETURN_RENAME_REFACTOR_RESULTS
         )
 
 
@@ -98,6 +84,14 @@ class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
 
+    async def broadcast_notification(self, content):
+        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
 
 class WMHArtifact(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
@@ -109,6 +103,19 @@ class WMHArtifact(BaseWebsocketMsgHandler):
         )
 
 
+class WMHDatabase(BaseWebsocketMsgHandler):
+    def __init__(self, websocket_manager):
+        self.websocket_manager = websocket_manager
+
+    async def broadcast_notification(self, content, projectConfigId):
+        content["projectConfigId"] = projectConfigId
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+
 class WMHTerminals(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
@@ -116,6 +123,14 @@ class WMHTerminals(BaseWebsocketMsgHandler):
     async def send_command(self, command, cliId):
         message = {"content": command, "messageType": C.WS_RUN_CODE}
         await self.websocket_manager.send_message(message, cliId)
+
+    async def broadcast_notification(self, content, projectConfigId):
+        content["projectConfigId"] = projectConfigId
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
 
     async def broadcast_terminal_metadata(self, terminal_metadata):
         await self.websocket_manager.broadcast(
@@ -130,15 +145,15 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         self,
         websocket_manager,
         lsp_writers,
-        project_manager,
+        code_state,
+        code_tasks,
         script_metadata,
-        specific_file_watcher,
     ):
         self.websocket_manager = websocket_manager
         self.lsp_writers = lsp_writers
-        self.project_manager = project_manager
+        self.code_state = code_state
+        self.code_tasks = code_tasks
         self.script_metadata = script_metadata
-        self.specific_file_watcher = specific_file_watcher
 
     async def process_message(self, message, fromWebsocketId):
         if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
@@ -152,34 +167,13 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             self.websocket_manager.resolve_pending_request(
                 message["id"], message["content"]
             )
-        elif message.get("messageType") == C.WS_TEXT_FIELD_AUTOCOMPLETE:
-            await self.project_manager.text_field_autocomplete(
-                messageId=message["id"], **message["content"]
-            )
-        elif message.get("messageType") == C.WS_PARAMETERS_REQUEST:
-            await self.project_manager.parameters_request(
-                messageId=message["id"], **message["content"]
-            )
-        elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
-            await self.project_manager.update(
-                project_state=message["content"], messageId=message["id"]
-            )
-        elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
-            await self.project_manager.code_area_autocomplete(
-                messageId=message["id"], **message["content"]
-            )
-        elif message.get("messageType") == C.WS_GEN_CODE_PREFIX_AUTOCOMPLETE:
-            await self.project_manager.gen_code_prefix_autocomplete(
-                messageId=message["id"], **message["content"]
-            )
-
-        # else:
-        #     msg_id = message.get("id")
-        #     if not msg_id:
-        #         return
-        #     result = await self.code_tasks.process_message(message)
-        #     if result:
-        #         await self.websocket_manager.return_to_requester(result, msg_id)
+        else:
+            msg_id = message.get("id")
+            if not msg_id:
+                return
+            result = await self.code_tasks.process_message(message)
+            if result:
+                await self.websocket_manager.return_to_requester(result, msg_id)
 
     async def on_connect(self, websocket_id):
         content = self.script_metadata.dependencies
@@ -187,7 +181,6 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         await self.websocket_manager.send_message(
             {"content": content, "messageType": messageType}, websocket_id
         )
-        self.specific_file_watcher.request_read_all_files()
 
 
 class WMHCLI(BaseWebsocketMsgHandler):
@@ -199,17 +192,17 @@ class WMHCLI(BaseWebsocketMsgHandler):
 
 
 class WMHPythonScript(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager, script_metadata, project_manager):
+    def __init__(self, websocket_manager, script_metadata, code_state):
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata
-        self.project_manager = project_manager
+        self.code_state = code_state
 
     async def process_message(self, message, websocket_id):
         print("WMHPythonScript process_message", message, websocket_id, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_SCRIPT_READY:
-            project = self.project_manager.get_project_from_rel_path(content)
+            project = self.code_state.get_project_from_rel_path(content)
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
             await self.websocket_manager.send_message(message, websocket_id)
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
@@ -279,6 +272,14 @@ class WMHMCP(BaseWebsocketMsgHandler):
             save_uuid_mapping_for_llm(db, self.uuid_to_id)
             await self.send_uuid_mapping()
         return result
+
+    async def broadcast_notification(self, content):
+        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+        await self.websocket_manager.broadcast(
+            content,
+            C.WS_NOTIFICATION,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
 
     async def send_uuid_mapping(self):
         await self.websocket_manager.broadcast(

@@ -16,7 +16,6 @@ import "./dndline.css";
 export function getBgColor(sectionTypeName) {
   switch (sectionTypeName) {
     case C.CODE:
-    case C.GEN_PYTHON_CODE:
       return "bg-white dark:bg-setta-900";
     case C.TERMINAL:
       return "bg-setta-950 overflow-clip";

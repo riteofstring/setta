@@ -28,33 +28,6 @@ export function useCreateSectionsList() {
     });
   }
 
-  const codeGroupItems = [
-    {
-      name: "Python Code",
-      specificProps: {
-        type: C.CODE,
-        sectionProps: { codeLanguage: "python" },
-      },
-    },
-    {
-      name: "Bash Script",
-      specificProps: {
-        type: C.CODE,
-        sectionProps: { codeLanguage: "bash" },
-      },
-    },
-    { name: "Terminal", specificProps: { type: C.TERMINAL } },
-  ];
-
-  if (!singletonSections[C.GEN_PYTHON_CODE]) {
-    codeGroupItems.push({
-      name: "Show Generated Python",
-      specificProps: {
-        type: C.GEN_PYTHON_CODE,
-      },
-    });
-  }
-
   return [
     {
       group: "Section",
@@ -62,7 +35,23 @@ export function useCreateSectionsList() {
     },
     {
       group: "Code",
-      items: codeGroupItems,
+      items: [
+        {
+          name: "Python Code",
+          specificProps: {
+            type: C.CODE,
+            sectionProps: { codeLanguage: "python" },
+          },
+        },
+        {
+          name: "Bash Script",
+          specificProps: {
+            type: C.CODE,
+            sectionProps: { codeLanguage: "bash" },
+          },
+        },
+        { name: "Terminal", specificProps: { type: C.TERMINAL } },
+      ],
     },
     {
       group: "Artifacts",

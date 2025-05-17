@@ -1,5 +1,4 @@
 import sqlite3
-import time
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -37,7 +36,7 @@ from setta.database.db.projects.utils import (
 from setta.database.export_db.export_db import maybe_export_database
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_project_manager, get_wmh_base
+from .dependencies import get_dbq, get_wmh_database
 
 router = APIRouter()
 
@@ -112,44 +111,15 @@ def route_load_project_config_names(dbq=Depends(get_dbq)):
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
-async def route_load_project_config(
+def route_load_project_config(
     x: ProjectLoadRequest,
     dbq=Depends(get_dbq),
-    project_manager=Depends(get_project_manager),
 ):
-    print(
-        f"[DEBUG] route_load_project_config started for project {x.projectConfigName}",
-        flush=True,
-    )
     try:
-        print("[DEBUG] Opening database connection", flush=True)
         with dbq as db:
-            print("[DEBUG] Loading project config from database", flush=True)
-            project_state = load_project_config(db, x.projectConfigName)
-            print(
-                f"[DEBUG] Project state loaded, size: {len(str(project_state))} chars",
-                flush=True,
-            )
-            print("[DEBUG] Calling project_manager.update", flush=True)
-            start_time = time.time()
-            await project_manager.update(project_state)
-            print(
-                f"[DEBUG] Update completed in {time.time() - start_time:.2f}s",
-                flush=True,
-            )
-            print("[DEBUG] Preparing response", flush=True)
-            # Try returning a simplified response first to test
-            # return {"status": "success", "project_name": project_state["projectConfig"]["name"]}
-            print("[DEBUG] Returning full project state", flush=True)
-            return project_state
+            return load_project_config(db, x.projectConfigName)
     except ProjectNotFound as e:
-        print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
-    except Exception as e:
-        print(f"[DEBUG] Unexpected error: {e}", flush=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        print("[DEBUG] route_load_project_config finished", flush=True)
 
 
 @router.post(C.ROUTE_LOAD_FULL_PROJECT)
@@ -165,7 +135,7 @@ async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
     dbq=Depends(get_dbq),
-    websocket_msg_handler=Depends(get_wmh_base),
+    websocket_msg_handler=Depends(get_wmh_database),
 ):
     with dbq as db:
         notification = None

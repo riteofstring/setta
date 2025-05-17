@@ -4,6 +4,9 @@ import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
+import { useEVRefRegex } from "state/definitions";
+import { goToSectionOnNameClick } from "./getOnCreateEditor";
+import { roundUpIdx } from "./utils";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -21,6 +24,7 @@ export function DummyCodeMirror({
   onMouseDownCapture,
   onFocus,
   className,
+  evRefs,
   placeholder,
   language,
 }) {
@@ -32,6 +36,7 @@ export function DummyCodeMirror({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       className={className}
+      evRefs={evRefs}
       language={language}
     />
   ) : (
@@ -73,6 +78,7 @@ function HighlightedCode({
   theme,
   onMouseDownCapture,
   className,
+  evRefs,
   language,
   onFocus,
 }) {
@@ -80,6 +86,14 @@ function HighlightedCode({
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
+
+  const matchedIndices = {};
+  for (const kp of evRefs) {
+    matchedIndices[kp.startPos] = {
+      keywordEndIdx: kp.startPos + kp.keyword.length,
+      keyword: kp.keyword,
+    };
+  }
 
   highlightTree(tree, highlightStyle, (from, to, style) => {
     builder.add(
@@ -96,6 +110,13 @@ function HighlightedCode({
   const text = Text.of(code.split("\n"));
   const outputDivs = [];
   let pos, isJustLineBreak;
+  let [
+    currKeyword,
+    currKeywordStartIdx,
+    currKeywordEndIdx,
+    currComponentIndices,
+  ] = [null, null, null, null];
+  const fullNameToInfo = useEVRefRegex.getState().fullNameToInfo;
 
   const cursor = decorationRangeSet.iter();
 
@@ -112,14 +133,49 @@ function HighlightedCode({
         currLineDivs.push(text.sliceString(pos, cursor.from));
       }
 
-      const className = cursor.value.spec.class;
+      if (currKeyword === null && cursor.from in matchedIndices) {
+        const { keyword, keywordEndIdx } = matchedIndices[cursor.from];
+        // not guaranteed to be a valid keyword due to debounced functions
+        // and delays in getting latest information from language server.
+        if (keyword in fullNameToInfo) {
+          currKeyword = keyword;
+          currKeywordStartIdx = cursor.from;
+          currKeywordEndIdx = keywordEndIdx;
+          currComponentIndices = fullNameToInfo[currKeyword].componentIndices;
+        }
+      }
+
+      const className = `${cursor.value.spec.class} ${currKeyword ? "italic" : ""}`;
+      const slicedKeyword = currKeyword
+        ? currKeyword.slice(
+            0,
+            roundUpIdx(currComponentIndices, cursor.to - currKeywordStartIdx),
+          )
+        : null;
+      const onClick = currKeyword
+        ? (event) =>
+            goToSectionOnNameClick({
+              event,
+              variable: slicedKeyword,
+            })
+        : () => {};
 
       currLineDivs.push(
-        <span key={`line-${i}-${cursor.from}`} className={className}>
+        <span
+          key={`line-${i}-${cursor.from}`}
+          className={className}
+          onClick={onClick}
+        >
           {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
         </span>,
       );
       pos = cursor.to;
+      if (pos >= currKeywordEndIdx) {
+        currKeyword = null;
+        currKeywordStartIdx = null;
+        currKeywordEndIdx = null;
+        currComponentIndices = null;
+      }
       cursor.next();
     }
     currLineDivs.push(text.sliceString(pos, line.to));

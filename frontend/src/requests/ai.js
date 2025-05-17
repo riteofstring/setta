@@ -14,6 +14,22 @@ export async function dbGetLLMResponse(model, message, deepThink, chatId) {
   }
 }
 
+export async function dbGetLLMApiKeys(apiKeysFilepath) {
+  try {
+    const response = await post({
+      body: {
+        apiKeysFilepath,
+      },
+      address: C.ROUTE_GET_LLM_API_KEYS,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Error in dbGetLLMApiKeys:", error);
+    throw error;
+  }
+}
+
 export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
   try {
     const response = await post({
