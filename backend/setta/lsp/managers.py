@@ -33,6 +33,10 @@ class LSPWriters:
 
     async def start(self):
         await self.full.start()
+        self.file_watcher.start()
+
+    def stop(self):
+        self.file_watcher.stop()
 
 
 class LSPReaders:
@@ -62,11 +66,12 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
     await lsp_writers.start()
 
 
-async def stop_lsps(lsps, lsp_readers):
+async def stop_lsps(lsps, lsp_readers, lsp_writers):
     await lsp_readers.stop()
     lsps.stop()
+    lsp_writers.stop()
 
 
 async def restart_lsps(lsps, lsp_readers, lsp_writers):
-    await stop_lsps(lsps, lsp_readers)
+    await stop_lsps(lsps, lsp_readers, lsp_writers)
     await start_lsps(lsps, lsp_readers, lsp_writers)
