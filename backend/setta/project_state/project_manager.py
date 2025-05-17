@@ -51,6 +51,12 @@ class ProjectManager:
             messageId, sectionId, fullText, position
         )
 
+    async def gen_code_prefix_autocomplete(
+        self, messageId, projectConfigId, fullText, position
+    ):
+        project_state = self.states[projectConfigId]
+        await project_state.gen_code_prefix_autocomplete(messageId, fullText, position)
+
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)
 

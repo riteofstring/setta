@@ -224,3 +224,7 @@ class PythonCodeGenerator:
         if code_line:
             return code_line.value_pos_start
         return None
+
+    def change_gen_code_prefix(self, new_prefix):
+        self.gen_code_prefix = new_prefix
+        self.generate_code()

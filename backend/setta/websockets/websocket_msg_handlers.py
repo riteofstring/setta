@@ -168,6 +168,10 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             await self.project_manager.code_area_autocomplete(
                 messageId=message["id"], **message["content"]
             )
+        elif message.get("messageType") == C.WS_GEN_CODE_PREFIX_AUTOCOMPLETE:
+            await self.project_manager.gen_code_prefix_autocomplete(
+                messageId=message["id"], **message["content"]
+            )
 
         # else:
         #     msg_id = message.get("id")

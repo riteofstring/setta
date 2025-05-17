@@ -135,6 +135,11 @@ class ProjectState:
             self._code_area_autocomplete_impl, messageId, sectionId, fullText, position
         )
 
+    async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
+        return await self._enqueue(
+            self._gen_code_prefix_autocomplete_impl, messageId, fullText, position
+        )
+
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
 
@@ -223,6 +228,10 @@ class ProjectState:
         await self.code_dict[sectionId].code_area_autocomplete(
             messageId, fullText, position
         )
+
+    async def _gen_code_prefix_autocomplete_impl(self, messageId, fullText, position):
+        print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
+        await self.gen_code.gen_code_prefix_autocomplete(messageId, fullText, position)
 
     async def _get_gen_python_code_path_impl(self):
         if self.gen_code:

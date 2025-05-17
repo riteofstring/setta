@@ -34,10 +34,9 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const completionsFn = useCallback(
-    getPythonCodeAreaCompletionsFn(sectionId),
-    [sectionId],
-  );
+  const completionsFn = useCallback(getPythonCodeAreaCompletionsFn(sectionId), [
+    sectionId,
+  ]);
 
   return (
     <CoreCodeArea

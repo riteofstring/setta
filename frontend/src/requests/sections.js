@@ -66,3 +66,17 @@ export async function wsTextFieldCompletion({
     },
   });
 }
+
+export async function wsGenCodePrefixCompletion({ fullText, position }) {
+  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+
+  return await sendMessageAndWait({
+    id: createNewId(),
+    messageType: C.WS_GEN_CODE_PREFIX_AUTOCOMPLETE,
+    content: {
+      projectConfigId,
+      fullText,
+      position,
+    },
+  });
+}

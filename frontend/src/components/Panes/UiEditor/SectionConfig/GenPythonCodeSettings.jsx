@@ -1,8 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { wsGenCodePrefixCompletion } from "requests/sections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useSectionInfos } from "state/definitions";
 
@@ -23,16 +25,14 @@ export function GenPythonCodeSettings() {
     debouncedSetCode(v);
   }
 
-  //   const completionsFn = useCallback(
-  //     // wrappedCompletionsFn(sectionId, null, wsCodeAreaCompletion, language),
-  //     [sectionId],
-  //   );
+  const completionsFn = useCallback(getGenCodePrefixCompletionsFn(), []);
 
   const extensions = getExtensions({
     parentDivId: "UiEditorPane",
     language: "python",
     tabToAutocomplete: true,
     indentWithTab: true,
+    completionsFn,
   });
 
   return (
@@ -58,3 +58,12 @@ const debouncedSetCode = _.debounce((value) => {
   });
   maybeIncrementProjectStateVersion(true);
 }, 50);
+
+function getGenCodePrefixCompletionsFn() {
+  const fn = async (fullText, position) => {
+    const res = await wsGenCodePrefixCompletion({ fullText, position });
+    return res;
+  };
+
+  return wrappedCompletionsFn(fn);
+}
