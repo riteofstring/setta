@@ -35,9 +35,6 @@ class LSPWriters:
         await self.full.start()
         self.file_watcher.start()
 
-    def stop(self):
-        self.file_watcher.stop()
-
 
 class LSPReaders:
     def __init__(self, servers, websocket_manager):
@@ -66,12 +63,15 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
     await lsp_writers.start()
 
 
-async def stop_lsps(lsps, lsp_readers, lsp_writers):
+async def stop_lsps(lsps, lsp_readers):
     await lsp_readers.stop()
     lsps.stop()
-    lsp_writers.stop()
+
+
+def stop_file_watcher(lsp_writers):
+    lsp_writers.file_watcher.stop()
 
 
 async def restart_lsps(lsps, lsp_readers, lsp_writers):
-    await stop_lsps(lsps, lsp_readers, lsp_writers)
+    await stop_lsps(lsps, lsp_readers)
     await start_lsps(lsps, lsp_readers, lsp_writers)

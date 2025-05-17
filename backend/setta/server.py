@@ -14,7 +14,14 @@ import setta.mcp.frontend_tools  # noqa: F401
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps, stop_lsps
+from setta.lsp.managers import (
+    LSPReaders,
+    LSPServers,
+    LSPWriters,
+    start_lsps,
+    stop_file_watcher,
+    stop_lsps,
+)
 from setta.lsp.specific_file_watcher import create_specific_file_watcher
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
@@ -117,6 +124,7 @@ async def lifespan(app: FastAPI):
         app.state.specific_file_watcher.stop()
         await app.state.mcp_client.stop()
         await stop_lsps(app.state.lsps, app.state.lsp_readers)
+        stop_file_watcher(app.state.lsp_writers)
 
 
 app = FastAPI(
