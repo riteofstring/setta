@@ -51,46 +51,55 @@ def process_report_call_issue(start, end, message, code_generator, dep_graph):
     return []
 
 
-def process_positional_argument_issue(start, message, code_generator, dep_graph):
+def _process_argument_issue(start, message, code_generator, dep_graph, param_filter):
+    """
+    Helper function to process argument issues.
+
+    Args:
+        start: Start position information
+        message: Error message
+        code_generator: PythonCodeGenerator instance
+        dep_graph: DependencyGraph instance
+        param_filter: Function that takes a param and returns True if it should be included
+    """
     graph_key = code_generator.value_pos_start_to_graph_key.get(start["position"])
     if not graph_key:
         return []
     node = dep_graph.graph.get(graph_key)
     if not node:
         return []
+
     missing_deps = []
     for dep_graph_key, is_used in node.deps.items():
         if is_used:
             continue
         param = dep_graph.graph.get(dep_graph_key)
-        if not param:
+        if not param or not isinstance(param, ParamNode):
             continue
-        if (
-            isinstance(param, ParamNode)
-            and param.passing_style == ParameterPassingStyle.POSITIONAL_ONLY
-        ):
+        if param_filter(param):
             missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
     return missing_deps
+
+
+def process_positional_argument_issue(start, message, code_generator, dep_graph):
+    return _process_argument_issue(
+        start,
+        message,
+        code_generator,
+        dep_graph,
+        lambda param: param.passing_style == ParameterPassingStyle.POSITIONAL_ONLY,
+    )
 
 
 def process_named_argument_issue(start, message, code_generator, dep_graph):
-    graph_key = code_generator.value_pos_start_to_graph_key.get(start["position"])
-    if not graph_key:
-        return []
-    node = dep_graph.graph.get(graph_key)
-    if not node:
-        return []
     missing_param_names = extract_parameters(message)
-    missing_deps = []
-    for dep_graph_key, is_used in node.deps.items():
-        if is_used:
-            continue
-        param = dep_graph.graph.get(dep_graph_key)
-        if not param:
-            continue
-        if isinstance(param, ParamNode) and param.name in missing_param_names:
-            missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
-    return missing_deps
+    return _process_argument_issue(
+        start,
+        message,
+        code_generator,
+        dep_graph,
+        lambda param: param.name in missing_param_names,
+    )
 
 
 def get_message_with_ids(message, graph_key, dep_graph):
