@@ -29,12 +29,10 @@ export async function getProjectDataToGenerateCode({
     }
     project.sections = sections;
   }
-
   return project;
 }
 
 export const updateBackendProjectState = asyncDebounce(async () => {
   const project = await getProjectDataToGenerateCode({});
-  console.log("updateBackendProjectState");
-  sendMessage({ content: project, messageType: C.WS_PROJECT_STATE_UPDATE });
-}, 50);
+  sendMessage({ content: project, messageType: C.WS_UPDATE_PROJECT_STATE });
+}, 200);

@@ -274,5 +274,5 @@ function apiKeysFilepathSubscriptionFn(state) {
 }
 
 function updateBackendSubscriptionFn(state) {
-  return state;
+  return state.version;
 }

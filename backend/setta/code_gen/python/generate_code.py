@@ -3,6 +3,7 @@ from typing import Optional
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
+    GraphKeyType,
     Node,
     ParamNode,
     SectionNode,
@@ -35,13 +36,19 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, dep_graph: DependencyGraph):
+    def __init__(self, dep_graph: DependencyGraph, gen_code_prefix):
         self.dep_graph = dep_graph
+        self.gen_code_prefix = gen_code_prefix
+        self.reset()
+
+    def reset(self):
         self.var_name_mapping = {}
         self.used_temp_var_names = set([SELF_IDENTIFIER, CLASS_NAME, "SettaArgsObj"])
+        self.code = ""
+        self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
     def generate_code(self):
-        lines = {}
+        self.reset()
         processed_nodes = set()
         cycles_detected = []
 
@@ -49,23 +56,20 @@ class PythonCodeGenerator:
             if not node.isTopLevel:
                 continue
 
-            cycle = self._process_node_and_deps(key, node, lines, processed_nodes)
-            if cycle and cycle not in cycles_detected:
-                cycles_detected.append(cycle)
+            cycles_detected.extend(
+                self._process_node_and_deps(key, node, processed_nodes)
+            )
 
         if cycles_detected:
             print(f"Found {len(cycles_detected)} cycles during code generation")
             print(cycles_detected)
 
-        code = self.generate_wrapper_class(lines)
-        return code, lines
+        self.code = self.generate_wrapper_class()
 
-    def _process_node_and_deps(
-        self, graph_key, node, lines, processed_nodes, path=None
-    ):
+    def _process_node_and_deps(self, graph_key, node, processed_nodes, path=None):
         """Process a node and its dependencies, recording any cycles found."""
         if graph_key in processed_nodes:
-            return None  # Already processed, no cycle
+            return []  # Already processed, no cycle
 
         # Initialize the path if this is the top-level call
         if path is None:
@@ -76,51 +80,51 @@ class PythonCodeGenerator:
             # Cycle detected! Extract the full cycle as graph keys
             cycle_start = path.index(graph_key)
             cycle = path[cycle_start:] + [graph_key]
-            return cycle  # Return the cycle keys directly
+            return [cycle]
 
         # Add current node to path
         path.append(graph_key)
 
+        cycles = []
         # Process dependencies first
-        for dep_key in node.deps:
+        for dep_key, is_used in node.deps.items():
+            if not is_used:
+                continue
             if dep_key not in processed_nodes:
                 dep_node = self.dep_graph.graph[dep_key]
-                cycle = self._process_node_and_deps(
-                    dep_key, dep_node, lines, processed_nodes, path
+                cycles.extend(
+                    self._process_node_and_deps(
+                        dep_key, dep_node, processed_nodes, path
+                    )
                 )
-                if cycle:
-                    # Propagate cycle information upward
-                    return cycle
 
         # Now process this node
-        var_str, prefix_len, value_len = self.create_line(graph_key, node)
-        if var_str:
-            lines[graph_key] = PythonCodeLine(var_str, prefix_len, value_len)
+        self.create_line(graph_key, node)
 
         # Mark as processed and remove from path
         processed_nodes.add(graph_key)
         path.pop()
 
-        return None  # No cycle detected in this branch
+        return cycles  # Return all cycles found
 
-    def generate_wrapper_class(self, lines):
+    def generate_wrapper_class(self):
         code = CLASS_DEF
+        if self.gen_code_prefix:
+            code = f"{self.gen_code_prefix}\n{code}"
         indent = "        "
         indent_len = len(indent)
-        for key, l in lines.items():
+        for key, l in self.lines.items():
             curr_pos = len(code) + indent_len
             code = f"{code}{indent}{l.var_str}\n"
-            lines[key].pos = curr_pos
+            self.lines[key].pos = curr_pos
         return code
 
     def create_line(self, graph_key, node: Node):
         value = self.get_value(node)
-        if value:
-            var_name = self.create_var_name(graph_key, node)
-            prefix = f"{var_name} = "
-            final_str = f"{prefix}{value}"
-            return final_str, len(prefix), len(value)
-        return None, None, None
+        var_name = self.create_var_name(graph_key, node)
+        prefix = f"{var_name} = "
+        final_str = f"{prefix}{value}"
+        self.lines[graph_key] = PythonCodeLine(final_str, len(prefix), len(value))
 
     def create_var_name(self, graph_key, node: Node):
         if isinstance(node, ParamNode):
@@ -166,26 +170,34 @@ class PythonCodeGenerator:
         elif t == C.NESTED_PARAM:
             return self.construct_dict(node.deps)
 
-    def construct_dict(self, dependency_keys):
+    def construct_dict(self, deps):
         output = ""
         idx = 0
-        for idx, d in enumerate(dependency_keys):
+        for d, is_used in deps.items():
+            if not is_used:
+                continue
             prefix = "" if idx == 0 else ", "
             name = self.dep_graph.graph[d].name
             var_name = self.var_name_mapping[d]
             output += f'{prefix}"{name}": {var_name}'
+            idx += 1
         return "{" + output + "}"
 
-    def construct_list(self, dependency_keys):
-        output = ", ".join(self.var_name_mapping[d] for d in dependency_keys)
+    def construct_list(self, deps):
+        output = ", ".join(
+            self.var_name_mapping[d] for d, is_used in deps.items() if is_used
+        )
         return f"[{output}]"
 
-    def construct_callable(self, callable, dependency_keys):
+    def construct_callable(self, callable, deps):
         output = ""
-        for idx, key in enumerate(dependency_keys):
+        idx = 0
+        for d, is_used in deps.items():
+            if not is_used:
+                continue
             prefix = "" if idx == 0 else ", "
-            var_name = self.var_name_mapping[key]
-            node: ParamNode = self.dep_graph.graph[key]
+            var_name = self.var_name_mapping[d]
+            node: ParamNode = self.dep_graph.graph[d]
             passing_style = node.passing_style
             if passing_style == ParameterPassingStyle.ARGS:
                 prefix = "*"
@@ -198,6 +210,17 @@ class PythonCodeGenerator:
                 prefix += f"{node.name}="
 
             output += f"{prefix}{var_name}"
+            idx += 1
 
         output = f"{callable}({output})"
         return output
+
+    def change_value(self, graph_key, value):
+        self.dep_graph.change_value(graph_key, value)
+        self.generate_code()
+        code_line = self.lines.get(graph_key)
+        # code_line still might not exist if value is empty
+        # or if the node doesn't have a name (e.g. a kwarg whose name hasn't been set yet)
+        if code_line:
+            return code_line.value_position[0]
+        return None

@@ -135,16 +135,16 @@ function getTitleStyles({
   const editing =
     "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-3/5 dark:text-white font-bold text-[.7rem] tracking-tight";
 
-  const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
-
   const notEditing = getNotEditingStyle({
     isActiveSection,
     isInOtherProjectConfigs,
-    isGlobalVariables,
     sectionTypeName,
   });
 
-  if (isGlobalVariables) {
+  if (
+    sectionTypeName === C.GLOBAL_VARIABLES ||
+    sectionTypeName === C.GEN_PYTHON_CODE
+  ) {
     return { fixed: notEditing };
   }
 
@@ -157,7 +157,6 @@ function getTitleStyles({
 function getNotEditingStyle({
   isActiveSection,
   isInOtherProjectConfigs,
-  isGlobalVariables,
   sectionTypeName,
 }) {
   let textColorClass = "";
@@ -167,7 +166,7 @@ function getNotEditingStyle({
   if (isActiveSection) {
     if (isInOtherProjectConfigs) {
       textColorClass = "text-purple-800 dark:text-purple-200";
-    } else if (isGlobalVariables) {
+    } else if (sectionTypeName === C.GLOBAL_VARIABLES) {
       textColorClass = "text-green-800 dark:text-green-200";
     } else if (sectionTypeName === C.TERMINAL) {
       textColorClass = "text-blue-400";
@@ -183,7 +182,10 @@ function getNotEditingStyle({
   }
 
   // Handle text case for global variables
-  if (isGlobalVariables) {
+  if (
+    sectionTypeName === C.GLOBAL_VARIABLES ||
+    sectionTypeName === C.GEN_PYTHON_CODE
+  ) {
     fontClass = "uppercase font-bold";
   }
 

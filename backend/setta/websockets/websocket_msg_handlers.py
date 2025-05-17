@@ -155,8 +155,12 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             await self.project_manager.parameters_request(
                 messageId=message["id"], **message["content"]
             )
-        elif message.get("messageType") == C.WS_PROJECT_STATE_UPDATE:
+        elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
             await self.project_manager.update(message["content"])
+        elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
+            await self.project_manager.code_area_autocomplete(
+                messageId=message["id"], **message["content"]
+            )
 
         # else:
         #     msg_id = message.get("id")

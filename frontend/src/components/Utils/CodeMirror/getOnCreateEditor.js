@@ -1,45 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { setTextFieldWaitingForLSP } from "state/actions/lsp";
-import { goToSection } from "state/actions/sections/sectionPositions";
-import { roundUpIdx } from "./utils";
-
-function getContentDomEventListener(evRefs, editor) {
-  return (event) => {
-    if (!variableClick(event)) {
-      return;
-    }
-
-    event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-
-    // Convert click coordinates to a position in the editor
-    const pos = editor.posAtCoords({ x: event.clientX, y: event.clientY });
-    if (pos === null) {
-      return;
-    }
-
-    let keywordInfo = null;
-
-    for (const k of evRefs) {
-      if (pos >= k.startPos && pos < k.startPos + k.keyword.length) {
-        keywordInfo = k;
-        break;
-      }
-    }
-
-    if (keywordInfo) {
-      const { startPos, keyword } = keywordInfo;
-      const endIdx = roundUpIdx(
-        useEVRefRegex.getState().fullNameToInfo[keyword].componentIndices,
-        pos - startPos,
-      );
-      goToSectionOnNameClick({
-        editor,
-        event,
-        variable: keyword.slice(0, endIdx),
-      });
-    }
-  };
-}
 
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
@@ -53,7 +12,6 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 }
 
 export function getOnCreateEditor({
-  evRefs,
   initialEvent,
   setRealIsInitialized,
   divId,
@@ -61,10 +19,6 @@ export function getOnCreateEditor({
   defaultVal,
 }) {
   return (view) => {
-    // view.contentDOM.addEventListener(
-    //   "click",
-    //   getContentDomEventListener(evRefs, view),
-    // );
     view.focus();
     if (initialEvent !== "tab") {
       const { clientX, clientY } = initialEvent;
@@ -86,12 +40,7 @@ function getFromTo(options, before, context) {
   return { from: before ? before.from : context.pos };
 }
 
-export function getCompletionsFn(
-  sectionId,
-  paramInfoId,
-  completionFn,
-  language,
-) {
+export function wrappedCompletionsFn(completionFn, language) {
   if (language === "python") {
     return async (context) => {
       const fullText = context.state.doc.toString();
@@ -105,17 +54,7 @@ export function getCompletionsFn(
       //   { onDocChange: true },
       // );
       const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
-      const setToNotWaiting = setTextFieldWaitingForLSP({
-        sectionId,
-        paramInfoId,
-      });
-      const res = await completionFn({
-        sectionId,
-        paramInfoId,
-        fullText,
-        position: context.pos,
-      });
-      setToNotWaiting();
+      const res = await completionFn(fullText, context.pos);
       if (res) {
         return {
           filter: true,
@@ -129,15 +68,4 @@ export function getCompletionsFn(
   }
 
   return () => null;
-}
-
-export function goToSectionOnNameClick({ editor, event, variable }) {
-  const { sectionId } = useEVRefRegex.getState().fullNameToInfo[variable];
-  if (sectionId) {
-    event.stopPropagation(); //prevent SectionContainerCore onClick from triggering
-    if (editor) {
-      editor.contentDOM.blur(); //blur the input field we just clicked on
-    }
-    goToSection(sectionId);
-  }
 }

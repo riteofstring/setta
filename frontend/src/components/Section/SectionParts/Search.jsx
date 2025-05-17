@@ -2,12 +2,12 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useSectionInfos } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -121,20 +121,18 @@ function SectionSearchCore({
 }) {
   const {
     name: codeInfoName,
-    evRefs,
     description,
     configLanguage,
   } = useSectionInfos((x) => {
     const { configLanguage } = getSectionVariant(dataSectionId, x);
     if (selectedItem) {
-      const { name, evRefs, description } = x.codeInfo[selectedItem];
-      return { name, evRefs, description, configLanguage };
+      const { name, description } = x.codeInfo[selectedItem];
+      return { name, description, configLanguage };
     }
-    return { name: "", evRefs: [], description: "", configLanguage };
+    return { name: "", description: "", configLanguage };
   }, _.isEqual);
 
   const [value, setValue] = useState(codeInfoName);
-  const [localEVRefs, setLocalEVRefs] = useState(evRefs);
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const shouldResetValueOnBlur = useRef(false);
 
@@ -159,13 +157,12 @@ function SectionSearchCore({
     setValueAndCheckConsistency(codeInfoName, true);
   }, [codeInfoName]);
 
-  useDeepCompareEffect(() => {
-    setLocalEVRefs(evRefs);
-  }, [evRefs]);
-
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
+      // we have to explicitly call this here because the global state
+      // won't have captured any intermediate updates
+      updateBackendProjectState();
     }
     shouldResetValueOnBlur.current = false;
   }
@@ -226,7 +223,6 @@ function SectionSearchCore({
         onTab={onTab}
         onEscape={onEscape}
         language={configLanguage}
-        evRefs={localEVRefs}
         isDisabled={isDisabled}
       />
       <LoadingSpinner sectionId={dataSectionId} />

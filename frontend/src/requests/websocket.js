@@ -77,7 +77,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
-  console.log(m);
+  // console.log(m);
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     setWebsocketConnections(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {

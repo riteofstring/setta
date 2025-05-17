@@ -1,13 +1,12 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
-import { useKeywordStylizer } from "components/Utils/CodeMirror/getKeywordStylizer";
-import { getCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
+import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { dbCodeAreaCompletion } from "requests/sections";
+import { wsCodeAreaCompletion } from "requests/sections";
 import {
   getDisplayedSectionVariant,
   getSectionVariant,
@@ -18,7 +17,6 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { asyncDebounce } from "utils/utils";
 
 function _CodeArea({ sectionId }) {
   const language = useSectionInfos((x) => x.x[sectionId].codeLanguage);
@@ -36,15 +34,8 @@ function _CodeArea({ sectionId }) {
 export const CodeArea = React.memo(_CodeArea);
 
 function PythonCodeArea({ sectionId, language }) {
-  const evRefs = useSectionInfos(
-    (x) => getDisplayedSectionVariant(sectionId, x).evRefs,
-    _.isEqual,
-  );
-
-  const keywordStylizer = useKeywordStylizer(evRefs);
-
   const completionsFn = useCallback(
-    getCompletionsFn(sectionId, null, dbCodeAreaCompletion, language),
+    getCodeAreaCompletionsFn(sectionId, language),
     [sectionId],
   );
 
@@ -53,7 +44,6 @@ function PythonCodeArea({ sectionId, language }) {
       sectionId={sectionId}
       language={language}
       completionsFn={completionsFn}
-      keywordStylizer={keywordStylizer}
     />
   );
 }
@@ -86,7 +76,6 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
   const extensions = getExtensions({
-    sectionId,
     language,
     onEscape: onEscapeFocusOnArticleDiv,
     isDisabled: true,
@@ -111,7 +100,7 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
   );
 }
 
-function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
+function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useSectionInfos((x) => {
     return {
       value: getDisplayedSectionVariant(sectionId, x).code,
@@ -124,7 +113,6 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
 
   const theme = useCodeMirrorStyle();
   const [localValue, setLocalValue] = useState(value);
-  const abortController = useRef();
 
   useEffect(() => {
     if (value !== localValue) {
@@ -133,19 +121,17 @@ function CoreCodeArea({ sectionId, language, completionsFn, keywordStylizer }) {
   }, [value]);
 
   function onChange(v) {
-    abortController.current?.abort();
     setLocalValue(v);
-    debouncedSetCode(sectionId, v, abortController);
+    debouncedSetCode(sectionId, v);
   }
 
   const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
     codeAreaTabOnEnterKeyHandlers(wrapperRef);
 
   const extensions = getExtensions({
-    sectionId,
+    parentDivId: `${sectionId}-CustomResizable`,
     language,
     completionsFn,
-    keywordStylizer,
     onEscape: onEscapeFocusOnArticleDiv,
     tabToAutocomplete: true,
     indentWithTab: true,
@@ -305,24 +291,19 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = asyncDebounce(
-  async (sectionId, value, abortControllerRef) => {
-    const ac = new AbortController();
-    abortControllerRef.current = ac;
+const debouncedSetCode = _.debounce((sectionId, value) => {
+  useSectionInfos.setState((x) => {
+    const sectionVariant = getSectionVariant(sectionId, x);
+    sectionVariant.code = value;
+  });
+  maybeIncrementProjectStateVersion(true);
+}, 50);
 
-    if (ac.signal.aborted) {
-      return;
-    }
+function getCodeAreaCompletionsFn(sectionId, language) {
+  const fn = async (fullText, position) => {
+    const res = await wsCodeAreaCompletion({ sectionId, fullText, position });
+    return res;
+  };
 
-    if (ac.signal.aborted) {
-      return;
-    }
-    useSectionInfos.setState((x) => {
-      const sectionVariant = getSectionVariant(sectionId, x);
-      sectionVariant.code = value;
-    });
-
-    maybeIncrementProjectStateVersion(true);
-  },
-  50,
-);
+  return wrappedCompletionsFn(fn, language);
+}

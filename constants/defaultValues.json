@@ -5,7 +5,9 @@
     "previewImgColor": "bg-blue-500/60 dark:bg-blue-600/30",
     "viewport": null,
     "children": {},
-    "viewingEditingMode": "DEV"
+    "viewingEditingMode": "DEV",
+    "genCodePrefix": "",
+    "genCodeSuffix": ""
   },
   "section": {
     "id": null,
@@ -72,8 +74,6 @@
     "code": "",
     "codeInfoColId": null,
     "description": "",
-    "evRefs": [],
-    "templateVars": [],
     "isFrozen": false,
     "sweep": [],
     "runGroup": {},
@@ -93,7 +93,6 @@
     "isPinned": false,
     "isFrozen": false,
     "isSelected": false,
-    "evRefs": [],
     "ignoreTypeErrors": false
   },
   "codeInfoCol": {
@@ -106,18 +105,11 @@
     "presetType": "BASE",
     "config": {}
   },
-  "evEntry": { "value": "", "evRefs": [] },
+  "evEntry": { "value": "" },
   "runGroupEntry": { "selected": true, "paramSweeps": {}, "versions": {} },
   "uiTypeColEntry": {
     "uiTypeId": "3fdaeb6a-e989-4888-b844-17a76f0b0192",
     "nonPresetUITypeIds": []
-  },
-  "evRefEntry": {
-    "sectionId": null,
-    "paramInfoId": null,
-    "isArgsObj": false,
-    "startPos": 0,
-    "keyword": ""
   },
   "artifact": {
     "name": "",

@@ -7,15 +7,13 @@ import time
 import traceback
 import uuid
 from collections import defaultdict
+from pathlib import Path
 
 import websockets
 
-from setta.code_gen.create_runnable_scripts import (
-    convert_folder_path_to_module_path,
-    relative_to_cwd,
-)
 from setta.code_gen.utils import export_for_interactive_fn
-from setta.utils.constants import C
+from setta.project_state.utils import convert_path_to_module_path
+from setta.utils.constants import CWD, C
 
 from .logger import SettaLogger
 
@@ -26,8 +24,8 @@ class SettaListener:
     def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
         self.logger = SettaLogger(host=host, port=port)
         self.caller_frame = inspect.currentframe().f_back
-        self.rel_path = relative_to_cwd(self.caller_frame.f_code.co_filename)
-        self.script_id = convert_folder_path_to_module_path(self.rel_path)
+        self.rel_path = Path(self.caller_frame.f_code.co_filename).relative_to(CWD)
+        self.script_id = convert_path_to_module_path(self.rel_path)
         self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}".format(
             id=self.script_id
         )
