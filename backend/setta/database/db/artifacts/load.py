@@ -1,5 +1,3 @@
-import json
-
 from setta.api.logger import get_wrapper_for_loading
 from setta.utils.constants import C
 from setta.utils.utils import try_json
@@ -24,35 +22,6 @@ def load_artifacts(db, ids):
             "type": row["type"],
         }
 
-    return output
-
-
-def load_artifact_groups(db, ids):
-    placeholders = ", ".join(["?"] * len(ids))
-    query = f"""
-        SELECT ArtifactGroupId.id, ArtifactGroupId.name, ArtifactGroupId.data, ArtifactGroup.artifactId, ArtifactGroup.data as artifactTransformData, ArtifactGroup."order"
-        FROM ArtifactGroupId
-        LEFT JOIN ArtifactGroup
-        ON ArtifactGroupId.id = ArtifactGroup.idid
-        WHERE ArtifactGroupId.id in ({placeholders})
-        ORDER BY ArtifactGroupId.id, ArtifactGroup."order"
-    """
-    db.execute(query, ids)
-    output = {}
-    for row in db.fetchall():
-        if row["id"] not in output:
-            output[row["id"]] = {
-                "name": row["name"],
-                "artifactTransforms": [],
-                **json.loads(row["data"]),
-            }
-        if row["artifactId"]:
-            output[row["id"]]["artifactTransforms"].append(
-                {
-                    "artifactId": row["artifactId"],
-                    **json.loads(row["artifactTransformData"]),
-                }
-            )
     return output
 
 

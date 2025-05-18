@@ -11,24 +11,6 @@ CREATE TABLE IF NOT EXISTS Artifact (
     type TEXT NOT NULL,
     UNIQUE (name, path, type)
 );
-CREATE TABLE IF NOT EXISTS ArtifactGroupId (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    data TEXT,
-    originSectionId TEXT,
-    "order" INTEGER,
-    FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
-
-);
-CREATE TABLE IF NOT EXISTS ArtifactGroup (
-    idid TEXT,
-    artifactId TEXT,
-    data TEXT,
-    "order" INTEGER,
-    PRIMARY KEY (idid, "order"),
-    FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
-    FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
-);
 CREATE TABLE IF NOT EXISTS Notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   projectConfigId TEXT NOT NULL,
@@ -36,8 +18,7 @@ CREATE TABLE IF NOT EXISTS Notifications (
   type TEXT NOT NULL,
   message TEXT NOT NULL,
   metadata JSON,
-  read_status BOOLEAN NOT NULL DEFAULT 0,
-  FOREIGN KEY (projectConfigId) REFERENCES ProjectConfig(id)
+  read_status BOOLEAN NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
@@ -70,3 +51,25 @@ BEGIN
     SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.chatId;
 END;
+
+
+
+
+-- CREATE TABLE IF NOT EXISTS ArtifactGroupId (
+--     id TEXT PRIMARY KEY,
+--     name TEXT,
+--     data TEXT,
+--     originSectionId TEXT,
+--     "order" INTEGER,
+--     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
+
+-- );
+-- CREATE TABLE IF NOT EXISTS ArtifactGroup (
+--     idid TEXT,
+--     artifactId TEXT,
+--     data TEXT,
+--     "order" INTEGER,
+--     PRIMARY KEY (idid, "order"),
+--     FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
+--     FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
+-- );
