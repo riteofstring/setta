@@ -12,6 +12,7 @@ from setta.database.db.notifications.load import (
     load_project_notifications,
 )
 from setta.database.db.projects.load import (
+    create_project_config,
     load_all_project_states,
 )
 from setta.database.db.projects.saveAs import (
@@ -50,7 +51,6 @@ class SaveAsExistingProjectConfigRequest(BaseModel):
 
 
 class CreateProjectConfigRequest(BaseModel):
-    name: Optional[str] = None
     previewImgColor: str
 
 
@@ -182,7 +182,7 @@ async def route_save_project(
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
 def route_create_project_config(x: CreateProjectConfigRequest, dbq=Depends(get_dbq)):
     with dbq as db:
-        return create_project_config(db, x.name, x.previewImgColor)
+        return create_project_config(db, x.previewImgColor)
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)

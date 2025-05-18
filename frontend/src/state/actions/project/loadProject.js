@@ -79,10 +79,10 @@ export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
     const previewImgColor = getRandomProjectConfigPreviewImgColor();
-    const { data: newProjectName } = await dbCreateProjectConfig({
-      previewImgColor,
-    });
-    navigateToAnotherConfig(newProjectName);
+    const res = await dbCreateProjectConfig({ previewImgColor });
+    if (res.status === 200) {
+      navigateToAnotherConfig(res.data);
+    }
   };
 }
 
