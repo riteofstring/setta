@@ -58,7 +58,6 @@ C = Constants()
 USER_SETTINGS = {}
 BASE_UI_TYPES = {}
 BASE_UI_TYPE_IDS = {}
-DEFAULT_VALUES = {}
 
 
 def set_constants(**kwargs):
@@ -79,94 +78,3 @@ def load_constants():
         BASE_UI_TYPES.update(json.load(f))
         for k, v in BASE_UI_TYPES.items():
             BASE_UI_TYPE_IDS[v["type"]] = k
-
-    with open(
-        get_absolute_path(__file__, CONSTANTS_FOLDER / "defaultValues.json"), "r"
-    ) as f:
-        DEFAULT_VALUES.update(json.load(f))
-
-
-CODE_INFO_TABLE_DATA_JSON_FIELDS = set(
-    (
-        "editable",
-        "rcType",
-        "defaultVal",
-        "description",
-        "passingStyle",
-        "isPinned",
-        "isFrozen",
-        "ignoreTypeErrors",
-    )
-)
-
-SECTION_TABLE_DATA_JSON_FIELDS = set(
-    (
-        "social",
-        "codeLanguage",
-        "isFrozen",
-        "hideParams",
-        "hideSearch",
-        "hideUnpinnedParams",
-        "hideColumn",
-        "displayMode",
-        "visibility",
-        "canvasSettings",
-        "chartSettings",
-        "renderMarkdown",
-        "paramFilter",
-        "columnWidth",
-        "renderedValue",
-        "headingAsSectionName",
-    )
-)
-
-SECTION_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    (
-        "size",
-        "isHorizontalOrientation",
-        "pinnedAreaHeight",
-        "isMinimized",
-        "positionAndSizeLocked",
-        "isEntryCodeBlock",
-    )
-)
-
-SECTION_VARIANT_ID_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "code",
-        "description",
-        "isFrozen",
-        "configLanguage",
-        "isJsonSource",
-        "jsonSourceKeys",
-    ]
-)
-
-SECTION_VARIANT_EV_TABLE_DATA_JSON_FIELDS = set(["value"])
-
-
-UI_TYPE_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "name",
-        "presetType",
-        "config",
-    ]
-)
-
-PROJECT_CONFIG_TABLE_DATA_JSON_FIELDS = set(
-    [
-        "viewport",
-        "previewImgColor",
-        "viewingEditingMode",
-        "genCodePrefix",
-        "genCodeSuffix",
-    ]
-)
-
-
-class ParameterPassingStyle:
-    DEFAULT = "DEFAULT"
-    ARGS = "ARGS"
-    KWARGS = "KWARGS"
-    POSITIONAL_ONLY = "POSITIONAL_ONLY"
-    KEYWORD_ONLY = "KEYWORD_ONLY"

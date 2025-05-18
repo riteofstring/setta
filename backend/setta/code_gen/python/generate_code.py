@@ -12,8 +12,9 @@ from setta.code_gen.utils import (
     CLASS_DEF,
     SELF_IDENTIFIER,
 )
+from setta.project_state.project_state import ParameterPassingStyle
 
-from ...utils.constants import C, ParameterPassingStyle
+from ...utils.constants import C
 
 
 @dataclass

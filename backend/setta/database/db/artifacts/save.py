@@ -1,7 +1,5 @@
 import json
 
-from setta.utils.constants import DEFAULT_VALUES
-
 
 def save_artifacts(db, artifacts):
     query = """

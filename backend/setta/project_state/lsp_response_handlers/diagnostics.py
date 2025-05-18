@@ -3,7 +3,7 @@ import re
 from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
-from setta.utils.constants import ParameterPassingStyle
+from setta.project_state.project_state import ParameterPassingStyle
 
 
 def process_gen_code_diagnostics(
