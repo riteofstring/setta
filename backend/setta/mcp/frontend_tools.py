@@ -29,25 +29,7 @@ class SectionSize(TypedDict, total=False):
     height: Union[float, Literal["auto"]]
 
 
-SectionUIType = Literal[
-    "SECTION",
-    "LIST_ROOT",
-    "DICT_ROOT",
-    "GROUP",
-    "IMAGE",
-    "CHART",
-    "DRAW",
-    "TEXT_BLOCK",
-    "SOCIAL",
-    "GLOBAL_VARIABLES",
-    "CODE",
-    "PARAM_SWEEP",
-    "TERMINAL",
-    "GLOBAL_PARAM_SWEEP",
-    "IFRAME",
-    "CHAT",
-    "BROWSER",
-]
+SectionUIType = Literal["SECTION", "GROUP", "TEXT_BLOCK", "CODE"]
 
 
 class SimplifiedSectionConfig(TypedDict, total=False):
@@ -271,12 +253,15 @@ async def getCurrentCode(
 @mcp_server.tool(
     description="Add parameters to a section. Returns the created parameter ids."
 )
-async def addParametersMcp(chatId: str, sectionId: ID, names: List[str]) -> List[ID]:
+async def addParametersMcp(
+    chatId: str, sectionId: ID, names: List[str], codeInfoId: Optional[ID] = None
+) -> List[ID]:
     """Add parameters to a section. Returns the created parameter ids.
 
     Args:
         sectionId: The section to add parameters to.
         names: The names of the newly created parameters.
+        codeInfoId: The id of the callable to add parameters to. If not specified, then parameters will be added to the "empty" state of the section, i.e. the section when its callable field is set to null.
 
     Returns:
         the created parameter ids.
@@ -285,6 +270,7 @@ async def addParametersMcp(chatId: str, sectionId: ID, names: List[str]) -> List
     args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["names"] = names
+    args["codeInfoId"] = codeInfoId
     return json.dumps(
         await mcp_server.setta_websocket.use_frontend_tool(
             "addParametersMcp", addParametersMcp.__annotations__["return"], args
