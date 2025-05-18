@@ -30,12 +30,14 @@ class ProjectState:
         self.used_files: set[Path] = set()
         self.message_queue = asyncio.Queue()
         print("[DEBUG] Creating queue task in ProjectState.__init__", flush=True)
+        self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
         print("[DEBUG] Starting _process_queue background task", flush=True)
+        self._process_queue_task_started.set()
         while True:
             print(
                 f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
@@ -70,6 +72,8 @@ class ProjectState:
 
     async def _enqueue(self, handler: Callable, *args: Any):
         """Enqueue a message for processing and wait for its completion"""
+        await self._process_queue_task_started.wait()
+
         # print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
         print(
             f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
