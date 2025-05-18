@@ -190,3 +190,7 @@ BASE_UI_TYPES_LIST: List[UIType] = [
 BASE_UI_TYPES: Dict[str, UIType] = {
     ui_type.id: ui_type for ui_type in BASE_UI_TYPES_LIST
 }
+
+BASE_UI_TYPE_IDS: Dict[str, str] = {
+    ui_type.type: ui_type.id for ui_type in BASE_UI_TYPES_LIST
+}

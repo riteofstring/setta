@@ -9,7 +9,7 @@ import {
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { focusOnSectionSearch } from "utils/tabbingLogic";

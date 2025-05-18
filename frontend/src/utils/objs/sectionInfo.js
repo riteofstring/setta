@@ -1,7 +1,7 @@
 import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
 import { useProjectState, useSettings } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { createVarName, maybeNewId } from "../idNameCreation";
 
 export function newSectionInfo({

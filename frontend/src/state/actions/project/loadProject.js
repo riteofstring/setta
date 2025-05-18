@@ -1,4 +1,3 @@
-import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
@@ -66,7 +65,7 @@ export async function loadProjectState({
     projectConfigs,
     sections,
     variants,
-    uiTypes: { ...uiTypes, ...BASE_UI_TYPES },
+    uiTypes,
     uiTypeCols,
     codeInfo,
     codeInfoCols,

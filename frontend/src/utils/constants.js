@@ -1,4 +1,3 @@
-import BASE_UI_TYPES from "constants/BaseUITypes.json";
 import C from "constants/constants.json";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
@@ -12,7 +11,6 @@ export const NAVBAR_HEIGHT = 48;
 
 // constants object
 export const URLS = {};
-export const BASE_UI_TYPE_IDS = {};
 
 export function globalConstInit() {
   const DEV_MODE = import.meta.env.DEV;
@@ -22,10 +20,6 @@ export function globalConstInit() {
   } else {
     URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
     URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
-  }
-
-  for (const [k, v] of Object.entries(BASE_UI_TYPES)) {
-    BASE_UI_TYPE_IDS[v.type] = k;
   }
 }
 

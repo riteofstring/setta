@@ -13,9 +13,9 @@ function findFiles(sourceDir, extensions) {
 
 // Main function
 async function main() {
-  const sourceDir = "./src";
+  const sourceDir = "../src";
   const jsonOutputFile = "./mcp-tools.json";
-  const registryOutputFile = "./src/state/mcpToolRegistry.js";
+  const registryOutputFile = "../src/state/mcpToolRegistry.js";
   const extensions = [".js", ".jsx", ".ts", ".tsx"];
 
   console.log(

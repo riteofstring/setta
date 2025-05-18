@@ -3,7 +3,7 @@ import { createAdjacentSection } from "state/actions/sections/createSections";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { createNewId } from "utils/idNameCreation";
 
 export function MultirunButton({ sectionId }) {

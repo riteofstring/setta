@@ -10,7 +10,8 @@ import {
 } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { BASE_UI_TYPE_IDS, URLS } from "utils/constants";
+import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
+import { URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
