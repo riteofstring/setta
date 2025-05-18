@@ -40,6 +40,13 @@ def load_project_metadata(db):
     }
 
 
+def load_default_project_config_name(db):
+    state = load_project_state(db)
+    if state.defaultProjectConfigId:
+        return state.projectConfigs[state.defaultProjectConfigId].name
+    return None
+
+
 def save_all_project_states(db, state: ProjectState):
     json_data = state.model_dump_json()
     query = """

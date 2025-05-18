@@ -68,9 +68,9 @@ export async function dbDeleteProjectConfigs(ids) {
   });
 }
 
-export async function dbGetDefaultConfigName() {
+export async function dbGetDefaultProjectConfigName() {
   return await post({
-    address: C.ROUTE_GET_DEFAULT_CONFIG_NAME,
+    address: C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME,
     body: {},
   });
 }

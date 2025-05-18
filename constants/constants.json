@@ -76,7 +76,7 @@
   "ROUTE_LOAD_AVAILABLE_ARTIFACTS": "/loadAvailableArtifacts",
   "ROUTE_READ_CSV_BASE64": "/readCSVBase64",
   "ROUTE_FILL_IN_MISSING_ARTIFACT_IDS": "/getArtifactIdsFromNamePathType",
-  "ROUTE_GET_DEFAULT_CONFIG_NAME": "/getDefaultConfigName",
+  "ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME": "/getDefaultConfigName",
   "ROUTE_SECTION_TO_YAML": "/sectionToYaml",
   "ROUTE_PARAM_SWEEP_SECTION_TO_YAML": "/paramSweepSectionToYaml",
   "ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML": "/globalParamSweepSectionToYaml",

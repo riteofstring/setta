@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { dbGetDefaultConfigName } from "requests/projects";
+import { dbGetDefaultProjectConfigName } from "requests/projects";
 import { dbLoadSettings } from "requests/settings";
 import { openWebSocket, sendLocation } from "requests/websocket";
 import { useProjectLoading, useSettings } from "state/definitions";
@@ -17,16 +17,16 @@ export function IndexRouteComponent() {
   const showDefaultConfigOnLoad = useSettings(
     (x) => x.backend.showDefaultConfigOnLoad,
   );
-  const defaultConfigName = useDefaultConfigName();
-  if (defaultConfigName === undefined) {
+  const defaultProjectConfigName = useDefaultProjectConfigName();
+  if (defaultProjectConfigName === undefined) {
     return null;
   }
 
-  if (!showDefaultConfigOnLoad || defaultConfigName === null) {
+  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
     return <Navigate to={HOME_ROUTER_PATH} replace />;
   }
 
-  return <Navigate to={defaultConfigName} replace />;
+  return <Navigate to={defaultProjectConfigName} replace />;
 }
 
 function useSetHTMLTitle() {
@@ -73,13 +73,13 @@ function useLoadSettings() {
   return settingsLoaded;
 }
 
-function useDefaultConfigName() {
-  const [defaultConfigName, setDefaultConfigName] = useState(undefined);
+function useDefaultProjectConfigName() {
+  const [defaultProjectConfigName, setDefaultProjectConfigName] = useState(undefined);
 
   async function fn() {
-    const res = await dbGetDefaultConfigName();
+    const res = await dbGetDefaultProjectConfigName();
     if (res.status === 200) {
-      setDefaultConfigName(res.data);
+      setDefaultProjectConfigName(res.data);
     }
   }
 
@@ -87,5 +87,5 @@ function useDefaultConfigName() {
     fn();
   }, []);
 
-  return defaultConfigName;
+  return defaultProjectConfigName;
 }

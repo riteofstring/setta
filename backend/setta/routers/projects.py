@@ -14,6 +14,7 @@ from setta.database.db.notifications.load import (
 from setta.database.db.projects.load import (
     ProjectNotFound,
     create_project_config,
+    load_default_project_config_name,
     load_project_metadata,
     load_project_state_and_confirm_config_name,
 )
@@ -204,10 +205,10 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest, dbq=Depends(ge
         raise HTTPException(status_code=422, detail=repr(e))
 
 
-@router.post(C.ROUTE_GET_DEFAULT_CONFIG_NAME)
-def router_get_default_config_name(dbq=Depends(get_dbq)):
+@router.post(C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME)
+def router_get_default_project_config_name(dbq=Depends(get_dbq)):
     with dbq as db:
-        return load_default_config_name(db)
+        return load_default_project_config_name(db)
 
 
 @router.post(C.ROUTE_SET_AS_DEFAULT_PROJECT)
