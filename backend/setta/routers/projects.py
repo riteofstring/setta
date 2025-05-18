@@ -1,5 +1,4 @@
 import sqlite3
-import time
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -12,8 +11,10 @@ from setta.database.db.notifications.load import (
     load_project_notifications,
 )
 from setta.database.db.projects.load import (
+    ProjectNotFound,
     create_project_config,
     load_all_project_states,
+    load_all_project_states_and_confirm_config_name,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -107,31 +108,13 @@ async def route_load_project_config(
     dbq=Depends(get_dbq),
     project_manager=Depends(get_project_manager),
 ):
-    print(
-        f"[DEBUG] route_load_project_config started for project {x.projectConfigName}",
-        flush=True,
-    )
     try:
-        print("[DEBUG] Opening database connection", flush=True)
         with dbq as db:
-            print("[DEBUG] Loading project config from database", flush=True)
-            project_state = load_project_config(db, x.projectConfigName)
-            print(
-                f"[DEBUG] Project state loaded, size: {len(str(project_state))} chars",
-                flush=True,
+            project_states = load_all_project_states_and_confirm_config_name(
+                db, x.projectConfigName
             )
-            print("[DEBUG] Calling project_manager.update", flush=True)
-            start_time = time.time()
-            await project_manager.update(project_state)
-            print(
-                f"[DEBUG] Update completed in {time.time() - start_time:.2f}s",
-                flush=True,
-            )
-            print("[DEBUG] Preparing response", flush=True)
-            # Try returning a simplified response first to test
-            # return {"status": "success", "project_name": project_state["projectConfig"]["name"]}
-            print("[DEBUG] Returning full project state", flush=True)
-            return project_state
+            await project_manager.update(project_states)
+            return project_states
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))

@@ -5,6 +5,10 @@ from setta.project_state.project_state import (
 )
 
 
+class ProjectNotFound(Exception):
+    pass
+
+
 def load_all_project_states(db):
     query = """
         SELECT states 
@@ -16,6 +20,15 @@ def load_all_project_states(db):
     if not row or row[0] is None:
         return AllProjectStates()
     return AllProjectStates.model_validate_json(row[0])
+
+
+def load_all_project_states_and_confirm_config_name(db, projectConfigName: str):
+    states = load_all_project_states(db)
+    for p in states.projects.values():
+        if projectConfigName == p.projectConfig.name:
+            return states
+
+    raise ProjectNotFound
 
 
 def save_all_project_states(db, states: AllProjectStates):
