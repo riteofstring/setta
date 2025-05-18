@@ -39,7 +39,7 @@ export function addNotificationFromWebsocketMsg(notification) {
   if (
     !notification ||
     (notification.projectConfigId !==
-      useProjectState.getState().projectConfig.id &&
+      useProjectState.getState().projectConfigId &&
       notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;

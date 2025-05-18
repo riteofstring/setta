@@ -11,7 +11,7 @@ export async function dbSendProjectToInteractiveCode(projects) {
 }
 
 export async function dbKillSubprocesses() {
-  const { id: projectConfigId } = useProjectState.getState().projectConfig;
+  const projectConfigId = useProjectState.getState().projectConfigId;
   return await post({
     body: { projectConfigId },
     address: C.ROUTE_KILL_SUBPROCESSES,

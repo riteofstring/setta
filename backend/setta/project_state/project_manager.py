@@ -13,7 +13,7 @@ from setta.project_state.project_code import (
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
-from setta.project_state.project_state import ProjectState
+from setta.project_state.project_state import ProjectState, ProjectUpdateState
 from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, USER_SETTINGS, C
 from setta.websockets.websocket_manager import WebsocketManager
@@ -119,12 +119,8 @@ class ProjectManager:
             )
         )
 
-    async def update(
-        self, project_state: ProjectState, projectConfigId: str, messageId=None
-    ):
-        return await self._enqueue(
-            self._update_impl(project_state, projectConfigId, messageId)
-        )
+    async def update(self, projectUpdateState: ProjectUpdateState, messageId=None):
+        return await self._enqueue(self._update_impl(projectUpdateState, messageId))
 
     async def type_check(self):
         return await self._enqueue(self._type_check_impl)
@@ -185,14 +181,17 @@ class ProjectManager:
 
     async def _update_impl(
         self,
-        projectState: ProjectState,
-        projectConfigId: str,
+        projectUpdateState: ProjectUpdateState,
         messageId: Optional[str] = None,
     ):
         self.used_files = set()
+        projectState = projectUpdateState.projectState
+        projectConfigId = projectUpdateState.projectConfigId
         dep_graph = DependencyGraph(projectState, projectConfigId)
         if self.gen_code:
-            await self.maybe_do_rename_refactor(messageId, projectState, dep_graph)
+            await self.maybe_do_rename_refactor(
+                messageId, projectUpdateState, dep_graph
+            )
             self.gen_code.callback_cleanup()
 
         projectConfig = projectState.projectConfigs[projectConfigId]
@@ -304,10 +303,10 @@ class ProjectManager:
     async def maybe_do_rename_refactor(
         self,
         messageId: Optional[str],
-        project_state: ProjectState,
+        projectUpdateState: ProjectUpdateState,
         new_dep_graph: DependencyGraph,
     ):
-        if not project_state.get("requestRenameRefactor"):
+        if not projectUpdateState.requestRenameRefactor or not self.gen_code:
             return
 
         renameRefactorMode = USER_SETTINGS["backend"]["renameRefactorMode"]

@@ -37,15 +37,20 @@ export async function loadSettingsProjectConfig() {
 }
 
 export async function loadProjectState({
-  projectConfig,
-  codeInfo,
-  codeInfoCols,
-  sections,
-  sectionVariants,
-  artifactGroups,
-  uiTypes,
-  uiTypeCols,
+  projectConfigId,
+  projectState: {
+    projectConfigs,
+    codeInfo,
+    codeInfoCols,
+    sections,
+    variants,
+    // artifactGroups,
+    uiTypes,
+    uiTypeCols,
+  },
 }) {
+  const projectConfig = projectConfigs[projectConfigId];
+
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -57,14 +62,15 @@ export async function loadProjectState({
     });
   }
   useProjectState.setState({
-    projectConfig: _.omit(projectConfig, ["children", "viewport"]),
+    projectConfigId,
+    projectConfigs,
     sections,
-    variants: sectionVariants,
+    variants,
     uiTypes: { ...uiTypes, ...BASE_UI_TYPES },
     uiTypeCols,
     codeInfo,
     codeInfoCols,
-    artifactGroups,
+    // artifactGroups,
   });
   useSectionColumnWidth.setState(_.mapValues(sections, (x) => x.columnWidth));
   useNodeInternals.setState({
@@ -120,4 +126,9 @@ function createNodesMapFromProjectConfigChildren(projectConfig, sections) {
   }
 
   return nodesMap;
+}
+
+export function getCurrentProjectConfig(_state) {
+  const state = _state ?? useProjectState.getState();
+  return state.projectConfigs[state.projectConfigId];
 }

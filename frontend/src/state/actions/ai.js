@@ -21,7 +21,7 @@ export function getDefaultChatDetails() {
 }
 
 export async function getLLMChat(chatId) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfigId;
   const res = await dbGetLLMChat(chatId, projectConfigId);
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;

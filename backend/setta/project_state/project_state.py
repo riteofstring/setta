@@ -218,7 +218,7 @@ class ProjectState(BaseModel):
     sections: Dict[str, Section] = Field(default_factory=dict)
     variants: Dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
-    codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
+    codeInfoCols: Dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: Dict[str, UIType] = Field(default_factory=dict)
     uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
     defaultProjectConfigId: Optional[str] = None
@@ -276,7 +276,7 @@ class ProjectState(BaseModel):
             if not codeInfoColId:
                 codeInfoCol = CodeInfoCol()
             else:
-                codeInfoCol = self.codeInfoCol[codeInfoColId]
+                codeInfoCol = self.codeInfoCols[codeInfoColId]
             return codeInfoCol.children
         return CodeInfoCol().children
 
@@ -287,3 +287,15 @@ class ProjectState(BaseModel):
         ui_type_id = ui_type_col_entry.uiTypeId
         ui_type = self.uiTypes[ui_type_id]
         return ui_type.type
+
+
+class ProjectLoadState(BaseModel):
+    projectConfigId: str
+    projectState: ProjectState
+
+
+class ProjectUpdateState(BaseModel):
+    projectConfigId: str
+    projectState: ProjectState
+    entryCodeBlock: Optional[str] = None
+    requestRenameRefactor: bool = False

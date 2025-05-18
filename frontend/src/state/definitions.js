@@ -43,7 +43,8 @@ export const useProjectState = withProjectState(
         immer(
           withResetFn(() =>
             withVersion({
-              projectConfig: { id: "", name: "" },
+              projectConfigId: null,
+              projectConfigs: {},
               sections: {},
               variants: {},
               uiTypeCols: {},

@@ -42,7 +42,7 @@ export function getProjectData({
 
   const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
-  const sectionVariants = _.mapValues(
+  const variants = _.mapValues(
     useProjectState.getState().variants,
     (x) => ({
       ...x,
@@ -60,7 +60,7 @@ export function getProjectData({
   const codeInfo = useProjectState.getState().codeInfo;
   const codeInfoCols = useProjectState.getState().codeInfoCols;
 
-  const projectConfig = getProjectConfigMetadata();
+  const { projectConfigId, projectConfigs } = getProjectConfigMetadata();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
@@ -74,11 +74,11 @@ export function getProjectData({
       };
     }
   }
-  projectConfig.children = children;
+  projectConfigs[projectConfigId].children = children;
 
   const output = {
-    projectConfig,
-    sectionVariants,
+    projectConfigs,
+    variants,
     artifacts,
     artifactGroups,
     uiTypes,
@@ -128,21 +128,15 @@ async function saveProjectAs({ fn, otherArgs }) {
 }
 
 function getProjectConfigMetadata() {
-  const state = useProjectState.getState().projectConfig;
-  const output = {
-    id: state.id,
-    name: state.name,
-    previewImgColor: state.previewImgColor,
-    viewingEditingMode: state.viewingEditingMode,
-    genCodePrefix: state.genCodePrefix,
-    genCodeSuffix: state.genCodeSuffix,
-  };
+  const s = useProjectState.getState();
+  const projectConfigs = _.cloneDeep(s.projectConfigs);
 
-  output.viewport = useReactFlow.getState().fitViewOnInit
+  projectConfigs[s.projectConfigId].viewport = useReactFlow.getState()
+    .fitViewOnInit
     ? null
     : getViewport();
 
-  return output;
+  return { projectConfigId: s.projectConfigId, projectConfigs };
 }
 
 export async function getProjectDataForSaving() {

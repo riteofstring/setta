@@ -8,6 +8,7 @@ import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
 import { openDeleteJSONSourceFileModal } from "./modal";
+import { getCurrentProjectConfig } from "./project/loadProject";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getSectionInfo(sectionId) {
@@ -332,7 +333,7 @@ export function getSectionShouldRender(visibility, viewingEditingMode) {
 }
 
 export function getSectionViewingEditingModeVisibility(sectionId, state) {
-  const { viewingEditingMode } = state.projectConfig;
+  const { viewingEditingMode } = getCurrentProjectConfig(state);
   return {
     visibility:
       state.sections[sectionId].visibility[
@@ -363,7 +364,7 @@ export function getSectionVisibilityKeyForDisplay(viewingEditingMode) {
 }
 
 export function getAncestorSameVisibility(sectionId, state) {
-  const { viewingEditingMode } = state.projectConfig;
+  const { viewingEditingMode } = getCurrentProjectConfig(state);
   let { parentId } = state.sections[sectionId];
   const key = getSectionVisibilityKey(viewingEditingMode);
   const targetVisibility = state.sections[sectionId].visibility[key];

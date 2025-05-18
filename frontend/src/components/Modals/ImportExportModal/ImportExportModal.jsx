@@ -4,8 +4,10 @@ import { setViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { dbAddDefaultDataForJSONImport } from "requests/projects";
-import { loadProjectState } from "state/actions/project/loadProject";
-import { useProjectState } from "state/definitions";
+import {
+  getCurrentProjectConfig,
+  loadProjectState,
+} from "state/actions/project/loadProject";
 import { useExportProjectJson } from "state/hooks/project";
 import { resetProjectStores } from "state/utils";
 
@@ -36,13 +38,16 @@ export function ImportJSONModal({ modalType }) {
   async function onClick() {
     const project = JSON.parse(value);
     // replace id and name with current project config's id and name.
-    const { id, name } = useProjectState.getState().projectConfig;
-    project["projectConfig"] = { ...project["projectConfig"], id, name };
+    const { id, name } = getCurrentProjectConfig();
+    project["projectConfigs"] = {
+      ...project["projectConfigs"],
+      [id]: { id, name },
+    };
     const res = await dbAddDefaultDataForJSONImport(project);
     if (res.status === 200) {
       resetProjectStores();
       loadProjectState(res.data);
-      const { viewport } = res.data.projectConfig;
+      const { viewport } = getCurrentProjectConfig(res.data);
       if (viewport) {
         // we have to set transform using the existing d3Zoom
         // because the page isn't reloading so the d3Zoom isn't getting re-initialized.

@@ -10,7 +10,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfigId;
   post({
     body: { projectConfigId },
     address: C.ROUTE_TYPE_CHECK,
@@ -18,7 +18,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
 }
 
 export async function wsParametersRequest({ sectionId, fullText }) {
-  const { id: projectConfigId } = useProjectState.getState().projectConfig;
+  const projectConfigId = useProjectState.getState().projectConfigId;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -32,7 +32,7 @@ export async function wsParametersRequest({ sectionId, fullText }) {
 }
 
 export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
-  const { id: projectConfigId } = useProjectState.getState().projectConfig;
+  const projectConfigId = useProjectState.getState().projectConfigId;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -52,7 +52,7 @@ export async function wsTextFieldCompletion({
   fullText,
   position,
 }) {
-  const { id: projectConfigId } = useProjectState.getState().projectConfig;
+  const projectConfigId = useProjectState.getState().projectConfigId;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -68,7 +68,7 @@ export async function wsTextFieldCompletion({
 }
 
 export async function wsGenCodePrefixCompletion({ fullText, position }) {
-  const { id: projectConfigId } = useProjectState.getState().projectConfig;
+  const projectConfigId = useProjectState.getState().projectConfigId;
 
   return await sendMessageAndWait({
     id: createNewId(),

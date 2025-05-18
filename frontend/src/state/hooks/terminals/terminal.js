@@ -152,7 +152,7 @@ function removeWsFromArray(x, ws) {
 
 export async function restoreTerminals() {
   const res = await dbGetExistingTerminals(
-    useProjectState.getState().projectConfig.id,
+    useProjectState.getState().projectConfigId,
   );
   if (res.status === 200) {
     const existingTerminalInfo = res.data;
