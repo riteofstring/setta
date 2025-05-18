@@ -200,127 +200,133 @@
 # print(s.args)
 
 
-import asyncio
-import copy
-import json
+# import asyncio
+# import copy
+# import json
 
-from setta.code_gen.dependency_graph import DependencyGraph
-from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
-from setta.utils.constants import USER_SETTINGS
-from setta.websockets.websocket_manager import WebsocketManager
-
-
-class WMHProjectManager:
-    async def return_to_requester(self, content, returnId):
-        pass
-
-    async def broadcast_lsp_diagnostics(self, content):
-        pass
+# from setta.code_gen.dependency_graph import DependencyGraph
+# from setta.code_gen.python.generate_code import PythonCodeGenerator
+# from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
+# from setta.utils.constants import USER_SETTINGS
+# from setta.websockets.websocket_manager import WebsocketManager
 
 
-def old_code(project_state, writers):
-    dep_graph = DependencyGraph(project_state)
-    return dep_graph
-    # code_generator = PythonCodeGenerator(
-    #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
-    # )
-    # code_generator.generate_code()
-    # gen_code = ProjectGenPythonCode(
-    #     CODE_FOLDER / "temp_folder",
-    #     writers,
-    #     WMHProjectManager(),
-    #     project_state,
-    #     dep_graph,
-    #     code_generator,
-    # )
+# class WMHProjectManager:
+#     async def return_to_requester(self, content, returnId):
+#         pass
 
-    # return gen_code
+#     async def broadcast_lsp_diagnostics(self, content):
+#         pass
 
 
-def new_code(project_state, writers):
-    project_state = copy.deepcopy(project_state)
-    project_state["sections"]["05b291e9-d84e-4744-a3f7-490beb8fc981"]["name"] = "dogs"
-    dep_graph = DependencyGraph(project_state)
-    return dep_graph
-    # code_generator = PythonCodeGenerator(
-    #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
-    # )
-    # code_generator.generate_code()
-    # gen_code = ProjectGenPythonCode(
-    #     CODE_FOLDER / "temp_folder",
-    #     writers,
-    #     WMHProjectManager(),
-    #     project_state,
-    #     dep_graph,
-    #     code_generator,
-    # )
+# def old_code(project_state, writers):
+#     dep_graph = DependencyGraph(project_state)
+#     return dep_graph
+#     # code_generator = PythonCodeGenerator(
+#     #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
+#     # )
+#     # code_generator.generate_code()
+#     # gen_code = ProjectGenPythonCode(
+#     #     CODE_FOLDER / "temp_folder",
+#     #     writers,
+#     #     WMHProjectManager(),
+#     #     project_state,
+#     #     dep_graph,
+#     #     code_generator,
+#     # )
 
-    # return gen_code
+#     # return gen_code
 
 
-async def main():
-    with open("test_project_state.json", "r") as f:
-        project_state = json.load(f)
-    print("exporting...")
+# def new_code(project_state, writers):
+#     project_state = copy.deepcopy(project_state)
+#     project_state["sections"]["05b291e9-d84e-4744-a3f7-490beb8fc981"]["name"] = "dogs"
+#     dep_graph = DependencyGraph(project_state)
+#     return dep_graph
+#     # code_generator = PythonCodeGenerator(
+#     #     dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\ntorch.nn.Cro"
+#     # )
+#     # code_generator.generate_code()
+#     # gen_code = ProjectGenPythonCode(
+#     #     CODE_FOLDER / "temp_folder",
+#     #     writers,
+#     #     WMHProjectManager(),
+#     #     project_state,
+#     #     dep_graph,
+#     #     code_generator,
+#     # )
 
-    USER_SETTINGS["languageServer"] = {}
-
-    servers = LSPServers()
-    writers = LSPWriters(servers)
-    readers = LSPReaders(servers, WebsocketManager())
-
-    await servers.full.start()
-    await readers.full.start()
-    await writers.full.start()
-
-    old_dep_graph = old_code(project_state, writers)
-
-    code_generator = PythonCodeGenerator(
-        old_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
-    )
-    code_generator.generate_code()
-
-    print(code_generator.code)
-
-    new_dep_graph = new_code(project_state, writers)
-    changed_node_values = new_dep_graph.rename_references(old_dep_graph)
-    print(changed_node_values)
-
-    code_generator = PythonCodeGenerator(
-        new_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
-    )
-    code_generator.generate_code()
-
-    print(code_generator.code)
-    # gen_code = ProjectGenPythonCode(
-    #     CODE_FOLDER / "temp_folder",
-    #     writers,
-    #     WMHProjectManager(),
-    #     project_state,
-    #     new_dep_graph,
-    #     code_generator,
-    # )
-
-    # await gen_code.update_file()
-
-    # request_id = create_new_id()
-    # response = await writers.full.send_and_wait(
-    #     writers.full.send_rename_request(
-    #         filepath=CODE_FOLDER / "temp_folder" / "setta_gen.py",
-    #         line=7,
-    #         character=11,
-    #         request_id=request_id,
-    #         newName="doggy",
-    #     ),
-    #     request_id,
-    # )
-    # print("response", response, flush=True)
-    # await servers.full.server.wait()
+#     # return gen_code
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# async def main():
+#     with open("test_project_state.json", "r") as f:
+#         project_state = json.load(f)
+#     print("exporting...")
+
+#     USER_SETTINGS["languageServer"] = {}
+
+#     servers = LSPServers()
+#     writers = LSPWriters(servers)
+#     readers = LSPReaders(servers, WebsocketManager())
+
+#     await servers.full.start()
+#     await readers.full.start()
+#     await writers.full.start()
+
+#     old_dep_graph = old_code(project_state, writers)
+
+#     code_generator = PythonCodeGenerator(
+#         old_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
+#     )
+#     code_generator.generate_code()
+
+#     print(code_generator.code)
+
+#     new_dep_graph = new_code(project_state, writers)
+#     changed_node_values = new_dep_graph.rename_references(old_dep_graph)
+#     print(changed_node_values)
+
+#     code_generator = PythonCodeGenerator(
+#         new_dep_graph, "import torch\nimport math\ndef fn(a,b,c):\n    pass\n"
+#     )
+#     code_generator.generate_code()
+
+#     print(code_generator.code)
+#     # gen_code = ProjectGenPythonCode(
+#     #     CODE_FOLDER / "temp_folder",
+#     #     writers,
+#     #     WMHProjectManager(),
+#     #     project_state,
+#     #     new_dep_graph,
+#     #     code_generator,
+#     # )
+
+#     # await gen_code.update_file()
+
+#     # request_id = create_new_id()
+#     # response = await writers.full.send_and_wait(
+#     #     writers.full.send_rename_request(
+#     #         filepath=CODE_FOLDER / "temp_folder" / "setta_gen.py",
+#     #         line=7,
+#     #         character=11,
+#     #         request_id=request_id,
+#     #         newName="doggy",
+#     #     ),
+#     #     request_id,
+#     # )
+#     # print("response", response, flush=True)
+#     # await servers.full.server.wait()
+
+
+# if __name__ == "__main__":
+#     asyncio.run(main())
 
 
 # extract_parameters("argu")
+
+
+from setta.project_state.project_state import ProjectState
+
+x = ProjectState.model_validate({"projectConfig": {"id": "123", "name": "dog"}, "sections": {"345": {"id": "313", "name": "models!"}}})
+print(x)
