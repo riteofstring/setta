@@ -1,7 +1,7 @@
 -- TABLES --
-CREATE TABLE IF NOT EXISTS AllProjectStates (
+CREATE TABLE IF NOT EXISTS ProjectState (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    states TEXT
+    state TEXT
 );
 CREATE TABLE IF NOT EXISTS Artifact (
     id TEXT PRIMARY KEY,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS UUIDMappingForLLM (
 
 
 -- INSERTS ---
-INSERT OR IGNORE INTO AllProjectStates (id, states) VALUES (1, NULL);
+INSERT OR IGNORE INTO ProjectState (id, state) VALUES (1, NULL);
 
 
 -- TRIGGERS --

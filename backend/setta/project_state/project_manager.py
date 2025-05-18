@@ -1,6 +1,6 @@
 import shutil
 
-from setta.project_state.project_state import AllProjectStates
+from setta.project_state.project_state import ProjectState
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
@@ -9,13 +9,15 @@ from .project_state_updater import ProjectStateUpdater
 
 class ProjectManager:
     def __init__(self, lsp_writers, websocket_manager):
-        self.state_updaters: dict[
-            str, ProjectStateUpdater
-        ] = {}  # project config id to current state
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHProjectManager(websocket_manager)
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
+        self.state_updater = ProjectStateUpdater(
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            self.temp_folder,
+        )
 
     async def create_run_command(self, project_state):
         projectConfigId = project_state["projectConfig"]["id"]
@@ -23,15 +25,12 @@ class ProjectManager:
             project_state
         )
 
-    async def update(self, all_project_states: AllProjectStates, messageId=None):
-        for projectConfigId, project_state in all_project_states.projects.items():
-            if projectConfigId not in self.state_updaters:
-                self.state_updaters[projectConfigId] = ProjectStateUpdater(
-                    self.lsp_writers,
-                    self.websocket_msg_handler,
-                    self.temp_folder,
-                )
-            await self.state_updaters[projectConfigId].update(project_state, messageId)
+    async def update(self, project_state: ProjectState, messageId=None):
+        # for projectConfigId, projectConfig in all_project_states.projectConfigs.items():
+        # if projectConfigId not in self.state_updaters:
+        # self.state_updaters[projectConfigId] =
+        # await self.state_updaters[projectConfigId].update(project_state, messageId)
+        pass
 
     async def type_check(self, projectConfigId):
         await self.state_updaters[projectConfigId].type_check()

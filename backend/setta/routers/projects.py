@@ -14,8 +14,8 @@ from setta.database.db.notifications.load import (
 from setta.database.db.projects.load import (
     ProjectNotFound,
     create_project_config,
-    load_all_project_metadata,
-    load_all_project_states_and_confirm_config_name,
+    load_project_metadata,
+    load_project_state_and_confirm_config_name,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -89,7 +89,7 @@ class DeleteNotificationRequest(BaseModel):
 @router.post(C.ROUTE_LOAD_ALL_PROJECT_METADATA)
 def route_load_all_project_metadata(dbq=Depends(get_dbq)):
     with dbq as db:
-        return load_all_project_metadata(db)
+        return load_project_metadata(db)
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG_NAMES)
@@ -106,7 +106,7 @@ async def route_load_project_config(
 ):
     try:
         with dbq as db:
-            all_project_states = load_all_project_states_and_confirm_config_name(
+            all_project_states = load_project_state_and_confirm_config_name(
                 db, x.projectConfigName
             )
             await project_manager.update(all_project_states)

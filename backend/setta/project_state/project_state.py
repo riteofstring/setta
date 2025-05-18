@@ -214,13 +214,25 @@ class ProjectConfig(BaseModel):
 
 
 class ProjectState(BaseModel):
-    projectConfig: ProjectConfig
+    projectConfigs: Dict[str, ProjectConfig] = Field(default_factory=dict)
     sections: Dict[str, Section] = Field(default_factory=dict)
     variants: Dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: Dict[str, UIType] = Field(default_factory=dict)
     uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
+    defaultProjectConfigId: Optional[str] = None
+
+    @model_validator(mode="after")
+    def set_default_project_id(self):
+        if self.projectConfigs:
+            # If projects exist, use first key when defaultProjectConfigId is None
+            if self.defaultProjectConfigId is None:
+                self.defaultProjectConfigId = next(iter(self.projectConfigs))
+        else:
+            # If projects is empty, defaultProjectConfigId should be None
+            self.defaultProjectConfigId = None
+        return self
 
     def get_section_type(self, id: str):
         ui_type_id = self.sections[id].uiTypeId
@@ -275,19 +287,3 @@ class ProjectState(BaseModel):
         ui_type_id = ui_type_col_entry.uiTypeId
         ui_type = self.uiTypes[ui_type_id]
         return ui_type.type
-
-
-class AllProjectStates(BaseModel):
-    projects: Dict[str, ProjectState] = Field(default_factory=dict)
-    defaultProjectId: Optional[str] = None
-
-    @model_validator(mode="after")
-    def set_default_project_id(self):
-        if self.projects:
-            # If projects exist, use first key when defaultProjectId is None
-            if self.defaultProjectId is None:
-                self.defaultProjectId = next(iter(self.projects))
-        else:
-            # If projects is empty, defaultProjectId should be None
-            self.defaultProjectId = None
-        return self

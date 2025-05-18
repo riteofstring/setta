@@ -22,13 +22,13 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  const [defaultProjectId, setDefaultProjectId] = useState(null);
+  const [defaultProjectConfigId, setDefaultProjectConfigId] = useState(null);
   async function getAllProjectConfigMetadata() {
     const res = await dbLoadAllProjectMetadata();
     if (res.status === 200) {
-      const { projectMetadata, defaultProjectId } = res.data;
+      const { projectMetadata, defaultProjectConfigId } = res.data;
       setProjects(projectMetadata);
-      setDefaultProjectId(defaultProjectId);
+      setDefaultProjectConfigId(defaultProjectConfigId);
     }
   }
 
@@ -36,7 +36,7 @@ export function useGetAllProjectConfigMetadata() {
     getAllProjectConfigMetadata();
   }, []);
 
-  return { projects, defaultProjectId, getAllProjectConfigMetadata };
+  return { projects, defaultProjectConfigId, getAllProjectConfigMetadata };
 }
 
 export function useGetAllProjectConfigMetadataForFileMenu(open) {
