@@ -194,12 +194,20 @@ class Artifact(BaseModel):
     type: str
 
 
+class ProjectConfigChild(BaseModel):
+    x: float
+    y: float
+    zIndex: int
+    w: float
+    h: float
+
+
 class ProjectConfig(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Optional[Viewport] = None
-    children: Dict[str, Section] = Field(default_factory=dict)
+    children: Dict[str, ProjectConfigChild] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
