@@ -8,6 +8,7 @@ from setta.mcp.utils import (
     replace_ids_with_uuids,
     replace_uuids_with_ids,
 )
+from setta.project_state.project_state import ProjectUpdateState
 from setta.utils.constants import C
 
 
@@ -162,7 +163,8 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             )
         elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
             await self.project_manager.update(
-                project_state=message["content"], messageId=message["id"]
+                projectUpdateState=ProjectUpdateState(**message["content"]),
+                messageId=message["id"],
             )
         elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
             await self.project_manager.code_area_autocomplete(

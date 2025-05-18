@@ -42,14 +42,11 @@ export function getProjectData({
 
   const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
-  const variants = _.mapValues(
-    useProjectState.getState().variants,
-    (x) => ({
-      ...x,
-      // need this filter because some sections might be temporary
-      children: x.children.filter((c) => c in sections),
-    }),
-  );
+  const variants = _.mapValues(useProjectState.getState().variants, (x) => ({
+    ...x,
+    // need this filter because some sections might be temporary
+    children: x.children.filter((c) => c in sections),
+  }));
   const artifactGroups = useProjectState.getState().artifactGroups;
   const uiTypes = _.pickBy(
     useProjectState.getState().uiTypes,
@@ -77,15 +74,18 @@ export function getProjectData({
   projectConfigs[projectConfigId].children = children;
 
   const output = {
-    projectConfigs,
-    variants,
-    artifacts,
-    artifactGroups,
-    uiTypes,
-    uiTypeCols,
-    sections,
-    codeInfo,
-    codeInfoCols,
+    projectConfigId,
+    projectState: {
+      projectConfigs,
+      variants,
+      artifacts,
+      artifactGroups,
+      uiTypes,
+      uiTypeCols,
+      sections,
+      codeInfo,
+      codeInfoCols,
+    },
   };
 
   return output;

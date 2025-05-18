@@ -297,5 +297,4 @@ class ProjectLoadState(BaseModel):
 class ProjectUpdateState(BaseModel):
     projectConfigId: str
     projectState: ProjectState
-    entryCodeBlock: Optional[str] = None
     requestRenameRefactor: bool = False

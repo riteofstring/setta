@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -37,7 +37,7 @@ class DeleteLLMChatRequest(BaseModel):
 
 class GetLLMChatRequest(BaseModel):
     chatId: str
-    projectConfigId: str
+    projectConfigId: Optional[str]
 
 
 class StopLLMChatRequest(BaseModel):
@@ -153,14 +153,17 @@ async def route_get_llm_chat(
 ):
     chat = chat_manager.get_chat(x.chatId)
     if not chat:
-        notification = create_notification_dict(
-            "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True
-        )
-        background_tasks.add_task(
-            websocket_msg_handler.broadcast_notification,
-            notification,
-            x.projectConfigId,
-        )
+        # it's possible for projectConfigId to be null
+        # if the llm chats are requested before a project is loaded to the frontend
+        if x.projectConfigId:
+            notification = create_notification_dict(
+                "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True
+            )
+            background_tasks.add_task(
+                websocket_msg_handler.broadcast_notification,
+                notification,
+                x.projectConfigId,
+            )
         return {"messages": [], "waitingForResponse": False}
 
     waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
