@@ -18,7 +18,7 @@ from setta.utils.utils import replace_null_keys_with_none
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
-class ProjectState:
+class ProjectStateUpdater:
     def __init__(
         self, lsp_writers, websocket_msg_handler: WMHProjectManager, temp_folder
     ):
