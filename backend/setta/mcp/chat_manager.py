@@ -293,6 +293,7 @@ class ChatManager:
         self, messages, curr_stream, model, deepThink
     ):
         tools = self.mcp_client.available_tools
+        tools = tools + maybe_get_str_replace_editor_tool(model)
 
         system = [
             {
@@ -336,3 +337,11 @@ def maybe_pydantic_model_dump(x):
     if isinstance(x, BaseModel):
         return x.model_dump()
     return x
+
+
+def maybe_get_str_replace_editor_tool(model_name):
+    if "claude-3-7-sonnet" in model_name:
+        return [{"type": "text_editor_20250124", "name": C.LLM_STR_REPLACE_EDITOR_TOOL}]
+    if "claude-3-5-sonnet" in model_name:
+        return [{"type": "text_editor_20241022", "name": C.LLM_STR_REPLACE_EDITOR_TOOL}]
+    return []

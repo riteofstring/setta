@@ -1,9 +1,14 @@
 import asyncio
+import json
 from contextlib import AsyncExitStack
 from typing import Optional
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
+from mcp.types import CallToolResult, TextContent
+
+from setta.mcp.str_replace_editor_tool_fns import handle_str_replace_editor_tool_view
+from setta.utils.constants import C
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
@@ -83,6 +88,8 @@ class MCPClient:
             await self.session.send_ping()
 
     async def call_tool(self, tool_name, tool_args):
+        if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
+            return handle_str_replace_editor_tool(tool_args)
         return await self.session.call_tool(tool_name, tool_args)
 
     async def stop(self):
@@ -108,3 +115,38 @@ class MCPClient:
         # Set flags to indicate shutdown
         self._shutdown = True
         print("MCPClient resources cleaned up successfully")
+
+
+def handle_str_replace_editor_tool(tool_args):
+    command = tool_args.get("command", "")
+    file_path = tool_args.get("path", "")
+
+    content = ""
+    isError = False
+    try:
+        if command == "view":
+            content = handle_str_replace_editor_tool_view(
+                file_path, tool_args.get("view_range")
+            )
+        elif command == "str_replace":
+            # Replace text in file
+            pass
+        elif command == "create":
+            # Create new file
+            pass
+        elif command == "insert":
+            # Insert text at location
+            pass
+        elif command == "undo_edit":
+            # Restore from backup
+            pass
+    except Exception as e:
+        content = str(e)
+        isError = True
+
+    if not isinstance(content, str):
+        content = json.dumps(content)
+
+    return CallToolResult(
+        content=[TextContent(type="text", text=content)], isError=isError
+    )

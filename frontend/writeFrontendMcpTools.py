@@ -479,10 +479,12 @@ import json
                 output += "    args = {}\n"
                 for param in params:
                     output += f'    args["{param["name"]}"] = {param["name"]}\n'
-                output += f'    return json.dumps(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args))\n'
+                output += f'    result = await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"], args)\n'
             else:
-                output += f'    return json.dumps(await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"]))\n'
+                output += f'    result = await mcp_server.setta_websocket.use_frontend_tool("{func_name}", {func_name}.__annotations__["return"])\n'
 
+            output += "    if not isinstance(result, str):\n        result = json.dumps(result)\n"
+            output += "    return result\n"
             output += "\n"
 
     try:

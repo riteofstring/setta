@@ -95,11 +95,12 @@ async def setGenCodePrefix(chatId: str, value: str) -> Any:
     args = {}
     args["chatId"] = chatId
     args["value"] = value
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "setGenCodePrefix", setGenCodePrefix.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "setGenCodePrefix", setGenCodePrefix.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From ParamInput.jsx
@@ -119,11 +120,12 @@ async def setParamValuesMcp(
     args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["paramIdsToValues"] = paramIdsToValues
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "setParamValuesMcp", setParamValuesMcp.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "setParamValuesMcp", setParamValuesMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From graphMcp.js
@@ -138,11 +140,12 @@ async def getPaneRectMcp(chatId: str) -> ReactFlowPaneRect:
     """
     args = {}
     args["chatId"] = chatId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "getPaneRectMcp", getPaneRectMcp.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "getPaneRectMcp", getPaneRectMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From ai.js
@@ -162,11 +165,12 @@ async def startStreamingInto(
     args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["insertAtLine"] = insertAtLine
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "startStreamingInto", startStreamingInto.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "startStreamingInto", startStreamingInto.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 @mcp_server.tool(
@@ -180,11 +184,12 @@ async def stopStreamingInto(chatId: str) -> str:
     """
     args = {}
     args["chatId"] = chatId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "stopStreamingInto", stopStreamingInto.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "stopStreamingInto", stopStreamingInto.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 @mcp_server.tool(
@@ -211,11 +216,12 @@ async def deleteTextRange(
     args["sectionId"] = sectionId
     args["startLine"] = startLine
     args["endLine"] = endLine
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "deleteTextRange", deleteTextRange.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "deleteTextRange", deleteTextRange.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 @mcp_server.tool(
@@ -242,11 +248,12 @@ async def getCurrentCode(
     args["sectionId"] = sectionId
     args["startLine"] = startLine
     args["endLine"] = endLine
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "getCurrentCode", getCurrentCode.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "getCurrentCode", getCurrentCode.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From kwargs.js
@@ -271,11 +278,12 @@ async def addParametersMcp(
     args["sectionId"] = sectionId
     args["names"] = names
     args["codeInfoId"] = codeInfoId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "addParametersMcp", addParametersMcp.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "addParametersMcp", addParametersMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From nodeInternals.js
@@ -293,13 +301,12 @@ async def updateNodePositionsMcp(
     args = {}
     args["chatId"] = chatId
     args["sections"] = sections
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "updateNodePositionsMcp",
-            updateNodePositionsMcp.__annotations__["return"],
-            args,
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "updateNodePositionsMcp", updateNodePositionsMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From saveProject.js
@@ -314,11 +321,12 @@ async def getProjectConfigId(chatId: str) -> ID:
     """
     args = {}
     args["chatId"] = chatId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "getProjectConfigId", getProjectConfigId.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "getProjectConfigId", getProjectConfigId.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From runOrImportCode.js
@@ -333,11 +341,12 @@ async def runEntryCodeBlock(chatId: str) -> ID:
     """
     args = {}
     args["chatId"] = chatId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "runEntryCodeBlock", runEntryCodeBlock.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "runEntryCodeBlock", runEntryCodeBlock.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From createSections.js
@@ -358,13 +367,14 @@ async def addSectionsAtPositionMcp(
     args = {}
     args["chatId"] = chatId
     args["sections"] = sections
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "addSectionsAtPositionMcp",
-            addSectionsAtPositionMcp.__annotations__["return"],
-            args,
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "addSectionsAtPositionMcp",
+        addSectionsAtPositionMcp.__annotations__["return"],
+        args,
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From groupSections.js
@@ -392,11 +402,12 @@ async def groupSections(
     args["sectionIds"] = sectionIds
     args["position"] = position
     args["name"] = name
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "groupSections", groupSections.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "groupSections", groupSections.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 @mcp_server.tool(description="Ungroup an existing group.")
@@ -409,11 +420,12 @@ async def ungroupGroupMcp(chatId: str, sectionId: ID) -> Any:
     args = {}
     args["chatId"] = chatId
     args["sectionId"] = sectionId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "ungroupGroupMcp", ungroupGroupMcp.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "ungroupGroupMcp", ungroupGroupMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From sectionContents.js
@@ -427,13 +439,14 @@ async def getSectionCurrentCodeInfoMcp(
     args = {}
     args["chatId"] = chatId
     args["sectionId"] = sectionId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "getSectionCurrentCodeInfoMcp",
-            getSectionCurrentCodeInfoMcp.__annotations__["return"],
-            args,
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "getSectionCurrentCodeInfoMcp",
+        getSectionCurrentCodeInfoMcp.__annotations__["return"],
+        args,
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 @mcp_server.tool(
@@ -447,13 +460,14 @@ async def getAllSectionInformationMcp(chatId: str) -> Dict[ID, SimplifiedSection
     """
     args = {}
     args["chatId"] = chatId
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "getAllSectionInformationMcp",
-            getAllSectionInformationMcp.__annotations__["return"],
-            args,
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "getAllSectionInformationMcp",
+        getAllSectionInformationMcp.__annotations__["return"],
+        args,
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
 
 
 # From setSelectedItem.js
@@ -476,8 +490,9 @@ async def setSelectedItemMcp(
     args["chatId"] = chatId
     args["sectionId"] = sectionId
     args["selectedItemName"] = selectedItemName
-    return json.dumps(
-        await mcp_server.setta_websocket.use_frontend_tool(
-            "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
-        )
+    result = await mcp_server.setta_websocket.use_frontend_tool(
+        "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
     )
+    if not isinstance(result, str):
+        result = json.dumps(result)
+    return result
