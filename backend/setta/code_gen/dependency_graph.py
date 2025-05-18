@@ -195,7 +195,7 @@ class DependencyGraph:
 
     def create_full_path_name(self, parent_node, idx, name):
         if not parent_node:
-            return name
+            return sanitize_name(name)
         if parent_node.type == C.LIST_ROOT:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
@@ -209,7 +209,7 @@ class DependencyGraph:
                 self.full_path_name_to_graph_key,
             )
 
-        return name
+        return sanitize_name(name)
 
     def resolve_references(self):
         """Resolve all potential references and update dependencies."""

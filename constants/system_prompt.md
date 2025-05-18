@@ -11,7 +11,7 @@ Here are the different section types you should know about:
 - "TEXT_BLOCK": This can hold miscellaneous markdown or plain text.
 - "CODE": This is equivalent to a python file.
 
-If you want sections to have access to import aliases, or code from other code blocks, then prepend the generated code with the necessary imports.
+If you want sections to have access to import aliases, or code from other code blocks, then prepend the generated code with the necessary imports. You should do this *before* setting section callables, so that the language server can retrieve relevant information.
 
 For example, let's say our project has the following:
 - A section of type CODE, named "utils", containing a function called "fn", that returns a random number using the python random module.
@@ -34,3 +34,10 @@ class S:
         s.result = math.sqrt(s.random_val)
 ```
 
+To make use of this generated code, you can create another code block that uses the S class:
+
+```python
+from .setta_gen import S
+s = S()
+print(s.result)
+```
