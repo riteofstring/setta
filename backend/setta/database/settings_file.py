@@ -3,9 +3,8 @@ import logging
 import os
 from pathlib import Path
 
-from setta.code_gen.utils import get_selected_section_variant
 from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.project_state.project_state import ProjectState
+from setta.project_state.project_state import ProjectLoadState, ProjectState
 from setta.project_state.settings_state import SettingsState
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
@@ -93,7 +92,9 @@ class MetaSettingsFile:
 
     def seed_meta_settings(self):
         if not os.path.exists(self.path_meta_settings):
-            save_json_to_file(self.path_meta_settings, self.obj_seed_meta_settings.model_dump())
+            save_json_to_file(
+                self.path_meta_settings, self.obj_seed_meta_settings.model_dump()
+            )
 
     def load_meta_settings(self):
         logger.debug("Loading meta settings")
@@ -103,6 +104,9 @@ class MetaSettingsFile:
 
     def load_settings_project(self):
         p = self.load_meta_settings()
+        p = ProjectLoadState(
+            projectState=p, projectConfigId=list(p.projectConfigs.keys())[0]
+        )
         return p
 
     def load_seed_files(self):

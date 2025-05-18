@@ -335,12 +335,10 @@
 
 import json
 
-from setta.project_state.project_state import ProjectState
 from setta.project_state.settings_state import SettingsState
 
 with open("constants/settings.json", "r") as f:
     x = json.load(f)
 
 
-from pprint import pprint
 x = SettingsState.model_validate(x, strict=True)

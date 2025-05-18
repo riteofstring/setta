@@ -1,5 +1,7 @@
 from typing import List, Optional
-from pydantic import BaseModel, Extra
+
+from pydantic import BaseModel
+
 
 class SettingsShortcuts(BaseModel):
     newCardShortcut: str
@@ -56,6 +58,7 @@ class SettingsShortcuts(BaseModel):
     zoomOutShortcut: str
     restartLanguageServerShortcut: str
 
+
 class SettingsGUI(BaseModel):
     snapGrid: List[int]
     showGridLines: bool
@@ -77,6 +80,7 @@ class SettingsGUI(BaseModel):
     leftSidePaneShiftsMap: bool
     transitionDuration: int
 
+
 class SettingsBackend(BaseModel):
     showDefaultConfigOnLoad: bool
     inferImports: bool
@@ -93,10 +97,9 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool
 
 
-
-class SettingsState(BaseModel, extra='forbid'):
+class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts
     gui: SettingsGUI
     backend: SettingsBackend
-    languageServer: dict #TODO make a model for this?
+    languageServer: dict  # TODO make a model for this?
     sections: dict
