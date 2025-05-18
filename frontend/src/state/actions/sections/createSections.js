@@ -100,6 +100,7 @@ export function addSectionsAtPositionMcp({ sections }) {
       );
     }
   });
+  maybeIncrementProjectStateVersion(true);
   return ids;
 }
 

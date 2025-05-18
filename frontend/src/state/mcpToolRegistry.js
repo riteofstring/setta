@@ -3,6 +3,7 @@
 import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 
+import { setGenCodePrefix } from "../components/Panes/UiEditor/SectionConfig/GenPythonCodeSettings";
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
 import { getPaneRectMcp } from "../forks/xyflow/core/utils/graphMcp";
 import {
@@ -27,6 +28,7 @@ import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
 const mcpToolRegistry = {
+  setGenCodePrefix,
   setParamValuesMcp,
   getPaneRectMcp,
   startStreamingInto,
