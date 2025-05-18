@@ -380,23 +380,13 @@ function streamInto(chatId, streamTarget, content) {
   });
 }
 
-export function startStreamingIntoGenCodePrefix({ chatId }) {
-  // Get the current code
-  const currText = useSectionInfos.getState().projectConfig.genCodePrefix;
-  startStreamingInto({ currText, chatId });
-}
-
 /**
  * Start streaming text into a section. Text can be streamed into sections of type CODE and TEXT_BLOCK. After you call this tool, everything you respond with will be redirected and written to this section. For example, if you start writing code into a CODE section, you shouldn't start with '```python' or end with '```' because those are markdown specific things that make sense in a chat context or a TEXT_BLOCK section, but not in a CODE section. If you want to replace code, use the deleteCodeRange tool first. Then use insertAtLine to specify the line number where new code should appear.
  * @SETTA_MCP_TOOL
  * @param {ID} sectionId The id of the section that you want to start writing into.
  * @param {integer} [insertAtLine] Optional line number (1-indexed) to insert at. If omitted, appends to the end.
  */
-export function startStreamingIntoCodeOrTextBlock({
-  sectionId,
-  insertAtLine,
-  chatId,
-}) {
+export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
   // Get the current code
   let currText;
   const sectionType = getSectionType(sectionId);
@@ -413,10 +403,6 @@ export function startStreamingIntoCodeOrTextBlock({
       );
   }
 
-  startStreamingInto({ currText, insertAtLine, chatId, sectionId });
-}
-
-function startStreamingInto({ currText, insertAtLine, chatId, sectionId }) {
   const lines = currText.split("\n");
   const totalLines = lines.length;
 
@@ -468,7 +454,7 @@ function startStreamingInto({ currText, insertAtLine, chatId, sectionId }) {
 /**
  * Stop streaming text into a section.
  * @SETTA_MCP_TOOL
- * @returns {string} the section's text with all the changes applied.
+ * @returns {string} the seciton's text with all the changes applied.
  */
 export function stopStreamingInto({ chatId }) {
   const { chatDetails } = useAIStore.getState();
