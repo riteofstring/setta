@@ -143,6 +143,9 @@ class ProjectState:
     async def get_gen_python_code_path(self):
         return await self._enqueue(self._get_gen_python_code_path_impl)
 
+    async def get_gen_python_code(self):
+        return await self._enqueue(self._get_gen_python_code_impl)
+
     async def _create_run_command_impl(self, project_state):
         await self._update_impl(project_state)
         target_folder = create_timestamped_folder(CODE_FOLDER)
@@ -237,6 +240,11 @@ class ProjectState:
         if self.gen_code:
             return self.gen_code.get_gen_python_code_path()
         return None
+
+    async def _get_gen_python_code_impl(self):
+        if self.gen_code:
+            return self.gen_code.get_gen_python_code()
+        return ""
 
     def add_to_used_files(self, code_obj: Code):
         self.used_files.add(code_obj.temp_file.resolve())

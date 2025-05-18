@@ -137,6 +137,9 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code_path(self):
         return self.temp_file
 
+    def get_gen_python_code(self):
+        return self.code_generator.code
+
     def write_to_folder(self, folder, as_entry_code_block):
         code = self.code_generator.code
         if as_entry_code_block:

@@ -24,3 +24,15 @@ def getTerminalOutput(sectionId: ID):
     """
     sectionId = replace_ids_with_uuids(sectionId, mcp_server.setta_websocket.id_to_uuid)
     return mcp_server.setta_terminals.get_terminal_history(sectionId)
+
+
+@mcp_server.tool(description="Returns the current state of the generated python code.")
+async def getGenPythonCode(projectConfigId: ID):
+    """
+    Args:
+        projectConfigId: The id of the project.
+    """
+    projectConfigId = replace_ids_with_uuids(
+        projectConfigId, mcp_server.setta_websocket.id_to_uuid
+    )
+    return await mcp_server.project_manager.get_gen_python_code(projectConfigId)

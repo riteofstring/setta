@@ -8,6 +8,7 @@ import {
   newCodeInfoMaybeWithJsonSource,
 } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 /**
  * Add parameters to a section.
@@ -23,6 +24,7 @@ export function addParametersMcp({ sectionId, names }) {
       ids.push(addKwarg({ sectionId, name, state }));
     }
   });
+  maybeIncrementProjectStateVersion(true);
   return ids;
 }
 

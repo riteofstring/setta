@@ -166,3 +166,12 @@ async function updateSectionsWithRenderedValues(sections) {
     }
   }
 }
+
+/**
+ * Get the currently viewed project config id
+ * @SETTA_MCP_TOOL
+ * @return {ID} The project config id.
+ */
+export function getProjectConfigId() {
+  return useSectionInfos.getState().projectConfig.id;
+}

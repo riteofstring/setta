@@ -22,6 +22,7 @@ class CustomFastMCP(FastMCP):
         self.fn_param_docstrings = {}
         self.setta_websocket = None
         self.setta_terminals = None
+        self.project_manager = None
 
     def add_tool(
         self, fn: AnyFunction, name: str | None = None, description: str | None = None
@@ -80,6 +81,7 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
 
     mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
     mcp_server.setta_terminals = app.state.terminals
+    mcp_server.project_manager = app.state.project_manager
 
     content = create_notification_dict("MCP Server Ready", temporary=True)
     asyncio.create_task(

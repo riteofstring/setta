@@ -62,3 +62,6 @@ class ProjectManager:
 
     async def get_gen_python_code_path(self, projectConfigId):
         return await self.states[projectConfigId].get_gen_python_code_path()
+
+    async def get_gen_python_code(self, projectConfigId):
+        return await self.states[projectConfigId].get_gen_python_code()
