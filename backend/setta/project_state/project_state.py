@@ -3,6 +3,9 @@ from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
+from setta.database.utils import create_new_id
+from setta.utils.generate_memorable_string import generate_memorable_string
+
 
 class Size(StrEnum):
     AUTO = "auto"
@@ -75,8 +78,8 @@ class ChartSettings(BaseModel):
 
 
 class Section(BaseModel):
-    id: str
-    name: str
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
     size: SectionSize = Field(default_factory=lambda: SectionSize())
     parentId: Optional[str] = None
     variantId: Optional[str] = None
@@ -121,7 +124,7 @@ class EVEntry(BaseModel):
 
 
 class SectionVariant(BaseModel):
-    name: str = ""
+    name: str = Field(default_factory=generate_memorable_string)
     values: Dict[str, EVEntry] = Field(default_factory=dict)
     children: List[str] = Field(default_factory=list)
     selectedItem: Optional[str] = None
@@ -138,8 +141,8 @@ class SectionVariant(BaseModel):
 
 
 class CodeInfo(BaseModel):
-    id: str
-    name: str = ""
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
     editable: bool = False
     rcType: CodeInfoType = CodeInfoType.PARAMETER
     defaultVal: str = ""
@@ -172,9 +175,9 @@ class CodeInfoCol(BaseModel):
 
 
 class UIType(BaseModel):
-    id: str
+    id: str = Field(default_factory=create_new_id)
     type: str = "TEXT"
-    name: str = ""
+    name: str = Field(default_factory=generate_memorable_string)
     presetType: str = "BASE"
     config: Dict[str, Any] = Field(default_factory=dict)
 
@@ -192,8 +195,8 @@ class Artifact(BaseModel):
 
 
 class ProjectConfig(BaseModel):
-    id: str
-    name: str
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Optional[Viewport] = None
     children: Dict[str, Section] = Field(default_factory=dict)

@@ -326,16 +326,9 @@
 # extract_parameters("argu")
 
 
+from pprint import pprint
+
 from setta.project_state.project_state import ProjectState
 
-x = ProjectState.model_validate(
-    {
-        "projectConfig": {"id": "123", "name": "dog"},
-        "sections": {"345": {"id": "313", "name": "models!", "size": {"width": 500}}},
-        "codeInfoCol": {"123": {"children": {"234": []}}},
-        "variants": {
-            "variant1": {"values": {"weights": {"value": "torch.tensor([1,2,3])"}}}
-        },
-    }
-)
-print(x.variants["variant1"])
+x = ProjectState.model_validate({"projectConfig": {}})
+pprint(x)
