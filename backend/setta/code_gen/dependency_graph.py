@@ -71,6 +71,7 @@ class DependencyGraph:
         self.graph: dict[GraphKeyType, Node] = {}
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
+        self.all_sections_in_project_config: set[str] = set()
 
     def construct_graph(self, p: ProjectState, projectConfigId: str):
         self.reset()
@@ -144,6 +145,7 @@ class DependencyGraph:
             #     self.output[output_key] = info
             # else:
             #     raise ValueError
+        self.all_sections_in_project_config.add(id)
         return graph_key
 
     def export_section_value(self, p: ProjectState, sectionId: str):

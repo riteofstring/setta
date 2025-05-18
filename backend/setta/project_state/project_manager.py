@@ -2,7 +2,7 @@ import asyncio
 import copy
 import shutil
 from pathlib import Path
-from typing import Coroutine, Optional, Tuple
+from typing import Coroutine, Optional, Tuple, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -27,7 +27,7 @@ class ProjectManager:
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.gen_code = None
-        self.code_dict: dict[str, ProjectPythonCode] = {}
+        self.code_dict: dict[str, Union[ProjectPythonCode, ProjectBashCode]] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[Tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
@@ -206,7 +206,7 @@ class ProjectManager:
             project_temp_folder,
             self.lsp_writers,
             self.websocket_msg_handler,
-            projectState,
+            projectConfigId,
             dep_graph,
             code_generator,
         )
@@ -219,12 +219,12 @@ class ProjectManager:
                     c.callback_cleanup()
         self.code_dict = {}
 
-        for sectionId in project_state.sections.keys():
-            section_type = get_section_type(project_state, sectionId)
+        for sectionId in dep_graph.all_sections_in_project_config:
+            section_type = projectState.get_section_type(sectionId)
 
             if section_type == C.CODE:
                 section_code = self.create_code_obj(
-                    project_temp_folder, project_state, sectionId
+                    project_temp_folder, projectState, sectionId
                 )
 
                 if not section_code:

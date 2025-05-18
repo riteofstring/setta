@@ -23,9 +23,9 @@ def load_project_state(db):
 
 def load_project_state_and_confirm_config_name(db, projectConfigName: str):
     state = load_project_state(db)
-    for p in state.projectConfigs.values():
+    for projectConfigId, p in state.projectConfigs.items():
         if projectConfigName == p.name:
-            return state
+            return projectConfigId, state
 
     raise ProjectNotFound
 

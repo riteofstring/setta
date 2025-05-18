@@ -22,7 +22,6 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
-from setta.project_state.project_state import ProjectState
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -31,14 +30,14 @@ class ProjectGenPythonCode(PythonCode):
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
-        project_state: ProjectState,
+        project_config_id: str,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
         super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
-        self.project_config_id = project_state.projectConfig.id
+        self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.diagnostics_callback = self.process_diagnostics_response
