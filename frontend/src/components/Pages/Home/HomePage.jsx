@@ -3,6 +3,7 @@ import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
+import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { forwardRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
@@ -232,14 +233,14 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
           homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
       >
-        <PreviewImg previewImgNodes={project.childrenForPreviewImg} />
+        <PreviewImg projectChildren={project.children} />
       </div>
     </div>
   );
 }
 
-function PreviewImg({ previewImgNodes }) {
-  const nodes = previewImgNodes.map((n) => ({
+function PreviewImg({ projectChildren }) {
+  const nodes = _.map(projectChildren, (n) => ({
     position: { x: n.x, y: n.y },
     width: n.w,
     height: n.h,

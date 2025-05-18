@@ -1,9 +1,8 @@
-import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import {
   dbFilterDataForJSONExport,
-  dbLoadAllProjectStates,
+  dbLoadAllProjectMetadata,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
@@ -25,11 +24,11 @@ export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
   const [defaultProjectId, setDefaultProjectId] = useState(null);
   async function getAllProjectConfigMetadata() {
-    const res = await dbLoadAllProjectStates();
+    const res = await dbLoadAllProjectMetadata();
     if (res.status === 200) {
-      console.log(res.data);
-      setProjects(_.map(res.data.projects, (v) => v.projectConfig));
-      setDefaultProjectId(res.data.defaultProjectId);
+      const { projectMetadata, defaultProjectId } = res.data;
+      setProjects(projectMetadata);
+      setDefaultProjectId(defaultProjectId);
     }
   }
 

@@ -31,6 +31,13 @@ def load_all_project_states_and_confirm_config_name(db, projectConfigName: str):
     raise ProjectNotFound
 
 
+def load_all_project_metadata(db):
+    states = load_all_project_states(db)
+    defaultProjectId = states.defaultProjectId
+    projectMetadata = [p.projectConfig for p in states.projects.values()]
+    return {"defaultProjectId": defaultProjectId, "projectMetadata": projectMetadata}
+
+
 def save_all_project_states(db, states: AllProjectStates):
     json_data = states.model_dump_json()
     query = """
