@@ -161,3 +161,70 @@ def handle_str_replace_editor_tool_create(path, file_text):
         raise IsADirectoryError(f"The path {path} points to a directory, not a file")
     except IOError as e:
         raise IOError(f"An I/O error occurred: {str(e)}")
+
+
+def handle_str_replace_editor_tool_insert(path, insert_line, new_str):
+    """
+    Insert text into a file at a specified line position.
+
+    Args:
+        path (str): The path to the file to modify
+        insert_line (int): The line number after which to insert the text (0 for beginning of file)
+        new_str (str): The text to insert
+
+    Returns:
+        str: Success message
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist
+        PermissionError: If the file cannot be accessed or modified
+        ValueError: If insert_line is negative or greater than the number of lines in the file
+        TypeError: If any arguments are of incorrect type
+        IOError: For other I/O related errors
+    """
+    # Check argument types
+    if not isinstance(path, str):
+        raise TypeError("path must be a string")
+    if not isinstance(insert_line, int):
+        raise TypeError("insert_line must be an integer")
+    if not isinstance(new_str, str):
+        raise TypeError("new_str must be a string")
+
+    # Check if insert_line is negative
+    if insert_line < 0:
+        raise ValueError("insert_line cannot be negative")
+
+    try:
+        # Read the file
+        with open(path, "r") as file:
+            lines = file.readlines()
+
+        # Check if insert_line is valid
+        if insert_line > len(lines):
+            raise ValueError(
+                f"insert_line {insert_line} is greater than the number of lines in the file ({len(lines)})"
+            )
+
+        # Insert the new text
+        if insert_line == 0:
+            # Insert at the beginning
+            lines.insert(0, new_str if new_str.endswith("\n") else new_str + "\n")
+        else:
+            # Insert after the specified line
+            lines.insert(
+                insert_line, new_str if new_str.endswith("\n") else new_str + "\n"
+            )
+
+        # Write the modified content back to the file
+        with open(path, "w") as file:
+            file.writelines(lines)
+
+        # Return success message
+        return f"Text successfully inserted after line {insert_line} in {path}"
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The file {path} was not found")
+    except PermissionError:
+        raise PermissionError(f"Permission denied: Unable to modify {path}")
+    except IOError as e:
+        raise IOError(f"An I/O error occurred: {str(e)}")

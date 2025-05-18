@@ -9,6 +9,7 @@ from mcp.types import CallToolResult, TextContent
 
 from setta.mcp.str_replace_editor_tool_fns import (
     handle_str_replace_editor_tool_create,
+    handle_str_replace_editor_tool_insert,
     handle_str_replace_editor_tool_str_replace,
     handle_str_replace_editor_tool_view,
 )
@@ -140,8 +141,9 @@ def handle_str_replace_editor_tool(tool_args):
                 file_path, tool_args["file_text"]
             )
         elif command == "insert":
-            # Insert text at location
-            pass
+            content = handle_str_replace_editor_tool_insert(
+                file_path, tool_args["insert_line"], tool_args["new_str"]
+            )
         elif command == "undo_edit":
             # Restore from backup
             pass
