@@ -326,7 +326,14 @@
 # extract_parameters("argu")
 
 
-from setta.project_state.project_state import ProjectState
+from setta.project_state.project_state import CodeInfoCol, ProjectState
 
-x = ProjectState.model_validate({"projectConfig": {"id": "123", "name": "dog"}, "sections": {"345": {"id": "313", "name": "models!"}}})
-print(x)
+
+x = ProjectState.model_validate(
+    {
+        "projectConfig": {"id": "123", "name": "dog"},
+        # "sections": {"345": {"id": "313", "name": "models!"}},
+        "codeInfoCol": {"123": {"children": {"234": []}}}
+    }
+)
+print(x.codeInfoCol)

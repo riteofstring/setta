@@ -1,9 +1,16 @@
+import json
+from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer, model_validator
 
 # Change this to use Literal for proper validation
-ViewingEditingMode = Literal["DEV", "USER", "USER_EDIT"]
+
+
+class ViewingEditingMode(Enum):
+    DEV = "DEV"
+    USER = "USER"
+    USER_EDIT = "USER_EDIT"
 
 
 class Viewport(BaseModel):
@@ -84,14 +91,64 @@ class Section(BaseModel):
     headingAsSectionName: bool = False
 
 
+class SectionVariant(BaseModel):
+    name: str = ""
+    values: Dict[str, Any] = Field(default_factory=dict)
+    children: List[str] = Field(default_factory=list)
+    selectedItem: Optional[str] = None
+    code: str = ""
+    codeInfoColId: Optional[str] = None
+    description: str = ""
+    isFrozen: bool = False
+    sweep: List[Any] = Field(default_factory=list)
+    runGroup: Dict[str, Any] = Field(default_factory=dict)
+    configLanguage: str = "python"
+    isJsonSource: bool = False
+    jsonSourceKeys: List[str] = Field(default_factory=list)
+    jsonSourceMissing: bool = False
+
+
+class CodeInfo(BaseModel):
+    id: str
+    name: str = ""
+    editable: bool = False
+    rcType: str = "parameter"
+    defaultVal: str = ""
+    description: str = ""
+    passingStyle: str = "DEFAULT"
+    isPinned: bool = False
+    isFrozen: bool = False
+    isSelected: bool = False
+    ignoreTypeErrors: bool = False
+
+
+class CodeInfoCol(BaseModel):
+    children: Dict[Optional[str], List[Any]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def convert_null_key(self):
+        c = self.children.pop("null", [])
+        self.children[None] = c
+        return self
+
+    @model_serializer
+    def convert_none_key(self):
+        new_dict = {}
+        for key, value in self.children.items():
+            if key == None:
+                new_dict["null"] = value
+            else:
+                new_dict[key] = value
+        return {"children": new_dict}
+
+
 class ProjectConfig(BaseModel):
     id: str
     name: str
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Optional[Viewport] = None
     children: Dict[str, Section] = Field(default_factory=dict)
-    # Fix: Use the Literal type alias instead of the class
-    viewingEditingMode: ViewingEditingMode = "DEV"
+    viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
 
@@ -99,3 +156,6 @@ class ProjectConfig(BaseModel):
 class ProjectState(BaseModel):
     projectConfig: ProjectConfig
     sections: Dict[str, Section] = Field(default_factory=dict)
+    variants: Dict[str, SectionVariant] = Field(default_factory=dict)
+    codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
+    codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
