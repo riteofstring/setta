@@ -1,46 +1,49 @@
 {
-  "projectConfig": {
-    "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
-    "name": "settings",
-    "children": {
-      "69084c06-aa67-4e6b-8098-3334044eebc9": {
-        "x": 0,
-        "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 938
-      },
-      "6b264a9a-0f87-4288-80aa-45cc6b16db96": {
-        "x": 600,
-        "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 506
-      },
-      "f74b5aaf-d11d-4153-b55b-9c18e11e3a73": {
-        "x": 1200,
-        "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 338
-      },
-      "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b": {
-        "x": 1800,
-        "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 80
-      },
-      "514c2046-25de-4b0a-b6f9-fca1dd14ad8e": {
-        "x": 2400,
-        "y": 119,
-        "zIndex": 0,
-        "w": 552,
-        "h": 458
+  "defaultProjectConfigId": "a5dfa397-089a-4f5e-bbec-978a314b4266",
+  "projectConfigs": {
+    "a5dfa397-089a-4f5e-bbec-978a314b4266": {
+      "id": "a5dfa397-089a-4f5e-bbec-978a314b4266",
+      "name": "settings",
+      "children": {
+        "69084c06-aa67-4e6b-8098-3334044eebc9": {
+          "x": 0,
+          "y": 119,
+          "zIndex": 0,
+          "w": 552,
+          "h": 938
+        },
+        "6b264a9a-0f87-4288-80aa-45cc6b16db96": {
+          "x": 600,
+          "y": 119,
+          "zIndex": 0,
+          "w": 552,
+          "h": 506
+        },
+        "f74b5aaf-d11d-4153-b55b-9c18e11e3a73": {
+          "x": 1200,
+          "y": 119,
+          "zIndex": 0,
+          "w": 552,
+          "h": 338
+        },
+        "8389d4b3-0a1e-4c44-819b-7c745d6c3f1b": {
+          "x": 1800,
+          "y": 119,
+          "zIndex": 0,
+          "w": 552,
+          "h": 80
+        },
+        "514c2046-25de-4b0a-b6f9-fca1dd14ad8e": {
+          "x": 2400,
+          "y": 119,
+          "zIndex": 0,
+          "w": 552,
+          "h": 458
+        }
       }
     }
   },
-  "sectionVariants": {
+  "variants": {
     "19f203aa-cae6-4ccc-928c-dab0194ade77": {
       "name": "setta_files/setta-settings.json",
       "codeInfoColId": "088e4b38-c05d-4b28-ab20-18763c0ac73d",
@@ -77,7 +80,6 @@
       "configLanguage": "json"
     }
   },
-  "artifacts": {},
   "uiTypes": {
     "90f2233a-2864-498f-a4df-4c027fa0c4a4": {
       "id": "90f2233a-2864-498f-a4df-4c027fa0c4a4",

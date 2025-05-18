@@ -206,7 +206,7 @@ class ProjectConfig(BaseModel):
     genCodeSuffix: str = ""
 
 
-class ProjectState(BaseModel):
+class ProjectState(BaseModel, extra="forbid"):
     projectConfigs: Dict[str, ProjectConfig] = Field(default_factory=dict)
     sections: Dict[str, Section] = Field(default_factory=dict)
     variants: Dict[str, SectionVariant] = Field(default_factory=dict)

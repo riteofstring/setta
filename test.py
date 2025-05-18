@@ -333,20 +333,14 @@
 # x = ProjectState.model_validate({"projectConfig": {}})
 # pprint(x)
 
+import json
 
-import asyncio
+from setta.project_state.project_state import ProjectState
+from setta.project_state.settings_state import SettingsState
 
-
-async def async_test():
-    print("hello!")
-    return 5
-
-
-async def main():
-    x = async_test()
-    print(x.__name__)
-    print(await x)
+with open("constants/settings.json", "r") as f:
+    x = json.load(f)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+from pprint import pprint
+x = SettingsState.model_validate(x, strict=True)

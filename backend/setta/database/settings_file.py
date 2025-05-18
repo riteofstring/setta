@@ -1,9 +1,12 @@
 import json
 import logging
 import os
+from pathlib import Path
 
 from setta.code_gen.utils import get_selected_section_variant
 from setta.database.db.sections.jsonSource import save_json_source_data
+from setta.project_state.project_state import ProjectState
+from setta.project_state.settings_state import SettingsState
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
 from setta.utils.utils import get_absolute_path, save_json_to_file
 
@@ -37,6 +40,8 @@ class SettingsFile:
             with open(path, "r") as f:
                 output[settings_slice] = json.load(f)[settings_slice]
 
+        SettingsState.model_validate(output)
+
         USER_SETTINGS.update(output)
         return output
 
@@ -51,7 +56,7 @@ class SettingsFile:
 class MetaSettingsFile:
     def __init__(self):
         self.path_seed_settings = get_absolute_path(
-            __file__, CONSTANTS_FOLDER / "Settings.json"
+            __file__, CONSTANTS_FOLDER / "settings.json"
         )
         self.path_seed_meta_settings = get_absolute_path(
             __file__, CONSTANTS_FOLDER / "settingsProject.json"
@@ -61,50 +66,51 @@ class MetaSettingsFile:
         self.load_seed_files()
 
     def get_settings_paths(self):
-        settings_slice_to_path = {}
+        settings_slice_to_path: dict[str, Path] = {}
         p = self.load_meta_settings()
-        for k in self.obj_seed_settings.keys():
+        for k in self.obj_seed_settings.model_fields.keys():
             path = self.find_path_for_settings_slice(p, k)
             if not path:
-                self.seed_settings(self.path_default_settings)
+                path = self.seed_settings(self.path_default_settings)
             elif not os.path.exists(path):
                 self.seed_settings(path)
             settings_slice_to_path[k] = path
         return settings_slice_to_path
 
-    def find_path_for_settings_slice(self, p, slice):
-        for sectionId in p["sections"].keys():
-            variant = get_selected_section_variant(p, sectionId)
-            if variant["jsonSourceKeys"] == [slice]:
-                return variant["name"]
+    def find_path_for_settings_slice(self, p: ProjectState, slice: str):
+        for sectionId in p.sections.keys():
+            variant = p.get_selected_section_variant(sectionId)
+            if not variant:
+                continue
+            if variant.jsonSourceKeys == [slice]:
+                return Path(variant.name)
         return None
 
-    def seed_settings(self, path):
+    def seed_settings(self, path: Path):
         if not os.path.exists(path):
-            save_json_to_file(path, self.obj_seed_settings)
+            save_json_to_file(path, self.obj_seed_settings.model_dump())
+        return path
 
     def seed_meta_settings(self):
         if not os.path.exists(self.path_meta_settings):
-            save_json_to_file(self.path_meta_settings, self.obj_seed_meta_settings)
+            save_json_to_file(self.path_meta_settings, self.obj_seed_meta_settings.model_dump())
 
     def load_meta_settings(self):
         logger.debug("Loading meta settings")
         self.seed_meta_settings()
         with open(self.path_meta_settings, "r") as f:
-            return json.load(f)
+            return ProjectState.model_validate(json.load(f))
 
     def load_settings_project(self):
         p = self.load_meta_settings()
-        add_defaults_to_project_and_load_json_sources(p)
         return p
 
     def load_seed_files(self):
         with open(self.path_seed_settings, "r") as f:
-            self.obj_seed_settings = json.load(f)
+            self.obj_seed_settings = SettingsState.model_validate(json.load(f))
         with open(self.path_seed_meta_settings, "r") as f:
-            self.obj_seed_meta_settings = json.load(f)
+            self.obj_seed_meta_settings = ProjectState.model_validate(json.load(f))
 
     def save_settings_project(self, p):
         save_json_source_data(p)
-        filter_data_for_json_export(p)
         save_json_to_file(self.path_meta_settings, p)
