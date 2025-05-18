@@ -210,3 +210,8 @@ class ProjectState(BaseModel):
     codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: Dict[str, UIType] = Field(default_factory=dict)
     uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
+
+
+class AllProjectStates(BaseModel):
+    projects: Dict[str, ProjectState] = Field(default_factory=dict)
+    defaultProjectId: str
