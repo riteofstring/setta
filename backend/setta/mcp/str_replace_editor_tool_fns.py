@@ -71,3 +71,45 @@ def handle_str_replace_editor_tool_view(path, view_range=None):
     # If it's neither a file nor a directory (e.g., a symlink)
     else:
         raise ValueError(f"Path is neither a file nor a directory: {path}")
+
+
+def handle_str_replace_editor_tool_str_replace(path, old_str, new_str):
+    """
+    Replace a single occurrence of old_str with new_str in the file at path.
+
+    Args:
+        path (str): The path to the file to modify
+        old_str (str): The text to replace (must match exactly, including whitespace and indentation)
+        new_str (str): The new text to insert in place of the old text
+
+    Raises:
+        ValueError: If old_str is not found exactly once in the file
+
+    Returns:
+        str
+    """
+    # Read the file content
+    with open(path, "r") as file:
+        content = file.read()
+
+    # Count replacements
+    count = content.count(old_str)
+
+    # Ensure there is exactly one match
+    if count == 0:
+        raise ValueError(f"Error: String not found in {path}")
+    elif count > 1:
+        raise ValueError(
+            f"Error: Found {count} occurrences of the string in {path}, expected exactly 1"
+        )
+
+    # Replace old_str with new_str
+    modified_content = content.replace(
+        old_str, new_str, 1
+    )  # Only replace the first occurrence
+
+    # Write the modified content back to the file
+    with open(path, "w") as file:
+        file.write(modified_content)
+
+    return "Successfully replaced text at exactly one location."

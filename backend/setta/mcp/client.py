@@ -7,7 +7,10 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
 
-from setta.mcp.str_replace_editor_tool_fns import handle_str_replace_editor_tool_view
+from setta.mcp.str_replace_editor_tool_fns import (
+    handle_str_replace_editor_tool_str_replace,
+    handle_str_replace_editor_tool_view,
+)
 from setta.utils.constants import C
 
 
@@ -118,19 +121,19 @@ class MCPClient:
 
 
 def handle_str_replace_editor_tool(tool_args):
-    command = tool_args.get("command", "")
-    file_path = tool_args.get("path", "")
-
     content = ""
     isError = False
     try:
+        command = tool_args["command"]
+        file_path = tool_args["path"]
         if command == "view":
             content = handle_str_replace_editor_tool_view(
                 file_path, tool_args.get("view_range")
             )
         elif command == "str_replace":
-            # Replace text in file
-            pass
+            content = handle_str_replace_editor_tool_str_replace(
+                file_path, tool_args["old_str"], tool_args["new_str"]
+            )
         elif command == "create":
             # Create new file
             pass
