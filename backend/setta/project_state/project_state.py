@@ -208,3 +208,5 @@ class ProjectState(BaseModel):
     variants: Dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
+    uiTypes: Dict[str, UIType] = Field(default_factory=dict)
+    uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
