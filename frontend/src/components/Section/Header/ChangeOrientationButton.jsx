@@ -4,11 +4,11 @@ import {
   TbArrowBigRightLinesFilled,
 } from "react-icons/tb";
 import { toggleSectionOrientation } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function ChangeOrientationButton({ sectionId }) {
-  const isHorizontalOrientation = useSectionInfos(
-    (x) => x.x[sectionId].isHorizontalOrientation,
+  const isHorizontalOrientation = useProjectState(
+    (x) => x.sections[sectionId].isHorizontalOrientation,
   );
 
   function onClick() {

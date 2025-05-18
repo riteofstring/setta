@@ -12,7 +12,7 @@ import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbArrowIteration, TbFolderFilled } from "react-icons/tb";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
@@ -106,7 +106,7 @@ export function HeaderIcon({
 }
 
 function IsInOtherProjectConfigsIcon({ sectionId }) {
-  const isGroup = useSectionInfos(
+  const isGroup = useProjectState(
     (x) => getSectionType(sectionId, x) === C.GROUP,
   );
 
@@ -118,10 +118,10 @@ function IsInOtherProjectConfigsIcon({ sectionId }) {
 }
 
 function SocialIcon({ sectionId }) {
-  const { isYouTube, isTwitter } = useSectionInfos((x) => {
+  const { isYouTube, isTwitter } = useProjectState((x) => {
     return {
-      isYouTube: linkIsYouTube(x.x[sectionId].social),
-      isTwitter: linkIsTwitter(x.x[sectionId].social),
+      isYouTube: linkIsYouTube(x.sections[sectionId].social),
+      isTwitter: linkIsTwitter(x.sections[sectionId].social),
     };
   }, _.isEqual);
 
@@ -141,7 +141,9 @@ function SocialIcon({ sectionId }) {
 }
 
 function CodeLanguageIcon({ sectionId, classes }) {
-  const codeLanguage = useSectionInfos((x) => x.x[sectionId].codeLanguage);
+  const codeLanguage = useProjectState(
+    (x) => x.sections[sectionId].codeLanguage,
+  );
   switch (codeLanguage) {
     case "python":
       return <SiPython className={classes} />;
@@ -164,7 +166,9 @@ function ListElementIcon({ sectionId }) {
 }
 
 function TextBlockIcon({ sectionId }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+  const renderMarkdown = useProjectState(
+    (x) => x.sections[sectionId].renderMarkdown,
+  );
 
   return renderMarkdown ? (
     <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />

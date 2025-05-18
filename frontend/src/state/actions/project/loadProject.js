@@ -6,8 +6,8 @@ import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
+  useProjectState,
   useSectionColumnWidth,
-  useSectionInfos,
 } from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
@@ -56,9 +56,9 @@ export async function loadProjectState({
       transform: [x, y, zoom],
     });
   }
-  useSectionInfos.setState({
+  useProjectState.setState({
     projectConfig: _.omit(projectConfig, ["children", "viewport"]),
-    x: sections,
+    sections,
     variants: sectionVariants,
     uiTypes: { ...uiTypes, ...BASE_UI_TYPES },
     uiTypeCols,

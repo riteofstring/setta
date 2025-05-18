@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection, useProjectState } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { findAll } from "utils/getDescendants";
 import { addTemporaryNotification } from "../notifications";
@@ -24,7 +24,7 @@ export async function copy() {
 }
 
 export function copySections(sectionIds) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const sections = getSections(sectionIds, state);
   const sectionVariants = getSectionVariants(sections, state);
   const uiTypeCols = getUITypeCols(sections, state);
@@ -45,7 +45,7 @@ export function copySections(sectionIds) {
 
 function getSections(sectionIds, state) {
   const ids = getAllSectionsForDeletionOrCopying(sectionIds, state);
-  const allSections = _.pick(state.x, ids);
+  const allSections = _.pick(state.sections, ids);
 
   const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
     if (getSectionType(s.id) !== C.PARAM_SWEEP) {

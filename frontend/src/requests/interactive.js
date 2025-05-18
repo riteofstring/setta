@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { getProjectData } from "state/actions/project/saveProject";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { post } from "./utils";
 
 export async function dbSendProjectToInteractiveCode(projects) {
@@ -11,7 +11,7 @@ export async function dbSendProjectToInteractiveCode(projects) {
 }
 
 export async function dbKillSubprocesses() {
-  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useProjectState.getState().projectConfig;
   return await post({
     body: { projectConfigId },
     address: C.ROUTE_KILL_SUBPROCESSES,

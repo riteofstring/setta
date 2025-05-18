@@ -5,7 +5,7 @@ import {
   getSectionType,
 } from "state/actions/sectionInfos";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { post } from "./utils";
@@ -24,7 +24,7 @@ export async function dbGuiToYaml(sectionId, variantId) {
 }
 
 async function dbSectionToYaml(variantId) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(null, state, variantId);
   const codeInfo = state.codeInfo;
@@ -61,8 +61,8 @@ async function dbSectionToYaml(variantId) {
 }
 
 async function dbParamSweepSectionToYaml(sectionId, variantId) {
-  const state = useSectionInfos.getState();
-  const forSectionId = getForSectionId(sectionId, state.x);
+  const state = useProjectState.getState();
+  const forSectionId = getForSectionId(sectionId, state.sections);
   const sectionVariant = state.variants[variantId];
   const sweep = sectionVariant.sweep;
   const codeInfo = state.codeInfo;
@@ -82,8 +82,8 @@ async function dbParamSweepSectionToYaml(sectionId, variantId) {
 }
 
 async function dbGlobalParamSweepSectionToYaml(variantId) {
-  const state = useSectionInfos.getState();
-  const sections = state.x;
+  const state = useProjectState.getState();
+  const sections = state.sections;
   const sectionVariants = state.variants;
   const runGroup = sectionVariants[variantId].runGroup;
 

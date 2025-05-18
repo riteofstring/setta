@@ -5,7 +5,7 @@ import {
 import C from "constants/constants.json";
 import _ from "lodash";
 import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
-import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { useArtifacts, useMisc, useProjectState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import {
   newArtifact,
@@ -24,7 +24,7 @@ export async function loadArtifacts(sectionId, artifactIds, signal) {
     useArtifacts.setState((state) => ({
       x: { ...state.x, ...artifactsFromBackend },
     }));
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
     });
     maybeIncrementProjectStateVersion(true);
@@ -102,7 +102,7 @@ function addArtifactUponSectionCreation({
     ],
   });
 
-  state.x[sectionId].artifactGroupIds.push(artifactGroupId);
+  state.sections[sectionId].artifactGroupIds.push(artifactGroupId);
 
   return artifactGroupId;
 }
@@ -115,7 +115,7 @@ export function addDrawAreaLayer(sectionId, state) {
     state,
   });
 
-  state.x[sectionId].canvasSettings.activeLayerId = artifactGroupId;
+  state.sections[sectionId].canvasSettings.activeLayerId = artifactGroupId;
 }
 
 export function addChatHistoryArtifact(sectionId, state) {
@@ -147,7 +147,7 @@ export function updateArtifactGroupAndSetArtifactId({
     if (!artifactGroupId || createNewArtifactGroup) {
       artifactGroupId = createNewId();
       state.artifactGroups[artifactGroupId] = newLayer({});
-      state.x[sectionId].artifactGroupIds.unshift(artifactGroupId);
+      state.sections[sectionId].artifactGroupIds.unshift(artifactGroupId);
     }
 
     const artifactTransform = newArtifactTransform(
@@ -200,7 +200,7 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
       }),
     },
   }));
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const sectionTypeName = getSectionType(sectionId, state);
     updateArtifactGroupAndSetArtifactId({
       sectionId,
@@ -217,10 +217,10 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
 function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
   switch (sectionTypeName) {
     case C.DRAW:
-      return state.x[sectionId].canvasSettings.activeLayerId;
+      return state.sections[sectionId].canvasSettings.activeLayerId;
     case C.IMAGE:
     case C.CHART:
-      return state.x[sectionId].artifactGroupIds[0];
+      return state.sections[sectionId].artifactGroupIds[0];
   }
 }
 
@@ -232,7 +232,7 @@ function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
 }
 
 export function updateColumnNameSelections(artifactIds, sectionId, state) {
-  const { chartSettings } = state.x[sectionId];
+  const { chartSettings } = state.sections[sectionId];
   const artifactValue = processChartArtifacts(
     artifactIds.map((a) => useArtifacts.getState().x[a]),
     chartSettings.type,

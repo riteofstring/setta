@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection, useProjectState } from "state/definitions";
 import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,
@@ -15,7 +15,7 @@ export function deleteSections(sectionIds, state) {
     ...new Set(getAllSectionsForDeletionOrCopying(sectionIds, state)),
   ];
   const terminalIds = idsToDelete.filter(
-    (id) => state.uiTypes[state.x[id].uiTypeId].type === C.TERMINAL,
+    (id) => state.uiTypes[state.sections[id].uiTypeId].type === C.TERMINAL,
   );
   removeSectionInfos(idsToDelete, state);
   if (terminalIds) {
@@ -26,12 +26,12 @@ export function deleteSections(sectionIds, state) {
 }
 
 export function deleteChildrenFromSeries(isRoot, calledBy, numChildren = 1) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     if (isRoot) {
       const children = getSectionVariant(calledBy, state).children;
       deleteSections(children.slice(0, numChildren), state);
     } else {
-      const parentId = state.x[calledBy].parentId;
+      const parentId = state.sections[calledBy].parentId;
       const siblings = getSectionVariant(parentId, state).children;
       const startIdx = siblings.indexOf(calledBy) + 1;
       deleteSections(siblings.slice(startIdx, startIdx + numChildren), state);
@@ -43,7 +43,7 @@ export function deleteChildrenFromSeries(isRoot, calledBy, numChildren = 1) {
 
 export function deleteAllActiveSections() {
   const sectionIds = useActiveSection.getState().ids;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     deleteSections(sectionIds, state);
   });
   maybeIncrementProjectStateVersion(true);
@@ -52,8 +52,8 @@ export function deleteAllActiveSections() {
 function removeSectionInfos(ids, state) {
   const idSet = new Set(ids);
   for (const id of idSet) {
-    const parentId = state.x[id]?.parentId;
-    if (parentId && state.x[parentId]?.variantId) {
+    const parentId = state.sections[id]?.parentId;
+    if (parentId && state.sections[parentId]?.variantId) {
       setSectionVariantChildren(
         parentId,
         (children) => children.filter((x) => x !== id),
@@ -70,16 +70,16 @@ function removeSectionInfos(ids, state) {
     }
 
     if (!isStillUsedInAVariant) {
-      for (const variantId of state.x[id].variantIds) {
+      for (const variantId of state.sections[id].variantIds) {
         delete state.variants[variantId];
       }
-      delete state.x[id];
+      delete state.sections[id];
     }
   }
 
-  for (const [k, v] of Object.entries(state.x)) {
+  for (const [k, v] of Object.entries(state.sections)) {
     if (idSet.has(v.paramSweepSectionId)) {
-      state.x[k].paramSweepSectionId = null;
+      state.sections[k].paramSweepSectionId = null;
     }
   }
 }

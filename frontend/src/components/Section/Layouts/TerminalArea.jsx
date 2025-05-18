@@ -1,11 +1,11 @@
 import _ from "lodash";
 import React, { useState } from "react";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTerminal } from "state/hooks/terminals/terminal";
 
 function _TerminalArea({ sectionId }) {
-  const { width, height } = useSectionInfos(
-    (x) => x.x[sectionId].size,
+  const { width, height } = useProjectState(
+    (x) => x.sections[sectionId].size,
     _.isEqual,
   );
   const [hasScrollbar, setHasScrollbar] = useState(false);

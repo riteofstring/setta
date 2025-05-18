@@ -7,7 +7,7 @@ import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
   useAllProjectConfigs,
   useLocalStorage,
-  useSectionInfos,
+  useProjectState,
 } from "state/definitions";
 import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
@@ -87,8 +87,8 @@ function onMouseEnter({
     const previewSectionConfigs =
       useAllProjectConfigs.getState().x[mousedOverName].sections;
 
-    useSectionInfos.setState((x) => {
-      for (const [k, v] of Object.entries(x.x)) {
+    useProjectState.setState((x) => {
+      for (const [k, v] of Object.entries(x.sections)) {
         if (previewSectionConfigs[k]) {
           v.previewVariantId = previewSectionConfigs[k].variantId;
         } else {

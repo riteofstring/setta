@@ -11,7 +11,7 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
-  useSectionInfos,
+  useProjectState,
   useYamlValue,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
@@ -40,7 +40,7 @@ export async function guiToYaml(sectionId, variantId) {
 }
 
 export function yamlToGUI(sectionId) {
-  const variantId = useSectionInfos.getState().x[sectionId].variantId;
+  const variantId = useProjectState.getState().sections[sectionId].variantId;
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[variantId] ?? "";
   switch (sectionType) {
@@ -59,8 +59,8 @@ export function yamlToGUI(sectionId) {
 }
 
 function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
-  const state = useSectionInfos.getState();
-  const forSectionId = getForSectionId(sectionId, state.x);
+  const state = useProjectState.getState();
+  const forSectionId = getForSectionId(sectionId, state.sections);
   const documents = splitDocuments(yamlValue);
   const parsedDocs = documents.map((doc) =>
     doc.trim() ? parseRawDump(doc) : {},
@@ -130,7 +130,7 @@ function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
     newParamSweep.push({ selectedItem: matchingCallableId, params });
   }
 
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     getSectionVariant(sectionId, x).sweep = newParamSweep;
   });
 }
@@ -141,8 +141,8 @@ function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
 
 function globalParamSweepSectionYamlToGUI(yamlValue, runGroupId) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
-  const state = useSectionInfos.getState();
-  const sections = state.x;
+  const state = useProjectState.getState();
+  const sections = state.sections;
   const sectionVariants = state.variants;
   const newRunGroupSections = {};
 
@@ -158,7 +158,7 @@ function globalParamSweepSectionYamlToGUI(yamlValue, runGroupId) {
     );
   }
 
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     x.variants[runGroupId].runGroup = newRunGroupSections;
   });
 }
@@ -286,7 +286,7 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
 }
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const documents = splitDocuments(yamlValue);
   let selectedItemName = null;
   let pinned = {};
@@ -421,7 +421,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
           isPinned: v.isPinned,
         },
         sectionId,
-        useSectionInfos.getState(),
+        useProjectState.getState(),
       );
     } else {
       updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
@@ -431,7 +431,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
     }
   }
 
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     x.codeInfo = { ...x.codeInfo, ...newInfos };
     for (const [id, newAttrs] of Object.entries(updatedInfos)) {
       for (const [k, v] of Object.entries(newAttrs)) {
@@ -439,7 +439,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
       }
     }
 
-    const variantId = x.x[sectionId].variantId;
+    const variantId = x.sections[sectionId].variantId;
     const variant = x.variants[variantId];
     for (const [id, newChildren] of Object.entries(idsToChildren)) {
       getOrCreateCodeInfoCol(variant, x).children[id] = newChildren;
@@ -586,8 +586,8 @@ export async function maybeRunGuiToYaml(sectionId, variantId) {
 }
 
 export async function maybeRunGuiToYamlOnAllSections(isPreview = false) {
-  const state = useSectionInfos.getState();
-  for (const [sectionId, section] of Object.entries(state.x)) {
+  const state = useProjectState.getState();
+  for (const [sectionId, section] of Object.entries(state.sections)) {
     const variantId = isPreview
       ? getDisplayedSectionVariantId(sectionId)
       : section.variantId;

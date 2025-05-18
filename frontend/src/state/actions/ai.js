@@ -7,7 +7,7 @@ import {
   dbGetLLMResponse,
   dbGetUUIDMappingForLLM,
 } from "requests/ai";
-import { useAIStore, useSectionInfos } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 
@@ -21,7 +21,7 @@ export function getDefaultChatDetails() {
 }
 
 export async function getLLMChat(chatId) {
-  const projectConfigId = useSectionInfos.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   const res = await dbGetLLMChat(chatId, projectConfigId);
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
@@ -342,7 +342,7 @@ function streamInto(chatId, streamTarget, content) {
   const { sectionId, before, after, contentToInsert } = streamTarget;
 
   let currentContentToInsert;
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const sectionType = getSectionType(sectionId, x);
     const sectionVariant = getSectionVariant(sectionId, x);
     // Update current streamed content
@@ -494,7 +494,7 @@ export function stopStreamingInto({ chatId }) {
 export function deleteTextRange({ sectionId, startLine, endLine }) {
   // Update the state
   let updatedCode;
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
     if (_.isNil(startLine) && _.isNil(endLine)) {
       updatedCode = "";

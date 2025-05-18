@@ -9,7 +9,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -273,7 +273,7 @@ function getSectionIsGroup(sectionId) {
 
 function getSectionIsGlobalVariables(sectionId) {
   return (
-    useSectionInfos.getState().singletonSections[C.GLOBAL_VARIABLES] ===
+    useProjectState.getState().singletonSections[C.GLOBAL_VARIABLES] ===
     sectionId
   );
 }

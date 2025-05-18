@@ -4,7 +4,7 @@ import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 import { getSectionVariant, setParamEnteredValue } from "../sectionInfos";
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
-  const s = state.x[sectionId];
+  const s = state.sections[sectionId];
   let { uiTypeColId } = s;
   if (!uiTypeColId) {
     uiTypeColId = createNewId();
@@ -34,7 +34,7 @@ function convertValue(sectionId, paramInfoId, uiTypeId, state) {
 }
 
 function convertParamSweepValues({ sectionId, paramInfoId, uiType, state }) {
-  const { paramSweepSectionId } = state.x[sectionId];
+  const { paramSweepSectionId } = state.sections[sectionId];
   if (!paramSweepSectionId) {
     return;
   }

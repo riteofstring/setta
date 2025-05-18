@@ -3,7 +3,7 @@ import _ from "lodash";
 import {
   useActiveSection,
   useNodeInternals,
-  useSectionInfos,
+  useProjectState,
 } from "state/definitions";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
@@ -38,7 +38,7 @@ export function selectAll() {
 
   // select all params within single active section
   if (currActiveSections.length === 1) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       const sectionId = currActiveSections[0];
       const ids = getAllVisibleParamsInSection(sectionId, state);
       for (const p of ids) {
@@ -47,7 +47,7 @@ export function selectAll() {
     });
   } else {
     // select all sections
-    setActiveSectionIds(Object.keys(useSectionInfos.getState().x));
+    setActiveSectionIds(Object.keys(useProjectState.getState().sections));
   }
 }
 

@@ -6,10 +6,10 @@ import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { wsGenCodePrefixCompletion } from "requests/sections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function GenPythonCodeSettings() {
-  const value = useSectionInfos((x) => x.projectConfig.genCodePrefix);
+  const value = useProjectState((x) => x.projectConfig.genCodePrefix);
   const theme = useCodeMirrorStyle();
 
   const [localValue, setLocalValue] = useState(value);
@@ -72,7 +72,7 @@ function getGenCodePrefixCompletionsFn() {
  *
  */
 export function setGenCodePrefix({ value }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.projectConfig.genCodePrefix = value;
   });
   maybeIncrementProjectStateVersion(true);

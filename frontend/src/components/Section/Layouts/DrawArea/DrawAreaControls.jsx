@@ -9,7 +9,7 @@ import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
 import { addDrawAreaLayer } from "state/actions/artifacts";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 
 export function DrawAreaControls({
@@ -62,15 +62,15 @@ export function DrawAreaControls({
     setCanvasSettings(sectionId, "mode", "edit");
   }
   function addLayer() {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       addDrawAreaLayer(sectionId, state);
     });
   }
 
   function deleteLayer(layerId) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       delete state.artifactGroups[layerId];
-      const s = state.x[sectionId];
+      const s = state.sections[sectionId];
       const layerIndex = s.artifactGroupIds.findIndex((x) => x === layerId);
 
       s.artifactGroupIds = s.artifactGroupIds.filter((x) => x !== layerId);
@@ -85,9 +85,9 @@ export function DrawAreaControls({
   }
 
   function reorderLayers(draggedIdx, targetIdx) {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].artifactGroupIds = arrayMove(
-        state.x[sectionId].artifactGroupIds,
+    useProjectState.setState((state) => {
+      state.sections[sectionId].artifactGroupIds = arrayMove(
+        state.sections[sectionId].artifactGroupIds,
         draggedIdx,
         targetIdx,
       );
@@ -205,8 +205,8 @@ export function DrawAreaControls({
 }
 
 function DrawAreaColorPicker({ sectionId, color, setColor }) {
-  const colorChoices = useSectionInfos(
-    (x) => x.x[sectionId].canvasSettings?.colorChoices,
+  const colorChoices = useProjectState(
+    (x) => x.sections[sectionId].canvasSettings?.colorChoices,
     _.isEqual,
   );
 
@@ -393,7 +393,7 @@ function LayerList({
   reorderLayers,
   deleteLayer,
 }) {
-  const layers = useSectionInfos(
+  const layers = useProjectState(
     (x) => getSectionArtifactGroupMetadata(sectionId, x),
     _.isEqual,
   );
@@ -482,13 +482,13 @@ function LayerList({
 }
 
 function setCanvasSettings(sectionId, attr, value) {
-  useSectionInfos.setState((x) => {
-    x.x[sectionId].canvasSettings[attr] = value;
+  useProjectState.setState((x) => {
+    x.sections[sectionId].canvasSettings[attr] = value;
   });
 }
 
 function setLayerSettings(layerId, attr, value) {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     x.artifactGroups[layerId][attr] = value;
   });
 }

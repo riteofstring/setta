@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { getIsUserView } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
@@ -32,9 +32,9 @@ export function SectionContainerCoreResizable({
   viewingEditingMode,
   positionAndSizeLocked,
 }) {
-  const { isMinimized, isYouTube } = useSectionInfos((x) => {
+  const { isMinimized, isYouTube } = useProjectState((x) => {
     return {
-      isMinimized: x.x[sectionId].isMinimized,
+      isMinimized: x.sections[sectionId].isMinimized,
       isYouTube: getIsYouTubeSection(sectionId, x),
     };
   }, _.isEqual);

@@ -8,7 +8,7 @@ import {
   adjustSizeToBeAtLeastMin,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -109,12 +109,12 @@ function getSizeMode({ sectionType, hideParams, isTwitter }) {
 }
 
 export function useSectionMinMaxDims(sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
     const sectionType = getSectionType(sectionId, x);
-    const hideSearch = x.x[sectionId].hideSearch;
-    const hideParams = x.x[sectionId].hideParams;
-    const isMinimized = x.x[sectionId].isMinimized;
+    const hideSearch = x.sections[sectionId].hideSearch;
+    const hideParams = x.sections[sectionId].hideParams;
+    const isMinimized = x.sections[sectionId].isMinimized;
 
     const minHeight = getMinSectionHeight({
       sectionType,
@@ -195,7 +195,7 @@ async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
   const sectionType = getSectionType(sectionId);
   const minHeight = getMinSectionHeight({ sectionType });
   const minWidth = getMinSectionWidth({ sectionType });
-  const currSize = useSectionInfos.getState().x[sectionId].size;
+  const currSize = useProjectState.getState().sections[sectionId].size;
 
   let adjustedSize = adjustAspectRatio(
     currSize.height,
@@ -212,7 +212,7 @@ async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
 
   const extraHeight = 24;
   adjustedSize.height += extraHeight;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     setAspectRatioInfo({
       sectionId,
       aspectRatio: imgSize.width / imgSize.height,
@@ -226,8 +226,8 @@ async function setSectionToHaveAspectRatioAndMinSize(sectionId, imgSize) {
 export function useImgArtifactAreaSize(sectionId, image) {
   const [imgSize, setImgSize] = useState(null);
 
-  const widthOrHeightIsAuto = useSectionInfos((x) => {
-    const { width, height } = x.x[sectionId].size;
+  const widthOrHeightIsAuto = useProjectState((x) => {
+    const { width, height } = x.sections[sectionId].size;
     return width === "auto" || height === "auto";
   });
 
@@ -317,14 +317,14 @@ export function setDrawAreaSectionSize({
 export function useYouTubeSectionSize(sectionId) {
   const extraHeight = 22;
   const defaultSize = { width: 640, height: 360 };
-  const { width, height } = useSectionInfos(
-    (x) => x.x[sectionId].size,
+  const { width, height } = useProjectState(
+    (x) => x.sections[sectionId].size,
     _.isEqual,
   );
 
   function setToDefaultSize() {
     defaultSize.height += extraHeight;
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setAspectRatioInfo({
         sectionId,
         aspectRatio: 16 / 9,
@@ -355,7 +355,7 @@ export function useYouTubeSectionSize(sectionId) {
 
 export function useTwitterSectionSize(sectionId) {
   useEffect(() => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setAspectRatioInfo({
         sectionId,
         aspectRatio: null,
@@ -376,7 +376,7 @@ function setAspectRatioInfo({
   aspectRatioExtraWidth,
   state,
 }) {
-  const s = state.x[sectionId];
+  const s = state.sections[sectionId];
   s.aspectRatio = aspectRatio;
   s.aspectRatioExtraHeight = aspectRatioExtraHeight;
   s.aspectRatioExtraWidth = aspectRatioExtraWidth;

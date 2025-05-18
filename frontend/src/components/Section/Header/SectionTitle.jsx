@@ -4,7 +4,7 @@ import C from "constants/constants.json";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
 
@@ -76,11 +76,11 @@ function EditableTitle({
 }
 
 function setSectionName(sectionId, name) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
+  useProjectState.setState((x) => {
+    const s = x.sections[sectionId];
     s.name = name;
     if (s.paramSweepSectionId) {
-      x.x[paramSweepSectionId].name = createParamSweepSectionName(name);
+      x.sections[paramSweepSectionId].name = createParamSweepSectionName(name);
     }
     x.requestRenameRefactor = true;
   });
@@ -88,7 +88,7 @@ function setSectionName(sectionId, name) {
 }
 
 function useTitleIsEditable(sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const isUneditableType = [
       C.GLOBAL_VARIABLES,
       C.PARAM_SWEEP,
@@ -99,20 +99,20 @@ function useTitleIsEditable(sectionId) {
     const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);
 
     return {
-      sectionName: x.x[sectionId].name,
+      sectionName: x.sections[sectionId].name,
       titleIsEditable: !isListElement && !isUneditableType,
     };
   });
 }
 
 function getSiblingHasName(sectionId, newName) {
-  const state = useSectionInfos.getState();
-  const { parentId } = state.x[sectionId];
+  const state = useProjectState.getState();
+  const { parentId } = state.sections[sectionId];
   const siblingIds = parentId
     ? getSectionVariant(parentId).children
     : useNodeInternals.getState().x.keys();
   for (const s of siblingIds) {
-    if (state.x[s].name === newName) {
+    if (state.sections[s].name === newName) {
       return true;
     }
   }

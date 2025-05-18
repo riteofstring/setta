@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
 
 export function maybeRequestDrawAreaUpdate(newVal, oldVal) {
@@ -17,7 +17,7 @@ export function maybeRequestDrawAreaUpdate(newVal, oldVal) {
     return;
   }
 
-  const sectionState = useSectionInfos.getState();
+  const sectionState = useProjectState.getState();
   const drawAreasToUpdate = [];
   for (const s of Object.values(sectionState.x)) {
     if (getSectionType(s.id, sectionState) !== C.DRAW) {

@@ -11,7 +11,7 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useActiveSection,
-  useSectionInfos,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -90,7 +90,9 @@ export function KwargsControls({
 }
 
 function ParamFilter({ sectionId }) {
-  const paramFilterValue = useSectionInfos((x) => x.x[sectionId].paramFilter);
+  const paramFilterValue = useProjectState(
+    (x) => x.sections[sectionId].paramFilter,
+  );
   const sectionIsActive = useActiveSection((x) =>
     _.isEqual(x.ids, [sectionId]),
   );
@@ -98,8 +100,8 @@ function ParamFilter({ sectionId }) {
     shortcutPrettified(x.shortcuts.searchShortcut),
   );
   function onSearchChange(e) {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].paramFilter = e.target.value;
+    useProjectState.setState((state) => {
+      state.sections[sectionId].paramFilter = e.target.value;
     });
   }
 
@@ -126,7 +128,7 @@ function ParamFilter({ sectionId }) {
 
 function onClickAddKwargFn(sectionId, objInfoId) {
   return () => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       function callbackFn({ sectionId, parentId, idx, state }) {
         addKwarg({ sectionId, parentId, insertIdx: idx + 1, state });
       }
@@ -147,7 +149,7 @@ function onClickAddKwargFn(sectionId, objInfoId) {
 
 function onClickDeleteKwargFn(sectionId, objInfoId) {
   return () => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       let kwargIds = [];
 
       function callbackFn({ codeInfoChildren, parentId, idx }) {

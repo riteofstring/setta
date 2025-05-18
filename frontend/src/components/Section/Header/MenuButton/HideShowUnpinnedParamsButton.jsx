@@ -1,14 +1,14 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function HideShowUnpinnedParamsButton({ sectionId }) {
-  const hideUnpinnedParams = useSectionInfos(
-    (x) => x.x[sectionId].hideUnpinnedParams,
+  const hideUnpinnedParams = useProjectState(
+    (x) => x.sections[sectionId].hideUnpinnedParams,
   );
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].hideUnpinnedParams = !hideUnpinnedParams;
+    useProjectState.setState((state) => {
+      state.sections[sectionId].hideUnpinnedParams = !hideUnpinnedParams;
     });
   }
 

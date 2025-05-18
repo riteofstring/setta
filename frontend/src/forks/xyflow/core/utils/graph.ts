@@ -3,7 +3,7 @@ import type { Selection as D3Selection } from "d3";
 import {
   useActiveSection,
   useLocalStorage,
-  useSectionInfos,
+  useProjectState,
   useSectionRefs,
 } from "state/definitions";
 import { clamp } from "utils/utils";
@@ -99,7 +99,7 @@ export function getNodesInside(
 
   const visibleNodes = [];
 
-  for (const section of Object.values(useSectionInfos.getState().x)) {
+  for (const section of Object.values(useProjectState.getState().sections)) {
     const isVisible = isSectionOverlappingWithRect(
       section.id,
       rectToLookInside,

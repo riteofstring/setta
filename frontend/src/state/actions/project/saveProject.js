@@ -10,8 +10,8 @@ import {
 import { dbSaveSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
+  useProjectState,
   useSectionColumnWidth,
-  useSectionInfos,
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
@@ -26,7 +26,7 @@ export function getProjectData({
   convertYamlToGUI = true,
 }) {
   // remove temporary sections
-  let sections = _.cloneDeep(useSectionInfos.getState().x);
+  let sections = _.cloneDeep(useProjectState.getState().sections);
   sections = _.pickBy(sections, (x) => !x.isTemporary);
   if (convertYamlToGUI) {
     for (const s of Object.values(sections)) {
@@ -43,22 +43,22 @@ export function getProjectData({
   const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
   const sectionVariants = _.mapValues(
-    useSectionInfos.getState().variants,
+    useProjectState.getState().variants,
     (x) => ({
       ...x,
       // need this filter because some sections might be temporary
       children: x.children.filter((c) => c in sections),
     }),
   );
-  const artifactGroups = useSectionInfos.getState().artifactGroups;
+  const artifactGroups = useProjectState.getState().artifactGroups;
   const uiTypes = _.pickBy(
-    useSectionInfos.getState().uiTypes,
+    useProjectState.getState().uiTypes,
     (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
   );
-  const uiTypeCols = useSectionInfos.getState().uiTypeCols;
+  const uiTypeCols = useProjectState.getState().uiTypeCols;
 
-  const codeInfo = useSectionInfos.getState().codeInfo;
-  const codeInfoCols = useSectionInfos.getState().codeInfoCols;
+  const codeInfo = useProjectState.getState().codeInfo;
+  const codeInfoCols = useProjectState.getState().codeInfoCols;
 
   const projectConfig = getProjectConfigMetadata();
   const children = {};
@@ -94,7 +94,7 @@ export function getProjectData({
 export async function saveProject() {
   addTemporaryNotification("Saving...", C.NOTIFICATION_TYPE_SAVE);
 
-  if (useSectionInfos.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
+  if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
@@ -128,7 +128,7 @@ async function saveProjectAs({ fn, otherArgs }) {
 }
 
 function getProjectConfigMetadata() {
-  const state = useSectionInfos.getState().projectConfig;
+  const state = useProjectState.getState().projectConfig;
   const output = {
     id: state.id,
     name: state.name,
@@ -173,5 +173,5 @@ async function updateSectionsWithRenderedValues(sections) {
  * @return {ID} The project config id.
  */
 export function getProjectConfigId() {
-  return useSectionInfos.getState().projectConfig.id;
+  return useProjectState.getState().projectConfig.id;
 }

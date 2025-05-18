@@ -14,7 +14,7 @@ import {
   moveSection,
 } from "state/actions/sections/moveSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
@@ -22,7 +22,7 @@ import { BehaviorDropType } from "./dropTypes";
 
 function onSortEnd({ active, over }) {
   if (over && active.id !== over.id) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setSectionVariantChildren(
         active.data.current.sortable?.containerId,
         updateWithArrayMove(active, over),
@@ -89,7 +89,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   });
 
   let newSectionId;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     if (maybeNewSectionData.sections) {
       updateSectionInfos({ ...maybeNewSectionData, state });
       newSectionId = Object.keys(maybeNewSectionData.sections)[0];

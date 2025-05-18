@@ -5,7 +5,7 @@ import _ from "lodash";
 import {
   useMisc,
   useNodeInternals,
-  useSectionInfos,
+  useProjectState,
   useSectionRefs,
 } from "state/definitions";
 
@@ -159,7 +159,7 @@ export function getNodeUpdateInformation(entries, fromResizeObserver) {
 export function updateNodePositionsMcp({ sections }) {
   const newNodes = getNewNodes();
   let curr;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     for (const n of sections) {
       curr = newNodes.get(n.id);
       if (n.position) {

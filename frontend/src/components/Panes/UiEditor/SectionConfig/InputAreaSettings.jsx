@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { dbCreateFile } from "requests/jsonSource";
 import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateSectionInfos } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
 
 // TODO: enable this stuff again, but it should show jsonSourceGlob I guess
 export function InputAreaSettings({ sectionId }) {
   const { fileExists, debouncedCheckIfFileExists } = useFileExists(200);
 
-  const jsonSource = useSectionInfos((x) => x.x[sectionId].jsonSource);
+  const jsonSource = useProjectState((x) => x.sections[sectionId].jsonSource);
 
   const [value, setValue] = useState(jsonSource ?? "");
 
@@ -21,8 +21,8 @@ export function InputAreaSettings({ sectionId }) {
   async function onBlur(jsonSource) {
     const { sections, sectionVariants, codeInfo, codeInfoCols } =
       await loadJsonContents({ [sectionId]: jsonSource });
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].jsonSource = jsonSource;
+    useProjectState.setState((state) => {
+      state.sections[sectionId].jsonSource = jsonSource;
       updateSectionInfos({
         sections,
         sectionVariants,

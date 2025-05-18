@@ -3,10 +3,10 @@ import {
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function IframeSettings({ sectionId }) {
-  const iframeCode = useSectionInfos(
+  const iframeCode = useProjectState(
     (x) => getDisplayedSectionVariant(sectionId, x).code,
   );
   const [code, setCode] = useState(iframeCode);
@@ -28,7 +28,7 @@ export function IframeSettings({ sectionId }) {
 
     // Only pass valid code to parent
     if (!validationError) {
-      useSectionInfos.setState((x) => {
+      useProjectState.setState((x) => {
         const sectionVariant = getSectionVariant(sectionId, x);
         sectionVariant.code = newCode;
       });

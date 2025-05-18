@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -11,10 +11,10 @@ export function GetParamSwitch({
   isTopLevel = false,
 }) {
   // TODO: make this more efficient
-  const filteredIds = useSectionInfos((x) => {
+  const filteredIds = useProjectState((x) => {
     let matches = paramIds;
 
-    if (x.x[sectionId].paramFilter) {
+    if (x.sections[sectionId].paramFilter) {
       const requiredParamIdsWithNames = Object.keys(
         requiredParamIdsToPaths,
       ).map((id) => ({
@@ -24,7 +24,7 @@ export function GetParamSwitch({
 
       matches = matchSorter(
         requiredParamIdsWithNames,
-        x.x[sectionId].paramFilter,
+        x.sections[sectionId].paramFilter,
         {
           keys: ["name"],
         },

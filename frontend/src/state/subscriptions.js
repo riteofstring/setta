@@ -12,7 +12,7 @@ import {
   useArtifacts,
   useMisc,
   useNodeInternals,
-  useSectionInfos,
+  useProjectState,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
@@ -32,21 +32,21 @@ import {
 } from "./actions/sectionInfos";
 
 export function subscribe() {
-  useSectionInfos.subscribe(
+  useProjectState.subscribe(
     singletonSectionsSubscriptionFn,
     (x) => {
-      useSectionInfos.setState((state) => {
+      useProjectState.setState((state) => {
         state.singletonSections = x;
       });
       dbFileWatchGenPythonCode({
         watch: Boolean(x[C.GEN_PYTHON_CODE]),
-        projectConfigId: useSectionInfos.getState().projectConfig.id,
+        projectConfigId: useProjectState.getState().projectConfig.id,
       });
     },
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(
+  useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
     (x) => {
       useDndChildren.getState().update(x);
@@ -54,7 +54,7 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(
+  useProjectState.subscribe(
     getSectionIdToParentId,
     (newVal, oldVal) => {
       updateRunGroupsWithNewHierarchy(newVal, oldVal);
@@ -62,11 +62,11 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(jsonFilenameSubscriptionFn, dbFileWatchJsonSource, {
+  useProjectState.subscribe(jsonFilenameSubscriptionFn, dbFileWatchJsonSource, {
     equalityFn: _.isEqual,
   });
 
-  useSectionInfos.subscribe(
+  useProjectState.subscribe(
     topLevelSectionVisibilitySubscriptionFn,
     (newVal) => {
       updateNodeVisibility(newVal);
@@ -74,15 +74,15 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useSectionInfos.subscribe(entryCodeBlockSubscriptionFn, (newVal) => {
+  useProjectState.subscribe(entryCodeBlockSubscriptionFn, (newVal) => {
     // newVal is true if there is already an entry code block.
     // otherwise it's a number indicating the number of code blocks.
     // if there isn't an entry code block, make an arbitrary code block the entry.
     if (newVal !== true) {
-      useSectionInfos.setState((state) => {
-        for (const s of Object.values(state.x)) {
+      useProjectState.setState((state) => {
+        for (const s of Object.values(state.sections)) {
           if (getSectionType(s.id) === C.CODE) {
-            state.x[s.id].isEntryCodeBlock = true;
+            state.sections[s.id].isEntryCodeBlock = true;
             break;
           }
         }
@@ -90,7 +90,7 @@ export function subscribe() {
     }
   });
 
-  useSectionInfos.subscribe(updateBackendSubscriptionFn, () => {
+  useProjectState.subscribe(updateBackendSubscriptionFn, () => {
     updateBackendProjectState();
   });
 
@@ -176,7 +176,7 @@ function singletonSectionsSubscriptionFn(state) {
     [C.GLOBAL_PARAM_SWEEP]: null,
     [C.GEN_PYTHON_CODE]: null,
   };
-  for (const s of Object.values(state.x)) {
+  for (const s of Object.values(state.sections)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[C.GLOBAL_VARIABLES] &&
@@ -245,7 +245,7 @@ function jsonFilenameSubscriptionFn(state) {
 
 function topLevelSectionVisibilitySubscriptionFn(state) {
   const output = {};
-  for (const [id, section] of Object.entries(state.x)) {
+  for (const [id, section] of Object.entries(state.sections)) {
     if (!section.parentId) {
       const { visibility, viewingEditingMode } =
         getSectionViewingEditingModeVisibility(id, state);
@@ -258,10 +258,10 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
 
 function entryCodeBlockSubscriptionFn(state) {
   let count = 0;
-  for (const s of Object.values(state.x)) {
+  for (const s of Object.values(state.sections)) {
     if (getSectionType(s.id) === C.CODE) {
       count += 1;
-      if (state.x[s.id].isEntryCodeBlock) {
+      if (state.sections[s.id].isEntryCodeBlock) {
         return true;
       }
     }

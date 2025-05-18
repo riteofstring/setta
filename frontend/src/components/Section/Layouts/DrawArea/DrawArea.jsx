@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
-import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { useArtifacts, useMisc, useProjectState } from "state/definitions";
 import {
   useDrawAreaActiveLayerAndLoadedArtifacts,
   useLoadArtifactViaDropzone,
@@ -83,7 +83,7 @@ export function DrawArea({ sectionId }) {
   }, [sectionId, fnCanvasToBase64]);
 
   useEffect(() => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setCanvasSize({
         sectionId,
         layerCanvasRefs,

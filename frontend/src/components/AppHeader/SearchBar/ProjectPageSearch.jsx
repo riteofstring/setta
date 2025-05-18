@@ -14,7 +14,7 @@ import { goToSection } from "state/actions/sections/sectionPositions";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useProjectSearch,
-  useSectionInfos,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
@@ -130,7 +130,7 @@ function ProjectPageCommandPalette({ children }) {
     }
 
     // get corresponding item and its section props
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       addSectionInEmptySpace({
         state,
         ...match.specificProps,

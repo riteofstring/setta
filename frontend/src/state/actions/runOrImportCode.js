@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbRunCode } from "requests/terminals";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { getProjectDataToGenerateCode } from "./project/generateCode";
 import { getSectionType } from "./sectionInfos";
@@ -31,8 +31,8 @@ export async function runEntryCodeBlock() {
 }
 
 function getEntryCodeBlock() {
-  const state = useSectionInfos.getState();
-  for (const s of Object.values(state.x)) {
+  const state = useProjectState.getState();
+  for (const s of Object.values(state.sections)) {
     if (getSectionType(s.id) === C.CODE && s.isEntryCodeBlock) {
       return s.id;
     }

@@ -1,7 +1,7 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { dbDocstringToMarkdown } from "requests/codeInfo";
 import { getSectionVariant } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTextBlockDescriptionAndEditability } from "state/hooks/sectionVariants";
 
 export function TextBlockSettings({ sectionId }) {
@@ -16,15 +16,15 @@ export function TextBlockSettings({ sectionId }) {
     } else {
       newDescription = description;
     }
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       getSectionVariant(sectionId, state).description = newDescription;
-      state.x[sectionId].renderMarkdown = v;
+      state.sections[sectionId].renderMarkdown = v;
     });
   }
 
   async function onChangeHeadingAsSectionName(v) {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].headingAsSectionName = v;
+    useProjectState.setState((state) => {
+      state.sections[sectionId].headingAsSectionName = v;
     });
   }
 

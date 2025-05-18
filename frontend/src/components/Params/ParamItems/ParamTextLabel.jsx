@@ -1,7 +1,7 @@
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
-  const name = useSectionInfos((x) => x.codeInfo[paramInfoId].name);
+  const name = useProjectState((x) => x.codeInfo[paramInfoId].name);
 
   function onClick() {
     if (useMisc.getState().isSelectingParams) {

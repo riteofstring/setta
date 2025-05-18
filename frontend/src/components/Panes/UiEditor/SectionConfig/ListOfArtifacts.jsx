@@ -8,7 +8,7 @@ import { FaObjectGroup } from "react-icons/fa6";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
 import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { updateArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { useArtifacts, useProjectState } from "state/definitions";
 import {
   getAllSectionArtifactIds,
   getSectionArtifactGroupMetadata,
@@ -23,7 +23,7 @@ const LayersList = ({
   draggedId,
   onDeleteArtifact,
 }) => {
-  const layers = useSectionInfos(
+  const layers = useProjectState(
     (state) => getSectionArtifactGroupMetadata(sectionId, state),
     _.isEqual,
   );
@@ -329,7 +329,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   const [draggedId, setDraggedId] = useState(null);
 
   const handleLayerDrop = (artifactId, targetLayerId) => {
-    useSectionInfos.setState((x) => {
+    useProjectState.setState((x) => {
       const targetLayer = x.artifactGroups[targetLayerId];
       const artifactType = availableArtifacts[artifactId].type;
       targetLayer.artifactTransforms.push(
@@ -339,7 +339,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
   };
 
   const handleDeleteArtifact = (layerId, artifactIdx) => {
-    useSectionInfos.setState((x) => {
+    useProjectState.setState((x) => {
       const targetLayer = x.artifactGroups[layerId];
       targetLayer.artifactTransforms = targetLayer.artifactTransforms.filter(
         (t, idx) => idx !== artifactIdx,
@@ -376,7 +376,7 @@ export function LayerListAndListOfArtifacts({ sectionId, sectionTypeName }) {
 
 export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
   const availableArtifacts = useArtifactsKnownByDbAndInMemory(sectionTypeName);
-  const selectedArtifactIds = useSectionInfos(
+  const selectedArtifactIds = useProjectState(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
   );
@@ -388,7 +388,7 @@ export function JustListOfArtifacts({ sectionId, sectionTypeName }) {
   }
 
   function onClick(artifactId, artifactType) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       updateArtifactGroupAndSetArtifactId({
         sectionId,
         sectionTypeName,

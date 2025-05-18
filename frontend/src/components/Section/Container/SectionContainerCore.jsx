@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
@@ -14,12 +14,12 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
     jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
-  } = useSectionInfos((x) => {
+  } = useProjectState((x) => {
     return {
       sectionTypeName: getSectionType(sectionId, x),
-      jsonSourceMissing: x.x[sectionId].jsonSourceMissing,
-      isInOtherProjectConfigs: x.x[sectionId].isInOtherProjectConfigs,
-      positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
+      jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
+      isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
+      positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
     };
   }, _.isEqual);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));

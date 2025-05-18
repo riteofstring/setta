@@ -3,7 +3,7 @@ import _ from "lodash";
 import React from "react";
 import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { useMatchSorterFilter } from "state/hooks/utils";
@@ -56,14 +56,14 @@ function UIConfigCore({ sectionId, paramInfos }) {
 
 function _UIElement({ sectionId, paramInfo }) {
   const paramInfoId = paramInfo.id;
-  const uiType = useSectionInfos(
+  const uiType = useProjectState(
     (x) => getParamUIType(sectionId, paramInfoId, x),
     _.isEqual,
   );
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setParamUITypeId({
         uiTypeId: e,
         sectionId,

@@ -9,7 +9,7 @@ import { getDisplayedSectionIdToChildren } from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
-  useSectionInfos,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 
@@ -55,7 +55,7 @@ export function useUpdateProjectSearch() {
 }
 
 function getAllVisibleParams() {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const output = [];
   const sectionIdToChildren = getDisplayedSectionIdToChildren(state, true);
 

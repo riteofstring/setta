@@ -2,7 +2,7 @@ import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
@@ -16,8 +16,8 @@ export function ChartAreaSettings({ sectionId }) {
 }
 
 function ChartConfig({ sectionId }) {
-  const chartSettings = useSectionInfos(
-    (x) => x.x[sectionId].chartSettings,
+  const chartSettings = useProjectState(
+    (x) => x.sections[sectionId].chartSettings,
     _.isEqual,
   );
 
@@ -241,14 +241,14 @@ function ChartConfigToggle({ sectionId, name, value, title }) {
 }
 
 function setChartSetting(sectionId, name, value) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].chartSettings[name] = value;
+  useProjectState.setState((state) => {
+    state.sections[sectionId].chartSettings[name] = value;
   });
 }
 
 function setChartType(sectionId, chartType) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].chartSettings.type = chartType;
+  useProjectState.setState((state) => {
+    state.sections[sectionId].chartSettings.type = chartType;
     const artifactIds = getAllSectionArtifactIds(sectionId, state);
     updateColumnNameSelections(Array.from(artifactIds), sectionId, state);
   });

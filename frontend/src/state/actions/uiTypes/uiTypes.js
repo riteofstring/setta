@@ -1,4 +1,4 @@
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function setOneUITypeConfig({
   uiTypeId,
@@ -11,7 +11,7 @@ export function setOneUITypeConfig({
 }
 
 export function deleteUIType(uiTypeId) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     delete state.uiTypes[uiTypeId];
   });
 }

@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,
@@ -99,7 +99,7 @@ export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
 }
 
 export function getAllVisibleParamsInSection(sectionId, state) {
-  const { hideUnpinnedParams } = state.x[sectionId];
+  const { hideUnpinnedParams } = state.sections[sectionId];
   const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
   let pinnedIds = getParamIdsToShowInArea(
@@ -134,7 +134,7 @@ export function getAllVisibleParamsInSection(sectionId, state) {
  * @return {SectionSimplifiedCodeInfo}
  */
 export function getSectionCurrentCodeInfoMcp({ sectionId }) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const { codeInfoChildren, parentCodeInfoId } =
     getCodeChildrenAndParentCodeInfoId(sectionId, state);
 
@@ -159,9 +159,9 @@ export function getSectionCurrentCodeInfoMcp({ sectionId }) {
  * @returns {Object<ID, SimplifiedSectionInfo>} an object that maps from sectionId to that section's information.
  */
 export function getAllSectionInformationMcp() {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const output = {};
-  for (const s of Object.values(state.x)) {
+  for (const s of Object.values(state.sections)) {
     const { x, y, height, width } = getSectionRect(s.id);
     output[s.id] = {
       name: s.name,

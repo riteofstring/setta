@@ -3,18 +3,18 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import { MdMemory } from "react-icons/md";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function ToggleEntryCodeBlockButton({ sectionId }) {
-  const isEntryCodeBlock = useSectionInfos(
-    (x) => x.x[sectionId].isEntryCodeBlock,
+  const isEntryCodeBlock = useProjectState(
+    (x) => x.sections[sectionId].isEntryCodeBlock,
   );
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      for (const s of Object.values(state.x)) {
+    useProjectState.setState((state) => {
+      for (const s of Object.values(state.sections)) {
         if (getSectionType(s.id) === C.CODE) {
-          state.x[s.id].isEntryCodeBlock = s.id === sectionId;
+          state.sections[s.id].isEntryCodeBlock = s.id === sectionId;
         }
       }
     });

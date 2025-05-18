@@ -3,7 +3,7 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
@@ -109,8 +109,8 @@ function TextBlockCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  const headingAsSectionName = useSectionInfos(
-    (x) => x.x[sectionId].headingAsSectionName,
+  const headingAsSectionName = useProjectState(
+    (x) => x.sections[sectionId].headingAsSectionName,
   );
 
   return (

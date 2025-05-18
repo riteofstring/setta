@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -20,7 +20,7 @@ import { maybeIncrementProjectStateVersion } from "./undo";
  */
 export function addParametersMcp({ sectionId, names, codeInfoId }) {
   let ids = [];
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     for (const name of names) {
       ids.push(addKwarg({ sectionId, name, parentId: codeInfoId, state }));
     }
@@ -62,7 +62,7 @@ export function deleteLastKwarg({ sectionId, parentId = null, state }) {
 }
 
 export function deleteSelectedKwargs(sectionId) {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
     deleteCodeInfo(sectionId, selectedParamIds, x);
   });
@@ -81,7 +81,7 @@ export function saveKwargsAsCollection({ sectionId, name }) {
 }
 
 export function pinSelectedKwargs(sectionId) {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
     for (const p of selectedParamIds) {
       x.codeInfo[p].isPinned = !x.codeInfo[p].isPinned;
@@ -91,7 +91,7 @@ export function pinSelectedKwargs(sectionId) {
 }
 
 export function toggleParamSelected(sectionId, paramInfoId) {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     setAttrOfSelfAndDescendants(
       x.codeInfo,
@@ -105,7 +105,7 @@ export function toggleParamSelected(sectionId, paramInfoId) {
 
 export function unselectAllParams() {
   let didUnselectSomeParams = false;
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     for (const codeInfo of Object.values(x.codeInfo)) {
       if (codeInfo.isSelected) {
         codeInfo.isSelected = false;
@@ -125,7 +125,7 @@ function setAttrOfSelfAndDescendants(state, codeInfoChildren, id, attr, value) {
 }
 
 function getKwargIds(sectionId, codeInfoId, _state) {
-  const state = _state ?? useSectionInfos.getState();
+  const state = _state ?? useProjectState.getState();
   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
 }

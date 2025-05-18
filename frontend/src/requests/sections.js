@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
-import { useSectionInfos, useTypeErrors } from "state/definitions";
+import { useProjectState, useTypeErrors } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 
@@ -10,7 +10,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const projectConfigId = useSectionInfos.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   post({
     body: { projectConfigId },
     address: C.ROUTE_TYPE_CHECK,
@@ -18,7 +18,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
 }
 
 export async function wsParametersRequest({ sectionId, fullText }) {
-  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useProjectState.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -32,7 +32,7 @@ export async function wsParametersRequest({ sectionId, fullText }) {
 }
 
 export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
-  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useProjectState.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -52,7 +52,7 @@ export async function wsTextFieldCompletion({
   fullText,
   position,
 }) {
-  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useProjectState.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -68,7 +68,7 @@ export async function wsTextFieldCompletion({
 }
 
 export async function wsGenCodePrefixCompletion({ fullText, position }) {
-  const { id: projectConfigId } = useSectionInfos.getState().projectConfig;
+  const { id: projectConfigId } = useProjectState.getState().projectConfig;
 
   return await sendMessageAndWait({
     id: createNewId(),

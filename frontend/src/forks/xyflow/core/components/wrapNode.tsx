@@ -3,7 +3,7 @@ import { SectionContainer } from "components/Section/Container/SectionContainer"
 import { useFloatingBox } from "components/Utils/FloatingBox";
 import type { KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -34,8 +34,8 @@ const _NodeWrapper = ({
   visibility,
 }: WrapNodeProps) => {
   const nodeRef = useRef<HTMLDivElement>(null);
-  const positionAndSizeLocked = useSectionInfos(
-    (x) => x.x[id].positionAndSizeLocked,
+  const positionAndSizeLocked = useProjectState(
+    (x) => x.sections[id].positionAndSizeLocked,
   );
   const isDraggable = _isDraggable && !positionAndSizeLocked;
   const hasPointerEvents = isSelectable || isDraggable;

@@ -2,7 +2,7 @@ import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useNavigate } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 
@@ -46,7 +46,7 @@ function ProjectNameOnly() {
 }
 
 function useEditableProjectName() {
-  const name = useSectionInfos((x) => x.projectConfig.name);
+  const name = useProjectState((x) => x.projectConfig.name);
   const navigate = useNavigate();
   async function condition(v) {
     const res = await dbSetProjectConfigName(v);

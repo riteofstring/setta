@@ -3,7 +3,7 @@ import _ from "lodash";
 import React, { useState } from "react";
 import { Tweet } from "react-tweet";
 import YouTube from "react-youtube";
-import { useLocalStorage, useSectionInfos } from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   useTwitterSectionSize,
   useYouTubeSectionSize,
@@ -11,7 +11,7 @@ import {
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
 
 function _SocialArea({ sectionId }) {
-  const url = useSectionInfos((x) => x.x[sectionId].social);
+  const url = useProjectState((x) => x.sections[sectionId].social);
 
   if (linkIsYouTube(url)) {
     return <YoutubeEmbed sectionId={sectionId} url={url} />;
@@ -25,7 +25,7 @@ export const SocialArea = React.memo(_SocialArea);
 function YoutubeEmbed({ sectionId, url }) {
   const id = getYouTubeID(url, { fuzzy: false });
   const playerSize = useYouTubeSectionSize(sectionId);
-  const resizeEvent = useSectionInfos((x) => x.x[sectionId].resizeEvent);
+  const resizeEvent = useProjectState((x) => x.sections[sectionId].resizeEvent);
   const pointerCSS = resizeEvent === "start" ? "pointer-events-none" : "";
   const [showVideo, setShowVideo] = useState(false);
   const thumbnailUrl = `https://img.youtube.com/vi/${id}/0.jpg`;

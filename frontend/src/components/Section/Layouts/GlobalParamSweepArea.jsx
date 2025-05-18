@@ -21,7 +21,7 @@ import {
   useRunGroupListing,
   useTopLevelRunGroupListing,
 } from "state/actions/runGroups/runGroups";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useGetParamSweepNames } from "state/hooks/paramSweep";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useGetSectionVariantNames } from "state/hooks/sectionVariants";
@@ -29,8 +29,8 @@ import { createRandomName } from "utils/idNameCreation";
 import { useShowYaml } from "../../../state/hooks/toYaml";
 
 export function GlobalParamSweepArea({ sectionId }) {
-  const width = useSectionInfos((x) => {
-    const w = x.x[sectionId].size.width;
+  const width = useProjectState((x) => {
+    const w = x.sections[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
 
@@ -91,8 +91,10 @@ function LeftSide({ sectionId }) {
 
 function RightSide({ sectionId }) {
   const showYaml = useShowYaml(sectionId);
-  const shownRunGroupId = useSectionInfos((x) => {
-    return x.x[sectionId].previewVariantId ?? x.x[sectionId].variantId;
+  const shownRunGroupId = useProjectState((x) => {
+    return (
+      x.sections[sectionId].previewVariantId ?? x.sections[sectionId].variantId
+    );
   });
 
   if (!shownRunGroupId) {
@@ -124,15 +126,15 @@ function RightSide({ sectionId }) {
 function RunGroupList({ sectionId }) {
   const { ref, isScrollable } = useIsScrollable();
   const { editingRunGroupId, runGroupsDetails, runGroupSelection } =
-    useSectionInfos((x) => {
+    useProjectState((x) => {
       const output = [];
-      const { variantIds, variantId } = x.x[sectionId];
+      const { variantIds, variantId } = x.sections[sectionId];
       for (const id of variantIds) {
         output.push({ id, name: x.variants[id].name });
       }
       return {
         runGroupsDetails: output,
-        runGroupSelection: x.x[sectionId].selectedVariantIds,
+        runGroupSelection: x.sections[sectionId].selectedVariantIds,
         editingRunGroupId: variantId,
       };
     }, _.isEqual);
@@ -231,7 +233,7 @@ function SectionItem({ sectionInfo, ancestors, parentIsSelected, runGroupId }) {
     });
   }
 
-  const isSelected = useSectionInfos((x) => {
+  const isSelected = useProjectState((x) => {
     return (
       parentIsSelected &&
       !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]?.selected
@@ -302,7 +304,7 @@ function VersionsList({
   allVersions,
   parentVariantId,
 }) {
-  const atLeastOneVersionSelected = useSectionInfos((x) => {
+  const atLeastOneVersionSelected = useProjectState((x) => {
     const versionsObj =
       x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]?.versions;
     if (!versionsObj) {
@@ -428,7 +430,7 @@ function VersionItemComponent({
     });
   }
 
-  const isSelected = useSectionInfos(
+  const isSelected = useProjectState(
     (x) =>
       parentIsSelected &&
       !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId].versions[
@@ -473,7 +475,7 @@ function ParamSweepItemComponent({
     });
   }
 
-  const isSelected = useSectionInfos(
+  const isSelected = useProjectState(
     (x) =>
       !!x.variants[runGroupId].runGroup[sectionId]?.[parentVariantId]
         .paramSweeps[id],
@@ -573,7 +575,7 @@ function CreateNewRunGroupButton({ sectionId }) {
 
 function createNewRunGroup(sectionId) {
   let newVariantId;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const newVersionName = createRandomName();
     ({ newVariantId } = createNewVersion(sectionId, newVersionName, state));
     initRunGroup(newVariantId, state);

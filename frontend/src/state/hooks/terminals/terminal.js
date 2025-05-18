@@ -9,7 +9,7 @@ import {
   createSectionInfo,
 } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS, URLS } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -87,9 +87,10 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useSectionInfos.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   const id = createNewId();
-  const isTemporary = !!useSectionInfos.getState().x[sectionId].isTemporary;
+  const isTemporary =
+    !!useProjectState.getState().sections[sectionId].isTemporary;
   const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
@@ -151,17 +152,17 @@ function removeWsFromArray(x, ws) {
 
 export async function restoreTerminals() {
   const res = await dbGetExistingTerminals(
-    useSectionInfos.getState().projectConfig.id,
+    useProjectState.getState().projectConfig.id,
   );
   if (res.status === 200) {
     const existingTerminalInfo = res.data;
     const terminalsWithoutSections = existingTerminalInfo.filter(
-      (x) => !(x.id in useSectionInfos.getState().x),
+      (x) => !(x.id in useProjectState.getState().sections),
     );
     if (terminalsWithoutSections.length === 0) {
       return;
     }
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       const groupId = maybeCreateTemporaryTerminalGroup(state);
       for (const terminalInfo of terminalsWithoutSections) {
         createTemporaryTerminal(terminalInfo.id, groupId, state);
@@ -201,7 +202,10 @@ function maybeCreateTemporaryTerminalGroup(state) {
 
 function getTemporaryTerminalsGroupName() {
   const baseName = "Temporary Terminals";
-  const existingNames = _.map(useSectionInfos.getState().x, (s) => s.name);
+  const existingNames = _.map(
+    useProjectState.getState().sections,
+    (s) => s.name,
+  );
   let name = baseName;
 
   while (existingNames.includes(name)) {
@@ -212,7 +216,7 @@ function getTemporaryTerminalsGroupName() {
 }
 
 export function createTemporaryTerminalFromBackend(terminalId) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const groupId = maybeCreateTemporaryTerminalGroup(state);
     createTemporaryTerminal(terminalId, groupId, state);
   });

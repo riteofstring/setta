@@ -4,11 +4,11 @@ import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 
 export function useParamInfosForSidePane(sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
     const { ids, pathMap } = findAllParametersAndPathMaps({
@@ -29,7 +29,7 @@ export function useParamInfosForSidePane(sectionId) {
 }
 
 export function useParamIdsToShowInArea(sectionId, isPinned) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);
 

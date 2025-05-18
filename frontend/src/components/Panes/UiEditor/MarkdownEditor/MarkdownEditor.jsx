@@ -9,7 +9,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTextBlockDescriptionAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
@@ -56,11 +56,11 @@ const _MarkdownEditorCore = React.forwardRef(
     const debouncedSetDescription = useCallback(
       _.debounce((sectionId, v, description) => {
         if (v !== description) {
-          useSectionInfos.setState((state) => {
+          useProjectState.setState((state) => {
             getSectionVariant(sectionId, state).description = v;
-            if (state.x[sectionId].headingAsSectionName) {
-              state.x[sectionId].name =
-                getFirstHeadingOrText(v) ?? state.x[sectionId].name;
+            if (state.sections[sectionId].headingAsSectionName) {
+              state.sections[sectionId].name =
+                getFirstHeadingOrText(v) ?? state.sections[sectionId].name;
             }
           });
           maybeIncrementProjectStateVersion(true);

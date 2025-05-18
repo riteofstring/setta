@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { useArtifacts, useProjectState } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 
 export const RESIZE_HANDLE_SIZE = 16;
@@ -124,7 +124,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   tempCanvasRefs,
   fnCanvasToBase64,
 ) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     for (const [idx, t] of state.artifactGroups[
       activeLayerId
     ].artifactTransforms.entries()) {
@@ -158,7 +158,7 @@ export function drawAllLayers(
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
-  const sectionState = useSectionInfos.getState();
+  const sectionState = useProjectState.getState();
   for (const layerId of sectionState.x[sectionId].artifactGroupIds) {
     if (!(layerId in layerCanvasRefs.current)) {
       continue;
@@ -191,7 +191,7 @@ function drawOneLayer(
   const artifactTempCtx = getCtx(tempCanvasRefs.current.artifact);
   clearCanvas(layerCanvas);
 
-  const sectionState = useSectionInfos.getState();
+  const sectionState = useProjectState.getState();
   const artifactState = useArtifacts.getState().x;
 
   const layer = sectionState.artifactGroups[layerId];

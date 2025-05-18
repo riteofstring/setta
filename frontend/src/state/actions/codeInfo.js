@@ -31,7 +31,7 @@ export function deleteCodeInfo(sectionId, ids, state) {
 
   codeInfoCol.children = _.omit(codeInfoCol.children, ids);
 
-  const { variantId, uiTypeColId } = state.x[sectionId];
+  const { variantId, uiTypeColId } = state.sections[sectionId];
   state.variants[variantId].values = _.omit(
     state.variants[variantId].values,
     ids,
@@ -57,6 +57,6 @@ export function getOrCreateCodeInfoCol(variant, state) {
 export function newCodeInfoMaybeWithJsonSource(props, sectionId, state) {
   return newCodeInfo({
     ...props,
-    jsonSource: state.x[sectionId].jsonSource,
+    jsonSource: state.sections[sectionId].jsonSource,
   });
 }

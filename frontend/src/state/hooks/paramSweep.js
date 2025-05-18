@@ -5,28 +5,28 @@ import {
   getSectionType,
   getSectionVariant,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useGetSectionVariantNames } from "./sectionVariants";
 
 export function useParamSweepInfo(sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const displayedVariantId = getDisplayedSectionVariantId(sectionId, x);
-    const forSectionId = getForSectionId(sectionId, x.x);
+    const forSectionId = getForSectionId(sectionId, x.sections);
     return {
       forSectionId,
       variantId: displayedVariantId,
       paramSweep: x.variants[displayedVariantId].sweep,
       variantIsFrozen: getSectionVariant(sectionId).isFrozen,
       showParamSweepSectionSearch:
-        !x.x[forSectionId].hideSearch &&
+        !x.sections[forSectionId].hideSearch &&
         getSectionType(forSectionId, x) !== C.GLOBAL_VARIABLES,
     };
   }, _.isEqual);
 }
 
 export function useGetParamSweepNames(sectionId) {
-  const paramSweepSectionId = useSectionInfos(
-    (x) => x.x[sectionId].paramSweepSectionId,
+  const paramSweepSectionId = useProjectState(
+    (x) => x.sections[sectionId].paramSweepSectionId,
   );
   return useGetSectionVariantNames(paramSweepSectionId);
 }

@@ -1,11 +1,11 @@
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 
 export function onMouseEnterSetPreviewVariantId(sectionId, id) {
   let selectedVariantId;
-  useSectionInfos.setState((state) => {
-    selectedVariantId = state.x[sectionId].variantId;
-    state.x[sectionId].previewVariantId = id;
+  useProjectState.setState((state) => {
+    selectedVariantId = state.sections[sectionId].variantId;
+    state.sections[sectionId].previewVariantId = id;
   });
   if (selectedVariantId !== id) {
     maybeRunGuiToYaml(sectionId, id);
@@ -13,8 +13,8 @@ export function onMouseEnterSetPreviewVariantId(sectionId, id) {
 }
 
 export function onMouseLeaveSetPreviewVariantId(sectionId) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].previewVariantId = null;
+  useProjectState.setState((state) => {
+    state.sections[sectionId].previewVariantId = null;
   });
   // don't call gui to yaml because either we already switched to a new variant
   // so it was called at that point
@@ -24,9 +24,9 @@ export function onMouseLeaveSetPreviewVariantId(sectionId) {
 
 export function onClickSetVariantId(sectionId, id) {
   let selectedVariantId;
-  useSectionInfos.setState((state) => {
-    selectedVariantId = state.x[sectionId].variantId;
-    state.x[sectionId].variantId = id;
+  useProjectState.setState((state) => {
+    selectedVariantId = state.sections[sectionId].variantId;
+    state.sections[sectionId].variantId = id;
   });
   if (selectedVariantId !== id) {
     maybeRunGuiToYaml(sectionId, id);

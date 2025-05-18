@@ -9,7 +9,7 @@ import {
 import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import "./dndline.css";
 
@@ -81,7 +81,7 @@ export function getOnSectionClick(sectionId, isActiveSection) {
       // depends on bubbling behavior (child div onclicks get executed first)
       const atLeastOneParamSelected = getSectionHasAtLeastOneSelectedParam(
         sectionId,
-        useSectionInfos.getState(),
+        useProjectState.getState(),
       );
       if (!isActiveSection && atLeastOneParamSelected) {
         addActiveSectionIds([sectionId]);

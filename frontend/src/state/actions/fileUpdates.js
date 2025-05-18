@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
-import { useAIStore, useSectionInfos } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
@@ -21,7 +21,7 @@ async function updateJSONSourceContents(updatedFileInfo) {
     updatedFileInfo;
 
   const variantIdsToLoad = [];
-  for (const [id, v] of Object.entries(useSectionInfos.getState().variants)) {
+  for (const [id, v] of Object.entries(useProjectState.getState().variants)) {
     if (!v.isJsonSource) {
       continue;
     }
@@ -40,7 +40,7 @@ async function updateJSONSourceContents(updatedFileInfo) {
   const { sectionVariants, codeInfo, codeInfoCols } =
     await loadJsonContents(variantIdsToLoad);
 
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     updateSectionInfos({
       sectionVariants,
       codeInfo,
@@ -75,10 +75,10 @@ async function updateApiKeyInfo(updatedFileInfo) {
 
 function updateGenPythonCode(updatedFileInfo) {
   const { fileContent } = updatedFileInfo;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const id = state.singletonSections[C.GEN_PYTHON_CODE];
     if (id) {
-      state.x[id].code = fileContent;
+      state.sections[id].code = fileContent;
     }
   });
 }

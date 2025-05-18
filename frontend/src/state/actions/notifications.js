@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { useNotifications, useSectionInfos } from "state/definitions";
+import { useNotifications, useProjectState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
 const DEFAULT_TEMP_TIMEOUT = 2000;
@@ -39,7 +39,7 @@ export function addNotificationFromWebsocketMsg(notification) {
   if (
     !notification ||
     (notification.projectConfigId !==
-      useSectionInfos.getState().projectConfig.id &&
+      useProjectState.getState().projectConfig.id &&
       notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;

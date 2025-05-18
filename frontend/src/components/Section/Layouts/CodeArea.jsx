@@ -12,14 +12,14 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 
 function _CodeArea({ sectionId }) {
-  const language = useSectionInfos((x) => x.x[sectionId].codeLanguage);
+  const language = useProjectState((x) => x.sections[sectionId].codeLanguage);
 
   switch (language) {
     case "python":
@@ -56,7 +56,7 @@ function JavascriptCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }) {
-  const code = useSectionInfos((x) => x.x[sectionId].code);
+  const code = useProjectState((x) => x.sections[sectionId].code);
 
   return (
     <ReadOnlyCoreCodeArea sectionId={sectionId} language="python" code={code} />
@@ -100,7 +100,7 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
 }
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
-  const { value, variantIsFrozen } = useSectionInfos((x) => {
+  const { value, variantIsFrozen } = useProjectState((x) => {
     return {
       value: getDisplayedSectionVariant(sectionId, x).code,
       variantIsFrozen: getSectionVariant(sectionId).isFrozen,
@@ -161,10 +161,10 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 }
 
 export function useCodeAreaHeight({ sectionId }) {
-  const { resizeEvent, height } = useSectionInfos((x) => {
+  const { resizeEvent, height } = useProjectState((x) => {
     return {
-      resizeEvent: x.x[sectionId].resizeEvent,
-      height: x.x[sectionId].size.height,
+      resizeEvent: x.sections[sectionId].resizeEvent,
+      height: x.sections[sectionId].size.height,
     };
   }, _.isEqual);
 
@@ -187,8 +187,8 @@ export function useCodeAreaHeight({ sectionId }) {
               newNumInitialized === state.numDisplayedCodeAreas,
           };
         });
-        useSectionInfos.setState((state) => {
-          const s = state.x[sectionId];
+        useProjectState.setState((state) => {
+          const s = state.sections[sectionId];
           if (s.tempSavedSize) {
             s.size = s.tempSavedSize;
             delete s.tempSavedSize;
@@ -291,7 +291,7 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 }
 
 const debouncedSetCode = _.debounce((sectionId, value) => {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     const sectionVariant = getSectionVariant(sectionId, x);
     sectionVariant.code = value;
   });

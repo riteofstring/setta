@@ -4,7 +4,7 @@ import { dbFormateCode } from "requests/interactive";
 import {
   useArtifacts,
   useInteractiveDependencies,
-  useSectionInfos,
+  useProjectState,
 } from "state/definitions";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
@@ -12,7 +12,7 @@ import { getSectionVariant } from "./sectionInfos";
 export async function formatCode() {
   const res = await dbFormateCode();
   if (res.status === 200) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       for (const [sectionId, code] of Object.entries(res.data)) {
         if (code !== null) {
           getSectionVariant(sectionId, state).code = code;

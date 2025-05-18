@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockDescription } from "state/hooks/sectionVariants";
 import {
@@ -16,7 +16,7 @@ import {
 } from "utils/constants";
 
 function _TextBlock({ sectionId }) {
-  const displayMode = useSectionInfos((x) => x.x[sectionId].displayMode);
+  const displayMode = useProjectState((x) => x.sections[sectionId].displayMode);
 
   return displayMode === SECTION_DISPLAY_MODES.RENDER ? (
     <Markdown sectionId={sectionId} />
@@ -26,7 +26,7 @@ function _TextBlock({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const { renderMarkdown, description } = useSectionInfos(
+  const { renderMarkdown, description } = useProjectState(
     (x) => getTextBlockDescription(sectionId, x),
     _.isEqual,
   );

@@ -1,10 +1,10 @@
 import _ from "lodash";
-import { useSectionInfos, useTypeErrors } from "state/definitions";
+import { useProjectState, useTypeErrors } from "state/definitions";
 import { addTemporaryNotification } from "./notifications";
 
 export function processTypeErrors(content) {
   const { projectConfigId, codeSectionId, diagnostics } = content;
-  if (projectConfigId !== useSectionInfos.getState().projectConfig.id) {
+  if (projectConfigId !== useProjectState.getState().projectConfig.id) {
     return;
   }
 
@@ -12,7 +12,7 @@ export function processTypeErrors(content) {
 
   for (const d of diagnostics) {
     const { sectionId, paramInfoId, message } = d;
-    if (useSectionInfos.getState().codeInfo[paramInfoId].ignoreTypeErrors) {
+    if (useProjectState.getState().codeInfo[paramInfoId].ignoreTypeErrors) {
       continue;
     }
     if (!(sectionId in typeErrors)) {

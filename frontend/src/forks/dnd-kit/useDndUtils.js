@@ -3,7 +3,7 @@ import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
 import { getSectionParentId } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "./dropTypes";
@@ -94,14 +94,14 @@ export function useDndProps({ sectionId, isTopLevel }) {
   // status defers to dnd-kit's "global" disabled status.
   // "onlyChildId" is the id of the child if the parent has just 1 child.
   // It is needed to correctly trigger the leftDistCondition in collisionDetection.
-  const { hasNested, disabled, onlyChildId } = useSectionInfos((x) => {
-    const variantId = x.x[sectionId]?.variantId;
+  const { hasNested, disabled, onlyChildId } = useProjectState((x) => {
+    const variantId = x.sections[sectionId]?.variantId;
     const children = variantId ? x.variants[variantId].children : [];
     return {
       hasNested: children.length > 0,
       onlyChildId: children.length === 1 ? children[0] : null,
-      disabled: x.x[sectionId]?.positionAndSizeLocked
-        ? x.x[sectionId]?.positionAndSizeLocked
+      disabled: x.sections[sectionId]?.positionAndSizeLocked
+        ? x.sections[sectionId]?.positionAndSizeLocked
         : null,
     };
   }, _.isEqual);

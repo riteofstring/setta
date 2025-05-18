@@ -3,7 +3,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
-import { useLocalStorage, useSectionInfos } from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   useAllSectionArtifacts,
   useLoadArtifactViaDropzone,
@@ -41,9 +41,9 @@ function _ChartAreaCore({ sectionId }) {
     _.pick(x, ["name", "value"]),
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const size = useSectionInfos((x) => x.x[sectionId].size, _.isEqual);
-  const chartSettings = useSectionInfos(
-    (x) => x.x[sectionId].chartSettings,
+  const size = useProjectState((x) => x.sections[sectionId].size, _.isEqual);
+  const chartSettings = useProjectState(
+    (x) => x.sections[sectionId].chartSettings,
     _.isEqual,
   );
   const canvasRef = useRef();

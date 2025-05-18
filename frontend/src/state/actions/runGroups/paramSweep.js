@@ -1,7 +1,7 @@
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function addParamSweepCallable(variantId) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.variants[variantId].sweep.push({ selectedItem: null, params: [] });
   });
 }
@@ -13,7 +13,7 @@ export function setParamSweepValue({
   valueIdx,
   value,
 }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.variants[variantId].sweep[selectedItemIdx].params[paramIdx].values[
       valueIdx
     ] = value;
@@ -21,7 +21,7 @@ export function setParamSweepValue({
 }
 
 export function addParamSweepValue({ variantId, selectedItemIdx, paramIdx }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.variants[variantId].sweep[selectedItemIdx].params[
       paramIdx
     ].values.push("");
@@ -34,7 +34,7 @@ export function deleteParamSweepValue({
   paramIdx,
   valueIdx,
 }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const s = state.variants[variantId].sweep[selectedItemIdx];
     s.params[paramIdx].values = s.params[paramIdx].values.filter(
       (_, idx) => idx !== valueIdx,
@@ -51,7 +51,7 @@ export function deleteLastParamSweepValue({
   paramIdx,
 }) {
   const valueIdx =
-    useSectionInfos.getState().variants[variantId].sweep[selectedItemIdx]
+    useProjectState.getState().variants[variantId].sweep[selectedItemIdx]
       .params[paramIdx].values.length - 1;
   deleteParamSweepValue({
     variantId,
@@ -67,7 +67,7 @@ export function changeParamSweepParamInfoId({
   paramIdx,
   paramInfoId,
 }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.variants[variantId].sweep[selectedItemIdx].params[paramIdx] = {
       paramInfoId,
       values: [],
@@ -88,7 +88,7 @@ export function addParamSweepParamInfoId({
     actualSelectedItemIdx = 0;
   }
 
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.variants[variantId].sweep[actualSelectedItemIdx].params.push({
       paramInfoId,
       values: [],
@@ -105,7 +105,7 @@ export function deleteLastParamSweepParamInfoId({
     // that has no params yet.
     return;
   }
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const s = state.variants[variantId];
     if (s.sweep[selectedItemIdx].params.length === 0) {
       s.sweep = s.sweep.filter((_, idx) => idx !== selectedItemIdx);

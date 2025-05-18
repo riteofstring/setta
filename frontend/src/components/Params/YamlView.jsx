@@ -11,11 +11,11 @@ import {
   getDisplayedSectionVariantId,
   getSectionVariant,
 } from "state/actions/sectionInfos";
-import { useSectionInfos, useYamlValue } from "state/definitions";
+import { useProjectState, useYamlValue } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
 export function SectionYamlView({ sectionId }) {
-  const isDisabled = useSectionInfos(
+  const isDisabled = useProjectState(
     (x) => getSectionVariant(sectionId, x).isFrozen,
   );
 
@@ -83,9 +83,9 @@ export function YamlView({ sectionId, isDisabled, onChange }) {
 }
 
 function useGetAndSetYamlValue(sectionId) {
-  const { variantId, displayedVariantId } = useSectionInfos((state) => {
+  const { variantId, displayedVariantId } = useProjectState((state) => {
     return {
-      variantId: state.x[sectionId].variantId,
+      variantId: state.sections[sectionId].variantId,
       displayedVariantId: getDisplayedSectionVariantId(sectionId, state),
     };
   }, _.isEqual);

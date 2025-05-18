@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useNodeInternals, useSectionInfos } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 
 const RUNNABLE_SECTION_TYPES = [
   C.SECTION,
@@ -24,8 +24,8 @@ export function initRunGroup(variantId, state) {
 }
 
 export function toggleRunGroup(sectionId, runGroupId) {
-  useSectionInfos.setState((x) => {
-    const selections = x.x[sectionId].selectedVariantIds;
+  useProjectState.setState((x) => {
+    const selections = x.sections[sectionId].selectedVariantIds;
     if (runGroupId in selections) {
       delete selections[runGroupId];
     } else {
@@ -38,7 +38,7 @@ function newRunGroupSection(sectionId, initVariantId, state) {
   return {
     selected: true,
     paramSweeps: {},
-    versions: { [initVariantId ?? state.x[sectionId].variantId]: true },
+    versions: { [initVariantId ?? state.sections[sectionId].variantId]: true },
   };
 }
 
@@ -55,7 +55,7 @@ function maybeInitRunGroupSection(
     state.variants[runGroupId].runGroup[sectionId] = {};
     maybeInitAllDescendants(
       runGroupId,
-      initVariantId ?? state.x[sectionId].variantId,
+      initVariantId ?? state.sections[sectionId].variantId,
       state,
     );
     isNewInit = true;
@@ -115,7 +115,7 @@ function toggleRunGroupSectionAttr({
   attrId,
   parentVariantId,
 }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const isNewInit = maybeInitRunGroupSection(
       runGroupId,
       sectionId,
@@ -157,7 +157,9 @@ function toggleRunGroupSectionAttr({
       // so by default we want all children to be selected too.
       if (attrName === "selected" || attrName === "versions") {
         const variantId =
-          attrName === "versions" ? attrId : state.x[sectionId].variantId;
+          attrName === "versions"
+            ? attrId
+            : state.sections[sectionId].variantId;
         maybeInitAllDescendants(runGroupId, variantId, state);
       }
     }
@@ -245,13 +247,15 @@ export function toggleRunGroupSectionVersion({
 // }
 
 export function useRunGroupListing(variantId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const output = [];
     for (const childId of x.variants[variantId].children) {
       if (
-        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[childId].uiTypeId].type)
+        RUNNABLE_SECTION_TYPES.includes(
+          x.uiTypes[x.sections[childId].uiTypeId].type,
+        )
       ) {
-        output.push({ id: childId, name: x.x[childId].name });
+        output.push({ id: childId, name: x.sections[childId].name });
       }
     }
     return output;
@@ -259,12 +263,12 @@ export function useRunGroupListing(variantId) {
 }
 
 export function useTopLevelRunGroupListing() {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const output = [];
-    for (const [k, v] of Object.entries(x.x)) {
+    for (const [k, v] of Object.entries(x.sections)) {
       if (
         !v.parentId &&
-        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.x[k].uiTypeId].type)
+        RUNNABLE_SECTION_TYPES.includes(x.uiTypes[x.sections[k].uiTypeId].type)
       ) {
         output.push({ id: k, name: v.name });
       }
@@ -274,7 +278,7 @@ export function useTopLevelRunGroupListing() {
 }
 
 export function updateRunGroupsWithNewHierarchy(newHierarchy, oldHierarchy) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const globalParamSweepSectionId =
       state.singletonSections[C.GLOBAL_PARAM_SWEEP];
     if (!globalParamSweepSectionId) {
@@ -287,14 +291,14 @@ export function updateRunGroupsWithNewHierarchy(newHierarchy, oldHierarchy) {
       ) {
         continue;
       }
-      const { variantIds } = state.x[globalParamSweepSectionId];
+      const { variantIds } = state.sections[globalParamSweepSectionId];
       for (const variantId of variantIds) {
         const runGroup = state.variants[variantId].runGroup;
         if (!(sectionId in runGroup)) {
           continue;
         }
         const newParentVariantIds = parentId
-          ? state.x[parentId].variantIds
+          ? state.sections[parentId].variantIds
           : [null];
         for (const newParentVariantId of newParentVariantIds) {
           runGroup[sectionId][newParentVariantId] = newRunGroupSection(

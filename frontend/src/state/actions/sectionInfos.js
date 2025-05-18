@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
@@ -11,7 +11,7 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getSectionInfo(sectionId) {
-  return useSectionInfos.getState().x[sectionId];
+  return useProjectState.getState().sections[sectionId];
 }
 
 export function getSectionParentId(sectionId) {
@@ -19,13 +19,13 @@ export function getSectionParentId(sectionId) {
 }
 
 export function getSectionType(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  return state.uiTypes[state.x[sectionId].uiTypeId].type;
+  const state = _state ?? useProjectState.getState();
+  return state.uiTypes[state.sections[sectionId].uiTypeId].type;
 }
 
 export function getSectionVariant(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  return state.variants[state.x[sectionId].variantId];
+  const state = _state ?? useProjectState.getState();
+  return state.variants[state.sections[sectionId].variantId];
 }
 
 export function getHighestAncestor(
@@ -44,9 +44,9 @@ export function getHighestAncestor(
 }
 
 export function getSectionPathFullName(sectionId, state) {
-  let parentId = state.x[sectionId].parentId;
+  let parentId = state.sections[sectionId].parentId;
   if (!parentId) {
-    return state.x[sectionId].name;
+    return state.sections[sectionId].name;
   }
 
   let childId = sectionId;
@@ -58,14 +58,14 @@ export function getSectionPathFullName(sectionId, state) {
       );
       output = `[${idx}]${output}`;
     } else {
-      output = `["${state.x[childId].name}"]${output}`;
+      output = `["${state.sections[childId].name}"]${output}`;
     }
     childId = parentId;
-    parentId = state.x[parentId].parentId;
+    parentId = state.sections[parentId].parentId;
   }
 
   // childId will contain the highest parent's id
-  return `${state.x[childId].name}${output}`;
+  return `${state.sections[childId].name}${output}`;
 }
 
 export function getSectionDescendants(sectionId, state) {
@@ -80,16 +80,16 @@ export function getSectionDescendants(sectionId, state) {
 }
 
 export function toggleSectionOrientation(sectionId) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].isHorizontalOrientation =
-      !state.x[sectionId].isHorizontalOrientation;
+  useProjectState.setState((state) => {
+    state.sections[sectionId].isHorizontalOrientation =
+      !state.sections[sectionId].isHorizontalOrientation;
   });
 }
 
 export function toggleSectionLock(sectionId) {
-  useSectionInfos.setState((state) => {
-    state.x[sectionId].positionAndSizeLocked =
-      !state.x[sectionId].positionAndSizeLocked;
+  useProjectState.setState((state) => {
+    state.sections[sectionId].positionAndSizeLocked =
+      !state.sections[sectionId].positionAndSizeLocked;
   });
 }
 
@@ -98,8 +98,8 @@ export function manualDndChildrenReset() {
 }
 
 export function setAllPreviewVariantIdsToNull() {
-  useSectionInfos.setState((x) => {
-    for (const s of Object.values(x.x)) {
+  useProjectState.setState((x) => {
+    for (const s of Object.values(x.sections)) {
       s.previewVariantId = null;
     }
   });
@@ -114,7 +114,7 @@ export function updateSectionInfos({
   codeInfoCols,
   state,
 }) {
-  state.x = { ...state.x, ...sections };
+  state.sections = { ...state.sections, ...sections };
   state.variants = { ...state.variants, ...sectionVariants };
   state.uiTypes = { ...state.uiTypes, ...uiTypes };
   state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
@@ -130,30 +130,38 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
 }
 
 export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
-  setEnteredValue(state.x[sectionId].variantId, paramInfoId, value, state);
+  setEnteredValue(
+    state.sections[sectionId].variantId,
+    paramInfoId,
+    value,
+    state,
+  );
 }
 
 export function getCodeInfoCol(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
+  const state = _state ?? useProjectState.getState();
   const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
   return codeInfoColId ? state.codeInfoCols[codeInfoColId] : newCodeInfoCol();
 }
 
 export function getDisplayedCodeInfoCol(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
+  const state = _state ?? useProjectState.getState();
   return state.codeInfoCols[
     getDisplayedSectionVariant(sectionId, state).codeInfoColId
   ];
 }
 
 export function getDisplayedSectionVariant(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
+  const state = _state ?? useProjectState.getState();
   return state.variants[getDisplayedSectionVariantId(sectionId, state)];
 }
 
 export function getDisplayedSectionVariantId(sectionId, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  return state.x[sectionId].previewVariantId ?? state.x[sectionId].variantId;
+  const state = _state ?? useProjectState.getState();
+  return (
+    state.sections[sectionId].previewVariantId ??
+    state.sections[sectionId].variantId
+  );
 }
 
 export function setSectionVariantChildren(sectionId, newStateFn, state) {
@@ -176,8 +184,8 @@ export function getDisplayedSectionIdToChildren(
   includeNullAsRoot = false,
 ) {
   const output = {};
-  const s = state ?? useSectionInfos.getState();
-  for (const section of Object.values(s.x)) {
+  const s = state ?? useProjectState.getState();
+  for (const section of Object.values(s.sections)) {
     if (!section.parentId) {
       getDisplayedSectionIdToChildrenHelper(section.id, s, output);
       if (includeNullAsRoot) {
@@ -193,8 +201,8 @@ export function getDisplayedSectionIdToChildren(
 
 export function getSectionIdToParentId(state) {
   const output = {};
-  const s = state ?? useSectionInfos.getState();
-  for (const section of Object.values(s.x)) {
+  const s = state ?? useProjectState.getState();
+  for (const section of Object.values(s.sections)) {
     output[section.id] = section.parentId;
   }
   return output;
@@ -202,7 +210,7 @@ export function getSectionIdToParentId(state) {
 
 function getSectionDescendantsFromAllVariants(sectionId, state) {
   const output = [];
-  for (const v of state.x[sectionId].variantIds) {
+  for (const v of state.sections[sectionId].variantIds) {
     output.push(...state.variants[v].children);
   }
   return output;
@@ -216,7 +224,7 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
       idsToDelete[idx],
       state,
     );
-    const { paramSweepSectionId } = state.x[idsToDelete[idx]];
+    const { paramSweepSectionId } = state.sections[idsToDelete[idx]];
     if (idxChildren) {
       idsToDelete.push(...idxChildren);
     }
@@ -229,22 +237,24 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
 }
 
 export function setDefaultSectionVariant(sectionId, variantId) {
-  useSectionInfos.setState((x) => {
-    x.x[sectionId].defaultVariantId = variantId;
+  useProjectState.setState((x) => {
+    x.sections[sectionId].defaultVariantId = variantId;
   });
 }
 
 export function resetSectionsToDefaultVersions(sectionIds) {
-  useSectionInfos.setState((x) => {
+  useProjectState.setState((x) => {
     for (const id of sectionIds) {
-      const s = x.x[id];
+      const s = x.sections[id];
       s.variantId = s.defaultVariantId;
     }
   });
 }
 
 export function resetAllSectionsToDefaultVersions() {
-  resetSectionsToDefaultVersions(Object.keys(useSectionInfos.getState().x));
+  resetSectionsToDefaultVersions(
+    Object.keys(useProjectState.getState().sections),
+  );
 }
 
 export function duplicateCodeInfoCol(id, state) {
@@ -287,7 +297,7 @@ export async function deleteSectionVariantAndMaybeJsonFile(
   variantId,
   isCurr,
 ) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const { name: variantName, isJsonSource } = state.variants[variantId];
   if (isJsonSource) {
     const res = await dbGetJSONSourcePathToBeDeleted(variantName);
@@ -304,8 +314,8 @@ export async function deleteSectionVariantAndMaybeJsonFile(
 }
 
 function deleteSectionVariant(sectionId, variantId, isCurr) {
-  useSectionInfos.setState((state) => {
-    const section = state.x[sectionId];
+  useProjectState.setState((state) => {
+    const section = state.sections[sectionId];
     section.variantIds = section.variantIds.filter((v) => v !== variantId);
     if (section.defaultVariantId === variantId) {
       section.defaultVariantId = section.variantIds[0];
@@ -325,7 +335,7 @@ export function getSectionViewingEditingModeVisibility(sectionId, state) {
   const { viewingEditingMode } = state.projectConfig;
   return {
     visibility:
-      state.x[sectionId].visibility[
+      state.sections[sectionId].visibility[
         getSectionVisibilityKey(viewingEditingMode)
       ],
     viewingEditingMode,
@@ -354,14 +364,15 @@ export function getSectionVisibilityKeyForDisplay(viewingEditingMode) {
 
 export function getAncestorSameVisibility(sectionId, state) {
   const { viewingEditingMode } = state.projectConfig;
-  let { parentId } = state.x[sectionId];
+  let { parentId } = state.sections[sectionId];
   const key = getSectionVisibilityKey(viewingEditingMode);
-  const targetVisibility = state.x[sectionId].visibility[key];
+  const targetVisibility = state.sections[sectionId].visibility[key];
 
   while (parentId) {
-    if (state.x[parentId].visibility[key] === targetVisibility) return true;
+    if (state.sections[parentId].visibility[key] === targetVisibility)
+      return true;
 
-    ({ parentId } = state.x[parentId]);
+    ({ parentId } = state.sections[parentId]);
   }
 
   return false;

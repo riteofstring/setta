@@ -18,7 +18,7 @@ import {
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
-import { useNotifications, useSectionInfos } from "state/definitions";
+import { useNotifications, useProjectState } from "state/definitions";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -27,7 +27,7 @@ export function NotificationsArea() {
     _.isEqual,
   );
 
-  const projectConfigId = useSectionInfos((x) => x.projectConfig.id);
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
 
   // Fetch notifications when component mounts
   useEffect(() => {

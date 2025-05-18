@@ -3,11 +3,11 @@ import {
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { newEVEntry } from "utils/objs/ev";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const vals = getDisplayedSectionVariant(sectionId, x).values;
     if (paramInfoId in vals) {
       return vals[paramInfoId].value;
@@ -17,10 +17,10 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
 }
 
 export function useGetSectionVariantNames(sectionId) {
-  return useSectionInfos(
+  return useProjectState(
     (x) =>
       sectionId
-        ? x.x[sectionId].variantIds.map((e) => ({
+        ? x.sections[sectionId].variantIds.map((e) => ({
             id: e,
             name: x.variants[e].name,
           }))
@@ -30,18 +30,18 @@ export function useGetSectionVariantNames(sectionId) {
 }
 
 export function useListElementIdx(sectionId) {
-  return useSectionInfos((x) => {
-    const parentId = x.x[sectionId].parentId;
+  return useProjectState((x) => {
+    const parentId = x.sections[sectionId].parentId;
     return getDisplayedSectionVariant(parentId).children.indexOf(sectionId);
   });
 }
 
 export function useSectionVariantIsFrozen(sectionId) {
-  return useSectionInfos((x) => getSectionVariant(sectionId, x).isFrozen);
+  return useProjectState((x) => getSectionVariant(sectionId, x).isFrozen);
 }
 
 export function useTextBlockDescriptionAndEditability(sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     return {
       ...getTextBlockDescription(sectionId, x),
       variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
@@ -51,8 +51,8 @@ export function useTextBlockDescriptionAndEditability(sectionId) {
 
 export function getTextBlockDescription(sectionId, state) {
   return {
-    renderMarkdown: state.x[sectionId].renderMarkdown,
-    headingAsSectionName: state.x[sectionId].headingAsSectionName,
+    renderMarkdown: state.sections[sectionId].renderMarkdown,
+    headingAsSectionName: state.sections[sectionId].headingAsSectionName,
     description: getDisplayedSectionVariant(sectionId, state).description,
   };
 }

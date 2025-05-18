@@ -4,14 +4,14 @@ import { getSectionType } from "state/actions/sectionInfos";
 export function getIsTwitterSection(sectionId, state) {
   return (
     getSectionType(sectionId) === C.SOCIAL &&
-    linkIsTwitter(state.x[sectionId].social)
+    linkIsTwitter(state.sections[sectionId].social)
   );
 }
 
 export function getIsYouTubeSection(sectionId, state) {
   return (
     getSectionType(sectionId) === C.SOCIAL &&
-    linkIsYouTube(state.x[sectionId].social)
+    linkIsYouTube(state.sections[sectionId].social)
   );
 }
 

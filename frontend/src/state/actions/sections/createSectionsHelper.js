@@ -1,9 +1,9 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function useCreateSectionsList() {
-  const singletonSections = useSectionInfos(
+  const singletonSections = useProjectState(
     (x) => x.singletonSections,
     _.isEqual,
   );

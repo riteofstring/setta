@@ -1,12 +1,12 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function HideColumn({ sectionId }) {
-  const hideColumn = useSectionInfos((x) => x.x[sectionId].hideColumn);
+  const hideColumn = useProjectState((x) => x.sections[sectionId].hideColumn);
 
   function onClick() {
-    useSectionInfos.setState((x) => {
-      x.x[sectionId].hideColumn = !hideColumn;
+    useProjectState.setState((x) => {
+      x.sections[sectionId].hideColumn = !hideColumn;
     });
   }
 

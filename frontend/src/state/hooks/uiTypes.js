@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useLocalStorage, useSectionInfos } from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -11,15 +11,15 @@ import {
 import { newUITypeColEntry } from "utils/objs/uiTypeCol";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
-  const state = _state ?? useSectionInfos.getState();
+  const state = _state ?? useProjectState.getState();
   return state.uiTypes[
     getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", state)
   ];
 }
 
 export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
-  const state = _state ?? useSectionInfos.getState();
-  const { uiTypeColId } = state.x[sectionId];
+  const state = _state ?? useProjectState.getState();
+  const { uiTypeColId } = state.sections[sectionId];
   if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
     return state.uiTypeCols[uiTypeColId][paramInfoId][key];
   } else {
@@ -32,36 +32,36 @@ export function getIsSeriesElementHelper(
   parentTypesToCheck,
   _state = {},
 ) {
-  const state = _state ?? useSectionInfos.getState();
-  // if (!state.x[sectionId]) return false;
+  const state = _state ?? useProjectState.getState();
+  // if (!state.sections[sectionId]) return false;
 
-  const { parentId } = state.x[sectionId];
-  const uiTypeId = state.x[parentId]?.uiTypeId;
+  const { parentId } = state.sections[sectionId];
+  const uiTypeId = state.sections[parentId]?.uiTypeId;
   return uiTypeId
     ? parentTypesToCheck.includes(state.uiTypes[uiTypeId].type)
     : false;
 }
 
 export function useIsSeriesElement(sectionId) {
-  return useSectionInfos((x) =>
+  return useProjectState((x) =>
     getIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT], x),
   );
 }
 
 export function useIsListElement(sectionId) {
-  return useSectionInfos((x) =>
+  return useProjectState((x) =>
     getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x),
   );
 }
 
 export function useUIEditorTab(sectionId) {
   const _storedTab = useLocalStorage((x) => x.uiEditorTab);
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     let uiTypeName, renderMarkdown;
     if (sectionId) {
-      const uiTypeId = x.x[sectionId].uiTypeId;
+      const uiTypeId = x.sections[sectionId].uiTypeId;
       uiTypeName = x.uiTypes[uiTypeId].type;
-      renderMarkdown = x.x[sectionId].renderMarkdown;
+      renderMarkdown = x.sections[sectionId].renderMarkdown;
     } else {
       uiTypeName = null;
       renderMarkdown = false;

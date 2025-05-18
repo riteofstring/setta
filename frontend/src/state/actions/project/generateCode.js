@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import _ from "lodash";
 import { sendMessage } from "requests/websocket";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
@@ -15,7 +15,7 @@ export async function getProjectDataToGenerateCode({
 }) {
   const project = getProjectData({ withArtifacts });
   if (includeDrawings || includeLatestChatMessages) {
-    const sectionInfosState = useSectionInfos.getState().x;
+    const sectionInfosState = useProjectState.getState().sections;
     const sections = {};
     for (const x of Object.values(sectionInfosState)) {
       const currSection = _.cloneDeep(x);
@@ -31,7 +31,7 @@ export async function getProjectDataToGenerateCode({
     project.sections = sections;
   }
   project.requestRenameRefactor =
-    useSectionInfos.getState().requestRenameRefactor;
+    useProjectState.getState().requestRenameRefactor;
   return project;
 }
 
@@ -43,7 +43,7 @@ export const updateBackendProjectState = asyncDebounce(async () => {
     messageType: C.WS_UPDATE_PROJECT_STATE,
   });
   // have to reset requestRenameRefactor to false, in case it was set to true
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     state.requestRenameRefactor = false;
   });
 }, 200);

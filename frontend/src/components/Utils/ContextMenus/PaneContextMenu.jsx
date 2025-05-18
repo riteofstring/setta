@@ -6,14 +6,14 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { addSectionAtPosition } from "state/actions/sections/createSections";
 import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useContextMenus, useSectionInfos } from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
   function onClick(specificProps) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       addSectionAtPosition({
         position: screenToFlowPosition({ x, y }),
         state,

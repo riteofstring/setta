@@ -5,7 +5,7 @@ import { moveSections } from "state/actions/sections/moveSections";
 import {
   useActiveSection,
   useNodeInternals,
-  useSectionInfos,
+  useProjectState,
 } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
@@ -23,7 +23,7 @@ import { deleteSections } from "./deleteSections";
  */
 export function groupSections({ sectionIds, position, name }) {
   let groupId;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     groupId = addSectionAtPosition({
       sectionProps: { name },
       type: C.GROUP,
@@ -88,7 +88,7 @@ export function ungroupGroup(groupId, state) {
 }
 
 export function ungroupActiveGroup() {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const ids = useActiveSection.getState().ids;
     // TODO: support multiple groups
     if (ids.length === 1) {
@@ -104,7 +104,7 @@ export function ungroupActiveGroup() {
  * @param {ID} sectionId The id of the group to ungroup.
  */
 export function ungroupGroupMcp({ sectionId }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     ungroupGroup(sectionId, state);
   });
 }

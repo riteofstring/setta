@@ -6,7 +6,7 @@ import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
-  useSectionInfos,
+  useProjectState,
   useSectionRefs,
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
@@ -21,7 +21,7 @@ import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   let newId;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     newId = addSectionInEmptySpace({ type: C.SECTION, state });
   });
   setActiveSectionIdAndUpdateZIndex(newId);
@@ -39,7 +39,7 @@ export function addRegularSectionInEmptySpace() {
 
 export function addGroupInEmptySpace() {
   let newId;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     newId = addSectionInEmptySpace({ type: C.GROUP, state });
   });
   setActiveSectionIdAndUpdateZIndex(newId);
@@ -47,7 +47,7 @@ export function addGroupInEmptySpace() {
 }
 
 export function addTerminalInEmptySpace() {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     addSectionInEmptySpace({ type: C.TERMINAL, state });
   });
   maybeIncrementProjectStateVersion(true);
@@ -87,7 +87,7 @@ export function addSectionInEmptySpace({
  */
 export function addSectionsAtPositionMcp({ sections }) {
   let ids = [];
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     for (const section of sections) {
       ids.push(
         addSectionAtPosition({
@@ -122,22 +122,23 @@ export function addSectionAtPosition({
 
 export function addChildrenToSeries(isRoot, calledBy, numChildren) {
   let newIds;
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     let parentId, startIdx;
     if (isRoot) {
       parentId = calledBy;
       startIdx = 0;
     } else {
-      parentId = state.x[calledBy].parentId;
+      parentId = state.sections[calledBy].parentId;
       startIdx =
-        state.variants[state.x[parentId].variantId].children.indexOf(calledBy) +
-        1;
+        state.variants[state.sections[parentId].variantId].children.indexOf(
+          calledBy,
+        ) + 1;
     }
 
     newIds = createSectionInfo({
       sectionProps: {
         parentId,
-        size: { height: "auto", width: state.x[parentId].size.width },
+        size: { height: "auto", width: state.sections[parentId].size.width },
       },
       numSections: numChildren,
       state,
@@ -168,7 +169,7 @@ export function createSectionInfo({
   for (let i = 0; i < numSections; i++) {
     const s = newSectionInfo(sectionProps);
     newIds.push(s.id);
-    state.x[s.id] = s;
+    state.sections[s.id] = s;
     state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
       case C.GLOBAL_PARAM_SWEEP:

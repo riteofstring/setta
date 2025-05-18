@@ -7,7 +7,7 @@ import {
   isUserPreset,
   uiTypesToPretty,
 } from "state/actions/uiTypes/utils";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {
@@ -62,7 +62,7 @@ export function useAvailableUITypesForParam(
   paramInfoId,
   selectedId,
 ) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const nonPresetUITypeIds = getUITypeColAttr(
       sectionId,
       paramInfoId,

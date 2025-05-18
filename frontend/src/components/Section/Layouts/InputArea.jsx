@@ -2,7 +2,7 @@ import { SectionYamlView } from "components/Params/YamlView";
 import _ from "lodash";
 import React from "react";
 import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
@@ -10,15 +10,15 @@ import { SectionSearch } from "../SectionParts/Search";
 
 function _InputArea({ sectionId, bgColor, isUserView }) {
   const { selectedItem, hideSearch, hideParams, isJsonSource } =
-    useSectionInfos((x) => {
+    useProjectState((x) => {
       const { selectedItem, isJsonSource } = getDisplayedSectionVariant(
         sectionId,
         x,
       );
       return {
         selectedItem,
-        hideSearch: x.x[sectionId].hideSearch,
-        hideParams: x.x[sectionId].hideParams,
+        hideSearch: x.sections[sectionId].hideSearch,
+        hideParams: x.sections[sectionId].hideParams,
         isJsonSource,
       };
     }, _.isEqual);

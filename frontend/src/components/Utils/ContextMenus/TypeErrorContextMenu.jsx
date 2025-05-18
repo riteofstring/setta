@@ -4,7 +4,7 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { removeTypeErrorsForParam } from "state/actions/typeErrors";
 import {
   useContextMenus,
-  useSectionInfos,
+  useProjectState,
   useTypeErrors,
 } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -15,13 +15,13 @@ export function TypeErrorContextMenu() {
     _.isEqual,
   );
 
-  const currIgnoreTypeErrors = useSectionInfos((x) =>
+  const currIgnoreTypeErrors = useProjectState((x) =>
     Boolean(x.codeInfo[paramInfoId]?.ignoreTypeErrors),
   );
 
   function onClick() {
     let ignoreTypeErrors;
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       ignoreTypeErrors = !currIgnoreTypeErrors;
       state.codeInfo[paramInfoId].ignoreTypeErrors = ignoreTypeErrors;
     });

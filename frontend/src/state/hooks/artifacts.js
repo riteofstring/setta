@@ -6,7 +6,7 @@ import {
   loadArtifacts,
   prepareDataURLForRendering,
 } from "state/actions/artifacts";
-import { useArtifacts, useSectionInfos } from "state/definitions";
+import { useArtifacts, useProjectState } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
@@ -42,9 +42,9 @@ function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
 
 export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
   const { artifactIds, activeLayer, allLayersMetadata, size, canvasSettings } =
-    useSectionInfos((state) => {
+    useProjectState((state) => {
       const artifactIds = getAllSectionArtifactIds(sectionId, state);
-      const canvasSettings = state.x[sectionId].canvasSettings;
+      const canvasSettings = state.sections[sectionId].canvasSettings;
       const activeLayer = state.artifactGroups[canvasSettings.activeLayerId];
       const allLayersMetadata = getSectionArtifactGroupMetadata(
         sectionId,
@@ -55,7 +55,7 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
         activeLayer,
         artifactIds,
         allLayersMetadata,
-        size: state.x[sectionId].size,
+        size: state.sections[sectionId].size,
         canvasSettings,
       };
     }, _.isEqual);
@@ -83,7 +83,7 @@ export function useDrawAreaActiveLayerAndLoadedArtifacts(sectionId) {
 }
 
 export function useAllSectionArtifacts(sectionId, attrPickerFn) {
-  const artifactIds = useSectionInfos(
+  const artifactIds = useProjectState(
     (state) => getAllSectionArtifactIds(sectionId, state),
     _.isEqual,
   );
@@ -92,7 +92,7 @@ export function useAllSectionArtifacts(sectionId, attrPickerFn) {
 }
 
 export function getSectionArtifactGroupMetadata(sectionId, state) {
-  const { artifactGroupIds } = state.x[sectionId];
+  const { artifactGroupIds } = state.sections[sectionId];
   const output = [];
   for (const id of artifactGroupIds) {
     const info = { id, ...state.artifactGroups[id] };
@@ -105,7 +105,7 @@ export function getSectionArtifactGroupMetadata(sectionId, state) {
 
 export function getAllSectionArtifactIds(sectionId, state) {
   const artifactIds = new Set();
-  for (const artifactGroupId of state.x[sectionId].artifactGroupIds) {
+  for (const artifactGroupId of state.sections[sectionId].artifactGroupIds) {
     for (const t of state.artifactGroups[artifactGroupId].artifactTransforms) {
       artifactIds.add(t.artifactId);
     }

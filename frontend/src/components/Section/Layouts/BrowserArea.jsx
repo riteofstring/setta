@@ -9,7 +9,7 @@ import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { testItems } from "./BrowserArea/testitems";
@@ -25,11 +25,11 @@ const artifactTypes = [
 ];
 
 export function BrowserArea({ sectionId }) {
-  const width = useSectionInfos((x) => {
-    const w = x.x[sectionId].size.width;
+  const width = useProjectState((x) => {
+    const w = x.sections[sectionId].size.width;
     return w === "auto" ? getSectionRect(sectionId)?.width : w;
   });
-  const hideColumn = useSectionInfos((x) => x.x[sectionId].hideColumn);
+  const hideColumn = useProjectState((x) => x.sections[sectionId].hideColumn);
 
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">

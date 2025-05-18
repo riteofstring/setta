@@ -3,7 +3,7 @@ import {
   cloneNewUIType,
   maybeGetExistingUIType,
 } from "state/actions/uiTypes/cloneUITypes";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionInfos";
@@ -11,7 +11,7 @@ import { setParamUITypeId } from "./setParamUITypeId";
 import { setOneUITypeConfig } from "./uiTypes";
 
 export function setParamUITypeConfig({ sectionId, paramInfoId, configProps }) {
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     const { uiTypeId, oldUITypeId } = maybeCloneParamUIType(
       sectionId,
       paramInfoId,
@@ -27,7 +27,7 @@ export function setParamUITypeConfig({ sectionId, paramInfoId, configProps }) {
 
 function maybeCloneParamUIType(sectionId, paramInfoId, state) {
   const defaultName = state.codeInfo[paramInfoId].name;
-  const { uiTypeColId } = state.x[sectionId];
+  const { uiTypeColId } = state.sections[sectionId];
   const nonPresetUITypeIds =
     state.uiTypeCols[uiTypeColId][paramInfoId].nonPresetUITypeIds;
   const currUIType = getParamUIType(sectionId, paramInfoId, state);
@@ -93,7 +93,7 @@ function _updateEVs(uiType, state) {
       continue;
     }
 
-    for (const s of Object.values(state.x)) {
+    for (const s of Object.values(state.sections)) {
       if (s.uiTypeColId === colId) {
         const variantId = s.variantId;
         for (const [pid, valueInfo] of Object.entries(

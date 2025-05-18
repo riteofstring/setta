@@ -1,6 +1,6 @@
 import C from "constants/constants.json";
 import { wsParametersRequest } from "requests/sections";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
@@ -44,7 +44,7 @@ export async function setSelectedItem(
     !refetchParams &&
     itemIsAlreadySelected(dataSectionId, selectedItemName)
   ) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       callbackSetAttr(undefined, state);
     });
     return;
@@ -55,7 +55,7 @@ export async function setSelectedItem(
   );
 
   if (!refetchParams && prevSelected !== undefined) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       callbackSetAttr(prevSelected, state);
     });
     maybeIncrementProjectStateVersion(true);
@@ -69,7 +69,7 @@ export async function setSelectedItem(
     fullText: selectedItemName,
   });
 
-  useSectionInfos.setState((state) => {
+  useProjectState.setState((state) => {
     let info;
     if (!prevSelected) {
       info = newCodeInfo({
@@ -138,7 +138,7 @@ function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
   if (selectedItemName === "") {
     return null;
   }
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
   for (const c of codeInfoChildren[null]) {
     if (state.codeInfo[c].name === selectedItemName) {
@@ -149,7 +149,7 @@ function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
 }
 
 function itemIsAlreadySelected(sectionId, selectedItemName) {
-  const state = useSectionInfos.getState();
+  const state = useProjectState.getState();
   const currSelectedItem = getSectionVariant(sectionId, state).selectedItem;
   return state.codeInfo[currSelectedItem]?.name === selectedItemName;
 }

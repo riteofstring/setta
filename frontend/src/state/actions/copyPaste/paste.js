@@ -2,7 +2,7 @@ import C from "constants/constants.json";
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
-import { useActiveSection, useMisc, useSectionInfos } from "state/definitions";
+import { useActiveSection, useMisc, useProjectState } from "state/definitions";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
 
@@ -67,7 +67,7 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const {
     [C.GLOBAL_VARIABLES]: globalVariables,
     [C.GLOBAL_PARAM_SWEEP]: globalParamSweep,
-  } = useSectionInfos.getState().singletonSections;
+  } = useProjectState.getState().singletonSections;
   if (!globalVariables && !globalParamSweep) {
     return sections;
   }

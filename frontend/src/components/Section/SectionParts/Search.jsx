@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
@@ -63,7 +63,7 @@ export function ParamSweepSectionSearch({
       // for this callback, an undefined id means that the selectedItem is already selected in the forSectionId section
       if (id === undefined) {
         selectedItem =
-          state.variants[state.x[forSectionId].variantId].selectedItem;
+          state.variants[state.sections[forSectionId].variantId].selectedItem;
       }
       state.variants[variantId].sweep[selectedItemIdx].selectedItem =
         selectedItem;
@@ -123,7 +123,7 @@ function SectionSearchCore({
     name: codeInfoName,
     description,
     configLanguage,
-  } = useSectionInfos((x) => {
+  } = useProjectState((x) => {
     const { configLanguage } = getSectionVariant(dataSectionId, x);
     if (selectedItem) {
       const { name, description } = x.codeInfo[selectedItem];

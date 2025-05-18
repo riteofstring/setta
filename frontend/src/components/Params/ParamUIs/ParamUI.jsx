@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionVariant } from "state/actions/sectionInfos";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamUIType } from "state/hooks/uiTypes";
 import {
@@ -42,7 +42,7 @@ export function ParamUI({
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
-    useSectionInfos((x) => {
+    useProjectState((x) => {
       const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
       return {
         uiType: getParamUIType(sectionId, paramInfoId, x),
@@ -178,7 +178,7 @@ export function ParamSweepUI({
   onChange,
   isDisabled,
 }) {
-  const { uiType, configLanguage } = useSectionInfos((x) => {
+  const { uiType, configLanguage } = useProjectState((x) => {
     return {
       uiType: getParamUIType(dataSectionId, paramInfoId, x),
       configLanguage: getSectionVariant(dataSectionId, x).configLanguage,

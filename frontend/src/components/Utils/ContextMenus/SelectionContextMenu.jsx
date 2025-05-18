@@ -8,7 +8,7 @@ import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useContextMenus, useSectionInfos } from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -18,10 +18,10 @@ export function SelectionContextMenu() {
     _.isEqual,
   );
 
-  const { allVisible, allLocked, viewingEditingMode } = useSectionInfos((x) => {
+  const { allVisible, allLocked, viewingEditingMode } = useProjectState((x) => {
     const { viewingEditingMode } = x.projectConfig;
     const visibilityKey = getSectionVisibilityKey(viewingEditingMode);
-    const nodeMap = x.x;
+    const nodeMap = x.sections;
 
     let allVisible = true;
     let allLocked = true;
@@ -58,7 +58,7 @@ export function SelectionContextMenu() {
   }
 
   function onClickDelete() {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       deleteSections(nodeIds, state);
     });
     closeContextMenu();
@@ -67,19 +67,20 @@ export function SelectionContextMenu() {
   }
 
   function onClickLock() {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       for (const n of nodeIds) {
-        state.x[n].positionAndSizeLocked = !allLocked;
+        state.sections[n].positionAndSizeLocked = !allLocked;
       }
     });
     closeContextMenu();
   }
 
   function onClickVisibility() {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       for (const n of nodeIds) {
-        state.x[n].visibility[getSectionVisibilityKey(viewingEditingMode)] =
-          !allVisible;
+        state.sections[n].visibility[
+          getSectionVisibilityKey(viewingEditingMode)
+        ] = !allVisible;
       }
     });
     closeContextMenu();

@@ -1,7 +1,7 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import C from "constants/constants.json";
 import _ from "lodash";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { LayerListAndListOfArtifacts } from "./ListOfArtifacts";
 
 export function DrawAreaSettings({ sectionId }) {
@@ -17,8 +17,8 @@ export function DrawAreaSettings({ sectionId }) {
 }
 
 function DrawAreaAvailableColors({ sectionId }) {
-  const colors = useSectionInfos(
-    (x) => x.x[sectionId].canvasSettings?.colorChoices ?? [],
+  const colors = useProjectState(
+    (x) => x.sections[sectionId].canvasSettings?.colorChoices ?? [],
     _.isEqual,
   );
 
@@ -66,8 +66,8 @@ function DrawAreaAvailableColors({ sectionId }) {
 }
 
 function setCanvasColorChoices(sectionId, value) {
-  useSectionInfos.setState((x) => {
-    const s = x.x[sectionId];
+  useProjectState.setState((x) => {
+    const s = x.sections[sectionId];
     s.canvasSettings.colorChoices = value;
   });
 }

@@ -7,7 +7,7 @@ import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
-  useSectionInfos,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { positiveMod, shortcutPrettified } from "utils/utils";
@@ -373,7 +373,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
       const content = item.title
         ? `## ${item.title}\n\n${item.content}`
         : item.content;
-      useSectionInfos.setState((state) => {
+      useProjectState.setState((state) => {
         addSectionInEmptySpace({
           type: C.TEXT_BLOCK,
           sectionProps: {

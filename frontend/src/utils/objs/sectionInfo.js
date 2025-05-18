@@ -1,6 +1,6 @@
 import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
-import { useSectionInfos, useSettings } from "state/definitions";
+import { useProjectState, useSettings } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/constants";
 import { createVarName, maybeNewId } from "../idNameCreation";
 
@@ -12,7 +12,7 @@ export function newSectionInfo({
   variantIds = [],
   ...props
 }) {
-  const uiTypeName = useSectionInfos.getState().uiTypes[uiTypeId].type;
+  const uiTypeName = useProjectState.getState().uiTypes[uiTypeId].type;
 
   const output = _.merge(
     _.cloneDeep(DEFAULT_VALUES.section),
@@ -21,7 +21,7 @@ export function newSectionInfo({
 
   if (!output.name) {
     output.name = createVarName(
-      _.map(useSectionInfos.getState().x, (s) => s.name),
+      _.map(useProjectState.getState().sections, (s) => s.name),
     );
   }
 

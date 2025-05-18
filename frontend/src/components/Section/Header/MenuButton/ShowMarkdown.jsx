@@ -1,15 +1,15 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import { getSectionVariant } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function RenderTextBlock({ sectionId }) {
-  const { displayMode, renderMarkdown, variantIsFrozen } = useSectionInfos(
+  const { displayMode, renderMarkdown, variantIsFrozen } = useProjectState(
     (x) => {
       return {
-        displayMode: x.x[sectionId].displayMode,
-        renderMarkdown: x.x[sectionId].renderMarkdown,
+        displayMode: x.sections[sectionId].displayMode,
+        renderMarkdown: x.sections[sectionId].renderMarkdown,
         variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
       };
     },
@@ -17,8 +17,8 @@ export function RenderTextBlock({ sectionId }) {
   );
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].displayMode =
+    useProjectState.setState((state) => {
+      state.sections[sectionId].displayMode =
         displayMode === SECTION_DISPLAY_MODES.RENDER
           ? SECTION_DISPLAY_MODES.EDIT
           : SECTION_DISPLAY_MODES.RENDER;
@@ -39,11 +39,13 @@ export function RenderTextBlock({ sectionId }) {
 }
 
 export function ConvertFormat({ sectionId }) {
-  const renderMarkdown = useSectionInfos((x) => x.x[sectionId].renderMarkdown);
+  const renderMarkdown = useProjectState(
+    (x) => x.sections[sectionId].renderMarkdown,
+  );
 
   function onClick() {
-    useSectionInfos.setState((state) => {
-      state.x[sectionId].renderMarkdown = !renderMarkdown;
+    useProjectState.setState((state) => {
+      state.sections[sectionId].renderMarkdown = !renderMarkdown;
     });
   }
 

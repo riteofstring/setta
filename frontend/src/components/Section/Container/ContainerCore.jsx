@@ -2,7 +2,7 @@ import _ from "lodash";
 import React from "react";
 
 import C from "constants/constants.json";
-import { useActiveSection, useSectionInfos } from "state/definitions";
+import { useActiveSection, useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { VIEWING_EDITING_MODE } from "utils/constants";
@@ -74,11 +74,11 @@ function ContainerGroup({
 }) {
   const hasNested = useHasTempNested(sectionId);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
-  const { positionAndSizeLocked, isInOtherProjectConfigs } = useSectionInfos(
+  const { positionAndSizeLocked, isInOtherProjectConfigs } = useProjectState(
     (x) => {
       return {
-        positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
-        isInOtherProjectConfigs: x.x[sectionId].isInOtherProjectConfigs,
+        positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
+        isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       };
     },
     _.isEqual,

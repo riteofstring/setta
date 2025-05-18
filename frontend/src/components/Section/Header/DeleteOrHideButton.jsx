@@ -3,7 +3,7 @@ import { BiHide, BiShow } from "react-icons/bi";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 
 // absolute top-1 right-1
@@ -12,18 +12,19 @@ export function DeleteOrHideButton({
   viewingEditingMode,
   ...props
 }) {
-  const visibility = useSectionInfos((x) => {
-    return x.x[sectionId].visibility[
+  const visibility = useProjectState((x) => {
+    return x.sections[sectionId].visibility[
       getSectionVisibilityKey(viewingEditingMode)
     ];
   });
 
   const onClick = () => {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       if (viewingEditingMode === VIEWING_EDITING_MODE.DEV) {
         deleteSections([sectionId], state);
       } else if (viewingEditingMode === VIEWING_EDITING_MODE.USER_EDIT) {
-        state.x[sectionId].visibility[VIEWING_EDITING_MODE.USER] = !visibility;
+        state.sections[sectionId].visibility[VIEWING_EDITING_MODE.USER] =
+          !visibility;
       }
     });
 

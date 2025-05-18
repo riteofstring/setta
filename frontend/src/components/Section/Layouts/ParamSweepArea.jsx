@@ -16,7 +16,7 @@ import {
 } from "state/actions/runGroups/paramSweep";
 import { getCodeInfoCol } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useParamSweepInfo } from "state/hooks/paramSweep";
 import {
   findAllParameters,
@@ -392,7 +392,7 @@ function AddRemoveButtonsForNoCallableSection({
 }
 
 function useNumChildlessParams(selectedItem, sectionId) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
     return findAllParameters({
       allCodeInfo: x.codeInfo,
@@ -409,7 +409,7 @@ function useChildlessObjParams({
   alreadySelected,
   forSectionId,
 }) {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     // this is for the contents of the combobox
     // so I don't think it needs to depend on the displayed (preview) codeInfoCol
     const codeInfoChildren = getCodeInfoCol(forSectionId, x).children;

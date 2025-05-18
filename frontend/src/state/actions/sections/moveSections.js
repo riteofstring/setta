@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";
@@ -83,28 +83,29 @@ function setChildrenAndParent({
     );
   }
 
-  state.x[newSectionId].parentId = newParentId;
+  state.sections[newSectionId].parentId = newParentId;
 }
 
 function setSectionSizeAfterMove(newParentId, sectionId, state) {
   if (!newParentId) {
     return;
   }
-  const isGroup = state.uiTypes[state.x[newParentId].uiTypeId].type === C.GROUP;
+  const isGroup =
+    state.uiTypes[state.sections[newParentId].uiTypeId].type === C.GROUP;
 
   // if new parent is a group and the group has children and is not horizontal
   if (isGroup) {
-    const { isHorizontalOrientation } = state.x[newParentId];
+    const { isHorizontalOrientation } = state.sections[newParentId];
     if (!isHorizontalOrientation) {
       const groupChildren =
-        state.variants[state.x[newParentId].variantId].children;
+        state.variants[state.sections[newParentId].variantId].children;
       if (groupChildren.length > 0) {
-        const width = state.x[groupChildren[0]].size.width;
+        const width = state.sections[groupChildren[0]].size.width;
         setAllChildrenWidths({ sectionId, width, state });
       }
     }
   } else {
-    const width = state.x[newParentId].size.width;
+    const width = state.sections[newParentId].size.width;
     setAllChildrenWidths({ sectionId, width, state });
   }
 }
@@ -129,7 +130,7 @@ export async function maybeMakeCopyOfSection({
   // If they do include sectionId, then make a copy of sectionId
   // to prevent the possibility of sectionId appearing in 2 places at once.
   const { variantId: activeVariantId } = getSectionInfo(sectionId);
-  const variantState = useSectionInfos.getState().variants;
+  const variantState = useProjectState.getState().variants;
   let isInOtherVariants = false;
   for (const variantId of variantIds) {
     if (variantId === activeVariantId) {

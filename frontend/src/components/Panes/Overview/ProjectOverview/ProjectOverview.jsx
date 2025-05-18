@@ -3,7 +3,7 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
 import { getSectionVisibilityKeyForDisplay } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
@@ -48,9 +48,9 @@ function ProjectOverviewCore({ sectionList }) {
 }
 
 export function useOverviewListing() {
-  return useSectionInfos((x) => {
+  return useProjectState((x) => {
     const outputList = [];
-    for (const section of Object.values(x.x)) {
+    for (const section of Object.values(x.sections)) {
       if (!section.parentId) {
         getDepthListingHelper(section.id, 0, x, outputList);
       }
@@ -60,7 +60,7 @@ export function useOverviewListing() {
 }
 
 function getDepthListingHelper(sectionId, depth, x, outputList) {
-  const section = x.x[sectionId];
+  const section = x.sections[sectionId];
   if (
     section.visibility[
       getSectionVisibilityKeyForDisplay(x.projectConfig.viewingEditingMode)

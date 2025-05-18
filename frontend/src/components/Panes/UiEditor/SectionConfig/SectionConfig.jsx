@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
@@ -26,7 +26,7 @@ function SectionConfigCore({ sectionId }) {
 }
 
 function SpecializedConfiguration({ sectionId }) {
-  const sectionType = useSectionInfos((x) => {
+  const sectionType = useProjectState((x) => {
     return getSectionType(sectionId, x);
   });
   switch (sectionType) {

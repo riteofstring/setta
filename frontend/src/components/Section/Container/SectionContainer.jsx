@@ -6,13 +6,13 @@ import {
   getSectionType,
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 
 function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
-  const { visibility, viewingEditingMode, isGroup } = useSectionInfos((x) => {
+  const { visibility, viewingEditingMode, isGroup } = useProjectState((x) => {
     const { visibility, viewingEditingMode } =
       getSectionViewingEditingModeVisibility(sectionId, x);
     return {

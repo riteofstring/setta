@@ -2,7 +2,7 @@ import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { useCallback } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
-import { useArtifacts, useMisc, useSectionInfos } from "state/definitions";
+import { useArtifacts, useMisc, useProjectState } from "state/definitions";
 import {
   drawAllLayers,
   drawStroke,
@@ -389,7 +389,7 @@ function drawingOnMouseUp({
       const eraserPath =
         eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
 
-      useSectionInfos.setState((state) => {
+      useProjectState.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
         for (const t of layer.artifactTransforms) {
           const artifact = artifactState[t.artifactId];

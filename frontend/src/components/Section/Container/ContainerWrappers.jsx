@@ -3,7 +3,7 @@ import { useHighlightDroppable } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
@@ -67,7 +67,7 @@ function _DndWatcherAndContainer({
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isSorting, isMovingFree } = useDndMode();
-  const ancestorHasSameVisibility = useSectionInfos((x) =>
+  const ancestorHasSameVisibility = useProjectState((x) =>
     getAncestorSameVisibility(sectionId, x),
   );
   const trueDragListeners =

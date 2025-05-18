@@ -5,7 +5,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
   useMisc,
-  useSectionInfos,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
@@ -71,7 +71,7 @@ function CustomResizableCore({
       changedSize.width = "auto";
     }
     if (_.size(changedSize) > 0) {
-      useSectionInfos.setState((state) => {
+      useProjectState.setState((state) => {
         setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
       });
     }
@@ -81,7 +81,7 @@ function CustomResizableCore({
     useAspectRatio(sectionId);
 
   function onResizeStart() {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setSectionResizeEvent(sectionId, "start", state);
     });
     useMisc.setState({ mouseDownDraggingSection: true });
@@ -93,7 +93,7 @@ function CustomResizableCore({
       sizeMode,
       aspectRatio,
     });
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
       setSectionResizeEvent(sectionId, "end", state);
     });
@@ -212,8 +212,8 @@ function CustomResizableSuperCore({
 }
 
 function useAspectRatio(sectionId) {
-  return useSectionInfos((x) => {
-    const s = x.x[sectionId];
+  return useProjectState((x) => {
+    const s = x.sections[sectionId];
     if (s.isMinimized) {
       return {
         size: s.size,
@@ -232,5 +232,5 @@ function useAspectRatio(sectionId) {
 }
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
-  state.x[sectionId].resizeEvent = resizeEvent;
+  state.sections[sectionId].resizeEvent = resizeEvent;
 }

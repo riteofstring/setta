@@ -18,7 +18,7 @@ import {
   stopStreamingInto,
 } from "state/actions/ai";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { useAIStore, useSectionInfos } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";
@@ -102,7 +102,7 @@ const StreamingIntoCodeBlock = memo(function StreamingIntoCodeBlock({
   isError,
   content,
 }) {
-  const sectionName = useSectionInfos((x) => x.x[sectionId]?.name);
+  const sectionName = useProjectState((x) => x.sections[sectionId]?.name);
 
   return (
     <Accordion.Root type="single" collapsible>

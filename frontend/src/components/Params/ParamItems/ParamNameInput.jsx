@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import _ from "lodash";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useMisc, useSectionInfos } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -18,7 +18,7 @@ export function ParamNameInput({
     configLanguage,
     name: value,
     variantIsFrozen,
-  } = useSectionInfos((x) => {
+  } = useProjectState((x) => {
     const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
     return {
       variantIsFrozen: isFrozen,
@@ -28,7 +28,7 @@ export function ParamNameInput({
   }, _.isEqual);
 
   function onChange(v) {
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       state.codeInfo[paramInfoId].name = v;
     });
     maybeIncrementProjectStateVersion(true);

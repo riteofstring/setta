@@ -5,7 +5,7 @@ import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
 import {
   useMisc,
   useProjectSearch,
-  useSectionInfos,
+  useProjectState,
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
@@ -31,7 +31,7 @@ function _ParamSwitch(props) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren } = useSectionInfos((x) => {
+  const { paramIsSelected, isKwarg, paramChildren } = useProjectState((x) => {
     const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
     return {
       paramIsSelected: x.codeInfo[paramInfoId].isSelected,

@@ -20,8 +20,8 @@ export function setSelfParentSiblingChildrenWidths(
 function setAllOtherWidths(sectionId, width, state) {
   // We want to stop width propagation as soon as we hit a horizontal group.
   const parentIdGetter = (id) => {
-    const { parentId } = state.x[id];
-    if (parentId && !state.x[parentId].isHorizontalOrientation) {
+    const { parentId } = state.sections[id];
+    if (parentId && !state.sections[parentId].isHorizontalOrientation) {
       return parentId;
     }
     return null;
@@ -110,5 +110,8 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
 }
 
 export function setSectionSize(sectionId, size, state) {
-  state.x[sectionId].size = { ...state.x[sectionId].size, ...size };
+  state.sections[sectionId].size = {
+    ...state.sections[sectionId].size,
+    ...size,
+  };
 }

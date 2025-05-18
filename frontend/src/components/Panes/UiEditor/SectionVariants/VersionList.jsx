@@ -15,7 +15,7 @@ import {
   setDefaultSectionVariant,
   updateSectionInfos,
 } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 
 export function VersionList({ sectionId }) {
@@ -60,11 +60,11 @@ export function VersionList({ sectionId }) {
 }
 
 function EVItems({ sectionId, isEditing }) {
-  const { currVariantId, variantIds, defaultVariantId } = useSectionInfos(
+  const { currVariantId, variantIds, defaultVariantId } = useProjectState(
     (x) => ({
-      currVariantId: x.x[sectionId].variantId,
-      variantIds: x.x[sectionId].variantIds,
-      defaultVariantId: x.x[sectionId].defaultVariantId,
+      currVariantId: x.sections[sectionId].variantId,
+      variantIds: x.sections[sectionId].variantIds,
+      defaultVariantId: x.sections[sectionId].defaultVariantId,
     }),
     _.isEqual,
   );
@@ -93,7 +93,7 @@ function EVItems({ sectionId, isEditing }) {
 }
 
 function OneItem({ sectionId, id, isCurr, isDefault }) {
-  const { name, isFrozen, isJsonSource } = useSectionInfos(
+  const { name, isFrozen, isJsonSource } = useProjectState(
     (x) => ({
       name: x.variants[id].name,
       isFrozen: x.variants[id].isFrozen,
@@ -139,7 +139,7 @@ function OneItem({ sectionId, id, isCurr, isDefault }) {
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            useSectionInfos.setState((x) => {
+            useProjectState.setState((x) => {
               x.variants[id].isFrozen = !x.variants[id].isFrozen;
             });
           }}
@@ -156,7 +156,7 @@ function OneItem({ sectionId, id, isCurr, isDefault }) {
             e.stopPropagation();
             const newIsJsonSource = !isJsonSource;
             const newConfigLanguage = newIsJsonSource ? "json" : "python";
-            useSectionInfos.setState((state) => {
+            useProjectState.setState((state) => {
               state.variants[id].isJsonSource = newIsJsonSource;
               state.variants[id].configLanguage = newConfigLanguage;
             });
@@ -171,18 +171,18 @@ function OneItem({ sectionId, id, isCurr, isDefault }) {
 }
 
 function OneItemEditing({ sectionId, id, isCurr, deletable }) {
-  const name = useSectionInfos((x) => x.variants[id].name, _.isEqual);
+  const name = useProjectState((x) => x.variants[id].name, _.isEqual);
 
   function onSetName(v) {
-    useSectionInfos.setState((x) => {
+    useProjectState.setState((x) => {
       x.variants[id].name = v;
     });
     maybeLoadJsonContents(id);
   }
 
   function conditionToSetName(v) {
-    const state = useSectionInfos.getState();
-    for (const variantId of state.x[sectionId].variantIds) {
+    const state = useProjectState.getState();
+    for (const variantId of state.sections[sectionId].variantIds) {
       if (state.variants[variantId].name === v) {
         return false;
       }
@@ -226,11 +226,11 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
 }
 
 async function maybeLoadJsonContents(variantId) {
-  if (useSectionInfos.getState().variants[variantId].isJsonSource) {
+  if (useProjectState.getState().variants[variantId].isJsonSource) {
     const { sectionVariants, codeInfo, codeInfoCols } = await loadJsonContents([
       variantId,
     ]);
-    useSectionInfos.setState((state) => {
+    useProjectState.setState((state) => {
       updateSectionInfos({
         sectionVariants,
         codeInfo,

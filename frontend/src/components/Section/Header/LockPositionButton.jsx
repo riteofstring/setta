@@ -2,13 +2,13 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType, toggleSectionLock } from "state/actions/sectionInfos";
-import { useSectionInfos } from "state/definitions";
+import { useProjectState } from "state/definitions";
 
 export function LockPositionButton({ sectionId }) {
-  const { isGroup, positionAndSizeLocked } = useSectionInfos((x) => {
+  const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
     return {
       isGroup: getSectionType(sectionId, x) === C.GROUP,
-      positionAndSizeLocked: x.x[sectionId].positionAndSizeLocked,
+      positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
     };
   }, _.isEqual);
 

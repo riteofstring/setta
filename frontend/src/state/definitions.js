@@ -36,7 +36,7 @@ export const useContextMenus = withProjectState(
   ),
 );
 
-export const useSectionInfos = withProjectState(
+export const useProjectState = withProjectState(
   create(
     subscribeWithSelector(
       withTemporal(
@@ -44,7 +44,7 @@ export const useSectionInfos = withProjectState(
           withResetFn(() =>
             withVersion({
               projectConfig: { id: "", name: "" },
-              x: {},
+              sections: {},
               variants: {},
               uiTypeCols: {},
               uiTypes: {},
