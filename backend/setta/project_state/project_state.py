@@ -1,13 +1,38 @@
-import json
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
-# Change this to use Literal for proper validation
+
+class Size(StrEnum):
+    AUTO = "auto"
 
 
-class ViewingEditingMode(Enum):
+class CodeLanguage(StrEnum):
+    PYTHON = "python"
+    BASH = "bash"
+
+
+class ConfigLanguage(StrEnum):
+    PYTHON = "python"
+    JSON = "json"
+
+
+class ParameterPassingStyle(StrEnum):
+    DEFAULT = "DEFAULT"
+    ARGS = "ARGS"
+    KWARGS = "KWARGS"
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
+
+
+class CodeInfoType(StrEnum):
+    PARAMETER = "parameter"
+    CALLABLE = "callable"
+    COLLECTION = "collection"
+
+
+class ViewingEditingMode(StrEnum):
     DEV = "DEV"
     USER = "USER"
     USER_EDIT = "USER_EDIT"
@@ -20,8 +45,8 @@ class Viewport(BaseModel):
 
 
 class SectionSize(BaseModel):
-    width: Union[float, Literal["auto"]] = "auto"
-    height: Union[float, Literal["auto"]] = "auto"
+    width: Union[float, Literal[Size.AUTO]] = Size.AUTO
+    height: Union[float, Literal[Size.AUTO]] = Size.AUTO
 
 
 class Visibility(BaseModel):
@@ -63,7 +88,7 @@ class Section(BaseModel):
     variantIds: List[str] = Field(default_factory=list)
     paramSweepSectionId: Optional[str] = None
     nonPresetUITypeIds: List[str] = Field(default_factory=list)
-    codeLanguage: str = "python"
+    codeLanguage: CodeLanguage = CodeLanguage.PYTHON
     isEntryCodeBlock: bool = False
     isFrozen: bool = False
     isHorizontalOrientation: bool = False
@@ -73,7 +98,7 @@ class Section(BaseModel):
     hideColumn: bool = False
     displayMode: str = "GUI"
     visibility: Visibility = Field(default_factory=Visibility)
-    pinnedAreaHeight: Union[float, Literal["auto"]] = "auto"
+    pinnedAreaHeight: Union[float, Literal[Size.AUTO]] = Size.AUTO
     isMinimized: bool = False
     canvasSettings: CanvasSettings = Field(default_factory=CanvasSettings)
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
@@ -102,7 +127,7 @@ class SectionVariant(BaseModel):
     isFrozen: bool = False
     sweep: List[Any] = Field(default_factory=list)
     runGroup: Dict[str, Any] = Field(default_factory=dict)
-    configLanguage: str = "python"
+    configLanguage: ConfigLanguage = ConfigLanguage.PYTHON
     isJsonSource: bool = False
     jsonSourceKeys: List[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
@@ -112,10 +137,10 @@ class CodeInfo(BaseModel):
     id: str
     name: str = ""
     editable: bool = False
-    rcType: str = "parameter"
+    rcType: CodeInfoType = CodeInfoType.PARAMETER
     defaultVal: str = ""
     description: str = ""
-    passingStyle: str = "DEFAULT"
+    passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
     isPinned: bool = False
     isFrozen: bool = False
     isSelected: bool = False

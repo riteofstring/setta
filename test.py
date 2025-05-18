@@ -326,14 +326,13 @@
 # extract_parameters("argu")
 
 
-from setta.project_state.project_state import CodeInfoCol, ProjectState
-
+from setta.project_state.project_state import ProjectState
 
 x = ProjectState.model_validate(
     {
         "projectConfig": {"id": "123", "name": "dog"},
-        # "sections": {"345": {"id": "313", "name": "models!"}},
-        "codeInfoCol": {"123": {"children": {"234": []}}}
+        "sections": {"345": {"id": "313", "name": "models!", "size": {"width": 500}}},
+        "codeInfoCol": {"123": {"children": {"234": []}}},
     }
 )
-print(x.codeInfoCol)
+print(x.sections["345"].size.height)
