@@ -42,9 +42,9 @@ class ViewingEditingMode(StrEnum):
 
 
 class Viewport(BaseModel):
-    x: float
-    y: float
-    zoom: float
+    x: float = 0
+    y: float = 0
+    zoom: float = 1
 
 
 class SectionSize(BaseModel):
@@ -206,7 +206,7 @@ class ProjectConfig(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
-    viewport: Optional[Viewport] = None
+    viewport: Optional[Viewport] = Field(default_factory=Viewport)
     children: Dict[str, ProjectConfigChild] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
