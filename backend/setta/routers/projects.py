@@ -12,7 +12,7 @@ from setta.database.db.notifications.load import (
     load_project_notifications,
 )
 from setta.database.db.projects.load import (
-    ProjectNotFound,
+    load_all_project_states,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -81,6 +81,12 @@ class GetNotificationsRequest(BaseModel):
 
 class DeleteNotificationRequest(BaseModel):
     notificationId: str
+
+
+@router.post(C.ROUTE_LOAD_ALL_PROJECT_STATES)
+def route_load_all_project_states(dbq=Depends(get_dbq)):
+    with dbq as db:
+        return load_all_project_states(db)
 
 
 @router.post(C.ROUTE_ALL_PROJECT_CONFIG_METADATA)

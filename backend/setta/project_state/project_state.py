@@ -225,4 +225,15 @@ class ProjectState(BaseModel):
 
 class AllProjectStates(BaseModel):
     projects: Dict[str, ProjectState] = Field(default_factory=dict)
-    defaultProjectId: str
+    defaultProjectId: Optional[str] = None
+
+    @model_validator(mode="after")
+    def set_default_project_id(self):
+        if self.projects:
+            # If projects exist, use first key when defaultProjectId is None
+            if self.defaultProjectId is None:
+                self.defaultProjectId = next(iter(self.projects))
+        else:
+            # If projects is empty, defaultProjectId should be None
+            self.defaultProjectId = None
+        return self

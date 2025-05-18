@@ -1,8 +1,9 @@
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import {
   dbFilterDataForJSONExport,
-  dbGetAllProjectConfigMetadata,
+  dbLoadAllProjectStates,
   dbLoadFullProject,
   dbLoadProjectConfigNames,
 } from "requests/projects";
@@ -22,12 +23,13 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  const [defaultProjectName, setDefaultProjectName] = useState("");
+  const [defaultProjectId, setDefaultProjectId] = useState(null);
   async function getAllProjectConfigMetadata() {
-    const res = await dbGetAllProjectConfigMetadata();
+    const res = await dbLoadAllProjectStates();
     if (res.status === 200) {
-      setProjects(res.data[0]);
-      setDefaultProjectName(res.data[1]);
+      console.log(res.data);
+      setProjects(_.map(res.data.projects, (v) => v.projectConfig));
+      setDefaultProjectId(res.data.defaultProjectId);
     }
   }
 
@@ -35,7 +37,7 @@ export function useGetAllProjectConfigMetadata() {
     getAllProjectConfigMetadata();
   }, []);
 
-  return { projects, defaultProjectName, getAllProjectConfigMetadata };
+  return { projects, defaultProjectId, getAllProjectConfigMetadata };
 }
 
 export function useGetAllProjectConfigMetadataForFileMenu(open) {

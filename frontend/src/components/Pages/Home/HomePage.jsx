@@ -21,14 +21,14 @@ import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import "./homepage.css";
 
 export function HomePage() {
-  const { projects, defaultProjectName, getAllProjectConfigMetadata } =
+  const { projects, defaultProjectId, getAllProjectConfigMetadata } =
     useGetAllProjectConfigMetadata();
 
   return (
     <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
       <RightColumn
         projects={projects}
-        defaultProjectName={defaultProjectName}
+        defaultProjectId={defaultProjectId}
         getAllProjectConfigMetadata={getAllProjectConfigMetadata}
       />
     </GridWrapper>
@@ -37,7 +37,7 @@ export function HomePage() {
 
 function RightColumn({
   projects,
-  defaultProjectName,
+  defaultProjectId,
   getAllProjectConfigMetadata,
 }) {
   const [selectedProjects, setSelectedProjects] = useState([]);
@@ -116,7 +116,7 @@ function RightColumn({
       </div>
       <ProjectItems
         projects={projects}
-        defaultProjectName={defaultProjectName}
+        defaultProjectId={defaultProjectId}
         selectedProjects={selectedProjects}
         onSelectProject={onSelectProject}
       />
@@ -126,7 +126,7 @@ function RightColumn({
 
 function ProjectItems({
   projects,
-  defaultProjectName,
+  defaultProjectId,
   selectedProjects,
   onSelectProject,
 }) {
@@ -151,7 +151,7 @@ function ProjectItems({
         filteredProjects.map((x, i) => (
           <ProjectItem
             project={x}
-            isDefault={x.name === defaultProjectName}
+            isDefault={x.id === defaultProjectId}
             key={`Project ${i} ${x.name}`}
             isSelected={selectedProjects.includes(x.id)}
             onSelectProject={onSelectProject}
