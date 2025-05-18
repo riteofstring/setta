@@ -113,3 +113,49 @@ def handle_str_replace_editor_tool_str_replace(path, old_str, new_str):
         file.write(modified_content)
 
     return "Successfully replaced text at exactly one location."
+
+
+def handle_str_replace_editor_tool_create(path, file_text):
+    """
+    Creates a new file at the specified path and writes the given text to it.
+
+    Args:
+        path (str): The path where the new file should be created
+        file_text (str): The content to write to the new file
+
+    Returns:
+        str: A success message
+
+    Raises:
+        TypeError: If path or file_text is not a string
+        ValueError: If path is empty
+        FileNotFoundError: If the directory path doesn't exist
+        PermissionError: If there are insufficient permissions to create the file
+        FileExistsError: If the file already exists
+        IsADirectoryError: If the path points to a directory instead of a file
+        IOError: For other I/O related errors
+    """
+    # Check if path is a valid string
+    if not isinstance(path, str):
+        raise TypeError("Path must be a string")
+    if not path:
+        raise ValueError("Path cannot be empty")
+
+    # Check if file_text is a string
+    if not isinstance(file_text, str):
+        raise TypeError("File text must be a string")
+
+    try:
+        with open(path, "x") as file:
+            file.write(file_text)
+        return f"Successfully created file at {path}"
+    except FileExistsError:
+        raise FileExistsError(f"A file already exists at {path}")
+    except FileNotFoundError:
+        raise FileNotFoundError(f"The directory specified in {path} does not exist")
+    except PermissionError:
+        raise PermissionError(f"Insufficient permissions to create file at {path}")
+    except IsADirectoryError:
+        raise IsADirectoryError(f"The path {path} points to a directory, not a file")
+    except IOError as e:
+        raise IOError(f"An I/O error occurred: {str(e)}")

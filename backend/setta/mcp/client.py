@@ -8,6 +8,7 @@ from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
 
 from setta.mcp.str_replace_editor_tool_fns import (
+    handle_str_replace_editor_tool_create,
     handle_str_replace_editor_tool_str_replace,
     handle_str_replace_editor_tool_view,
 )
@@ -135,8 +136,9 @@ def handle_str_replace_editor_tool(tool_args):
                 file_path, tool_args["old_str"], tool_args["new_str"]
             )
         elif command == "create":
-            # Create new file
-            pass
+            content = handle_str_replace_editor_tool_create(
+                file_path, tool_args["file_text"]
+            )
         elif command == "insert":
             # Insert text at location
             pass
