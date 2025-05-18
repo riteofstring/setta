@@ -21,6 +21,7 @@ from setta.database.db.projects.saveAs import (
     save_as_new_project_config,
 )
 from setta.database.export_db.export_db import maybe_export_database
+from setta.project_state.project_manager import ProjectManager
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_project_manager, get_wmh_base
@@ -100,15 +101,15 @@ def route_load_project_config_names(dbq=Depends(get_dbq)):
 async def route_load_project_config(
     x: ProjectLoadRequest,
     dbq=Depends(get_dbq),
-    project_manager=Depends(get_project_manager),
+    project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
         with dbq as db:
-            project_states = load_all_project_states_and_confirm_config_name(
+            all_project_states = load_all_project_states_and_confirm_config_name(
                 db, x.projectConfigName
             )
-            await project_manager.update(project_states)
-            return project_states
+            await project_manager.update(all_project_states)
+            return all_project_states
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))

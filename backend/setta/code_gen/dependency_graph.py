@@ -6,26 +6,56 @@ from setta.code_gen.python.ast_utils import find_undefined_special_var_expressio
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
     create_unique_name,
-    get_code_info_children,
-    get_param_ui_type,
-    get_section_children,
-    get_section_name,
-    get_section_type,
-    get_selected_item_name,
     get_selected_section_variant,
-    get_top_level_param_ids,
-    is_valid_value,
     sanitize_name,
+)
+from setta.project_state.project_state import (
+    EVEntry,
+    ParameterPassingStyle,
+    ProjectState,
 )
 from setta.utils.utils import replace_at_positions
 
-from ..utils.constants import C, ParameterPassingStyle
+from ..utils.constants import C
 
 GraphKeyType = Tuple[str, str | None]
 
 
+@dataclass
+class Node(ABC):
+    id: str
+    name: str
+    full_path_name: str
+    type: str
+    isTopLevel: bool
+    deps: dict
+    value: str | None
+
+    @property
+    @abstractmethod
+    def has_name_and_value(self) -> bool:
+        pass
+
+
+@dataclass
+class SectionNode(Node):
+    @property
+    def has_name_and_value(self) -> bool:
+        return True
+
+
+@dataclass
+class ParamNode(Node):
+    value: str
+    passing_style: ParameterPassingStyle
+
+    @property
+    def has_name_and_value(self):
+        return self.name and self.value is not None and self.value != ""
+
+
 class DependencyGraph:
-    def __init__(self, p):
+    def __init__(self, p: ProjectState):
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -43,14 +73,14 @@ class DependencyGraph:
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
 
-    def construct_graph(self, p):
+    def construct_graph(self, p: ProjectState):
         self.reset()
-        self.export_sections(
-            p, list(p["projectConfig"]["children"].keys()), isTopLevel=True
-        )
+        self.export_sections(p, list(p.projectConfig.children.keys()), isTopLevel=True)
         self.resolve_references()
 
-    def export_sections(self, p, ids, isTopLevel=False, parent_node=None):
+    def export_sections(
+        self, p: ProjectState, ids: list[str], isTopLevel=False, parent_node=None
+    ):
         deps = {}
         for idx, x in enumerate(ids):
             graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
@@ -59,12 +89,19 @@ class DependencyGraph:
                 deps[graph_key] = node.has_name_and_value
         return deps
 
-    def export_section(self, p, id, isTopLevel=False, parent_node=None, idx=None):
+    def export_section(
+        self,
+        p: ProjectState,
+        id: str,
+        isTopLevel=False,
+        parent_node: Optional[Node] = None,
+        idx: Optional[int] = None,
+    ):
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
-            type = get_section_type(p, id)
-            name = get_section_name(p, id)
+            type = p.get_section_type(id)
+            name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
                 value, potential_refs = self.export_section_value(p, id)
@@ -84,8 +121,8 @@ class DependencyGraph:
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = [
                     c
-                    for c in get_section_children(p, id)
-                    if get_section_type(p, c) in self.section_types_to_process
+                    for c in p.get_section_children(id)
+                    if p.get_section_type(c) in self.section_types_to_process
                 ]
                 node = SectionNode(
                     id=id,
@@ -109,34 +146,50 @@ class DependencyGraph:
             #     raise ValueError
         return graph_key
 
-    def export_section_value(self, p, sectionId):
-        selected_item_name = get_selected_item_name(p, sectionId)
-        if selected_item_name:
+    def export_section_value(self, p: ProjectState, sectionId: str):
+        selected_item = p.get_selected_item(sectionId)
+        if selected_item:
+            selected_item_name = selected_item.name
             potential_refs = find_undefined_special_var_expressions(
                 selected_item_name, SELF_IDENTIFIER, keep_attr_only=True
             )
             return selected_item_name, potential_refs
-        return selected_item_name, None
+        return None, None
 
-    def export_section_params(self, p, sectionId, parent_node=None, isTopLevel=False):
-        paramIds = get_top_level_param_ids(p, sectionId)
+    def export_section_params(
+        self,
+        p: ProjectState,
+        sectionId: str,
+        parent_node: Optional[Node] = None,
+        isTopLevel=False,
+    ):
+        paramIds = p.get_top_level_param_ids(sectionId)
         return self.export_params(
             p, sectionId, paramIds, parent_node=parent_node, isTopLevel=isTopLevel
         )
 
-    def export_params(self, p, sectionId, paramIds, parent_node=None, isTopLevel=False):
+    def export_params(
+        self,
+        p: ProjectState,
+        sectionId: str,
+        paramIds: list[str],
+        parent_node: Optional[Node] = None,
+        isTopLevel=False,
+    ):
         output_deps = {}
         for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
             param = self.get_node(graph_key)
             if not param:
-                codeInfo = p["codeInfo"][pid]
-                param_children = get_code_info_children(p, sectionId, pid)
+                codeInfo = p.codeInfo[pid]
+                param_children = p.get_section_code_info_children(sectionId).get(
+                    pid, []
+                )
                 if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
-                    type = get_param_ui_type(p, sectionId, pid)
-                name = codeInfo["name"]
+                    type = p.get_param_ui_type(sectionId, pid)
+                name = codeInfo.name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 value, potential_refs = self.export_param_value(p, sectionId, pid)
                 if potential_refs:
@@ -148,7 +201,7 @@ class DependencyGraph:
                     type=type,
                     isTopLevel=isTopLevel,
                     value=value,
-                    passing_style=codeInfo["passingStyle"],
+                    passing_style=codeInfo.passingStyle,
                     deps={},
                 )
                 param.deps = self.export_params(
@@ -167,7 +220,7 @@ class DependencyGraph:
             )
             return value, potential_refs
         else:
-            value = new_ev_entry()["value"]
+            value = EVEntry().value
             return value, None
 
     def add_to_graph(self, graph_key, node):
@@ -185,7 +238,9 @@ class DependencyGraph:
     def get_node(self, graph_key):
         return self.graph.get(graph_key)
 
-    def create_full_path_name(self, parent_node, idx, name):
+    def create_full_path_name(
+        self, parent_node: Optional[Node], idx: Optional[int], name: str
+    ):
         if not parent_node:
             return sanitize_name(name)
         if parent_node.type == C.LIST_ROOT:
@@ -257,36 +312,3 @@ class DependencyGraph:
     @staticmethod
     def extract_ids_from_graph_key(graph_key):
         return {"sectionId": graph_key[0], "paramInfoId": graph_key[1]}
-
-
-@dataclass
-class Node(ABC):
-    id: str
-    name: str
-    full_path_name: str
-    type: str
-    isTopLevel: bool
-    deps: dict
-    value: str | None
-
-    @property
-    @abstractmethod
-    def has_name_and_value(self) -> bool:
-        pass
-
-
-@dataclass
-class SectionNode(Node):
-    @property
-    def has_name_and_value(self) -> bool:
-        return True
-
-
-@dataclass
-class ParamNode(Node):
-    value: str
-    passing_style: ParameterPassingStyle
-
-    @property
-    def has_name_and_value(self):
-        return self.name and is_valid_value(self.value)

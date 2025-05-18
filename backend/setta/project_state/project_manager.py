@@ -1,5 +1,6 @@
 import shutil
 
+from setta.project_state.project_state import AllProjectStates
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
@@ -22,15 +23,15 @@ class ProjectManager:
             project_state
         )
 
-    async def update(self, project_state, messageId=None):
-        projectConfigId = project_state["projectConfig"]["id"]
-        if projectConfigId not in self.state_updaters:
-            self.state_updaters[projectConfigId] = ProjectStateUpdater(
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                self.temp_folder,
-            )
-        await self.state_updaters[projectConfigId].update(project_state, messageId)
+    async def update(self, all_project_states: AllProjectStates, messageId=None):
+        for projectConfigId, project_state in all_project_states.projects.items():
+            if projectConfigId not in self.state_updaters:
+                self.state_updaters[projectConfigId] = ProjectStateUpdater(
+                    self.lsp_writers,
+                    self.websocket_msg_handler,
+                    self.temp_folder,
+                )
+            await self.state_updaters[projectConfigId].update(project_state, messageId)
 
     async def type_check(self, projectConfigId):
         await self.state_updaters[projectConfigId].type_check()

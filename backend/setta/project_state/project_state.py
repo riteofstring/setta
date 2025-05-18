@@ -83,7 +83,7 @@ class Section(BaseModel):
     size: SectionSize = Field(default_factory=lambda: SectionSize())
     parentId: Optional[str] = None
     variantId: Optional[str] = None
-    uiTypeId: Optional[str] = None
+    uiTypeId: str = Field(default="0191cde4-3d98-4ba0-972a-fead19b8ac73")
     uiTypeColId: Optional[str] = None
     social: str = ""
     artifactGroupIds: List[str] = Field(default_factory=list)
@@ -155,7 +155,7 @@ class CodeInfo(BaseModel):
 
 
 class CodeInfoCol(BaseModel):
-    children: Dict[Optional[str], List[Any]] = Field(default_factory=dict)
+    children: Dict[Optional[str], List[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def convert_null_key(self):
@@ -221,6 +221,60 @@ class ProjectState(BaseModel):
     codeInfoCol: Dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: Dict[str, UIType] = Field(default_factory=dict)
     uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
+
+    def get_section_type(self, id: str):
+        ui_type_id = self.sections[id].uiTypeId
+        ui_type = self.uiTypes[ui_type_id]
+        return ui_type.type
+
+    def get_selected_section_variant(self, section_id: str):
+        variantId = self.sections[section_id].variantId
+        if variantId:
+            return self.variants[variantId]
+        return None
+
+    def get_selected_item(self, id: str):
+        variant = self.get_selected_section_variant(id)
+        if variant:
+            selected_item = variant.selectedItem
+            if selected_item:
+                return self.codeInfo[selected_item]
+        return None
+
+    def get_section_children(self, id: str) -> list[str]:
+        variant = self.get_selected_section_variant(id)
+        if variant:
+            return variant.children
+        return []
+
+    def get_top_level_param_ids(self, id: str) -> list[str]:
+        selected_item = self.get_selected_item(id)
+        if selected_item:
+            section_code_info_children = self.get_section_code_info_children(id)
+            children = section_code_info_children.get(selected_item.id, [])
+            return [
+                c for c in children if self.codeInfo[c].rcType == CodeInfoType.PARAMETER
+            ]
+        return []
+
+    def get_section_code_info_children(self, section_id: str):
+        variant = self.get_selected_section_variant(section_id)
+        if variant:
+            codeInfoColId = variant.codeInfoColId
+            if not codeInfoColId:
+                codeInfoCol = CodeInfoCol()
+            else:
+                codeInfoCol = self.codeInfoCol[codeInfoColId]
+            return codeInfoCol.children
+        return CodeInfoCol().children
+
+    def get_param_ui_type(self, section_id: str, id: str):
+        ui_type_col_id = self.sections[section_id].uiTypeColId
+        ui_type_col = self.uiTypeCols[ui_type_col_id] if ui_type_col_id else {}
+        ui_type_col_entry = ui_type_col.get(id, UITypeColEntry())
+        ui_type_id = ui_type_col_entry.uiTypeId
+        ui_type = self.uiTypes[ui_type_id]
+        return ui_type.type
 
 
 class AllProjectStates(BaseModel):

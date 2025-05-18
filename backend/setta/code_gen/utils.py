@@ -13,12 +13,6 @@ class {CLASS_NAME}:
 """.lstrip()
 
 
-def get_section_type(p, id):
-    ui_type_id = p["sections"][id]["uiTypeId"]
-    ui_type = p["uiTypes"].get(ui_type_id) or BASE_UI_TYPES[ui_type_id]
-    return ui_type["type"]
-
-
 def get_artifacts(p, id):
     artifactGroupIds = p["sections"][id]["artifactGroupIds"]
     artifacts = []
@@ -34,10 +28,6 @@ def get_drawing(p, id):
 
 def get_chat_message(p, id):
     return p["sections"][id]["latestChatMessage"]
-
-
-def get_section_name(p, id):
-    return p["sections"][id]["name"]
 
 
 def get_selected_item(p, id):
@@ -126,10 +116,6 @@ def get_section_code(p, id):
 
 def get_section_children(p, id):
     return get_selected_section_variant(p, id)["children"]
-
-
-def is_valid_value(value):
-    return value is not None and value != ""
 
 
 def get_for_section_id(p, section_id):

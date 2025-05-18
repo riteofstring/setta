@@ -5,16 +5,15 @@ from typing import Any, Callable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.code_gen.utils import get_section_type
 from setta.project_state.code import Code
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
+from setta.project_state.project_state import ProjectState
 from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, USER_SETTINGS, C
-from setta.utils.utils import replace_null_keys_with_none
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
@@ -29,7 +28,7 @@ class ProjectStateUpdater:
         self.code_dict: dict[str, ProjectPythonCode] = {}
         self.used_files: set[Path] = set()
         self.message_queue = asyncio.Queue()
-        print("[DEBUG] Creating queue task in ProjectState.__init__", flush=True)
+        print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
@@ -111,7 +110,7 @@ class ProjectStateUpdater:
     async def create_run_command(self, project_state):
         return await self._enqueue(self._create_run_command_impl, project_state)
 
-    async def update(self, project_state, messageId=None):
+    async def update(self, project_state: ProjectState, messageId=None):
         return await self._enqueue(self._update_impl, project_state, messageId)
 
     async def type_check(self):
@@ -165,19 +164,18 @@ class ProjectStateUpdater:
             return self.code_dict[entry_id].get_run_command(code_paths[entry_id])
         return self.gen_code.get_run_command(gen_code_path)
 
-    async def _update_impl(self, project_state, messageId=None):
+    async def _update_impl(self, project_state: ProjectState, messageId=None):
         self.used_files = set()
-        project_state = replace_null_keys_with_none(project_state)
         dep_graph = DependencyGraph(project_state)
         if self.gen_code:
             await self.maybe_do_rename_refactor(messageId, project_state, dep_graph)
             self.gen_code.callback_cleanup()
 
-        gen_code_prefix = project_state["projectConfig"]["genCodePrefix"]
+        gen_code_prefix = project_state.projectConfig.genCodePrefix
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
         code_generator.generate_code()
 
-        projectConfigName = project_state["projectConfig"]["name"]
+        projectConfigName = project_state.projectConfig.name
         project_temp_folder = self.temp_folder / projectConfigName
         self.gen_code = ProjectGenPythonCode(
             project_temp_folder,
@@ -196,7 +194,7 @@ class ProjectStateUpdater:
                     c.callback_cleanup()
         self.code_dict = {}
 
-        for i, sectionId in enumerate(project_state["sections"].keys()):
+        for sectionId in project_state.sections.keys():
             section_type = get_section_type(project_state, sectionId)
 
             if section_type == C.CODE:

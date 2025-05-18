@@ -9,8 +9,6 @@ from setta.code_gen.utils import (
     export_section_to_dict,
     export_single_run_group_to_dict,
     get_for_section_id,
-    get_section_name,
-    get_section_type,
     get_section_variant_attr,
     get_section_variant_ids,
     get_selected_section_variant,
