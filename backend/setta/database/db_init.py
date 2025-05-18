@@ -18,17 +18,13 @@ def seed_data_exist(db, tablenames):
     return True
 
 
-def maybe_create_tables_and_seed(dbq, with_examples=False, with_base_ui_types=True):
+def maybe_create_tables_and_seed(dbq, with_examples=False):
     dbq.connect()
     with dbq as db:
         create_tables(db)
         # do_seed_examples = with_examples and not seed_data_exist(db, ["ProjectConfig"])
-        # do_seed_base_ui_types = with_base_ui_types and not seed_data_exist(
-        #     db, ["UIType"]
-        # )
         # seed(
         #     db,
         #     with_examples=do_seed_examples,
-        #     with_base_ui_types=do_seed_base_ui_types,
         # )
     dbq.disconnect()

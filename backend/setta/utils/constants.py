@@ -56,8 +56,6 @@ class Constants:
 
 C = Constants()
 USER_SETTINGS = {}
-BASE_UI_TYPES = {}
-BASE_UI_TYPE_IDS = {}
 
 
 def set_constants(**kwargs):
@@ -71,10 +69,3 @@ def load_constants():
         get_absolute_path(__file__, CONSTANTS_FOLDER / "constants.json"), "r"
     ) as f:
         set_constants(**json.load(f))
-
-    with open(
-        get_absolute_path(__file__, CONSTANTS_FOLDER / "BaseUITypes.json"), "r"
-    ) as f:
-        BASE_UI_TYPES.update(json.load(f))
-        for k, v in BASE_UI_TYPES.items():
-            BASE_UI_TYPE_IDS[v["type"]] = k

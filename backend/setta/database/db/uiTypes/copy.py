@@ -1,5 +1,4 @@
 from setta.database.utils import remap_ids, rename_keys
-from setta.utils.constants import BASE_UI_TYPES
 
 
 def copy_ui_types(ui_types):
@@ -10,7 +9,6 @@ def copy_ui_types(ui_types):
         u["id"] = ui_type_id_map[u["id"]]
 
     preset_ui_types = {k: v for k, v in ui_types.items() if v["presetType"]}
-    preset_ui_types.update(BASE_UI_TYPES)
     # preset ids shouldn't change
     for k in preset_ui_types.keys():
         ui_type_id_map[k] = k

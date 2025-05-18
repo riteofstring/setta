@@ -3,7 +3,7 @@ import copy
 from setta.utils.section_contents import findAllParametersAndPathMaps
 from setta.utils.utils import replace_null_keys_with_none
 
-from ..utils.constants import BASE_UI_TYPES, C
+from ..utils.constants import C
 
 SELF_IDENTIFIER = "s"
 CLASS_NAME = "S"
@@ -69,15 +69,6 @@ def get_top_level_param_ids(p, id):
     selected_item_id = get_selected_item_id(p, id)
     children = get_code_info_children(p, id, selected_item_id)
     return [c for c in children if p["codeInfo"][c]["rcType"] == C.PARAMETER]
-
-
-def get_param_ui_type(p, section_id, id):
-    ui_type_col_id = p["sections"][section_id]["uiTypeColId"]
-    ui_type_col = p["uiTypeCols"][ui_type_col_id] if ui_type_col_id else {}
-    ui_type_col_entry = ui_type_col.get(id, new_ui_type_col_entry())
-    ui_type_id = ui_type_col_entry["uiTypeId"]
-    ui_type = p["uiTypes"].get(ui_type_id) or BASE_UI_TYPES[ui_type_id]
-    return ui_type["type"]
 
 
 def get_selected_section_variant(p, section_id):

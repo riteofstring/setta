@@ -1,12 +1,8 @@
 import glob
 import json
 
-from setta.utils.constants import BASE_UI_TYPES, SEED_FOLDER
+from setta.utils.constants import SEED_FOLDER
 from setta.utils.utils import get_absolute_path
-
-
-def seed_base_ui_types(db):
-    save_ui_types(db, BASE_UI_TYPES)
 
 
 def seed_examples(db):
@@ -30,8 +26,6 @@ def seed_examples(db):
         save_project_details(db, data, do_save_json_source_data=False)
 
 
-def seed(db, with_examples=False, with_base_ui_types=False):
-    if with_base_ui_types:
-        seed_base_ui_types(db)
+def seed(db, with_examples=False):
     if with_examples:
         seed_examples(db)

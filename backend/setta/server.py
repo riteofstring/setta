@@ -65,7 +65,6 @@ async def lifespan(app: FastAPI):
     maybe_create_tables_and_seed(
         app.state.dbq,
         with_examples=C.WITH_EXAMPLES,
-        with_base_ui_types=True,
     )
     app.state.dbq.connect()
 
