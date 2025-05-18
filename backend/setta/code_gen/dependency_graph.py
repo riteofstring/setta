@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -23,13 +23,6 @@ from ..utils.constants import C, ParameterPassingStyle
 
 GraphKeyType = Tuple[str, str | None]
 
-# TODO:
-# 1. If the user setting is to "always ask" when renaming references, then compute the name change
-# and send them back to the frontend and return early. If the user accepts the changes on the frontend
-# then a new version will be triggered, and the backend state will be updated.
-# If the user setting is "always rename", then send the changed names, but don't return early.
-# If the user setting is "never" then don't even try renaming.
-
 
 class DependencyGraph:
     def __init__(self, p):
@@ -48,7 +41,7 @@ class DependencyGraph:
     def reset(self):
         self.graph: dict[GraphKeyType, Node] = {}
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
-        self.nodes_with_potential_refs: dict[GraphKeyType, set[str]] = {}
+        self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
 
     def construct_graph(self, p):
         self.reset()
@@ -84,7 +77,7 @@ class DependencyGraph:
                     type=type,
                     isTopLevel=isTopLevel,
                     value=value,
-                    deps=[],
+                    deps={},
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
@@ -101,7 +94,7 @@ class DependencyGraph:
                     type=type,
                     isTopLevel=isTopLevel,
                     value=None,
-                    deps=[],
+                    deps={},
                 )
                 node.deps = self.export_sections(p, children, parent_node=node)
                 self.add_to_graph(graph_key, node)
@@ -156,7 +149,7 @@ class DependencyGraph:
                     isTopLevel=isTopLevel,
                     value=value,
                     passing_style=codeInfo["passingStyle"],
-                    deps=[],
+                    deps={},
                 )
                 param.deps = self.export_params(
                     p, sectionId, param_children, parent_node=param
@@ -245,6 +238,8 @@ class DependencyGraph:
                     replacements.append((location, old_name, new_name))
             if replacements:
                 node = self.get_node(k)
+                if not node:
+                    continue
                 node.value, positions = replace_at_positions(
                     node.value, replacements, return_positions=True
                 )
@@ -256,8 +251,7 @@ class DependencyGraph:
         self.resolve_references()
         return changed_node_values
 
-    @staticmethod
-    def create_graph_key(section_id, param_info_id=None):
+    def create_graph_key(self, section_id: str, param_info_id: Optional[str] = None):
         return (section_id, param_info_id)
 
     @staticmethod
@@ -273,6 +267,7 @@ class Node(ABC):
     type: str
     isTopLevel: bool
     deps: dict
+    value: str | None
 
     @property
     @abstractmethod
@@ -282,8 +277,6 @@ class Node(ABC):
 
 @dataclass
 class SectionNode(Node):
-    value: str | None
-
     @property
     def has_name_and_value(self) -> bool:
         return True

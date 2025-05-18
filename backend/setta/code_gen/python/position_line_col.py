@@ -1,3 +1,6 @@
+from typing import Iterable, Tuple
+
+
 def position_to_line_col(text, position):
     if position < 0 or position > len(text):
         return None
@@ -16,16 +19,16 @@ def position_to_line_col(text, position):
     return len(lines) - 1, len(lines[-1])
 
 
-def line_col_to_position_batch(text, line_col_pairs):
+def line_col_to_position_batch(text: str, line_col_pairs: Iterable[Tuple[int, int]]):
     lines = text.split("\n")
     line_starts = [0]
     for line in lines[:-1]:
         line_starts.append(line_starts[-1] + len(line) + 1)
 
-    results = []
+    results: list[int] = []
     for line, col in line_col_pairs:
         if line < 0 or line >= len(lines) or col < 0:
-            results.append(None)
+            raise ValueError
         else:
             position = line_starts[line] + min(col, len(lines[line]))
             results.append(position)

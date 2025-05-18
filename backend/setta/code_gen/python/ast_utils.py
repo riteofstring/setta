@@ -1,12 +1,13 @@
 import ast
 import builtins
+from typing import Dict, Tuple
 
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 
 
 class UndefinedSpecialVarVisitor(ast.NodeVisitor):
     def __init__(self, special_var, keep_attr_only):
-        self.expressions = {}
+        self.expressions: dict[str, Tuple[int, int]] = {}
         self.defined_vars = set(dir(builtins))  # Start with builtins
         self.special_var = special_var
         self.keep_attr_only = keep_attr_only
@@ -153,7 +154,9 @@ class UndefinedSpecialVarVisitor(ast.NodeVisitor):
         self.defined_vars = old_defined
 
 
-def find_undefined_special_var_expressions(code_string, special_var, keep_attr_only):
+def find_undefined_special_var_expressions(
+    code_string, special_var, keep_attr_only
+) -> Dict[str, int]:
     if not code_string.strip():
         return {}
 
@@ -173,8 +176,8 @@ def find_undefined_special_var_expressions(code_string, special_var, keep_attr_o
         )
         idx = 0
         for k in visitor.expressions.keys():
-            visitor.expressions[k] = positions[idx]
+            visitor.expressions[k] = positions[idx]  # type: ignore
             idx += 1
-        return visitor.expressions
+        return visitor.expressions  # type: ignore
 
     return {}
