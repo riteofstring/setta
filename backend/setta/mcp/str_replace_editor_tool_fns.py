@@ -62,11 +62,13 @@ def handle_str_replace_editor_tool_view(path, view_range=None):
             start_idx = max(0, min(start_idx, len(lines)))
             end_idx = max(start_idx, min(end_idx, len(lines)))
 
-            # Return the specified lines
-            return "".join(lines[start_idx:end_idx])
+            # Return the specified lines with line numbers
+            return "".join(
+                [f"{i + 1}: {lines[start_idx + i]}" for i in range(end_idx - start_idx)]
+            )
 
-        # Return the entire file
-        return "".join(lines)
+        # Return the entire file with line numbers
+        return "".join([f"{i + 1}: {line}" for i, line in enumerate(lines)])
 
     # If it's neither a file nor a directory (e.g., a symlink)
     else:
