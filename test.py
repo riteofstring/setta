@@ -326,9 +326,27 @@
 # extract_parameters("argu")
 
 
-from pprint import pprint
+# from pprint import pprint
 
-from setta.project_state.project_state import ProjectState
+# from setta.project_state.project_state import ProjectState
 
-x = ProjectState.model_validate({"projectConfig": {}})
-pprint(x)
+# x = ProjectState.model_validate({"projectConfig": {}})
+# pprint(x)
+
+
+import asyncio
+
+
+async def async_test():
+    print("hello!")
+    return 5
+
+
+async def main():
+    x = async_test()
+    print(x.__name__)
+    print(await x)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

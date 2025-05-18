@@ -54,7 +54,7 @@ class ParamNode(Node):
 
 
 class DependencyGraph:
-    def __init__(self, p: ProjectState):
+    def __init__(self, p: ProjectState, projectConfigId: str):
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -65,16 +65,17 @@ class DependencyGraph:
                 C.TEXT_BLOCK,
             ]
         )
-        self.construct_graph(p)
+        self.construct_graph(p, projectConfigId)
 
     def reset(self):
         self.graph: dict[GraphKeyType, Node] = {}
         self.full_path_name_to_graph_key: dict[str, GraphKeyType] = {}
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
 
-    def construct_graph(self, p: ProjectState):
+    def construct_graph(self, p: ProjectState, projectConfigId: str):
         self.reset()
-        self.export_sections(p, list(p.projectConfig.children.keys()), isTopLevel=True)
+        ids = list(p.projectConfigs[projectConfigId].children.keys())
+        self.export_sections(p, ids, isTopLevel=True)
         self.resolve_references()
 
     def export_sections(
