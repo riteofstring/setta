@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
 from setta.database.utils import create_new_id
+from setta.project_state.base_ui_types import BASE_UI_TYPES, UIType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -174,14 +175,6 @@ class CodeInfoCol(BaseModel):
         return {"children": new_dict}
 
 
-class UIType(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    type: str = "TEXT"
-    name: str = Field(default_factory=generate_memorable_string)
-    presetType: str = "BASE"
-    config: Dict[str, Any] = Field(default_factory=dict)
-
-
 class UITypeColEntry(BaseModel):
     uiTypeId: str = "3fdaeb6a-e989-4888-b844-17a76f0b0192"
     nonPresetUITypeIds: List[str] = Field(default_factory=list)
@@ -232,6 +225,11 @@ class ProjectState(BaseModel):
         else:
             # If projects is empty, defaultProjectConfigId should be None
             self.defaultProjectConfigId = None
+        return self
+
+    @model_validator(mode="after")
+    def ensure_base_ui_types(self):
+        self.uiTypes.update(BASE_UI_TYPES)
         return self
 
     def get_section_type(self, id: str):
