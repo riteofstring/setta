@@ -1,9 +1,7 @@
 import json
 import logging
 
-from setta.database.db.codeInfo.utils import new_code_info_col, with_code_info_defaults
 from setta.database.db.sections.jsonSource import build_ancestor_paths
-from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.database.utils import create_new_id
 
 logger = logging.getLogger(__name__)

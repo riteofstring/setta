@@ -141,7 +141,10 @@ class PythonCodeGenerator:
     def get_value(self, node: Node):
         if isinstance(node, SectionNode):
             return self.get_section_value(node)
-        return self.get_param_value(node)
+        elif isinstance(node, ParamNode):
+            return self.get_param_value(node)
+        else:
+            raise ValueError
 
     def get_section_value(self, node: SectionNode):
         t = node.type
@@ -154,6 +157,8 @@ class PythonCodeGenerator:
             return self.construct_list(node.deps)
         elif t in [C.DICT_ROOT, C.GROUP]:
             return self.construct_dict(node.deps)
+        else:
+            raise ValueError
         # elif t == C.TEXT_BLOCK:
         #     output = f'"""{x["value"]}"""'
         # else:
@@ -169,6 +174,8 @@ class PythonCodeGenerator:
             return f'"{node.value}"'
         elif t == C.NESTED_PARAM:
             return self.construct_dict(node.deps)
+        else:
+            raise ValueError
 
     def construct_dict(self, deps):
         output = ""

@@ -21,44 +21,54 @@ class DB:
             self.execute("PRAGMA foreign_keys = ON;")
 
     def disconnect(self):
-        if self.conn:
+        if self.conn and self.cursor:
             self.cursor.close()
             self.conn.close()
             self.cursor = None
             self.conn = None
 
     def commit(self):
-        self.conn.commit()
+        if self.conn:
+            self.conn.commit()
 
     def rollback(self):
-        self.conn.rollback()
+        if self.conn:
+            self.conn.rollback()
 
     def execute(self, *args, **kwargs):
-        self.cursor.execute(*args, **kwargs)
+        if self.cursor:
+            self.cursor.execute(*args, **kwargs)
 
     def executemany(self, *args, **kwargs):
-        self.cursor.executemany(*args, **kwargs)
+        if self.cursor:
+            self.cursor.executemany(*args, **kwargs)
 
     def executescript(self, *args, **kwargs):
-        self.cursor.executescript(*args, **kwargs)
+        if self.cursor:
+            self.cursor.executescript(*args, **kwargs)
 
     def fetchall(self, *args, **kwargs):
-        return self.cursor.fetchall(*args, **kwargs)
+        if self.cursor:
+            return self.cursor.fetchall(*args, **kwargs)
 
     def fetchone(self, *args, **kwargs):
-        return self.cursor.fetchone(*args, **kwargs)
+        if self.cursor:
+            return self.cursor.fetchone(*args, **kwargs)
 
     @property
     def description(self):
-        return self.cursor.description
+        if self.cursor:
+            return self.cursor.description
 
     def __enter__(self, *args, **kwargs):
         self.connect()
-        self.conn.__enter__(*args, **kwargs)
+        if self.conn:
+            self.conn.__enter__(*args, **kwargs)
         return self
 
     def __exit__(self, *args, **kwargs):
-        return self.conn.__exit__(*args, **kwargs)
+        if self.conn:
+            return self.conn.__exit__(*args, **kwargs)
 
 
 class DBQueue:
@@ -98,8 +108,9 @@ class DBQueue:
 
     def __enter__(self, *args, **kwargs):
         self.set_curr()
-        self.curr.__enter__(*args, **kwargs)
-        return self.curr
+        if self.curr:
+            self.curr.__enter__(*args, **kwargs)
+            return self.curr
 
     def __exit__(self, *args, **kwargs):
         if self.curr is not None:

@@ -13,5 +13,6 @@
   "task.allowAutomaticTasks": "on",
   "terminal.integrated.automationProfile.windows": {
     "path": "cmd.exe"
-  }
+  },
+  "python.analysis.typeCheckingMode": "basic"
 }

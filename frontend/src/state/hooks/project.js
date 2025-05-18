@@ -22,7 +22,7 @@ import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
-  const [defaultProjectName, setDefaultProjectName] = useState([]);
+  const [defaultProjectName, setDefaultProjectName] = useState("");
   async function getAllProjectConfigMetadata() {
     const res = await dbGetAllProjectConfigMetadata();
     if (res.status === 200) {
@@ -30,6 +30,11 @@ export function useGetAllProjectConfigMetadata() {
       setDefaultProjectName(res.data[1]);
     }
   }
+
+  useEffect(() => {
+    getAllProjectConfigMetadata();
+  }, []);
+
   return { projects, defaultProjectName, getAllProjectConfigMetadata };
 }
 

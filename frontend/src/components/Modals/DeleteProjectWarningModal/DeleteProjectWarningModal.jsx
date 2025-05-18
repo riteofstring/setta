@@ -5,9 +5,8 @@ import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 
 export function DeleteProjectWarningModal() {
-  const { selectedProjects, setDoRefresh, setSelectedProjects } = useModal(
-    (x) => x.modalData,
-  );
+  const { selectedProjects, getAllProjectConfigMetadata, setSelectedProjects } =
+    useModal((x) => x.modalData);
 
   const handleCancel = () => {
     setModalOpen(false);
@@ -16,7 +15,7 @@ export function DeleteProjectWarningModal() {
   const handleConfirm = async () => {
     const res = await dbDeleteProjectConfigs(selectedProjects.map((x) => x.id));
     if (res.status === 200) {
-      setDoRefresh(true);
+      getAllProjectConfigMetadata();
       setSelectedProjects([]);
     }
     setModalOpen(false);

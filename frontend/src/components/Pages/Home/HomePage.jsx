@@ -4,7 +4,7 @@ import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import { matchSorter } from "match-sorter";
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { HiHome } from "react-icons/hi";
 import { IoMdCheckmark } from "react-icons/io";
@@ -21,29 +21,25 @@ import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import "./homepage.css";
 
 export function HomePage() {
-  const [doRefresh, setDoRefresh] = useState(true);
   const { projects, defaultProjectName, getAllProjectConfigMetadata } =
     useGetAllProjectConfigMetadata();
-
-  useEffect(() => {
-    if (doRefresh) {
-      getAllProjectConfigMetadata();
-      setDoRefresh(false);
-    }
-  }, [doRefresh]);
 
   return (
     <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
       <RightColumn
         projects={projects}
         defaultProjectName={defaultProjectName}
-        setDoRefresh={setDoRefresh}
+        getAllProjectConfigMetadata={getAllProjectConfigMetadata}
       />
     </GridWrapper>
   );
 }
 
-function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
+function RightColumn({
+  projects,
+  defaultProjectName,
+  getAllProjectConfigMetadata,
+}) {
   const [selectedProjects, setSelectedProjects] = useState([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
@@ -58,7 +54,7 @@ function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
 
   async function onClickDelete() {
     openDeleteProjectWarningModal({
-      setDoRefresh,
+      getAllProjectConfigMetadata,
       setSelectedProjects,
       selectedProjects: selectedProjects.map((s) => ({
         id: s,
@@ -76,7 +72,7 @@ function RightColumn({ projects, defaultProjectName, setDoRefresh }) {
   async function onClickMakeDefault() {
     const projectId = selectedProjects[0];
     await dbSetAsDefaultProject(projectId);
-    setDoRefresh(true);
+    getAllProjectConfigMetadata();
   }
 
   return (

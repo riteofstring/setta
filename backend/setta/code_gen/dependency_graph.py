@@ -17,7 +17,6 @@ from setta.code_gen.utils import (
     is_valid_value,
     sanitize_name,
 )
-from setta.database.db.sectionVariants.utils import new_ev_entry
 from setta.utils.utils import replace_at_positions
 
 from ..utils.constants import C, ParameterPassingStyle
