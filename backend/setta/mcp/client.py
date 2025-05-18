@@ -145,8 +145,9 @@ def handle_str_replace_editor_tool(tool_args):
                 file_path, tool_args["insert_line"], tool_args["new_str"]
             )
         elif command == "undo_edit":
-            # Restore from backup
-            pass
+            # TODO
+            content = "undo_edit is not yet implemented"
+            isError = True
     except Exception as e:
         content = str(e)
         isError = True
