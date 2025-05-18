@@ -1,9 +1,9 @@
 from typing import Iterable, Tuple
 
 
-def position_to_line_col(text, position):
+def position_to_line_col(text: str, position: int):
     if position < 0 or position > len(text):
-        return None
+        raise ValueError
 
     lines = text.split("\n")
     current_pos = 0

@@ -6,7 +6,6 @@ from setta.code_gen.python.ast_utils import find_undefined_special_var_expressio
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
     create_unique_name,
-    get_selected_section_variant,
     sanitize_name,
 )
 from setta.project_state.project_state import (
@@ -211,10 +210,10 @@ class DependencyGraph:
             output_deps[graph_key] = param.has_name_and_value
         return output_deps
 
-    def export_param_value(self, p, sectionId, paramId):
-        variant = get_selected_section_variant(p, sectionId)
-        if paramId in variant["values"]:
-            value = variant["values"][paramId]["value"]
+    def export_param_value(self, p: ProjectState, sectionId: str, paramId: str):
+        variant = p.get_selected_section_variant(sectionId)
+        if variant and paramId in variant.values:
+            value = variant.values[paramId].value
             potential_refs = find_undefined_special_var_expressions(
                 value, SELF_IDENTIFIER, keep_attr_only=True
             )
@@ -223,7 +222,7 @@ class DependencyGraph:
             value = EVEntry().value
             return value, None
 
-    def add_to_graph(self, graph_key, node):
+    def add_to_graph(self, graph_key, node: Node):
         self.graph[graph_key] = node
         self.full_path_name_to_graph_key[node.full_path_name] = graph_key
 

@@ -34,16 +34,18 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, dep_graph: DependencyGraph, gen_code_prefix):
+    def __init__(self, dep_graph: DependencyGraph, gen_code_prefix: str):
         self.dep_graph = dep_graph
         self.gen_code_prefix = gen_code_prefix
         self.reset()
 
     def reset(self):
-        self.var_name_mapping = {}  # graph_key to var name
-        self.reverse_var_name_mapping = {}  # var name to graph_key
-        self.value_pos_start_to_graph_key = {}
-        self.code = ""
+        self.var_name_mapping: dict[GraphKeyType, str] = {}  # graph_key to var name
+        self.reverse_var_name_mapping: dict[
+            str, GraphKeyType
+        ] = {}  # var name to graph_key
+        self.value_pos_start_to_graph_key: dict[int, GraphKeyType] = {}
+        self.code: str = ""
         self.lines: dict[GraphKeyType, PythonCodeLine] = {}
 
     def generate_code(self):
@@ -122,7 +124,8 @@ class PythonCodeGenerator:
             code = f"{code}{indent}{l.var_str}\n"
             self.lines[key].pos = curr_pos
             value_pos_start = self.lines[key].value_pos_start
-            self.value_pos_start_to_graph_key[value_pos_start] = key
+            if value_pos_start is not None:
+                self.value_pos_start_to_graph_key[value_pos_start] = key
         return code
 
     def create_line(self, graph_key, node: Node):

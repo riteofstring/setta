@@ -1,4 +1,5 @@
 import sqlite3
+import traceback
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -115,6 +116,7 @@ async def route_load_project_config(
         raise HTTPException(status_code=404, detail=repr(e))
     except Exception as e:
         print(f"[DEBUG] Unexpected error: {e}", flush=True)
+        print(f"Exception details:\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         print("[DEBUG] route_load_project_config finished", flush=True)

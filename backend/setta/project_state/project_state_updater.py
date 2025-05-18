@@ -1,7 +1,7 @@
 import asyncio
 import copy
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -277,7 +277,10 @@ class ProjectStateUpdater:
         return None
 
     async def maybe_do_rename_refactor(
-        self, messageId, project_state, new_dep_graph: DependencyGraph
+        self,
+        messageId: Optional[str],
+        project_state: ProjectState,
+        new_dep_graph: DependencyGraph,
     ):
         if not project_state.get("requestRenameRefactor"):
             return

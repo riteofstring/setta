@@ -1,3 +1,5 @@
+from typing import Optional
+
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
@@ -20,6 +22,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
+from setta.project_state.project_state import ProjectState
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -28,14 +31,14 @@ class ProjectGenPythonCode(PythonCode):
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
-        project_state,
+        project_state: ProjectState,
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
         super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
-        self.project_config_id = project_state["projectConfig"]["id"]
+        self.project_config_id = project_state.projectConfig.id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
         self.diagnostics_callback = self.process_diagnostics_response
@@ -43,7 +46,9 @@ class ProjectGenPythonCode(PythonCode):
     async def update_file(self):
         await super().update_file(self.code_generator.code)
 
-    async def insert_code_at_position(self, sectionId, paramInfoId, fullText, position):
+    async def insert_code_at_position(
+        self, sectionId: str, paramInfoId: Optional[str], fullText: str, position: int
+    ):
         graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
         start = self.code_generator.change_value(graph_key, fullText)
         await self.update_file()
