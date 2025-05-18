@@ -116,9 +116,13 @@ class Section(BaseModel):
     headingAsSectionName: bool = False
 
 
+class EVEntry(BaseModel):
+    value: str = ""
+
+
 class SectionVariant(BaseModel):
     name: str = ""
-    values: Dict[str, Any] = Field(default_factory=dict)
+    values: Dict[str, EVEntry] = Field(default_factory=dict)
     children: List[str] = Field(default_factory=list)
     selectedItem: Optional[str] = None
     code: str = ""
@@ -165,6 +169,26 @@ class CodeInfoCol(BaseModel):
             else:
                 new_dict[key] = value
         return {"children": new_dict}
+
+
+class UIType(BaseModel):
+    id: str
+    type: str = "TEXT"
+    name: str = ""
+    presetType: str = "BASE"
+    config: Dict[str, Any] = Field(default_factory=dict)
+
+
+class UITypeColEntry(BaseModel):
+    uiTypeId: str = "3fdaeb6a-e989-4888-b844-17a76f0b0192"
+    nonPresetUITypeIds: List[str] = Field(default_factory=list)
+
+
+class Artifact(BaseModel):
+    name: str
+    path: str
+    value: Optional[str] = None
+    type: str
 
 
 class ProjectConfig(BaseModel):

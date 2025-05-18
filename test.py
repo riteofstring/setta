@@ -333,6 +333,9 @@ x = ProjectState.model_validate(
         "projectConfig": {"id": "123", "name": "dog"},
         "sections": {"345": {"id": "313", "name": "models!", "size": {"width": 500}}},
         "codeInfoCol": {"123": {"children": {"234": []}}},
+        "variants": {
+            "variant1": {"values": {"weights": {"value": "torch.tensor([1,2,3])"}}}
+        },
     }
 )
-print(x.sections["345"].size.height)
+print(x.variants["variant1"])
