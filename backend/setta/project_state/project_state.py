@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_serializer, model_validator
 
 from setta.database.utils import create_new_id
-from setta.project_state.base_ui_types import BASE_UI_TYPES, UIType
+from setta.project_state.base_ui_types import BASE_UI_TYPE_IDS, BASE_UI_TYPES, UIType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -84,7 +84,7 @@ class Section(BaseModel):
     size: SectionSize = Field(default_factory=lambda: SectionSize())
     parentId: Optional[str] = None
     variantId: Optional[str] = None
-    uiTypeId: str = Field(default="0191cde4-3d98-4ba0-972a-fead19b8ac73")
+    uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
     uiTypeColId: Optional[str] = None
     social: str = ""
     artifactGroupIds: List[str] = Field(default_factory=list)
@@ -176,7 +176,7 @@ class CodeInfoCol(BaseModel):
 
 
 class UITypeColEntry(BaseModel):
-    uiTypeId: str = "3fdaeb6a-e989-4888-b844-17a76f0b0192"
+    uiTypeId: str = BASE_UI_TYPE_IDS["TEXT"]
     nonPresetUITypeIds: List[str] = Field(default_factory=list)
 
 
