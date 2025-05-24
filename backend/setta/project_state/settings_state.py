@@ -4,102 +4,111 @@ from pydantic import BaseModel
 
 
 class SettingsShortcuts(BaseModel):
-    newCardShortcut: str
-    newGroupShortcut: str
-    typeCheckShortcut: str
-    newProjectConfigShortcut: str
-    undoShortcut: str
-    redoShortcut: str
-    groupShortcut: str
-    ungroupShortcut: str
-    saveShortcut: str
-    saveAsShortcut: str
-    loadShortcut: str
-    searchShortcut: str
-    advancedSearchShortcut: str
-    commandPaletteShortcut: str
-    resetZoomShortcut: str
-    copyShortcut: str
-    pasteShortcut: str
-    pasteAsRefShortcut: str
-    sortingShortcut: str
-    movingFreeShortcut: str
-    showTooltipShortcut: str
-    tooltipToPlaintextShortcut: str
-    tooltipToMarkdownShortcut: str
-    freezeTooltipShortcut: str
-    frozenTooltipToPlaintextShortcut: str
-    frozenTooltipToMarkdownShortcut: str
-    incrementTooltipPageShortcut: str
-    decrementTooltipPageShortcut: str
-    copyTooltipTextShortcut: str
-    frozenTooltipIncrementShortcut: str
-    frozenTooltipDecrementShortcut: str
-    frozenTooltipCopyShortcut: str
-    newTerminalShortcut: str
-    fitViewShortcut: str
-    zoomToMouseShortcut: str
-    deleteSectionShortcut: str
-    selectAll: str
-    selectTopLevelNonGroupSections: str
-    showVersionsTabShortcut: str
-    showParamUITypeTabShortcut: str
-    showProjectOverviewTabShortcut: str
-    runCodeShortcut: str
-    runEntryCodeBlockShortcut: str
-    sendProjectToAllInteractiveCode: str
-    paramSelect: str
-    formatCode: str
-    selectionKeyCode: str
-    multiSelectionKeyCode: str
-    panActivationKeyCode: str
-    zoomActivationKeyCode: str
-    zoomInShortcut: str
-    zoomOutShortcut: str
-    restartLanguageServerShortcut: str
+    newCardShortcut: str = "N"
+    newGroupShortcut: str = "G"
+    typeCheckShortcut: str = ""
+    newProjectConfigShortcut: str = ""
+    undoShortcut: str = "Mod + Z"
+    redoShortcut: str = "Mod + Shift + Z"
+    groupShortcut: str = "Mod + G"
+    ungroupShortcut: str = "Shift + Mod + G"
+    saveShortcut: str = "Mod + S"
+    saveAsShortcut: str = "Mod + Shift + S"
+    loadShortcut: str = "Mod + L"
+    searchShortcut: str = "Mod + K"
+    advancedSearchShortcut: str = "Mod + P"
+    commandPaletteShortcut: str = "Mod + Shift + P"
+    resetZoomShortcut: str = "Mod + Comma"
+    copyShortcut: str = "Mod + C"
+    pasteShortcut: str = "Mod + V"
+    pasteAsRefShortcut: str = "Mod + Shift + V"
+    sortingShortcut: str = "Mod + Alt"
+    movingFreeShortcut: str = "Alt"
+    showTooltipShortcut: str = "Q"
+    tooltipToPlaintextShortcut: str = "Q + S"
+    tooltipToMarkdownShortcut: str = "Q + W"
+    freezeTooltipShortcut: str = "Q + F"
+    frozenTooltipToPlaintextShortcut: str = "S"
+    frozenTooltipToMarkdownShortcut: str = "W"
+    incrementTooltipPageShortcut: str = "Q + ArrowRight"
+    decrementTooltipPageShortcut: str = "Q + ArrowLeft"
+    copyTooltipTextShortcut: str = "Q + C"
+    frozenTooltipIncrementShortcut: str = "ArrowRight"
+    frozenTooltipDecrementShortcut: str = "ArrowLeft"
+    frozenTooltipCopyShortcut: str = "C"
+    newTerminalShortcut: str = "Ctrl + `"
+    fitViewShortcut: str = "F"
+    zoomToMouseShortcut: str = "Z"
+    deleteSectionShortcut: str = "Backspace"
+    selectAll: str = "Mod + A"
+    selectTopLevelNonGroupSections: str = "Mod + Shift + A"
+    showVersionsTabShortcut: str = "V"
+    showParamUITypeTabShortcut: str = "P"
+    showProjectOverviewTabShortcut: str = "O"
+    runCodeShortcut: str = "Mod + Enter"
+    runEntryCodeBlockShortcut: str = "Mod + Shift + Enter"
+    sendProjectToAllInteractiveCode: str = "Alt + I"
+    paramSelect: str = "Mod + Shift"
+    formatCode: str = "Shift + Alt + F"
+    selectionKeyCode: str = "Shift"
+    multiSelectionKeyCode: str = "Mod"
+    panActivationKeyCode: str = "Space"
+    zoomActivationKeyCode: str = "Mod"
+    zoomInShortcut: str = "Equal"
+    zoomOutShortcut: str = "Minus"
+    restartLanguageServerShortcut: str = "Alt + Shift + R"
 
 
 class SettingsGUI(BaseModel):
-    snapGrid: List[int]
-    showGridLines: bool
-    gridPattern: str
-    gridPatternSize: int
-    gridColor: str
-    gridColorDarkMode: str
-    defaultZoomLevel: float
-    minZoom: float
-    maxZoom: float
-    panOnDrag: bool
-    panOnScroll: bool
-    panOnScrollSpeed: float
-    panOnScrollMode: str
-    zoomOnScroll: bool
-    zoomOnPinch: bool
-    zoomOnDoubleClick: bool
-    selectionMode: str
-    leftSidePaneShiftsMap: bool
-    transitionDuration: int
+    snapGrid: List[int] = [15, 15]
+    showGridLines: bool = True
+    gridPattern: str = "Dots"
+    gridPatternSize: int = 2
+    gridColor: str = "#afbacf"
+    gridColorDarkMode: str = "#2b364a"
+    defaultZoomLevel: float = 1.0
+    minZoom: float = 0.1
+    maxZoom: float = 10.0
+    panOnDrag: bool = True
+    panOnScroll: bool = True
+    panOnScrollSpeed: float = 1.0
+    panOnScrollMode: str = "free"
+    zoomOnScroll: bool = True
+    zoomOnPinch: bool = True
+    zoomOnDoubleClick: bool = False
+    selectionMode: str = "partial"
+    leftSidePaneShiftsMap: bool = True
+    transitionDuration: int = 50
 
 
 class SettingsBackend(BaseModel):
-    showDefaultConfigOnLoad: bool
-    inferImports: bool
-    autosave: bool
-    autobackup: bool
-    autobackupFreq: int
-    autobackupKeepLastN: int
-    clearTerminalBeforeMarkingAsReady: bool
-    defaultTerminalShell: Optional[str]
-    exportDbRawOnSave: bool
-    exportDbReadableOnSave: bool
-    exportDbReadableWithVariantsOnSave: bool
-    renameRefactorMode: str
-    saveRenderedValues: bool
+    showDefaultConfigOnLoad: bool = True
+    inferImports: bool = True
+    autosave: bool = False
+    autobackup: bool = False
+    autobackupFreq: int = 300
+    autobackupKeepLastN: int = 10
+    clearTerminalBeforeMarkingAsReady: bool = True
+    defaultTerminalShell: Optional[str] = None
+    exportDbRawOnSave: bool = False
+    exportDbReadableOnSave: bool = False
+    exportDbReadableWithVariantsOnSave: bool = False
+    renameRefactorMode: str = "Always Ask"
+    saveRenderedValues: bool = False
 
 
 class SettingsState(BaseModel, extra="forbid"):
-    shortcuts: SettingsShortcuts
-    gui: SettingsGUI
-    backend: SettingsBackend
-    languageServer: dict  # TODO make a model for this?
-    sections: dict
+    shortcuts: SettingsShortcuts = SettingsShortcuts()
+    gui: SettingsGUI = SettingsGUI()
+    backend: SettingsBackend = SettingsBackend()
+    languageServer: dict = {}  # TODO make a model for this?
+    sections: dict = {  # TODO make a model for this?
+        "CODE": {"size": {"width": 500}},
+        "TERMINAL": {"size": {"width": 700, "height": 300}},
+        "CHART": {"size": {"width": 400, "height": 400}},
+        "GLOBAL_VARIABLES": {"name": "Global Variables"},
+        "GLOBAL_PARAM_SWEEP": {"name": "Global Param Sweep"},
+        "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
+        "TEXT_BLOCK": {"displayMode": "RENDER"},
+        "CHAT": {"size": {"width": 405, "height": 405}},
+    }

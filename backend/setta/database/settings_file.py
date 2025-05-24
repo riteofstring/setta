@@ -54,9 +54,6 @@ class SettingsFile:
 
 class MetaSettingsFile:
     def __init__(self):
-        self.path_seed_settings = get_absolute_path(
-            __file__, CONSTANTS_FOLDER / "settings.json"
-        )
         self.path_seed_meta_settings = get_absolute_path(
             __file__, CONSTANTS_FOLDER / "settingsProject.json"
         )
@@ -110,8 +107,7 @@ class MetaSettingsFile:
         return p
 
     def load_seed_files(self):
-        with open(self.path_seed_settings, "r") as f:
-            self.obj_seed_settings = SettingsState.model_validate(json.load(f))
+        self.obj_seed_settings = SettingsState()
         with open(self.path_seed_meta_settings, "r") as f:
             self.obj_seed_meta_settings = ProjectState.model_validate(json.load(f))
 
