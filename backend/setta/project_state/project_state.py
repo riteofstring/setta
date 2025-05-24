@@ -306,6 +306,11 @@ class ProjectState(BaseModel, extra="forbid"):
         return ui_type.type
 
 
+class ProjectSaveState(BaseModel, extra="forbid"):
+    projectConfigId: str
+    projectState: ProjectState
+
+
 class ProjectLoadState(BaseModel, extra="forbid"):
     projectConfigId: str
     projectState: ProjectState

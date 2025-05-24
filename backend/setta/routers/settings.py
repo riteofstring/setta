@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.database.settings_file import SettingsFile
+from setta.project_state.project_state import ProjectSaveState
 from setta.utils.constants import C
 
 from .dependencies import (
@@ -19,7 +20,7 @@ class SaveSettingsRequest(BaseModel):
 
 
 class SaveSettingsProjectRequest(BaseModel):
-    settingsProject: dict
+    settingsProject: ProjectSaveState
 
 
 @router.post(C.ROUTE_SAVE_SETTINGS)
@@ -54,7 +55,7 @@ async def route_save_settings_project(
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
-        x.settingsProject["projectConfig"]["id"],
+        x.settingsProject.projectConfigId,
     )
 
     return output

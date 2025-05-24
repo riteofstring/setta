@@ -48,7 +48,9 @@ export function NotificationsArea() {
       }
     };
 
-    fetchNotifications();
+    if (projectConfigId) {
+      fetchNotifications();
+    }
   }, [projectConfigId]);
 
   return (

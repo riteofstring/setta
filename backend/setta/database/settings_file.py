@@ -4,7 +4,11 @@ import os
 from pathlib import Path
 
 from setta.database.db.sections.load import load_json_sources_into_data_structures
-from setta.project_state.project_state import ProjectLoadState, ProjectState
+from setta.project_state.project_state import (
+    ProjectLoadState,
+    ProjectSaveState,
+    ProjectState,
+)
 from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.settings_state import SettingsState
 from setta.utils.constants import SETTA_FILES_FOLDER
@@ -45,7 +49,7 @@ class SettingsFile:
     def load_settings_project(self):
         return self.meta_settings_file.load_settings_project()
 
-    def save_settings_project(self, p):
+    def save_settings_project(self, p: ProjectSaveState):
         self.meta_settings_file.save_settings_project(p)
         return self.load_settings()
 
@@ -102,7 +106,6 @@ class MetaSettingsFile:
             projectState=p, projectConfigId=list(p.projectConfigs.keys())[0]
         )
 
-    def save_settings_project(self, p):
+    def save_settings_project(self, p: ProjectSaveState):
         # save_json_source_data(p)
-        # save_json_to_file(self.path_meta_settings, p)
-        pass
+        save_json_to_file(self.path_meta_settings, p.projectState.model_dump())

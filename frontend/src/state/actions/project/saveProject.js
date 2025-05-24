@@ -20,6 +20,7 @@ import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
 import { getSectionType } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
+import { getCurrentProjectConfig } from "./loadProject";
 
 export function getProjectData({
   withArtifacts = false,
@@ -94,7 +95,7 @@ export function getProjectData({
 export async function saveProject() {
   addTemporaryNotification("Saving...", C.NOTIFICATION_TYPE_SAVE);
 
-  if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
+  if (getCurrentProjectConfig().name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
