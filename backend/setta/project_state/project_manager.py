@@ -33,8 +33,10 @@ class ProjectManager:
         self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        self.gen_code = None
-        self.code_dict: dict[str, Union[ProjectPythonCode, ProjectBashCode]] = {}
+        self.gen_code: dict[str, ProjectGenPythonCode] = {}
+        self.code_dict: dict[
+            str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
+        ] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
@@ -114,64 +116,23 @@ class ProjectManager:
             )
             raise
 
+    @staticmethod
+    def enqueue_method(func):
+        async def wrapper(self, *args, **kwargs):
+            return await self._enqueue(func(self, *args, **kwargs))
+
+        # Store the original function
+        wrapper.direct = func
+        return wrapper
+
+    @enqueue_method
     async def create_run_command(
-        self,
-        project_state: ProjectState,
-        projectConfigId: str,
-        entryCodeBlock: str | None,
-    ):
-        return await self._enqueue(
-            self._create_run_command_impl(
-                project_state, projectConfigId, entryCodeBlock
-            )
-        )
-
-    async def update(self, projectUpdateState: ProjectUpdateState, messageId=None):
-        return await self._enqueue(self._update_impl(projectUpdateState, messageId))
-
-    async def type_check(self):
-        return await self._enqueue(self._type_check_impl)
-
-    async def text_field_autocomplete(
-        self, messageId, sectionId, paramInfoId, fullText, position
-    ):
-        return await self._enqueue(
-            self._text_field_autocomplete_impl,
-            messageId,
-            sectionId,
-            paramInfoId,
-            fullText,
-            position,
-        )
-
-    async def parameters_request(self, messageId, sectionId, fullText):
-        return await self._enqueue(
-            self._parameters_request_impl, messageId, sectionId, fullText
-        )
-
-    async def code_area_autocomplete(self, messageId, sectionId, fullText, position):
-        return await self._enqueue(
-            self._code_area_autocomplete_impl, messageId, sectionId, fullText, position
-        )
-
-    async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
-        return await self._enqueue(
-            self._gen_code_prefix_autocomplete_impl, messageId, fullText, position
-        )
-
-    async def get_gen_python_code_path(self):
-        return await self._enqueue(self._get_gen_python_code_path_impl)
-
-    async def get_gen_python_code(self):
-        return await self._enqueue(self._get_gen_python_code_impl)
-
-    async def _create_run_command_impl(
         self,
         projectState: ProjectState,
         projectConfigId: str,
         entryCodeBlock: str | None,
     ):
-        await self._update_impl(projectState, projectConfigId)
+        await self.update.direct(projectState)
         target_folder = create_timestamped_folder(CODE_FOLDER)
         gen_code_path = self.gen_code.write_to_folder(
             target_folder, as_entry_code_block=not entryCodeBlock
@@ -186,7 +147,8 @@ class ProjectManager:
             )
         return self.gen_code.get_run_command(gen_code_path)
 
-    async def _update_impl(
+    @enqueue_method
+    async def update(
         self,
         projectUpdateState: ProjectUpdateState,
         messageId: str | None = None,
@@ -195,11 +157,11 @@ class ProjectManager:
         projectState = projectUpdateState.projectState
         projectConfigId = projectUpdateState.projectConfigId
         dep_graph = DependencyGraph(projectState, projectConfigId)
-        if self.gen_code:
+        if self.gen_code.get(projectConfigId):
             await self.maybe_do_rename_refactor(
                 messageId, projectUpdateState, dep_graph
             )
-            self.gen_code.callback_cleanup()
+            self.gen_code[projectConfigId].callback_cleanup()
 
         projectConfig = projectState.projectConfigs[projectConfigId]
         gen_code_prefix = projectConfig.genCodePrefix
@@ -208,7 +170,7 @@ class ProjectManager:
 
         projectConfigName = projectConfig.name
         project_temp_folder = self.temp_folder / projectConfigName
-        self.gen_code = ProjectGenPythonCode(
+        self.gen_code[projectConfigId] = ProjectGenPythonCode(
             project_temp_folder,
             self.lsp_writers,
             self.websocket_msg_handler,
@@ -216,14 +178,14 @@ class ProjectManager:
             dep_graph,
             code_generator,
         )
-        await self.gen_code.update_file()
-        self.add_to_used_files(self.gen_code)
+        await self.gen_code[projectConfigId].update_file()
+        self.add_to_used_files(self.gen_code[projectConfigId])
 
-        if self.code_dict:
-            for c in self.code_dict.values():
+        if self.code_dict.get(projectConfigId):
+            for c in self.code_dict[projectConfigId].values():
                 if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
-        self.code_dict = {}
+        self.code_dict[projectConfigId] = {}
 
         for sectionId in dep_graph.all_sections_in_project_config:
             section_type = projectState.get_section_type(sectionId)
@@ -238,45 +200,71 @@ class ProjectManager:
 
                 await section_code.update_file()
                 self.add_to_used_files(section_code)
-                self.code_dict[sectionId] = section_code
+                self.code_dict[projectConfigId][sectionId] = section_code
 
         self.delete_unused_files(project_temp_folder)
 
-    async def _type_check_impl(self):
-        await self.gen_code.type_check()
+    @enqueue_method
+    async def type_check(self, projectConfigId: str):
+        await self.gen_code[projectConfigId].type_check()
 
-    async def _text_field_autocomplete_impl(
-        self, messageId, sectionId, paramInfoId, fullText, position
+    @enqueue_method
+    async def text_field_autocomplete(
+        self,
+        messageId: str,
+        projectConfigId: str,
+        sectionId: str,
+        paramInfoId: str,
+        fullText: str,
+        position: int,
     ):
         print("*************text_field_autocomplete\n\n\n", flush=True)
-        await self.gen_code.text_field_autocomplete(
+        await self.gen_code[projectConfigId].text_field_autocomplete(
             messageId, sectionId, paramInfoId, fullText, position
         )
 
-    async def _parameters_request_impl(self, messageId, sectionId, fullText):
+    @enqueue_method
+    async def parameters_request(
+        self, messageId: str, projectConfigId: str, sectionId: str, fullText: str
+    ):
         print("parameters_request", flush=True)
-        await self.gen_code.parameters_request(messageId, sectionId, fullText)
+        await self.gen_code[projectConfigId].parameters_request(
+            messageId, sectionId, fullText
+        )
 
-    async def _code_area_autocomplete_impl(
-        self, messageId, sectionId, fullText, position
+    @enqueue_method
+    async def code_area_autocomplete(
+        self,
+        messageId: str,
+        projectConfigId: str,
+        sectionId: str,
+        fullText: str,
+        position: int,
     ):
         print("*************code_area_autocomplete\n\n\n", flush=True)
-        await self.code_dict[sectionId].code_area_autocomplete(
+        code = self.code_dict[projectConfigId][sectionId]
+        if isinstance(code, ProjectPythonCode):
+            await code.code_area_autocomplete(messageId, fullText, position)
+
+    @enqueue_method
+    async def gen_code_prefix_autocomplete(
+        self, messageId: str, projectConfigId: str, fullText: str, position: int
+    ):
+        print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
+        await self.gen_code[projectConfigId].gen_code_prefix_autocomplete(
             messageId, fullText, position
         )
 
-    async def _gen_code_prefix_autocomplete_impl(self, messageId, fullText, position):
-        print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        await self.gen_code.gen_code_prefix_autocomplete(messageId, fullText, position)
-
-    async def _get_gen_python_code_path_impl(self):
-        if self.gen_code:
-            return self.gen_code.get_gen_python_code_path()
+    @enqueue_method
+    async def get_gen_python_code_path(self, projectConfigId: str):
+        if self.gen_code.get(projectConfigId):
+            return self.gen_code[projectConfigId].get_gen_python_code_path()
         return None
 
-    async def _get_gen_python_code_impl(self):
-        if self.gen_code:
-            return self.gen_code.get_gen_python_code()
+    @enqueue_method
+    async def get_gen_python_code(self, projectConfigId: str):
+        if self.gen_code.get(projectConfigId):
+            return self.gen_code[projectConfigId].get_gen_python_code()
         return ""
 
     def add_to_used_files(self, code_obj: Code):
@@ -343,56 +331,3 @@ class ProjectManager:
 
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)
-
-
-# import shutil
-
-# from setta.project_state.project_state import ProjectState
-# from setta.utils.constants import CODE_FOLDER
-# from setta.websockets.websocket_msg_handlers import WMHProjectManager
-
-# from .project_state_updater import ProjectStateUpdater
-
-
-# class ProjectManager:
-#     async def update(self, project_state: ProjectState, messageId=None):
-#         # for projectConfigId, projectConfig in all_project_states.projectConfigs.items():
-#         # if projectConfigId not in self.state_updaters:
-#         # self.state_updaters[projectConfigId] =
-#         # await self.state_updaters[projectConfigId].update(project_state, messageId)
-#         pass
-
-#     async def type_check(self, projectConfigId):
-#         await self.state_updaters[projectConfigId].type_check()
-
-#     async def text_field_autocomplete(
-#         self, messageId, projectConfigId, sectionId, paramInfoId, fullText, position
-#     ):
-#         project_state = self.state_updaters[projectConfigId]
-#         await project_state.text_field_autocomplete(
-#             messageId, sectionId, paramInfoId, fullText, position
-#         )
-
-#     async def parameters_request(self, messageId, projectConfigId, sectionId, fullText):
-#         project_state = self.state_updaters[projectConfigId]
-#         await project_state.parameters_request(messageId, sectionId, fullText)
-
-#     async def code_area_autocomplete(
-#         self, messageId, projectConfigId, sectionId, fullText, position
-#     ):
-#         project_state = self.state_updaters[projectConfigId]
-#         await project_state.code_area_autocomplete(
-#             messageId, sectionId, fullText, position
-#         )
-
-#     async def gen_code_prefix_autocomplete(
-#         self, messageId, projectConfigId, fullText, position
-#     ):
-#         project_state = self.state_updaters[projectConfigId]
-#         await project_state.gen_code_prefix_autocomplete(messageId, fullText, position)
-
-#     async def get_gen_python_code_path(self, projectConfigId):
-#         return await self.state_updaters[projectConfigId].get_gen_python_code_path()
-
-#     async def get_gen_python_code(self, projectConfigId):
-#         return await self.state_updaters[projectConfigId].get_gen_python_code()

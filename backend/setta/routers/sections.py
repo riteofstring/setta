@@ -23,6 +23,8 @@ from setta.database.db.sections.load import (
     LoadJSONSourceObject,
     load_json_sources_into_data_structures,
 )
+from setta.lsp.specific_file_watcher import SpecificFileWatcher
+from setta.project_state.project_manager import ProjectManager
 from setta.routers.dependencies import get_project_manager, get_specific_file_watcher
 from setta.routers.utils import get_content_processor
 from setta.utils.constants import C
@@ -204,8 +206,8 @@ def route_file_watch_list(
 @router.post(C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE)
 async def route_file_watch_gen_python_code(
     x: FileWatchGenPythonCodeRequest,
-    specific_file_watcher=Depends(get_specific_file_watcher),
-    project_manager=Depends(get_project_manager),
+    specific_file_watcher: SpecificFileWatcher = Depends(get_specific_file_watcher),
+    project_manager: ProjectManager = Depends(get_project_manager),
 ):
     filepaths = []
 
