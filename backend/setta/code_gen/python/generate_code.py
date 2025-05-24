@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Optional
 
 from setta.code_gen.dependency_graph import (
     DependencyGraph,
@@ -22,7 +21,7 @@ class PythonCodeLine:
     var_str: str
     prefix_len: int
     value_len: int
-    pos: Optional[int] = None
+    pos: int | None = None
 
     @property
     def value_pos_start(self):

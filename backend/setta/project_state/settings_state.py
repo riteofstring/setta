@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -89,7 +87,7 @@ class SettingsBackend(BaseModel):
     autobackupFreq: int = 300
     autobackupKeepLastN: int = 10
     clearTerminalBeforeMarkingAsReady: bool = True
-    defaultTerminalShell: Optional[str] = None
+    defaultTerminalShell: str | None = None
     exportDbRawOnSave: bool = False
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False

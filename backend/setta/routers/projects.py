@@ -1,6 +1,5 @@
 import sqlite3
 import traceback
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
@@ -37,7 +36,7 @@ class ProjectLoadRequest(BaseModel):
 
 
 class ProjectLoadFullRequest(BaseModel):
-    excludeProjectConfigName: Optional[str] = None
+    excludeProjectConfigName: str | None = None
 
 
 class ProjectSaveRequest(BaseModel):

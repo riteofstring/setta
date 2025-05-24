@@ -1,7 +1,6 @@
 import json
 import logging
 import traceback
-from typing import Optional
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
@@ -64,7 +63,7 @@ async def route_websocket_frontend(
 @router.websocket(C.ROUTE_WEBSOCKET_CLI_WITH_ID)
 async def route_websocket_cli(
     websocket: WebSocket,
-    id: Optional[str] = None,
+    id: str | None = None,
     websocket_manager=Depends(get_websocket_manager_from_websocket),
     websocket_msg_handler=Depends(get_wmh_cli_from_websocket),
 ):

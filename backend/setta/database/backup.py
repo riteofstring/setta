@@ -3,7 +3,6 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from setta.utils.constants import DB_BACKUP_FOLDER, USER_SETTINGS
 
@@ -23,7 +22,7 @@ def get_backup_files() -> list[Path]:
     )
 
 
-def get_last_backup_time() -> Optional[float]:
+def get_last_backup_time() -> float | None:
     """
     Get the timestamp of the last backup from the most recent backup filename.
     Returns None if no backups exist.

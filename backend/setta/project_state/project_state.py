@@ -1,6 +1,6 @@
 import copy
 from enum import StrEnum
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Union
 
 from pydantic import (
     BaseModel,
@@ -65,7 +65,7 @@ class Visibility(BaseModel):
 
 
 class CanvasSettings(BaseModel):
-    activeLayerId: Optional[str] = None
+    activeLayerId: str | None = None
     color: str = "#ff0000"
     brushSize: int = 16
     brushShape: str = "butt"
@@ -88,15 +88,15 @@ class Section(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     size: SectionSize = Field(default_factory=SectionSize)
-    parentId: Optional[str] = None
+    parentId: str | None = None
     variantId: str = Field(default_factory=create_new_id)
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
-    uiTypeColId: Optional[str] = None
+    uiTypeColId: str | None = None
     social: str = ""
     artifactGroupIds: list[str] = Field(default_factory=list)
-    defaultVariantId: Optional[str] = None
+    defaultVariantId: str | None = None
     variantIds: list[str] = Field(default_factory=list)
-    paramSweepSectionId: Optional[str] = None
+    paramSweepSectionId: str | None = None
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.PYTHON
     isEntryCodeBlock: bool = False
@@ -121,8 +121,8 @@ class Section(BaseModel):
     aspectRatio: bool = False
     aspectRatioExtraHeight: int = 0
     aspectRatioExtraWidth: int = 0
-    columnWidth: Optional[float] = None
-    renderedValue: Optional[Any] = None
+    columnWidth: float | None = None
+    renderedValue: Any = None
     headingAsSectionName: bool = False
 
     @model_validator(mode="after")
@@ -140,9 +140,9 @@ class SectionVariant(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     values: dict[str, EVEntry] = Field(default_factory=dict)
     children: list[str] = Field(default_factory=list)
-    selectedItem: Optional[str] = None
+    selectedItem: str | None = None
     code: str = ""
-    codeInfoColId: Optional[str] = None
+    codeInfoColId: str | None = None
     description: str = ""
     isFrozen: bool = False
     sweep: list[Any] = Field(default_factory=list)
@@ -195,7 +195,7 @@ class UITypeColEntry(BaseModel):
 class Artifact(BaseModel):
     name: str
     path: str
-    value: Optional[str] = None
+    value: str | None = None
     type: str
 
 
@@ -211,7 +211,7 @@ class ProjectConfig(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
-    viewport: Optional[Viewport] = Field(default_factory=Viewport)
+    viewport: Viewport | None = Field(default_factory=Viewport)
     children: dict[str, ProjectConfigChild] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
@@ -228,7 +228,7 @@ class ProjectState(BaseModel, extra="forbid"):
         default_factory=lambda: copy.deepcopy(BASE_UI_TYPES)
     )
     uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
-    defaultProjectConfigId: Optional[str] = None
+    defaultProjectConfigId: str | None = None
 
     @model_validator(mode="after")
     def set_default_project_id(self):

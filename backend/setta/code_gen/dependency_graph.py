@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -95,8 +94,8 @@ class DependencyGraph:
         p: ProjectState,
         id: str,
         isTopLevel=False,
-        parent_node: Optional[Node] = None,
-        idx: Optional[int] = None,
+        parent_node: Node | None = None,
+        idx: int | None = None,
     ):
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
@@ -162,7 +161,7 @@ class DependencyGraph:
         self,
         p: ProjectState,
         sectionId: str,
-        parent_node: Optional[Node] = None,
+        parent_node: Node | None = None,
         isTopLevel=False,
     ):
         paramIds = p.get_top_level_param_ids(sectionId)
@@ -175,7 +174,7 @@ class DependencyGraph:
         p: ProjectState,
         sectionId: str,
         paramIds: list[str],
-        parent_node: Optional[Node] = None,
+        parent_node: Node | None = None,
         isTopLevel=False,
     ):
         output_deps = {}
@@ -241,7 +240,7 @@ class DependencyGraph:
         return self.graph.get(graph_key)
 
     def create_full_path_name(
-        self, parent_node: Optional[Node], idx: Optional[int], name: str
+        self, parent_node: Node | None, idx: int | None, name: str
     ):
         if not parent_node:
             return sanitize_name(name)
@@ -308,7 +307,7 @@ class DependencyGraph:
         self.resolve_references()
         return changed_node_values
 
-    def create_graph_key(self, section_id: str, param_info_id: Optional[str] = None):
+    def create_graph_key(self, section_id: str, param_info_id: str | None = None):
         return (section_id, param_info_id)
 
     @staticmethod

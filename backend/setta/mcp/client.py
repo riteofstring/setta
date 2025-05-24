@@ -1,7 +1,6 @@
 import asyncio
 import json
 from contextlib import AsyncExitStack
-from typing import Optional
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
@@ -20,7 +19,7 @@ from setta.utils.constants import C
 class MCPClient:
     def __init__(self, server_url):
         # Initialize session and client objects
-        self.session: Optional[ClientSession] = None
+        self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.reader_task = None
         self.server_url = server_url

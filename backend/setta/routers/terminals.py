@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
@@ -32,7 +31,7 @@ class KillSubprocessesRequest(BaseModel):
 
 class RunCodeRequest(BaseModel):
     project: dict
-    cliId: Optional[str] = None
+    cliId: str | None = None
 
 
 @router.websocket(C.ROUTE_TERMINAL)

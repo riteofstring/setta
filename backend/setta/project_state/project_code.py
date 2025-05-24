@@ -1,5 +1,3 @@
-from typing import Optional
-
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
@@ -46,7 +44,7 @@ class ProjectGenPythonCode(PythonCode):
         await super().update_file(self.code_generator.code)
 
     async def insert_code_at_position(
-        self, sectionId: str, paramInfoId: Optional[str], fullText: str, position: int
+        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
     ):
         graph_key = self.dep_graph.create_graph_key(sectionId, paramInfoId)
         start = self.code_generator.change_value(graph_key, fullText)

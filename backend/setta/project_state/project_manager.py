@@ -2,7 +2,7 @@ import asyncio
 import copy
 import shutil
 from pathlib import Path
-from typing import Coroutine, Optional, Union
+from typing import Coroutine, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -111,7 +111,7 @@ class ProjectManager:
         self,
         project_state: ProjectState,
         projectConfigId: str,
-        entryCodeBlock: Optional[str],
+        entryCodeBlock: str | None,
     ):
         return await self._enqueue(
             self._create_run_command_impl(
@@ -162,7 +162,7 @@ class ProjectManager:
         self,
         projectState: ProjectState,
         projectConfigId: str,
-        entryCodeBlock: Optional[str],
+        entryCodeBlock: str | None,
     ):
         await self._update_impl(projectState, projectConfigId)
         target_folder = create_timestamped_folder(CODE_FOLDER)
@@ -182,7 +182,7 @@ class ProjectManager:
     async def _update_impl(
         self,
         projectUpdateState: ProjectUpdateState,
-        messageId: Optional[str] = None,
+        messageId: str | None = None,
     ):
         self.used_files = set()
         projectState = projectUpdateState.projectState
@@ -302,7 +302,7 @@ class ProjectManager:
 
     async def maybe_do_rename_refactor(
         self,
-        messageId: Optional[str],
+        messageId: str | None,
         projectUpdateState: ProjectUpdateState,
         new_dep_graph: DependencyGraph,
     ):

@@ -2,7 +2,6 @@ import asyncio
 import os
 import site
 from pathlib import Path
-from typing import Set
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -18,7 +17,7 @@ class LSPFileWatcher:
                            Should accept FileSystemEvent as parameter.
         """
         self.observer = Observer()
-        self.watched_paths: Set[str] = set()
+        self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(notify_callback, asyncio.get_event_loop())
 
     def add_workspace_folder(self, path: str) -> None:

@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Callable, Optional, Set
+from typing import Any, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -45,7 +45,7 @@ class SpecificFileWatcher:
         """
         self.observer = Observer()
         # map from fileWatchGroupName to set of filepaths
-        self.watched_files: dict[str, Set[str]] = defaultdict(set)
+        self.watched_files: dict[str, set[str]] = defaultdict(set)
         self.file_content_processors: dict[
             str, Callable[[str], Any]
         ] = {}  # maps filepath to optional callback
@@ -74,7 +74,7 @@ class SpecificFileWatcher:
         self,
         file_path: str,
         file_watch_group_name: str,
-        content_processor: Optional[Callable[[str], Any]] = None,
+        content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
     ) -> bool:
         """
@@ -155,7 +155,7 @@ class SpecificFileWatcher:
         self,
         filepaths_and_glob_patterns: list[str],
         file_watch_group_name: str,
-        content_processor: Optional[Callable[[str], Any]] = None,
+        content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
     ) -> dict[str, list[str]]:
         """
