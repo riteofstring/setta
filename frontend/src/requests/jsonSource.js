@@ -23,13 +23,9 @@ export async function dbSaveSectionJSONSource(variantId) {
 }
 
 function dataForRequest() {
-  const {
-    sections,
-    codeInfoCols,
-    variants: sectionVariants,
-    codeInfo,
-  } = useProjectState.getState();
-  return { sections, codeInfo, codeInfoCols, sectionVariants };
+  const { sections, codeInfoCols, variants, codeInfo } =
+    useProjectState.getState();
+  return { sections, codeInfo, codeInfoCols, variants };
 }
 
 export async function dbGetJSONSourcePathToBeDeleted(variantName) {

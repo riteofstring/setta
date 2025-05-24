@@ -78,8 +78,8 @@ export function getProjectData({
     projectState: {
       projectConfigs,
       variants,
-      artifacts,
-      artifactGroups,
+      // artifacts,
+      // artifactGroups,
       uiTypes,
       uiTypeCols,
       sections,

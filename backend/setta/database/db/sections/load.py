@@ -2,13 +2,15 @@ import json
 import logging
 from dataclasses import dataclass, field
 
+from pydantic import BaseModel
+
 from setta.database.db.sections.jsonSource import build_ancestor_paths
 from setta.database.utils import create_new_id
 from setta.project_state.project_state import (
     CodeInfo,
     CodeInfoCol,
     EVEntry,
-    ProjectState,
+    Section,
     SectionVariant,
 )
 
@@ -22,8 +24,15 @@ class ProcessedJSONObject:
     variantValues: dict[str, EVEntry] = field(default_factory=dict)
 
 
+class LoadJSONSourceObject(BaseModel):
+    sections: dict[str, Section]
+    variants: dict[str, SectionVariant]
+    codeInfo: dict[str, CodeInfo]
+    codeInfoCols: dict[str, CodeInfoCol]
+
+
 def load_json_sources_into_data_structures(
-    projectState: ProjectState, variant_ids=None
+    projectState: LoadJSONSourceObject, variant_ids: list[str] | None = None
 ):
     for variant_id, variant in projectState.variants.items():
         if variant_ids and variant_id not in variant_ids:

@@ -19,7 +19,10 @@ from setta.database.db.sections.copy import (
     copy_sections_and_other_info,
 )
 from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.database.db.sections.load import load_json_sources_into_data_structures
+from setta.database.db.sections.load import (
+    LoadJSONSourceObject,
+    load_json_sources_into_data_structures,
+)
 from setta.routers.dependencies import get_project_manager, get_specific_file_watcher
 from setta.routers.utils import get_content_processor
 from setta.utils.constants import C
@@ -53,7 +56,7 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
-    project: dict
+    project: LoadJSONSourceObject
     variantIdsToLoad: list[str]
 
 
@@ -138,14 +141,11 @@ def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlReq
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)
 def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    p = x.project
     load_json_sources_into_data_structures(
-        p["codeInfo"],
-        p["codeInfoCols"],
-        p["sectionVariants"],
+        x.project,
         variant_ids=x.variantIdsToLoad,
     )
-    return {"project": p}
+    return {"project": x.project}
 
 
 @router.post(C.ROUTE_NEW_JSON_VERSION_NAME)
