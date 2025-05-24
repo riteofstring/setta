@@ -1,4 +1,5 @@
 import copy
+from collections import defaultdict
 from enum import StrEnum
 from typing import Any, Literal, Union
 
@@ -173,12 +174,15 @@ class CodeInfo(BaseModel, extra="forbid"):
 
 
 class CodeInfoCol(BaseModel, extra="forbid"):
-    children: dict[str | None, list[str]] = Field(default_factory=dict)
+    children: dict[str | None, list[str]] = Field(
+        default_factory=lambda: defaultdict(list)
+    )
 
     @model_validator(mode="after")
     def convert_null_key(self):
-        c = self.children.pop("null", [])
-        self.children[None] = c
+        if "null" in self.children:
+            c = self.children.pop("null")
+            self.children[None] = c
         return self
 
     @model_serializer

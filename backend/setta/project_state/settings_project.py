@@ -153,11 +153,11 @@ def create_settings_project_state(settings_path: str):
         variants[variantId] = variant
 
         uiTypeCols[uiTypeColId] = {}
+        codeInfoCols[codeInfoColId] = CodeInfoCol()
         for c in codeInfoWithUIType[k]:
             codeInfo[c[0].id] = c[0]
             uiTypeCols[uiTypeColId][c[0].id] = UITypeColEntry(uiTypeId=c[1])
-
-        codeInfoCols[codeInfoColId] = CodeInfoCol()
+            codeInfoCols[codeInfoColId].children[None].append(c[0].id)
 
     projectConfigChildren = {
         k: ProjectConfigChild(x=idx * 600) for idx, k in enumerate(sections.keys())
