@@ -7,7 +7,6 @@ import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
-  useAllProjectConfigs,
   useLocalStorage,
   useProjectLoading,
   useProjectState,
@@ -17,14 +16,15 @@ import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 export const ProjectConfigs = React.forwardRef(() => {
   const { name: currProjectConfigName, allConfigNames } = useProjectState(
     (x) => {
-      const { name } = getCurrentProjectConfig(x);
-      const allConfigNames = x.projectConfigs.map((p) => p.name);
+      const curr = getCurrentProjectConfig(x);
+      const name = curr?.name ?? ""
+      const allConfigNames = _.map(x.projectConfigs, (p) => p.name);
       return { name, allConfigNames };
     },
     _.isEqual,
   );
 
-  const projectIsLoading = useProjectLoading(x=>x.projectIsLoading)
+  const projectIsLoading = useProjectLoading((x) => x.projectIsLoading);
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
   const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);
 
@@ -93,8 +93,9 @@ function onMouseEnter({
   }
 
   if (mousedOverName !== currProjectConfigName) {
-    const previewSectionConfigs =
-      useAllProjectConfigs.getState().x[mousedOverName].sections;
+    // TODO: get this working again
+    // const previewSectionConfigs =
+    //   useAllProjectConfigs.getState().x[mousedOverName].sections;
 
     useProjectState.setState((x) => {
       for (const [k, v] of Object.entries(x.sections)) {
