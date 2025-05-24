@@ -28,6 +28,7 @@ class MockFileEvent:
 
     def __init__(self, src_path):
         self.src_path = src_path
+        self.dest_path = src_path
         self.is_directory = False
 
 
@@ -312,7 +313,10 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                     break
 
     def _send_event(
-        self, file_watch_group_name: str, event: FileSystemEvent, event_type: str
+        self,
+        file_watch_group_name: str,
+        event: FileSystemEvent | MockFileEvent,
+        event_type: str,
     ):
         """
         Process and send the event to the callback.

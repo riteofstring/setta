@@ -79,11 +79,6 @@ def get_section_variant_ids(p, section_id):
     return p["sections"][section_id]["variantIds"]
 
 
-def get_section_variants(p, section_id):
-    variantIds = get_section_variant_ids(p, section_id)
-    return [p["sectionVariants"][v] for v in variantIds]
-
-
 def get_selected_section_variant_id(p, section_id):
     return p["sections"][section_id]["variantId"]
 

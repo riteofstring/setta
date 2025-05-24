@@ -94,5 +94,13 @@ class LSPEventHandler(FileSystemEventHandler):
         else:
             self.callback(changes)
 
-    def _path_to_uri(self, path: str) -> str:
-        return Path(path).as_uri()
+    def _path_to_uri(self, path: str | bytes) -> str:
+        if isinstance(path, bytes):
+            # Try to decode, fall back to error handling
+            try:
+                path = path.decode("utf-8")
+            except UnicodeDecodeError:
+                # Handle the error case - maybe skip the file or use a placeholder
+                path = path.decode("utf-8", errors="replace")
+
+        return Path(path).as_uri()  # type: ignore
