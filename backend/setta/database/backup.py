@@ -3,7 +3,7 @@ import shutil
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from setta.utils.constants import DB_BACKUP_FOLDER, USER_SETTINGS
 
@@ -15,7 +15,7 @@ def ensure_backup_dir_exists():
     Path(DB_BACKUP_FOLDER).mkdir(parents=True, exist_ok=True)
 
 
-def get_backup_files() -> List[Path]:
+def get_backup_files() -> list[Path]:
     """Get a list of existing backup files, sorted by filename (which contains the timestamp)."""
     backup_dir = Path(DB_BACKUP_FOLDER)
     return sorted(

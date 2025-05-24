@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -37,8 +37,8 @@ class SectionToYamlRequest(BaseModel):
     codeInfo: dict
     codeInfoChildren: dict
     sectionVariant: dict
-    pinnedIds: Dict[str, List[str]]
-    unpinnedIds: Dict[str, List[str]]
+    pinnedIds: dict[str, list[str]]
+    unpinnedIds: dict[str, list[str]]
 
 
 class ParamSweepSectionToYamlRequest(BaseModel):
@@ -55,7 +55,7 @@ class GlobalParamSweepSectionToYamlRequest(BaseModel):
 
 class LoadSectionJSONSourceRequest(BaseModel):
     project: dict
-    variantIdsToLoad: List[str]
+    variantIdsToLoad: list[str]
 
 
 class SaveSectionJSONSourceRequest(BaseModel):
@@ -80,7 +80,7 @@ class DeleteFileRequest(BaseModel):
 
 
 class FileWatchListRequest(BaseModel):
-    filepaths: List[str]
+    filepaths: list[str]
     fileWatchGroupName: str
 
 

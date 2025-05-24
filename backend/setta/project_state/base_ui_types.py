@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -11,11 +11,11 @@ class UIType(BaseModel):
     type: str = "TEXT"
     name: str = Field(default_factory=generate_memorable_string)
     presetType: str = "BASE"
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 # List of all base UI types
-BASE_UI_TYPES_LIST: List[UIType] = [
+BASE_UI_TYPES_LIST: list[UIType] = [
     UIType(
         id="3fdaeb6a-e989-4888-b844-17a76f0b0192",
         type="TEXT",
@@ -187,10 +187,10 @@ BASE_UI_TYPES_LIST: List[UIType] = [
 ]
 
 # Create dictionary by looping through the list
-BASE_UI_TYPES: Dict[str, UIType] = {
+BASE_UI_TYPES: dict[str, UIType] = {
     ui_type.id: ui_type for ui_type in BASE_UI_TYPES_LIST
 }
 
-BASE_UI_TYPE_IDS: Dict[str, str] = {
+BASE_UI_TYPE_IDS: dict[str, str] = {
     ui_type.type: ui_type.id for ui_type in BASE_UI_TYPES_LIST
 }

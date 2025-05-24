@@ -90,7 +90,7 @@ def replace_at_positions(input_string, replacements, return_positions=False):
         return_positions (bool): Whether to return new positions of replacements
 
     Returns:
-        Union[str, Tuple[str, List[Tuple[int, str]]]]:
+        Union[str, tuple[str, list[tuple[int, str]]]]:
             If return_positions is False: Modified string with all replacements applied
             If return_positions is True: Tuple of (modified string, list of (position, new_value))
 

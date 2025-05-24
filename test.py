@@ -328,17 +328,8 @@
 
 # from pprint import pprint
 
-# from setta.project_state.project_state import ProjectState
+from setta.project_state.base_ui_types import UIType
+from setta.project_state.project_state import ProjectState
 
-# x = ProjectState.model_validate({"projectConfig": {}})
-# pprint(x)
-
-import json
-
-from setta.project_state.settings_state import SettingsState
-
-with open("constants/settings.json", "r") as f:
-    x = json.load(f)
-
-
-x = SettingsState.model_validate(x, strict=True)
+x = ProjectState.model_validate({"sections": {"123": {"parentId": "456"}}})
+x.uiTypes["dog"] = UIType()

@@ -3,7 +3,7 @@ import glob
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Optional, Set
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -45,8 +45,8 @@ class SpecificFileWatcher:
         """
         self.observer = Observer()
         # map from fileWatchGroupName to set of filepaths
-        self.watched_files: Dict[str, Set[str]] = defaultdict(set)
-        self.file_content_processors: Dict[
+        self.watched_files: dict[str, Set[str]] = defaultdict(set)
+        self.file_content_processors: dict[
             str, Callable[[str], Any]
         ] = {}  # maps filepath to optional callback
         self.file_to_patterns = {}
@@ -153,11 +153,11 @@ class SpecificFileWatcher:
 
     def update_watch_list(
         self,
-        filepaths_and_glob_patterns: List[str],
+        filepaths_and_glob_patterns: list[str],
         file_watch_group_name: str,
         content_processor: Optional[Callable[[str], Any]] = None,
         fire_immediately: bool = True,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """
         Update the entire list of files being watched with a single function call.
         This efficiently handles adding new files and removing files that are no longer needed.

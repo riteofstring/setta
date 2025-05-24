@@ -2,7 +2,7 @@ import asyncio
 import copy
 import shutil
 from pathlib import Path
-from typing import Coroutine, Optional, Tuple, Union
+from typing import Coroutine, Optional, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -29,7 +29,7 @@ class ProjectManager:
         self.gen_code = None
         self.code_dict: dict[str, Union[ProjectPythonCode, ProjectBashCode]] = {}
         self.used_files: set[Path] = set()
-        self.message_queue: asyncio.Queue[Tuple[Coroutine, asyncio.Future]] = (
+        self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
         )
         print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)

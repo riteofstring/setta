@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
-    sectionIds: List[str]
+    sectionIds: list[str]
 
 
 class KillSubprocessesRequest(BaseModel):

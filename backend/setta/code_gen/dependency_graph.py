@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
@@ -17,7 +17,7 @@ from setta.utils.utils import replace_at_positions
 
 from ..utils.constants import C
 
-GraphKeyType = Tuple[str, str | None]
+GraphKeyType = tuple[str, str | None]
 
 
 @dataclass

@@ -1,6 +1,6 @@
 import copy
 from enum import StrEnum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -78,7 +78,7 @@ class CanvasSettings(BaseModel):
 class ChartSettings(BaseModel):
     type: str = "line"
     xAxisColumn: str = ""
-    secondYAxisColumns: List[str] = Field(default_factory=list)
+    secondYAxisColumns: list[str] = Field(default_factory=list)
     xAxisLog: bool = False
     y1AxisLog: bool = False
     y2AxisLog: bool = False
@@ -93,11 +93,11 @@ class Section(BaseModel):
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
     uiTypeColId: Optional[str] = None
     social: str = ""
-    artifactGroupIds: List[str] = Field(default_factory=list)
+    artifactGroupIds: list[str] = Field(default_factory=list)
     defaultVariantId: Optional[str] = None
-    variantIds: List[str] = Field(default_factory=list)
+    variantIds: list[str] = Field(default_factory=list)
     paramSweepSectionId: Optional[str] = None
-    nonPresetUITypeIds: List[str] = Field(default_factory=list)
+    nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.PYTHON
     isEntryCodeBlock: bool = False
     isFrozen: bool = False
@@ -115,7 +115,7 @@ class Section(BaseModel):
     isTemporary: bool = False
     renderMarkdown: bool = False
     positionAndSizeLocked: bool = False
-    selectedVariantIds: Dict[str, Any] = Field(default_factory=dict)
+    selectedVariantIds: dict[str, Any] = Field(default_factory=dict)
     paramFilter: str = ""
     isInOtherProjectConfigs: bool = False
     aspectRatio: bool = False
@@ -138,18 +138,18 @@ class EVEntry(BaseModel):
 
 class SectionVariant(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
-    values: Dict[str, EVEntry] = Field(default_factory=dict)
-    children: List[str] = Field(default_factory=list)
+    values: dict[str, EVEntry] = Field(default_factory=dict)
+    children: list[str] = Field(default_factory=list)
     selectedItem: Optional[str] = None
     code: str = ""
     codeInfoColId: Optional[str] = None
     description: str = ""
     isFrozen: bool = False
-    sweep: List[Any] = Field(default_factory=list)
-    runGroup: Dict[str, Any] = Field(default_factory=dict)
+    sweep: list[Any] = Field(default_factory=list)
+    runGroup: dict[str, Any] = Field(default_factory=dict)
     configLanguage: ConfigLanguage = ConfigLanguage.PYTHON
     isJsonSource: bool = False
-    jsonSourceKeys: List[str] = Field(default_factory=list)
+    jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
 
 
@@ -168,7 +168,7 @@ class CodeInfo(BaseModel):
 
 
 class CodeInfoCol(BaseModel):
-    children: Dict[str | None, List[str]] = Field(default_factory=dict)
+    children: dict[str | None, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def convert_null_key(self):
@@ -189,7 +189,7 @@ class CodeInfoCol(BaseModel):
 
 class UITypeColEntry(BaseModel):
     uiTypeId: str = BASE_UI_TYPE_IDS["TEXT"]
-    nonPresetUITypeIds: List[str] = Field(default_factory=list)
+    nonPresetUITypeIds: list[str] = Field(default_factory=list)
 
 
 class Artifact(BaseModel):
@@ -212,22 +212,22 @@ class ProjectConfig(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Optional[Viewport] = Field(default_factory=Viewport)
-    children: Dict[str, ProjectConfigChild] = Field(default_factory=dict)
+    children: dict[str, ProjectConfigChild] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
 
 
 class ProjectState(BaseModel, extra="forbid"):
-    projectConfigs: Dict[str, ProjectConfig] = Field(default_factory=dict)
-    sections: Dict[str, Section] = Field(default_factory=dict)
-    variants: Dict[str, SectionVariant] = Field(default_factory=dict)
-    codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
-    codeInfoCols: Dict[str, CodeInfoCol] = Field(default_factory=dict)
-    uiTypes: Dict[str, UIType] = Field(
+    projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
+    sections: dict[str, Section] = Field(default_factory=dict)
+    variants: dict[str, SectionVariant] = Field(default_factory=dict)
+    codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
+    codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
+    uiTypes: dict[str, UIType] = Field(
         default_factory=lambda: copy.deepcopy(BASE_UI_TYPES)
     )
-    uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
+    uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
     defaultProjectConfigId: Optional[str] = None
 
     @model_validator(mode="after")

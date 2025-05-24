@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple
+from typing import Iterable
 
 
 def position_to_line_col(text: str, position: int):
@@ -19,7 +19,7 @@ def position_to_line_col(text: str, position: int):
     return len(lines) - 1, len(lines[-1])
 
 
-def line_col_to_position_batch(text: str, line_col_pairs: Iterable[Tuple[int, int]]):
+def line_col_to_position_batch(text: str, line_col_pairs: Iterable[tuple[int, int]]):
     lines = text.split("\n")
     line_starts = [0]
     for line in lines[:-1]:

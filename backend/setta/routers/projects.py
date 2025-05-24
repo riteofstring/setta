@@ -1,6 +1,6 @@
 import sqlite3
 import traceback
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
@@ -60,7 +60,7 @@ class CreateProjectConfigRequest(BaseModel):
 
 
 class DeleteProjectConfigsRequest(BaseModel):
-    ids: List[str]
+    ids: list[str]
 
 
 class SetProjectConfigNameRequest(BaseModel):

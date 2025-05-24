@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -60,7 +60,7 @@ class SettingsShortcuts(BaseModel):
 
 
 class SettingsGUI(BaseModel):
-    snapGrid: List[int] = [15, 15]
+    snapGrid: list[int] = [15, 15]
     showGridLines: bool = True
     gridPattern: str = "Dots"
     gridPatternSize: int = 2

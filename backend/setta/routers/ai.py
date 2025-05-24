@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
@@ -21,13 +21,13 @@ router = APIRouter()
 
 class GetLLMResponseRequest(BaseModel):
     chatId: str | None
-    message: Dict[str, Any]
+    message: dict[str, Any]
     model: str
     deepThink: bool
 
 
 class SetLLMApiKeysRequest(BaseModel):
-    apiKeys: Dict[str, str]
+    apiKeys: dict[str, str]
     apiKeysFilepath: str
 
 

@@ -1,5 +1,4 @@
 import os
-from typing import List
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -22,11 +21,11 @@ router = APIRouter()
 
 
 class SendArtifactRequest(BaseModel):
-    data: List[dict]
+    data: list[dict]
 
 
 class LoadArtifactsRequest(BaseModel):
-    artifactIds: List[str]
+    artifactIds: list[str]
 
 
 class LoadAvailableArtifactsRequest(BaseModel):
