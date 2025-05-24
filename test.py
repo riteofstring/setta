@@ -353,6 +353,5 @@
 
 from setta.project_state.settings_project import create_settings_project_state
 
-
 x = create_settings_project_state("setta_files/setta-meta-settings.json")
 print(x.model_dump(exclude_defaults=True))

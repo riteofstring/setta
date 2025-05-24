@@ -15,11 +15,11 @@ from setta.project_state.project_state import (
     Section,
     SectionSize,
     SectionVariant,
+    UITypeColEntry,
 )
 from setta.project_state.settings_state import (
     SettingsBackend,
     SettingsGUI,
-    SettingsShortcuts,
 )
 
 
@@ -62,42 +62,48 @@ def create_settings_code_info_with_ui_types(section_names):
         },
     )
 
-    codeInfoWithUIType: dict[str, list[tuple[CodeInfo, str]]] = {s: [] for s in section_names}
-    codeInfoWithUIType["gui"].append((CodeInfo(name="selectionMode"), selection_dropdown.id))
+    codeInfoWithUIType: dict[str, list[tuple[CodeInfo, str]]] = {
+        s: [] for s in section_names
+    }
+    codeInfoWithUIType["gui"].append(
+        (CodeInfo(name="selectionMode"), selection_dropdown.id)
+    )
     codeInfoWithUIType["gui"].append((CodeInfo(name="gridPattern"), grid_dropdown.id))
-    codeInfoWithUIType["gui"].append((CodeInfo(name="panOnScrollMode"), pan_dropdown.id))
-    codeInfoWithUIType["gui"].extend(
-            (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER])
-            for n in [
-                "gridColor",
-                "gridColorDarkMode",
-            ]
+    codeInfoWithUIType["gui"].append(
+        (CodeInfo(name="panOnScrollMode"), pan_dropdown.id)
     )
     codeInfoWithUIType["gui"].extend(
-            (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
-            for n in [
-                "showGridLines",
-                "leftSidePaneShiftsMap",
-                "panOnDrag",
-                "panOnScroll",
-                "zoomOnScroll",
-                "zoomOnPinch",
-                "zoomOnDoubleClick",
-            ]
+        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER])
+        for n in [
+            "gridColor",
+            "gridColorDarkMode",
+        ]
+    )
+    codeInfoWithUIType["gui"].extend(
+        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
+        for n in [
+            "showGridLines",
+            "leftSidePaneShiftsMap",
+            "panOnDrag",
+            "panOnScroll",
+            "zoomOnScroll",
+            "zoomOnPinch",
+            "zoomOnDoubleClick",
+        ]
     )
 
     codeInfoWithUIType["backend"].extend(
-            (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
-            for n in [
-                "showDefaultConfigOnLoad",
-                "autosave",
-                "autobackup",
-                "clearTerminalBeforeMarkingAsReady",
-                "exportDbRawOnSave",
-                "exportDbReadableOnSave",
-                "exportDbReadableWithVariantsOnSave",
-                "saveRenderedValues",
-            ]
+        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
+        for n in [
+            "showDefaultConfigOnLoad",
+            "autosave",
+            "autobackup",
+            "clearTerminalBeforeMarkingAsReady",
+            "exportDbRawOnSave",
+            "exportDbReadableOnSave",
+            "exportDbReadableWithVariantsOnSave",
+            "saveRenderedValues",
+        ]
     )
 
     settings_fields = {
@@ -112,34 +118,46 @@ def create_settings_code_info_with_ui_types(section_names):
                 f"Settings project construction error: codeInfoPathToUITypeId key not valid: {diff}"
             )
 
-    return codeInfoWithUIType, {
-        u.id: u for u in [grid_dropdown, selection_dropdown, pan_dropdown]
-    }
+    uiTypes = {u.id: u for u in [grid_dropdown, selection_dropdown, pan_dropdown]}
+
+    return codeInfoWithUIType, uiTypes
 
 
 def create_settings_project_state(settings_path: str):
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
     codeInfoWithUIType, uiTypes = create_settings_code_info_with_ui_types(section_names)
-    
-    sections = {}
-    variants = {}
-    codeInfoCols = {}
+
+    sections: dict[str, Section] = {}
+    variants: dict[str, SectionVariant] = {}
+    codeInfo: dict[str, CodeInfo] = {}
+    codeInfoCols: dict[str, CodeInfoCol] = {}
+    uiTypeCols: dict[str, dict[str, UITypeColEntry]] = {}
     for k in section_names:
+        uiTypeColId = create_new_id()
+        codeInfoColId = create_new_id()
+        variantId = create_new_id()
+
         section = Section(
             name=k,
             size=SectionSize(width=550),
-            variantId=create_new_id(),
+            variantId=variantId,
         )
         sections[section.id] = section
         variant = SectionVariant(
             name=settings_path,
-            codeInfoColId=create_new_id(),
+            codeInfoColId=codeInfoColId,
             isJsonSource=True,
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.JSON,
         )
-        codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
-        variants[section.variantId] = variant
+        variants[variantId] = variant
+
+        uiTypeCols[uiTypeColId] = {}
+        for c in codeInfoWithUIType[k]:
+            codeInfo[c[0].id] = c[0]
+            uiTypeCols[uiTypeColId][c[0].id] = UITypeColEntry(uiTypeId=c[1])
+
+        codeInfoCols[codeInfoColId] = CodeInfoCol()
 
     projectConfigChildren = {
         k: ProjectConfigChild(x=idx * 600) for idx, k in enumerate(sections.keys())
@@ -152,4 +170,7 @@ def create_settings_project_state(settings_path: str):
         sections=sections,
         variants=variants,
         uiTypes=uiTypes,
+        uiTypeCols=uiTypeCols,
+        codeInfo=codeInfo,
+        codeInfoCols=codeInfoCols,
     )
