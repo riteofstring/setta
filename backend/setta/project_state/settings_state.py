@@ -81,7 +81,6 @@ class SettingsGUI(BaseModel):
 
 class SettingsBackend(BaseModel):
     showDefaultConfigOnLoad: bool = True
-    inferImports: bool = True
     autosave: bool = False
     autobackup: bool = False
     autobackupFreq: int = 300

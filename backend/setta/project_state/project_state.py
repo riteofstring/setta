@@ -10,7 +10,12 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.project_state.base_ui_types import BASE_UI_TYPE_IDS, BASE_UI_TYPES, UIType
+from setta.project_state.base_ui_types import (
+    BASE_UI_TYPE_IDS,
+    BASE_UI_TYPES,
+    UIType,
+    UITypeName,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -90,7 +95,7 @@ class Section(BaseModel, extra="forbid"):
     size: SectionSize = Field(default_factory=SectionSize)
     parentId: str | None = None
     variantId: str = Field(default_factory=create_new_id)
-    uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
+    uiTypeId: str = Field(default=BASE_UI_TYPE_IDS[UITypeName.SECTION])
     uiTypeColId: str | None = None
     social: str = ""
     artifactGroupIds: list[str] = Field(default_factory=list)
@@ -188,7 +193,7 @@ class CodeInfoCol(BaseModel, extra="forbid"):
 
 
 class UITypeColEntry(BaseModel, extra="forbid"):
-    uiTypeId: str = BASE_UI_TYPE_IDS["TEXT"]
+    uiTypeId: str = BASE_UI_TYPE_IDS[UITypeName.TEXT]
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
 
 
