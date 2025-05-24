@@ -48,23 +48,23 @@ class ViewingEditingMode(StrEnum):
     USER_EDIT = "USER_EDIT"
 
 
-class Viewport(BaseModel):
+class Viewport(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0
     zoom: float = 1
 
 
-class SectionSize(BaseModel):
+class SectionSize(BaseModel, extra="forbid"):
     width: Union[float, Literal[Size.AUTO]] = Size.AUTO
     height: Union[float, Literal[Size.AUTO]] = Size.AUTO
 
 
-class Visibility(BaseModel):
+class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
 
 
-class CanvasSettings(BaseModel):
+class CanvasSettings(BaseModel, extra="forbid"):
     activeLayerId: str | None = None
     color: str = "#ff0000"
     brushSize: int = 16
@@ -75,7 +75,7 @@ class CanvasSettings(BaseModel):
     mode: str = "draw"
 
 
-class ChartSettings(BaseModel):
+class ChartSettings(BaseModel, extra="forbid"):
     type: str = "line"
     xAxisColumn: str = ""
     secondYAxisColumns: list[str] = Field(default_factory=list)
@@ -84,7 +84,7 @@ class ChartSettings(BaseModel):
     y2AxisLog: bool = False
 
 
-class Section(BaseModel):
+class Section(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     size: SectionSize = Field(default_factory=SectionSize)
@@ -132,11 +132,11 @@ class Section(BaseModel):
         return self
 
 
-class EVEntry(BaseModel):
+class EVEntry(BaseModel, extra="forbid"):
     value: str = ""
 
 
-class SectionVariant(BaseModel):
+class SectionVariant(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
     values: dict[str, EVEntry] = Field(default_factory=dict)
     children: list[str] = Field(default_factory=list)
@@ -153,7 +153,7 @@ class SectionVariant(BaseModel):
     jsonSourceMissing: bool = False
 
 
-class CodeInfo(BaseModel):
+class CodeInfo(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     editable: bool = False
@@ -167,7 +167,7 @@ class CodeInfo(BaseModel):
     ignoreTypeErrors: bool = False
 
 
-class CodeInfoCol(BaseModel):
+class CodeInfoCol(BaseModel, extra="forbid"):
     children: dict[str | None, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -187,19 +187,19 @@ class CodeInfoCol(BaseModel):
         return {"children": new_dict}
 
 
-class UITypeColEntry(BaseModel):
+class UITypeColEntry(BaseModel, extra="forbid"):
     uiTypeId: str = BASE_UI_TYPE_IDS["TEXT"]
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
 
 
-class Artifact(BaseModel):
+class Artifact(BaseModel, extra="forbid"):
     name: str
     path: str
     value: str | None = None
     type: str
 
 
-class ProjectConfigChild(BaseModel):
+class ProjectConfigChild(BaseModel, extra="forbid"):
     x: float
     y: float
     zIndex: int
@@ -207,7 +207,7 @@ class ProjectConfigChild(BaseModel):
     h: float
 
 
-class ProjectConfig(BaseModel):
+class ProjectConfig(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
@@ -300,12 +300,12 @@ class ProjectState(BaseModel, extra="forbid"):
         return ui_type.type
 
 
-class ProjectLoadState(BaseModel):
+class ProjectLoadState(BaseModel, extra="forbid"):
     projectConfigId: str
     projectState: ProjectState
 
 
-class ProjectUpdateState(BaseModel):
+class ProjectUpdateState(BaseModel, extra="forbid"):
     projectConfigId: str
     projectState: ProjectState
     requestRenameRefactor: bool = False

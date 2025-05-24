@@ -227,12 +227,12 @@ function OneItemEditing({ sectionId, id, isCurr, deletable }) {
 
 async function maybeLoadJsonContents(variantId) {
   if (useProjectState.getState().variants[variantId].isJsonSource) {
-    const { sectionVariants, codeInfo, codeInfoCols } = await loadJsonContents([
+    const { variants, codeInfo, codeInfoCols } = await loadJsonContents([
       variantId,
     ]);
     useProjectState.setState((state) => {
       updateSectionInfos({
-        sectionVariants,
+        variants,
         codeInfo,
         codeInfoCols,
         state,

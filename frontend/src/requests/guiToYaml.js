@@ -84,14 +84,14 @@ async function dbParamSweepSectionToYaml(sectionId, variantId) {
 async function dbGlobalParamSweepSectionToYaml(variantId) {
   const state = useProjectState.getState();
   const sections = state.sections;
-  const sectionVariants = state.variants;
-  const runGroup = sectionVariants[variantId].runGroup;
+  const variants = state.variants;
+  const runGroup = variants[variantId].runGroup;
 
   const res = await post({
     body: {
       runGroup,
       sections,
-      sectionVariants,
+      variants,
     },
     address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });

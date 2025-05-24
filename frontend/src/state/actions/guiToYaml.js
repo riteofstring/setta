@@ -143,19 +143,11 @@ function globalParamSweepSectionYamlToGUI(yamlValue, runGroupId) {
   const doc = parseAllDocuments(yamlValue)[0].toJS();
   const state = useProjectState.getState();
   const sections = state.sections;
-  const sectionVariants = state.variants;
+  const variants = state.variants;
   const newRunGroupSections = {};
 
   for (const [k, v] of Object.entries(doc)) {
-    recursiveHelper(
-      k,
-      v,
-      sections,
-      sectionVariants,
-      newRunGroupSections,
-      null,
-      null,
-    );
+    recursiveHelper(k, v, sections, variants, newRunGroupSections, null, null);
   }
 
   useProjectState.setState((x) => {
@@ -167,14 +159,14 @@ function recursiveHelper(
   name,
   value,
   sections,
-  sectionVariants,
+  variants,
   newRunGroupSections,
   forSectionId,
   parentVariantId,
 ) {
   let nextForSectionId = forSectionId;
   let nextParentVariantId = parentVariantId;
-  const [match, type] = getMatch(name, forSectionId, sections, sectionVariants);
+  const [match, type] = getMatch(name, forSectionId, sections, variants);
   if (type === "section") {
     if (!(match in newRunGroupSections)) {
       newRunGroupSections[match] = {};
@@ -202,7 +194,7 @@ function recursiveHelper(
         k,
         v,
         sections,
-        sectionVariants,
+        variants,
         newRunGroupSections,
         nextForSectionId,
         nextParentVariantId,
@@ -235,7 +227,7 @@ function recursiveHelper(
       k,
       v,
       sections,
-      sectionVariants,
+      variants,
       newRunGroupSections,
       nextForSectionId,
       nextParentVariantId,
@@ -243,12 +235,12 @@ function recursiveHelper(
   }
 }
 
-function getMatch(name, forSectionId, sections, sectionVariants) {
+function getMatch(name, forSectionId, sections, variants) {
   let match, type;
   if (forSectionId && name.startsWith("@")) {
     const searchName = name.slice(1);
     for (const v of sections[forSectionId].variantIds) {
-      if (sectionVariants[v].name === searchName) {
+      if (variants[v].name === searchName) {
         match = v;
         type = "sectionVariant";
         break;
@@ -258,15 +250,14 @@ function getMatch(name, forSectionId, sections, sectionVariants) {
     const searchName = name.slice(1);
     const { paramSweepSectionId } = sections[forSectionId];
     for (const v of sections[paramSweepSectionId].variantIds) {
-      if (sectionVariants[v].name === searchName) {
+      if (variants[v].name === searchName) {
         match = v;
         type = "paramSweep";
         break;
       }
     }
   } else if (forSectionId) {
-    for (const v of sectionVariants[sections[forSectionId].variantId]
-      .children) {
+    for (const v of variants[sections[forSectionId].variantId].children) {
       if (sections[v].name === name) {
         match = v;
         type = "section";

@@ -74,7 +74,8 @@ function useLoadSettings() {
 }
 
 function useDefaultProjectConfigName() {
-  const [defaultProjectConfigName, setDefaultProjectConfigName] = useState(undefined);
+  const [defaultProjectConfigName, setDefaultProjectConfigName] =
+    useState(undefined);
 
   async function fn() {
     const res = await dbGetDefaultProjectConfigName();

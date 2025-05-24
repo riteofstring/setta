@@ -5,7 +5,7 @@ import { updateSectionInfos } from "../sectionInfos";
 
 export function loadSectionIntoState({
   sections,
-  sectionVariants,
+  variants,
   uiTypeCols,
   uiTypes,
   codeInfoCols,
@@ -28,7 +28,7 @@ export function loadSectionIntoState({
   useProjectState.setState((state) => {
     updateSectionInfos({
       sections,
-      sectionVariants,
+      variants,
       uiTypes,
       uiTypeCols,
       codeInfo,

@@ -32,7 +32,7 @@ async function pasteSections({ data, asRef = false }) {
     dataToPaste.sections = removeSingletonSectionsIfAlreadyPresent(dataToPaste);
     const topLevelIds = findTopLevelSections(
       dataToPaste.sections,
-      dataToPaste.sectionVariants,
+      dataToPaste.variants,
     );
 
     loadSectionIntoState({
@@ -44,9 +44,9 @@ async function pasteSections({ data, asRef = false }) {
   }
 }
 
-function findTopLevelSections(sections, sectionVariants) {
+function findTopLevelSections(sections, variants) {
   const allChildren = new Set();
-  for (const v of Object.values(sectionVariants)) {
+  for (const v of Object.values(variants)) {
     for (const c of v.children) {
       allChildren.add(c);
     }

@@ -24,7 +24,7 @@ class ProcessedJSONObject:
     variantValues: dict[str, EVEntry] = field(default_factory=dict)
 
 
-class LoadJSONSourceObject(BaseModel):
+class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, Section]
     variants: dict[str, SectionVariant]
     codeInfo: dict[str, CodeInfo]

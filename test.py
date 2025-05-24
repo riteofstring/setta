@@ -328,8 +328,24 @@
 
 # from pprint import pprint
 
-from setta.project_state.base_ui_types import UIType
+
+import json
+
+from setta.database.db.sections.load import LoadJSONSourceObject, load_json_sources_into_data_structures
 from setta.project_state.project_state import ProjectState
 
-x = ProjectState.model_validate({"sections": {"123": {"parentId": "456"}}})
-x.uiTypes["dog"] = UIType()
+
+with open("setta_files/setta-meta-settings.json", 'r') as f:
+    x = ProjectState.model_validate(json.load(f))
+
+
+load_json_sources_into_data_structures(
+    LoadJSONSourceObject(
+        sections=x.sections,
+        variants=x.variants,
+        codeInfo=x.codeInfo,
+        codeInfoCols=x.codeInfoCols,
+    )
+)
+
+print(x.variants)

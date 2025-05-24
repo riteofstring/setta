@@ -19,13 +19,13 @@ export function InputAreaSettings({ sectionId }) {
   }
 
   async function onBlur(jsonSource) {
-    const { sections, sectionVariants, codeInfo, codeInfoCols } =
+    const { sections, variants, codeInfo, codeInfoCols } =
       await loadJsonContents({ [sectionId]: jsonSource });
     useProjectState.setState((state) => {
       state.sections[sectionId].jsonSource = jsonSource;
       updateSectionInfos({
         sections,
-        sectionVariants,
+        variants,
         codeInfo,
         codeInfoCols,
         state,

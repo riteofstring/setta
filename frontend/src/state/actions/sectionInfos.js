@@ -108,7 +108,7 @@ export function setAllPreviewVariantIdsToNull() {
 
 export function updateSectionInfos({
   sections,
-  sectionVariants,
+  variants,
   uiTypes,
   uiTypeCols,
   codeInfo,
@@ -116,7 +116,7 @@ export function updateSectionInfos({
   state,
 }) {
   state.sections = { ...state.sections, ...sections };
-  state.variants = { ...state.variants, ...sectionVariants };
+  state.variants = { ...state.variants, ...variants };
   state.uiTypes = { ...state.uiTypes, ...uiTypes };
   state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
   state.codeInfo = { ...state.codeInfo, ...codeInfo };

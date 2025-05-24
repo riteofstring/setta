@@ -37,12 +37,12 @@ async function updateJSONSourceContents(updatedFileInfo) {
     variantIdsToLoad.push(id);
   }
 
-  const { sectionVariants, codeInfo, codeInfoCols } =
+  const { variants, codeInfo, codeInfoCols } =
     await loadJsonContents(variantIdsToLoad);
 
   useProjectState.setState((state) => {
     updateSectionInfos({
-      sectionVariants,
+      variants,
       codeInfo,
       codeInfoCols,
       state,
@@ -53,16 +53,16 @@ async function updateJSONSourceContents(updatedFileInfo) {
 export async function loadJsonContents(variantIdsToLoad) {
   let codeInfo = null,
     codeInfoCols = null,
-    sectionVariants = null;
+    variants = null;
 
   if (variantIdsToLoad.length > 0) {
     const res = await dbLoadSectionJSONSource(variantIdsToLoad);
     if (res.status === 200) {
-      ({ codeInfo, codeInfoCols, sectionVariants } = res.data.project);
+      ({ codeInfo, codeInfoCols, variants } = res.data.project);
     }
   }
 
-  return { sectionVariants, codeInfo, codeInfoCols };
+  return { variants, codeInfo, codeInfoCols };
 }
 
 async function updateApiKeyInfo(updatedFileInfo) {

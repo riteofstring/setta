@@ -26,15 +26,15 @@ export async function copy() {
 export function copySections(sectionIds) {
   const state = useProjectState.getState();
   const sections = getSections(sectionIds, state);
-  const sectionVariants = getSectionVariants(sections, state);
+  const variants = getSectionVariants(sections, state);
   const uiTypeCols = getUITypeCols(sections, state);
   const uiTypes = getUITypes(sections, uiTypeCols, state);
-  const codeInfoCols = getCodeInfoCols(sectionVariants, state);
+  const codeInfoCols = getCodeInfoCols(variants, state);
   const codeInfo = getCodeInfo(codeInfoCols, state);
   const relativePositions = getRelativePositions(sections);
   return {
     sections,
-    sectionVariants,
+    variants,
     uiTypeCols,
     uiTypes,
     codeInfoCols,
@@ -92,10 +92,10 @@ function getUITypes(sections, uiTypeCols, state) {
   return _.pick(state.uiTypes, uiTypeIds);
 }
 
-function getCodeInfoCols(sectionVariants, state) {
+function getCodeInfoCols(variants, state) {
   return _.pick(
     state.codeInfoCols,
-    _.map(sectionVariants, (x) => x.codeInfoColId),
+    _.map(variants, (x) => x.codeInfoColId),
   );
 }
 

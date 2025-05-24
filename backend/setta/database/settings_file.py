@@ -3,7 +3,10 @@ import logging
 import os
 from pathlib import Path
 
-from setta.database.db.sections.jsonSource import save_json_source_data
+from setta.database.db.sections.load import (
+    LoadJSONSourceObject,
+    load_json_sources_into_data_structures,
+)
 from setta.project_state.project_state import ProjectLoadState, ProjectState
 from setta.project_state.settings_state import SettingsState
 from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
@@ -102,6 +105,15 @@ class MetaSettingsFile:
         p = ProjectLoadState(
             projectState=p, projectConfigId=list(p.projectConfigs.keys())[0]
         )
+        projectState = p.projectState
+        load_json_sources_into_data_structures(
+            LoadJSONSourceObject(
+                sections=projectState.sections,
+                variants=projectState.variants,
+                codeInfo=projectState.codeInfo,
+                codeInfoCols=projectState.codeInfoCols,
+            )
+        )
         return p
 
     def load_seed_files(self):
@@ -110,5 +122,6 @@ class MetaSettingsFile:
             self.obj_seed_meta_settings = ProjectState.model_validate(json.load(f))
 
     def save_settings_project(self, p):
-        save_json_source_data(p)
-        save_json_to_file(self.path_meta_settings, p)
+        # save_json_source_data(p)
+        # save_json_to_file(self.path_meta_settings, p)
+        pass
