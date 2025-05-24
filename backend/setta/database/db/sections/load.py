@@ -35,9 +35,9 @@ def load_json_sources_into_data_structures(
     projectState: LoadJSONSourceObject, variant_ids: list[str] | None = None
 ):
     for variant_id, variant in projectState.variants.items():
-        if variant_ids and variant_id not in variant_ids:
-            continue
         if not variant.isJsonSource:
+            continue
+        if variant_ids and variant_id not in variant_ids:
             continue
         new_data, isMissing = load_json_source(variant.name, variant.jsonSourceKeys)
         variant.jsonSourceMissing = isMissing
@@ -122,15 +122,15 @@ def process_json_object(jsonSourceData, filename: str, jsonSourceKeys: list[str]
 
     metadataToId = {}
 
-    highest_key = process_json_object_helper(
+    parent_id = process_json_object_helper(
         new_data, jsonSourceData, filename, jsonSourceKeys, metadataToId
     )
 
-    if len(jsonSourceKeys) > 0:
+    if len(jsonSourceKeys) > 0 and parent_id is not None:
         # point directly from None (the root) to the children
         codeInfoChildren = new_data.codeInfoColChildren
-        codeInfoChildren[None] = codeInfoChildren[highest_key]
-        del codeInfoChildren[highest_key]
+        codeInfoChildren[None] = codeInfoChildren[parent_id]
+        del codeInfoChildren[parent_id]
 
     return new_data
 
@@ -143,7 +143,7 @@ def process_json_object_helper(
     metadataToId: dict[str, str],
 ):
     if not isinstance(obj, dict):
-        return
+        return None
 
     children_keys = []
     for k, v in obj.items():
