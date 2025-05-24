@@ -331,31 +331,23 @@
 
 # import json
 
-# from setta.database.db.sections.load import LoadJSONSourceObject, load_json_sources_into_data_structures
-# from setta.project_state.project_state import ProjectState
-
-
-# with open("setta_files/setta-meta-settings.json", 'r') as f:
-#     x = ProjectState.model_validate(json.load(f))
-
-
-# load_json_sources_into_data_structures(
-#     LoadJSONSourceObject(
-#         sections=x.sections,
-#         variants=x.variants,
-#         codeInfo=x.codeInfo,
-#         codeInfoCols=x.codeInfoCols,
-#     )
-# )
-
-# print(x.variants)
-
-
-import json
-
+from setta.database.db.sections.load import (
+    load_json_sources_into_data_structures,
+)
 from setta.project_state.settings_project import create_settings_project_state
 
-x = create_settings_project_state("setta_files/setta-meta-settings.json")
+x = create_settings_project_state("setta_files/setta-settings.json")
 
-with open("test.json", "w") as f:
-    json.dump(x.model_dump(exclude_defaults=True), f, indent=2)
+# for v in x.variants.values():
+#     for c in v.values.keys():
+#         if c in x.codeInfo:
+#             print(c)
+
+load_json_sources_into_data_structures(x)
+
+print(len(x.codeInfo))
+
+for v in x.variants.values():
+    for c in v.values.keys():
+        if c in x.codeInfo:
+            print(c)

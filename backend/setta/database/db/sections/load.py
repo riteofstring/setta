@@ -10,6 +10,7 @@ from setta.project_state.project_state import (
     CodeInfo,
     CodeInfoCol,
     EVEntry,
+    ProjectState,
     Section,
     SectionVariant,
 )
@@ -32,12 +33,13 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 
 def load_json_sources_into_data_structures(
-    projectState: LoadJSONSourceObject, variant_ids: list[str] | None = None
+    projectState: ProjectState | LoadJSONSourceObject,
+    variant_ids: list[str] | None = None,
 ):
     for variant_id, variant in projectState.variants.items():
-        if variant_ids and variant_id not in variant_ids:
-            continue
         if not variant.isJsonSource:
+            continue
+        if variant_ids and variant_id not in variant_ids:
             continue
         new_data, isMissing = load_json_source(variant.name, variant.jsonSourceKeys)
         variant.jsonSourceMissing = isMissing
@@ -105,12 +107,12 @@ def load_json_source(filename: str, jsonSourceKeys: list[str]):
         logger.debug(f"couldn't find: {filename}")
         isMissing = True
 
-    new_data = process_json_object(jsonSourceData, filename, jsonSourceKeys)
+    new_data = process_json_object(jsonSourceData, jsonSourceKeys)
 
     return new_data, isMissing
 
 
-def process_json_object(jsonSourceData, filename: str, jsonSourceKeys: list[str]):
+def process_json_object(jsonSourceData: dict, jsonSourceKeys: list[str]):
     new_data = ProcessedJSONObject()
 
     try:
@@ -120,50 +122,22 @@ def process_json_object(jsonSourceData, filename: str, jsonSourceKeys: list[str]
         # TODO print warning or something
         pass
 
-    metadataToId = {}
-
-    highest_key = process_json_object_helper(
-        new_data, jsonSourceData, filename, jsonSourceKeys, metadataToId
-    )
-
-    if len(jsonSourceKeys) > 0:
-        # point directly from None (the root) to the children
-        codeInfoChildren = new_data.codeInfoColChildren
-        codeInfoChildren[None] = codeInfoChildren[highest_key]
-        del codeInfoChildren[highest_key]
+    process_json_object_helper(new_data, jsonSourceData, None)
 
     return new_data
 
 
 def process_json_object_helper(
-    output: ProcessedJSONObject,
-    obj,
-    filename: str,
-    current_path: list[str],
-    metadataToId: dict[str, str],
+    output: ProcessedJSONObject, obj: dict, parent_id: str | None
 ):
-    if not isinstance(obj, dict):
-        return
-
     children_keys = []
     for k, v in obj.items():
-        path = current_path + [k]
         paramInfoId, is_dict = create_json_code_info(k, v, output)
-        metadataToId[createMetadataJsonString(filename, path)] = paramInfoId
         children_keys.append(paramInfoId)
         if is_dict:
-            process_json_object_helper(output, v, filename, path, metadataToId)
-
-    parent_id = None
-    if len(current_path) > 0:
-        metadata = createMetadataJsonString(filename, current_path)
-        parent_id = metadataToId.get(metadata)
-        if not parent_id:
-            parent_id = create_new_id()
-            metadataToId[metadata] = parent_id
+            process_json_object_helper(output, v, paramInfoId)
 
     output.codeInfoColChildren[parent_id] = children_keys
-    return parent_id
 
 
 def create_json_code_info(key: str, value, output: ProcessedJSONObject):
@@ -175,16 +149,9 @@ def create_json_code_info(key: str, value, output: ProcessedJSONObject):
         editable=True,
     )
     output.codeInfoColChildren[paramInfoId] = []
-
     is_dict = isinstance(value, dict)
-    # Create variant value entry
-    if is_dict:
-        # For objects, store empty value and process children
-        output.variantValues[paramInfoId] = EVEntry()
-    else:
-        # For non-objects, store the value directly
-        output.variantValues[paramInfoId] = EVEntry(value=json.dumps(value))
-
+    value = json.dumps(value) if not is_dict else ""
+    output.variantValues[paramInfoId] = EVEntry(value=value)
     return paramInfoId, is_dict
 
 
