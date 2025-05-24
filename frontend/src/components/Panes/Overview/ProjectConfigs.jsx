@@ -1,22 +1,31 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
+import _ from "lodash";
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
   useAllProjectConfigs,
   useLocalStorage,
+  useProjectLoading,
   useProjectState,
 } from "state/definitions";
-import { useLoadFullProject } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 
 export const ProjectConfigs = React.forwardRef(() => {
-  const allConfigNames = useAllProjectConfigs((x) => x.names);
+  const { name: currProjectConfigName, allConfigNames } = useProjectState(
+    (x) => {
+      const { name } = getCurrentProjectConfig(x);
+      const allConfigNames = x.projectConfigs.map((p) => p.name);
+      return { name, allConfigNames };
+    },
+    _.isEqual,
+  );
+
+  const projectIsLoading = useProjectLoading(x=>x.projectIsLoading)
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
-  const { doneLoading, currProjectConfigName } =
-    useLoadFullProject(previewEnabled);
   const [mousedOverName, setMousedOverName] = useState(currProjectConfigName);
 
   return (
@@ -41,7 +50,7 @@ export const ProjectConfigs = React.forwardRef(() => {
             onMouseLeave();
           }}
         >
-          {doneLoading ? (
+          {!projectIsLoading ? (
             allConfigNames.map((name, idx) => (
               <Link
                 to={pathRelativeToProject(name)}

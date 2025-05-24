@@ -129,13 +129,6 @@ export const useNotifications = create(
   })),
 );
 
-export const useAllProjectConfigs = create(
-  withResetFn(() => ({
-    x: {},
-    names: [],
-  })),
-);
-
 export const useArtifacts = withProjectState(
   create(
     subscribeWithSelector(

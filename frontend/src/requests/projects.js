@@ -22,12 +22,6 @@ export async function dbLoadProjectConfig(projectConfigName) {
   });
 }
 
-export async function dbLoadFullProject({ excludeProjectConfigName }) {
-  return await post({
-    body: { excludeProjectConfigName },
-    address: C.ROUTE_LOAD_FULL_PROJECT,
-  });
-}
 
 export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({

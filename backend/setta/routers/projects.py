@@ -129,14 +129,6 @@ async def route_load_project_config(
         print("[DEBUG] route_load_project_config finished", flush=True)
 
 
-@router.post(C.ROUTE_LOAD_FULL_PROJECT)
-def route_load_full_project(x: ProjectLoadFullRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
-        return load_full_project(
-            db, excludeProjectConfigName=x.excludeProjectConfigName
-        )
-
-
 @router.post(C.ROUTE_SAVE_PROJECT)
 async def route_save_project(
     x: ProjectSaveRequest,

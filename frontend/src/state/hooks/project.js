@@ -3,19 +3,13 @@ import { useLocation, useParams } from "react-router-dom";
 import {
   dbFilterDataForJSONExport,
   dbLoadAllProjectMetadata,
-  dbLoadFullProject,
-  dbLoadProjectConfigNames,
 } from "requests/projects";
 import {
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
 import { getProjectDataForSaving } from "state/actions/project/saveProject";
-import {
-  useAllProjectConfigs,
-  useProjectLoading,
-  useProjectState,
-} from "state/definitions";
+import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
@@ -119,50 +113,4 @@ export function useLoadProjectConfig() {
   }, [pageLoadType, projectConfigName]);
 
   return [doneLoading, is404];
-}
-
-export function useLoadFullProject(previewEnabled) {
-  const [doneLoading, setDoneLoading] = useState(false);
-  const { projectConfigName: currProjectConfigName } = useParams();
-
-  async function fullLoadFn() {
-    setDoneLoading(false);
-    const fullProjectRes = await dbLoadFullProject({
-      excludeProjectConfigName: currProjectConfigName,
-    });
-    const nameRes = await dbLoadProjectConfigNames();
-    if (fullProjectRes.status === 200 && nameRes.status === 200) {
-      const nameToConfig = {};
-      for (const p of fullProjectRes.data) {
-        nameToConfig[p.projectConfig.name] = p;
-      }
-      useAllProjectConfigs.setState({
-        x: nameToConfig,
-        names: nameRes.data,
-      });
-      setDoneLoading(true);
-    }
-  }
-
-  async function nameOnlyLoadFn() {
-    setDoneLoading(false);
-    const res = await dbLoadProjectConfigNames();
-    if (res.status === 200) {
-      useAllProjectConfigs.setState({
-        x: {},
-        names: res.data,
-      });
-      setDoneLoading(true);
-    }
-  }
-
-  useEffect(() => {
-    if (previewEnabled) {
-      fullLoadFn();
-    } else {
-      nameOnlyLoadFn();
-    }
-  }, [previewEnabled, currProjectConfigName]);
-
-  return { doneLoading, currProjectConfigName };
 }
