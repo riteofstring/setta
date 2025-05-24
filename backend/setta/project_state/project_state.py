@@ -156,9 +156,6 @@ class SectionVariant(BaseModel, extra="forbid"):
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
-    jsonSourceCodeInfoPathToUITypeId: dict[tuple[str], str] = Field(
-        default_factory=dict
-    )
 
 
 class CodeInfo(BaseModel, extra="forbid"):

@@ -8,10 +8,9 @@ from setta.database.db.sections.load import (
     load_json_sources_into_data_structures,
 )
 from setta.project_state.project_state import ProjectLoadState, ProjectState
-from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.settings_state import SettingsState
-from setta.utils.constants import SETTA_FILES_FOLDER, USER_SETTINGS
-from setta.utils.utils import save_json_to_file
+from setta.utils.constants import CONSTANTS_FOLDER, SETTA_FILES_FOLDER, USER_SETTINGS
+from setta.utils.utils import get_absolute_path, save_json_to_file
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +57,12 @@ class SettingsFile:
 
 class MetaSettingsFile:
     def __init__(self):
+        self.path_seed_meta_settings = get_absolute_path(
+            __file__, CONSTANTS_FOLDER / "settingsProject.json"
+        )
         self.path_default_settings = SETTA_FILES_FOLDER / "setta-settings.json"
         self.path_meta_settings = SETTA_FILES_FOLDER / "setta-meta-settings.json"
-        self.obj_seed_settings = SettingsState()
-        self.obj_seed_meta_settings = create_settings_project_state(
-            str(self.path_default_settings)
-        )
+        self.load_seed_files()
 
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
@@ -103,19 +102,24 @@ class MetaSettingsFile:
 
     def load_settings_project(self):
         p = self.load_meta_settings()
-        load_json_sources_into_data_structures(
-            LoadJSONSourceObject(
-                sections=p.sections,
-                variants=p.variants,
-                codeInfo=p.codeInfo,
-                codeInfoCols=p.codeInfoCols,
-            ),
-            variant_ids=list(p.variants.keys()),
-        )
         p = ProjectLoadState(
             projectState=p, projectConfigId=list(p.projectConfigs.keys())[0]
         )
+        projectState = p.projectState
+        load_json_sources_into_data_structures(
+            LoadJSONSourceObject(
+                sections=projectState.sections,
+                variants=projectState.variants,
+                codeInfo=projectState.codeInfo,
+                codeInfoCols=projectState.codeInfoCols,
+            )
+        )
         return p
+
+    def load_seed_files(self):
+        self.obj_seed_settings = SettingsState()
+        with open(self.path_seed_meta_settings, "r") as f:
+            self.obj_seed_meta_settings = ProjectState.model_validate(json.load(f))
 
     def save_settings_project(self, p):
         # save_json_source_data(p)
