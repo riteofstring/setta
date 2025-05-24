@@ -1,22 +1,35 @@
 import { useNavigate } from "react-router-dom";
 import { PlusIcon } from "@radix-ui/react-icons";
+import { useState, useEffect } from "react";
 
 export default function ProjectsList() {
   const navigate = useNavigate();
 
   // Dummy project data - in a real app, you would fetch this from your API
-  const projects = [
-    { id: 1, name: "ollama test", status: "In Progress" },
-    { id: 2, name: "Agentic Multi-Prompter", status: "Planning" },
-    { id: 3, name: "Flux image gen", status: "Completed" },
-    { id: 4, name: "Website Automation Agent", status: "In Progress" },
-    { id: 5, name: "Pytorch Metric Learning", status: "Planning" },
-  ];
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("https://backend-production-6fbb.up.railway.app/api/projects")
+      .then((res) => res.json())
+      .then((data) => {
+        setProjects(data);
+        setLoading(false);
+      });
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("isAuthenticated");
     navigate("/login");
   };
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="text-center">Loading projects...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -51,7 +64,7 @@ export default function ProjectsList() {
                     {project.name}
                   </p>
                   <p className="text-xs text-setta-500 dark:text-setta-400">
-                    Project ID: {project.id}
+                    {project.url}
                   </p>
                 </div>
                 <span
@@ -59,8 +72,8 @@ export default function ProjectsList() {
                     project.status === "Completed"
                       ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                       : project.status === "In Progress"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
                   }`}
                 >
                   {project.status}
