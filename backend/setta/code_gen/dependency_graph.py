@@ -215,7 +215,7 @@ class DependencyGraph:
 
     def export_param_value(self, p: ProjectState, sectionId: str, paramId: str):
         variant = p.get_selected_section_variant(sectionId)
-        if variant and paramId in variant.values:
+        if paramId in variant.values:
             value = variant.values[paramId].value
             potential_refs = find_undefined_special_var_expressions(
                 value, SELF_IDENTIFIER, keep_attr_only=True

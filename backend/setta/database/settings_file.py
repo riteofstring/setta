@@ -76,8 +76,6 @@ class MetaSettingsFile:
     def find_path_for_settings_slice(self, p: ProjectState, slice: str):
         for sectionId in p.sections.keys():
             variant = p.get_selected_section_variant(sectionId)
-            if not variant:
-                continue
             if variant.jsonSourceKeys == [slice]:
                 return Path(variant.name)
         return None

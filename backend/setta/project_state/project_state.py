@@ -1,7 +1,12 @@
 from enum import StrEnum
 from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    model_serializer,
+    model_validator,
+)
 
 from setta.database.utils import create_new_id
 from setta.project_state.base_ui_types import BASE_UI_TYPE_IDS, BASE_UI_TYPES, UIType
@@ -83,7 +88,7 @@ class Section(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     size: SectionSize = Field(default_factory=lambda: SectionSize())
     parentId: Optional[str] = None
-    variantId: Optional[str] = None
+    variantId: str = Field(default_factory=create_new_id)
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
     uiTypeColId: Optional[str] = None
     social: str = ""
@@ -232,6 +237,13 @@ class ProjectState(BaseModel, extra="forbid"):
         self.uiTypes.update(BASE_UI_TYPES)
         return self
 
+    @model_validator(mode="after")
+    def ensure_variants_exist(self):
+        for section in self.sections.values():
+            if section.variantId not in self.variants:
+                self.variants[section.variantId] = SectionVariant()
+        return self
+
     def get_section_type(self, id: str):
         ui_type_id = self.sections[id].uiTypeId
         ui_type = self.uiTypes[ui_type_id]
@@ -239,23 +251,17 @@ class ProjectState(BaseModel, extra="forbid"):
 
     def get_selected_section_variant(self, section_id: str):
         variantId = self.sections[section_id].variantId
-        if variantId:
-            return self.variants[variantId]
-        return None
+        return self.variants[variantId]
 
     def get_selected_item(self, id: str):
         variant = self.get_selected_section_variant(id)
-        if variant:
-            selected_item = variant.selectedItem
-            if selected_item:
-                return self.codeInfo[selected_item]
-        return None
+        selected_item = variant.selectedItem
+        if selected_item:
+            return self.codeInfo[selected_item]
 
     def get_section_children(self, id: str) -> list[str]:
         variant = self.get_selected_section_variant(id)
-        if variant:
-            return variant.children
-        return []
+        return variant.children
 
     def get_top_level_param_ids(self, id: str) -> list[str]:
         selected_item = self.get_selected_item(id)
@@ -269,14 +275,12 @@ class ProjectState(BaseModel, extra="forbid"):
 
     def get_section_code_info_children(self, section_id: str):
         variant = self.get_selected_section_variant(section_id)
-        if variant:
-            codeInfoColId = variant.codeInfoColId
-            if not codeInfoColId:
-                codeInfoCol = CodeInfoCol()
-            else:
-                codeInfoCol = self.codeInfoCols[codeInfoColId]
-            return codeInfoCol.children
-        return CodeInfoCol().children
+        codeInfoColId = variant.codeInfoColId
+        if not codeInfoColId:
+            codeInfoCol = CodeInfoCol()
+        else:
+            codeInfoCol = self.codeInfoCols[codeInfoColId]
+        return codeInfoCol.children
 
     def get_param_ui_type(self, section_id: str, id: str):
         ui_type_col_id = self.sections[section_id].uiTypeColId

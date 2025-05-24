@@ -66,7 +66,6 @@ def try_json(x):
         return x
 
 
-
 def filter_dict(x, keep_keys=None, default_vals=None):
     if not isinstance(x, dict):
         return x
