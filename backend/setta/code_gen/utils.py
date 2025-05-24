@@ -1,7 +1,6 @@
 import copy
 
 from setta.utils.section_contents import findAllParametersAndPathMaps
-from setta.utils.utils import replace_null_keys_with_none
 
 from ..utils.constants import C
 

@@ -66,38 +66,6 @@ def try_json(x):
         return x
 
 
-def replace_null_keys_with_none(data):
-    """
-    Recursively replaces "null" keys with None in a dictionary.
-
-    Args:
-        data: Input dictionary
-
-    Returns:
-        Modified dictionary with "null" keys replaced by None
-    """
-    if isinstance(data, dict):
-        new_dict = {}
-        for key, value in data.items():
-            # Replace "null" key with None
-            new_key = None if key == "null" else key
-
-            # Recursively process value if it's a dictionary
-            if isinstance(value, dict):
-                value = replace_null_keys_with_none(value)
-            elif isinstance(value, list):
-                # Process dictionaries within lists
-                value = [
-                    replace_null_keys_with_none(item)
-                    if isinstance(item, dict)
-                    else item
-                    for item in value
-                ]
-
-            new_dict[new_key] = value
-        return new_dict
-    return data
-
 
 def filter_dict(x, keep_keys=None, default_vals=None):
     if not isinstance(x, dict):
