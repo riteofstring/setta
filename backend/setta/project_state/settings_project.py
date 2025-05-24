@@ -6,8 +6,6 @@ from setta.project_state.base_ui_types import (
     UITypePresetType,
 )
 from setta.project_state.project_state import (
-    CodeInfo,
-    CodeInfoCol,
     ConfigLanguage,
     ProjectConfig,
     ProjectConfigChild,
@@ -62,58 +60,61 @@ def create_settings_code_info_with_ui_types():
         },
     )
 
-    codeInfoWithUIType: list[tuple[CodeInfo, str]] = []
-    codeInfoWithUIType.append((CodeInfo(name="selectionMode"), selection_dropdown.id))
-    codeInfoWithUIType.append((CodeInfo(name="gridPattern"), grid_dropdown.id))
-    codeInfoWithUIType.append((CodeInfo(name="panOnScrollMode"), pan_dropdown.id))
-    codeInfoWithUIType.extend(
-        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER])
-        for n in [
-            "gridColor",
-            "gridColorDarkMode",
-        ]
+    codeInfoPathToUITypeId: dict[tuple[str], str] = {}
+    codeInfoPathToUITypeId[("selectionMode",)] = selection_dropdown.id
+    codeInfoPathToUITypeId[("gridPattern",)] = grid_dropdown.id
+    codeInfoPathToUITypeId[("panOnScrollMode",)] = pan_dropdown.id
+    codeInfoPathToUITypeId.update(
+        {
+            (n,): BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER]
+            for n in [
+                "gridColor",
+                "gridColorDarkMode",
+            ]
+        }
     )
-    codeInfoWithUIType.extend(
-        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
-        for n in [
-            "showGridLines",
-            "showDefaultConfigOnLoad",
-            "autosave",
-            "autobackup",
-            "leftSidePaneShiftsMap",
-            "panOnDrag",
-            "panOnScroll",
-            "zoomOnScroll",
-            "zoomOnPinch",
-            "zoomOnDoubleClick",
-            "clearTerminalBeforeMarkingAsReady",
-            "exportDbRawOnSave",
-            "exportDbReadableOnSave",
-            "exportDbReadableWithVariantsOnSave",
-            "saveRenderedValues",
-        ]
+    codeInfoPathToUITypeId.update(
+        {
+            (n,): BASE_UI_TYPE_IDS[UITypeName.SWITCH]
+            for n in [
+                "showGridLines",
+                "showDefaultConfigOnLoad",
+                "autosave",
+                "autobackup",
+                "leftSidePaneShiftsMap",
+                "panOnDrag",
+                "panOnScroll",
+                "zoomOnScroll",
+                "zoomOnPinch",
+                "zoomOnDoubleClick",
+                "clearTerminalBeforeMarkingAsReady",
+                "exportDbRawOnSave",
+                "exportDbReadableOnSave",
+                "exportDbReadableWithVariantsOnSave",
+                "saveRenderedValues",
+            ]
+        }
     )
 
-    for c, _ in codeInfoWithUIType:
+    for c in codeInfoPathToUITypeId.keys():
+        c = c[0]
         if (
-            c.name not in SettingsShortcuts.model_fields.keys()
-            and c.name not in SettingsGUI.model_fields.keys()
-            and c.name not in SettingsBackend.model_fields.keys()
+            c not in SettingsShortcuts.model_fields.keys()
+            and c not in SettingsGUI.model_fields.keys()
+            and c not in SettingsBackend.model_fields.keys()
         ):
             raise KeyError
 
-    return codeInfoWithUIType, {
+    return codeInfoPathToUITypeId, {
         u.id: u for u in [grid_dropdown, selection_dropdown, pan_dropdown]
     }
 
 
 def create_settings_project_state():
-    codeInfoWithUIType, uiTypes = create_settings_code_info_with_ui_types()
-
+    codeInfoPathToUITypeId, uiTypes = create_settings_code_info_with_ui_types()
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
     sections = {}
     variants = {}
-    codeInfoCols = {}
     for k in section_names:
         section = Section(
             name=k,
@@ -126,9 +127,9 @@ def create_settings_project_state():
             codeInfoColId=create_new_id(),
             isJsonSource=True,
             jsonSourceKeys=[k],
+            jsonSourceCodeInfoPathToUITypeId=codeInfoPathToUITypeId,
             configLanguage=ConfigLanguage.JSON,
         )
-        codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
         variants[section.variantId] = variant
 
     projectConfigChildren = {
