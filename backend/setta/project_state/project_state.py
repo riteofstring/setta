@@ -1,3 +1,4 @@
+import copy
 from enum import StrEnum
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -86,7 +87,7 @@ class ChartSettings(BaseModel):
 class Section(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    size: SectionSize = Field(default_factory=lambda: SectionSize())
+    size: SectionSize = Field(default_factory=SectionSize)
     parentId: Optional[str] = None
     variantId: str = Field(default_factory=create_new_id)
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS["SECTION"])
@@ -123,6 +124,12 @@ class Section(BaseModel):
     columnWidth: Optional[float] = None
     renderedValue: Optional[Any] = None
     headingAsSectionName: bool = False
+
+    @model_validator(mode="after")
+    def set_default_variant_id(self):
+        if not self.defaultVariantId:
+            self.defaultVariantId = self.variantId
+        return self
 
 
 class EVEntry(BaseModel):
@@ -161,7 +168,7 @@ class CodeInfo(BaseModel):
 
 
 class CodeInfoCol(BaseModel):
-    children: Dict[Optional[str], List[str]] = Field(default_factory=dict)
+    children: Dict[str | None, List[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def convert_null_key(self):
@@ -217,7 +224,9 @@ class ProjectState(BaseModel, extra="forbid"):
     variants: Dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: Dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: Dict[str, CodeInfoCol] = Field(default_factory=dict)
-    uiTypes: Dict[str, UIType] = Field(default_factory=dict)
+    uiTypes: Dict[str, UIType] = Field(
+        default_factory=lambda: copy.deepcopy(BASE_UI_TYPES)
+    )
     uiTypeCols: Dict[str, Dict[str, UITypeColEntry]] = Field(default_factory=dict)
     defaultProjectConfigId: Optional[str] = None
 

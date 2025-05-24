@@ -1,9 +1,10 @@
 from collections import defaultdict
 
-from setta.utils.utils import replace_null_keys_with_none, save_json_to_file, try_json
+from setta.project_state.project_state import CodeInfo, ProjectState
+from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p, variant_ids=None):
+def save_json_source_data(p: ProjectState, variant_ids=None):
     variants = {
         k: v
         for k, v in p["sectionVariants"].items()
@@ -11,8 +12,6 @@ def save_json_source_data(p, variant_ids=None):
     }
 
     to_be_saved = defaultdict(dict)
-
-    p["codeInfoCols"] = replace_null_keys_with_none(p["codeInfoCols"])
 
     for variant in variants.values():
         if not variant["isJsonSource"]:
@@ -45,13 +44,15 @@ def save_json_source_data(p, variant_ids=None):
     return to_be_saved
 
 
-def build_ancestor_paths(codeInfo, codeInfoColChildren):
-    parent_map = {}
+def build_ancestor_paths(
+    codeInfo: dict[str, CodeInfo], codeInfoColChildren: dict[str | None, list[str]]
+):
+    parent_map: dict[str, str | None] = {}
     for parent_id, children in codeInfoColChildren.items():
         for child_id in children:
             parent_map[child_id] = parent_id
 
-    ancestor_paths = {}
+    ancestor_paths: dict[str, list[str]] = {}
     for id in parent_map.keys():
         if id not in ancestor_paths:
             path = []
@@ -60,7 +61,7 @@ def build_ancestor_paths(codeInfo, codeInfoColChildren):
             # Traverse up to build the path
             while current_id is not None:
                 if current_id in codeInfo:  # Skip if not a valid codeInfo node
-                    name = codeInfo[current_id]["name"]
+                    name = codeInfo[current_id].name
                     path.insert(0, name)
 
                     # Get parent using the map

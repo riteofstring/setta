@@ -3,44 +3,50 @@ import logging
 
 from setta.database.db.sections.jsonSource import build_ancestor_paths
 from setta.database.utils import create_new_id
+from setta.project_state.project_state import (
+    CodeInfo,
+    CodeInfoCol,
+    ProjectState,
+    SectionVariant,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def load_json_sources_into_data_structures(
-    codeInfo, codeInfoCols, sectionVariants, variant_ids=None
+    projectState: ProjectState, variant_ids=None
 ):
-    sectionVariants = {
-        k: v
-        for k, v in sectionVariants.items()
-        if ((not variant_ids) or k in variant_ids)
-    }
-
-    for variant in sectionVariants.values():
-        if not variant["isJsonSource"]:
+    for variant_id, variant in projectState.variants.items():
+        if variant_ids and variant_id not in variant_ids:
             continue
-        new_data, isMissing = load_json_source(
-            variant["name"], variant["jsonSourceKeys"]
-        )
-        variant["jsonSourcMissing"] = isMissing
-        if not isMissing:
-            if not variant["codeInfoColId"]:
-                variant["codeInfoColId"] = create_new_id()
-                codeInfoCols[variant["codeInfoColId"]] = new_code_info_col()
-            codeInfoCol = codeInfoCols[variant["codeInfoColId"]]
-            merge_into_existing(new_data, variant, codeInfo, codeInfoCol)
+        if not variant.isJsonSource:
+            continue
+        new_data, isMissing = load_json_source(variant.name, variant.jsonSourceKeys)
+        variant.jsonSourceMissing = isMissing
+        if isMissing:
+            continue
+        if not variant.codeInfoColId:
+            variant.codeInfoColId = create_new_id()
+            projectState.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
+        codeInfoCol = projectState.codeInfoCols[variant.codeInfoColId]
+        merge_into_existing(new_data, variant, projectState.codeInfo, codeInfoCol)
 
 
-def merge_into_existing(data, sectionVariant, codeInfo, codeInfoCol):
-    filename = sectionVariant["name"]
+def merge_into_existing(
+    data,
+    variant: SectionVariant,
+    codeInfo: dict[str, CodeInfo],
+    codeInfoCol: CodeInfoCol,
+):
+    filename = variant.name
     jsonSourceMetadata_to_id = {}
-    ancestor_paths = build_ancestor_paths(codeInfo, codeInfoCol["children"])
+    ancestor_paths = build_ancestor_paths(codeInfo, codeInfoCol.children)
     for id in ancestor_paths:
         jsonSourceMetadata_to_id[
             createMetadataJsonString(filename, ancestor_paths[id])
         ] = id
 
-    replacements = {}
+    replacements: dict[str, str] = {}
     new_ancestor_paths = build_ancestor_paths(
         data["codeInfo"], data["codeInfoColChildren"]
     )
@@ -65,11 +71,11 @@ def merge_into_existing(data, sectionVariant, codeInfo, codeInfoCol):
         data["sectionVariantValues"][existingId] = data["sectionVariantValues"][newId]
         del data["sectionVariantValues"][newId]
 
-    sectionVariant["values"] = data["sectionVariantValues"]
-    codeInfoCol["children"] = data["codeInfoColChildren"]
+    variant.values = data["sectionVariantValues"]
+    codeInfoCol.children = data["codeInfoColChildren"]
 
 
-def load_json_source(filename, jsonSourceKeys):
+def load_json_source(filename: str, jsonSourceKeys: list[str]):
     jsonSourceData = {}
     isMissing = False
 
@@ -166,5 +172,5 @@ def create_json_code_info(key, value, output):
     return paramInfoId, is_dict
 
 
-def createMetadataJsonString(filename, path):
+def createMetadataJsonString(filename: str, path: list[str]):
     return json.dumps({"filename": filename, "key": path})
