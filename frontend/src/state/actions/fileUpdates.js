@@ -1,7 +1,7 @@
 import C from "constants/constants.json";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useProjectState } from "state/definitions";
-import { updateSectionInfos } from "./sectionInfos";
+import { getSectionVariant, updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
   const { fileWatchGroupName } = updatedFileInfo;
@@ -78,7 +78,7 @@ function updateGenPythonCode(updatedFileInfo) {
   useProjectState.setState((state) => {
     const id = state.singletonSections[C.GEN_PYTHON_CODE];
     if (id) {
-      state.sections[id].code = fileContent;
+      getSectionVariant(id, state).code = fileContent;
     }
   });
 }

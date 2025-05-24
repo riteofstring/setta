@@ -8,7 +8,7 @@ from typing import Any, Callable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from setta.websockets.websocket_msg_handlers import WMHSpecificFileWatcher
+from setta.websockets.msg_handlers.specific_file_watcher import WMHSpecificFileWatcher
 
 logger = logging.getLogger(__name__)
 

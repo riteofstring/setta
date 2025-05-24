@@ -14,6 +14,20 @@ import {
   withVersion,
 } from "./utils";
 
+export const useResizeEvent = withProjectState(
+  create(
+    withTemporal(
+      immer(
+        withResetFn(() =>
+          withVersion({
+            resizeEvent: {},
+          }),
+        ),
+      ),
+    ),
+  ),
+);
+
 export const useActiveSection = withProjectState(
   create(
     withTemporal(

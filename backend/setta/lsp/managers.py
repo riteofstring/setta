@@ -2,7 +2,7 @@ import asyncio
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.utils.constants import CWD
-from setta.websockets.websocket_msg_handlers import BaseWebsocketMsgHandler
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .file_watcher import LSPFileWatcher
 from .reader import LanguageServerReader

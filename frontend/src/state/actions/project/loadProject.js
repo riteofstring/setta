@@ -29,7 +29,7 @@ export async function loadProjectConfig({ projectConfigName }) {
 export async function loadSettingsProjectConfig() {
   const res = await dbLoadSettingsProject();
   if (res.status === 200) {
-    console.log(res.data)
+    console.log(res.data);
     return await loadProjectState(res.data);
   } else {
     return false;

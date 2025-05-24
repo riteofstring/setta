@@ -12,7 +12,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useMisc, useProjectState } from "state/definitions";
+import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
@@ -56,7 +56,7 @@ function JavascriptCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }) {
-  const code = useProjectState((x) => x.sections[sectionId].code);
+  const code = useProjectState((x) => getSectionVariant(sectionId, x).code);
 
   return (
     <ReadOnlyCoreCodeArea sectionId={sectionId} language="python" code={code} />
@@ -161,12 +161,10 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 }
 
 export function useCodeAreaHeight({ sectionId }) {
-  const { resizeEvent, height } = useProjectState((x) => {
-    return {
-      resizeEvent: x.sections[sectionId].resizeEvent,
-      height: x.sections[sectionId].size.height,
-    };
-  }, _.isEqual);
+  const height = useProjectState((x) => {
+    return x.sections[sectionId].size.height;
+  });
+  const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
 
   const wrapperRef = useRef(null);
   const editorRef = useRef(null);

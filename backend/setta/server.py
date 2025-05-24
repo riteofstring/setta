@@ -42,9 +42,9 @@ from setta.routers import (
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path, is_dev_mode
+from setta.websockets.msg_handlers.wrapper import WebsocketMsgHandlers
 from setta.websockets.script_metadata import ScriptMetadata
 from setta.websockets.websocket_manager import WebsocketManager
-from setta.websockets.websocket_msg_handlers import WebsocketMsgHandlers
 
 
 @asynccontextmanager

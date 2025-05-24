@@ -5,7 +5,7 @@ from pathlib import Path
 from setta.lsp.writer import LanguageServerWriter
 from setta.project_state.utils import convert_path_to_module_path
 from setta.utils.constants import CWD
-from setta.websockets.websocket_msg_handlers import WMHProjectManager
+from setta.websockets.msg_handlers.project_manager import WMHProjectManager
 
 logger = logging.getLogger(__name__)
 

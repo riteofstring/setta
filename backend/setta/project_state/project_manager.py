@@ -17,8 +17,8 @@ from setta.project_state.project_code import (
 from setta.project_state.project_state import ProjectState, ProjectUpdateState
 from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, C
+from setta.websockets.msg_handlers.project_manager import WMHProjectManager
 from setta.websockets.websocket_manager import WebsocketManager
-from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
 class ProjectManager:

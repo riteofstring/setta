@@ -6,6 +6,7 @@ import {
   useLocalStorage,
   useMisc,
   useProjectState,
+  useResizeEvent,
   useSettings,
 } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
@@ -81,7 +82,7 @@ function CustomResizableCore({
     useAspectRatio(sectionId);
 
   function onResizeStart() {
-    useProjectState.setState((state) => {
+    useResizeEvent.setState((state) => {
       setSectionResizeEvent(sectionId, "start", state);
     });
     useMisc.setState({ mouseDownDraggingSection: true });
@@ -95,6 +96,8 @@ function CustomResizableCore({
     });
     useProjectState.setState((state) => {
       setSelfParentSiblingChildrenWidths(sectionId, changedSize, state);
+    });
+    useResizeEvent.setState((state) => {
       setSectionResizeEvent(sectionId, "end", state);
     });
     useMisc.setState({ mouseDownDraggingSection: false });
@@ -232,5 +235,5 @@ function useAspectRatio(sectionId) {
 }
 
 function setSectionResizeEvent(sectionId, resizeEvent, state) {
-  state.sections[sectionId].resizeEvent = resizeEvent;
+  state.resizeEvent[sectionId] = resizeEvent;
 }
