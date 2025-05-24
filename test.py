@@ -329,23 +329,30 @@
 # from pprint import pprint
 
 
-import json
+# import json
 
-from setta.database.db.sections.load import LoadJSONSourceObject, load_json_sources_into_data_structures
-from setta.project_state.project_state import ProjectState
-
-
-with open("setta_files/setta-meta-settings.json", 'r') as f:
-    x = ProjectState.model_validate(json.load(f))
+# from setta.database.db.sections.load import LoadJSONSourceObject, load_json_sources_into_data_structures
+# from setta.project_state.project_state import ProjectState
 
 
-load_json_sources_into_data_structures(
-    LoadJSONSourceObject(
-        sections=x.sections,
-        variants=x.variants,
-        codeInfo=x.codeInfo,
-        codeInfoCols=x.codeInfoCols,
-    )
-)
+# with open("setta_files/setta-meta-settings.json", 'r') as f:
+#     x = ProjectState.model_validate(json.load(f))
 
-print(x.variants)
+
+# load_json_sources_into_data_structures(
+#     LoadJSONSourceObject(
+#         sections=x.sections,
+#         variants=x.variants,
+#         codeInfo=x.codeInfo,
+#         codeInfoCols=x.codeInfoCols,
+#     )
+# )
+
+# print(x.variants)
+
+
+from setta.project_state.settings_project import create_settings_project_state
+
+
+x = create_settings_project_state("setta_files/setta-meta-settings.json")
+print(x.model_dump(exclude_defaults=True))
