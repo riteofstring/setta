@@ -17,11 +17,10 @@ from setta.project_state.project_state import (
 from setta.project_state.settings_state import (
     SettingsBackend,
     SettingsGUI,
-    SettingsShortcuts,
 )
 
 
-def create_settings_code_info_with_ui_types():
+def create_settings_code_info_with_ui_types(section_names):
     grid_dropdown = UIType(
         type=UITypeName.DROPDOWN,
         name="Grid Patterns",
@@ -60,11 +59,15 @@ def create_settings_code_info_with_ui_types():
         },
     )
 
-    codeInfoPathToUITypeId: dict[tuple[str], str] = {}
-    codeInfoPathToUITypeId[("selectionMode",)] = selection_dropdown.id
-    codeInfoPathToUITypeId[("gridPattern",)] = grid_dropdown.id
-    codeInfoPathToUITypeId[("panOnScrollMode",)] = pan_dropdown.id
-    codeInfoPathToUITypeId.update(
+    codeInfoPathToUITypeId: dict[str, dict[tuple[str], str]] = {
+        s: {} for s in section_names
+    }
+    codeInfoPathToUITypeId["gui"] = {}
+
+    codeInfoPathToUITypeId["gui"][("selectionMode",)] = selection_dropdown.id
+    codeInfoPathToUITypeId["gui"][("gridPattern",)] = grid_dropdown.id
+    codeInfoPathToUITypeId["gui"][("panOnScrollMode",)] = pan_dropdown.id
+    codeInfoPathToUITypeId["gui"].update(
         {
             (n,): BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER]
             for n in [
@@ -73,20 +76,28 @@ def create_settings_code_info_with_ui_types():
             ]
         }
     )
-    codeInfoPathToUITypeId.update(
+    codeInfoPathToUITypeId["gui"].update(
         {
             (n,): BASE_UI_TYPE_IDS[UITypeName.SWITCH]
             for n in [
                 "showGridLines",
-                "showDefaultConfigOnLoad",
-                "autosave",
-                "autobackup",
                 "leftSidePaneShiftsMap",
                 "panOnDrag",
                 "panOnScroll",
                 "zoomOnScroll",
                 "zoomOnPinch",
                 "zoomOnDoubleClick",
+            ]
+        }
+    )
+
+    codeInfoPathToUITypeId["backend"].update(
+        {
+            (n,): BASE_UI_TYPE_IDS[UITypeName.SWITCH]
+            for n in [
+                "showDefaultConfigOnLoad",
+                "autosave",
+                "autobackup",
                 "clearTerminalBeforeMarkingAsReady",
                 "exportDbRawOnSave",
                 "exportDbReadableOnSave",
@@ -96,23 +107,28 @@ def create_settings_code_info_with_ui_types():
         }
     )
 
-    for c in codeInfoPathToUITypeId.keys():
-        c = c[0]
-        if (
-            c not in SettingsShortcuts.model_fields.keys()
-            and c not in SettingsGUI.model_fields.keys()
-            and c not in SettingsBackend.model_fields.keys()
-        ):
-            raise KeyError
+    settings_fields = {
+        "gui": SettingsGUI.model_fields.keys(),
+        "backend": SettingsBackend.model_fields.keys(),
+    }
+
+    for k, v in settings_fields.items():
+        diff = set(c[0] for c in codeInfoPathToUITypeId[k].keys()) - v
+        if len(diff) > 0:
+            raise KeyError(
+                f"Settings project construction error: codeInfoPathToUITypeId key not valid: {diff}"
+            )
 
     return codeInfoPathToUITypeId, {
         u.id: u for u in [grid_dropdown, selection_dropdown, pan_dropdown]
     }
 
 
-def create_settings_project_state():
-    codeInfoPathToUITypeId, uiTypes = create_settings_code_info_with_ui_types()
+def create_settings_project_state(settings_path: str):
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
+    codeInfoPathToUITypeId, uiTypes = create_settings_code_info_with_ui_types(
+        section_names
+    )
     sections = {}
     variants = {}
     for k in section_names:
@@ -123,11 +139,11 @@ def create_settings_project_state():
         )
         sections[section.id] = section
         variant = SectionVariant(
-            name="setta_files/setta-settings.json",
+            name=settings_path,
             codeInfoColId=create_new_id(),
             isJsonSource=True,
             jsonSourceKeys=[k],
-            jsonSourceCodeInfoPathToUITypeId=codeInfoPathToUITypeId,
+            jsonSourceCodeInfoPathToUITypeId=codeInfoPathToUITypeId[section.name],
             configLanguage=ConfigLanguage.JSON,
         )
         variants[section.variantId] = variant
@@ -144,6 +160,3 @@ def create_settings_project_state():
         variants=variants,
         uiTypes=uiTypes,
     )
-
-
-SETTINGS_PROJECT = create_settings_project_state()
