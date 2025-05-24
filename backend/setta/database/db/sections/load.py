@@ -1,16 +1,25 @@
 import json
 import logging
+from dataclasses import dataclass, field
 
 from setta.database.db.sections.jsonSource import build_ancestor_paths
 from setta.database.utils import create_new_id
 from setta.project_state.project_state import (
     CodeInfo,
     CodeInfoCol,
+    EVEntry,
     ProjectState,
     SectionVariant,
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ProcessedJSONObject:
+    codeInfo: dict[str, CodeInfo] = field(default_factory=dict)
+    codeInfoColChildren: dict[str | None, list[str]] = field(default_factory=dict)
+    variantValues: dict[str, EVEntry] = field(default_factory=dict)
 
 
 def load_json_sources_into_data_structures(
@@ -33,13 +42,13 @@ def load_json_sources_into_data_structures(
 
 
 def merge_into_existing(
-    data,
+    data: ProcessedJSONObject,
     variant: SectionVariant,
     codeInfo: dict[str, CodeInfo],
     codeInfoCol: CodeInfoCol,
 ):
     filename = variant.name
-    jsonSourceMetadata_to_id = {}
+    jsonSourceMetadata_to_id: dict[str, str] = {}
     ancestor_paths = build_ancestor_paths(codeInfo, codeInfoCol.children)
     for id in ancestor_paths:
         jsonSourceMetadata_to_id[
@@ -47,10 +56,8 @@ def merge_into_existing(
         ] = id
 
     replacements: dict[str, str] = {}
-    new_ancestor_paths = build_ancestor_paths(
-        data["codeInfo"], data["codeInfoColChildren"]
-    )
-    for newId, newInfo in data["codeInfo"].items():
+    new_ancestor_paths = build_ancestor_paths(data.codeInfo, data.codeInfoColChildren)
+    for newId, newInfo in data.codeInfo.items():
         existingId = jsonSourceMetadata_to_id.get(
             createMetadataJsonString(filename, new_ancestor_paths[newId])
         )
@@ -60,19 +67,19 @@ def merge_into_existing(
             codeInfo[newId] = newInfo
 
     for newId, existingId in replacements.items():
-        del data["codeInfo"][newId]
-        data["codeInfoColChildren"][existingId] = [
-            replacements.get(x, x) for x in data["codeInfoColChildren"][newId]
+        del data.codeInfo[newId]
+        data.codeInfoColChildren[existingId] = [
+            replacements.get(x, x) for x in data.codeInfoColChildren[newId]
         ]
-        data["codeInfoColChildren"][None] = [
-            replacements.get(x, x) for x in data["codeInfoColChildren"][None]
+        data.codeInfoColChildren[None] = [
+            replacements.get(x, x) for x in data.codeInfoColChildren[None]
         ]
-        del data["codeInfoColChildren"][newId]
-        data["sectionVariantValues"][existingId] = data["sectionVariantValues"][newId]
-        del data["sectionVariantValues"][newId]
+        del data.codeInfoColChildren[newId]
+        data.variantValues[existingId] = data.variantValues[newId]
+        del data.variantValues[newId]
 
-    variant.values = data["sectionVariantValues"]
-    codeInfoCol.children = data["codeInfoColChildren"]
+    variant.values = data.variantValues
+    codeInfoCol.children = data.codeInfoColChildren
 
 
 def load_json_source(filename: str, jsonSourceKeys: list[str]):
@@ -94,12 +101,8 @@ def load_json_source(filename: str, jsonSourceKeys: list[str]):
     return new_data, isMissing
 
 
-def process_json_object(jsonSourceData, filename, jsonSourceKeys):
-    new_data = {
-        "codeInfo": {},
-        "codeInfoColChildren": {},
-        "sectionVariantValues": {},
-    }
+def process_json_object(jsonSourceData, filename: str, jsonSourceKeys: list[str]):
+    new_data = ProcessedJSONObject()
 
     try:
         for k in jsonSourceKeys:
@@ -116,14 +119,20 @@ def process_json_object(jsonSourceData, filename, jsonSourceKeys):
 
     if len(jsonSourceKeys) > 0:
         # point directly from None (the root) to the children
-        codeInfoChildren = new_data["codeInfoColChildren"]
+        codeInfoChildren = new_data.codeInfoColChildren
         codeInfoChildren[None] = codeInfoChildren[highest_key]
         del codeInfoChildren[highest_key]
 
     return new_data
 
 
-def process_json_object_helper(output, obj, filename, current_path, metadataToId):
+def process_json_object_helper(
+    output: ProcessedJSONObject,
+    obj,
+    filename: str,
+    current_path: list[str],
+    metadataToId: dict[str, str],
+):
     if not isinstance(obj, dict):
         return
 
@@ -144,30 +153,28 @@ def process_json_object_helper(output, obj, filename, current_path, metadataToId
             parent_id = create_new_id()
             metadataToId[metadata] = parent_id
 
-    output["codeInfoColChildren"][parent_id] = children_keys
+    output.codeInfoColChildren[parent_id] = children_keys
     return parent_id
 
 
-def create_json_code_info(key, value, output):
+def create_json_code_info(key: str, value, output: ProcessedJSONObject):
     paramInfoId = create_new_id()
     # Create code info entry
-    output["codeInfo"][paramInfoId] = with_code_info_defaults(
+    output.codeInfo[paramInfoId] = CodeInfo(
         id=paramInfoId,
         name=key,
         editable=True,
     )
-    output["codeInfoColChildren"][paramInfoId] = []
+    output.codeInfoColChildren[paramInfoId] = []
 
     is_dict = isinstance(value, dict)
     # Create variant value entry
     if is_dict:
         # For objects, store empty value and process children
-        output["sectionVariantValues"][paramInfoId] = new_ev_entry()
+        output.variantValues[paramInfoId] = EVEntry()
     else:
         # For non-objects, store the value directly
-        output["sectionVariantValues"][paramInfoId] = new_ev_entry(
-            value=json.dumps(value)
-        )
+        output.variantValues[paramInfoId] = EVEntry(value=json.dumps(value))
 
     return paramInfoId, is_dict
 
