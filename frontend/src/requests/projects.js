@@ -8,12 +8,6 @@ export async function dbLoadAllProjectMetadata() {
   });
 }
 
-export async function dbLoadProjectConfigNames() {
-  return await post({
-    body: {},
-    address: C.ROUTE_LOAD_PROJECT_CONFIG_NAMES,
-  });
-}
 
 export async function dbLoadProjectConfig(projectConfigName) {
   return await post({

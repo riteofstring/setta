@@ -36,10 +36,6 @@ class ProjectLoadRequest(BaseModel):
     projectConfigName: str
 
 
-class ProjectLoadFullRequest(BaseModel):
-    excludeProjectConfigName: str | None = None
-
-
 class ProjectSaveRequest(BaseModel):
     project: dict
 
@@ -92,12 +88,6 @@ class DeleteNotificationRequest(BaseModel):
 def route_load_all_project_metadata(dbq=Depends(get_dbq)):
     with dbq as db:
         return load_project_metadata(db)
-
-
-@router.post(C.ROUTE_LOAD_PROJECT_CONFIG_NAMES)
-def route_load_project_config_names(dbq=Depends(get_dbq)):
-    with dbq as db:
-        return load_project_config_names(db)
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
