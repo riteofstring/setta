@@ -1,41 +1,40 @@
 from collections import defaultdict
 
-from setta.project_state.project_state import CodeInfo, ProjectState
+from setta.project_state.project_state import (
+    CodeInfo,
+    CodeInfoCol,
+    ProjectState,
+    SectionVariant,
+)
 from setta.utils.utils import save_json_to_file, try_json
 
 
 def save_json_source_data(p: ProjectState, variant_ids=None):
-    variants = {
-        k: v
-        for k, v in p["sectionVariants"].items()
-        if ((not variant_ids) or k in variant_ids)
-    }
-
     to_be_saved = defaultdict(dict)
 
-    for variant in variants.values():
-        if not variant["isJsonSource"]:
+    for variant_id, variant in p.variants.items():
+        if not variant.isJsonSource:
             continue
-        codeInfoColId = variant["codeInfoColId"]
+        if variant_ids and variant_id not in variant_ids:
+            continue
+        codeInfoColId = variant.codeInfoColId
         if not codeInfoColId:
             continue
-        codeInfoCol = p["codeInfoCols"][codeInfoColId]
-        filename = variant["name"]
-
-        ancestor_paths = build_ancestor_paths(p["codeInfo"], codeInfoCol["children"])
+        codeInfoCol = p.codeInfoCols[codeInfoColId]
+        filename = variant.name
+        ancestor_paths = build_ancestor_paths(p.codeInfo, codeInfoCol.children)
         recursively_add_keys(
-            p,
             variant,
             codeInfoCol,
             to_be_saved[filename],
             None,
-            variant["jsonSourceKeys"],
+            variant.jsonSourceKeys,
             ancestor_paths,
         )
 
         # Make sure the jsonSourceKeys are present.
         # (They might not be because they are completely empty)
-        add_key_path_to_dict(to_be_saved[filename], variant["jsonSourceKeys"])
+        add_key_path_to_dict(to_be_saved[filename], variant.jsonSourceKeys)
 
     # Save each file
     for filename, data in to_be_saved.items():
@@ -76,26 +75,31 @@ def build_ancestor_paths(
 
 
 def recursively_add_keys(
-    p, variant, codeInfoCol, input_dict, codeInfoId, jsonSourceKeys, ancestor_paths
+    variant: SectionVariant,
+    codeInfoCol: CodeInfoCol,
+    output_dict: dict,
+    codeInfoId: str | None,
+    jsonSourceKeys: list[str],
+    ancestor_paths: dict[str, list[str]],
 ):
-    for k in codeInfoCol["children"][codeInfoId]:
-        children = codeInfoCol["children"][k]
+    for k in codeInfoCol.children[codeInfoId]:
+        children = codeInfoCol.children[k]
 
         # Get pre-computed key path
         key_path = [*jsonSourceKeys, *ancestor_paths[k]]
         value = try_getting_value(variant, k, children)
-        current_dict = add_key_path_to_dict(input_dict, key_path[:-1])
+        current_dict = add_key_path_to_dict(output_dict, key_path[:-1])
 
         # Set the value at the final position
         if key_path:  # Only set if we have a path
             current_dict[key_path[-1]] = value
 
         recursively_add_keys(
-            p, variant, codeInfoCol, input_dict, k, jsonSourceKeys, ancestor_paths
+            variant, codeInfoCol, output_dict, k, jsonSourceKeys, ancestor_paths
         )
 
 
-def add_key_path_to_dict(output, key_path):
+def add_key_path_to_dict(output: dict, key_path: list[str]):
     for path_part in key_path:
         # Create nested dictionaries if they don't exist
         if path_part not in output:
@@ -104,10 +108,12 @@ def add_key_path_to_dict(output, key_path):
     return output
 
 
-def try_getting_value(variant, codeInfoId, codeInfoChildren):
+def try_getting_value(
+    variant: SectionVariant, codeInfoId: str, codeInfoChildren: list[str]
+):
     if len(codeInfoChildren) == 0:
-        if codeInfoId in variant["values"]:
-            return try_json(variant["values"][codeInfoId]["value"])
+        if codeInfoId in variant.values:
+            return try_json(variant.values[codeInfoId].value)
         return ""
     return {}
 

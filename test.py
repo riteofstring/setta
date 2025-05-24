@@ -328,6 +328,7 @@
 
 # import json
 
+from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import (
     load_json_sources_into_data_structures,
 )
@@ -335,16 +336,21 @@ from setta.project_state.settings_project import create_settings_project_state
 
 x = create_settings_project_state("setta_files/setta-settings.json")
 
+
+load_json_sources_into_data_structures(x)
+
+for v in x.variants.values():
+    for c in v.values.keys():
+        v.values[c].value = "DOGS!"
+        break
+    break
+
+
+save_json_source_data(x)
+
+# print(len(x.codeInfo))
+
 # for v in x.variants.values():
 #     for c in v.values.keys():
 #         if c in x.codeInfo:
 #             print(c)
-
-load_json_sources_into_data_structures(x)
-
-print(len(x.codeInfo))
-
-for v in x.variants.values():
-    for c in v.values.keys():
-        if c in x.codeInfo:
-            print(c)

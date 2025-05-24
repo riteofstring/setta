@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 
+from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
 from setta.project_state.project_state import (
     ProjectLoadState,
@@ -107,5 +108,5 @@ class MetaSettingsFile:
         )
 
     def save_settings_project(self, p: ProjectSaveState):
-        # save_json_source_data(p)
+        save_json_source_data(p.projectState)
         save_json_to_file(self.path_meta_settings, p.projectState.model_dump())
