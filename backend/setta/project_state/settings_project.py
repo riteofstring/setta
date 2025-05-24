@@ -141,6 +141,7 @@ def create_settings_project_state(settings_path: str):
             name=k,
             size=SectionSize(width=550),
             variantId=variantId,
+            uiTypeColId=uiTypeColId
         )
         sections[section.id] = section
         variant = SectionVariant(
