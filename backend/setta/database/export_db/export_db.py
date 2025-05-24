@@ -1,7 +1,5 @@
 import os
 
-from setta.utils.constants import USER_SETTINGS
-
 from ..db_objs import DBQueue
 from .export_raw import export_raw
 from .export_readable import export_readable
@@ -31,13 +29,13 @@ def export_database(path, raw, readable, readable_with_variants):
     dbq.disconnect()
 
 
-def maybe_export_database(db, path):
+def maybe_export_database(
+    db, path, raw: bool, readable: bool, readable_with_variants: bool
+):
     _export_database(
         db,
         path,
-        raw=USER_SETTINGS["backend"]["exportDbRawOnSave"],
-        readable=USER_SETTINGS["backend"]["exportDbReadableOnSave"],
-        readable_with_variants=USER_SETTINGS["backend"][
-            "exportDbReadableWithVariantsOnSave"
-        ],
+        raw=raw,
+        readable=readable,
+        readable_with_variants=readable_with_variants,
     )

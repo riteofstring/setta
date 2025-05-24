@@ -6,6 +6,7 @@ from typing import Coroutine, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
 from setta.project_state.project_code import (
@@ -15,15 +16,21 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.project_state import ProjectState, ProjectUpdateState
 from setta.project_state.utils import create_timestamped_folder
-from setta.utils.constants import CODE_FOLDER, USER_SETTINGS, C
+from setta.utils.constants import CODE_FOLDER, C
 from setta.websockets.websocket_manager import WebsocketManager
 from setta.websockets.websocket_msg_handlers import WMHProjectManager
 
 
 class ProjectManager:
-    def __init__(self, lsp_writers: LSPWriters, websocket_manager: WebsocketManager):
+    def __init__(
+        self,
+        lsp_writers: LSPWriters,
+        websocket_manager: WebsocketManager,
+        settings_file: SettingsFile,
+    ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHProjectManager(websocket_manager)
+        self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.gen_code = None
@@ -309,7 +316,7 @@ class ProjectManager:
         if not projectUpdateState.requestRenameRefactor or not self.gen_code:
             return
 
-        renameRefactorMode = USER_SETTINGS["backend"]["renameRefactorMode"]
+        renameRefactorMode = self.settings_file.settings.backend.renameRefactorMode
         if renameRefactorMode == C.RENAME_REFACTOR_NEVER_RENAME:
             return
 

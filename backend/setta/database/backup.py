@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from setta.utils.constants import DB_BACKUP_FOLDER, USER_SETTINGS
+from setta.utils.constants import DB_BACKUP_FOLDER
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,13 @@ def get_last_backup_time() -> float | None:
     return backup_datetime.timestamp()
 
 
-def cleanup_old_backups():
+def cleanup_old_backups(autobackupKeepLastN: int):
     backup_files = get_backup_files()
-    for old_backup in backup_files[USER_SETTINGS["backend"]["autobackupKeepLastN"] :]:
+    for old_backup in backup_files[autobackupKeepLastN:]:
         old_backup.unlink()
 
 
-def create_backup(db_path):
+def create_backup(db_path: Path, autobackupKeepLastN: int):
     """Create a new backup of the database."""
     ensure_backup_dir_exists()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -56,12 +56,12 @@ def create_backup(db_path):
     logger.debug(f"creating backup: {backup_path}")
 
     shutil.copy2(db_path, backup_path)
-    cleanup_old_backups()
+    cleanup_old_backups(autobackupKeepLastN)
 
 
-def should_create_backup() -> bool:
+def should_create_backup(autobackup: bool, autobackupFreq: int) -> bool:
     """Check if it's time to create a new backup."""
-    if not USER_SETTINGS["backend"]["autobackup"]:
+    if not autobackup:
         return False
     last_backup_time = get_last_backup_time()
     logger.debug(f"last_backup_time: {last_backup_time}")
@@ -70,9 +70,14 @@ def should_create_backup() -> bool:
 
     current_time = time.time()
     time_since_last_backup = current_time - last_backup_time
-    return time_since_last_backup >= USER_SETTINGS["backend"]["autobackupFreq"]
+    return time_since_last_backup >= autobackupFreq
 
 
-def maybe_create_backup(db_path):
-    if should_create_backup():
-        create_backup(db_path)
+def maybe_create_backup(
+    db_path, autobackup: bool, autobackupFreq: int, autobackupKeepLastN: int
+):
+    if should_create_backup(autobackup, autobackupFreq):
+        create_backup(
+            db_path,
+            autobackupKeepLastN,
+        )

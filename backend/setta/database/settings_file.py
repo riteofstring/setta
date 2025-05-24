@@ -7,7 +7,7 @@ from setta.database.db.sections.load import load_json_sources_into_data_structur
 from setta.project_state.project_state import ProjectLoadState, ProjectState
 from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.settings_state import SettingsState
-from setta.utils.constants import SETTA_FILES_FOLDER, USER_SETTINGS
+from setta.utils.constants import SETTA_FILES_FOLDER
 from setta.utils.utils import save_json_to_file
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class SettingsFile:
     def __init__(self):
+        self.settings: SettingsState = SettingsState()
         self.meta_settings_file = MetaSettingsFile()
         self.load_settings()
 
@@ -30,8 +31,6 @@ class SettingsFile:
         for filename, data in to_be_saved.items():
             save_json_to_file(filename, data)
 
-        USER_SETTINGS.update(settings)
-
     def load_settings(self):
         logger.debug("Loading settings")
         paths = self.meta_settings_file.get_settings_paths()
@@ -40,10 +39,8 @@ class SettingsFile:
             with open(path, "r") as f:
                 output[settings_slice] = json.load(f)[settings_slice]
 
-        SettingsState.model_validate(output)
-
-        USER_SETTINGS.update(output)
-        return output
+        self.settings = SettingsState.model_validate(output)
+        return self.settings
 
     def load_settings_project(self):
         return self.meta_settings_file.load_settings_project()

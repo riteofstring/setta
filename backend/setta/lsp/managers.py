@@ -1,7 +1,7 @@
 import asyncio
 
 from setta.database.db.notifications.load import create_notification_dict
-from setta.utils.constants import CWD, USER_SETTINGS
+from setta.utils.constants import CWD
 from setta.websockets.websocket_msg_handlers import BaseWebsocketMsgHandler
 
 from .file_watcher import LSPFileWatcher
@@ -11,10 +11,10 @@ from .writer import LanguageServerWriter
 
 
 class LSPServers:
-    def __init__(self):
+    def __init__(self, settings):
         self.full = LanguageServer(
             workspace_folder=CWD,
-            settings=USER_SETTINGS["languageServer"],
+            settings=settings,
             name="full",
         )
 

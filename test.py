@@ -207,7 +207,6 @@
 # from setta.code_gen.dependency_graph import DependencyGraph
 # from setta.code_gen.python.generate_code import PythonCodeGenerator
 # from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters
-# from setta.utils.constants import USER_SETTINGS
 # from setta.websockets.websocket_manager import WebsocketManager
 
 
@@ -263,8 +262,6 @@
 #     with open("test_project_state.json", "r") as f:
 #         project_state = json.load(f)
 #     print("exporting...")
-
-#     USER_SETTINGS["languageServer"] = {}
 
 #     servers = LSPServers()
 #     writers = LSPWriters(servers)

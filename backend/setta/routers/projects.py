@@ -22,11 +22,12 @@ from setta.database.db.projects.saveAs import (
     save_as_new_project_config,
 )
 from setta.database.export_db.export_db import maybe_export_database
+from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.project_state import ProjectLoadState, ProjectUpdateState
 from setta.utils.constants import C
 
-from .dependencies import get_dbq, get_project_manager, get_wmh_base
+from .dependencies import get_dbq, get_project_manager, get_settings_file, get_wmh_base
 
 router = APIRouter()
 
@@ -142,14 +143,27 @@ async def route_save_project(
     background_tasks: BackgroundTasks,
     dbq=Depends(get_dbq),
     websocket_msg_handler=Depends(get_wmh_base),
+    settings_file: SettingsFile = Depends(get_settings_file),
 ):
     with dbq as db:
         notification = None
         try:
             # Perform existing save operations
-            maybe_create_backup(db.path)
+            settings = settings_file.settings.backend
+            maybe_create_backup(
+                db.path,
+                settings.autobackup,
+                settings.autobackupFreq,
+                settings.autobackupKeepLastN,
+            )
             save_project_details(db, x.project)
-            maybe_export_database(db, db.path)
+            maybe_export_database(
+                db,
+                db.path,
+                settings.exportDbRawOnSave,
+                settings.exportDbReadableOnSave,
+                settings.exportDbReadableWithVariantsOnSave,
+            )
             # Return success response with notification
             notification = create_notification_dict(message="Saved!", temporary=True)
 

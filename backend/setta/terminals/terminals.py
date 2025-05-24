@@ -14,8 +14,9 @@ import psutil
 from fastapi import WebSocketDisconnect
 from websockets.exceptions import ConnectionClosedOK
 
+from setta.database.settings_file import SettingsFile
 from setta.terminals.utils import linux_get_child_process_details
-from setta.utils.constants import USER_SETTINGS, C
+from setta.utils.constants import C
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,9 @@ else:
     from .utils import linux_has_child_processes as has_child_processes
 
 
-def get_terminal_shell():
-    if USER_SETTINGS["backend"]["defaultTerminalShell"]:
-        return shlex.split(
-            USER_SETTINGS["backend"]["defaultTerminalShell"], posix=not IS_WINDOWS
-        )
+def get_terminal_shell(defaultTerminalShell: str | None):
+    if defaultTerminalShell:
+        return shlex.split(defaultTerminalShell, posix=not IS_WINDOWS)
     if IS_WINDOWS:
         return ["bash.exe"]
     if IS_MACOS:
@@ -49,16 +48,19 @@ def get_terminal_shell():
 
 
 class Terminals:
-    def __init__(self, websocket_msg_handler_meta):
+    def __init__(self, websocket_msg_handler_meta, settings_file: SettingsFile):
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
         self.websocket_msg_handler_meta = websocket_msg_handler_meta
+        self.settings_file = settings_file
         # asyncio.create_task(self.monitor_child_processes())
 
     def new_terminal(self, projectConfigId, sectionId, isTemporary):
         if sectionId not in self.PTY_PIDS:
-            terminal_shell = get_terminal_shell()
+            terminal_shell = get_terminal_shell(
+                self.settings_file.settings.backend.defaultTerminalShell
+            )
             pty_process = PtyProcess.spawn(terminal_shell)
             self.PTY_PIDS[sectionId] = {
                 "pid": pty_process.pid,
@@ -73,7 +75,7 @@ class Terminals:
             pty_info = self.PTY_PIDS[sectionId]
             if (
                 IS_WINDOWS
-                or not USER_SETTINGS["backend"]["clearTerminalBeforeMarkingAsReady"]
+                or not self.settings_file.settings.backend.clearTerminalBeforeMarkingAsReady
             ):
                 pty_info["terminalPromptIsReady"].set()
 

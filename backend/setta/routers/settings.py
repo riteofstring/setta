@@ -38,7 +38,7 @@ def route_load_settings(settings_file=Depends(get_settings_file)):
 async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
-    settings_file=Depends(get_settings_file),
+    settings_file: SettingsFile = Depends(get_settings_file),
     websocket_msg_handler=Depends(get_wmh_base),
 ):
     notification = None
