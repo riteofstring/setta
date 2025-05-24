@@ -200,11 +200,11 @@ class Artifact(BaseModel, extra="forbid"):
 
 
 class ProjectConfigChild(BaseModel, extra="forbid"):
-    x: float
-    y: float
-    zIndex: int
-    w: float
-    h: float
+    x: float = 0
+    y: float = 0
+    zIndex: int = 0
+    w: float = 1
+    h: float = 1
 
 
 class ProjectConfig(BaseModel, extra="forbid"):

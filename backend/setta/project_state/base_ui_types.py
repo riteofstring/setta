@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -6,182 +7,213 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
+class UITypePresetType(StrEnum):
+    BASE = "BASE"
+    USER = "USER"
+
+
+class UITypeName(StrEnum):
+    TEXT = "TEXT"
+    SLIDER = "SLIDER"
+    SWITCH = "SWITCH"
+    COLOR_PICKER = "COLOR_PICKER"
+    DROPDOWN = "DROPDOWN"
+    PASSWORD = "PASSWORD"
+    SECTION = "SECTION"
+    LIST_ROOT = "LIST_ROOT"
+    DICT_ROOT = "DICT_ROOT"
+    GROUP = "GROUP"
+    IMAGE = "IMAGE"
+    CHART = "CHART"
+    DRAW = "DRAW"
+    TEXT_BLOCK = "TEXT_BLOCK"
+    SOCIAL = "SOCIAL"
+    GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
+    CODE = "CODE"
+    GEN_PYTHON_CODE = "GEN_PYTHON_CODE"
+    PARAM_SWEEP = "PARAM_SWEEP"
+    TERMINAL = "TERMINAL"
+    GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP"
+    IFRAME = "IFRAME"
+    CHAT = "CHAT"
+    BROWSER = "BROWSER"
+
+
 class UIType(BaseModel):
     id: str = Field(default_factory=create_new_id)
-    type: str = "TEXT"
+    type: UITypeName = UITypeName.TEXT
     name: str = Field(default_factory=generate_memorable_string)
-    presetType: str = "BASE"
+    presetType: UITypePresetType | None = None
     config: dict[str, Any] = Field(default_factory=dict)
 
 
-# List of all base UI types
 BASE_UI_TYPES_LIST: list[UIType] = [
     UIType(
         id="3fdaeb6a-e989-4888-b844-17a76f0b0192",
-        type="TEXT",
+        type=UITypeName.TEXT,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="eab8f446-17cc-4512-bab5-42bff8570f1f",
-        type="SLIDER",
+        type=UITypeName.SLIDER,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={"min": 0, "max": 100, "step": 1},
     ),
     UIType(
         id="69cdf4c5-7555-4ef3-93d3-bda03f33c6d5",
-        type="SWITCH",
+        type=UITypeName.SWITCH,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="74de30af-accf-44db-9b6b-da4260f0bd60",
-        type="COLOR_PICKER",
+        type=UITypeName.COLOR_PICKER,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="5b7755f7-8628-4b32-92e4-89eab596e4a3",
-        type="DROPDOWN",
+        type=UITypeName.DROPDOWN,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="2180677d-333f-4ea4-ae37-dbbbb50671d7",
-        type="PASSWORD",
+        type=UITypeName.PASSWORD,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="0191cde4-3d98-4ba0-972a-fead19b8ac73",
-        type="SECTION",
+        type=UITypeName.SECTION,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="ab68ebd2-7a99-47d6-a7ec-b45857bcd49f",
-        type="LIST_ROOT",
+        type=UITypeName.LIST_ROOT,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="623a9242-53e9-4b42-b695-431e9754a836",
-        type="DICT_ROOT",
+        type=UITypeName.DICT_ROOT,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="0e050316-06ca-48f4-92c1-9845abdf85f7",
-        type="GROUP",
+        type=UITypeName.GROUP,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="06b511f3-dced-43be-97d7-1ceaddc763d5",
-        type="IMAGE",
+        type=UITypeName.IMAGE,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="126547a6-d41e-4891-80f0-a0354f089c7c",
-        type="CHART",
+        type=UITypeName.CHART,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="4ec2f5eb-3f66-4bce-a9e2-1eb4fdd96d6f",
-        type="DRAW",
+        type=UITypeName.DRAW,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="2b06a83b-b96a-490d-a2d7-3631619e6495",
-        type="TEXT_BLOCK",
+        type=UITypeName.TEXT_BLOCK,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="76cd4b19-cc63-4e2c-8214-5a4246ca637c",
-        type="SOCIAL",
+        type=UITypeName.SOCIAL,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="b2cda88e-7b77-4dff-8503-3c7e07a3ff0a",
-        type="GLOBAL_VARIABLES",
+        type=UITypeName.GLOBAL_VARIABLES,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="af9f2cfd-8cb6-44fd-9736-eefffae4cd29",
-        type="CODE",
+        type=UITypeName.CODE,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="2b516ed4-6b82-4445-95bf-6c7dac7f410a",
-        type="GEN_PYTHON_CODE",
+        type=UITypeName.GEN_PYTHON_CODE,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="af0538a7-9667-400e-987e-ae3c844e0fcd",
-        type="PARAM_SWEEP",
+        type=UITypeName.PARAM_SWEEP,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="d6d40533-ee47-42a5-8b55-5455716c71ac",
-        type="TERMINAL",
+        type=UITypeName.TERMINAL,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-        type="GLOBAL_PARAM_SWEEP",
+        type=UITypeName.GLOBAL_PARAM_SWEEP,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="fae9523f-b9ee-4f0f-8785-3ce36c546aba",
-        type="IFRAME",
+        type=UITypeName.IFRAME,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="5d7859dd-fd3f-4f5f-9b8c-fe9bede13c33",
-        type="CHAT",
+        type=UITypeName.CHAT,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
     UIType(
         id="d58df269-fe7f-435b-99f4-5c8b351c956e",
-        type="BROWSER",
+        type=UITypeName.BROWSER,
         name="",
-        presetType="BASE",
+        presetType=UITypePresetType.BASE,
         config={},
     ),
 ]
