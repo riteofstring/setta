@@ -1,6 +1,72 @@
 import { z } from 'zod';
 import _ from 'lodash';
 import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";
+// UITypePresetType enum
+export const UITypePresetTypeSchema = z.enum([
+  'BASE',
+  'USER'
+]);
+export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
+export const UITypePresetType = {
+  BASE: 'BASE',
+  USER: 'USER',
+} as const;
+
+// UITypeName enum
+export const UITypeNameSchema = z.enum([
+  'TEXT',
+  'SLIDER',
+  'SWITCH',
+  'COLOR_PICKER',
+  'DROPDOWN',
+  'PASSWORD',
+  'SECTION',
+  'LIST_ROOT',
+  'DICT_ROOT',
+  'GROUP',
+  'IMAGE',
+  'CHART',
+  'DRAW',
+  'TEXT_BLOCK',
+  'SOCIAL',
+  'GLOBAL_VARIABLES',
+  'CODE',
+  'GEN_PYTHON_CODE',
+  'PARAM_SWEEP',
+  'TERMINAL',
+  'GLOBAL_PARAM_SWEEP',
+  'IFRAME',
+  'CHAT',
+  'BROWSER'
+]);
+export type UITypeName = z.infer<typeof UITypeNameSchema>;
+export const UITypeName = {
+  TEXT: 'TEXT',
+  SLIDER: 'SLIDER',
+  SWITCH: 'SWITCH',
+  COLOR_PICKER: 'COLOR_PICKER',
+  DROPDOWN: 'DROPDOWN',
+  PASSWORD: 'PASSWORD',
+  SECTION: 'SECTION',
+  LIST_ROOT: 'LIST_ROOT',
+  DICT_ROOT: 'DICT_ROOT',
+  GROUP: 'GROUP',
+  IMAGE: 'IMAGE',
+  CHART: 'CHART',
+  DRAW: 'DRAW',
+  TEXT_BLOCK: 'TEXT_BLOCK',
+  SOCIAL: 'SOCIAL',
+  GLOBAL_VARIABLES: 'GLOBAL_VARIABLES',
+  CODE: 'CODE',
+  GEN_PYTHON_CODE: 'GEN_PYTHON_CODE',
+  PARAM_SWEEP: 'PARAM_SWEEP',
+  TERMINAL: 'TERMINAL',
+  GLOBAL_PARAM_SWEEP: 'GLOBAL_PARAM_SWEEP',
+  IFRAME: 'IFRAME',
+  CHAT: 'CHAT',
+  BROWSER: 'BROWSER',
+} as const;
+
 // Size enum
 export const SizeSchema = z.enum([
   'auto'
@@ -74,6 +140,21 @@ export const ViewingEditingMode = {
   USER: 'USER',
   USER_EDIT: 'USER_EDIT',
 } as const;
+
+// UIType schema
+export const UITypeSchema = z.object({
+  id: z.string().default(() => createNewId()),
+  type: UITypeNameSchema.default(UITypeName.TEXT),
+  name: z.string().default(() => generateMemorableString()),
+  presetType: UITypePresetTypeSchema.nullable().default(null),
+  config: z.record(z.any()).default(() => ({})),
+});
+export type UIType = z.infer<typeof UITypeSchema>;
+
+// UIType factory function
+export function createUIType(input: Partial<UIType> = {}): UIType {
+  return UITypeSchema.parse(input);
+}
 
 // Viewport schema
 export const ViewportSchema = z.object({
@@ -328,7 +409,7 @@ export const ProjectStateSchema = z.object({
   variants: z.record(SectionVariantSchema).default(() => ({})),
   codeInfo: z.record(CodeInfoSchema).default(() => ({})),
   codeInfoCols: z.record(CodeInfoColSchema).default(() => ({})),
-  uiTypes: z.record(z.any()).default(() => _.cloneDeep(BASE_UI_TYPES)),
+  uiTypes: z.record(UITypeSchema).default(() => _.cloneDeep(BASE_UI_TYPES)),
   uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
   defaultProjectConfigId: z.string().nullable().default(null),
 }).strict();

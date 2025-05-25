@@ -516,23 +516,19 @@ class PydanticToZodConverter:
         return "z.any()"
 
 def main():
+    full_code = ""
     converter = PydanticToZodConverter()
-    
-    # Parse your Python file
-    converter.parse_python_file("backend/setta/project_state/project_state.py")
-    
-    # Generate TypeScript code
+    for python_file in ["backend/setta/project_state/base_ui_types.py", "backend/setta/project_state/project_state.py"]:
+        converter.parse_python_file(python_file)
     typescript_code = converter.generate_typescript()
+    full_code += typescript_code
+    print(f"\nParsed {len(converter.models)} models and {len(converter.enums)} enums")
 
     # Write to file
     with open("frontend/src/utils/generated_schemas.ts", "w") as f:
-        f.write(typescript_code)
+        f.write(full_code)
     
     print("TypeScript schemas generated successfully!")
-    print(f"\nParsed {len(converter.models)} models and {len(converter.enums)} enums")
-    print("\nGenerated code preview:")
-    print("=" * 50)
-    print(typescript_code[:1000] + "..." if len(typescript_code) > 1000 else typescript_code)
 
 if __name__ == "__main__":
     main()
