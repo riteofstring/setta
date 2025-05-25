@@ -31,12 +31,13 @@ def get_section_children(p: ProjectState, id: str) -> list[str]:
 
 
 def get_top_level_param_ids(p: ProjectState, id: str) -> list[str]:
+    section_code_info_children = get_section_code_info_children(p, id)
     selected_item = get_selected_item(p, id)
     if selected_item:
-        section_code_info_children = get_section_code_info_children(p, id)
         children = section_code_info_children.get(selected_item.id, [])
-        return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.PARAMETER]
-    return []
+    else:
+        children = section_code_info_children[None]
+    return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.PARAMETER]
 
 
 def get_section_code_info_children(p: ProjectState, section_id: str):
