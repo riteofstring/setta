@@ -145,6 +145,8 @@ class FlyManager:
         except Exception as e:
             print(f"Error allocating IPs: {e}")
             return False
+
+
     def create_app(self, app_name: str):
         """Create a new Fly.io app - returns the app info"""
 
@@ -290,6 +292,9 @@ class FlyManager:
 
                 print(f"Response status: {response.status_code}")
 
+                if response.status_code == 422:
+                    print(f"422 Error details: {response.text}")
+
                 if response.status_code in [200, 201]:
                     machine_data = response.json()
                     machine_id = machine_data.get("id")
@@ -312,6 +317,7 @@ class FlyManager:
                     return True
                 else:
                     print(f"✗ Failed with status {response.status_code}")
+                    print(f"Response body: {response.text}")  # Also add this
                     return False
 
         except Exception as e:
@@ -319,7 +325,6 @@ class FlyManager:
             return False
         finally:
             print(f"=== DEPLOYMENT ATTEMPT COMPLETE ===")
-
 
     def get_app_status(self, app_name: str):
         """Check if an app exists and get its status"""
