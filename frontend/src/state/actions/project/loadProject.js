@@ -127,8 +127,3 @@ function createNodesMapFromProjectConfigChildren(projectConfig, sections) {
 
   return nodesMap;
 }
-
-export function getCurrentProjectConfig(_state) {
-  const state = _state ?? useProjectState.getState();
-  return state.projectConfigs[state.projectConfigId];
-}

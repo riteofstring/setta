@@ -4,7 +4,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getCurrentProjectConfig } from "state/actions/project/loadProject";
+import {
+  getCurrentProjectConfig,
+  getCurrentSectionConfigs,
+} from "state/actions/projectConfigs";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
@@ -33,7 +36,7 @@ export function SelectionContextMenu() {
         allVisible = false;
       }
 
-      if (!node.positionAndSizeLocked) {
+      if (!getCurrentSectionConfigs(x)[id].positionAndSizeLocked) {
         allLocked = false;
       }
 
@@ -70,7 +73,7 @@ export function SelectionContextMenu() {
   function onClickLock() {
     useProjectState.setState((state) => {
       for (const n of nodeIds) {
-        state.sections[n].positionAndSizeLocked = !allLocked;
+        getCurrentSectionConfigs(state)[n].positionAndSizeLocked = !allLocked;
       }
     });
     closeContextMenu();

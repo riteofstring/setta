@@ -2,6 +2,7 @@ import _ from "lodash";
 import React from "react";
 
 import C from "constants/constants.json";
+import { getCurrentSectionConfigs } from "state/actions/projectConfigs";
 import { useActiveSection, useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -77,7 +78,8 @@ function ContainerGroup({
   const { positionAndSizeLocked, isInOtherProjectConfigs } = useProjectState(
     (x) => {
       return {
-        positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
+        positionAndSizeLocked:
+          getCurrentSectionConfigs(x)[sectionId].positionAndSizeLocked,
         isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       };
     },
