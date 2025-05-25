@@ -10,7 +10,7 @@ import {
 } from "state/actions/project/loadProject";
 import { getProjectDataForSaving } from "state/actions/project/saveProject";
 import { useProjectLoading, useProjectState } from "state/definitions";
-import { resetStores } from "state/utils";
+import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { useHotReload } from "utils/hotReload";
 
@@ -68,7 +68,7 @@ export function useLoadProjectConfig() {
   const isHotReload = useHotReload();
 
   async function loadFn() {
-    resetStores();
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadProjectConfig({ projectConfigName });
     setDoneLoading(true);
@@ -76,7 +76,7 @@ export function useLoadProjectConfig() {
   }
 
   async function loadSettingsProject() {
-    resetStores();
+    resetProjectStores();
     setDoneLoading(false);
     const res = await loadSettingsProjectConfig();
     setDoneLoading(true);

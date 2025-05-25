@@ -9,7 +9,7 @@ import {
   loadProjectState,
 } from "state/actions/project/loadProject";
 import { useExportProjectJson } from "state/hooks/project";
-import { resetStores } from "state/utils";
+import { resetProjectStores } from "state/utils";
 
 export function ExportJSONModal({ open, modalType }) {
   const [projectJson, exportProjectJson] = useExportProjectJson();
@@ -45,7 +45,7 @@ export function ImportJSONModal({ modalType }) {
     };
     const res = await dbAddDefaultDataForJSONImport(project);
     if (res.status === 200) {
-      resetStores();
+      resetProjectStores();
       loadProjectState(res.data);
       const { viewport } = getCurrentProjectConfig(res.data);
       if (viewport) {

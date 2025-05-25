@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useMisc, useSettings, useStateVersion } from "state/definitions";
-import { ARRAY_OF_STORES } from "state/utils";
+import { stateDict, STATE_TYPES } from "state/utils";
 import { saveProject } from "./project/saveProject";
 
 export const undoProjectState = _.throttle(() => {
@@ -10,7 +10,7 @@ export const undoProjectState = _.throttle(() => {
   }
 
   const version = useStateVersion.getState().version;
-  for (const s of ARRAY_OF_STORES) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {
       s.temporal.getState().undo(2);
       undoSetPastAndFutureStates(s);
@@ -41,7 +41,7 @@ function filterPastOrFutureStates(states) {
 
 export const redoProjectState = _.throttle(() => {
   const version = useStateVersion.getState().version;
-  for (const s of ARRAY_OF_STORES) {
+  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
     if (s.temporal && version === s.getState().version) {
       s.temporal.getState().redo();
       redoSetPastAndFutureStates(s);
@@ -91,7 +91,7 @@ function resumeThenPauseTemporal(statePointer, callback) {
 export const maybeIncrementProjectStateVersion = _.throttle(
   (doIncrementVersion, doAutoSave = true) => {
     if (doIncrementVersion) {
-      incrementStateVersion(ARRAY_OF_STORES);
+      incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE]);
       if (doAutoSave) {
         autoSave();
       }
