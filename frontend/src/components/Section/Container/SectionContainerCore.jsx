@@ -1,7 +1,6 @@
 import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
-import { getCurrentSectionConfigs } from "state/actions/projectConfigs";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useActiveSection, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
@@ -20,8 +19,7 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
       sectionTypeName: getSectionType(sectionId, x),
       jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
-      positionAndSizeLocked:
-        getCurrentSectionConfigs(x)[sectionId].positionAndSizeLocked,
+      positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
     };
   }, _.isEqual);
   const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));

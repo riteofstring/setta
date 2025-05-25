@@ -2,7 +2,7 @@ import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useNavigate } from "react-router-dom";
 import { dbSetProjectConfigName } from "requests/projectName";
-import { getCurrentProjectConfig } from "state/actions/projectConfigs";
+import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";

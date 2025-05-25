@@ -2,21 +2,19 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import C from "constants/constants.json";
 import { MdMemory } from "react-icons/md";
-import { getCurrentSectionConfigs } from "state/actions/projectConfigs";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
 export function ToggleEntryCodeBlockButton({ sectionId }) {
   const isEntryCodeBlock = useProjectState(
-    (x) => getCurrentSectionConfigs(x)[sectionId].isEntryCodeBlock,
+    (x) => x.sections[sectionId].isEntryCodeBlock,
   );
 
   function onClick() {
     useProjectState.setState((state) => {
       for (const s of Object.values(state.sections)) {
         if (getSectionType(s.id) === C.CODE) {
-          getCurrentSectionConfigs(state)[sectionId].isEntryCodeBlock =
-            s.id === sectionId;
+          state.sections[s.id].isEntryCodeBlock = s.id === sectionId;
         }
       }
     });

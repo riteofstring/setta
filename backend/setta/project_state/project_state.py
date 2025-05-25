@@ -92,7 +92,9 @@ class ChartSettings(BaseModel, extra="forbid"):
 class Section(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    size: SectionSize = Field(default_factory=SectionSize)
     parentId: str | None = None
+    variantId: str = Field(default_factory=create_new_id)
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS[UITypeName.SECTION])
     uiTypeColId: str | None = None
     social: str = ""
@@ -102,17 +104,22 @@ class Section(BaseModel, extra="forbid"):
     paramSweepSectionId: str | None = None
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.PYTHON
+    isEntryCodeBlock: bool = False
     isFrozen: bool = False
+    isHorizontalOrientation: bool = False
     hideParams: bool = False
     hideSearch: bool = False
     hideUnpinnedParams: bool = False
     hideColumn: bool = False
     displayMode: str = "GUI"
     visibility: Visibility = Field(default_factory=Visibility)
+    pinnedAreaHeight: Union[float, Literal[Size.AUTO]] = Size.AUTO
+    isMinimized: bool = False
     canvasSettings: CanvasSettings = Field(default_factory=CanvasSettings)
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
     isTemporary: bool = False
     renderMarkdown: bool = False
+    positionAndSizeLocked: bool = False
     selectedVariantIds: dict[str, Any] = Field(default_factory=dict)
     paramFilter: str = ""
     isInOtherProjectConfigs: bool = False
@@ -125,19 +132,9 @@ class Section(BaseModel, extra="forbid"):
 
     @model_validator(mode="after")
     def set_default_variant_id(self):
-        if not self.defaultVariantId and len(self.variantIds) > 0:
-            self.defaultVariantId = self.variantIds[0]
+        if not self.defaultVariantId:
+            self.defaultVariantId = self.variantId
         return self
-
-
-class SectionConfig(BaseModel, extra="forbid"):
-    variantId: str = Field(default_factory=create_new_id)
-    size: SectionSize = Field(default_factory=SectionSize)
-    isHorizontalOrientation: bool = False
-    pinnedAreaHeight: Union[float, Literal[Size.AUTO]] = Size.AUTO
-    isMinimized: bool = False
-    positionAndSizeLocked: bool = False
-    isEntryCodeBlock: bool = False
 
 
 class EVEntry(BaseModel, extra="forbid"):
@@ -222,7 +219,6 @@ class ProjectConfig(BaseModel, extra="forbid"):
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
     children: dict[str, ProjectConfigChild] = Field(default_factory=dict)
-    sectionConfigs: dict[str, SectionConfig] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
@@ -256,41 +252,44 @@ class ProjectState(BaseModel, extra="forbid"):
         self.uiTypes.update(BASE_UI_TYPES)
         return self
 
+    @model_validator(mode="after")
+    def ensure_variants_exist(self):
+        for section in self.sections.values():
+            if section.variantId not in self.variants:
+                self.variants[section.variantId] = SectionVariant()
+        return self
+
     def get_section_type(self, id: str):
         ui_type_id = self.sections[id].uiTypeId
         ui_type = self.uiTypes[ui_type_id]
         return ui_type.type
 
-    def get_selected_section_variant(self, project_config_id: str, section_id: str):
-        variantId = (
-            self.projectConfigs[project_config_id].sectionConfigs[section_id].variantId
-        )
+    def get_selected_section_variant(self, section_id: str):
+        variantId = self.sections[section_id].variantId
         return self.variants[variantId]
 
-    def get_selected_item(self, project_config_id: str, id: str):
-        variant = self.get_selected_section_variant(project_config_id, id)
+    def get_selected_item(self, id: str):
+        variant = self.get_selected_section_variant(id)
         selected_item = variant.selectedItem
         if selected_item:
             return self.codeInfo[selected_item]
 
-    def get_section_children(self, project_config_id: str, id: str) -> list[str]:
-        variant = self.get_selected_section_variant(project_config_id, id)
+    def get_section_children(self, id: str) -> list[str]:
+        variant = self.get_selected_section_variant(id)
         return variant.children
 
-    def get_top_level_param_ids(self, project_config_id: str, id: str) -> list[str]:
-        selected_item = self.get_selected_item(project_config_id, id)
+    def get_top_level_param_ids(self, id: str) -> list[str]:
+        selected_item = self.get_selected_item(id)
         if selected_item:
-            section_code_info_children = self.get_section_code_info_children(
-                project_config_id, id
-            )
+            section_code_info_children = self.get_section_code_info_children(id)
             children = section_code_info_children.get(selected_item.id, [])
             return [
                 c for c in children if self.codeInfo[c].rcType == CodeInfoType.PARAMETER
             ]
         return []
 
-    def get_section_code_info_children(self, project_config_id: str, section_id: str):
-        variant = self.get_selected_section_variant(project_config_id, section_id)
+    def get_section_code_info_children(self, section_id: str):
+        variant = self.get_selected_section_variant(section_id)
         codeInfoColId = variant.codeInfoColId
         if not codeInfoColId:
             codeInfoCol = CodeInfoCol()

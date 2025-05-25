@@ -9,7 +9,6 @@ import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { newEVEntry } from "utils/objs/ev";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { getCurrentProjectConfig } from "./project/loadProject";
-import { getCurrentSectionConfigs } from "./projectConfigs";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getSectionInfo(sectionId) {
@@ -90,9 +89,8 @@ export function toggleSectionOrientation(sectionId) {
 
 export function toggleSectionLock(sectionId) {
   useProjectState.setState((state) => {
-    const sectionConfigs = getCurrentSectionConfigs(state);
-    sectionConfigs[sectionId].positionAndSizeLocked =
-      !sectionConfigs[sectionId].positionAndSizeLocked;
+    state.sections[sectionId].positionAndSizeLocked =
+      !state.sections[sectionId].positionAndSizeLocked;
   });
 }
 

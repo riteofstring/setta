@@ -1,5 +1,5 @@
 import C from "constants/constants.json";
-import { getCurrentProjectConfig } from "state/actions/projectConfigs";
+import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { post } from "./utils";
 
 export async function dbSetProjectConfigName(newProjectConfigName) {

@@ -22,7 +22,6 @@ import {
   updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
-import { getCurrentSectionConfigs } from "./actions/projectConfigs";
 import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getDisplayedSectionIdToChildren,
@@ -83,7 +82,7 @@ export function subscribe() {
       useProjectState.setState((state) => {
         for (const s of Object.values(state.sections)) {
           if (getSectionType(s.id) === C.CODE) {
-            getCurrentSectionConfigs(state).isEntryCodeBlock = true;
+            state.sections[s.id].isEntryCodeBlock = true;
             break;
           }
         }
@@ -262,7 +261,7 @@ function entryCodeBlockSubscriptionFn(state) {
   for (const s of Object.values(state.sections)) {
     if (getSectionType(s.id) === C.CODE) {
       count += 1;
-      if (getCurrentSectionConfigs(state).isEntryCodeBlock) {
+      if (state.sections[s.id].isEntryCodeBlock) {
         return true;
       }
     }

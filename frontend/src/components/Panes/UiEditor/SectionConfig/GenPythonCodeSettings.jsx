@@ -5,7 +5,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { wsGenCodePrefixCompletion } from "requests/sections";
-import { getCurrentProjectConfig } from "state/actions/projectConfigs";
+import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 

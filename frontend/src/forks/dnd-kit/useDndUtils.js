@@ -2,7 +2,6 @@ import { useDndMonitor } from "forks/dnd-kit/CustomCore";
 import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
-import { getCurrentSectionConfigs } from "state/actions/projectConfigs";
 import { getSectionParentId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -98,12 +97,12 @@ export function useDndProps({ sectionId, isTopLevel }) {
   const { hasNested, disabled, onlyChildId } = useProjectState((x) => {
     const variantId = x.sections[sectionId]?.variantId;
     const children = variantId ? x.variants[variantId].children : [];
-    const positionAndSizeLocked =
-      getCurrentSectionConfigs(x)[sectionId]?.positionAndSizeLocked;
     return {
       hasNested: children.length > 0,
       onlyChildId: children.length === 1 ? children[0] : null,
-      disabled: positionAndSizeLocked ? positionAndSizeLocked : null,
+      disabled: x.sections[sectionId]?.positionAndSizeLocked
+        ? x.sections[sectionId]?.positionAndSizeLocked
+        : null,
     };
   }, _.isEqual);
 

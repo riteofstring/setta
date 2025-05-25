@@ -2,7 +2,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getCurrentProjectConfig } from "state/actions/projectConfigs";
+import { getCurrentProjectConfig } from "state/actions/project/loadProject";
 import { useProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
