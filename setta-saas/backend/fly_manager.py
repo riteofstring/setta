@@ -193,9 +193,13 @@ class FlyManager:
                     app_info = data["data"]["createApp"]["app"]
                     print(f"App created successfully: {app_info['hostname']}")
 
-                    # Allocate IPs immediately after creation
+                    # Allocate IPs and verify
                     print(f"Allocating IPs for {app_name}...")
-                    self.allocate_ips(app_name)
+                    ip_success = self.allocate_ips(app_name)
+
+                    if not ip_success:
+                        print(f"WARNING: IP allocation failed for {app_name}")
+                        # You might want to set a status flag here
 
                     return {
                         "id": app_info["id"],
