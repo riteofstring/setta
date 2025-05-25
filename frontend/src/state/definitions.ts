@@ -28,8 +28,10 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
+type ActiveSectionsType = { ids: Array<string> };
+
 export const useActiveSection = withProjectState(
-  create(
+  create<ActiveSectionsType>(
     withTemporal(
       withResetFn(() =>
         withVersion({
