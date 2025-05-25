@@ -165,7 +165,40 @@ async def create_project(
         "created_at": project.created_at.isoformat()
     }
 
+@app.post("/api/projects/sync-all")
+async def sync_all_projects(db: Session = Depends(get_db)):
+    """Force check all projects and update their real status"""
+    projects = db.query(Project).all()
+    results = []
 
+    for project in projects:
+        old_status = project.status
+
+        if project.url and "fly.dev" in project.url:
+            app_name = project.url.split("//")[1].split(".")[0]
+            print(f"Checking {app_name}...")
+
+            app_status = fly_manager.get_app_status(app_name)
+
+            if not app_status:
+                project.status = "not_found"
+            else:
+                # This shouldn't happen since you deleted everything
+                project.status = "running" if app_status.get("deployed") else "pending"
+        else:
+            # No URL means it was never created properly
+            project.status = "error"
+
+        project.last_checked = datetime.utcnow()
+
+        results.append({
+            "name": project.name,
+            "old_status": old_status,
+            "new_status": project.status
+        })
+
+    db.commit()
+    return {"checked": len(projects), "results": results}
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
