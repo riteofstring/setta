@@ -73,6 +73,71 @@ class FlyManager:
             print(f"Exception getting organization: {e}")
             return None
 
+    def allocate_ips(self, app_name: str):
+        """Allocate shared IPv4 and IPv6 addresses for the app"""
+
+        # Allocate shared IPv4
+        ipv4_mutation = """
+        mutation($appName: String!) {
+            allocateIpAddress(appName: $appName, type: v4shared) {
+                ipAddress {
+                    id
+                    address
+                }
+            }
+        }
+        """
+
+        # Allocate IPv6
+        ipv6_mutation = """
+        mutation($appName: String!) {
+            allocateIpAddress(appName: $appName, type: v6) {
+                ipAddress {
+                    id
+                    address
+                }
+            }
+        }
+        """
+
+        try:
+            with httpx.Client() as client:
+                # Allocate shared IPv4
+                response = client.post(
+                    self.base_url,
+                    json={
+                        "query": ipv4_mutation,
+                        "variables": {"appName": app_name}
+                    },
+                    headers=self.headers
+                )
+
+                data = response.json()
+                if "errors" not in data:
+                    print(f"✓ Shared IPv4 allocated")
+                else:
+                    print(f"IPv4 allocation error: {data.get('errors')}")
+
+                # Allocate IPv6
+                response = client.post(
+                    self.base_url,
+                    json={
+                        "query": ipv6_mutation,
+                        "variables": {"appName": app_name}
+                    },
+                    headers=self.headers
+                )
+
+                data = response.json()
+                if "errors" not in data:
+                    print(f"✓ IPv6 allocated")
+
+            return True
+
+        except Exception as e:
+            print(f"Error allocating IPs: {e}")
+            return False
+
     def create_app(self, app_name: str):
         """Create a new Fly.io app - returns the app info"""
 
@@ -124,9 +189,14 @@ class FlyManager:
                     print(f"Fly.io error: {data['errors']}")
                     return None
 
+                # THIS IS WHERE THE NEW CODE GOES - REPLACE THE OLD RETURN
                 if "data" in data and data["data"] and "createApp" in data["data"]:
                     app_info = data["data"]["createApp"]["app"]
                     print(f"App created successfully: {app_info['hostname']}")
+
+                    # Allocate IPs immediately after creation
+                    print(f"Allocating IPs for {app_name}...")
+                    self.allocate_ips(app_name)
 
                     return {
                         "id": app_info["id"],
