@@ -144,90 +144,63 @@ class FlyManager:
     def deploy_to_app(self, app_name: str):
         """Deploy using Fly.io Machines API"""
 
-        # For now, let's create a simple machine with your test app
-        machines_url = f"https://api.machines.dev/v1/apps/{app_name}/machines"
+        print(f"=== STARTING DEPLOYMENT FOR {app_name} ===")
 
+        if not self.api_token:
+            print("ERROR: No API token for deployment!")
+            return False
+
+        # Add a small delay to ensure app is ready
+        import time
+        time.sleep(2)
+
+        machines_url = f"https://api.machines.dev/v1/apps/{app_name}/machines"
+        print(f"Machines API URL: {machines_url}")
+
+        # Simplified machine config
         machine_config = {
-            "name": f"{app_name}-machine",
-            "region": "ord",  # or your preferred region
+            "region": "ord",
             "config": {
-                "image": "registry.fly.io/test-foss-app:latest",  # Your deployed test app image
-                "env": {
-                    "FLY_APP_NAME": app_name,
-                    "PROJECT_NAME": app_name
-                },
+                "image": "flyio/hellofly:latest",
                 "services": [
                     {
                         "ports": [
-                            {
-                                "port": 443,
-                                "handlers": ["tls", "http"]
-                            },
-                            {
-                                "port": 80,
-                                "handlers": ["http"]
-                            }
+                            {"port": 443, "handlers": ["tls", "http"]},
+                            {"port": 80, "handlers": ["http"]}
                         ],
                         "protocol": "tcp",
-                        "internal_port": 8000
+                        "internal_port": 8080
                     }
-                ],
-                "auto_destroy": False
+                ]
             }
         }
 
         try:
+            print(f"Sending deployment request...")
+
             with httpx.Client() as client:
                 response = client.post(
                     machines_url,
                     json=machine_config,
-                    headers=self.headers,
+                    headers={
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Content-Type": "application/json"
+                    },
                     timeout=60.0
                 )
 
+                print(f"Response status: {response.status_code}")
+                print(f"Response body: {response.text[:500]}")  # First 500 chars
+
                 if response.status_code == 201:
-                    print(f"Machine created for {app_name}")
+                    print(f"✓ Machine created successfully for {app_name}")
                     return True
                 else:
-                    print(f"Failed to create machine: {response.text}")
+                    print(f"✗ Failed with status {response.status_code}")
                     return False
 
         except Exception as e:
-            print(f"Exception deploying to app: {e}")
+            print(f"EXCEPTION during deployment: {type(e).__name__}: {str(e)}")
             return False
-
-    def delete_app(self, app_name: str):
-        """Delete a Fly.io app"""
-
-        mutation = """
-        mutation($appName: String!) {
-            deleteApp(appName: $appName) {
-                organization {
-                    id
-                }
-            }
-        }
-        """
-
-        try:
-            with httpx.Client() as client:
-                response = client.post(
-                    self.base_url,
-                    json={
-                        "query": mutation,
-                        "variables": {"appName": app_name}
-                    },
-                    headers=self.headers,
-                    timeout=30.0
-                )
-
-                data = response.json()
-
-                if "errors" in data:
-                    print(f"Error deleting app: {data['errors']}")
-
-                return "errors" not in data
-
-        except Exception as e:
-            print(f"Exception deleting Fly app: {e}")
-            return False
+        finally:
+            print(f"=== DEPLOYMENT ATTEMPT COMPLETE ===")

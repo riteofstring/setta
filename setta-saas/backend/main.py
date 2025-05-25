@@ -67,14 +67,13 @@ async def create_project(
     """Create a new project and Fly.io container"""
 
     # Generate a unique app name for Fly.io (must be globally unique)
-    # Use timestamp to ensure uniqueness
     safe_name = re.sub(r'[^a-z0-9-]', '-', project_data.name.lower())
     app_name = f"setta-{safe_name}-{int(time.time())}"
 
     # Create project in database first
     project = Project(
         name=project_data.name,
-        url="Creating...",  # Temporary
+        url="Creating...",
         status="creating"
     )
     db.add(project)
@@ -82,22 +81,31 @@ async def create_project(
     db.refresh(project)
 
     # Try to create Fly.io app
+    print(f"Step 1: Creating Fly.io app for project {project.name}")
     fly_app = fly_manager.create_app(app_name)
 
     if fly_app:
         # Update project with real URL
         project.url = f"https://{fly_app['hostname']}"
         project.status = "created"
+        db.commit()
 
-        # Deploy the app
-        if fly_manager.deploy_to_app(app_name):
+        # Now deploy to the app
+        print(f"Step 2: Attempting deployment to {app_name}")
+        deployment_success = fly_manager.deploy_to_app(app_name)
+        print(f"Step 3: Deployment result: {deployment_success}")
+
+        if deployment_success:
             project.status = "running"
+            print(f"Step 4: Project {app_name} is now running")
         else:
             project.status = "deployment_pending"
+            print(f"Step 4: Project {app_name} deployment failed or pending")
     else:
         # Mark as error if Fly creation failed
         project.status = "error"
         project.url = "Failed to create"
+        print(f"ERROR: Failed to create Fly.io app")
 
     db.commit()
     db.refresh(project)
