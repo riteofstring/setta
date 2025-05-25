@@ -7,7 +7,7 @@ import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
 import { ProjectPageSearchBar } from "./SearchBar/ProjectPageSearch";
 import { SiteLogo } from "./SiteLogo";
 
-export function HeaderContainer({ path }) {
+export function HeaderContainer({ path }: { path: string }) {
   const projectIs404 = useProjectLoading((x) => x.projectIs404);
   return (
     <header
@@ -26,7 +26,7 @@ export function HeaderContainer({ path }) {
   );
 }
 
-function SearchSwitch({ path }) {
+function SearchSwitch({ path }: { path: string }) {
   switch (path) {
     case HOME_ROUTER_PATH:
       return <HomePageSearchBar />;
