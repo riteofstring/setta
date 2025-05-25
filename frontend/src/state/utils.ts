@@ -45,10 +45,6 @@ function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
 }
 
-export function withVersion(initialState) {
-  return { ...initialState, version: 0 };
-}
-
 export function withTemporal(...props) {
   return temporal(...props, { limit: 200 });
 }
