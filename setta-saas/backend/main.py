@@ -87,7 +87,13 @@ async def create_project(
     if fly_app:
         # Update project with real URL
         project.url = f"https://{fly_app['hostname']}"
-        project.status = "created"  # Note: not deployed yet
+        project.status = "created"
+
+        # Deploy the app
+        if fly_manager.deploy_to_app(app_name):
+            project.status = "running"
+        else:
+            project.status = "deployment_pending"
     else:
         # Mark as error if Fly creation failed
         project.status = "error"
@@ -103,6 +109,8 @@ async def create_project(
         "status": project.status,
         "created_at": project.created_at.isoformat()
     }
+
+
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(

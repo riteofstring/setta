@@ -141,6 +141,61 @@ class FlyManager:
             print(f"Exception creating Fly app: {type(e).__name__}: {e}")
             return None
 
+    def deploy_to_app(self, app_name: str):
+        """Deploy using Fly.io Machines API"""
+
+        # For now, let's create a simple machine with your test app
+        machines_url = f"https://api.machines.dev/v1/apps/{app_name}/machines"
+
+        machine_config = {
+            "name": f"{app_name}-machine",
+            "region": "ord",  # or your preferred region
+            "config": {
+                "image": "registry.fly.io/test-foss-app:latest",  # Your deployed test app image
+                "env": {
+                    "FLY_APP_NAME": app_name,
+                    "PROJECT_NAME": app_name
+                },
+                "services": [
+                    {
+                        "ports": [
+                            {
+                                "port": 443,
+                                "handlers": ["tls", "http"]
+                            },
+                            {
+                                "port": 80,
+                                "handlers": ["http"]
+                            }
+                        ],
+                        "protocol": "tcp",
+                        "internal_port": 8000
+                    }
+                ],
+                "auto_destroy": False
+            }
+        }
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    machines_url,
+                    json=machine_config,
+                    headers=self.headers,
+                    timeout=60.0
+                )
+
+                if response.status_code == 201:
+                    print(f"Machine created for {app_name}")
+                    return True
+                else:
+                    print(f"Failed to create machine: {response.text}")
+                    return False
+
+        except Exception as e:
+            print(f"Exception deploying to app: {e}")
+            return False
+
     def delete_app(self, app_name: str):
         """Delete a Fly.io app"""
 
