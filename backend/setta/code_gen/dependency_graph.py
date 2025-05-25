@@ -53,12 +53,12 @@ class SectionNode(Node):
 
 @dataclass
 class ParamNode(Node):
-    value: str
+    value: str  # type: ignore
     passing_style: ParameterPassingStyle
 
     @property
     def has_name_and_value(self):
-        return self.name and self.value is not None and self.value != ""
+        return bool(self.name) and self.value is not None and self.value != ""
 
 
 class DependencyGraph:

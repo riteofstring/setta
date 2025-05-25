@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.notifications.load import create_notification_dict
-from setta.mcp.chat_manager import maybe_pydantic_model_dump
+from setta.mcp.chat_manager import ChatManager, maybe_pydantic_model_dump
+from setta.project_state.chat_messages import ChatMessage
 from setta.routers.dependencies import (
     get_chat_manager,
     get_dbq,
@@ -148,7 +149,7 @@ async def route_stop_llm_chat(
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
     background_tasks: BackgroundTasks,
-    chat_manager=Depends(get_chat_manager),
+    chat_manager: ChatManager = Depends(get_chat_manager),
     websocket_msg_handler=Depends(get_wmh_base),
 ):
     chat = chat_manager.get_chat(x.chatId)
@@ -168,7 +169,7 @@ async def route_get_llm_chat(
 
     waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
     current_stream = chat_manager.get_current_stream(x.chatId)
-    messages = chat["messages"]
+    messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
     messages, tool_results = chat_manager.separate_tool_results(messages)
 
@@ -179,9 +180,11 @@ async def route_get_llm_chat(
     }
 
 
-def merge_db_messages_with_current_stream(db_messages, current_stream):
+def merge_db_messages_with_current_stream(
+    db_messages: list[ChatMessage], current_stream: list[ChatMessage]
+):
     # Create a set of existing message IDs for efficient lookup
-    existing_ids = {message["id"] for message in db_messages}
+    existing_ids = {message.id for message in db_messages}
 
     # Loop through current_stream and append messages that aren't already in chat
     for message in current_stream:

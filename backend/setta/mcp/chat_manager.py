@@ -6,14 +6,20 @@ from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
 from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
+from setta.database.db_objs import DBQueue
 from setta.database.utils import create_new_id
+from setta.mcp.client import MCPClient
 from setta.mcp.server import CHAT_ID_ARG_NAME
+from setta.project_state.chat_messages import Chat
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
+from setta.websockets.msg_handlers.chat_manager import WMHChatManager
 
 
 class ChatManager:
-    def __init__(self, dbq, mcp_client, websocket_msg_handler):
+    def __init__(
+        self, dbq: DBQueue, mcp_client: MCPClient, websocket_msg_handler: WMHChatManager
+    ):
         self.dbq = dbq
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
@@ -50,7 +56,10 @@ class ChatManager:
             chat_id,
             messages,
         )
-        return self.get_chat(chat_id)
+        chat = self.get_chat(chat_id)
+        if not chat:
+            raise ValueError
+        return chat
 
     def create_new_chat(self, first_message):
         with self.dbq as db:
@@ -76,8 +85,8 @@ class ChatManager:
     def get_current_stream(self, chatId):
         return self.current_streams.get(chatId, [])
 
-    async def process_query(self, chat, model, deepThink):
-        chatId = chat["id"]
+    async def process_query(self, chat: Chat, model: str, deepThink: bool):
+        chatId = chat.id
         self.stream_tasks[chatId] = asyncio.current_task()
         try:
             await self._process_query(chat, model, deepThink)
@@ -88,7 +97,7 @@ class ChatManager:
             self.stream_tasks.pop(chatId, None)
             chat = self.save_current_stream_to_db(chatId)
             self.end_current_stream(chatId)
-            messages, tool_results = self.separate_tool_results(chat["messages"])
+            messages, tool_results = self.separate_tool_results(chat.messages)
             chunk = {
                 "type": C.LLM_FULL_MESSAGE_STOP,
                 "messages": messages,
@@ -96,9 +105,9 @@ class ChatManager:
             }
             await self.send_streaming_response(chatId, None, chunk)
 
-    async def _process_query(self, chat, model, deepThink):
-        chatId = chat["id"]
-        original_messages = chat["messages"]
+    async def _process_query(self, chat: Chat, model: str, deepThink: bool):
+        chatId = chat.id
+        original_messages = chat.messages
         self.init_current_stream(chatId)
         curr_stream = self.current_streams[chatId]
         while True:
@@ -288,7 +297,7 @@ class ChatManager:
         return filtered_messages, tool_results
 
     async def get_tools_system_messages_thinking(
-        self, messages, curr_stream, model, deepThink
+        self, messages, curr_stream, model: str, deepThink: bool
     ):
         tools = self.mcp_client.available_tools
         tools = tools + maybe_get_str_replace_editor_tool(model)

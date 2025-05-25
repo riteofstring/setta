@@ -1,5 +1,7 @@
 import json
 
+from setta.project_state.chat_messages import Chat, ChatMessage
+
 
 def load_chat(db, chat_id):
     chat_query = """
@@ -15,12 +17,12 @@ def load_chat(db, chat_id):
         return None  # Chat not found
 
     # Create the base chat object
-    chat = {
-        "id": chat_row[0],
-        "name": chat_row[1],
-        "lastUpdated": chat_row[2],
-        "messages": [],
-    }
+    chat = Chat(
+        id=chat_row[0],
+        name=chat_row[1],
+        lastUpdated=chat_row[2],
+        messages=[],
+    )
 
     # Now get all messages for this chat
     messages_query = """
@@ -34,12 +36,12 @@ def load_chat(db, chat_id):
 
     # Process each message
     for row in db.fetchall():
-        message = {
-            "id": row[0],
-            "role": row[1],
-            "content": json.loads(row[2]),
-        }
-        chat["messages"].append(message)
+        message = ChatMessage(
+            id=row[0],
+            role=row[1],
+            content=json.loads(row[2]),
+        )
+        chat.messages.append(message)
 
     return chat
 
