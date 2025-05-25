@@ -1,10 +1,6 @@
-import importlib.util
 import json
-import os
-import sys
 
 from setta.project_state.base_ui_types import BASE_UI_TYPES_LIST
-
 
 
 def convert_base_ui_types_to_js(output_file_path):
