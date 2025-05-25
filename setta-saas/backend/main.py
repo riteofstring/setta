@@ -233,7 +233,7 @@ async def delete_project(
     if project.url and "fly.dev" in project.url:
         app_name = project.url.split("//")[1].split(".")[0]
         try:
-            fly_manager.destroy_app(app_name)
+            fly_manager.delete_app(app_name)
         except Exception as e:
             print(f"Error deleting Fly app: {e}")
 
