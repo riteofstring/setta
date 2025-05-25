@@ -1,4 +1,4 @@
-import { temporal } from "zundo";
+import { temporal, TemporalState } from "zundo";
 import { StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
@@ -46,6 +46,10 @@ export function withResetFn<T>(
 
 function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
+}
+
+export function withVersion<T>(state: T): T & { version: number } {
+  return { ...state, version: 0 };
 }
 
 export function withTemporal<T>(state: StateCreator<T>) {
