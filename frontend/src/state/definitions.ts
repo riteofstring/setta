@@ -4,14 +4,15 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
 } from "utils/constants";
+import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import {
   withProjectState,
   withResetFn,
-  withTemporal,
   withVersion,
+  ZUNDO_TEMPORAL_OPTIONS,
 } from "./utils";
 
 export const useResizeEvent = withProjectState(
@@ -28,16 +29,16 @@ type ActiveSectionsType = { ids: Array<string> };
 
 export const useActiveSection = withProjectState(
   createWithEqualityFn(
-    withTemporal(
+    temporal(
       withResetFn(() =>
         withVersion<ActiveSectionsType>({
           ids: [],
         }),
       ),
+      ZUNDO_TEMPORAL_OPTIONS,
     ),
   ),
 );
-
 
 export const useContextMenus = withProjectState(
   createWithEqualityFn(
@@ -52,7 +53,7 @@ export const useContextMenus = withProjectState(
 export const useProjectState = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
-      withTemporal(
+      temporal(
         immer(
           withResetFn(() =>
             withVersion({
@@ -75,6 +76,7 @@ export const useProjectState = withProjectState(
             }),
           ),
         ),
+        ZUNDO_TEMPORAL_OPTIONS,
       ),
     ),
   ),
@@ -112,12 +114,13 @@ export const useModal = withProjectState(
 
 export const useNodeInternals = withProjectState(
   createWithEqualityFn(
-    withTemporal(
+    temporal(
       withResetFn(() =>
         withVersion({
           x: new Map(),
         }),
       ),
+      ZUNDO_TEMPORAL_OPTIONS,
     ),
   ),
 );
@@ -131,8 +134,9 @@ export const useNotifications = createWithEqualityFn(
 export const useArtifacts = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
-      withTemporal(
+      temporal(
         withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
+        ZUNDO_TEMPORAL_OPTIONS,
       ),
     ),
   ),
@@ -170,7 +174,12 @@ export const useSectionRefs = withProjectState(
 export const useSettings = createWithEqualityFn(() => ({}));
 
 export const useStateVersion = withProjectState(
-  createWithEqualityFn(withTemporal(withResetFn(() => withVersion({})))),
+  createWithEqualityFn(
+    temporal(
+      withResetFn(() => withVersion({})),
+      ZUNDO_TEMPORAL_OPTIONS,
+    ),
+  ),
 );
 
 export const useTypeErrors = withProjectState(

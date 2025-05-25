@@ -1,5 +1,6 @@
-import { temporal, TemporalState } from "zundo";
 import { StateCreator } from "zustand";
+
+export const ZUNDO_TEMPORAL_OPTIONS = { limit: 200 };
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
@@ -50,10 +51,6 @@ function addStatePointer(state, stateType) {
 
 export function withVersion<T>(state: T): T & { version: number } {
   return { ...state, version: 0 };
-}
-
-export function withTemporal<T>(state: StateCreator<T>) {
-  return temporal(state, { limit: 200 });
 }
 
 function resetStores(stateType) {
