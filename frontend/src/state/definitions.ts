@@ -56,7 +56,22 @@ export const useProjectState = withProjectState(
         immer(
           withResetFn(() =>
             withVersion({
-              exampleState: 5
+              projectConfigId: null,
+              projectConfigs: {},
+              sections: {},
+              variants: {},
+              uiTypeCols: {},
+              uiTypes: {},
+              codeInfoCols: {},
+              codeInfo: {},
+              artifactGroups: {},
+              singletonSections: {
+                [C.GLOBAL_VARIABLES]: null,
+                [C.GLOBAL_PARAM_SWEEP]: null,
+                [C.GEN_PYTHON_CODE]: null,
+                temporaryTerminalGroup: null,
+              },
+              requestRenameRefactor: false,
             }),
           ),
         ),
@@ -64,7 +79,6 @@ export const useProjectState = withProjectState(
     ),
   ),
 );
-
 
 export const useHomePageSearch = createWithEqualityFn(
   withResetFn(() => ({
