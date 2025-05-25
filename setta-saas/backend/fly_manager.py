@@ -192,7 +192,8 @@ class FlyManager:
                 print(f"Response status: {response.status_code}")
                 print(f"Response body: {response.text[:500]}")  # First 500 chars
 
-                if response.status_code == 201:
+                # Accept both 200 and 201 as success
+                if response.status_code in [200, 201]:
                     print(f"✓ Machine created successfully for {app_name}")
                     return True
                 else:
