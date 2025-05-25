@@ -53,7 +53,7 @@ export function tryParseJSON(x) {
   }
 }
 
-export function shortcutPrettified(shortcut) {
+export function shortcutPrettified(shortcut: string) {
   // macOS command symbol (⌘)
   const macSymbol = "⌘";
   const windowsText = "Ctrl";

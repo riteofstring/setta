@@ -26,13 +26,11 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
-type ActiveSectionsType = { ids: Array<string> };
-
 export const useActiveSection = withProjectState(
   createWithEqualityFn(
     temporal(
       withResetFn(() =>
-        withVersion<ActiveSectionsType>({
+        withVersion({
           ids: [],
         }),
       ),

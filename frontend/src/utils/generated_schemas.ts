@@ -639,18 +639,16 @@ export const SettingsStateSchema = z
     gui: SettingsGUISchema.default(() => createSettingsGUI()),
     backend: SettingsBackendSchema.default(() => createSettingsBackend()),
     languageServer: z.record(z.any()).default(() => ({})),
-    sections: z
-      .record(z.any())
-      .default({
-        CODE: { size: { width: 500 } },
-        TERMINAL: { size: { width: 700, height: 300 } },
-        CHART: { size: { width: 400, height: 400 } },
-        GLOBAL_VARIABLES: { name: "Global Variables" },
-        GLOBAL_PARAM_SWEEP: { name: "Global Param Sweep" },
-        GEN_PYTHON_CODE: { name: "Generated Python Code" },
-        TEXT_BLOCK: { displayMode: "RENDER" },
-        CHAT: { size: { width: 405, height: 405 } },
-      }),
+    sections: z.record(z.any()).default({
+      CODE: { size: { width: 500 } },
+      TERMINAL: { size: { width: 700, height: 300 } },
+      CHART: { size: { width: 400, height: 400 } },
+      GLOBAL_VARIABLES: { name: "Global Variables" },
+      GLOBAL_PARAM_SWEEP: { name: "Global Param Sweep" },
+      GEN_PYTHON_CODE: { name: "Generated Python Code" },
+      TEXT_BLOCK: { displayMode: "RENDER" },
+      CHAT: { size: { width: 405, height: 405 } },
+    }),
   })
   .strict();
 export type SettingsState = z.infer<typeof SettingsStateSchema>;

@@ -1,6 +1,11 @@
 import * as Menubar from "@radix-ui/react-menubar";
 
-export function MenuItem({ children, shortcut, onClick, disabled }) {
+export function MenuItem({
+  children,
+  shortcut = "",
+  onClick = () => {},
+  disabled = false,
+}) {
   //
   return (
     <Menubar.Item
