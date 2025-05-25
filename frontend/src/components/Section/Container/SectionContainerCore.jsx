@@ -1,9 +1,9 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useActiveSection, useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { C } from "utils/c";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";

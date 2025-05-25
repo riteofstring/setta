@@ -1,10 +1,10 @@
 import _ from "lodash";
 import React from "react";
 
-import C from "constants/constants.json";
 import { useActiveSection, useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { C } from "utils/c";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";

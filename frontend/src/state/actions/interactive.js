@@ -1,11 +1,11 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
-import C from "constants/constants.json";
 import { dbFormateCode } from "requests/interactive";
 import {
   useArtifacts,
   useInteractiveDependencies,
   useProjectState,
 } from "state/definitions";
+import { C } from "utils/c";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
 

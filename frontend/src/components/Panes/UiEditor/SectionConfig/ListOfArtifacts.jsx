@@ -1,6 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { Editable } from "components/Utils/Editable";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
@@ -14,6 +13,7 @@ import {
   getSectionArtifactGroupMetadata,
 } from "state/hooks/artifacts";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { C } from "utils/c";
 import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({

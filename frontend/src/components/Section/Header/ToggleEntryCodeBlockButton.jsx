@@ -1,9 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import C from "constants/constants.json";
 import { MdMemory } from "react-icons/md";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 
 export function ToggleEntryCodeBlockButton({ sectionId }) {
   const isEntryCodeBlock = useProjectState(

@@ -1,5 +1,5 @@
-import C from "constants/constants.json";
 import { useProjectState, useSettings } from "state/definitions";
+import { C } from "utils/c";
 import { openRenameReferencesModal } from "./modal";
 import { getSectionVariant } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";

@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import DEFAULT_VALUES from "constants/defaultValues.json";
 import _ from "lodash";
+import { C } from "utils/c";
 import { createRandomName } from "utils/idNameCreation";
 
 export function newArtifact({ name, ...props }) {

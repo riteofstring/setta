@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
+import { C } from "utils/c";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
 
 export function overviewPaneOnKeyDown(e) {

@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +18,7 @@ import {
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones

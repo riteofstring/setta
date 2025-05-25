@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import {
   getDisplayedSectionVariantId,
@@ -6,6 +5,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { useGetSectionVariantNames } from "./sectionVariants";
 
 export function useParamSweepInfo(sectionId) {

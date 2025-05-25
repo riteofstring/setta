@@ -1,5 +1,4 @@
 import Chart from "chart.js/auto";
-import C from "constants/constants.json";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
@@ -9,6 +8,7 @@ import {
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { C } from "utils/c";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,

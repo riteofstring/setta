@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";

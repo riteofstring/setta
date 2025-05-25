@@ -1,5 +1,4 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { getSectionType } from "state/actions/sectionInfos";
@@ -9,6 +8,7 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;

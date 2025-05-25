@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectState, useTypeErrors } from "state/definitions";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 

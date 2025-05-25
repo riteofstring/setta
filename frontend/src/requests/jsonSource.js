@@ -1,5 +1,5 @@
-import C from "constants/constants.json";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { post } from "./utils";
 
 export async function dbLoadSectionJSONSource(variantIdsToLoad) {

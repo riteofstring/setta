@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useActiveSection, useProjectState } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
+import { C } from "utils/c";
 import { findAll } from "utils/getDescendants";
 import { addTemporaryNotification } from "../notifications";
 import {

@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated automatically
-import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
+import { C } from "utils/c";
 
 import { setGenCodePrefix } from "../components/Panes/UiEditor/SectionConfig/GenPythonCodeSettings";
 import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";

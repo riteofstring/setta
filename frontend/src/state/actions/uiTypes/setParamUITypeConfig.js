@@ -1,10 +1,10 @@
-import C from "constants/constants.json";
 import {
   cloneNewUIType,
   maybeGetExistingUIType,
 } from "state/actions/uiTypes/cloneUITypes";
 import { useProjectState } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
+import { C } from "utils/c";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionInfos";
 import { setParamUITypeId } from "./setParamUITypeId";

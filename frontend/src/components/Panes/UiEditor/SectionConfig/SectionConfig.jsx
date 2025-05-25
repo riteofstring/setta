@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";

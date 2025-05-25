@@ -1,6 +1,5 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
-import C from "constants/constants.json";
 import { memo, useEffect, useRef } from "react";
 import { FaBrain } from "react-icons/fa6";
 import { IoMdCheckmark } from "react-icons/io";
@@ -19,6 +18,7 @@ import {
 } from "state/actions/ai";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useAIStore, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { shallow } from "zustand/shallow";
 import { ChatInput } from "./ChatInput";
 import { useTypewriterEffect } from "./useTypewriterEffect";

@@ -1,12 +1,12 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import C from "constants/constants.json";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
 import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
+import { C } from "utils/c";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);

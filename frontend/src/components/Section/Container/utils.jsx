@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
@@ -10,6 +9,7 @@ import { getHighestAncestor } from "state/actions/sectionInfos";
 import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
 import "./dndline.css";
 

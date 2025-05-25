@@ -1,9 +1,9 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
+import { C } from "utils/c";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {

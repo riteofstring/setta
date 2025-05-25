@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import { sendMessage } from "requests/websocket";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { getProjectData } from "./saveProject";

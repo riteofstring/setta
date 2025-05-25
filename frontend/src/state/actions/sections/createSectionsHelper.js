@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 
 export function useCreateSectionsList() {
   const singletonSections = useProjectState(

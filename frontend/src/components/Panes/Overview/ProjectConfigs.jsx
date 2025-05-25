@@ -17,7 +17,7 @@ export const ProjectConfigs = React.forwardRef(() => {
   const { name: currProjectConfigName, allConfigNames } = useProjectState(
     (x) => {
       const curr = getCurrentProjectConfig(x);
-      const name = curr?.name ?? ""
+      const name = curr?.name ?? "";
       const allConfigNames = _.map(x.projectConfigs, (p) => p.name);
       return { name, allConfigNames };
     },

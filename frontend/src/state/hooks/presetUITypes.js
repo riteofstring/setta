@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { isAmongNonPresets } from "state/actions/uiTypes/cloneUITypes";
 import {
@@ -8,6 +7,7 @@ import {
   uiTypesToPretty,
 } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {

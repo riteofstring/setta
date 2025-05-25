@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/c";
 
 function _findAllDescendants(
   allCodeInfo,

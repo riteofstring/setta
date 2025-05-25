@@ -1,11 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import C from "constants/constants.json";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
 import { dbSaveSettings } from "requests/settings";
 import { setModalOpen } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
+import { C } from "utils/c";
 
 export function RenameReferencesModal() {
   const modalData = useModal((x) => x.modalData);

@@ -1,10 +1,10 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
-import C from "constants/constants.json";
 import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
+import { C } from "utils/c";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";

@@ -2,10 +2,10 @@ import {
   base64ToImageObj,
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import {
   newArtifact,

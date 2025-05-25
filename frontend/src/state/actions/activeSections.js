@@ -1,10 +1,10 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import {
   useActiveSection,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { C } from "utils/c";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";

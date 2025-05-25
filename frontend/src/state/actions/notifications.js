@@ -1,5 +1,5 @@
-import C from "constants/constants.json";
 import { useNotifications, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 
 const DEFAULT_TEMP_TIMEOUT = 2000;

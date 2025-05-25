@@ -1,5 +1,5 @@
-import C from "constants/constants.json";
 import { getSectionType } from "state/actions/sectionInfos";
+import { C } from "utils/c";
 
 export function getIsTwitterSection(sectionId, state) {
   return (

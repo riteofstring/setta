@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { VIEWING_EDITING_MODE } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";

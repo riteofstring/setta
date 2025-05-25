@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
@@ -10,6 +9,7 @@ import {
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
+import { C } from "utils/c";
 import { combinedAndSeparateLayersToBase64 } from "./base64Conversion";
 import {
   drawAllLayers,

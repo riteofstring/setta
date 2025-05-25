@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/c";
 import { post } from "./utils";
 
 export async function dbLoadAllProjectMetadata() {
@@ -8,14 +8,12 @@ export async function dbLoadAllProjectMetadata() {
   });
 }
 
-
 export async function dbLoadProjectConfig(projectConfigName) {
   return await post({
     body: { projectConfigName },
     address: C.ROUTE_LOAD_PROJECT_CONFIG,
   });
 }
-
 
 export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({

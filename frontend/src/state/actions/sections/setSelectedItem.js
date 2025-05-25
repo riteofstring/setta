@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import { wsParametersRequest } from "requests/sections";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { newCodeInfo } from "utils/objs/codeInfo";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";

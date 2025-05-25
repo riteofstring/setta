@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -14,6 +13,7 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { C } from "utils/c";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {

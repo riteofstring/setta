@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { getSectionVariant, updateSectionInfos } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {

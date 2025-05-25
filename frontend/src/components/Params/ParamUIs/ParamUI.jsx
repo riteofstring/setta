@@ -1,10 +1,10 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamUIType } from "state/hooks/uiTypes";
+import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,

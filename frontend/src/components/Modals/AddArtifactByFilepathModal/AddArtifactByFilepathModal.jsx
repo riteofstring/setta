@@ -1,5 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import C from "constants/constants.json";
 import { useState } from "react";
 import { dbLoadArtifactFromDisk } from "requests/artifacts";
 import {
@@ -10,6 +9,7 @@ import { setModalOpen } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
+import { C } from "utils/c";
 
 export function AddArtifactByFilepathModal() {
   const sectionId = useModal((x) => x.modalData);

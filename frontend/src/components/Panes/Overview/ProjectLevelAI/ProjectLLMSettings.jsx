@@ -1,8 +1,8 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
-import C from "constants/constants.json";
 import { dbSetLLMApiKeys } from "requests/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { C } from "utils/c";
 import { MODEL_GROUPS } from "utils/constants";
 
 const IsolatedInput = ({ apiKeyName }) => {

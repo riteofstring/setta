@@ -1,5 +1,5 @@
-import C from "constants/constants.json";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { C } from "utils/c";
 import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetExistingTerminals(projectConfigId) {

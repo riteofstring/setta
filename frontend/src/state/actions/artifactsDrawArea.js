@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
+import { C } from "utils/c";
 
 export function maybeRequestDrawAreaUpdate(newVal, oldVal) {
   const idToModifiedBy = {};

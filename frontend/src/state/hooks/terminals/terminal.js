@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { dbGetExistingTerminals } from "requests/terminals";
@@ -11,7 +10,7 @@ import {
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
-import { URLS } from "utils/constants";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
@@ -88,11 +87,11 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useProjectState.getState().projectConfigId
+  const projectConfigId = useProjectState.getState().projectConfigId;
   const id = createNewId();
   const isTemporary =
     !!useProjectState.getState().sections[sectionId].isTemporary;
-  const wsTerminalAddress = `${URLS.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
+  const wsTerminalAddress = `${C.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {

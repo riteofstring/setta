@@ -1,5 +1,4 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
-import C from "constants/constants.json";
 import { useEffect, useMemo, useState } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
@@ -7,6 +6,7 @@ import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { createNewLLMChat, getUUIDMappingForLLM } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
+import { C } from "utils/c";
 import { MODEL_GROUPS } from "utils/constants";
 import { shallow } from "zustand/shallow";
 import { ProjectChatCore } from "./ProjectChatCore";

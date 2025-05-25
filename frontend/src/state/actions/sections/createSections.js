@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
@@ -10,6 +9,7 @@ import {
   useSectionRefs,
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
+import { C } from "utils/c";
 import { newSectionInfo } from "utils/objs/sectionInfo";
 import { newSectionVariant } from "utils/objs/sectionVariant";
 import { focusOnSectionSearch } from "utils/tabbingLogic";

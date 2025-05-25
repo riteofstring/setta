@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
@@ -10,6 +9,7 @@ import {
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);

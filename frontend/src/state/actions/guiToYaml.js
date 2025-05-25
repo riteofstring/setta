@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { dbGuiToYaml } from "requests/guiToYaml";
 import {
@@ -15,6 +14,7 @@ import {
   useYamlValue,
 } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
+import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewId } from "utils/idNameCreation";

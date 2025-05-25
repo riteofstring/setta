@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/c";
 
 export function getIsRoot(sectionTypeName) {
   return [C.LIST_ROOT, C.DICT_ROOT, C.GROUP].includes(sectionTypeName);

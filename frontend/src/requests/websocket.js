@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import {
   receiveLLMResponseChunk,
@@ -22,7 +21,7 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { mcpToolUse } from "state/mcpToolRegistry";
-import { URLS } from "utils/constants";
+import { C } from "utils/c";
 
 let wss;
 let wasOpen = false;
@@ -30,7 +29,7 @@ let wasOpen = false;
 export const openWebSocket = _.debounce(
   (pathname) => {
     if (!wss) {
-      wss = new WebSocket(`${URLS.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
+      wss = new WebSocket(`${C.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
       wss.addEventListener("open", () => {
         sendLocation(pathname);
         addTemporaryNotification("Connected to server");

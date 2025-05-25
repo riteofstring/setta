@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
@@ -7,6 +6,7 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { C } from "utils/c";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";

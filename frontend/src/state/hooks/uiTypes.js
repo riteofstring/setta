@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { useLocalStorage, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,

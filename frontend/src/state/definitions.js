@@ -1,4 +1,4 @@
-import C from "constants/constants.json";
+import { C } from "utils/c";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,

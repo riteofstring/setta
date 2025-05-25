@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import {
   dbDeleteLLMChat,
@@ -8,6 +7,7 @@ import {
   dbGetUUIDMappingForLLM,
 } from "requests/ai";
 import { useAIStore, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 

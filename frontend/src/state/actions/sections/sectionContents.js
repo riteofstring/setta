@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,

@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 
 const RUNNABLE_SECTION_TYPES = [
   C.SECTION,

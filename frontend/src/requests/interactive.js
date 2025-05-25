@@ -1,6 +1,6 @@
-import C from "constants/constants.json";
 import { getProjectData } from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { post } from "./utils";
 
 export async function dbSendProjectToInteractiveCode(projects) {

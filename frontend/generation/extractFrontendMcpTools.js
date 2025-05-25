@@ -128,7 +128,7 @@ async function generateRegistryFile(tools, outputPath) {
   // Generate the file content
   let fileContent = `// GENERATED FILE - DO NOT EDIT MANUALLY
 // Generated automatically
-import C from "constants/constants.json";
+import { C } from "utils/c";
 import { sendMessage } from "requests/websocket";
 
 ${imports.join("\n")}

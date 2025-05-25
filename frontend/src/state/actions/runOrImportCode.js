@@ -1,7 +1,7 @@
-import C from "constants/constants.json";
 import { dbRunCode } from "requests/terminals";
 import { useProjectState } from "state/definitions";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
+import { C } from "utils/c";
 import { getProjectDataToGenerateCode } from "./project/generateCode";
 import { getSectionType } from "./sectionInfos";
 
@@ -10,7 +10,7 @@ export async function runCodeBlock(sectionId) {
   const res = await dbRunCode(project, sectionId);
   if (res.status == 200) {
     const { terminalId, newTerminalCreated } = res.data;
-    console.log(res.data)
+    console.log(res.data);
     if (newTerminalCreated) {
       createTemporaryTerminalFromBackend(terminalId);
     }

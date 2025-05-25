@@ -1,9 +1,9 @@
 import axios from "axios";
-import { URLS } from "utils/constants";
+import { C } from "utils/c";
 
 export async function post({ address, body }) {
   return axios
-    .post(`${URLS.BACKEND}${address}`, body, {
+    .post(`${C.BACKEND}${address}`, body, {
       headers: {
         "Content-Type": "application/json",
       },

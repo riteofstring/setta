@@ -1,10 +1,10 @@
 import { Badge } from "components/Utils/atoms/badges/badge";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { FaPlug } from "react-icons/fa6";
 import { useWebsocketConnectionList } from "state/definitions";
+import { C } from "utils/c";
 
 export function WebsocketConnections() {
   const connections = useWebsocketConnectionList((x) => {

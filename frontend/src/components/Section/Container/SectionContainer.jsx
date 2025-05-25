@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import React from "react";
 import {
@@ -7,6 +6,7 @@ import {
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";

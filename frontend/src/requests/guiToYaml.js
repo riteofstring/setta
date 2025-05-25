@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import {
   getCodeChildrenAndParentCodeInfoId,
   getDisplayedCodeInfoCol,
@@ -7,6 +6,7 @@ import {
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
+import { C } from "utils/c";
 import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { post } from "./utils";
 

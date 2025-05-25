@@ -1,5 +1,4 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import C from "constants/constants.json";
 import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
@@ -15,6 +14,7 @@ import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
+import { C } from "utils/c";
 
 export function HeaderIcon({
   sectionId,

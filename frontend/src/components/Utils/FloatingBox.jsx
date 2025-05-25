@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import _ from "lodash";
 import { Resizable } from "re-resizable";
 import React, { useEffect, useRef, useState } from "react";
@@ -10,6 +9,7 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
+import { C } from "utils/c";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 

@@ -1,5 +1,3 @@
-import C from "constants/constants.json";
-
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
@@ -8,20 +6,6 @@ export const INITIAL_OVERVIEW_WIDTH = 335;
 export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 50;
 export const NAVBAR_HEIGHT = 48;
-
-// constants object
-export const URLS = {};
-
-export function globalConstInit() {
-  const DEV_MODE = import.meta.env.DEV;
-  if (DEV_MODE) {
-    URLS.BACKEND = `http://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
-    URLS.WEBSOCKET = `ws://${C.DEFAULT_HOST}:${C.DEFAULT_PORT}${C.ROUTE_PREFIX}`;
-  } else {
-    URLS.BACKEND = `http://${location.host}${C.ROUTE_PREFIX}`;
-    URLS.WEBSOCKET = `ws://${location.host}${C.ROUTE_PREFIX}`;
-  }
-}
 
 export const SECTION_CONFIG_TAB = "SectionConfig";
 export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";

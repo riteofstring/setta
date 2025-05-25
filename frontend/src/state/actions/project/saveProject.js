@@ -1,4 +1,3 @@
-import C from "constants/constants.json";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
@@ -14,6 +13,7 @@ import {
   useSectionColumnWidth,
   useSettings,
 } from "state/definitions";
+import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";

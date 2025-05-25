@@ -1,10 +1,10 @@
-import C from "constants/constants.json";
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { isPreset, isUserPreset } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open, modalType }) {

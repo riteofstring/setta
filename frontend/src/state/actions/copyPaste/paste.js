@@ -1,8 +1,8 @@
-import C from "constants/constants.json";
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { useActiveSection, useMisc, useProjectState } from "state/definitions";
+import { C } from "utils/c";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
 
