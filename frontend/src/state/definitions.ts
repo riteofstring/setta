@@ -22,15 +22,16 @@ export const useResizeEvent = withProjectState(
 type ActiveSectionsType = { ids: Array<string>; version: number };
 
 export const useActiveSection = withProjectState(
-  createWithEqualityFn<ActiveSectionsType>(
+  createWithEqualityFn(
     withTemporal(
-      withResetFn(() => ({
+      withResetFn<ActiveSectionsType>(() => ({
         ids: [],
         version: 0,
       })),
     ),
   ),
 );
+
 
 export const useContextMenus = withProjectState(
   createWithEqualityFn(

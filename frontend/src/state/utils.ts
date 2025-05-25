@@ -1,4 +1,5 @@
 import { temporal } from "zundo";
+import { StateCreator } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
@@ -16,7 +17,9 @@ export const stateDict = {
   [STATE_TYPES.PROJECT_STATE]: [],
 };
 
-export function withResetFn(config) {
+export function withResetFn<T>(
+  config: StateCreator<T>,
+): StateCreator<T & { reset: Function }> {
   return (set, get, api) => {
     const initialState = config(set, get, api);
 
@@ -45,8 +48,8 @@ function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
 }
 
-export function withTemporal(...props) {
-  return temporal(...props, { limit: 200 });
+export function withTemporal<T>(state: StateCreator<T>) {
+  return temporal(state, { limit: 200 });
 }
 
 function resetStores(stateType) {
