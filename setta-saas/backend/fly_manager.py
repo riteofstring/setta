@@ -381,21 +381,24 @@ class FlyManager:
 
         print(f"=== DELETING APP {app_name} ===")
 
-        # GraphQL mutation to delete the app
-        mutation = """
-        mutation($appName: String!) {
-            deleteApp(appName: $appName) {
-                app {
-                    id
-                    name
-                }
-            }
-        }
-        """
-
         try:
-            # First, try to delete any running machines
-            print(f"Step 1: Checking for machines...")
+            # First, get the app ID from the app name
+            print(f"Step 1: Getting app ID for {app_name}...")
+            app_info = self.get_app_status(app_name)
+
+            if not app_info:
+                print(f"App {app_name} not found, nothing to delete")
+                return True  # Consider it success if app doesn't exist
+
+            app_id = app_info.get("id")
+            if not app_id:
+                print(f"Could not get app ID for {app_name}")
+                return False
+
+            print(f"Found app ID: {app_id}")
+
+            # Delete any running machines first
+            print(f"Step 2: Checking for machines...")
             machines = self.list_machines(app_name)
 
             if machines:
@@ -403,14 +406,24 @@ class FlyManager:
                 for machine in machines:
                     self.delete_machine(app_name, machine['id'])
 
-            # Then delete the app itself
-            print(f"Step 2: Deleting app {app_name}...")
+            # Then delete the app itself using the correct mutation
+            print(f"Step 3: Deleting app {app_name} (ID: {app_id})...")
+
+            # Updated GraphQL mutation that uses appId
+            mutation = """
+            mutation($appId: ID!) {
+                deleteApp(appId: $appId) {
+                    deletedAppId
+                }
+            }
+            """
+
             with httpx.Client() as client:
                 response = client.post(
                     self.base_url,
                     json={
                         "query": mutation,
-                        "variables": {"appName": app_name}
+                        "variables": {"appId": app_id}
                     },
                     headers=self.headers,
                     timeout=30.0
