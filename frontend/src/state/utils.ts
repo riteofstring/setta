@@ -1,5 +1,5 @@
-import { temporal, TemporalState } from "zundo";
-import { StateCreator } from "zustand";
+import { temporal } from "zundo";
+import { StateCreator, StoreMutators } from "zustand";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
@@ -17,16 +17,23 @@ export const stateDict = {
   [STATE_TYPES.PROJECT_STATE]: [],
 };
 
-export function withResetFn<T>(
-  config: StateCreator<T>,
-): StateCreator<T & { reset: Function }> {
+export function withResetFn<
+  T,
+  Mps extends [keyof StoreMutators<unknown, unknown>, unknown][] = [],
+  Mcs extends [keyof StoreMutators<unknown, unknown>, unknown][] = [],
+>(
+  config: StateCreator<T, Mps, Mcs>,
+): StateCreator<T & { reset: Function }, Mps, Mcs> {
   return (set, get, api) => {
-    const initialState = config(set, get, api);
+    // Call the original config with the set/get/api
+    const initialState = config(
+      set as any, // Type assertion to bypass the type mismatch
+      get as any,
+      api,
+    );
 
     // Define the reset function
     const resetFn = (callback) => {
-      // we have to explicitly include resetFn in initialState
-      // since the initialState defined above does not have "reset" as part of it.
       const additionalResetState = callback ? callback(api) : {};
       const initialStateWithReset = {
         ...initialState,
@@ -52,8 +59,12 @@ export function withVersion<T>(state: T): T & { version: number } {
   return { ...state, version: 0 };
 }
 
-export function withTemporal<T>(state: StateCreator<T>) {
-  return temporal(state, { limit: 200 });
+export function withTemporal<
+  T,
+  Mps extends [keyof StoreMutators<unknown, unknown>, unknown][] = [],
+  Mcs extends [keyof StoreMutators<unknown, unknown>, unknown][] = [],
+>(state: StateCreator<T, Mps, Mcs>): StateCreator<T, Mps, Mcs> {
+  return temporal(state as any, { limit: 200 }) as any;
 }
 
 function resetStores(stateType) {
