@@ -189,7 +189,6 @@ class FlyManager:
                     print(f"Fly.io error: {data['errors']}")
                     return None
 
-                # THIS IS WHERE THE NEW CODE GOES - REPLACE THE OLD RETURN
                 if "data" in data and data["data"] and "createApp" in data["data"]:
                     app_info = data["data"]["createApp"]["app"]
                     print(f"App created successfully: {app_info['hostname']}")
