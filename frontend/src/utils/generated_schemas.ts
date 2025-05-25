@@ -57,7 +57,7 @@ export const ViewportSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
   zoom: z.number().default(1),
-});
+}).strict();
 export type Viewport = z.infer<typeof ViewportSchema>;
 
 // Viewport factory function
@@ -69,7 +69,7 @@ export function createViewport(input: Partial<Viewport> = {}): Viewport {
 export const SectionSizeSchema = z.object({
   width: z.union([z.number(), z.literal(Size.AUTO)]).default(Size.AUTO),
   height: z.union([z.number(), z.literal(Size.AUTO)]).default(Size.AUTO),
-});
+}).strict();
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
 
 // SectionSize factory function
@@ -81,7 +81,7 @@ export function createSectionSize(input: Partial<SectionSize> = {}): SectionSize
 export const VisibilitySchema = z.object({
   DEV: z.boolean().default(true),
   USER: z.boolean().default(true),
-});
+}).strict();
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
 // Visibility factory function
@@ -99,7 +99,7 @@ export const CanvasSettingsSchema = z.object({
   drawThrottleDelay: z.number().int().default(0),
   canvasTransferQueueLength: z.number().int().default(50),
   mode: z.string().default('draw'),
-});
+}).strict();
 export type CanvasSettings = z.infer<typeof CanvasSettingsSchema>;
 
 // CanvasSettings factory function
@@ -115,7 +115,7 @@ export const ChartSettingsSchema = z.object({
   xAxisLog: z.boolean().default(false),
   y1AxisLog: z.boolean().default(false),
   y2AxisLog: z.boolean().default(false),
-});
+}).strict();
 export type ChartSettings = z.infer<typeof ChartSettingsSchema>;
 
 // ChartSettings factory function
@@ -164,7 +164,7 @@ export const SectionSchema = z.object({
   columnWidth: z.number().nullable().default(null),
   renderedValue: z.any().default(null),
   headingAsSectionName: z.boolean().default(false),
-});
+}).strict();
 export type Section = z.infer<typeof SectionSchema>;
 
 // Section factory function
@@ -175,7 +175,7 @@ export function createSection(input: Partial<Section> = {}): Section {
 // EVEntry schema
 export const EVEntrySchema = z.object({
   value: z.string().default(''),
-});
+}).strict();
 export type EVEntry = z.infer<typeof EVEntrySchema>;
 
 // EVEntry factory function
@@ -199,7 +199,7 @@ export const SectionVariantSchema = z.object({
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default(() => ([])),
   jsonSourceMissing: z.boolean().default(false),
-});
+}).strict();
 export type SectionVariant = z.infer<typeof SectionVariantSchema>;
 
 // SectionVariant factory function
@@ -220,7 +220,7 @@ export const CodeInfoSchema = z.object({
   isFrozen: z.boolean().default(false),
   isSelected: z.boolean().default(false),
   ignoreTypeErrors: z.boolean().default(false),
-});
+}).strict();
 export type CodeInfo = z.infer<typeof CodeInfoSchema>;
 
 // CodeInfo factory function
@@ -231,7 +231,7 @@ export function createCodeInfo(input: Partial<CodeInfo> = {}): CodeInfo {
 // CodeInfoCol schema
 export const CodeInfoColSchema = z.object({
   children: z.record(z.any()).default(() => ({})),
-});
+}).strict();
 export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
 
 // CodeInfoCol factory function
@@ -243,7 +243,7 @@ export function createCodeInfoCol(input: Partial<CodeInfoCol> = {}): CodeInfoCol
 export const UITypeColEntrySchema = z.object({
   uiTypeId: z.string().default(BASE_UI_TYPE_IDS[UITypeName.TEXT]),
   nonPresetUITypeIds: z.array(z.string()).default(() => ([])),
-});
+}).strict();
 export type UITypeColEntry = z.infer<typeof UITypeColEntrySchema>;
 
 // UITypeColEntry factory function
@@ -257,7 +257,7 @@ export const ArtifactSchema = z.object({
   path: z.string(),
   value: z.string().nullable().default(null),
   type: z.string(),
-});
+}).strict();
 export type Artifact = z.infer<typeof ArtifactSchema>;
 
 // Artifact factory function
@@ -272,7 +272,7 @@ export const ProjectConfigChildSchema = z.object({
   zIndex: z.number().int().default(0),
   w: z.number().default(1),
   h: z.number().default(1),
-});
+}).strict();
 export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
 
 // ProjectConfigChild factory function
@@ -290,7 +290,7 @@ export const ProjectConfigSchema = z.object({
   viewingEditingMode: ViewingEditingModeSchema.default(ViewingEditingMode.DEV),
   genCodePrefix: z.string().default(''),
   genCodeSuffix: z.string().default(''),
-});
+}).strict();
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 // ProjectConfig factory function
@@ -308,7 +308,7 @@ export const ProjectStateSchema = z.object({
   uiTypes: z.record(z.any()).default(() => lambda: copy.deepcopy(BASE_UI_TYPES)()),
   uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
   defaultProjectConfigId: z.string().nullable().default(null),
-});
+}).strict();
 export type ProjectState = z.infer<typeof ProjectStateSchema>;
 
 // ProjectState factory function
@@ -320,7 +320,7 @@ export function createProjectState(input: Partial<ProjectState> = {}): ProjectSt
 export const ProjectSaveStateSchema = z.object({
   projectConfigId: z.string(),
   projectState: ProjectStateSchema,
-});
+}).strict();
 export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
 
 // ProjectSaveState factory function
@@ -332,7 +332,7 @@ export function createProjectSaveState(input: Partial<ProjectSaveState> = {}): P
 export const ProjectLoadStateSchema = z.object({
   projectConfigId: z.string(),
   projectState: ProjectStateSchema,
-});
+}).strict();
 export type ProjectLoadState = z.infer<typeof ProjectLoadStateSchema>;
 
 // ProjectLoadState factory function
@@ -345,7 +345,7 @@ export const ProjectUpdateStateSchema = z.object({
   projectConfigId: z.string(),
   projectState: ProjectStateSchema,
   requestRenameRefactor: z.boolean().default(false),
-});
+}).strict();
 export type ProjectUpdateState = z.infer<typeof ProjectUpdateStateSchema>;
 
 // ProjectUpdateState factory function

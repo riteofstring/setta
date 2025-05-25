@@ -131,6 +131,15 @@ class PydanticToZodConverter:
         extra_config = ""
         config_dict = {}
         
+        # First check for inheritance-style config (BaseModel, extra="forbid")
+        for base in node.bases:
+            if isinstance(base, ast.Name) and base.id == 'BaseModel':
+                # Check if there are keywords in the inheritance
+                for keyword in node.keywords:
+                    if keyword.arg == 'extra' and isinstance(keyword.value, ast.Constant):
+                        extra_config = "strict" if keyword.value.value == 'forbid' else ""
+                    config_dict[keyword.arg] = ast.unparse(keyword.value) if hasattr(keyword, 'value') else ""
+        
         # Parse model config (Pydantic v2 style)
         for stmt in node.body:
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
