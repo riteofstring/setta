@@ -8,7 +8,7 @@ from setta.database.db.chats.load import load_all_chat_metadata, load_chat
 from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
 from setta.database.utils import create_new_id
 from setta.mcp.server import CHAT_ID_ARG_NAME
-from setta.utils.constants import CONSTANTS_FOLDER, C
+from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
 
 
@@ -20,9 +20,7 @@ class ChatManager:
         self.current_streams = {}
         self.stream_tasks = {}
         self.anthropic = AsyncAnthropic()
-        with open(
-            get_absolute_path(__file__, CONSTANTS_FOLDER / "system_prompt.md"), "r"
-        ) as f:
+        with open(get_absolute_path(__file__, "system_prompt.md"), "r") as f:
             self.system_prompt = f.read()
         self.max_tokens = 20000
         self.thinking_budget_tokens = 10000

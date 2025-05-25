@@ -5,9 +5,6 @@ from .utils import is_dev_mode
 
 logger = logging.getLogger(__name__)
 
-CONSTANTS_FOLDER = (
-    Path("../../../constants") if is_dev_mode() else Path("../static/constants")
-)
 SEED_FOLDER = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
 CWD = Path.cwd()
 SETTA_FILES_FOLDER = CWD / "setta_files"
