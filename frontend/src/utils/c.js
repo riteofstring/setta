@@ -13,7 +13,6 @@ export class C {
   static ARTIFACT_TYPE_CHAT_HISTORY = "chatHistory";
   static ARTIFACT_TYPE_IMG = "img";
   static ARTIFACT_TYPE_LIST = "list";
-  static BACKEND = "http://127.0.0.1:8000";
   static BROWSER = "BROWSER";
   static CALLABLE = "callable";
   static CHART = "CHART";
@@ -34,7 +33,6 @@ export class C {
   static DICT_ROOT = "DICT_ROOT";
   static DRAW = "DRAW";
   static DROPDOWN = "DROPDOWN";
-  static FRONTEND_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:8000"];
   static GEN_PYTHON_CODE = "GEN_PYTHON_CODE";
   static GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP";
   static GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
@@ -168,7 +166,6 @@ export class C {
   static TERMINAL = "TERMINAL";
   static TEXT = "TEXT";
   static TEXT_BLOCK = "TEXT_BLOCK";
-  static WEBSOCKET = "ws://127.0.0.1:8000/api";
   static WEBSOCKET_CONNECTION_TYPE_CLI = "WEBSOCKET_CONNECTION_TYPE_CLI";
   static WEBSOCKET_CONNECTION_TYPE_FRONTEND =
     "WEBSOCKET_CONNECTION_TYPE_FRONTEND";

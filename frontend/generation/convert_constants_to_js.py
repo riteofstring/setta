@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from setta.utils.constants import C
+from setta.utils.constants import C, classproperty
 
 
 def get_constant_value(cls, name: str) -> Any:
@@ -21,11 +21,24 @@ def get_constant_value(cls, name: str) -> Any:
         return None
 
 
-def should_include_attribute(name: str, value: Any) -> bool:
+def should_include_attribute(name: str, value: Any, cls) -> bool:
     """Determine if an attribute should be included in the JavaScript constants."""
     # Skip private/protected attributes
     if name.startswith("_"):
         return False
+
+    # Skip classproperty decorated attributes
+    # Check if the attribute on the class itself is a classproperty instance
+    try:
+        # For class attributes, we need to look at the actual class dict
+        for klass in inspect.getmro(cls):
+            if name in klass.__dict__:
+                class_attr = klass.__dict__[name]
+                if isinstance(class_attr, classproperty):
+                    return False
+                break
+    except:
+        pass
 
     # Skip methods and functions (but include classproperties)
     if callable(value) and not hasattr(value, "__get__"):
@@ -57,13 +70,14 @@ def extract_constants(constants_class) -> Dict[str, Any]:
 
     # Get all class attributes
     for name in dir(constants_class):
-        if should_include_attribute(name, getattr(constants_class, name)):
-            try:
-                value = get_constant_value(constants_class, name)
-                if value is not None:
-                    constants[name] = serialize_value(value)
-            except Exception as e:
-                print(f"Warning: Could not extract {name}: {e}")
+        try:
+            value = getattr(constants_class, name)
+            if should_include_attribute(name, value, constants_class):
+                constant_value = get_constant_value(constants_class, name)
+                if constant_value is not None:
+                    constants[name] = serialize_value(constant_value)
+        except Exception as e:
+            print(f"Warning: Could not extract {name}: {e}")
 
     return constants
 
