@@ -208,19 +208,31 @@ class FlyManager:
                 response = client.post(
                     machines_url,
                     json=machine_config,
-                    headers={
-                        "Authorization": f"Bearer {self.api_token}",
-                        "Content-Type": "application/json"
-                    },
+                    headers=self.headers,
                     timeout=60.0
                 )
 
                 print(f"Response status: {response.status_code}")
-                print(f"Response body: {response.text[:500]}")
 
-                # Accept both 200 and 201 as success
                 if response.status_code in [200, 201]:
-                    print(f"✓ Machine created successfully for {app_name}")
+                    machine_data = response.json()
+                    machine_id = machine_data.get("id")
+                    print(f"✓ Machine created with ID: {machine_id}")
+
+                    # Wait a moment for machine to initialize
+                    import time
+                    time.sleep(3)
+
+                    # Check machine status
+                    machines = self.list_machines(app_name)
+
+                    # Start the machine if it's not running
+                    if machine_id and machines:
+                        machine = next((m for m in machines if m['id'] == machine_id), None)
+                        if machine and machine['state'] != 'started':
+                            print(f"Machine is in state: {machine['state']}, starting it...")
+                            self.start_machine(app_name, machine_id)
+
                     return True
                 else:
                     print(f"✗ Failed with status {response.status_code}")
@@ -277,3 +289,55 @@ class FlyManager:
         except Exception as e:
             print(f"Error checking app status: {e}")
             return None
+
+    def list_machines(self, app_name: str):
+        """List all machines for an app with their status"""
+
+        machines_url = f"https://api.machines.dev/v1/apps/{app_name}/machines"
+
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    machines_url,
+                    headers=self.headers
+                )
+
+                if response.status_code == 200:
+                    machines = response.json()
+                    print(f"\nMachines for {app_name}:")
+                    for machine in machines:
+                        print(f"  - ID: {machine['id']}")
+                        print(f"    State: {machine['state']}")
+                        print(f"    Region: {machine['region']}")
+                        print(f"    Created: {machine.get('created_at', 'unknown')}")
+                    return machines
+                else:
+                    print(f"Failed to list machines: {response.text}")
+                    return []
+
+        except Exception as e:
+            print(f"Error listing machines: {e}")
+            return []
+
+    def start_machine(self, app_name: str, machine_id: str):
+        """Start a specific machine"""
+
+        start_url = f"https://api.machines.dev/v1/apps/{app_name}/machines/{machine_id}/start"
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    start_url,
+                    headers=self.headers
+                )
+
+                if response.status_code in [200, 201]:
+                    print(f"✓ Started machine {machine_id}")
+                    return True
+                else:
+                    print(f"Failed to start machine: {response.text}")
+                    return False
+
+        except Exception as e:
+            print(f"Error starting machine: {e}")
+            return False
