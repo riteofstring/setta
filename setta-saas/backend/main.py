@@ -200,6 +200,25 @@ async def sync_all_projects(db: Session = Depends(get_db)):
     db.commit()
     return {"checked": len(projects), "results": results}
 
+@app.delete("/api/projects/cleanup")
+async def cleanup_dead_projects(db: Session = Depends(get_db)):
+    """Delete all projects that are not running"""
+    # Delete all not_found and error projects
+    deleted = db.query(Project).filter(
+        Project.status.in_(["not_found", "error"])
+    ).delete()
+
+    db.commit()
+    return {"deleted": deleted, "message": f"Deleted {deleted} dead projects"}
+
+@app.delete("/api/projects/all")
+async def delete_all_projects(db: Session = Depends(get_db)):
+    """Delete ALL projects - use with caution!"""
+    deleted = db.query(Project).delete()
+    db.commit()
+    return {"deleted": deleted}
+
+
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
@@ -224,23 +243,6 @@ async def delete_project(
 
     return {"message": "Project deleted"}
 
-@app.delete("/api/projects/cleanup")
-async def cleanup_dead_projects(db: Session = Depends(get_db)):
-    """Delete all projects that are not running"""
-    # Delete all not_found and error projects
-    deleted = db.query(Project).filter(
-        Project.status.in_(["not_found", "error"])
-    ).delete()
-
-    db.commit()
-    return {"deleted": deleted, "message": f"Deleted {deleted} dead projects"}
-
-@app.delete("/api/projects/all")
-async def delete_all_projects(db: Session = Depends(get_db)):
-    """Delete ALL projects - use with caution!"""
-    deleted = db.query(Project).delete()
-    db.commit()
-    return {"deleted": deleted}
 
 # Configure CORS for frontend access
 app.add_middleware(
