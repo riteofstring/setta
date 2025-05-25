@@ -121,7 +121,6 @@
     ]
   },
   "devDependencies": {
-    "@types/uuid": "9.0.0",
     "@typescript-eslint/eslint-plugin": "8.26.0",
     "@typescript-eslint/parser": "8.26.0",
     "concurrently": "8.2.0",
