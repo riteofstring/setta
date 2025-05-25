@@ -25,6 +25,7 @@ class Project(Base):
     url = Column(String)
     status = Column(String, default="running")
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_checked = Column(DateTime, nullable=True)
 
 # Create tables
 Base.metadata.create_all(bind=engine)

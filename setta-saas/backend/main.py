@@ -54,10 +54,39 @@ async def list_projects(db: Session = Depends(get_db)):
             "name": p.name,
             "url": p.url,
             "status": p.status,
-            "created_at": p.created_at.isoformat()
+            "created_at": p.created_at.isoformat(),
+            "last_checked": p.last_checked.isoformat() if p.last_checked else None
         }
         for p in projects
     ]
+
+@app.post("/api/projects/{project_id}/check-status")
+async def check_project_status(
+    project_id: str,
+    db: Session = Depends(get_db)
+):
+    """Check individual project status"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+
+    # Check Fly.io status
+    if project.url and "fly.dev" in project.url:
+        app_name = project.url.split("//")[1].split(".")[0]
+        app_status = fly_manager.get_app_status(app_name)
+
+        if not app_status:
+            project.status = "not_found"
+        else:
+            project.status = "running" if app_status.get("deployed") else "pending"
+
+        project.last_checked = datetime.utcnow()
+        db.commit()
+
+    return {
+        "status": project.status,
+        "last_checked": project.last_checked.isoformat() if project.last_checked else None
+    }
 
 @app.post("/api/projects")
 async def create_project(
@@ -143,19 +172,18 @@ async def delete_project(
     project_id: str,
     db: Session = Depends(get_db)
 ):
-    """Delete a project and its Fly.io container"""
-
+    """Delete a project"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(404, "Project not found")
 
-    # Extract app name from URL if it exists
+    # Try to delete from Fly.io if it exists
     if project.url and "fly.dev" in project.url:
-        # URL format: https://app-name.fly.dev
         app_name = project.url.split("//")[1].split(".")[0]
-
-        # Try to delete Fly app
-        fly_manager.delete_app(app_name)
+        try:
+            fly_manager.destroy_app(app_name)
+        except Exception as e:
+            print(f"Error deleting Fly app: {e}")
 
     # Delete from database
     db.delete(project)
