@@ -54,6 +54,8 @@ class ParamNode(Node):
 
 class DependencyGraph:
     def __init__(self, p: ProjectState, projectConfigId: str):
+        self.p = p
+        self.projectConfigId = projectConfigId
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -64,7 +66,7 @@ class DependencyGraph:
                 C.TEXT_BLOCK,
             ]
         )
-        self.construct_graph(p, projectConfigId)
+        self.construct_graph()
 
     def reset(self):
         self.graph: dict[GraphKeyType, Node] = {}
@@ -72,18 +74,16 @@ class DependencyGraph:
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
         self.all_sections_in_project_config: set[str] = set()
 
-    def construct_graph(self, p: ProjectState, projectConfigId: str):
+    def construct_graph(self):
         self.reset()
-        ids = list(p.projectConfigs[projectConfigId].children.keys())
-        self.export_sections(p, ids, isTopLevel=True)
+        ids = list(self.p.projectConfigs[self.projectConfigId].children.keys())
+        self.export_sections(ids, isTopLevel=True)
         self.resolve_references()
 
-    def export_sections(
-        self, p: ProjectState, ids: list[str], isTopLevel=False, parent_node=None
-    ):
+    def export_sections(self, ids: list[str], isTopLevel=False, parent_node=None):
         deps = {}
         for idx, x in enumerate(ids):
-            graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
+            graph_key = self.export_section(x, isTopLevel, parent_node, idx)
             node = self.get_node(graph_key)
             if node:
                 deps[graph_key] = node.has_name_and_value
@@ -91,7 +91,6 @@ class DependencyGraph:
 
     def export_section(
         self,
-        p: ProjectState,
         id: str,
         isTopLevel=False,
         parent_node: Node | None = None,
@@ -100,11 +99,11 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
-            type = p.get_section_type(id)
-            name = p.sections[id].name
+            type = self.p.get_section_type(id)
+            name = self.p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
-                value, potential_refs = self.export_section_value(p, id)
+                value, potential_refs = self.export_section_value(id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 node = SectionNode(
@@ -116,13 +115,13 @@ class DependencyGraph:
                     value=value,
                     deps={},
                 )
-                node.deps = self.export_section_params(p, id, parent_node=node)
+                node.deps = self.export_section_params(id, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = [
                     c
-                    for c in p.get_section_children(id)
-                    if p.get_section_type(c) in self.section_types_to_process
+                    for c in self.p.get_section_children(self.projectConfigId, id)
+                    if self.p.get_section_type(c) in self.section_types_to_process
                 ]
                 node = SectionNode(
                     id=id,
@@ -133,10 +132,10 @@ class DependencyGraph:
                     value=None,
                     deps={},
                 )
-                node.deps = self.export_sections(p, children, parent_node=node)
+                node.deps = self.export_sections(children, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif type == C.GLOBAL_VARIABLES:
-                self.export_section_params(p, id, isTopLevel=True)
+                self.export_section_params(id, isTopLevel=True)
             # elif type == C.TEXT_BLOCK:
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
@@ -147,8 +146,8 @@ class DependencyGraph:
         self.all_sections_in_project_config.add(id)
         return graph_key
 
-    def export_section_value(self, p: ProjectState, sectionId: str):
-        selected_item = p.get_selected_item(sectionId)
+    def export_section_value(self, sectionId: str):
+        selected_item = self.p.get_selected_item(self.projectConfigId, sectionId)
         if selected_item:
             selected_item_name = selected_item.name
             potential_refs = find_undefined_special_var_expressions(
@@ -159,19 +158,17 @@ class DependencyGraph:
 
     def export_section_params(
         self,
-        p: ProjectState,
         sectionId: str,
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
-        paramIds = p.get_top_level_param_ids(sectionId)
+        paramIds = self.p.get_top_level_param_ids(self.projectConfigId, sectionId)
         return self.export_params(
-            p, sectionId, paramIds, parent_node=parent_node, isTopLevel=isTopLevel
+            sectionId, paramIds, parent_node=parent_node, isTopLevel=isTopLevel
         )
 
     def export_params(
         self,
-        p: ProjectState,
         sectionId: str,
         paramIds: list[str],
         parent_node: Node | None = None,
@@ -182,17 +179,17 @@ class DependencyGraph:
             graph_key = self.create_graph_key(sectionId, pid)
             param = self.get_node(graph_key)
             if not param:
-                codeInfo = p.codeInfo[pid]
-                param_children = p.get_section_code_info_children(sectionId).get(
-                    pid, []
-                )
+                codeInfo = self.p.codeInfo[pid]
+                param_children = self.p.get_section_code_info_children(
+                    self.projectConfigId, sectionId
+                ).get(pid, [])
                 if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
-                    type = p.get_param_ui_type(sectionId, pid)
+                    type = self.p.get_param_ui_type(sectionId, pid)
                 name = codeInfo.name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
-                value, potential_refs = self.export_param_value(p, sectionId, pid)
+                value, potential_refs = self.export_param_value(sectionId, pid)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 param = ParamNode(
@@ -206,14 +203,14 @@ class DependencyGraph:
                     deps={},
                 )
                 param.deps = self.export_params(
-                    p, sectionId, param_children, parent_node=param
+                    sectionId, param_children, parent_node=param
                 )
                 self.add_to_graph(graph_key, param)
             output_deps[graph_key] = param.has_name_and_value
         return output_deps
 
-    def export_param_value(self, p: ProjectState, sectionId: str, paramId: str):
-        variant = p.get_selected_section_variant(sectionId)
+    def export_param_value(self, sectionId: str, paramId: str):
+        variant = self.p.get_selected_section_variant(self.projectConfigId, sectionId)
         if paramId in variant.values:
             value = variant.values[paramId].value
             potential_refs = find_undefined_special_var_expressions(
