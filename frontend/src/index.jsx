@@ -5,7 +5,6 @@ import { pauseTemporal } from "state/utils";
 import "../icons.css";
 import { App } from "./App";
 import "./index.css";
-import { reportWebVitals } from "./reportWebVitals";
 
 subscribe();
 pauseTemporal();
@@ -17,5 +16,3 @@ root.render(
     <App />
   </StrictMode>,
 );
-
-reportWebVitals();
