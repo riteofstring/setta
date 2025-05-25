@@ -186,8 +186,18 @@ class PydanticToZodConverter:
                         for keyword in stmt.value.keywords:
                             if keyword.arg == 'default_factory':
                                 factory_func = ast.unparse(keyword.value)
+                                
+                                # Handle copy.deepcopy specifically
+                                if factory_func.startswith('lambda: copy.deepcopy'):
+                                    # Extract the argument to copy.deepcopy
+                                    deepcopy_match = factory_func[factory_func.find('copy.deepcopy(') + 14:]
+                                    if deepcopy_match.endswith(')'):
+                                        deepcopy_match = deepcopy_match[:-1]
+                                    # Remove any surrounding quotes if it's a string literal
+                                    toClone = deepcopy_match.strip().strip('"\'')
+                                    default_value = f"() => _.cloneDeep({toClone})"
                                 # Convert Python factory functions to JavaScript equivalents
-                                if factory_func == 'list':
+                                elif factory_func == 'list':
                                     default_value = "[]"
                                 elif factory_func == 'dict':
                                     default_value = "{}"
@@ -249,7 +259,8 @@ class PydanticToZodConverter:
         
         # Add imports
         output.append("import { z } from 'zod';")
-        output.append("")
+        output.append("import _ from 'lodash';")
+        output.append('import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";')
         
         # Generate enums
         for enum in self.enums:
@@ -508,8 +519,6 @@ def main():
     # Generate TypeScript code
     typescript_code = converter.generate_typescript()
 
-    typescript_code = 'import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";\n' + typescript_code
-    
     # Write to file
     with open("frontend/src/utils/generated_schemas.ts", "w") as f:
         f.write(typescript_code)

@@ -1,6 +1,6 @@
-import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";
 import { z } from 'zod';
-
+import _ from 'lodash';
+import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";
 // Size enum
 export const SizeSchema = z.enum([
   'auto'
@@ -306,7 +306,7 @@ export const ProjectStateSchema = z.object({
   variants: z.record(SectionVariantSchema).default(() => ({})),
   codeInfo: z.record(CodeInfoSchema).default(() => ({})),
   codeInfoCols: z.record(CodeInfoColSchema).default(() => ({})),
-  uiTypes: z.record(z.any()).default(() => copy.deepcopy(BASE_UI_TYPES)),
+  uiTypes: z.record(z.any()).default(() => _.cloneDeep(BASE_UI_TYPES)),
   uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
   defaultProjectConfigId: z.string().nullable().default(null),
 }).strict();
