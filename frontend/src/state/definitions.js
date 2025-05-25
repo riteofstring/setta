@@ -6,23 +6,37 @@ import {
 } from "utils/constants";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { create, withProjectState, withResetFn } from "./utils";
+import {
+  create,
+  withProjectState,
+  withResetFn,
+  withTemporal,
+  withVersion,
+} from "./utils";
 
 export const useResizeEvent = withProjectState(
   create(
-    immer(
-      withResetFn(() => ({
-        resizeEvent: {},
-      })),
+    withTemporal(
+      immer(
+        withResetFn(() =>
+          withVersion({
+            resizeEvent: {},
+          }),
+        ),
+      ),
     ),
   ),
 );
 
 export const useActiveSection = withProjectState(
   create(
-    withResetFn(() => ({
-      ids: [],
-    })),
+    withTemporal(
+      withResetFn(() =>
+        withVersion({
+          ids: [],
+        }),
+      ),
+    ),
   ),
 );
 
@@ -39,25 +53,29 @@ export const useContextMenus = withProjectState(
 export const useProjectState = withProjectState(
   create(
     subscribeWithSelector(
-      immer(
-        withResetFn(() => ({
-          projectConfigId: null,
-          projectConfigs: {},
-          sections: {},
-          variants: {},
-          uiTypeCols: {},
-          uiTypes: {},
-          codeInfoCols: {},
-          codeInfo: {},
-          artifactGroups: {},
-          singletonSections: {
-            [C.GLOBAL_VARIABLES]: null,
-            [C.GLOBAL_PARAM_SWEEP]: null,
-            [C.GEN_PYTHON_CODE]: null,
-            temporaryTerminalGroup: null,
-          },
-          requestRenameRefactor: false,
-        })),
+      withTemporal(
+        immer(
+          withResetFn(() =>
+            withVersion({
+              projectConfigId: null,
+              projectConfigs: {},
+              sections: {},
+              variants: {},
+              uiTypeCols: {},
+              uiTypes: {},
+              codeInfoCols: {},
+              codeInfo: {},
+              artifactGroups: {},
+              singletonSections: {
+                [C.GLOBAL_VARIABLES]: null,
+                [C.GLOBAL_PARAM_SWEEP]: null,
+                [C.GEN_PYTHON_CODE]: null,
+                temporaryTerminalGroup: null,
+              },
+              requestRenameRefactor: false,
+            }),
+          ),
+        ),
       ),
     ),
   ),
@@ -95,9 +113,13 @@ export const useModal = withProjectState(
 
 export const useNodeInternals = withProjectState(
   create(
-    withResetFn(() => ({
-      x: new Map(),
-    })),
+    withTemporal(
+      withResetFn(() =>
+        withVersion({
+          x: new Map(),
+        }),
+      ),
+    ),
   ),
 );
 
@@ -109,7 +131,11 @@ export const useNotifications = create(
 
 export const useArtifacts = withProjectState(
   create(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+    subscribeWithSelector(
+      withTemporal(
+        withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
+      ),
+    ),
   ),
 );
 
@@ -145,7 +171,7 @@ export const useSectionRefs = withProjectState(
 export const useSettings = create(() => ({}));
 
 export const useStateVersion = withProjectState(
-  create(withResetFn(() => ({}))),
+  create(withTemporal(withResetFn(() => withVersion({})))),
 );
 
 export const useTypeErrors = withProjectState(
