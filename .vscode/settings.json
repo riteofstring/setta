@@ -14,5 +14,6 @@
   "terminal.integrated.automationProfile.windows": {
     "path": "cmd.exe"
   },
-  "python.analysis.typeCheckingMode": "basic"
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "workspace"
 }
