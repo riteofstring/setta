@@ -36,7 +36,7 @@ def get_top_level_param_ids(p: ProjectState, id: str) -> list[str]:
     if selected_item:
         children = section_code_info_children.get(selected_item.id, [])
     else:
-        children = section_code_info_children[None]
+        children = section_code_info_children.get(None, [])
     return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.PARAMETER]
 
 

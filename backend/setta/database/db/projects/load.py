@@ -47,7 +47,7 @@ def load_default_project_config_name(db):
     return None
 
 
-def save_all_project_states(db, state: ProjectState):
+def save_project_state(db, state: ProjectState):
     json_data = state.model_dump_json()
     query = """
         UPDATE ProjectState 
@@ -63,5 +63,5 @@ def create_project_config(db, previewImgColor: str):
 
     project_config_id = new_project_config.id
     state.projectConfigs[project_config_id] = new_project_config
-    save_all_project_states(db, state)
+    save_project_state(db, state)
     return new_project_config.name

@@ -76,7 +76,7 @@ class DBQueue:
         self.queue = queue.Queue()
         for _ in range(n):
             self.queue.put(DB(path))
-        self.curr = None
+        self.curr: DB | None = None
 
     def set_curr(self):
         self.curr = self.queue.get()
@@ -111,6 +111,7 @@ class DBQueue:
         if self.curr:
             self.curr.__enter__(*args, **kwargs)
             return self.curr
+        raise ValueError("DBQueue curr should be truthy")
 
     def __exit__(self, *args, **kwargs):
         if self.curr is not None:

@@ -16,15 +16,21 @@ from setta.database.db.projects.load import (
     load_default_project_config_name,
     load_project_metadata,
     load_project_state_and_confirm_config_name,
+    save_project_state,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
+from setta.database.db_objs import DBQueue
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.project_state.project_state import ProjectLoadState, ProjectUpdateState
+from setta.project_state.project_state import (
+    ProjectLoadState,
+    ProjectSaveState,
+    ProjectUpdateState,
+)
 from setta.utils.constants import C
 
 from .dependencies import get_dbq, get_project_manager, get_settings_file, get_wmh_base
@@ -37,7 +43,7 @@ class ProjectLoadRequest(BaseModel):
 
 
 class ProjectSaveRequest(BaseModel):
-    project: dict
+    project: ProjectSaveState
 
 
 class SaveAsNewProjectConfigRequest(BaseModel):
@@ -123,7 +129,7 @@ async def route_load_project_config(
 async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
-    dbq=Depends(get_dbq),
+    dbq: DBQueue = Depends(get_dbq),
     websocket_msg_handler=Depends(get_wmh_base),
     settings_file: SettingsFile = Depends(get_settings_file),
 ):
@@ -138,7 +144,7 @@ async def route_save_project(
                 settings.autobackupFreq,
                 settings.autobackupKeepLastN,
             )
-            save_project_details(db, x.project)
+            save_project_state(db, x.project.projectState)
             maybe_export_database(
                 db,
                 db.path,
@@ -157,7 +163,7 @@ async def route_save_project(
         background_tasks.add_task(
             websocket_msg_handler.broadcast_notification,
             notification,
-            x.project["projectConfig"]["id"],
+            x.project.projectConfigId,
         )
 
 

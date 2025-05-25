@@ -74,7 +74,7 @@ def should_create_backup(autobackup: bool, autobackupFreq: int) -> bool:
 
 
 def maybe_create_backup(
-    db_path, autobackup: bool, autobackupFreq: int, autobackupKeepLastN: int
+    db_path: Path, autobackup: bool, autobackupFreq: int, autobackupKeepLastN: int
 ):
     if should_create_backup(autobackup, autobackupFreq):
         create_backup(
