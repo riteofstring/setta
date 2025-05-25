@@ -11,7 +11,7 @@ from .database.db_init import maybe_create_tables_and_seed
 from .database.db_objs import DBQueue, get_default_db_path
 from .database.export_db.export_db import export_database
 from .database.import_db import import_database
-from .utils.constants import SETTA_FILES_FOLDER, C, set_constants
+from .utils.constants import SETTA_FILES_FOLDER, C
 from .websockets.connect import connect as _connect
 
 
@@ -20,7 +20,8 @@ from .websockets.connect import connect as _connect
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 def connect(websocket_id, host, port):
-    set_constants(host=host, port=port)
+    C.HOST = host
+    C.PORT = port
     asyncio.run(_connect(websocket_id))
 
 
@@ -85,18 +86,15 @@ def import_db(yaml_path, output_path):
     help="Set the logging level",
 )
 @click.pass_context
-def cli(ctx, reload, with_examples, db, host, port, log_level):
+def cli(ctx, reload, with_examples: bool, db: str, host: str, port: int, log_level):
     if ctx.invoked_subcommand is None:
         print("Starting Setta", flush=True)
 
         SETTA_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
-
-        set_constants(
-            with_examples=with_examples,
-            db_path=db,
-            host=host,
-            port=port,
-        )
+        C.HOST = host
+        C.PORT = port
+        C.DB_PATH = db
+        C.DB_WITH_EXAMPLES = with_examples
 
         sys.path.append(str(Path(__file__).resolve().parent))
 

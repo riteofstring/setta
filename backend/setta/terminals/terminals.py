@@ -27,7 +27,7 @@ IS_MACOS = platform.system() == "Darwin"
 
 
 if IS_WINDOWS:
-    from winpty import PtyProcess
+    from winpty import PtyProcess  # type: ignore
 
     from .utils import windows_has_child_processes as has_child_processes
 

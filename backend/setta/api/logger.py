@@ -9,14 +9,15 @@ from pathlib import Path
 import requests
 import websockets
 
-from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C, set_constants
+from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
 
 
 class SettaLogger:
     def __init__(
         self, root_path=None, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT, websocket=None
     ):
-        set_constants(host=host, port=port)
+        C.HOST = host
+        C.PORT = port
         self.root_path = Path(
             root_path or os.environ.get(CODE_FOLDER_ENV_VARIABLE, ".")
         )
