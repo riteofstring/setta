@@ -18,7 +18,7 @@ export function getSectionParentId(sectionId) {
   return getSectionInfo(sectionId).parentId;
 }
 
-export function getSectionType(sectionId, _state) {
+export function getSectionType(sectionId, _state = null) {
   const state = _state ?? useProjectState.getState();
   return state.uiTypes[state.sections[sectionId].uiTypeId].type;
 }
