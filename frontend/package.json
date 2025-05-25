@@ -100,7 +100,7 @@
     "ts-prune": "ts-prune",
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
-    "generate": "cd generation && node extractFrontendMcpTools.js && python writeFrontendMcpTools.py && python convert_pydantic_to_js.py && python convert_constants_to_js.py"
+    "generate": "cd generation && node extractFrontendMcpTools.js && python writeFrontendMcpTools.py && python convert_base_ui_types_to_js.py && python convert_pydantic_to_js.py && python convert_constants_to_js.py"
   },
   "eslintConfig": {
     "extends": [
