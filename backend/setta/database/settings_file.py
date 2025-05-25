@@ -5,6 +5,7 @@ from pathlib import Path
 
 from setta.database.db.sections.jsonSource import save_json_source_data
 from setta.database.db.sections.load import load_json_sources_into_data_structures
+from setta.project_state.getters import get_selected_section_variant
 from setta.project_state.project_state import (
     ProjectLoadState,
     ProjectSaveState,
@@ -78,7 +79,7 @@ class MetaSettingsFile:
 
     def find_path_for_settings_slice(self, p: ProjectState, slice: str):
         for sectionId in p.sections.keys():
-            variant = p.get_selected_section_variant(sectionId)
+            variant = get_selected_section_variant(p, sectionId)
             if variant.jsonSourceKeys == [slice]:
                 return Path(variant.name)
         return None

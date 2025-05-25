@@ -2,7 +2,7 @@ import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from setta.lsp.writer import LanguageServerWriter
+from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
 from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.project_manager import WMHProjectManager
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class Code(ABC):
-    def __init__(self, temp_folder):
+    def __init__(self, temp_folder: Path):
         self.temp_folder = temp_folder
-        self.temp_file = None
+        self.temp_file: Path | None = None
 
     @abstractmethod
     def get_base_filename(self):
@@ -43,24 +43,32 @@ class Code(ABC):
         if self.temp_file != filepath:
             self.delete_temp_file()
             self.create_temp_file(filepath, code)
-        self.temp_file.write_text(code)
+        if self.temp_file:
+            self.temp_file.write_text(code)
 
     def delete_temp_file(self):
         if self.temp_file and self.temp_file.exists():
             self.temp_file.unlink()
 
-    def write_to_folder(self, code, folder):
-        full_path = folder / self.temp_file.name
-        full_path.write_text(code)
-        return full_path
+    def write_to_folder(self, code: str, folder: Path) -> Path:
+        if self.temp_file:
+            full_path = folder / self.temp_file.name
+            full_path.write_text(code)
+            return full_path
+        raise ValueError("self.temp_file is not set")
 
 
 class PythonCode(Code):
-    def __init__(self, temp_folder, lsp_writers, websocket_msg_handler):
+    def __init__(
+        self,
+        temp_folder: Path,
+        lsp_writers: LSPWriters,
+        websocket_msg_handler: WMHProjectManager,
+    ):
         super().__init__(temp_folder)
-        self.lsp_writer: LanguageServerWriter = lsp_writers.full
-        self.websocket_msg_handler: WMHProjectManager = websocket_msg_handler
-        self.uri = ""
+        self.lsp_writer = lsp_writers.full
+        self.websocket_msg_handler = websocket_msg_handler
+        self.uri: str = ""
         self.diagnostics_callback = None
 
     async def update_file(self, code):
@@ -68,7 +76,7 @@ class PythonCode(Code):
         await self.send_document_open_request(code)
 
     async def send_document_open_request(self, code):
-        if self.temp_file.exists():
+        if self.temp_file and self.temp_file.exists():
             self.uri = await self.lsp_writer.send_document_open_request(
                 filepath=self.temp_file,
                 code=code,
@@ -88,8 +96,8 @@ class PythonCode(Code):
 
     def get_run_command(self, path: Path):
         path = path.relative_to(CWD)
-        path = convert_path_to_module_path(path)
-        return f"python -m {path}"
+        module_path = convert_path_to_module_path(path)
+        return f"python -m {module_path}"
 
 
 class BashCode(Code):

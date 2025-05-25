@@ -9,12 +9,17 @@ from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
+from setta.project_state.getters import get_section_type
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
-from setta.project_state.project_state import ProjectState, ProjectUpdateState
+from setta.project_state.project_state import (
+    CodeLanguage,
+    ProjectState,
+    ProjectUpdateState,
+)
 from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, C
 from setta.websockets.msg_handlers.project_manager import WMHProjectManager
@@ -128,24 +133,26 @@ class ProjectManager:
     @enqueue_method
     async def create_run_command(
         self,
-        projectState: ProjectState,
-        projectConfigId: str,
+        projectUpdateState: ProjectUpdateState,
         entryCodeBlock: str | None,
     ):
-        await self.update.direct(projectState)
+        await self.update.direct(projectUpdateState)
         target_folder = create_timestamped_folder(CODE_FOLDER)
-        gen_code_path = self.gen_code.write_to_folder(
+
+        projectConfigId = projectUpdateState.projectConfigId
+        gen_code = self.gen_code[projectConfigId]
+        gen_code_path = gen_code.write_to_folder(
             target_folder, as_entry_code_block=not entryCodeBlock
         )
+
+        code_dict = self.code_dict[projectConfigId]
         code_paths = {}
-        for sectionId, c in self.code_dict.items():
+        for sectionId, c in code_dict.items():
             code_paths[sectionId] = c.write_to_folder(target_folder)
 
         if entryCodeBlock:
-            return self.code_dict[entryCodeBlock].get_run_command(
-                code_paths[entryCodeBlock]
-            )
-        return self.gen_code.get_run_command(gen_code_path)
+            return code_dict[entryCodeBlock].get_run_command(code_paths[entryCodeBlock])
+        return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
     async def update(
@@ -188,7 +195,7 @@ class ProjectManager:
         self.code_dict[projectConfigId] = {}
 
         for sectionId in dep_graph.all_sections_in_project_config:
-            section_type = projectState.get_section_type(sectionId)
+            section_type = get_section_type(projectState, sectionId)
 
             if section_type == C.CODE:
                 section_code = self.create_code_obj(
@@ -268,7 +275,8 @@ class ProjectManager:
         return ""
 
     def add_to_used_files(self, code_obj: Code):
-        self.used_files.add(code_obj.temp_file.resolve())
+        if code_obj.temp_file:
+            self.used_files.add(code_obj.temp_file.resolve())
 
     def delete_unused_files(self, project_temp_folder: Path):
         # Get all files in the project temp folder and delete unused ones
@@ -281,9 +289,11 @@ class ProjectManager:
                     except Exception as e:
                         print(f"Error deleting file {file_path}: {e}")
 
-    def create_code_obj(self, project_temp_folder, project_state, sectionId):
-        codeLanguage = project_state["sections"][sectionId]["codeLanguage"]
-        if codeLanguage == "python":
+    def create_code_obj(
+        self, project_temp_folder: Path, project_state: ProjectState, sectionId: str
+    ):
+        codeLanguage = project_state.sections[sectionId].codeLanguage
+        if codeLanguage == CodeLanguage.PYTHON:
             return ProjectPythonCode(
                 project_temp_folder,
                 self.lsp_writers,
@@ -291,7 +301,7 @@ class ProjectManager:
                 project_state,
                 sectionId,
             )
-        elif codeLanguage == "bash":
+        elif codeLanguage == CodeLanguage.BASH:
             return ProjectBashCode(project_temp_folder, project_state, sectionId)
         return None
 
@@ -308,7 +318,8 @@ class ProjectManager:
         if renameRefactorMode == C.RENAME_REFACTOR_NEVER_RENAME:
             return
 
-        old_dep_graph = self.gen_code.dep_graph
+        projectConfigId = projectUpdateState.projectConfigId
+        old_dep_graph = self.gen_code[projectConfigId].dep_graph
         if renameRefactorMode == C.RENAME_REFACTOR_ALWAYS_ASK:
             # we operate on a copy in this case, because we don't want to
             # immediately apply any of the renaming operations

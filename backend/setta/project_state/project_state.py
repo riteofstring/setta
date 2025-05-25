@@ -259,52 +259,6 @@ class ProjectState(BaseModel, extra="forbid"):
                 self.variants[section.variantId] = SectionVariant()
         return self
 
-    def get_section_type(self, id: str):
-        ui_type_id = self.sections[id].uiTypeId
-        ui_type = self.uiTypes[ui_type_id]
-        return ui_type.type
-
-    def get_selected_section_variant(self, section_id: str):
-        variantId = self.sections[section_id].variantId
-        return self.variants[variantId]
-
-    def get_selected_item(self, id: str):
-        variant = self.get_selected_section_variant(id)
-        selected_item = variant.selectedItem
-        if selected_item:
-            return self.codeInfo[selected_item]
-
-    def get_section_children(self, id: str) -> list[str]:
-        variant = self.get_selected_section_variant(id)
-        return variant.children
-
-    def get_top_level_param_ids(self, id: str) -> list[str]:
-        selected_item = self.get_selected_item(id)
-        if selected_item:
-            section_code_info_children = self.get_section_code_info_children(id)
-            children = section_code_info_children.get(selected_item.id, [])
-            return [
-                c for c in children if self.codeInfo[c].rcType == CodeInfoType.PARAMETER
-            ]
-        return []
-
-    def get_section_code_info_children(self, section_id: str):
-        variant = self.get_selected_section_variant(section_id)
-        codeInfoColId = variant.codeInfoColId
-        if not codeInfoColId:
-            codeInfoCol = CodeInfoCol()
-        else:
-            codeInfoCol = self.codeInfoCols[codeInfoColId]
-        return codeInfoCol.children
-
-    def get_param_ui_type(self, section_id: str, id: str):
-        ui_type_col_id = self.sections[section_id].uiTypeColId
-        ui_type_col = self.uiTypeCols[ui_type_col_id] if ui_type_col_id else {}
-        ui_type_col_entry = ui_type_col.get(id, UITypeColEntry())
-        ui_type_id = ui_type_col_entry.uiTypeId
-        ui_type = self.uiTypes[ui_type_id]
-        return ui_type.type
-
 
 class ProjectSaveState(BaseModel, extra="forbid"):
     projectConfigId: str

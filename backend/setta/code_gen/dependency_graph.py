@@ -7,6 +7,15 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
+from setta.project_state.getters import (
+    get_param_ui_type,
+    get_section_children,
+    get_section_code_info_children,
+    get_section_type,
+    get_selected_item,
+    get_selected_section_variant,
+    get_top_level_param_ids,
+)
 from setta.project_state.project_state import (
     EVEntry,
     ParameterPassingStyle,
@@ -100,7 +109,7 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
-            type = p.get_section_type(id)
+            type = get_section_type(p, id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
@@ -121,8 +130,8 @@ class DependencyGraph:
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = [
                     c
-                    for c in p.get_section_children(id)
-                    if p.get_section_type(c) in self.section_types_to_process
+                    for c in get_section_children(p, id)
+                    if get_section_type(p, c) in self.section_types_to_process
                 ]
                 node = SectionNode(
                     id=id,
@@ -148,7 +157,7 @@ class DependencyGraph:
         return graph_key
 
     def export_section_value(self, p: ProjectState, sectionId: str):
-        selected_item = p.get_selected_item(sectionId)
+        selected_item = get_selected_item(p, sectionId)
         if selected_item:
             selected_item_name = selected_item.name
             potential_refs = find_undefined_special_var_expressions(
@@ -164,7 +173,7 @@ class DependencyGraph:
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
-        paramIds = p.get_top_level_param_ids(sectionId)
+        paramIds = get_top_level_param_ids(p, sectionId)
         return self.export_params(
             p, sectionId, paramIds, parent_node=parent_node, isTopLevel=isTopLevel
         )
@@ -183,13 +192,13 @@ class DependencyGraph:
             param = self.get_node(graph_key)
             if not param:
                 codeInfo = p.codeInfo[pid]
-                param_children = p.get_section_code_info_children(sectionId).get(
+                param_children = get_section_code_info_children(p, sectionId).get(
                     pid, []
                 )
                 if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
-                    type = p.get_param_ui_type(sectionId, pid)
+                    type = get_param_ui_type(p, sectionId, pid)
                 name = codeInfo.name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 value, potential_refs = self.export_param_value(p, sectionId, pid)
@@ -213,7 +222,7 @@ class DependencyGraph:
         return output_deps
 
     def export_param_value(self, p: ProjectState, sectionId: str, paramId: str):
-        variant = p.get_selected_section_variant(sectionId)
+        variant = get_selected_section_variant(p, sectionId)
         if paramId in variant.values:
             value = variant.values[paramId].value
             potential_refs = find_undefined_special_var_expressions(

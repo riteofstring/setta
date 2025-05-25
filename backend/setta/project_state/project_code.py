@@ -1,15 +1,19 @@
+from pathlib import Path
+
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import (
     CLASS_NAME,
-    get_section_path_full_name,
-    get_selected_section_variant,
     sanitize_name,
 )
 from setta.project_state.code import (
     BashCode,
     PythonCode,
+)
+from setta.project_state.getters import (
+    get_section_path_full_name,
+    get_selected_section_variant,
 )
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
@@ -142,7 +146,7 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code(self):
         return self.code_generator.code
 
-    def write_to_folder(self, folder, as_entry_code_block):
+    def write_to_folder(self, folder: Path, as_entry_code_block: bool):
         code = self.code_generator.code
         if as_entry_code_block:
             # if we're using this as the entry code block, then just append S()
@@ -159,7 +163,7 @@ class ProjectPythonCode(PythonCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId)["code"]
+        self.code = get_selected_section_variant(project_state, self.sectionId).code
         self.diagnostics_callback = self.process_diagnostics_response
 
     async def update_file(self):
@@ -202,7 +206,7 @@ class ProjectBashCode(BashCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId)["code"]
+        self.code = get_selected_section_variant(project_state, self.sectionId).code
 
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)

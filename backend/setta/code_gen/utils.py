@@ -29,13 +29,6 @@ def get_chat_message(p, id):
     return p["sections"][id]["latestChatMessage"]
 
 
-def get_selected_item(p, id):
-    selected_item = get_selected_section_variant(p, id)["selectedItem"]
-    if selected_item:
-        return p["codeInfo"][selected_item]
-    return None
-
-
 def get_selected_item_name(p, id):
     selected_item = get_selected_item(p, id)
     if selected_item:
@@ -64,17 +57,6 @@ def get_section_code_info_children(p, section_id):
     return codeInfoCol["children"]
 
 
-def get_top_level_param_ids(p, id):
-    selected_item_id = get_selected_item_id(p, id)
-    children = get_code_info_children(p, id, selected_item_id)
-    return [c for c in children if p["codeInfo"][c]["rcType"] == C.PARAMETER]
-
-
-def get_selected_section_variant(p, section_id):
-    variantId = get_selected_section_variant_id(p, section_id)
-    return p["sectionVariants"][variantId]
-
-
 def get_section_variant_ids(p, section_id):
     return p["sections"][section_id]["variantIds"]
 
@@ -99,10 +81,6 @@ def get_section_code(p, id):
     return get_selected_section_variant(p, id)["code"]
 
 
-def get_section_children(p, id):
-    return get_selected_section_variant(p, id)["children"]
-
-
 def get_for_section_id(p, section_id):
     for sid, s in p["sections"].items():
         if s["paramSweepSectionId"] == section_id:
@@ -121,29 +99,6 @@ def get_param_full_path_name(id, pathMap, codeInfo):
             else:
                 name += f'["{codeInfo[currId]["name"]}"]'
         return name
-
-
-def get_section_path_full_name(p, section_id):
-    parent_id = p["sections"][section_id]["parentId"]
-    if not parent_id:
-        return p["sections"][section_id]["name"]
-
-    child_id = section_id
-    output = ""
-    while parent_id:
-        if get_section_type(p, parent_id) == C.LIST_ROOT:
-            idx = get_section_children(p, parent_id).index(section_id)
-            output = f"[{idx}]{output}"
-        else:
-            child_name = p["sections"][child_id]["name"]
-            output = f'["{child_name}"]{output}'
-
-        child_id = parent_id
-        parent_id = p["sections"][parent_id]["parentId"]
-
-    # child_id will contain the highest parent's id
-    child_name = p["sections"][child_id]["name"]
-    return f"{child_name}{output}"
 
 
 def sanitize_name(name):
