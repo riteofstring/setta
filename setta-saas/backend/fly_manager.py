@@ -12,8 +12,8 @@ class FlyManager:
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json"
         }
-        # Your organization ID from test-foss-app
-        self.organization_id = "yw2NK09lG62eytyo75jV2OwzbVT75lzeD"
+        # Use your organization slug instead of the wrong ID
+        self.organization_slug = "personal"
 
         if not self.api_token:
             print("ERROR: FLY_API_TOKEN not found in environment variables!")
@@ -27,12 +27,12 @@ class FlyManager:
             print("ERROR: No API token available!")
             return None
 
-        # GraphQL mutation to create app
+        # Updated GraphQL mutation to use organizationSlug instead of organizationId
         mutation = """
-        mutation($appName: String!, $organizationId: ID!) {
+        mutation($appName: String!, $organizationSlug: String!) {
             createApp(input: {
                 name: $appName,
-                organizationId: $organizationId
+                organizationSlug: $organizationSlug
             }) {
                 app {
                     id
@@ -44,7 +44,7 @@ class FlyManager:
         """
 
         try:
-            print(f"Creating app '{app_name}' in organization {self.organization_id}")
+            print(f"Creating app '{app_name}' in organization '{self.organization_slug}'")
 
             with httpx.Client() as client:
                 response = client.post(
@@ -53,7 +53,7 @@ class FlyManager:
                         "query": mutation,
                         "variables": {
                             "appName": app_name,
-                            "organizationId": self.organization_id
+                            "organizationSlug": self.organization_slug  # Changed from organizationId
                         }
                     },
                     headers=self.headers,
