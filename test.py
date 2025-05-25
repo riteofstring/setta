@@ -1,7 +1,7 @@
 import ast
 import re
-from typing import Dict, List, Optional, Union
-from dataclasses import dataclass
+from typing import Dict, List, Optional, Union, Set
+from dataclasses import dataclass, field
 
 @dataclass
 class FieldInfo:
@@ -10,6 +10,7 @@ class FieldInfo:
     default_value: Optional[str]
     is_optional: bool
     description: str = ""
+    constraints: Dict[str, any] = field(default_factory=dict)
 
 @dataclass
 class EnumInfo:
@@ -22,46 +23,83 @@ class ModelInfo:
     name: str
     fields: List[FieldInfo]
     extra_config: str = ""
+    config_dict: Dict[str, any] = field(default_factory=dict)
 
 class PydanticToZodConverter:
     def __init__(self):
         self.enums: List[EnumInfo] = []
         self.models: List[ModelInfo] = []
+        self.model_names: Set[str] = set()  # Track model names for references
+        
+        # Extended type mapping
         self.type_mapping = {
             'str': 'z.string()',
             'int': 'z.number().int()',
             'float': 'z.number()',
             'bool': 'z.boolean()',
+            'bytes': 'z.instanceof(Uint8Array)',
+            'datetime': 'z.string().datetime()',
+            'date': 'z.string().date()',
+            'time': 'z.string().time()',
+            'UUID': 'z.string().uuid()',
+            'Decimal': 'z.number()',
+            'list': 'z.array(z.any())',
+            'dict': 'z.record(z.any())',
+            'set': 'z.array(z.any())',
+            'tuple': 'z.tuple([])',
+            'Any': 'z.any()',
+            'None': 'z.null()',
             'list[str]': 'z.array(z.string())',
             'list[int]': 'z.array(z.number().int())',
             'List[str]': 'z.array(z.string())',
             'List[int]': 'z.array(z.number().int())',
-            'dict': 'z.record(z.any())',
-            'dict[str, str]': 'z.record(z.string())',
-            'dict[str, int]': 'z.record(z.number().int())',
+            'Dict[str, str]': 'z.record(z.string())',
+            'Dict[str, int]': 'z.record(z.number().int())',
+            'Set[str]': 'z.array(z.string())',
+            'Set[int]': 'z.array(z.number().int())',
             'Optional[str]': 'z.string().nullable()',
             'Optional[int]': 'z.number().int().nullable()',
             'Optional[bool]': 'z.boolean().nullable()',
+            'Optional[datetime]': 'z.string().datetime().nullable()',
+            'Optional[date]': 'z.string().date().nullable()',
+            'Optional[UUID]': 'z.string().uuid().nullable()',
         }
     
     def parse_python_file(self, file_path: str):
         """Parse Python file and extract Pydantic models and enums"""
-        with open(file_path, 'r') as f:
-            content = f.read()
-        
-        tree = ast.parse(content)
-        
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                if self._is_enum_class(node):
-                    self.enums.append(self._parse_enum(node))
-                elif self._is_pydantic_model(node):
-                    self.models.append(self._parse_model(node, content))
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read()
+            
+            tree = ast.parse(content)
+            
+            # First pass: collect all model names
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef) and self._is_pydantic_model(node):
+                    self.model_names.add(node.name)
+            
+            # Second pass: parse models and enums
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ClassDef):
+                    try:
+                        if self._is_enum_class(node):
+                            self.enums.append(self._parse_enum(node))
+                        elif self._is_pydantic_model(node):
+                            self.models.append(self._parse_model(node, content))
+                    except Exception as e:
+                        print(f"Warning: Failed to parse class {node.name}: {e}")
+                        
+        except Exception as e:
+            print(f"Error parsing file {file_path}: {e}")
+            raise
     
     def _is_enum_class(self, node: ast.ClassDef) -> bool:
         """Check if class inherits from StrEnum or similar"""
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id in ['StrEnum', 'Enum', 'IntEnum']:
+                return True
+            # Handle from enum import Enum style
+            if isinstance(base, ast.Attribute) and base.attr in ['StrEnum', 'Enum', 'IntEnum']:
                 return True
         return False
     
@@ -69,6 +107,9 @@ class PydanticToZodConverter:
         """Check if class inherits from BaseModel"""
         for base in node.bases:
             if isinstance(base, ast.Name) and base.id == 'BaseModel':
+                return True
+            # Handle from pydantic import BaseModel style
+            if isinstance(base, ast.Attribute) and base.attr == 'BaseModel':
                 return True
         return False
     
@@ -80,7 +121,7 @@ class PydanticToZodConverter:
                 for target in stmt.targets:
                     if isinstance(target, ast.Name):
                         if isinstance(stmt.value, ast.Constant):
-                            values[target.id] = stmt.value.value
+                            values[target.id] = str(stmt.value.value)
         
         return EnumInfo(name=node.name, values=values)
     
@@ -88,23 +129,43 @@ class PydanticToZodConverter:
         """Parse Pydantic model class definition"""
         fields = []
         extra_config = ""
+        config_dict = {}
         
-        # Extract extra config
+        # Parse model config (Pydantic v2 style)
         for stmt in node.body:
-            if isinstance(stmt, ast.Assign):
-                for target in stmt.targets:
-                    if isinstance(target, ast.Name) and target.id == 'extra':
-                        extra_config = "strict" if "forbid" in ast.unparse(stmt.value) else ""
+            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                if stmt.target.id == 'model_config':
+                    # Parse ConfigDict
+                    if isinstance(stmt.value, ast.Call) and hasattr(stmt.value.func, 'id') and stmt.value.func.id == 'ConfigDict':
+                        for keyword in stmt.value.keywords:
+                            if keyword.arg == 'extra' and isinstance(keyword.value, ast.Constant):
+                                extra_config = "strict" if keyword.value.value == 'forbid' else ""
+                            config_dict[keyword.arg] = ast.unparse(keyword.value)
+            
+            # Also check for Pydantic v1 style Config class
+            if isinstance(stmt, ast.ClassDef) and stmt.name == 'Config':
+                for config_stmt in stmt.body:
+                    if isinstance(config_stmt, ast.Assign):
+                        for target in config_stmt.targets:
+                            if isinstance(target, ast.Name) and target.id == 'extra':
+                                if isinstance(config_stmt.value, ast.Constant):
+                                    extra_config = "strict" if config_stmt.value.value == 'forbid' else ""
         
         # Parse annotated fields
         for stmt in node.body:
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
                 field_name = stmt.target.id
+                
+                # Skip special fields
+                if field_name in ['model_config', 'Config']:
+                    continue
+                    
                 type_annotation = ast.unparse(stmt.annotation)
                 
                 # Extract default value and Field info
                 default_value = None
                 description = ""
+                constraints = {}
                 
                 if stmt.value:
                     if isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name) and stmt.value.func.id == 'Field':
@@ -118,34 +179,40 @@ class PydanticToZodConverter:
                                 elif factory_func == 'dict':
                                     default_value = "{}"
                                 elif factory_func == 'set':
-                                    default_value = "new Set()"
+                                    default_value = "[]"  # Sets become arrays in JS
                                 else:
-                                    # Check if it's a model class (capitalized, likely a Pydantic model)
-                                    if factory_func[0].isupper():
-                                        default_value = f"create{factory_func}()"
+                                    # Check if it's a model class
+                                    if factory_func in self.model_names or (factory_func.startswith('lambda') and factory_func.endswith('()')):
+                                        default_value = f"() => create{factory_func.replace('lambda: ', '').replace('()', '')}()"
                                     else:
-                                        default_value = f"{factory_func}()"
+                                        default_value = f"() => {factory_func}()"
                             elif keyword.arg == 'default':
                                 default_value = ast.unparse(keyword.value)
+                                if default_value == "None":
+                                    default_value = "null"
                             elif keyword.arg == 'description':
                                 description = keyword.value.value if isinstance(keyword.value, ast.Constant) else ""
+                            # Capture constraints
+                            elif keyword.arg in ['min_length', 'max_length', 'gt', 'ge', 'lt', 'le', 'regex', 'min_items', 'max_items']:
+                                constraints[keyword.arg] = ast.unparse(keyword.value)
                     else:
                         default_value = ast.unparse(stmt.value)
                         # Convert Python None to JavaScript null
                         if default_value == "None":
                             default_value = "null"
                 
-                is_optional = 'Optional' in type_annotation or default_value is not None
+                is_optional = 'Optional' in type_annotation or 'None' in type_annotation or default_value is not None
                 
                 fields.append(FieldInfo(
                     name=field_name,
                     type_name=type_annotation,
                     default_value=default_value,
                     is_optional=is_optional,
-                    description=description
+                    description=description,
+                    constraints=constraints
                 ))
         
-        return ModelInfo(name=node.name, fields=fields, extra_config=extra_config)
+        return ModelInfo(name=node.name, fields=fields, extra_config=extra_config, config_dict=config_dict)
     
     def generate_typescript(self) -> str:
         """Generate TypeScript code with Zod schemas"""
@@ -153,7 +220,6 @@ class PydanticToZodConverter:
         
         # Add imports
         output.append("import { z } from 'zod';")
-        output.append("import { createNewId, generateMemorableString } from './utils';")
         output.append("")
         
         # Generate enums
@@ -174,16 +240,20 @@ class PydanticToZodConverter:
             
             for field in model.fields:
                 zod_type = self._convert_type_to_zod(field.type_name)
+                
+                # Apply constraints
+                if field.constraints:
+                    zod_type = self._apply_constraints(zod_type, field.constraints, field.type_name)
+                
                 default_clause = ""
                 
                 if field.default_value:
-                    if field.default_value in ["[]", "{}", "new Set()"]:
+                    if field.default_value in ["[]", "{}"]:
                         # JavaScript literal values
                         default_clause = f".default(() => ({field.default_value}))"
-                    elif field.default_value.endswith("()"):
-                        # Function call - use .default()
-                        func_name = field.default_value[:-2]
-                        default_clause = f".default(() => {func_name}())"
+                    elif field.default_value.startswith("() =>"):
+                        # Already a function
+                        default_clause = f".default({field.default_value})"
                     elif field.default_value == "null":
                         # Null value
                         default_clause = f".default(null)"
@@ -204,12 +274,14 @@ class PydanticToZodConverter:
                 # Use .optional() only if field can be omitted (no default) and is Optional
                 optional_clause = ""
                 if field.is_optional and not default_clause:
-                    if 'Optional[' in field.type_name:
-                        optional_clause = ".optional()"
-                    else:
-                        optional_clause = ".optional()"
+                    optional_clause = ".optional()"
                 
                 line = f"  {field.name}: {zod_type}{default_clause}{optional_clause},"
+                
+                # Add comment if there's a description
+                if field.description:
+                    line += f" // {field.description}"
+                
                 output.append(line)
             
             output.append("});")
@@ -229,15 +301,52 @@ class PydanticToZodConverter:
         
         return "\n".join(output)
     
+    def _apply_constraints(self, zod_type: str, constraints: Dict[str, any], python_type: str) -> str:
+        """Apply Pydantic constraints to Zod schema"""
+        result = zod_type
+        
+        # String constraints
+        if 'min_length' in constraints:
+            result = result.replace('z.string()', f'z.string().min({constraints["min_length"]})')
+        if 'max_length' in constraints:
+            result = result.replace('z.string()', f'z.string().max({constraints["max_length"]})')
+        if 'regex' in constraints:
+            result = result.replace('z.string()', f'z.string().regex(/{constraints["regex"]}/)')
+        
+        # Number constraints
+        if 'gt' in constraints:
+            result = result.replace('z.number()', f'z.number().gt({constraints["gt"]})')
+        if 'ge' in constraints:
+            result = result.replace('z.number()', f'z.number().gte({constraints["ge"]})')
+        if 'lt' in constraints:
+            result = result.replace('z.number()', f'z.number().lt({constraints["lt"]})')
+        if 'le' in constraints:
+            result = result.replace('z.number()', f'z.number().lte({constraints["le"]})')
+        
+        # Array constraints
+        if 'min_items' in constraints and 'array' in result:
+            result = result.replace(')', f').min({constraints["min_items"]})')
+        if 'max_items' in constraints and 'array' in result:
+            result = result.replace(')', f').max({constraints["max_items"]})')
+        
+        return result
+    
     def _convert_type_to_zod(self, python_type: str) -> str:
         """Convert Python type annotation to Zod schema"""
+        # Remove whitespace
+        python_type = python_type.strip()
+        
         # Handle direct mappings
         if python_type in self.type_mapping:
             return self.type_mapping[python_type]
         
+        # Handle model references
+        if python_type in self.model_names:
+            return f"{python_type}Schema"
+        
         # Handle enum types
         for enum in self.enums:
-            if enum.name in python_type:
+            if enum.name == python_type:
                 return f"{enum.name}Schema"
         
         # Handle generic types
@@ -248,6 +357,43 @@ class PydanticToZodConverter:
             inner_type = python_type[inner_start:inner_end]
             inner_zod = self._convert_type_to_zod(inner_type)
             return f"z.array({inner_zod})"
+        
+        # Handle Set types
+        if python_type.startswith('Set[') or python_type.startswith('set['):
+            inner_start = python_type.index('[') + 1
+            inner_end = python_type.rindex(']')
+            inner_type = python_type[inner_start:inner_end]
+            inner_zod = self._convert_type_to_zod(inner_type)
+            return f"z.array({inner_zod})"  # Sets become arrays in JS
+        
+        # Handle Tuple types
+        if python_type.startswith('Tuple[') or python_type.startswith('tuple['):
+            inner_start = python_type.index('[') + 1
+            inner_end = python_type.rindex(']')
+            inner = python_type[inner_start:inner_end]
+            
+            # Split tuple elements
+            elements = []
+            bracket_depth = 0
+            current_element = ""
+            
+            for char in inner:
+                if char == '[':
+                    bracket_depth += 1
+                elif char == ']':
+                    bracket_depth -= 1
+                elif char == ',' and bracket_depth == 0:
+                    elements.append(current_element.strip())
+                    current_element = ""
+                    continue
+                current_element += char
+            
+            if current_element.strip():
+                elements.append(current_element.strip())
+            
+            # Convert each element
+            zod_elements = [self._convert_type_to_zod(elem) for elem in elements]
+            return f"z.tuple([{', '.join(zod_elements)}])"
         
         # Handle Union types
         if python_type.startswith('Union['):
@@ -293,8 +439,8 @@ class PydanticToZodConverter:
             
             return f"z.union([{', '.join(zod_members)}])"
         
-        if python_type.startswith('dict['):
-            # Handle dict[K, V] types
+        # Handle Dict types
+        if python_type.startswith('Dict[') or python_type.startswith('dict['):
             inner_start = python_type.index('[') + 1
             inner_end = python_type.rindex(']')
             inner = python_type[inner_start:inner_end]
@@ -308,13 +454,21 @@ class PydanticToZodConverter:
         if python_type == 'dict':
             return "z.record(z.any())"
         
+        # Handle Optional types
         if python_type.startswith('Optional['):
             inner_type = python_type[9:-1]
             inner_zod = self._convert_type_to_zod(inner_type)
             return f"{inner_zod}.nullable()"
         
-        # Default to string for unknown types
-        return "z.string()"
+        # Handle | None syntax (Python 3.10+)
+        if ' | None' in python_type:
+            base_type = python_type.replace(' | None', '').strip()
+            base_zod = self._convert_type_to_zod(base_type)
+            return f"{base_zod}.nullable()"
+        
+        # If no match found, log warning and default to any
+        print(f"Warning: Unknown type '{python_type}', defaulting to z.any()")
+        return "z.any()"
 
 def main():
     converter = PydanticToZodConverter()
@@ -330,6 +484,7 @@ def main():
         f.write(typescript_code)
     
     print("TypeScript schemas generated successfully!")
+    print(f"\nParsed {len(converter.models)} models and {len(converter.enums)} enums")
     print("\nGenerated code preview:")
     print("=" * 50)
     print(typescript_code[:1000] + "..." if len(typescript_code) > 1000 else typescript_code)

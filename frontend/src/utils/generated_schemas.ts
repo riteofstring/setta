@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { createNewId, generateMemorableString } from './utils';
 
 // Size enum
 export const SizeSchema = z.enum([
@@ -68,8 +67,8 @@ export function createViewport(input: Partial<Viewport> = {}): Viewport {
 
 // SectionSize schema
 export const SectionSizeSchema = z.object({
-  width: SizeSchema.default(Size.AUTO),
-  height: SizeSchema.default(Size.AUTO),
+  width: z.union([z.number(), z.literal(Size.AUTO)]).default(Size.AUTO),
+  height: z.union([z.number(), z.literal(Size.AUTO)]).default(Size.AUTO),
 });
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
 
@@ -92,7 +91,7 @@ export function createVisibility(input: Partial<Visibility> = {}): Visibility {
 
 // CanvasSettings schema
 export const CanvasSettingsSchema = z.object({
-  activeLayerId: z.string().default(null),
+  activeLayerId: z.string().nullable().default(null),
   color: z.string().default('#ff0000'),
   brushSize: z.number().int().default(16),
   brushShape: z.string().default('butt'),
@@ -128,16 +127,16 @@ export function createChartSettings(input: Partial<ChartSettings> = {}): ChartSe
 export const SectionSchema = z.object({
   id: z.string().default(() => create_new_id()),
   name: z.string().default(() => generate_memorable_string()),
-  size: SizeSchema.default(() => createSectionSize()),
-  parentId: z.string().default(null),
+  size: SectionSizeSchema.default(() => createSectionSize()),
+  parentId: z.string().nullable().default(null),
   variantId: z.string().default(() => create_new_id()),
   uiTypeId: z.string().default(BASE_UI_TYPE_IDS[UITypeName.SECTION]),
-  uiTypeColId: z.string().default(null),
+  uiTypeColId: z.string().nullable().default(null),
   social: z.string().default(''),
   artifactGroupIds: z.array(z.string()).default(() => ([])),
-  defaultVariantId: z.string().default(null),
+  defaultVariantId: z.string().nullable().default(null),
   variantIds: z.array(z.string()).default(() => ([])),
-  paramSweepSectionId: z.string().default(null),
+  paramSweepSectionId: z.string().nullable().default(null),
   nonPresetUITypeIds: z.array(z.string()).default(() => ([])),
   codeLanguage: CodeLanguageSchema.default(CodeLanguage.PYTHON),
   isEntryCodeBlock: z.boolean().default(false),
@@ -148,22 +147,22 @@ export const SectionSchema = z.object({
   hideUnpinnedParams: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
   displayMode: z.string().default('GUI'),
-  visibility: z.string().default(() => createVisibility()),
-  pinnedAreaHeight: SizeSchema.default(Size.AUTO),
+  visibility: VisibilitySchema.default(() => createVisibility()),
+  pinnedAreaHeight: z.union([z.number(), z.literal(Size.AUTO)]).default(Size.AUTO),
   isMinimized: z.boolean().default(false),
-  canvasSettings: z.string().default(() => createCanvasSettings()),
-  chartSettings: z.string().default(() => createChartSettings()),
+  canvasSettings: CanvasSettingsSchema.default(() => createCanvasSettings()),
+  chartSettings: ChartSettingsSchema.default(() => createChartSettings()),
   isTemporary: z.boolean().default(false),
   renderMarkdown: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  selectedVariantIds: z.record(z.string()).default(() => ({})),
+  selectedVariantIds: z.record(z.any()).default(() => ({})),
   paramFilter: z.string().default(''),
   isInOtherProjectConfigs: z.boolean().default(false),
   aspectRatio: z.boolean().default(false),
   aspectRatioExtraHeight: z.number().int().default(0),
   aspectRatioExtraWidth: z.number().int().default(0),
-  columnWidth: z.string().default(null),
-  renderedValue: z.string().default(null),
+  columnWidth: z.number().nullable().default(null),
+  renderedValue: z.any().default(null),
   headingAsSectionName: z.boolean().default(false),
 });
 export type Section = z.infer<typeof SectionSchema>;
@@ -187,15 +186,15 @@ export function createEVEntry(input: Partial<EVEntry> = {}): EVEntry {
 // SectionVariant schema
 export const SectionVariantSchema = z.object({
   name: z.string().default(() => generate_memorable_string()),
-  values: z.record(z.string()).default(() => ({})),
+  values: z.record(EVEntrySchema).default(() => ({})),
   children: z.array(z.string()).default(() => ([])),
-  selectedItem: z.string().default(null),
+  selectedItem: z.string().nullable().default(null),
   code: z.string().default(''),
-  codeInfoColId: z.string().default(null),
+  codeInfoColId: z.string().nullable().default(null),
   description: z.string().default(''),
   isFrozen: z.boolean().default(false),
-  sweep: z.array(z.string()).default(() => ([])),
-  runGroup: z.record(z.string()).default(() => ({})),
+  sweep: z.array(z.any()).default(() => ([])),
+  runGroup: z.record(z.any()).default(() => ({})),
   configLanguage: ConfigLanguageSchema.default(ConfigLanguage.PYTHON),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default(() => ([])),
@@ -256,7 +255,7 @@ export function createUITypeColEntry(input: Partial<UITypeColEntry> = {}): UITyp
 export const ArtifactSchema = z.object({
   name: z.string(),
   path: z.string(),
-  value: z.string().default(null),
+  value: z.string().nullable().default(null),
   type: z.string(),
 });
 export type Artifact = z.infer<typeof ArtifactSchema>;
@@ -286,8 +285,8 @@ export const ProjectConfigSchema = z.object({
   id: z.string().default(() => create_new_id()),
   name: z.string().default(() => generate_memorable_string()),
   previewImgColor: z.string().default('bg-blue-500/60 dark:bg-blue-600/30'),
-  viewport: z.string().default(() => createViewport()),
-  children: z.record(z.string()).default(() => ({})),
+  viewport: ViewportSchema.nullable().default(() => createViewport()),
+  children: z.record(ProjectConfigChildSchema).default(() => ({})),
   viewingEditingMode: ViewingEditingModeSchema.default(ViewingEditingMode.DEV),
   genCodePrefix: z.string().default(''),
   genCodeSuffix: z.string().default(''),
@@ -301,14 +300,14 @@ export function createProjectConfig(input: Partial<ProjectConfig> = {}): Project
 
 // ProjectState schema
 export const ProjectStateSchema = z.object({
-  projectConfigs: z.record(z.string()).default(() => ({})),
-  sections: z.record(z.string()).default(() => ({})),
-  variants: z.record(z.string()).default(() => ({})),
-  codeInfo: z.record(z.string()).default(() => ({})),
-  codeInfoCols: z.record(z.string()).default(() => ({})),
-  uiTypes: z.record(z.string()).default(() => lambda: copy.deepcopy(BASE_UI_TYPES)()),
-  uiTypeCols: z.record(z.record(z.string())).default(() => ({})),
-  defaultProjectConfigId: z.string().default(null),
+  projectConfigs: z.record(ProjectConfigSchema).default(() => ({})),
+  sections: z.record(SectionSchema).default(() => ({})),
+  variants: z.record(SectionVariantSchema).default(() => ({})),
+  codeInfo: z.record(CodeInfoSchema).default(() => ({})),
+  codeInfoCols: z.record(CodeInfoColSchema).default(() => ({})),
+  uiTypes: z.record(z.any()).default(() => lambda: copy.deepcopy(BASE_UI_TYPES)()),
+  uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
+  defaultProjectConfigId: z.string().nullable().default(null),
 });
 export type ProjectState = z.infer<typeof ProjectStateSchema>;
 
@@ -320,7 +319,7 @@ export function createProjectState(input: Partial<ProjectState> = {}): ProjectSt
 // ProjectSaveState schema
 export const ProjectSaveStateSchema = z.object({
   projectConfigId: z.string(),
-  projectState: z.string(),
+  projectState: ProjectStateSchema,
 });
 export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
 
@@ -332,7 +331,7 @@ export function createProjectSaveState(input: Partial<ProjectSaveState> = {}): P
 // ProjectLoadState schema
 export const ProjectLoadStateSchema = z.object({
   projectConfigId: z.string(),
-  projectState: z.string(),
+  projectState: ProjectStateSchema,
 });
 export type ProjectLoadState = z.infer<typeof ProjectLoadStateSchema>;
 
@@ -344,7 +343,7 @@ export function createProjectLoadState(input: Partial<ProjectLoadState> = {}): P
 // ProjectUpdateState schema
 export const ProjectUpdateStateSchema = z.object({
   projectConfigId: z.string(),
-  projectState: z.string(),
+  projectState: ProjectStateSchema,
   requestRenameRefactor: z.boolean().default(false),
 });
 export type ProjectUpdateState = z.infer<typeof ProjectUpdateStateSchema>;
