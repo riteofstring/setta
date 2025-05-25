@@ -76,10 +76,10 @@ class FlyManager:
     def allocate_ips(self, app_name: str):
         """Allocate shared IPv4 and IPv6 addresses for the app"""
 
-        # Allocate shared IPv4
+        # Correct mutation syntax - uses 'input' parameter
         ipv4_mutation = """
-        mutation($appName: String!) {
-            allocateIpAddress(appName: $appName, type: v4shared) {
+        mutation($input: AllocateIPAddressInput!) {
+            allocateIpAddress(input: $input) {
                 ipAddress {
                     id
                     address
@@ -88,10 +88,9 @@ class FlyManager:
         }
         """
 
-        # Allocate IPv6
         ipv6_mutation = """
-        mutation($appName: String!) {
-            allocateIpAddress(appName: $appName, type: v6) {
+        mutation($input: AllocateIPAddressInput!) {
+            allocateIpAddress(input: $input) {
                 ipAddress {
                     id
                     address
@@ -107,7 +106,12 @@ class FlyManager:
                     self.base_url,
                     json={
                         "query": ipv4_mutation,
-                        "variables": {"appName": app_name}
+                        "variables": {
+                            "input": {
+                                "appName": app_name,
+                                "type": "v4shared"
+                            }
+                        }
                     },
                     headers=self.headers
                 )
@@ -123,7 +127,12 @@ class FlyManager:
                     self.base_url,
                     json={
                         "query": ipv6_mutation,
-                        "variables": {"appName": app_name}
+                        "variables": {
+                            "input": {
+                                "appName": app_name,
+                                "type": "v6"
+                            }
+                        }
                     },
                     headers=self.headers
                 )
