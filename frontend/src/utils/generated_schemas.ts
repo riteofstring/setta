@@ -1,3 +1,4 @@
+import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";
 import { z } from 'zod';
 
 // Size enum
@@ -125,11 +126,11 @@ export function createChartSettings(input: Partial<ChartSettings> = {}): ChartSe
 
 // Section schema
 export const SectionSchema = z.object({
-  id: z.string().default(() => create_new_id()),
-  name: z.string().default(() => generate_memorable_string()),
+  id: z.string().default(() => createNewId()),
+  name: z.string().default(() => generateMemorableString()),
   size: SectionSizeSchema.default(() => createSectionSize()),
   parentId: z.string().nullable().default(null),
-  variantId: z.string().default(() => create_new_id()),
+  variantId: z.string().default(() => createNewId()),
   uiTypeId: z.string().default(BASE_UI_TYPE_IDS[UITypeName.SECTION]),
   uiTypeColId: z.string().nullable().default(null),
   social: z.string().default(''),
@@ -185,7 +186,7 @@ export function createEVEntry(input: Partial<EVEntry> = {}): EVEntry {
 
 // SectionVariant schema
 export const SectionVariantSchema = z.object({
-  name: z.string().default(() => generate_memorable_string()),
+  name: z.string().default(() => generateMemorableString()),
   values: z.record(EVEntrySchema).default(() => ({})),
   children: z.array(z.string()).default(() => ([])),
   selectedItem: z.string().nullable().default(null),
@@ -209,8 +210,8 @@ export function createSectionVariant(input: Partial<SectionVariant> = {}): Secti
 
 // CodeInfo schema
 export const CodeInfoSchema = z.object({
-  id: z.string().default(() => create_new_id()),
-  name: z.string().default(() => generate_memorable_string()),
+  id: z.string().default(() => createNewId()),
+  name: z.string().default(() => generateMemorableString()),
   editable: z.boolean().default(false),
   rcType: CodeInfoTypeSchema.default(CodeInfoType.PARAMETER),
   defaultVal: z.string().default(''),
@@ -282,8 +283,8 @@ export function createProjectConfigChild(input: Partial<ProjectConfigChild> = {}
 
 // ProjectConfig schema
 export const ProjectConfigSchema = z.object({
-  id: z.string().default(() => create_new_id()),
-  name: z.string().default(() => generate_memorable_string()),
+  id: z.string().default(() => createNewId()),
+  name: z.string().default(() => generateMemorableString()),
   previewImgColor: z.string().default('bg-blue-500/60 dark:bg-blue-600/30'),
   viewport: ViewportSchema.nullable().default(() => createViewport()),
   children: z.record(ProjectConfigChildSchema).default(() => ({})),
@@ -305,7 +306,7 @@ export const ProjectStateSchema = z.object({
   variants: z.record(SectionVariantSchema).default(() => ({})),
   codeInfo: z.record(CodeInfoSchema).default(() => ({})),
   codeInfoCols: z.record(CodeInfoColSchema).default(() => ({})),
-  uiTypes: z.record(z.any()).default(() => lambda: copy.deepcopy(BASE_UI_TYPES)()),
+  uiTypes: z.record(z.any()).default(() => copy.deepcopy(BASE_UI_TYPES)),
   uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
   defaultProjectConfigId: z.string().nullable().default(null),
 }).strict();

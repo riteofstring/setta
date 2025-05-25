@@ -65,6 +65,11 @@ class PydanticToZodConverter:
             'Optional[UUID]': 'z.string().uuid().nullable()',
         }
     
+    def _snake_to_camel(self, snake_str: str) -> str:
+        """Convert snake_case to camelCase"""
+        components = snake_str.split('_')
+        return components[0] + ''.join(x.title() for x in components[1:])
+    
     def parse_python_file(self, file_path: str):
         """Parse Python file and extract Pydantic models and enums"""
         try:
@@ -190,11 +195,27 @@ class PydanticToZodConverter:
                                 elif factory_func == 'set':
                                     default_value = "[]"  # Sets become arrays in JS
                                 else:
+                                    # Convert snake_case to camelCase for function names
+                                    camel_func = self._snake_to_camel(factory_func)
+                                    
                                     # Check if it's a model class
-                                    if factory_func in self.model_names or (factory_func.startswith('lambda') and factory_func.endswith('()')):
-                                        default_value = f"() => create{factory_func.replace('lambda: ', '').replace('()', '')}()"
+                                    if factory_func in self.model_names:
+                                        # For model factories, use create + PascalCase model name
+                                        default_value = f"() => create{factory_func}()"
+                                    elif factory_func.startswith('lambda'):
+                                        # Handle lambda expressions
+                                        lambda_content = factory_func.replace('lambda:', '').strip()
+                                        if lambda_content.endswith('()'):
+                                            func_name = lambda_content[:-2]
+                                            if func_name in self.model_names:
+                                                default_value = f"() => create{func_name}()"
+                                            else:
+                                                camel_func_name = self._snake_to_camel(func_name)
+                                                default_value = f"() => {camel_func_name}()"
+                                        else:
+                                            default_value = f"() => {lambda_content}"
                                     else:
-                                        default_value = f"() => {factory_func}()"
+                                        default_value = f"() => {camel_func}()"
                             elif keyword.arg == 'default':
                                 default_value = ast.unparse(keyword.value)
                                 if default_value == "None":
@@ -487,6 +508,8 @@ def main():
     
     # Generate TypeScript code
     typescript_code = converter.generate_typescript()
+
+    typescript_code = 'import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";\n' + typescript_code
     
     # Write to file
     with open("frontend/src/utils/generated_schemas.ts", "w") as f:
