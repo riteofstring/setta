@@ -1,3 +1,4 @@
+# backend/fly_manager.py
 import httpx
 import os
 from dotenv import load_dotenv
@@ -12,13 +13,65 @@ class FlyManager:
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json"
         }
-        # Use your organization slug instead of the wrong ID
-        self.organization_slug = "personal"
 
         if not self.api_token:
             print("ERROR: FLY_API_TOKEN not found in environment variables!")
         else:
             print(f"FLY_API_TOKEN found: {self.api_token[:10]}...")
+            # Get organization ID dynamically
+            self.organization_id = self.get_organization_id()
+            print(f"Organization ID: {self.organization_id}")
+
+    def get_organization_id(self):
+        """Get the organization ID for the authenticated user"""
+        query = """
+        query {
+            viewer {
+                organizations {
+                    nodes {
+                        id
+                        slug
+                        name
+                        type
+                    }
+                }
+            }
+        }
+        """
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    self.base_url,
+                    json={"query": query},
+                    headers=self.headers,
+                    timeout=30.0
+                )
+
+                data = response.json()
+
+                if "errors" in data:
+                    print(f"Error getting organizations: {data['errors']}")
+                    return None
+
+                if "data" in data and data["data"]["viewer"]["organizations"]["nodes"]:
+                    orgs = data["data"]["viewer"]["organizations"]["nodes"]
+                    # Find personal organization
+                    for org in orgs:
+                        if org["type"] == "PERSONAL" or org["slug"] == "personal":
+                            print(f"Found personal org: {org['name']} (ID: {org['id']})")
+                            return org["id"]
+
+                    # If no personal org found, use the first one
+                    if orgs:
+                        print(f"Using first org: {orgs[0]['name']} (ID: {orgs[0]['id']})")
+                        return orgs[0]["id"]
+
+                return None
+
+        except Exception as e:
+            print(f"Exception getting organization: {e}")
+            return None
 
     def create_app(self, app_name: str):
         """Create a new Fly.io app - returns the app info"""
@@ -27,13 +80,14 @@ class FlyManager:
             print("ERROR: No API token available!")
             return None
 
-        # Updated GraphQL mutation to use organizationSlug instead of organizationId
+        if not self.organization_id:
+            print("ERROR: No organization ID available!")
+            return None
+
+        # Correct GraphQL mutation
         mutation = """
-        mutation($appName: String!, $organizationSlug: String!) {
-            createApp(input: {
-                name: $appName,
-                organizationSlug: $organizationSlug
-            }) {
+        mutation($input: CreateAppInput!) {
+            createApp(input: $input) {
                 app {
                     id
                     name
@@ -44,7 +98,7 @@ class FlyManager:
         """
 
         try:
-            print(f"Creating app '{app_name}' in organization '{self.organization_slug}'")
+            print(f"Creating app '{app_name}' in organization {self.organization_id}")
 
             with httpx.Client() as client:
                 response = client.post(
@@ -52,8 +106,10 @@ class FlyManager:
                     json={
                         "query": mutation,
                         "variables": {
-                            "appName": app_name,
-                            "organizationSlug": self.organization_slug  # Changed from organizationId
+                            "input": {
+                                "name": app_name,
+                                "organizationId": self.organization_id
+                            }
                         }
                     },
                     headers=self.headers,
@@ -61,6 +117,8 @@ class FlyManager:
                 )
 
                 data = response.json()
+
+                print(f"Fly.io response: {data}")  # Debug output
 
                 if "errors" in data:
                     print(f"Fly.io error: {data['errors']}")
@@ -89,7 +147,7 @@ class FlyManager:
         mutation = """
         mutation($appName: String!) {
             deleteApp(appName: $appName) {
-                app {
+                organization {
                     id
                 }
             }
@@ -104,7 +162,8 @@ class FlyManager:
                         "query": mutation,
                         "variables": {"appName": app_name}
                     },
-                    headers=self.headers
+                    headers=self.headers,
+                    timeout=30.0
                 )
 
                 data = response.json()
