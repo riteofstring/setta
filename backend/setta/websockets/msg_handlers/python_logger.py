@@ -6,7 +6,7 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def process_message(self, message, *_):
+    async def process_message(self, message, *_, **__):
         msg_type = message["messageType"]
         if msg_type == C.WS_ARTIFACT:
             await self.websocket_manager.broadcast(

@@ -5,5 +5,5 @@ class WMHCLI(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
         self.websocket_manager = websocket_manager
 
-    async def process_message(self, message, *_):
+    async def process_message(self, message, *_, **__):
         await self.websocket_manager.send_message(message, message["toWebsocketId"])

@@ -8,16 +8,16 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
         self.script_metadata = script_metadata
         self.project_manager = project_manager
 
-    async def process_message(self, message, websocket_id):
-        print("WMHPythonScript process_message", message, websocket_id, flush=True)
+    async def process_message(self, message, fromWebsocketId):
+        print("WMHPythonScript process_message", message, fromWebsocketId, flush=True)
         msg_type = message["messageType"]
         content = message["content"]
         if msg_type == C.WS_SCRIPT_READY:
             project = self.project_manager.get_project_from_rel_path(content)
             message = {"content": project, "messageType": C.WS_PROJECT_DATA}
-            await self.websocket_manager.send_message(message, websocket_id)
+            await self.websocket_manager.send_message(message, fromWebsocketId)
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
-            self.script_metadata.add(websocket_id, content)
+            self.script_metadata.add(fromWebsocketId, content)
             await self.broadcast_all_dependencies()
         elif msg_type == C.WS_ARTIFACT:
             await self.websocket_manager.broadcast(

@@ -46,7 +46,7 @@ async def terminal_websocket_endpoint(
     sectionId: str,
     id: str,
     isTemporary: bool,
-    terminals=Depends(get_terminals_from_websocket),
+    terminals: Terminals = Depends(get_terminals_from_websocket),
 ):
     # First check if terminal exists
     terminals.new_terminal(projectConfigId, sectionId, isTemporary)

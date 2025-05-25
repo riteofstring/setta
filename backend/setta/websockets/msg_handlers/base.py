@@ -11,6 +11,9 @@ class BaseWebsocketMsgHandler:
     async def on_disconnect(self, websocket_id):
         pass
 
+    async def process_message(self, message, fromWebsocketId):
+        pass
+
     async def broadcast_notification_to_all_projects(self, content):
         content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
         await self.websocket_manager.broadcast(

@@ -15,12 +15,14 @@ logger = logging.getLogger(__name__)
 # https://fastapi.tiangolo.com/advanced/websockets/#handling-disconnections-and-multiple-clients
 class WebsocketManager:
     def __init__(self):
-        self.sockets = {}
+        self.sockets: dict[str, dict] = {}
         self.main_id = "main"
         self.message_id_to_sender_id = {}
         self.pending_requests = {}
 
-    async def on_connect(self, websocket: WebSocket, connectionType, id=None):
+    async def on_connect(
+        self, websocket: WebSocket, connectionType: str, id: str | None = None
+    ):
         await websocket.accept()
         if id and id in self.sockets:
             raise ValueError(f"websocket id already taken: {id}")
@@ -34,21 +36,21 @@ class WebsocketManager:
         await self.broadcast_connections()
         return id
 
-    async def on_disconnect(self, id):
+    async def on_disconnect(self, id: str):
         try:
             del self.sockets[id]
             await self.broadcast_connections()
         except ConnectionClosedError:
             pass
 
-    def process_message(self, message, fromWebsocketId):
+    def process_message(self, message, fromWebsocketId: str):
         if "id" in message:
             self.message_id_to_sender_id[message["id"]] = fromWebsocketId
 
         if "location" in message:
             self.sockets[fromWebsocketId]["location"] = message["location"]
 
-    async def send_message(self, message, toWebsocketId):
+    async def send_message(self, message, toWebsocketId: str):
         websocket = self.sockets[toWebsocketId]["websocket"]
         await websocket.send_text(json.dumps(message))
 

@@ -7,21 +7,8 @@ def create_tables(db):
         db.executescript(sql_script)
 
 
-def seed_data_exist(db, tablenames):
-    for table in tablenames:
-        db.execute(f"SELECT COUNT(*) FROM {table}")
-        if db.fetchone()[0] == 0:
-            return False
-    return True
-
-
-def maybe_create_tables_and_seed(dbq, with_examples=False):
+def maybe_create_tables_and_seed(dbq):
     dbq.connect()
     with dbq as db:
         create_tables(db)
-        # do_seed_examples = with_examples and not seed_data_exist(db, ["ProjectConfig"])
-        # seed(
-        #     db,
-        #     with_examples=do_seed_examples,
-        # )
     dbq.disconnect()

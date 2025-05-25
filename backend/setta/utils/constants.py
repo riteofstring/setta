@@ -5,7 +5,6 @@ from .utils import is_dev_mode
 
 logger = logging.getLogger(__name__)
 
-SEED_FOLDER = Path("../../../seed") if is_dev_mode() else Path("../static/seed")
 CWD = Path.cwd()
 SETTA_FILES_FOLDER = CWD / "setta_files"
 CODE_FOLDER = SETTA_FILES_FOLDER / "code"
@@ -34,7 +33,6 @@ class C:
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
     DB_PATH: str = ""
-    DB_WITH_EXAMPLES: bool = False
 
     # UI Component Types
     TEXT = "TEXT"
