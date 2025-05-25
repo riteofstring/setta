@@ -142,64 +142,92 @@ class FlyManager:
             return None
 
     def deploy_to_app(self, app_name: str):
-        """Deploy using Fly's v2 configuration"""
+        """Deploy using Fly.io Machines API with proper auto-start"""
 
-        # First, set the app configuration
-        config_mutation = """
-        mutation($appName: String!, $config: AppConfigInput!) {
-            setAppConfig(appName: $appName, config: $config) {
-                app {
-                    id
-                    name
-                }
-            }
-        }
-        """
+        print(f"=== STARTING DEPLOYMENT FOR {app_name} ===")
 
-        app_config = {
-            "definition": {
-                "app": app_name,
-                "primary_region": "ord",
+        if not self.api_token:
+            print("ERROR: No API token for deployment!")
+            return False
+
+        # Add a small delay to ensure app is ready
+        import time
+        time.sleep(2)
+
+        machines_url = f"https://api.machines.dev/v1/apps/{app_name}/machines"
+        print(f"Machines API URL: {machines_url}")
+
+        # Machine config with metadata for auto-start/stop
+        machine_config = {
+            "region": "ord",
+            "config": {
+                "image": "flyio/hellofly:latest",
+                "metadata": {
+                    "fly_platform_version": "v2",
+                    "fly_process_group": "app",
+                    "fly_auto_stop": "true",
+                    "fly_auto_start": "true"
+                },
+                "env": {
+                    "PROJECT_NAME": app_name,
+                    "FLY_APP_NAME": app_name
+                },
                 "services": [
                     {
-                        "internal_port": 8080,
-                        "protocol": "tcp",
-                        "force_https": True,
-                        "auto_stop_machines": True,
-                        "auto_start_machines": True,
-                        "min_machines_running": 0,
                         "ports": [
-                            {"port": 80, "handlers": ["http"]},
-                            {"port": 443, "handlers": ["tls", "http"]}
-                        ]
+                            {
+                                "port": 443,
+                                "handlers": ["tls", "http"]
+                            },
+                            {
+                                "port": 80,
+                                "handlers": ["http"]
+                            }
+                        ],
+                        "protocol": "tcp",
+                        "internal_port": 8080,
+                        "concurrency": {
+                            "type": "connections",
+                            "hard_limit": 25,
+                            "soft_limit": 20
+                        }
                     }
                 ],
-                "env": {
-                    "PROJECT_NAME": app_name
-                }
+                "restart": {
+                    "policy": "on-failure",
+                    "max_retries": 10
+                },
+                "auto_destroy": False
             }
         }
 
         try:
-            # Set the configuration
+            print(f"Sending deployment request...")
+
             with httpx.Client() as client:
                 response = client.post(
-                    self.base_url,
-                    json={
-                        "query": config_mutation,
-                        "variables": {
-                            "appName": app_name,
-                            "config": app_config
-                        }
+                    machines_url,
+                    json=machine_config,
+                    headers={
+                        "Authorization": f"Bearer {self.api_token}",
+                        "Content-Type": "application/json"
                     },
-                    headers=self.headers
+                    timeout=60.0
                 )
 
-                print(f"Config response: {response.json()}")
+                print(f"Response status: {response.status_code}")
+                print(f"Response body: {response.text[:500]}")
 
-            # Then deploy with fly deploy command or machines API
-            return self.deploy_to_app(app_name)
+                # Accept both 200 and 201 as success
+                if response.status_code in [200, 201]:
+                    print(f"✓ Machine created successfully for {app_name}")
+                    return True
+                else:
+                    print(f"✗ Failed with status {response.status_code}")
+                    return False
 
         except Exception as e:
-            print(f"Error in v2 deployment: {e}")
+            print(f"EXCEPTION during deployment: {type(e).__name__}: {str(e)}")
             return False
+        finally:
+            print(f"=== DEPLOYMENT ATTEMPT COMPLETE ===")
