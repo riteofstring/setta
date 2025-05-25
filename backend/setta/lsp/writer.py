@@ -3,7 +3,6 @@ import json
 import logging
 import uuid
 
-from setta.utils.utils import recursive_dict_merge
 
 from .server import LanguageServerInteractor
 
@@ -112,15 +111,13 @@ class LanguageServerWriter(LanguageServerInteractor):
 
     async def send_did_change_configuration(self):
         # THIS FORMAT WORKS
-        # hardcoded_settings = {
+        # settings = {
         #     "basedpyright": {"analysis": {"exclude": ["setta_code"]}}
         # }
-        hardcoded_settings = {}
-        settings = recursive_dict_merge(hardcoded_settings, self.settings)
 
         await self.send_request(
             "workspace/didChangeConfiguration",
-            params={"settings": settings},
+            params={"settings": self.settings},
         )
 
     async def send_did_change_watched_files(self, changes):
