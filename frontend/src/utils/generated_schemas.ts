@@ -6,7 +6,9 @@ export const SizeSchema = z.enum([
   'auto'
 ]);
 export type Size = z.infer<typeof SizeSchema>;
-export const Size = SizeSchema.enum;
+export const Size = {
+  AUTO: 'auto',
+} as const;
 
 // CodeLanguage enum
 export const CodeLanguageSchema = z.enum([
@@ -14,7 +16,10 @@ export const CodeLanguageSchema = z.enum([
   'bash'
 ]);
 export type CodeLanguage = z.infer<typeof CodeLanguageSchema>;
-export const CodeLanguage = CodeLanguageSchema.enum;
+export const CodeLanguage = {
+  PYTHON: 'python',
+  BASH: 'bash',
+} as const;
 
 // ConfigLanguage enum
 export const ConfigLanguageSchema = z.enum([
@@ -22,7 +27,10 @@ export const ConfigLanguageSchema = z.enum([
   'json'
 ]);
 export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
-export const ConfigLanguage = ConfigLanguageSchema.enum;
+export const ConfigLanguage = {
+  PYTHON: 'python',
+  JSON: 'json',
+} as const;
 
 // ParameterPassingStyle enum
 export const ParameterPassingStyleSchema = z.enum([
@@ -33,7 +41,13 @@ export const ParameterPassingStyleSchema = z.enum([
   'KEYWORD_ONLY'
 ]);
 export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
-export const ParameterPassingStyle = ParameterPassingStyleSchema.enum;
+export const ParameterPassingStyle = {
+  DEFAULT: 'DEFAULT',
+  ARGS: 'ARGS',
+  KWARGS: 'KWARGS',
+  POSITIONAL_ONLY: 'POSITIONAL_ONLY',
+  KEYWORD_ONLY: 'KEYWORD_ONLY',
+} as const;
 
 // CodeInfoType enum
 export const CodeInfoTypeSchema = z.enum([
@@ -42,7 +56,11 @@ export const CodeInfoTypeSchema = z.enum([
   'collection'
 ]);
 export type CodeInfoType = z.infer<typeof CodeInfoTypeSchema>;
-export const CodeInfoType = CodeInfoTypeSchema.enum;
+export const CodeInfoType = {
+  PARAMETER: 'parameter',
+  CALLABLE: 'callable',
+  COLLECTION: 'collection',
+} as const;
 
 // ViewingEditingMode enum
 export const ViewingEditingModeSchema = z.enum([
@@ -51,7 +69,11 @@ export const ViewingEditingModeSchema = z.enum([
   'USER_EDIT'
 ]);
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
-export const ViewingEditingMode = ViewingEditingModeSchema.enum;
+export const ViewingEditingMode = {
+  DEV: 'DEV',
+  USER: 'USER',
+  USER_EDIT: 'USER_EDIT',
+} as const;
 
 // Viewport schema
 export const ViewportSchema = z.object({

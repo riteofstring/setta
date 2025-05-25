@@ -270,9 +270,14 @@ class PydanticToZodConverter:
             output.append(",\n".join(enum_values))
             output.append("]);")
             output.append(f"export type {enum.name} = z.infer<typeof {enum.name}Schema>;")
-            output.append(f"export const {enum.name} = {enum.name}Schema.enum;")
+            
+            # Create custom enum object with uppercase keys
+            output.append(f"export const {enum.name} = {{")
+            for key, value in enum.values.items():
+                output.append(f"  {key}: '{value}',")
+            output.append("} as const;")
             output.append("")
-        
+                
         # Generate model schemas
         for model in self.models:
             output.append(f"// {model.name} schema")
