@@ -1,11 +1,11 @@
 import { zoomIdentity } from "d3-zoom";
-import { create } from "state/utils";
 import { subscribeWithSelector } from "zustand/middleware";
+import { createWithEqualityFn } from "zustand/traditional";
 import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
 import { getActiveSectionsBounds } from "../utils/graph";
 import initialState from "./initialState";
 
-export const useReactFlow = create<ReactFlowState>(
+export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
     setNodesSelection: (selectedNodesCount, ignoreGrid = false) => {

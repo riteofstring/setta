@@ -6,8 +6,8 @@ import {
 } from "utils/constants";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { createWithEqualityFn } from "zustand/traditional";
 import {
-  create,
   withProjectState,
   withResetFn,
   withTemporal,
@@ -15,7 +15,7 @@ import {
 } from "./utils";
 
 export const useResizeEvent = withProjectState(
-  create(
+  createWithEqualityFn(
     withTemporal(
       immer(
         withResetFn(() =>
@@ -31,7 +31,7 @@ export const useResizeEvent = withProjectState(
 type ActiveSectionsType = { ids: Array<string> };
 
 export const useActiveSection = withProjectState(
-  create<ActiveSectionsType>(
+  createWithEqualityFn<ActiveSectionsType>(
     withTemporal(
       withResetFn(() =>
         withVersion({
@@ -43,7 +43,7 @@ export const useActiveSection = withProjectState(
 );
 
 export const useContextMenus = withProjectState(
-  create(
+  createWithEqualityFn(
     withResetFn(() => ({
       pane: { isOpen: false, x: 0, y: 0 },
       selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
@@ -53,7 +53,7 @@ export const useContextMenus = withProjectState(
 );
 
 export const useProjectState = withProjectState(
-  create(
+  createWithEqualityFn(
     subscribeWithSelector(
       withTemporal(
         immer(
@@ -83,7 +83,7 @@ export const useProjectState = withProjectState(
   ),
 );
 
-export const useHomePageSearch = create(
+export const useHomePageSearch = createWithEqualityFn(
   withResetFn(() => ({
     value: "",
   })),
@@ -93,7 +93,7 @@ export const useHomePageSearch = create(
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields
 export const useWaitingForLSPResult = withProjectState(
-  create(
+  createWithEqualityFn(
     immer(
       withResetFn(() => ({
         textFields: {},
@@ -104,7 +104,7 @@ export const useWaitingForLSPResult = withProjectState(
 );
 
 export const useModal = withProjectState(
-  create(
+  createWithEqualityFn(
     withResetFn(() => ({
       open: false,
       modalType: null,
@@ -114,7 +114,7 @@ export const useModal = withProjectState(
 );
 
 export const useNodeInternals = withProjectState(
-  create(
+  createWithEqualityFn(
     withTemporal(
       withResetFn(() =>
         withVersion({
@@ -125,14 +125,14 @@ export const useNodeInternals = withProjectState(
   ),
 );
 
-export const useNotifications = create(
+export const useNotifications = createWithEqualityFn(
   withResetFn(() => ({
     notifications: [],
   })),
 );
 
 export const useArtifacts = withProjectState(
-  create(
+  createWithEqualityFn(
     subscribeWithSelector(
       withTemporal(
         withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
@@ -142,11 +142,11 @@ export const useArtifacts = withProjectState(
 );
 
 export const useInteractiveDependencies = withProjectState(
-  create(withResetFn(() => ({ dependencies: new Set() }))),
+  createWithEqualityFn(withResetFn(() => ({ dependencies: new Set() }))),
 );
 
 export const useProjectSearch = withProjectState(
-  create(
+  createWithEqualityFn(
     withResetFn(() => ({
       sections: [],
       codeInfo: [],
@@ -158,7 +158,7 @@ export const useProjectSearch = withProjectState(
 );
 
 export const useSectionRefs = withProjectState(
-  create(
+  createWithEqualityFn(
     subscribeWithSelector(
       immer(
         withResetFn(() => ({
@@ -170,14 +170,14 @@ export const useSectionRefs = withProjectState(
   ),
 );
 
-export const useSettings = create(() => ({}));
+export const useSettings = createWithEqualityFn(() => ({}));
 
 export const useStateVersion = withProjectState(
-  create(withTemporal(withResetFn(() => withVersion({})))),
+  createWithEqualityFn(withTemporal(withResetFn(() => withVersion({})))),
 );
 
 export const useTypeErrors = withProjectState(
-  create(
+  createWithEqualityFn(
     immer(
       withResetFn(() => ({
         userRequested: false,
@@ -187,22 +187,22 @@ export const useTypeErrors = withProjectState(
   ),
 );
 
-export const useWebsocketConnectionList = create(
+export const useWebsocketConnectionList = createWithEqualityFn(
   withResetFn(() => ({
     connections: [],
   })),
 );
 
 export const useTemporaryMiscState = withProjectState(
-  create(subscribeWithSelector(withResetFn(() => ({})))),
+  createWithEqualityFn(subscribeWithSelector(withResetFn(() => ({})))),
 );
 
-export const useProjectLoading = create(
+export const useProjectLoading = createWithEqualityFn(
   withResetFn(() => ({ projectIsLoading: false, projectIs404: false })),
 );
 
 export const useMisc = withProjectState(
-  create(
+  createWithEqualityFn(
     subscribeWithSelector(
       withResetFn(() => ({
         lastMouseDownLocation: null,
@@ -224,19 +224,21 @@ export const useMisc = withProjectState(
 );
 
 // maps from variantId to yaml
-export const useYamlValue = withProjectState(create(withResetFn(() => {})));
+export const useYamlValue = withProjectState(
+  createWithEqualityFn(withResetFn(() => {})),
+);
 
 // maps from variantId to yaml metadata
 export const useOriginalYamlObj = withProjectState(
-  create(withResetFn(() => {})),
+  createWithEqualityFn(withResetFn(() => {})),
 );
 
 export const useSectionColumnWidth = withProjectState(
-  create(subscribeWithSelector(withResetFn(() => {}))),
+  createWithEqualityFn(subscribeWithSelector(withResetFn(() => {}))),
 );
 
 export const useResizerStore = withProjectState(
-  create(
+  createWithEqualityFn(
     withResetFn(() => ({
       activeResizer: null, // { sectionId, ref, startX, startWidth, containerWidth, maxNestedDepth }
       globalEventListenersInitialized: false,
@@ -244,7 +246,7 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export const useAIStore = create(
+export const useAIStore = createWithEqualityFn(
   subscribeWithSelector(
     persist(
       () => ({
@@ -272,7 +274,7 @@ export const useAIStore = create(
   ),
 );
 
-export const useLocalStorage = create(
+export const useLocalStorage = createWithEqualityFn(
   persist(
     () => ({
       snapToGrid: true,

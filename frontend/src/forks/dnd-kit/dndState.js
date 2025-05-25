@@ -1,7 +1,8 @@
 import _ from "lodash";
 import { manualDndChildrenReset } from "state/actions/sectionInfos";
-import { create, withProjectState, withResetFn } from "state/utils";
+import { withProjectState, withResetFn } from "state/utils";
 import { immer } from "zustand/middleware/immer";
+import { createWithEqualityFn } from "zustand/traditional";
 
 const initialState = {
   activeId: null,
@@ -17,7 +18,7 @@ const initialState = {
 };
 
 export const useDndState = withProjectState(
-  create(
+  createWithEqualityFn(
     immer(
       withResetFn((set, get) => ({
         ...initialState,

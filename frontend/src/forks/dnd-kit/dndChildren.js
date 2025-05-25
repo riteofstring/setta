@@ -1,9 +1,10 @@
-import { create, withProjectState, withResetFn } from "state/utils";
+import { withProjectState, withResetFn } from "state/utils";
 import { immer } from "zustand/middleware/immer";
+import { createWithEqualityFn } from "zustand/traditional";
 import { getDndSectionId } from "./dndState";
 
 export const useDndChildren = withProjectState(
-  create(
+  createWithEqualityFn(
     immer(
       withResetFn((set) => ({
         x: {}, // parent id to list of children

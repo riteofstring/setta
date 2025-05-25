@@ -1,13 +1,7 @@
 import { temporal } from "zundo";
-import { createWithEqualityFn as _create } from "zustand/traditional";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
-
-export const create = <T>(f) => {
-  const store = _create<T>()(f, Object.is);
-  return store;
-};
 
 export function withProjectState<T>(store: T): T {
   addStatePointer(store, STATE_TYPES.PROJECT_STATE);
