@@ -372,56 +372,56 @@ class FlyManager:
             return None
 
 
-def delete_app(self, app_name: str):
-    """Delete a Fly.io app - minimal version"""
-    if not self.api_token:
-        print("ERROR: No API token")
-        return False
+    def delete_app(self, app_name: str):
+        """Delete a Fly.io app - minimal version"""
+        if not self.api_token:
+            print("ERROR: No API token")
+            return False
 
-    # Delete machines first
-    machines = self.list_machines(app_name)
-    for machine in machines:
-        if not self.delete_machine(app_name, machine['id']):
-            print(f"Failed to delete machine {machine['id']}")
+        # Delete machines first
+        machines = self.list_machines(app_name)
+        for machine in machines:
+            if not self.delete_machine(app_name, machine['id']):
+                print(f"Failed to delete machine {machine['id']}")
 
-    # Delete the app
-    try:
-        with httpx.Client() as client:
-            response = client.delete(
-                f"https://api.fly.io/v1/apps/{app_name}",
-                headers={"Authorization": f"Bearer {self.api_token}"},
-                timeout=30.0
-            )
+        # Delete the app
+        try:
+            with httpx.Client() as client:
+                response = client.delete(
+                    f"https://api.fly.io/v1/apps/{app_name}",
+                    headers={"Authorization": f"Bearer {self.api_token}"},
+                    timeout=30.0
+                )
 
-            if response.status_code in [202, 204, 404]:
-                print(f"✓ App {app_name} deleted")
-                return True
-            else:
-                print(f"✗ Failed to delete app: {response.status_code}")
-                return False
-    except Exception as e:
-        print(f"✗ Delete failed: {e}")
-        return False
+                if response.status_code in [202, 204, 404]:
+                    print(f"✓ App {app_name} deleted")
+                    return True
+                else:
+                    print(f"✗ Failed to delete app: {response.status_code}")
+                    return False
+        except Exception as e:
+            print(f"✗ Delete failed: {e}")
+            return False
 
-def delete_machine(self, app_name: str, machine_id: str):
-    """Delete a machine - minimal version"""
-    try:
-        with httpx.Client() as client:
-            response = client.delete(
-                f"https://api.machines.dev/v1/apps/{app_name}/machines/{machine_id}?force=true",
-                headers={"Authorization": f"Bearer {self.api_token}"},
-                timeout=30.0
-            )
+    def delete_machine(self, app_name: str, machine_id: str):
+        """Delete a machine - minimal version"""
+        try:
+            with httpx.Client() as client:
+                response = client.delete(
+                    f"https://api.machines.dev/v1/apps/{app_name}/machines/{machine_id}?force=true",
+                    headers={"Authorization": f"Bearer {self.api_token}"},
+                    timeout=30.0
+                )
 
-            if response.status_code in [200, 204, 404]:
-                print(f"✓ Deleted machine {machine_id}")
-                return True
-            else:
-                print(f"✗ Failed to delete machine: {response.status_code}")
-                return False
-    except Exception as e:
-        print(f"✗ Machine delete failed: {e}")
-        return False
+                if response.status_code in [200, 204, 404]:
+                    print(f"✓ Deleted machine {machine_id}")
+                    return True
+                else:
+                    print(f"✗ Failed to delete machine: {response.status_code}")
+                    return False
+        except Exception as e:
+            print(f"✗ Machine delete failed: {e}")
+            return False
 
     def list_machines(self, app_name: str):
         """List all machines for an app with their status"""
