@@ -129,6 +129,20 @@ async def delete_project(
 
     return {"message": "Project deleted"}
 
+
+# Configure CORS for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Local development
+        "https://frontend-production-*.up.railway.app",  # Railway frontend
+        "*"  # Allow all origins for now (tighten this later)
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
