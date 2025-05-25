@@ -12,16 +12,63 @@ class FlyManager:
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json"
         }
+        self.organization_id = None
+        self._get_organization_id()
+
+    def _get_organization_id(self):
+        """Get the first organization ID for this user"""
+        query = """
+        query {
+            viewer {
+                organizations {
+                    nodes {
+                        id
+                        slug
+                        name
+                    }
+                }
+            }
+        }
+        """
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    self.base_url,
+                    json={"query": query},
+                    headers=self.headers
+                )
+
+                data = response.json()
+
+                if "errors" in data:
+                    print(f"Error getting organizations: {data['errors']}")
+                    return
+
+                orgs = data["data"]["viewer"]["organizations"]["nodes"]
+                if orgs:
+                    # Use the first organization
+                    self.organization_id = orgs[0]["id"]
+                    print(f"Using organization: {orgs[0]['name']} (slug: {orgs[0]['slug']})")
+                else:
+                    print("No organizations found!")
+
+        except Exception as e:
+            print(f"Error getting organization ID: {e}")
 
     def create_app(self, app_name: str):
         """Create a new Fly.io app - returns the app info"""
 
+        if not self.organization_id:
+            print("No organization ID available!")
+            return None
+
         # GraphQL mutation to create app
         mutation = """
-        mutation($appName: String!) {
+        mutation($appName: String!, $organizationId: ID!) {
             createApp(input: {
                 name: $appName,
-                organizationId: "personal"
+                organizationId: $organizationId
             }) {
                 app {
                     id
@@ -38,7 +85,10 @@ class FlyManager:
                     self.base_url,
                     json={
                         "query": mutation,
-                        "variables": {"appName": app_name}
+                        "variables": {
+                            "appName": app_name,
+                            "organizationId": self.organization_id
+                        }
                     },
                     headers=self.headers
                 )
