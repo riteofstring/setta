@@ -4,7 +4,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { newEVEntry } from "utils/objs/ev";
+import { createEVEntry } from "utils/generated_schemas";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
   return useProjectState((x) => {
@@ -12,7 +12,7 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
     if (paramInfoId in vals) {
       return vals[paramInfoId].value;
     }
-    return newEVEntry().value;
+    return createEVEntry().value;
   }, _.isEqual);
 }
 

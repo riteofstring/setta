@@ -8,7 +8,7 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { newUITypeColEntry } from "utils/objs/uiTypeCol";
+import { createUITypeColEntry } from "utils/generated_schemas";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -23,7 +23,7 @@ export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
   if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
     return state.uiTypeCols[uiTypeColId][paramInfoId][key];
   } else {
-    return newUITypeColEntry()[key];
+    return createUITypeColEntry()[key];
   }
 }
 

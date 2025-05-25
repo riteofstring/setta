@@ -349,34 +349,6 @@ async def runEntryCodeBlock(chatId: str) -> ID:
     return result
 
 
-# From createSections.js
-@mcp_server.tool(
-    description="Adds a new section at a specific location. Returns an array of the ids of the created sections."
-)
-async def addSectionsAtPositionMcp(
-    chatId: str, sections: List[SimplifiedSectionConfig]
-) -> List[ID]:
-    """Adds a new section at a specific location. Returns an array of the ids of the created sections.
-
-    Args:
-        sections: Details of the sections to be created.
-
-    Returns:
-        an array of the ids of the created sections.
-    """
-    args = {}
-    args["chatId"] = chatId
-    args["sections"] = sections
-    result = await mcp_server.setta_websocket.use_frontend_tool(
-        "addSectionsAtPositionMcp",
-        addSectionsAtPositionMcp.__annotations__["return"],
-        args,
-    )
-    if not isinstance(result, str):
-        result = json.dumps(result)
-    return result
-
-
 # From groupSections.js
 @mcp_server.tool(
     description="Set the values of multiple parameters in a particular section. Returns The id of the new group."
@@ -464,34 +436,6 @@ async def getAllSectionInformationMcp(chatId: str) -> Dict[ID, SimplifiedSection
         "getAllSectionInformationMcp",
         getAllSectionInformationMcp.__annotations__["return"],
         args,
-    )
-    if not isinstance(result, str):
-        result = json.dumps(result)
-    return result
-
-
-# From setSelectedItem.js
-@mcp_server.tool(
-    description="Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters."
-)
-async def setSelectedItemMcp(
-    chatId: str, sectionId: ID, selectedItemName: str
-) -> SectionSimplifiedCodeInfo:
-    """Sets the selectedItem (i.e. the callable) of a section. Returns the callable info and info about its parameters.
-
-    Args:
-        sectionId: The id of the section we're setting the selectedItem of.
-        selectedItemName: The selected item name, for example "math.sqrt"
-
-    Returns:
-        the callable info and info about its parameters.
-    """
-    args = {}
-    args["chatId"] = chatId
-    args["sectionId"] = sectionId
-    args["selectedItemName"] = selectedItemName
-    result = await mcp_server.setta_websocket.use_frontend_tool(
-        "setSelectedItemMcp", setSelectedItemMcp.__annotations__["return"], args
     )
     if not isinstance(result, str):
         result = json.dumps(result)

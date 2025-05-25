@@ -4,9 +4,8 @@ import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { VIEWING_EDITING_MODE } from "utils/constants";
+import { createCodeInfoCol, createEVEntry } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
-import { newEVEntry } from "utils/objs/ev";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { getCurrentProjectConfig } from "./project/loadProject";
 import { waitForFileDeletion } from "./temporaryMiscState";
@@ -125,7 +124,7 @@ export function updateSectionInfos({
 
 export function setEnteredValue(variantId, paramInfoId, value, state) {
   if (!(paramInfoId in state.variants[variantId].values)) {
-    state.variants[variantId].values[paramInfoId] = newEVEntry();
+    state.variants[variantId].values[paramInfoId] = createEVEntry();
   }
   state.variants[variantId].values[paramInfoId].value = value;
 }
@@ -142,7 +141,9 @@ export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useProjectState.getState();
   const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
-  return codeInfoColId ? state.codeInfoCols[codeInfoColId] : newCodeInfoCol();
+  return codeInfoColId
+    ? state.codeInfoCols[codeInfoColId]
+    : createCodeInfoCol();
 }
 
 export function getDisplayedCodeInfoCol(sectionId, _state) {
@@ -288,7 +289,7 @@ export function getCodeChildrenAndParentCodeInfoId(
 
   const codeInfoChildren = codeInfoColId
     ? state.codeInfoCols[codeInfoColId].children
-    : newCodeInfoCol().children;
+    : createCodeInfoCol().children;
 
   return { codeInfoChildren, parentCodeInfoId };
 }

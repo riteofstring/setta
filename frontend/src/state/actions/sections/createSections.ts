@@ -10,8 +10,7 @@ import {
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
-import { newSectionInfo } from "utils/objs/sectionInfo";
-import { newSectionVariant } from "utils/objs/sectionVariant";
+import { createSection, createSectionVariant } from "utils/generated_schemas";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
@@ -167,10 +166,10 @@ export function createSectionInfo({
   const topLevelSectionIds = [];
 
   for (let i = 0; i < numSections; i++) {
-    const s = newSectionInfo(sectionProps);
+    const s = createSection(sectionProps);
     newIds.push(s.id);
     state.sections[s.id] = s;
-    state.variants[s.variantId] = newSectionVariant(sectionVariantProps);
+    state.variants[s.variantId] = createSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
       case C.GLOBAL_PARAM_SWEEP:
         initRunGroup(s.variantId, state);

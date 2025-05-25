@@ -1,7 +1,6 @@
 import { wsParametersRequest } from "requests/sections";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
-import { newCodeInfo } from "utils/objs/codeInfo";
+import { CodeInfoType, createCodeInfo } from "utils/generated_schemas";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";
@@ -72,10 +71,10 @@ export async function setSelectedItem(
   useProjectState.setState((state) => {
     let info;
     if (!prevSelected) {
-      info = newCodeInfo({
+      info = createCodeInfo({
         name: selectedItemName,
         editable: false,
-        rcType: C.CALLABLE,
+        rcType: CodeInfoType.CALLABLE,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {
@@ -111,11 +110,11 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
     // if the param name is already a child of parent, then get its id
     // otherwise it'll be undefined and id will be created in newCodeInfo
     const existingId = existingChildrenNameToId[p.name];
-    const info = newCodeInfo({
+    const info = createCodeInfo({
       id: existingId,
       name: p.name,
       editable: false,
-      rcType: C.PARAMETER,
+      rcType: CodeInfoType.PARAMETER,
       defaultVal: p.defaultVal,
       description: p.description,
       passingStyle: p.passingStyle,

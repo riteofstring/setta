@@ -1,6 +1,6 @@
+import { createEVEntry, createUITypeColEntry } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
-import { getValueForUIType, newEVEntry } from "utils/objs/ev";
-import { newUITypeColEntry } from "utils/objs/uiTypeCol";
+import { getValueForUIType } from "utils/objs/ev";
 import { getSectionVariant, setParamEnteredValue } from "../sectionInfos";
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
@@ -13,7 +13,7 @@ export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
   }
 
   if (!(paramInfoId in state.uiTypeCols[uiTypeColId])) {
-    state.uiTypeCols[uiTypeColId][paramInfoId] = newUITypeColEntry({
+    state.uiTypeCols[uiTypeColId][paramInfoId] = createUITypeColEntry({
       uiTypeId,
     });
   } else {
@@ -27,7 +27,7 @@ function convertValue(sectionId, paramInfoId, uiTypeId, state) {
   const uiType = state.uiTypes[uiTypeId];
   const values = getSectionVariant(sectionId, state).values;
   const currValue =
-    paramInfoId in values ? values[paramInfoId].value : newEVEntry().value;
+    paramInfoId in values ? values[paramInfoId].value : createEVEntry().value;
   const value = getValueForUIType({ uiType, currValue });
   setParamEnteredValue(sectionId, paramInfoId, value, state);
   convertParamSweepValues({ sectionId, paramInfoId, uiType, state });

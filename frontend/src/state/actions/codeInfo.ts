@@ -1,7 +1,6 @@
 import _ from "lodash";
+import { createCodeInfo, createCodeInfoCol } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
-import { newCodeInfo } from "utils/objs/codeInfo";
-import { newCodeInfoCol } from "utils/objs/codeInfoCol";
 import { getSectionVariant } from "./sectionInfos";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
@@ -48,14 +47,14 @@ export function getOrCreateCodeInfoCol(variant, state) {
   if (!codeInfoColId) {
     codeInfoColId = createNewId();
     variant.codeInfoColId = codeInfoColId;
-    state.codeInfoCols[codeInfoColId] = newCodeInfoCol();
+    state.codeInfoCols[codeInfoColId] = createCodeInfoCol();
   }
 
   return state.codeInfoCols[codeInfoColId];
 }
 
 export function newCodeInfoMaybeWithJsonSource(props, sectionId, state) {
-  return newCodeInfo({
+  return createCodeInfo({
     ...props,
     jsonSource: state.sections[sectionId].jsonSource,
   });

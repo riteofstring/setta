@@ -16,7 +16,6 @@ import { addParametersMcp } from "./actions/kwargs";
 import { updateNodePositionsMcp } from "./actions/nodeInternals";
 import { getProjectConfigId } from "./actions/project/saveProject";
 import { runEntryCodeBlock } from "./actions/runOrImportCode";
-import { addSectionsAtPositionMcp } from "./actions/sections/createSections";
 import {
   groupSections,
   ungroupGroupMcp,
@@ -25,7 +24,6 @@ import {
   getAllSectionInformationMcp,
   getSectionCurrentCodeInfoMcp,
 } from "./actions/sections/sectionContents";
-import { setSelectedItemMcp } from "./actions/sections/setSelectedItem";
 
 // Registry of all MCP tools
 const mcpToolRegistry = {
@@ -40,12 +38,10 @@ const mcpToolRegistry = {
   updateNodePositionsMcp,
   getProjectConfigId,
   runEntryCodeBlock,
-  addSectionsAtPositionMcp,
   groupSections,
   ungroupGroupMcp,
   getSectionCurrentCodeInfoMcp,
   getAllSectionInformationMcp,
-  setSelectedItemMcp,
 };
 
 export async function mcpToolUse(details) {

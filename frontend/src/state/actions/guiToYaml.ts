@@ -16,9 +16,9 @@ import {
 import { getForSectionId } from "state/hooks/paramSweep";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { createEVEntry } from "utils/generated_schemas";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewId } from "utils/idNameCreation";
-import { newEVEntry } from "utils/objs/ev";
 import { parseAllDocuments } from "yaml";
 import {
   getOrCreateCodeInfoCol,
@@ -400,7 +400,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const newInfos = {};
   const updatedInfos = {};
   const paramInfoIdToValue = {};
-  const defaultValue = newEVEntry().value;
+  const defaultValue = createEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
       newInfos[v.id] = newCodeInfoMaybeWithJsonSource(
