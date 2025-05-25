@@ -88,7 +88,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = useProjectState.getState().projectConfigId
   const id = createNewId();
   const isTemporary =
     !!useProjectState.getState().sections[sectionId].isTemporary;

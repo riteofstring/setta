@@ -6,7 +6,11 @@ from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.database.utils import create_new_id
+from setta.project_state.project_manager import ProjectManager
+from setta.project_state.project_state import ProjectUpdateState
+from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
+from setta.websockets.msg_handlers.terminals import WMHTerminals
 
 from .dependencies import (
     get_project_manager,
@@ -30,7 +34,8 @@ class KillSubprocessesRequest(BaseModel):
 
 
 class RunCodeRequest(BaseModel):
-    project: dict
+    project: ProjectUpdateState
+    entryCodeBlock: str | None
     cliId: str | None = None
 
 
@@ -101,17 +106,17 @@ def route_kill_subprocesses(
 async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,
-    project_manager=Depends(get_project_manager),
-    terminals=Depends(get_terminals),
-    websocket_msg_handler=Depends(get_wmh_terminals),
+    project_manager: ProjectManager = Depends(get_project_manager),
+    terminals: Terminals = Depends(get_terminals),
+    websocket_msg_handler: WMHTerminals = Depends(get_wmh_terminals),
 ):
     terminal_id, new_terminal_created = None, None
 
-    command = await project_manager.create_run_command(x.project)
+    command = await project_manager.create_run_command(x.project, x.entryCodeBlock)
     if x.cliId:
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
-        projectConfigId = x.project["projectConfig"]["id"]
+        projectConfigId = x.project.projectConfigId
         terminal_id = terminals.get_free_terminal(projectConfigId)
 
         new_terminal_created = False
@@ -126,7 +131,7 @@ async def route_run_code(
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
-        x.project["projectConfig"]["id"],
+        x.project.projectConfigId,
     )
 
     return {"terminalId": terminal_id, "newTerminalCreated": new_terminal_created}

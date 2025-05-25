@@ -136,7 +136,7 @@ class ProjectManager:
         projectUpdateState: ProjectUpdateState,
         entryCodeBlock: str | None,
     ):
-        await self.update.direct(projectUpdateState)
+        await self.update.direct(self, projectUpdateState)
         target_folder = create_timestamped_folder(CODE_FOLDER)
 
         projectConfigId = projectUpdateState.projectConfigId

@@ -7,10 +7,10 @@ import { getSectionType } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId) {
   const project = await getProjectDataToGenerateCode({});
-  project.entryCodeBlock = sectionId;
-  const res = await dbRunCode(project);
+  const res = await dbRunCode(project, sectionId);
   if (res.status == 200) {
     const { terminalId, newTerminalCreated } = res.data;
+    console.log(res.data)
     if (newTerminalCreated) {
       createTemporaryTerminalFromBackend(terminalId);
     }
