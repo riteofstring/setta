@@ -1,6 +1,5 @@
 import ast
-import re
-from typing import Dict, List, Optional, Union, Set
+from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass, field
 
 @dataclass
@@ -10,7 +9,7 @@ class FieldInfo:
     default_value: Optional[str]
     is_optional: bool
     description: str = ""
-    constraints: Dict[str, any] = field(default_factory=dict)
+    constraints: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class EnumInfo:
@@ -23,7 +22,7 @@ class ModelInfo:
     name: str
     fields: List[FieldInfo]
     extra_config: str = ""
-    config_dict: Dict[str, any] = field(default_factory=dict)
+    config_dict: Dict[str, Any] = field(default_factory=dict)
 
 class PydanticToZodConverter:
     def __init__(self):
@@ -331,7 +330,7 @@ class PydanticToZodConverter:
         
         return "\n".join(output)
     
-    def _apply_constraints(self, zod_type: str, constraints: Dict[str, any], python_type: str) -> str:
+    def _apply_constraints(self, zod_type: str, constraints: Dict[str, Any], python_type: str) -> str:
         """Apply Pydantic constraints to Zod schema"""
         result = zod_type
         
