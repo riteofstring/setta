@@ -73,10 +73,9 @@ class FlyManager:
             print(f"Exception getting organization: {e}")
             return None
 
-    def allocate_ips(self, app_name: str):
+    def allocate_ips(self, app_name: str, app_id: str):
         """Allocate shared IPv4 and IPv6 addresses for the app"""
 
-        # Correct mutation syntax - uses 'input' parameter
         ipv4_mutation = """
         mutation($input: AllocateIPAddressInput!) {
             allocateIpAddress(input: $input) {
@@ -108,8 +107,8 @@ class FlyManager:
                         "query": ipv4_mutation,
                         "variables": {
                             "input": {
-                                "appName": app_name,
-                                "type": "v4shared"
+                                "appId": app_id,  # Use app ID
+                                "type": "shared_v4"  # Correct type
                             }
                         }
                     },
@@ -129,7 +128,7 @@ class FlyManager:
                         "query": ipv6_mutation,
                         "variables": {
                             "input": {
-                                "appName": app_name,
+                                "appId": app_id,
                                 "type": "v6"
                             }
                         }
@@ -146,7 +145,6 @@ class FlyManager:
         except Exception as e:
             print(f"Error allocating IPs: {e}")
             return False
-
     def create_app(self, app_name: str):
         """Create a new Fly.io app - returns the app info"""
 
@@ -202,13 +200,9 @@ class FlyManager:
                     app_info = data["data"]["createApp"]["app"]
                     print(f"App created successfully: {app_info['hostname']}")
 
-                    # Allocate IPs and verify
+                    # Allocate IPs immediately after creation
                     print(f"Allocating IPs for {app_name}...")
-                    ip_success = self.allocate_ips(app_name)
-
-                    if not ip_success:
-                        print(f"WARNING: IP allocation failed for {app_name}")
-                        # You might want to set a status flag here
+                    self.allocate_ips(app_name, app_info["id"])  # Pass both name and ID
 
                     return {
                         "id": app_info["id"],
