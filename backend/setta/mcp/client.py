@@ -21,7 +21,6 @@ class MCPClient:
         # Initialize session and client objects
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
-        self.reader_task = None
         self.server_url = server_url
         self.available_tools = []
 
@@ -87,32 +86,23 @@ class MCPClient:
 
     async def _keep_alive(self):
         """Keep the connection alive"""
+        if not self.session:
+            raise ValueError
+
         while True:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def call_tool(self, tool_name, tool_args):
+    async def call_tool(self, tool_name: str, tool_args):
         if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
             return handle_str_replace_editor_tool(tool_args)
+
+        if not self.session:
+            raise ValueError
+
         return await self.session.call_tool(tool_name, tool_args)
 
     async def stop(self):
-        """Clean up resources properly for server shutdown"""
-        # Cancel any running tasks first
-        if hasattr(self, "_keep_alive_task") and self._keep_alive_task:
-            self._keep_alive_task.cancel()
-            try:
-                await self._keep_alive_task
-            except asyncio.CancelledError:
-                pass
-
-        if self.reader_task and not self.reader_task.done():
-            self.reader_task.cancel()
-            try:
-                await self.reader_task
-            except asyncio.CancelledError:
-                pass
-
         # Then close the exit stack to release resources
         await self.exit_stack.aclose()
 

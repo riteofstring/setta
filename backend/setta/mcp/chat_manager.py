@@ -2,6 +2,15 @@ import asyncio
 import json
 
 from anthropic import AsyncAnthropic
+from anthropic.types import (
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawMessageStartEvent,
+    TextBlock,
+    ThinkingBlock,
+    ToolResultBlockParam,
+    ToolUseBlock,
+)
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
@@ -10,7 +19,7 @@ from setta.database.db_objs import DBQueue
 from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
 from setta.mcp.server import CHAT_ID_ARG_NAME
-from setta.project_state.chat_messages import Chat
+from setta.project_state.chat_messages import Chat, ChatMessage
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
 from setta.websockets.msg_handlers.chat_manager import WMHChatManager
@@ -23,7 +32,7 @@ class ChatManager:
         self.dbq = dbq
         self.mcp_client = mcp_client
         self.websocket_msg_handler = websocket_msg_handler
-        self.current_streams = {}
+        self.current_streams: dict[str, list[ChatMessage]] = {}
         self.stream_tasks = {}
         self.anthropic = AsyncAnthropic()
         with open(get_absolute_path(__file__, "system_prompt.md"), "r") as f:
@@ -36,7 +45,7 @@ class ChatManager:
         with self.dbq as db:
             return load_chat(db, chat_id)
 
-    def get_or_create_chat(self, chat_id, message):
+    def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
         if not chat_id or not self.get_chat(chat_id):
             return self.create_new_chat(message)
         self.save_messages_to_db(chat_id, [message])
@@ -105,7 +114,7 @@ class ChatManager:
             }
             await self.send_streaming_response(chatId, None, chunk)
 
-    async def _process_query(self, chat: Chat, model: str, deepThink: bool):
+    async def _process_query(self, chat: Chat, model, deepThink: bool):
         chatId = chat.id
         original_messages = chat.messages
         self.init_current_stream(chatId)
@@ -157,36 +166,38 @@ class ChatManager:
             #     flush=True,
             # )
 
-            assistant_message_id = await self.stream_responses(chatId, stream)
+            assistant_message_id, latest_msg = await self.stream_responses(
+                chatId, stream
+            )
 
-            if len(curr_stream) == 0:
+            if latest_msg is None:
                 break
 
-            latest_msg = curr_stream[-1]
-            newer_msgs = []
+            newer_msgs: list[ChatMessage] = []
 
-            for sub_msg in latest_msg["content"]:
-                if sub_msg["type"] == C.LLM_TOOL_USE:
+            for sub_msg in latest_msg:
+                if isinstance(sub_msg, ToolUseBlock):
                     has_tool_call = True
                     result = await self.mcp_client.call_tool(
-                        sub_msg["name"], {CHAT_ID_ARG_NAME: chatId, **sub_msg["input"]}
+                        sub_msg.name,
+                        {CHAT_ID_ARG_NAME: chatId, **sub_msg.input.__dict__},
                     )
                     result = self.process_tool_result(result)
-                    tool_result = {
-                        "type": C.LLM_TOOL_RESULT,
-                        "tool_use_id": sub_msg["id"],
-                        "content": result["content"],
-                        "is_error": result["isError"],
-                    }
+                    tool_result = ToolResultBlockParam(
+                        type=C.LLM_TOOL_RESULT,
+                        tool_use_id=sub_msg.id,
+                        content=result["content"],
+                        is_error=result["isError"],
+                    )
                     await self.send_streaming_response(
                         chatId, assistant_message_id, tool_result
                     )
                     newer_msgs.append(
-                        {
-                            "id": create_new_id(),
-                            "role": C.LLM_USER_ROLE,
-                            "content": [tool_result],
-                        }
+                        ChatMessage(
+                            id=create_new_id(),
+                            role=C.LLM_USER_ROLE,
+                            content=[tool_result],
+                        )
                     )
 
             curr_stream.extend(newer_msgs)
@@ -196,34 +207,49 @@ class ChatManager:
             if not has_tool_call:
                 break
 
-    async def stream_responses(self, chatId, stream):
+    async def stream_responses(self, chatId: str, stream):
         # sends streaming response to frontend
         # and also constructs the full message for use in process_query
         assistant_message_id = None
         llm_msgs = None
 
         async for event in stream.parse():
-            if event.type == C.LLM_MESSAGE_START:
+            if isinstance(event, RawMessageStartEvent):
                 print(event.message.usage, flush=True)
                 assistant_message_id = event.message.id
-                self.current_streams[chatId].append(event.message)
-                llm_msgs = self.current_streams[chatId][-1].content
+                self.current_streams[chatId].append(
+                    ChatMessage(
+                        id=event.message.id,
+                        role=event.message.role,
+                        content=event.message.content,
+                    )
+                )
+                llm_msgs = event.message.content
             elif llm_msgs is None:
                 continue
 
-            if event.type == C.LLM_CONTENT_BLOCK_START:
+            if isinstance(event, RawContentBlockStartEvent):
                 while len(llm_msgs) <= event.index:
-                    llm_msgs.append(None)
+                    # append placeholder
+                    llm_msgs.append(TextBlock(text="", type="text"))
                 llm_msgs[event.index] = event.content_block
-            elif event.type == C.LLM_CONTENT_BLOCK_DELTA:
+            elif isinstance(event, RawContentBlockDeltaEvent):
                 curr_msg = llm_msgs[event.index]
-                if event.delta.type == C.LLM_TEXT_DELTA:
+                if event.delta.type == C.LLM_TEXT_DELTA and isinstance(
+                    curr_msg, TextBlock
+                ):
                     curr_msg.text += event.delta.text
-                elif event.delta.type == C.LLM_THINKING_DELTA:
+                elif event.delta.type == C.LLM_THINKING_DELTA and isinstance(
+                    curr_msg, ThinkingBlock
+                ):
                     curr_msg.thinking += event.delta.thinking
-                elif event.delta.type == C.LLM_SIGNATURE_DELTA:
+                elif event.delta.type == C.LLM_SIGNATURE_DELTA and isinstance(
+                    curr_msg, ThinkingBlock
+                ):
                     curr_msg.signature = event.delta.signature
-                elif event.delta.type == C.LLM_INPUT_JSON_DELTA:
+                elif event.delta.type == C.LLM_INPUT_JSON_DELTA and isinstance(
+                    curr_msg, ToolUseBlock
+                ):
                     if not isinstance(curr_msg.input, str):
                         curr_msg.input = ""
                     curr_msg.input += event.delta.partial_json
@@ -236,11 +262,7 @@ class ChatManager:
                 chatId, assistant_message_id, maybe_pydantic_model_dump(event)
             )
 
-        self.current_streams[chatId][-1] = maybe_pydantic_model_dump(
-            self.current_streams[chatId][-1]
-        )
-
-        return assistant_message_id
+        return assistant_message_id, llm_msgs
 
     async def send_streaming_response(self, chatId, assistant_message_id, chunk):
         await self.websocket_msg_handler.send_streaming_response(
@@ -283,15 +305,15 @@ class ChatManager:
             return json.loads(input)
         return {}
 
-    def separate_tool_results(self, messages):
+    def separate_tool_results(self, messages: list[ChatMessage]):
         tool_results = {}
         filtered_messages = []
         for m in messages:
-            if len(m["content"]) == 0:
+            if len(m.content) == 0:
                 continue
-            c = m["content"][0]
+            c = m.content[0]
             if c.get("type") == C.LLM_TOOL_RESULT:
-                tool_results[c["tool_use_id"]] = m["content"][0]
+                tool_results[c["tool_use_id"]] = m.content[0]
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results

@@ -1,12 +1,10 @@
-from typing import Any
-
 from dotenv import dotenv_values, load_dotenv
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.notifications.load import create_notification_dict
-from setta.mcp.chat_manager import ChatManager, maybe_pydantic_model_dump
+from setta.mcp.chat_manager import ChatManager
 from setta.project_state.chat_messages import ChatMessage
 from setta.routers.dependencies import (
     get_chat_manager,
@@ -22,7 +20,7 @@ router = APIRouter()
 
 class GetLLMResponseRequest(BaseModel):
     chatId: str | None
-    message: dict[str, Any]
+    message: ChatMessage
     model: str
     deepThink: bool
 
@@ -53,21 +51,22 @@ class GetLLMApiKeysRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
-    chat_manager=Depends(get_chat_manager),
+    chat_manager: ChatManager = Depends(get_chat_manager),
 ):
     # try:
     print(x, flush=True)
     chat = chat_manager.get_or_create_chat(x.chatId, x.message)
 
-    background_tasks.add_task(
-        chat_manager.process_query,
-        chat,
-        x.model,
-        x.deepThink,
-    )
+    if chat:
+        background_tasks.add_task(
+            chat_manager.process_query,
+            chat,
+            x.model,
+            x.deepThink,
+        )
 
-    # Return immediate response with session ID
-    return chat["id"]
+        # Return immediate response with session ID
+        return chat.id
 
     # except Exception as e:
     #     print(f"Error in route_get_llm_response: {str(e)}")
@@ -188,11 +187,10 @@ def merge_db_messages_with_current_stream(
 
     # Loop through current_stream and append messages that aren't already in chat
     for message in current_stream:
-        message = maybe_pydantic_model_dump(message)
-        if message["id"] not in existing_ids:
+        if message.id not in existing_ids:
             db_messages.append(message)
             # Add to existing_ids to track what we've added
-            existing_ids.add(message["id"])
+            existing_ids.add(message.id)
 
 
 @router.post(C.ROUTE_GET_UUID_MAPPING_FOR_LLM)

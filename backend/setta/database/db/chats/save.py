@@ -1,13 +1,15 @@
 import json
 
+from setta.database.db_objs import DB
 from setta.database.utils import create_new_id
+from setta.project_state.chat_messages import Chat, ChatMessage
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-def create_new_chat_name(first_message):
+def create_new_chat_name(first_message: ChatMessage):
     name = None
-    for c in first_message["content"]:
+    for c in first_message.content:
         if c.get("type") == C.LLM_TEXT:
             name = c.get("text", "")[:30]
             break
@@ -16,7 +18,7 @@ def create_new_chat_name(first_message):
     return name
 
 
-def create_new_chat(db, first_message):
+def create_new_chat(db: DB, first_message: ChatMessage):
     chat_id = create_new_id()
     name = create_new_chat_name(first_message)
 
@@ -36,15 +38,15 @@ def create_new_chat(db, first_message):
     db.execute(
         query,
         {
-            "id": first_message["id"],
+            "id": first_message.id,
             "chat_id": chat_id,
             "order": 0,
-            "role": first_message["role"],
-            "content": json.dumps(first_message["content"]),
+            "role": first_message.role,
+            "content": json.dumps(first_message.content),
         },
     )
 
-    return {"id": chat_id, "messages": [first_message]}
+    return Chat(id=chat_id, name=name, messages=[first_message])
 
 
 def delete_chat(db, chat_id):
