@@ -372,104 +372,56 @@ class FlyManager:
             return None
 
 
-    def delete_app(self, app_name: str):
-        """Delete a Fly.io app and all its resources"""
+def delete_app(self, app_name: str):
+    """Delete a Fly.io app - minimal version"""
+    if not self.api_token:
+        print("ERROR: No API token")
+        return False
 
-        if not self.api_token:
-            print("ERROR: No API token for deletion!")
-            return False
+    # Delete machines first
+    machines = self.list_machines(app_name)
+    for machine in machines:
+        if not self.delete_machine(app_name, machine['id']):
+            print(f"Failed to delete machine {machine['id']}")
 
-        print(f"=== DELETING APP {app_name} ===")
+    # Delete the app
+    try:
+        with httpx.Client() as client:
+            response = client.delete(
+                f"https://api.fly.io/v1/apps/{app_name}",
+                headers={"Authorization": f"Bearer {self.api_token}"},
+                timeout=30.0
+            )
 
-        try:
-            # First, get the app ID from the app name
-            print(f"Step 1: Getting app ID for {app_name}...")
-            app_info = self.get_app_status(app_name)
-
-            if not app_info:
-                print(f"App {app_name} not found, nothing to delete")
-                return True  # Consider it success if app doesn't exist
-
-            app_id = app_info.get("id")
-            if not app_id:
-                print(f"Could not get app ID for {app_name}")
+            if response.status_code in [202, 204, 404]:
+                print(f"✓ App {app_name} deleted")
+                return True
+            else:
+                print(f"✗ Failed to delete app: {response.status_code}")
                 return False
+    except Exception as e:
+        print(f"✗ Delete failed: {e}")
+        return False
 
-            print(f"Found app ID: {app_id}")
+def delete_machine(self, app_name: str, machine_id: str):
+    """Delete a machine - minimal version"""
+    try:
+        with httpx.Client() as client:
+            response = client.delete(
+                f"https://api.machines.dev/v1/apps/{app_name}/machines/{machine_id}?force=true",
+                headers={"Authorization": f"Bearer {self.api_token}"},
+                timeout=30.0
+            )
 
-            # Delete any running machines first
-            print(f"Step 2: Checking for machines...")
-            machines = self.list_machines(app_name)
-
-            if machines:
-                print(f"Found {len(machines)} machines, deleting them...")
-                for machine in machines:
-                    self.delete_machine(app_name, machine['id'])
-
-            # Then delete the app itself using the correct mutation
-            print(f"Step 3: Deleting app {app_name} (ID: {app_id})...")
-
-            # Updated GraphQL mutation that uses appId
-            mutation = """
-            mutation($appId: ID!) {
-                deleteApp(appId: $appId) {
-                    deletedAppId
-                }
-            }
-            """
-
-            with httpx.Client() as client:
-                response = client.post(
-                    self.base_url,
-                    json={
-                        "query": mutation,
-                        "variables": {"appId": app_id}
-                    },
-                    headers=self.headers,
-                    timeout=30.0
-                )
-
-                data = response.json()
-
-                if "errors" in data:
-                    print(f"Error deleting app: {data['errors']}")
-                    return False
-
-                if "data" in data and data["data"]["deleteApp"]:
-                    print(f"✓ App {app_name} deleted successfully")
-                    return True
-                else:
-                    print(f"Unexpected response: {data}")
-                    return False
-
-        except Exception as e:
-            print(f"Exception deleting app: {type(e).__name__}: {e}")
-            return False
-        finally:
-            print(f"=== DELETE ATTEMPT COMPLETE ===")
-
-    def delete_machine(self, app_name: str, machine_id: str):
-        """Delete a specific machine"""
-
-        delete_url = f"https://api.machines.dev/v1/apps/{app_name}/machines/{machine_id}?force=true"
-
-        try:
-            with httpx.Client() as client:
-                response = client.delete(
-                    delete_url,
-                    headers=self.headers
-                )
-
-                if response.status_code in [200, 204]:
-                    print(f"✓ Deleted machine {machine_id}")
-                    return True
-                else:
-                    print(f"Failed to delete machine: {response.text}")
-                    return False
-
-        except Exception as e:
-            print(f"Error deleting machine: {e}")
-            return False
+            if response.status_code in [200, 204, 404]:
+                print(f"✓ Deleted machine {machine_id}")
+                return True
+            else:
+                print(f"✗ Failed to delete machine: {response.status_code}")
+                return False
+    except Exception as e:
+        print(f"✗ Machine delete failed: {e}")
+        return False
 
     def list_machines(self, app_name: str):
         """List all machines for an app with their status"""
