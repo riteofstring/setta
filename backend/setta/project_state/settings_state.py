@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SettingsShortcuts(BaseModel):
@@ -95,9 +95,9 @@ class SettingsBackend(BaseModel):
 
 
 class SettingsState(BaseModel, extra="forbid"):
-    shortcuts: SettingsShortcuts = SettingsShortcuts()
-    gui: SettingsGUI = SettingsGUI()
-    backend: SettingsBackend = SettingsBackend()
+    shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
+    gui: SettingsGUI = Field(default_factory=SettingsGUI)
+    backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
     sections: dict = {  # TODO make a model for this?
         "CODE": {"size": {"width": 500}},

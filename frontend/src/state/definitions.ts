@@ -4,6 +4,7 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
 } from "utils/constants";
+import { createSettingsState, SettingsState } from "utils/generated_schemas";
 import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -171,7 +172,9 @@ export const useSectionRefs = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 export const useStateVersion = withProjectState(
   createWithEqualityFn(

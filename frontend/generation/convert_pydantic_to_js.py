@@ -584,6 +584,7 @@ def main():
     for python_file in [
         "../../backend/setta/project_state/base_ui_types.py",
         "../../backend/setta/project_state/project_state.py",
+        "../../backend/setta/project_state/settings_state.py",
     ]:
         converter.parse_python_file(python_file)
     typescript_code = converter.generate_typescript()
