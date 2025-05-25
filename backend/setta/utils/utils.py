@@ -20,20 +20,6 @@ def try_json(x):
         return x
 
 
-def filter_dict(x, keep_keys=None, default_vals=None):
-    if not isinstance(x, dict):
-        return x
-
-    return {
-        k: filter_dict(v, None, default_vals.get(k) if default_vals else None)
-        for k, v in x.items()
-        if (keep_keys is None or k in keep_keys)
-        and (
-            (default_vals is None) or (k not in default_vals) or (v != default_vals[k])
-        )
-    }
-
-
 def replace_at_positions(input_string, replacements, return_positions=False):
     """
     Replace substrings at specific positions in the input string.
@@ -97,34 +83,6 @@ def replace_at_positions(input_string, replacements, return_positions=False):
 def save_json_to_file(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
-
-
-def prune_dict(id_to_children: dict, keep_ids: list) -> dict:
-    """
-    Prunes a dictionary to keep only specified IDs and their descendants.
-
-    Args:
-        id_to_children: Dictionary mapping IDs to lists of child IDs
-        keep_ids: List of IDs to keep along with their descendants
-
-    Returns:
-        New dictionary containing only the specified IDs and their descendants
-    """
-    # First find all descendants of the keep_ids
-    to_keep = set()
-
-    def collect_descendants(current_id):
-        if current_id not in to_keep:  # Avoid cycles
-            to_keep.add(current_id)
-            for child_id in id_to_children.get(current_id, []):
-                collect_descendants(child_id)
-
-    # Collect all descendants
-    for id in keep_ids:
-        collect_descendants(id)
-
-    # Create new dict with only the ids we want to keep
-    return {id: children for id, children in id_to_children.items() if id in to_keep}
 
 
 def remove_empty(x):

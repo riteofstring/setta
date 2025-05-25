@@ -3,7 +3,6 @@ import json
 import logging
 import uuid
 
-
 from .server import LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
