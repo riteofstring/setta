@@ -21,7 +21,6 @@ export type { TouchSensorOptions, TouchSensorProps } from "./touch";
 export type {
   Activator,
   Activators,
-  Response as SensorResponse,
   Sensor,
   SensorActivatorFunction,
   SensorContext,
@@ -30,6 +29,7 @@ export type {
   SensorInstance,
   SensorOptions,
   SensorProps,
+  Response as SensorResponse,
   Sensors,
 } from "./types";
 export { useSensor } from "./useSensor";

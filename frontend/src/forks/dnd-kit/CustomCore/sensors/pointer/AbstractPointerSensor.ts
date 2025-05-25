@@ -1,8 +1,8 @@
 import {
+  subtract as getCoordinatesDelta,
   getEventCoordinates,
   getOwnerDocument,
   getWindow,
-  subtract as getCoordinatesDelta,
 } from "@dnd-kit/utilities";
 
 import type { Coordinates, DistanceMeasurement } from "../../types";

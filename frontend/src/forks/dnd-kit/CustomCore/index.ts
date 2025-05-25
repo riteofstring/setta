@@ -1,10 +1,10 @@
 export {
+  DndContext,
+  DragOverlay,
   defaultAnnouncements,
   defaultDropAnimation,
   defaultDropAnimationSideEffects,
   defaultScreenReaderInstructions,
-  DndContext,
-  DragOverlay,
   useDndMonitor,
 } from "./components";
 export type {
@@ -13,8 +13,8 @@ export type {
   DndContextProps,
   DndMonitorListener as DndMonitorArguments,
   DndMonitorListener,
-  DraggableMeasuring,
   DragOverlayProps,
+  DraggableMeasuring,
   DropAnimation,
   DropAnimationFunction,
   DropAnimationFunctionArguments,
@@ -79,11 +79,11 @@ export type {
   Active,
   Data,
   DataRef,
+  PublicContextDescriptor as DndContextDescriptor,
   DraggableNode,
   DroppableContainer,
   DroppableContainers,
   Over,
-  PublicContextDescriptor as DndContextDescriptor,
 } from "./store";
 export type {
   ClientRect,

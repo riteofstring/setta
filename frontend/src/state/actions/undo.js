@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useMisc, useSettings, useStateVersion } from "state/definitions";
-import { stateDict, STATE_TYPES } from "state/utils";
+import { STATE_TYPES, stateDict } from "state/utils";
 import { saveProject } from "./project/saveProject";
 
 export const undoProjectState = _.throttle(() => {

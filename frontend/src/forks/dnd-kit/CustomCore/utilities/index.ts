@@ -17,22 +17,22 @@ export {
 } from "./coordinates";
 export { noop } from "./other";
 export {
+  Rect,
   adjustScale,
   getAdjustedRect,
   getClientRect,
   getRectDelta,
   getTransformAgnosticClientRect,
   getWindowClientRect,
-  Rect,
 } from "./rect";
 export {
   getFirstScrollableAncestor,
-  getScrollableAncestors,
-  getScrollableElement,
   getScrollCoordinates,
   getScrollDirectionAndSpeed,
   getScrollElementRect,
   getScrollOffsets,
   getScrollPosition,
+  getScrollableAncestors,
+  getScrollableElement,
   isDocumentScrollingElement,
 } from "./scroll";

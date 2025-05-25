@@ -1,9 +1,9 @@
 import {
   add as getAdjustedCoordinates,
+  subtract as getCoordinatesDelta,
   getOwnerDocument,
   getWindow,
   isKeyboardEvent,
-  subtract as getCoordinatesDelta,
 } from "@dnd-kit/utilities";
 
 import type { Coordinates } from "../../types";

@@ -13,15 +13,15 @@ export type {
 export { useDndMonitor } from "./DndMonitor";
 export type { DndMonitorListener } from "./DndMonitor";
 export {
+  DragOverlay,
   defaultDropAnimation,
   defaultDropAnimationSideEffects,
-  DragOverlay,
 } from "./DragOverlay";
 export type {
+  Props as DragOverlayProps,
   DropAnimation,
   DropAnimationFunction,
   DropAnimationFunctionArguments,
   DropAnimationKeyframeResolver,
   DropAnimationSideEffects,
-  Props as DragOverlayProps,
 } from "./DragOverlay";

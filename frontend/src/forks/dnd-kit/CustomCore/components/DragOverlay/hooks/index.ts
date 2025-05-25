@@ -7,7 +7,7 @@ export type {
   DropAnimation,
   DropAnimationFunction,
   DropAnimationFunctionArguments,
-  DropAnimationSideEffects,
   KeyframeResolver as DropAnimationKeyframeResolver,
+  DropAnimationSideEffects,
 } from "./useDropAnimation";
 export { useKey } from "./useKey";
