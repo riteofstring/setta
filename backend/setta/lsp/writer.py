@@ -3,14 +3,14 @@ import json
 import logging
 import uuid
 
-from .server import LanguageServerInteractor
+from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
 
 
 class LanguageServerWriter(LanguageServerInteractor):
-    def __init__(self, server):
-        self.server = server
+    def __init__(self, server: LanguageServer):
+        super().__init__(server)
 
     async def send_request(self, method, params, id=None):
         request_dict = {"jsonrpc": "2.0", "method": method, "params": params}

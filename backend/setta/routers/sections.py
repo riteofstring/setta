@@ -14,14 +14,14 @@ from setta.code_gen.yaml.section_dict import (
     run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
+from setta.database.db.jsonSource.load import (
+    LoadJSONSourceObject,
+    load_json_sources_into_data_structures,
+)
+from setta.database.db.jsonSource.save import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
-)
-from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.database.db.sections.load import (
-    LoadJSONSourceObject,
-    load_json_sources_into_data_structures,
 )
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager

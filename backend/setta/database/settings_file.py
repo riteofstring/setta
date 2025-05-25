@@ -3,8 +3,8 @@ import logging
 import os
 from pathlib import Path
 
-from setta.database.db.sections.jsonSource import save_json_source_data
-from setta.database.db.sections.load import load_json_sources_into_data_structures
+from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
+from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.getters import get_selected_section_variant
 from setta.project_state.project_state import (
     ProjectLoadState,

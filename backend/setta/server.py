@@ -2,6 +2,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -143,7 +144,7 @@ app.add_middleware(
 )
 
 
-kwargs = {"prefix": C.ROUTE_PREFIX}
+kwargs: dict[Literal["prefix"], str] = {"prefix": C.ROUTE_PREFIX}
 app.include_router(projects_router, **kwargs)
 app.include_router(sections_router, **kwargs)
 app.include_router(terminals_router, **kwargs)

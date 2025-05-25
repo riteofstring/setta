@@ -16,7 +16,6 @@ class LanguageServer:
         workspace_folder.mkdir(parents=True, exist_ok=True)
         self.workspace_folder = workspace_folder
         self.init_properties()
-        self.server = None
         if not isinstance(settings, dict):
             logger.warning(
                 "warning: your language server settings is not an object, so it will have no effect"
@@ -40,7 +39,7 @@ class LanguageServer:
         self.cleanup_pending_requests()
         self.pending_requests = {}
         self.msg_id_to_metadata = defaultdict(dict)
-        self.initialization_request_id = None
+        self.initialization_request_id: str | None = None
         self.is_initialized = False
         self.latest_version_numbers = {}  # uri to version number
         self.diagnostics_response_callbacks = {}  # uri to callback
@@ -65,14 +64,21 @@ class LanguageServer:
 
     @property
     def stdin(self):
-        return self.server.stdin
+        if self.server.stdin:
+            return self.server.stdin
+        raise ValueError("Error with language server stdin")
 
     @property
     def stdout(self):
-        return self.server.stdout
+        if self.server.stdout:
+            return self.server.stdout
+        raise ValueError("Error with language server stdout")
 
 
 class LanguageServerInteractor:
+    def __init__(self, server: LanguageServer):
+        self.server = server
+
     @property
     def settings(self):
         return self.server.settings

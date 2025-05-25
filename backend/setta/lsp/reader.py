@@ -2,14 +2,14 @@ import asyncio
 import json
 import logging
 
-from .server import LanguageServerInteractor
+from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
 
 
 class LanguageServerReader(LanguageServerInteractor):
-    def __init__(self, server, initialized_callback=None):
-        self.server = server
+    def __init__(self, server: LanguageServer, initialized_callback=None):
+        super().__init__(server)
         self.stop_event = asyncio.Event()
         self.started = asyncio.Event()
         self.reader_task = None

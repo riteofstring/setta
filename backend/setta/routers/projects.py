@@ -12,12 +12,11 @@ from setta.database.db.notifications.load import (
 )
 from setta.database.db.projects.load import (
     ProjectNotFound,
-    create_project_config,
     load_default_project_config_name,
     load_project_metadata,
     load_project_state_and_confirm_config_name,
-    save_project_state,
 )
+from setta.database.db.projects.save import create_project_config, save_project_state
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,

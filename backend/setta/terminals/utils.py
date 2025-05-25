@@ -22,7 +22,12 @@ def windows_has_child_processes(input_winpid):
             pid_idx = columns.index("PID")
             ppid_idx = columns.index("PPID")
             winpid_idx = columns.index("WINPID")
-        elif columns != [""]:
+        elif (
+            columns != [""]
+            and pid_idx is not None
+            and ppid_idx is not None
+            and winpid_idx is not None
+        ):
             pid = int(columns[pid_idx])
             ppid = int(columns[ppid_idx])
             winpid = int(columns[winpid_idx])
