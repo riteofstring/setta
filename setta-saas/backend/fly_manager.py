@@ -231,3 +231,49 @@ class FlyManager:
             return False
         finally:
             print(f"=== DEPLOYMENT ATTEMPT COMPLETE ===")
+
+
+    def get_app_status(self, app_name: str):
+        """Check if an app exists and get its status"""
+
+        query = """
+        query($appName: String!) {
+            app(name: $appName) {
+                id
+                name
+                hostname
+                status
+                deployed
+                machines {
+                    nodes {
+                        id
+                        state
+                        region
+                    }
+                }
+            }
+        }
+        """
+
+        try:
+            with httpx.Client() as client:
+                response = client.post(
+                    self.base_url,
+                    json={
+                        "query": query,
+                        "variables": {"appName": app_name}
+                    },
+                    headers=self.headers
+                )
+
+                data = response.json()
+                print(f"App status for {app_name}: {data}")
+
+                if "data" in data and data["data"]["app"]:
+                    return data["data"]["app"]
+                else:
+                    return None
+
+        except Exception as e:
+            print(f"Error checking app status: {e}")
+            return None

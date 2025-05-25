@@ -90,6 +90,24 @@ async def create_project(
         project.status = "created"
         db.commit()
 
+        print(f"Verifying app {app_name} exists...")
+        app_status = fly_manager.get_app_status(app_name)
+
+        if app_status:
+            print(f"App verified: {app_status}")
+            project.url = f"https://{fly_app['hostname']}"
+
+            # Deploy to the app
+            if fly_manager.deploy_to_app(app_name):
+                project.status = "running"
+            else:
+                project.status = "deployment_pending"
+        else:
+            print(f"WARNING: App {app_name} not found after creation!")
+            project.status = "dns_pending"
+            project.url = f"https://{app_name}.fly.dev (DNS pending)"
+
+
         # Now deploy to the app
         print(f"Step 2: Attempting deployment to {app_name}")
         deployment_success = fly_manager.deploy_to_app(app_name)
