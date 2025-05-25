@@ -1,4 +1,3 @@
-import { temporal } from "zundo";
 import { createWithEqualityFn as _create } from "zustand/traditional";
 
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
@@ -54,34 +53,12 @@ function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
 }
 
-export function withVersion(initialState) {
-  return { ...initialState, version: 0 };
-}
-
-export function withTemporal(...props) {
-  return temporal(...props, { limit: 200 });
-}
-
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
     state.getState().reset?.();
-    if (state.temporal) {
-      state.temporal.getState().clear();
-    }
   }
 }
 
 export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
-}
-
-export function pauseTemporal() {
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal) {
-      s.temporal.getState().pause();
-      if (s.getState().version === undefined) {
-        throw new Error("temporal state version should not be undefined");
-      }
-    }
-  }
 }
