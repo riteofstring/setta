@@ -158,38 +158,6 @@ class PydanticToZodConverter:
                         ast.unparse(keyword.value) if hasattr(keyword, "value") else ""
                     )
 
-        # Parse model config (Pydantic v2 style)
-        for stmt in node.body:
-            if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
-                if stmt.target.id == "model_config":
-                    # Parse ConfigDict
-                    if (
-                        isinstance(stmt.value, ast.Call)
-                        and hasattr(stmt.value.func, "id")
-                        and stmt.value.func.id == "ConfigDict"
-                    ):
-                        for keyword in stmt.value.keywords:
-                            if keyword.arg == "extra" and isinstance(
-                                keyword.value, ast.Constant
-                            ):
-                                extra_config = (
-                                    "strict" if keyword.value.value == "forbid" else ""
-                                )
-                            config_dict[keyword.arg] = ast.unparse(keyword.value)
-
-            # Also check for Pydantic v1 style Config class
-            if isinstance(stmt, ast.ClassDef) and stmt.name == "Config":
-                for config_stmt in stmt.body:
-                    if isinstance(config_stmt, ast.Assign):
-                        for target in config_stmt.targets:
-                            if isinstance(target, ast.Name) and target.id == "extra":
-                                if isinstance(config_stmt.value, ast.Constant):
-                                    extra_config = (
-                                        "strict"
-                                        if config_stmt.value.value == "forbid"
-                                        else ""
-                                    )
-
         # Parse annotated fields
         for stmt in node.body:
             if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
