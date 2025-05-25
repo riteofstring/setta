@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import _ from 'lodash';
 import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";
+import {BASE_UI_TYPES, BASE_UI_TYPE_IDS} from "utils/baseUITypes"
 // UITypePresetType enum
 export const UITypePresetTypeSchema = z.enum([
   'BASE',

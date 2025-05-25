@@ -261,7 +261,8 @@ class PydanticToZodConverter:
         output.append("import { z } from 'zod';")
         output.append("import _ from 'lodash';")
         output.append('import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";')
-        
+        output.append('import { BASE_UI_TYPES, BASE_UI_TYPE_IDS } from "utils/baseUITypes"')
+
         # Generate enums
         for enum in self.enums:
             output.append(f"// {enum.name} enum")
