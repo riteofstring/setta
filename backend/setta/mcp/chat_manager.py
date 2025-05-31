@@ -3,11 +3,15 @@ import json
 
 from anthropic import AsyncAnthropic
 from anthropic.types import (
+    CacheControlEphemeralParam,
     RawContentBlockDeltaEvent,
     RawContentBlockStartEvent,
     RawMessageStartEvent,
     TextBlock,
+    TextBlockParam,
     ThinkingBlock,
+    ThinkingConfigDisabledParam,
+    ThinkingConfigEnabledParam,
     ToolUseBlock,
 )
 from pydantic import BaseModel
@@ -324,13 +328,12 @@ class ChatManager:
         tools = tools + maybe_get_str_replace_editor_tool(model)
 
         system = [
-            {
-                "type": "text",
-                "text": self.system_prompt,
-            }
+            TextBlockParam(
+                type="text",
+                text=self.system_prompt,
+                cache_control=CacheControlEphemeralParam(type="ephemeral"),
+            )
         ]
-
-        self.set_cache_control(system[0])
 
         output_messages = [
             {
@@ -340,11 +343,12 @@ class ChatManager:
             for m in [*messages, *curr_stream]
         ]
 
-        thinking = (
-            {"type": "enabled", "budget_tokens": self.thinking_budget_tokens}
-            if deepThink
-            else {"type": "disabled"}
-        )
+        if deepThink:
+            thinking = ThinkingConfigEnabledParam(
+                budget_tokens=self.thinking_budget_tokens, type="enabled"
+            )
+        else:
+            thinking = ThinkingConfigDisabledParam(type="disabled")
 
         did_set_cache_control = False
         for m in reversed(output_messages):
