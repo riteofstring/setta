@@ -6,8 +6,10 @@ from config import settings
 from database_models import Project, create_db_and_tables, get_session
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fly_manager import FlyManager
-from schemas import (
+from sqlmodel import Session, select
+
+from app.fly_manager import FlyManager
+from app.schemas import (
     DeleteResponse,
     HealthResponse,
     ProjectCreateRequest,
@@ -18,7 +20,6 @@ from schemas import (
     SyncAllResponse,
     SyncResultItem,
 )
-from sqlmodel import Session, select
 
 
 @asynccontextmanager

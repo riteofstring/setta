@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
 
-from config import settings
-from schemas import ProjectStatus
 from sqlmodel import Field, Session, SQLModel, create_engine
+
+from app.config import settings
+from app.schemas import ProjectStatus
 
 
 class Project(SQLModel, table=True):
