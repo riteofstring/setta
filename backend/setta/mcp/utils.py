@@ -1,4 +1,4 @@
-from .frontend_tools import ID
+from setta.types.ai import ID, IDToUUIDForLLM
 
 
 class IDDoesNotExist(Exception):
@@ -33,7 +33,7 @@ def traverse_and_replace(data, replace_func):
         return data
 
 
-def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
+def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid: IDToUUIDForLLM):
     """
     Replace all UUIDs in data with their corresponding IDs.
     If a UUID doesn't have an ID, create a new one and update the mapping.
@@ -63,14 +63,14 @@ def replace_uuids_with_ids(data, uuid_to_id, id_to_uuid):
 
             # Update mappings
             uuid_to_id[value] = new_id
-            id_to_uuid[new_id] = value
+            id_to_uuid[ID(new_id)] = value
 
             return new_id
 
     return traverse_and_replace(data, replace_uuid)
 
 
-def replace_ids_with_uuids(data, id_to_uuid):
+def replace_ids_with_uuids(data, id_to_uuid: IDToUUIDForLLM):
     """
     Replace all IDs in data with their corresponding UUIDs.
     If an ID doesn't have a UUID, leave it unchanged.

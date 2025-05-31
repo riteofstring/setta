@@ -1,8 +1,8 @@
 import importlib.metadata
 
-from setta.mcp.frontend_tools import ID
 from setta.mcp.server import mcp_server
 from setta.mcp.utils import replace_ids_with_uuids
+from setta.types.ai import ID
 
 
 @mcp_server.tool(

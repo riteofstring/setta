@@ -16,9 +16,6 @@
  * @property {SectionUIType} type
  * @property {boolean} [renderMarkdown]
  */
-/**
-@typedef {string} ID
- */
 
 /**
  * @typedef {Object} SimplifiedCodeInfo

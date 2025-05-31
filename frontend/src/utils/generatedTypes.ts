@@ -1,4 +1,8 @@
+type ID = string;
+
 type APIKeys = Record<string, string>;
+
+type IDToUUIDForLLM = Record<ID, string>;
 
 enum UITypeName {
   TEXT = "TEXT",

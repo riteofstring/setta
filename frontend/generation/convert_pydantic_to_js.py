@@ -295,7 +295,7 @@ def main(output_file):
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
 
-    ts_code = ""
+    ts_code = "type ID = string\n\n"
     processed_types = set()
     type_definitions = {}
 

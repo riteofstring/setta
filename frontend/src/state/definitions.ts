@@ -252,8 +252,13 @@ export const useResizerStore = withProjectState(
 
 type AIStore = {
   apiKeys: APIKeys;
+  apiKeysFilepath: string;
+  apiKeysInitialLoadComplete: boolean;
   allChatMetadata: Array<ChatMetadata>;
   currentChatId: string | null;
+  viewHistory: boolean;
+  userSelectedLLM: string;
+  idToUUIDForLLM: IDToUUIDForLLM;
 };
 
 export const useAIStore = createWithEqualityFn<AIStore>()(

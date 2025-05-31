@@ -1,6 +1,7 @@
 import json
 
 from setta.database.db_objs import DB
+from setta.types.ai import ID, IDToUUIDForLLM
 from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
 
 
@@ -71,9 +72,10 @@ def load_uuid_mapping_for_llm(db):
 
     db.execute(query)
 
-    id_to_uuid, uuid_to_id = {}, {}
+    id_to_uuid: IDToUUIDForLLM = {}
+    uuid_to_id = {}
     for row in db.fetchall():
-        id_to_uuid[str(row["id"])] = row["uuid"]
+        id_to_uuid[ID(row["id"])] = row["uuid"]
         uuid_to_id[row["uuid"]] = str(row["id"])
 
     return id_to_uuid, uuid_to_id
