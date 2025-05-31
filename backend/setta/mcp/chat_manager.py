@@ -10,7 +10,6 @@ from anthropic.types import (
     ThinkingBlock,
     ToolUseBlock,
 )
-from mcp.types import CallToolResult
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
@@ -189,7 +188,6 @@ class ChatManager:
                             **self.tool_use_input_str_to_dict(sub_msg.input),
                         },
                     )
-                    result = self.process_tool_result(result)
                     tool_result = ToolResult(
                         type=C.LLM_TOOL_RESULT,
                         tool_use_id=sub_msg.id,
@@ -203,7 +201,7 @@ class ChatManager:
                         ChatMessage(
                             id=create_new_id(),
                             role=C.LLM_USER_ROLE,
-                            toolResult=tool_result,
+                            content=[tool_result],
                         )
                     )
 
@@ -238,8 +236,8 @@ class ChatManager:
             if isinstance(event, RawContentBlockStartEvent):
                 while len(llm_msgs) <= event.index:
                     # append placeholder
-                    llm_msgs.append(TextBlock(text="", type="text"))
-                llm_msgs[event.index] = event.content_block
+                    llm_msgs.append(TextBlock(text="", type="text"))  # type: ignore
+                llm_msgs[event.index] = event.content_block  # type: ignore
             elif isinstance(event, RawContentBlockDeltaEvent):
                 curr_msg = llm_msgs[event.index]
                 if event.delta.type == C.LLM_TEXT_DELTA and isinstance(
@@ -272,11 +270,6 @@ class ChatManager:
             chatId, assistant_message_id, chunk.model_dump()
         )
 
-    def process_tool_result(self, result: CallToolResult):
-        for c in result.content:
-            del c.annotations
-        return result
-
     async def request_stop_streaming(self, chat_id):
         task = self.stream_tasks.get(chat_id)
         if task:
@@ -289,8 +282,8 @@ class ChatManager:
                 if isinstance(c, ToolUseBlock):
                     if not isinstance(c.input, dict):
                         c.input = self.tool_use_input_str_to_dict(c.input)
-            if m.toolResult:
-                tool_use_has_result.add(m.toolResult.tool_use_id)
+                elif isinstance(c, ToolResult):
+                    tool_use_has_result.add(c.tool_use_id)
 
         for m in messages:
             new_content = []
@@ -311,8 +304,11 @@ class ChatManager:
         tool_results: dict[str, ToolResult] = {}
         filtered_messages: list[ChatMessage] = []
         for m in messages:
-            if m.toolResult:
-                tool_results[m.toolResult.tool_use_id] = m.toolResult
+            if len(m.content) == 0:
+                continue
+            c = m.content[0]
+            if isinstance(c, ToolResult):
+                tool_results[c.tool_use_id] = c
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results

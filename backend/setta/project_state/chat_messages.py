@@ -1,8 +1,8 @@
-from typing import Literal
+from typing import Literal, Sequence
 
 from anthropic.types import ContentBlock
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ToolResult(BaseModel):
@@ -15,8 +15,7 @@ class ToolResult(BaseModel):
 class ChatMessage(BaseModel):
     id: str
     role: Literal["user", "assistant"]
-    content: list[ContentBlock] = Field(default_factory=list)
-    toolResult: ToolResult | None = None
+    content: Sequence[ContentBlock | ToolResult]
 
 
 class Chat(BaseModel):
