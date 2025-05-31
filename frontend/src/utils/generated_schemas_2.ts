@@ -1,401 +1,547 @@
-enum ViewingEditingMode {
-  DEV = "DEV",
-  USER = "USER",
-  USER_EDIT = "USER_EDIT"
+import { z } from "zod";
+
+export const UITypeNameSchema = z.enum(["TEXT", "SLIDER", "SWITCH", "COLOR_PICKER", "DROPDOWN", "PASSWORD", "SECTION", "LIST_ROOT", "DICT_ROOT", "GROUP", "IMAGE", "CHART", "DRAW", "TEXT_BLOCK", "SOCIAL", "GLOBAL_VARIABLES", "CODE", "GEN_PYTHON_CODE", "PARAM_SWEEP", "TERMINAL", "GLOBAL_PARAM_SWEEP", "IFRAME", "CHAT", "BROWSER"]);
+export type UITypeName = z.infer<typeof UITypeNameSchema>;
+
+export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
+export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
+
+export const CodeInfoTypeSchema = z.enum(["parameter", "callable", "collection"]);
+export type CodeInfoType = z.infer<typeof CodeInfoTypeSchema>;
+
+export const CodeLanguageSchema = z.enum(["python", "bash"]);
+export type CodeLanguage = z.infer<typeof CodeLanguageSchema>;
+
+export const ConfigLanguageSchema = z.enum(["python", "json"]);
+export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
+
+export const ParameterPassingStyleSchema = z.enum(["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"]);
+export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
+
+export const SizeSchema = z.enum(["auto"]);
+export type Size = z.infer<typeof SizeSchema>;
+
+export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
+export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
+
+export const UITypeSchema = z.object({
+  id: z.string().optional(),
+  type: UITypeNameSchema.optional(),
+  name: z.string().optional(),
+  presetType: z.any().optional(),
+  config: z.record(z.string(), z.any()).optional()
+});
+
+export type UIType = z.infer<typeof UITypeSchema>;
+
+export function createUIType(options={}){
+  return UITypeSchema.parse(options)
 }
 
-enum UITypeName {
-  TEXT = "TEXT",
-  SLIDER = "SLIDER",
-  SWITCH = "SWITCH",
-  COLOR_PICKER = "COLOR_PICKER",
-  DROPDOWN = "DROPDOWN",
-  PASSWORD = "PASSWORD",
-  SECTION = "SECTION",
-  LIST_ROOT = "LIST_ROOT",
-  DICT_ROOT = "DICT_ROOT",
-  GROUP = "GROUP",
-  IMAGE = "IMAGE",
-  CHART = "CHART",
-  DRAW = "DRAW",
-  TEXT_BLOCK = "TEXT_BLOCK",
-  SOCIAL = "SOCIAL",
-  GLOBAL_VARIABLES = "GLOBAL_VARIABLES",
-  CODE = "CODE",
-  GEN_PYTHON_CODE = "GEN_PYTHON_CODE",
-  PARAM_SWEEP = "PARAM_SWEEP",
-  TERMINAL = "TERMINAL",
-  GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP",
-  IFRAME = "IFRAME",
-  CHAT = "CHAT",
-  BROWSER = "BROWSER"
+export const ChatSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  lastUpdated: z.string().datetime().optional(),
+  messages: z.array(ChatMessageSchema)
+});
+
+export type Chat = z.infer<typeof ChatSchema>;
+
+export function createChat(options={}){
+  return ChatSchema.parse(options)
 }
 
-enum CodeLanguage {
-  PYTHON = "python",
-  BASH = "bash"
+export const ChatMessageSchema = z.object({
+  id: z.string(),
+  role: z.any(),
+  content: z.any()
+});
+
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+export function createChatMessage(options={}){
+  return ChatMessageSchema.parse(options)
 }
 
-enum ParameterPassingStyle {
-  DEFAULT = "DEFAULT",
-  ARGS = "ARGS",
-  KWARGS = "KWARGS",
-  POSITIONAL_ONLY = "POSITIONAL_ONLY",
-  KEYWORD_ONLY = "KEYWORD_ONLY"
+export const ChatMetadataSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  lastUpdated: z.string().datetime().optional()
+});
+
+export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
+
+export function createChatMetadata(options={}){
+  return ChatMetadataSchema.parse(options)
 }
 
-enum Size {
-  AUTO = "auto"
+export const EmbeddedResourceSchema = z.object({
+  type: z.any(),
+  resource: z.any(),
+  annotations: z.any().optional()
+});
+
+export type EmbeddedResource = z.infer<typeof EmbeddedResourceSchema>;
+
+export function createEmbeddedResource(options={}){
+  return EmbeddedResourceSchema.parse(options)
 }
 
-enum ConfigLanguage {
-  PYTHON = "python",
-  JSON = "json"
+export const FullMessageStopSchema = z.object({
+  type: z.any(),
+  messages: z.array(ChatMessageSchema),
+  toolResults: z.record(z.string(), ToolResultSchema)
+});
+
+export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
+
+export function createFullMessageStop(options={}){
+  return FullMessageStopSchema.parse(options)
 }
 
-enum UITypePresetType {
-  BASE = "BASE",
-  USER = "USER"
+export const ImageContentSchema = z.object({
+  type: z.any(),
+  data: z.string(),
+  mimeType: z.string(),
+  annotations: z.any().optional()
+});
+
+export type ImageContent = z.infer<typeof ImageContentSchema>;
+
+export function createImageContent(options={}){
+  return ImageContentSchema.parse(options)
 }
 
-enum CodeInfoType {
-  PARAMETER = "parameter",
-  CALLABLE = "callable",
-  COLLECTION = "collection"
+export const TextContentSchema = z.object({
+  type: z.any(),
+  text: z.string(),
+  annotations: z.any().optional()
+});
+
+export type TextContent = z.infer<typeof TextContentSchema>;
+
+export function createTextContent(options={}){
+  return TextContentSchema.parse(options)
 }
 
-type ToolResult = {
-  type: Literal;
-  tool_use_id: string;
-  content: any[];
-  is_error: boolean;
+export const ToolResultSchema = z.object({
+  type: z.any(),
+  tool_use_id: z.string(),
+  content: z.array(z.any()),
+  is_error: z.boolean()
+});
+
+export type ToolResult = z.infer<typeof ToolResultSchema>;
+
+export function createToolResult(options={}){
+  return ToolResultSchema.parse(options)
 }
 
-type ProjectSaveState = {
-  projectConfigId: string;
-  projectState: ProjectState;
+export const CodeInfoColSchema = z.object({
+  children: z.record(z.string(), z.array(z.string())).optional()
+});
+
+export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
+
+export function createCodeInfoCol(options={}){
+  return CodeInfoColSchema.parse(options)
 }
 
-type Section = {
-  id?: string;
-  name?: string;
-  size?: SectionSize;
-  parentId?: any;
-  variantId?: string;
-  uiTypeId?: string;
-  uiTypeColId?: any;
-  social?: string;
-  artifactGroupIds?: string[];
-  defaultVariantId?: any;
-  variantIds?: string[];
-  paramSweepSectionId?: any;
-  nonPresetUITypeIds?: string[];
-  codeLanguage?: CodeLanguage;
-  isEntryCodeBlock?: boolean;
-  isFrozen?: boolean;
-  isHorizontalOrientation?: boolean;
-  hideParams?: boolean;
-  hideSearch?: boolean;
-  hideUnpinnedParams?: boolean;
-  hideColumn?: boolean;
-  displayMode?: string;
-  visibility?: Visibility;
-  pinnedAreaHeight?: (number | Literal);
-  isMinimized?: boolean;
-  canvasSettings?: CanvasSettings;
-  chartSettings?: ChartSettings;
-  isTemporary?: boolean;
-  renderMarkdown?: boolean;
-  positionAndSizeLocked?: boolean;
-  selectedVariantIds?: Record<string, any>;
-  paramFilter?: string;
-  isInOtherProjectConfigs?: boolean;
-  aspectRatio?: boolean;
-  aspectRatioExtraHeight?: number;
-  aspectRatioExtraWidth?: number;
-  columnWidth?: any;
-  renderedValue?: any;
-  headingAsSectionName?: boolean;
+export const ProjectStateSchema = z.object({
+  projectConfigs: z.record(z.string(), ProjectConfigSchema).optional(),
+  sections: z.record(z.string(), SectionSchema).optional(),
+  variants: z.record(z.string(), SectionVariantSchema).optional(),
+  codeInfo: z.record(z.string(), CodeInfoSchema).optional(),
+  codeInfoCols: z.record(z.string(), CodeInfoColSchema).optional(),
+  uiTypes: z.record(z.string(), UITypeSchema).optional(),
+  uiTypeCols: z.record(z.string(), z.record(z.string(), UITypeColEntrySchema)).optional(),
+  defaultProjectConfigId: z.any().optional()
+});
+
+export type ProjectState = z.infer<typeof ProjectStateSchema>;
+
+export function createProjectState(options={}){
+  return ProjectStateSchema.parse(options)
 }
 
-type ChatMetadata = {
-  id: string;
-  name: string;
-  lastUpdated?: datetime;
+export const UITypeColEntrySchema = z.object({
+  uiTypeId: z.string().optional(),
+  nonPresetUITypeIds: z.array(z.string()).optional()
+});
+
+export type UITypeColEntry = z.infer<typeof UITypeColEntrySchema>;
+
+export function createUITypeColEntry(options={}){
+  return UITypeColEntrySchema.parse(options)
 }
 
-type Visibility = {
-  DEV?: boolean;
-  USER?: boolean;
+export const ArtifactSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  value: z.any().optional(),
+  type: z.string()
+});
+
+export type Artifact = z.infer<typeof ArtifactSchema>;
+
+export function createArtifact(options={}){
+  return ArtifactSchema.parse(options)
 }
 
-type ProjectConfigChild = {
-  x?: number;
-  y?: number;
-  zIndex?: number;
-  w?: number;
-  h?: number;
+export const CanvasSettingsSchema = z.object({
+  activeLayerId: z.any().optional(),
+  color: z.string().optional(),
+  brushSize: z.number().int().optional(),
+  brushShape: z.string().optional(),
+  eraserBrushSize: z.number().int().optional(),
+  drawThrottleDelay: z.number().int().optional(),
+  canvasTransferQueueLength: z.number().int().optional(),
+  mode: z.string().optional()
+});
+
+export type CanvasSettings = z.infer<typeof CanvasSettingsSchema>;
+
+export function createCanvasSettings(options={}){
+  return CanvasSettingsSchema.parse(options)
 }
 
-type SectionVariant = {
-  name?: string;
-  values?: Record<string, EVEntry>;
-  children?: string[];
-  selectedItem?: any;
-  code?: string;
-  codeInfoColId?: any;
-  description?: string;
-  isFrozen?: boolean;
-  sweep?: any[];
-  runGroup?: Record<string, any>;
-  configLanguage?: ConfigLanguage;
-  isJsonSource?: boolean;
-  jsonSourceKeys?: string[];
-  jsonSourceMissing?: boolean;
+export const ChartSettingsSchema = z.object({
+  type: z.string().optional(),
+  xAxisColumn: z.string().optional(),
+  secondYAxisColumns: z.array(z.string()).optional(),
+  xAxisLog: z.boolean().optional(),
+  y1AxisLog: z.boolean().optional(),
+  y2AxisLog: z.boolean().optional()
+});
+
+export type ChartSettings = z.infer<typeof ChartSettingsSchema>;
+
+export function createChartSettings(options={}){
+  return ChartSettingsSchema.parse(options)
 }
 
-type EVEntry = {
-  value?: string;
+export const CodeInfoSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  editable: z.boolean().optional(),
+  rcType: CodeInfoTypeSchema.optional(),
+  defaultVal: z.string().optional(),
+  description: z.string().optional(),
+  passingStyle: ParameterPassingStyleSchema.optional(),
+  isPinned: z.boolean().optional(),
+  isFrozen: z.boolean().optional(),
+  isSelected: z.boolean().optional(),
+  ignoreTypeErrors: z.boolean().optional()
+});
+
+export type CodeInfo = z.infer<typeof CodeInfoSchema>;
+
+export function createCodeInfo(options={}){
+  return CodeInfoSchema.parse(options)
 }
 
-type ProjectConfig = {
-  id?: string;
-  name?: string;
-  previewImgColor?: string;
-  viewport?: any;
-  children?: Record<string, ProjectConfigChild>;
-  viewingEditingMode?: ViewingEditingMode;
-  genCodePrefix?: string;
-  genCodeSuffix?: string;
+export const EVEntrySchema = z.object({
+  value: z.string().optional()
+});
+
+export type EVEntry = z.infer<typeof EVEntrySchema>;
+
+export function createEVEntry(options={}){
+  return EVEntrySchema.parse(options)
 }
 
-type ProjectLoadState = {
-  projectConfigId: string;
-  projectState: ProjectState;
+export const ProjectConfigSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  previewImgColor: z.string().optional(),
+  viewport: z.any().optional(),
+  children: z.record(z.string(), ProjectConfigChildSchema).optional(),
+  viewingEditingMode: ViewingEditingModeSchema.optional(),
+  genCodePrefix: z.string().optional(),
+  genCodeSuffix: z.string().optional()
+});
+
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+
+export function createProjectConfig(options={}){
+  return ProjectConfigSchema.parse(options)
 }
 
-type UITypeColEntry = {
-  uiTypeId?: string;
-  nonPresetUITypeIds?: string[];
+export const ProjectConfigChildSchema = z.object({
+  x: z.number().optional(),
+  y: z.number().optional(),
+  zIndex: z.number().int().optional(),
+  w: z.number().optional(),
+  h: z.number().optional()
+});
+
+export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
+
+export function createProjectConfigChild(options={}){
+  return ProjectConfigChildSchema.parse(options)
 }
 
-type SettingsShortcuts = {
-  newCardShortcut?: string;
-  newGroupShortcut?: string;
-  typeCheckShortcut?: string;
-  newProjectConfigShortcut?: string;
-  undoShortcut?: string;
-  redoShortcut?: string;
-  groupShortcut?: string;
-  ungroupShortcut?: string;
-  saveShortcut?: string;
-  saveAsShortcut?: string;
-  loadShortcut?: string;
-  searchShortcut?: string;
-  advancedSearchShortcut?: string;
-  commandPaletteShortcut?: string;
-  resetZoomShortcut?: string;
-  copyShortcut?: string;
-  pasteShortcut?: string;
-  pasteAsRefShortcut?: string;
-  sortingShortcut?: string;
-  movingFreeShortcut?: string;
-  showTooltipShortcut?: string;
-  tooltipToPlaintextShortcut?: string;
-  tooltipToMarkdownShortcut?: string;
-  freezeTooltipShortcut?: string;
-  frozenTooltipToPlaintextShortcut?: string;
-  frozenTooltipToMarkdownShortcut?: string;
-  incrementTooltipPageShortcut?: string;
-  decrementTooltipPageShortcut?: string;
-  copyTooltipTextShortcut?: string;
-  frozenTooltipIncrementShortcut?: string;
-  frozenTooltipDecrementShortcut?: string;
-  frozenTooltipCopyShortcut?: string;
-  newTerminalShortcut?: string;
-  fitViewShortcut?: string;
-  zoomToMouseShortcut?: string;
-  deleteSectionShortcut?: string;
-  selectAll?: string;
-  selectTopLevelNonGroupSections?: string;
-  showVersionsTabShortcut?: string;
-  showParamUITypeTabShortcut?: string;
-  showProjectOverviewTabShortcut?: string;
-  runCodeShortcut?: string;
-  runEntryCodeBlockShortcut?: string;
-  sendProjectToAllInteractiveCode?: string;
-  paramSelect?: string;
-  formatCode?: string;
-  selectionKeyCode?: string;
-  multiSelectionKeyCode?: string;
-  panActivationKeyCode?: string;
-  zoomActivationKeyCode?: string;
-  zoomInShortcut?: string;
-  zoomOutShortcut?: string;
-  restartLanguageServerShortcut?: string;
+export const ProjectLoadStateSchema = z.object({
+  projectConfigId: z.string(),
+  projectState: ProjectStateSchema
+});
+
+export type ProjectLoadState = z.infer<typeof ProjectLoadStateSchema>;
+
+export function createProjectLoadState(options={}){
+  return ProjectLoadStateSchema.parse(options)
 }
 
-type CanvasSettings = {
-  activeLayerId?: any;
-  color?: string;
-  brushSize?: number;
-  brushShape?: string;
-  eraserBrushSize?: number;
-  drawThrottleDelay?: number;
-  canvasTransferQueueLength?: number;
-  mode?: string;
+export const ProjectSaveStateSchema = z.object({
+  projectConfigId: z.string(),
+  projectState: ProjectStateSchema
+});
+
+export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
+
+export function createProjectSaveState(options={}){
+  return ProjectSaveStateSchema.parse(options)
 }
 
-type SettingsGUI = {
-  snapGrid?: number[];
-  showGridLines?: boolean;
-  gridPattern?: string;
-  gridPatternSize?: number;
-  gridColor?: string;
-  gridColorDarkMode?: string;
-  defaultZoomLevel?: number;
-  minZoom?: number;
-  maxZoom?: number;
-  panOnDrag?: boolean;
-  panOnScroll?: boolean;
-  panOnScrollSpeed?: number;
-  panOnScrollMode?: string;
-  zoomOnScroll?: boolean;
-  zoomOnPinch?: boolean;
-  zoomOnDoubleClick?: boolean;
-  selectionMode?: string;
-  leftSidePaneShiftsMap?: boolean;
-  transitionDuration?: number;
+export const ProjectUpdateStateSchema = z.object({
+  projectConfigId: z.string(),
+  projectState: ProjectStateSchema,
+  requestRenameRefactor: z.boolean().optional()
+});
+
+export type ProjectUpdateState = z.infer<typeof ProjectUpdateStateSchema>;
+
+export function createProjectUpdateState(options={}){
+  return ProjectUpdateStateSchema.parse(options)
 }
 
-type ChatMessage = {
-  id: string;
-  role: Literal;
-  content: Sequence;
+export const SectionSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  size: SectionSizeSchema.optional(),
+  parentId: z.any().optional(),
+  variantId: z.string().optional(),
+  uiTypeId: z.string().optional(),
+  uiTypeColId: z.any().optional(),
+  social: z.string().optional(),
+  artifactGroupIds: z.array(z.string()).optional(),
+  defaultVariantId: z.any().optional(),
+  variantIds: z.array(z.string()).optional(),
+  paramSweepSectionId: z.any().optional(),
+  nonPresetUITypeIds: z.array(z.string()).optional(),
+  codeLanguage: CodeLanguageSchema.optional(),
+  isEntryCodeBlock: z.boolean().optional(),
+  isFrozen: z.boolean().optional(),
+  isHorizontalOrientation: z.boolean().optional(),
+  hideParams: z.boolean().optional(),
+  hideSearch: z.boolean().optional(),
+  hideUnpinnedParams: z.boolean().optional(),
+  hideColumn: z.boolean().optional(),
+  displayMode: z.string().optional(),
+  visibility: VisibilitySchema.optional(),
+  pinnedAreaHeight: z.union([z.number(), z.any()]).optional(),
+  isMinimized: z.boolean().optional(),
+  canvasSettings: CanvasSettingsSchema.optional(),
+  chartSettings: ChartSettingsSchema.optional(),
+  isTemporary: z.boolean().optional(),
+  renderMarkdown: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  selectedVariantIds: z.record(z.string(), z.any()).optional(),
+  paramFilter: z.string().optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  aspectRatio: z.boolean().optional(),
+  aspectRatioExtraHeight: z.number().int().optional(),
+  aspectRatioExtraWidth: z.number().int().optional(),
+  columnWidth: z.any().optional(),
+  renderedValue: z.any().optional(),
+  headingAsSectionName: z.boolean().optional()
+});
+
+export type Section = z.infer<typeof SectionSchema>;
+
+export function createSection(options={}){
+  return SectionSchema.parse(options)
 }
 
-type ImageContent = {
-  type: Literal;
-  data: string;
-  mimeType: string;
-  annotations?: any;
+export const SectionSizeSchema = z.object({
+  width: z.union([z.number(), z.any()]).optional(),
+  height: z.union([z.number(), z.any()]).optional()
+});
+
+export type SectionSize = z.infer<typeof SectionSizeSchema>;
+
+export function createSectionSize(options={}){
+  return SectionSizeSchema.parse(options)
 }
 
-type Chat = {
-  id: string;
-  name: string;
-  lastUpdated?: datetime;
-  messages: ChatMessage[];
+export const SectionVariantSchema = z.object({
+  name: z.string().optional(),
+  values: z.record(z.string(), EVEntrySchema).optional(),
+  children: z.array(z.string()).optional(),
+  selectedItem: z.any().optional(),
+  code: z.string().optional(),
+  codeInfoColId: z.any().optional(),
+  description: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  sweep: z.array(z.any()).optional(),
+  runGroup: z.record(z.string(), z.any()).optional(),
+  configLanguage: ConfigLanguageSchema.optional(),
+  isJsonSource: z.boolean().optional(),
+  jsonSourceKeys: z.array(z.string()).optional(),
+  jsonSourceMissing: z.boolean().optional()
+});
+
+export type SectionVariant = z.infer<typeof SectionVariantSchema>;
+
+export function createSectionVariant(options={}){
+  return SectionVariantSchema.parse(options)
 }
 
-type ProjectUpdateState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-  requestRenameRefactor?: boolean;
+export const ViewportSchema = z.object({
+  x: z.number().optional(),
+  y: z.number().optional(),
+  zoom: z.number().optional()
+});
+
+export type Viewport = z.infer<typeof ViewportSchema>;
+
+export function createViewport(options={}){
+  return ViewportSchema.parse(options)
 }
 
-type EmbeddedResource = {
-  type: Literal;
-  resource: any;
-  annotations?: any;
+export const VisibilitySchema = z.object({
+  DEV: z.boolean().optional(),
+  USER: z.boolean().optional()
+});
+
+export type Visibility = z.infer<typeof VisibilitySchema>;
+
+export function createVisibility(options={}){
+  return VisibilitySchema.parse(options)
 }
 
-type SettingsState = {
-  shortcuts?: SettingsShortcuts;
-  gui?: SettingsGUI;
-  backend?: SettingsBackend;
-  languageServer?: dict;
-  sections?: dict;
+export const SettingsBackendSchema = z.object({
+  showDefaultConfigOnLoad: z.boolean().optional(),
+  autosave: z.boolean().optional(),
+  autobackup: z.boolean().optional(),
+  autobackupFreq: z.number().int().optional(),
+  autobackupKeepLastN: z.number().int().optional(),
+  clearTerminalBeforeMarkingAsReady: z.boolean().optional(),
+  defaultTerminalShell: z.any().optional(),
+  exportDbRawOnSave: z.boolean().optional(),
+  exportDbReadableOnSave: z.boolean().optional(),
+  exportDbReadableWithVariantsOnSave: z.boolean().optional(),
+  renameRefactorMode: z.string().optional(),
+  saveRenderedValues: z.boolean().optional()
+});
+
+export type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
+
+export function createSettingsBackend(options={}){
+  return SettingsBackendSchema.parse(options)
 }
 
-type TextContent = {
-  type: Literal;
-  text: string;
-  annotations?: any;
+export const SettingsGUISchema = z.object({
+  snapGrid: z.array(z.number().int()).optional(),
+  showGridLines: z.boolean().optional(),
+  gridPattern: z.string().optional(),
+  gridPatternSize: z.number().int().optional(),
+  gridColor: z.string().optional(),
+  gridColorDarkMode: z.string().optional(),
+  defaultZoomLevel: z.number().optional(),
+  minZoom: z.number().optional(),
+  maxZoom: z.number().optional(),
+  panOnDrag: z.boolean().optional(),
+  panOnScroll: z.boolean().optional(),
+  panOnScrollSpeed: z.number().optional(),
+  panOnScrollMode: z.string().optional(),
+  zoomOnScroll: z.boolean().optional(),
+  zoomOnPinch: z.boolean().optional(),
+  zoomOnDoubleClick: z.boolean().optional(),
+  selectionMode: z.string().optional(),
+  leftSidePaneShiftsMap: z.boolean().optional(),
+  transitionDuration: z.number().int().optional()
+});
+
+export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
+
+export function createSettingsGUI(options={}){
+  return SettingsGUISchema.parse(options)
 }
 
-type ChartSettings = {
-  type?: string;
-  xAxisColumn?: string;
-  secondYAxisColumns?: string[];
-  xAxisLog?: boolean;
-  y1AxisLog?: boolean;
-  y2AxisLog?: boolean;
+export const SettingsShortcutsSchema = z.object({
+  newCardShortcut: z.string().optional(),
+  newGroupShortcut: z.string().optional(),
+  typeCheckShortcut: z.string().optional(),
+  newProjectConfigShortcut: z.string().optional(),
+  undoShortcut: z.string().optional(),
+  redoShortcut: z.string().optional(),
+  groupShortcut: z.string().optional(),
+  ungroupShortcut: z.string().optional(),
+  saveShortcut: z.string().optional(),
+  saveAsShortcut: z.string().optional(),
+  loadShortcut: z.string().optional(),
+  searchShortcut: z.string().optional(),
+  advancedSearchShortcut: z.string().optional(),
+  commandPaletteShortcut: z.string().optional(),
+  resetZoomShortcut: z.string().optional(),
+  copyShortcut: z.string().optional(),
+  pasteShortcut: z.string().optional(),
+  pasteAsRefShortcut: z.string().optional(),
+  sortingShortcut: z.string().optional(),
+  movingFreeShortcut: z.string().optional(),
+  showTooltipShortcut: z.string().optional(),
+  tooltipToPlaintextShortcut: z.string().optional(),
+  tooltipToMarkdownShortcut: z.string().optional(),
+  freezeTooltipShortcut: z.string().optional(),
+  frozenTooltipToPlaintextShortcut: z.string().optional(),
+  frozenTooltipToMarkdownShortcut: z.string().optional(),
+  incrementTooltipPageShortcut: z.string().optional(),
+  decrementTooltipPageShortcut: z.string().optional(),
+  copyTooltipTextShortcut: z.string().optional(),
+  frozenTooltipIncrementShortcut: z.string().optional(),
+  frozenTooltipDecrementShortcut: z.string().optional(),
+  frozenTooltipCopyShortcut: z.string().optional(),
+  newTerminalShortcut: z.string().optional(),
+  fitViewShortcut: z.string().optional(),
+  zoomToMouseShortcut: z.string().optional(),
+  deleteSectionShortcut: z.string().optional(),
+  selectAll: z.string().optional(),
+  selectTopLevelNonGroupSections: z.string().optional(),
+  showVersionsTabShortcut: z.string().optional(),
+  showParamUITypeTabShortcut: z.string().optional(),
+  showProjectOverviewTabShortcut: z.string().optional(),
+  runCodeShortcut: z.string().optional(),
+  runEntryCodeBlockShortcut: z.string().optional(),
+  sendProjectToAllInteractiveCode: z.string().optional(),
+  paramSelect: z.string().optional(),
+  formatCode: z.string().optional(),
+  selectionKeyCode: z.string().optional(),
+  multiSelectionKeyCode: z.string().optional(),
+  panActivationKeyCode: z.string().optional(),
+  zoomActivationKeyCode: z.string().optional(),
+  zoomInShortcut: z.string().optional(),
+  zoomOutShortcut: z.string().optional(),
+  restartLanguageServerShortcut: z.string().optional()
+});
+
+export type SettingsShortcuts = z.infer<typeof SettingsShortcutsSchema>;
+
+export function createSettingsShortcuts(options={}){
+  return SettingsShortcutsSchema.parse(options)
 }
 
-type ProjectState = {
-  projectConfigs?: Record<string, ProjectConfig>;
-  sections?: Record<string, Section>;
-  variants?: Record<string, SectionVariant>;
-  codeInfo?: Record<string, CodeInfo>;
-  codeInfoCols?: Record<string, CodeInfoCol>;
-  uiTypes?: Record<string, UIType>;
-  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
-  defaultProjectConfigId?: any;
-}
+export const SettingsStateSchema = z.object({
+  shortcuts: SettingsShortcutsSchema.optional(),
+  gui: SettingsGUISchema.optional(),
+  backend: SettingsBackendSchema.optional(),
+  languageServer: z.any().optional(),
+  sections: z.any().optional()
+});
 
-type CodeInfoCol = {
-  children?: Record<any, string[]>;
-}
+export type SettingsState = z.infer<typeof SettingsStateSchema>;
 
-type FullMessageStop = {
-  type: Literal;
-  messages: ChatMessage[];
-  toolResults: Record<string, ToolResult>;
-}
-
-type Viewport = {
-  x?: number;
-  y?: number;
-  zoom?: number;
-}
-
-type Artifact = {
-  name: string;
-  path: string;
-  value?: any;
-  type: string;
-}
-
-type CodeInfo = {
-  id?: string;
-  name?: string;
-  editable?: boolean;
-  rcType?: CodeInfoType;
-  defaultVal?: string;
-  description?: string;
-  passingStyle?: ParameterPassingStyle;
-  isPinned?: boolean;
-  isFrozen?: boolean;
-  isSelected?: boolean;
-  ignoreTypeErrors?: boolean;
-}
-
-type SectionSize = {
-  width?: (number | Literal);
-  height?: (number | Literal);
-}
-
-type SettingsBackend = {
-  showDefaultConfigOnLoad?: boolean;
-  autosave?: boolean;
-  autobackup?: boolean;
-  autobackupFreq?: number;
-  autobackupKeepLastN?: number;
-  clearTerminalBeforeMarkingAsReady?: boolean;
-  defaultTerminalShell?: any;
-  exportDbRawOnSave?: boolean;
-  exportDbReadableOnSave?: boolean;
-  exportDbReadableWithVariantsOnSave?: boolean;
-  renameRefactorMode?: string;
-  saveRenderedValues?: boolean;
-}
-
-type UIType = {
-  id?: string;
-  type?: UITypeName;
-  name?: string;
-  presetType?: any;
-  config?: Record<string, any>;
+export function createSettingsState(options={}){
+  return SettingsStateSchema.parse(options)
 }
 
