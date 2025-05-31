@@ -4,7 +4,6 @@ import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { VIEWING_EDITING_MODE } from "utils/constants";
-import { createCodeInfoCol, createEVEntry } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { getCurrentProjectConfig } from "./project/loadProject";

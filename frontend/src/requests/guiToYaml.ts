@@ -7,7 +7,6 @@ import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents"
 import { useProjectState } from "state/definitions";
 import { getForSectionId } from "state/hooks/paramSweep";
 import { C } from "utils/c";
-import { createCodeInfoCol } from "utils/generated_schemas";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId, variantId) {

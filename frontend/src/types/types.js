@@ -5,12 +5,6 @@
  */
 
 /**
- * @typedef {Object} SectionSize
- * @property {(number|"auto")} width - Width value (number or "auto")
- * @property {(number|"auto")} height - Height value (number or "auto")
- */
-
-/**
  * @typedef {'SECTION'|'GROUP'|'TEXT_BLOCK'|'CODE'} SectionUIType
  */
 

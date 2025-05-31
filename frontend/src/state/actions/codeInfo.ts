@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { createCodeInfo, createCodeInfoCol } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 

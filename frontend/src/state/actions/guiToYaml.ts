@@ -16,7 +16,6 @@ import {
 import { getForSectionId } from "state/hooks/paramSweep";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
-import { createEVEntry } from "utils/generated_schemas";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewId } from "utils/idNameCreation";
 import { parseAllDocuments } from "yaml";

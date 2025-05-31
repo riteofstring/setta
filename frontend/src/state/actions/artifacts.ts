@@ -6,7 +6,6 @@ import _ from "lodash";
 import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { createArtifact } from "utils/generated_schemas";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";

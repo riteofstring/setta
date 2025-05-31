@@ -1,6 +1,5 @@
 import { wsParametersRequest } from "requests/sections";
 import { useProjectState } from "state/definitions";
-import { CodeInfoType, createCodeInfo } from "utils/generated_schemas";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";

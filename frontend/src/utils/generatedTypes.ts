@@ -22,28 +22,28 @@ enum UITypeName {
   GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP",
   IFRAME = "IFRAME",
   CHAT = "CHAT",
-  BROWSER = "BROWSER"
+  BROWSER = "BROWSER",
 }
 
 enum UITypePresetType {
   BASE = "BASE",
-  USER = "USER"
+  USER = "USER",
 }
 
 enum CodeInfoType {
   PARAMETER = "parameter",
   CALLABLE = "callable",
-  COLLECTION = "collection"
+  COLLECTION = "collection",
 }
 
 enum CodeLanguage {
   PYTHON = "python",
-  BASH = "bash"
+  BASH = "bash",
 }
 
 enum ConfigLanguage {
   PYTHON = "python",
-  JSON = "json"
+  JSON = "json",
 }
 
 enum ParameterPassingStyle {
@@ -51,17 +51,17 @@ enum ParameterPassingStyle {
   ARGS = "ARGS",
   KWARGS = "KWARGS",
   POSITIONAL_ONLY = "POSITIONAL_ONLY",
-  KEYWORD_ONLY = "KEYWORD_ONLY"
+  KEYWORD_ONLY = "KEYWORD_ONLY",
 }
 
 enum Size {
-  AUTO = "auto"
+  AUTO = "auto",
 }
 
 enum ViewingEditingMode {
   DEV = "DEV",
   USER = "USER",
-  USER_EDIT = "USER_EDIT"
+  USER_EDIT = "USER_EDIT",
 }
 
 type UIType = {
@@ -70,7 +70,7 @@ type UIType = {
   name?: string;
   presetType?: any;
   config?: Record<string, any>;
-}
+};
 
 type WebSearchResultBlock = {
   encrypted_content: string;
@@ -78,12 +78,17 @@ type WebSearchResultBlock = {
   title: string;
   type: "web_search_result";
   url: string;
-}
+};
 
 type WebSearchToolResultError = {
-  error_code: "invalid_tool_input" | "unavailable" | "max_uses_exceeded" | "too_many_requests" | "query_too_long";
+  error_code:
+    | "invalid_tool_input"
+    | "unavailable"
+    | "max_uses_exceeded"
+    | "too_many_requests"
+    | "query_too_long";
   type: "web_search_tool_result_error";
-}
+};
 
 type CitationsWebSearchResultLocation = {
   cited_text: string;
@@ -91,7 +96,7 @@ type CitationsWebSearchResultLocation = {
   title?: string | null;
   type: "web_search_result_location";
   url: string;
-}
+};
 
 type CitationContentBlockLocation = {
   cited_text: string;
@@ -100,7 +105,7 @@ type CitationContentBlockLocation = {
   end_block_index: number;
   start_block_index: number;
   type: "content_block_location";
-}
+};
 
 type CitationPageLocation = {
   cited_text: string;
@@ -109,7 +114,7 @@ type CitationPageLocation = {
   end_page_number: number;
   start_page_number: number;
   type: "page_location";
-}
+};
 
 type CitationCharLocation = {
   cited_text: string;
@@ -118,103 +123,120 @@ type CitationCharLocation = {
   end_char_index: number;
   start_char_index: number;
   type: "char_location";
-}
+};
 
 type ToolResult = {
   type: "tool_result";
   tool_use_id: string;
   content: any[];
   is_error: boolean;
-}
+};
 
 type RedactedThinkingBlock = {
   data: string;
   type: "redacted_thinking";
-}
+};
 
 type ThinkingBlock = {
   signature: string;
   thinking: string;
   type: "thinking";
-}
+};
 
 type WebSearchToolResultBlock = {
-  content: (WebSearchToolResultError | WebSearchResultBlock[]);
+  content: WebSearchToolResultError | WebSearchResultBlock[];
   tool_use_id: string;
   type: "web_search_tool_result";
-}
+};
 
 type ServerToolUseBlock = {
   id: string;
   input: any;
   name: "web_search";
   type: "server_tool_use";
-}
+};
 
 type ToolUseBlock = {
   id: string;
   input: any;
   name: string;
   type: "tool_use";
-}
+};
 
 type TextBlock = {
-  citations?: (CitationCharLocation | CitationPageLocation | CitationContentBlockLocation | CitationsWebSearchResultLocation)[] | null;
+  citations?:
+    | (
+        | CitationCharLocation
+        | CitationPageLocation
+        | CitationContentBlockLocation
+        | CitationsWebSearchResultLocation
+      )[]
+    | null;
   text: string;
   type: "text";
-}
+};
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
-  content: ((TextBlock | ToolUseBlock | ServerToolUseBlock | WebSearchToolResultBlock | ThinkingBlock | RedactedThinkingBlock) | ToolResult)[];
-}
+  content: (
+    | (
+        | TextBlock
+        | ToolUseBlock
+        | ServerToolUseBlock
+        | WebSearchToolResultBlock
+        | ThinkingBlock
+        | RedactedThinkingBlock
+      )
+    | ToolResult
+  )[];
+};
 
 type Chat = {
   id: string;
   name: string;
   lastUpdated?: Date;
   messages: ChatMessage[];
-}
+};
 
 type ChatMetadata = {
   id: string;
   name: string;
   lastUpdated?: Date;
-}
+};
 
 type EmbeddedResource = {
   type: "resource";
   resource: any;
   annotations?: any;
-}
+};
 
 type FullMessageStop = {
   type: "full_message_stop";
   messages: ChatMessage[];
   toolResults: Record<string, ToolResult>;
-}
+};
 
 type ImageContent = {
   type: "image";
   data: string;
   mimeType: string;
   annotations?: any;
-}
+};
 
 type TextContent = {
   type: "text";
   text: string;
   annotations?: any;
-}
+};
 
 type CodeInfoCol = {
   children?: Record<any, string[]>;
-}
+};
 
 type EVEntry = {
   value?: string;
-}
+};
 
 type ChartSettings = {
   type?: string;
@@ -223,7 +245,7 @@ type ChartSettings = {
   xAxisLog?: boolean;
   y1AxisLog?: boolean;
   y2AxisLog?: boolean;
-}
+};
 
 type DrawAreaCanvasSettings = {
   activeLayerId?: any;
@@ -234,17 +256,17 @@ type DrawAreaCanvasSettings = {
   drawThrottleDelay?: number;
   canvasTransferQueueLength?: number;
   mode?: string;
-}
+};
 
 type Visibility = {
   DEV?: boolean;
   USER?: boolean;
-}
+};
 
 type SectionSize = {
-  width?: (number | "auto");
-  height?: (number | "auto");
-}
+  width?: number | "auto";
+  height?: number | "auto";
+};
 
 type ProjectConfigChild = {
   x?: number;
@@ -252,12 +274,12 @@ type ProjectConfigChild = {
   zIndex?: number;
   w?: number;
   h?: number;
-}
+};
 
 type UITypeColEntry = {
   uiTypeId?: string;
   nonPresetUITypeIds?: string[];
-}
+};
 
 type CodeInfo = {
   id?: string;
@@ -271,7 +293,7 @@ type CodeInfo = {
   isFrozen?: boolean;
   isSelected?: boolean;
   ignoreTypeErrors?: boolean;
-}
+};
 
 type SectionVariant = {
   name?: string;
@@ -288,7 +310,7 @@ type SectionVariant = {
   isJsonSource?: boolean;
   jsonSourceKeys?: string[];
   jsonSourceMissing?: boolean;
-}
+};
 
 type Section = {
   id?: string;
@@ -314,7 +336,7 @@ type Section = {
   hideColumn?: boolean;
   displayMode?: string;
   visibility?: Visibility;
-  pinnedAreaHeight?: (number | "auto");
+  pinnedAreaHeight?: number | "auto";
   isMinimized?: boolean;
   canvasSettings?: DrawAreaCanvasSettings;
   chartSettings?: ChartSettings;
@@ -330,7 +352,7 @@ type Section = {
   columnWidth?: any;
   renderedValue?: any;
   headingAsSectionName?: boolean;
-}
+};
 
 type ProjectConfig = {
   id?: string;
@@ -341,7 +363,7 @@ type ProjectConfig = {
   viewingEditingMode?: ViewingEditingMode;
   genCodePrefix?: string;
   genCodeSuffix?: string;
-}
+};
 
 type ProjectState = {
   projectConfigs?: Record<string, ProjectConfig>;
@@ -352,36 +374,36 @@ type ProjectState = {
   uiTypes?: Record<string, UIType>;
   uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
   defaultProjectConfigId?: any;
-}
+};
 
 type Artifact = {
   name: string;
   path: string;
   value?: any;
   type: string;
-}
+};
 
 type ProjectLoadState = {
   projectConfigId: string;
   projectState: ProjectState;
-}
+};
 
 type ProjectSaveState = {
   projectConfigId: string;
   projectState: ProjectState;
-}
+};
 
 type ProjectUpdateState = {
   projectConfigId: string;
   projectState: ProjectState;
   requestRenameRefactor?: boolean;
-}
+};
 
 type Viewport = {
   x?: number;
   y?: number;
   zoom?: number;
-}
+};
 
 type SettingsBackend = {
   showDefaultConfigOnLoad?: boolean;
@@ -396,7 +418,7 @@ type SettingsBackend = {
   exportDbReadableWithVariantsOnSave?: boolean;
   renameRefactorMode?: string;
   saveRenderedValues?: boolean;
-}
+};
 
 type SettingsGUI = {
   snapGrid?: number[];
@@ -418,7 +440,7 @@ type SettingsGUI = {
   selectionMode?: string;
   leftSidePaneShiftsMap?: boolean;
   transitionDuration?: number;
-}
+};
 
 type SettingsShortcuts = {
   newCardShortcut?: string;
@@ -474,7 +496,7 @@ type SettingsShortcuts = {
   zoomInShortcut?: string;
   zoomOutShortcut?: string;
   restartLanguageServerShortcut?: string;
-}
+};
 
 type SettingsState = {
   shortcuts?: SettingsShortcuts;
@@ -482,5 +504,4 @@ type SettingsState = {
   backend?: SettingsBackend;
   languageServer?: Record<string, any>;
   sections?: Record<string, any>;
-}
-
+};
