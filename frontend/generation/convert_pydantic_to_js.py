@@ -265,11 +265,8 @@ def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
     for field_name, field_info in model.model_fields.items():
         field_type = field_info.annotation
         ts_type = python_type_to_ts(field_type, type_definitions, processed_types)
-        is_required = field_info.is_required()
-        if is_required:
-            fields.append(f"  {field_name}: {ts_type}")
-        else:
-            fields.append(f"  {field_name}?: {ts_type}")
+        # is_required = field_info.is_required()
+        fields.append(f"  {field_name}: {ts_type}")
 
     # Join fields with semicolons
     members_str = ";\n".join(fields)

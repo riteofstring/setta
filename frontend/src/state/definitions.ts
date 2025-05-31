@@ -25,11 +25,13 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
+type ZustandActiveSection = { ids: Array<string> };
+
 export const useActiveSection = withProjectState(
   createWithEqualityFn(
     temporal(
       withResetFn(() =>
-        withVersion({
+        withVersion<ZustandActiveSection>({
           ids: [],
         }),
       ),
@@ -48,13 +50,24 @@ export const useContextMenus = withProjectState(
   ),
 );
 
+type ZustandProjectState = {
+  projectConfigId: string | null;
+  projectConfigs: ProjectState["projectConfigs"];
+  sections: ProjectState["sections"];
+  variants: ProjectState["variants"];
+  uiTypeCols: ProjectState["uiTypeCols"];
+  uiTypes: ProjectState["uiTypes"];
+  codeInfoCols: ProjectState["codeInfoCols"];
+  codeInfo: ProjectState["codeInfo"];
+};
+
 export const useProjectState = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
       temporal(
         immer(
           withResetFn(() =>
-            withVersion({
+            withVersion<ZustandProjectState>({
               projectConfigId: null,
               projectConfigs: {},
               sections: {},
@@ -250,7 +263,7 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-type AIStore = {
+type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;
@@ -261,7 +274,7 @@ type AIStore = {
   idToUUIDForLLM: IDToUUIDForLLM;
 };
 
-export const useAIStore = createWithEqualityFn<AIStore>()(
+export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
   // @ts-ignore
   subscribeWithSelector(
     persist(

@@ -71,16 +71,16 @@ enum ViewingEditingMode {
 }
 
 type UIType = {
-  id?: string;
-  type?: UITypeName;
-  name?: string;
-  presetType?: any;
-  config?: Record<string, any>;
+  id: string;
+  type: UITypeName;
+  name: string;
+  presetType: any;
+  config: Record<string, any>;
 };
 
 type WebSearchResultBlock = {
   encrypted_content: string;
-  page_age?: string | null;
+  page_age: string | null;
   title: string;
   type: "web_search_result";
   url: string;
@@ -99,7 +99,7 @@ type WebSearchToolResultError = {
 type CitationsWebSearchResultLocation = {
   cited_text: string;
   encrypted_index: string;
-  title?: string | null;
+  title: string | null;
   type: "web_search_result_location";
   url: string;
 };
@@ -107,7 +107,7 @@ type CitationsWebSearchResultLocation = {
 type CitationContentBlockLocation = {
   cited_text: string;
   document_index: number;
-  document_title?: string | null;
+  document_title: string | null;
   end_block_index: number;
   start_block_index: number;
   type: "content_block_location";
@@ -116,7 +116,7 @@ type CitationContentBlockLocation = {
 type CitationPageLocation = {
   cited_text: string;
   document_index: number;
-  document_title?: string | null;
+  document_title: string | null;
   end_page_number: number;
   start_page_number: number;
   type: "page_location";
@@ -125,7 +125,7 @@ type CitationPageLocation = {
 type CitationCharLocation = {
   cited_text: string;
   document_index: number;
-  document_title?: string | null;
+  document_title: string | null;
   end_char_index: number;
   start_char_index: number;
   type: "char_location";
@@ -170,7 +170,7 @@ type ToolUseBlock = {
 };
 
 type TextBlock = {
-  citations?:
+  citations:
     | (
         | CitationCharLocation
         | CitationPageLocation
@@ -201,20 +201,20 @@ type ChatMessage = {
 type Chat = {
   id: string;
   name: string;
-  lastUpdated?: string;
+  lastUpdated: string;
   messages: ChatMessage[];
 };
 
 type ChatMetadata = {
   id: string;
   name: string;
-  lastUpdated?: string;
+  lastUpdated: string;
 };
 
 type EmbeddedResource = {
   type: "resource";
   resource: any;
-  annotations?: any;
+  annotations: any;
 };
 
 type FullMessageStop = {
@@ -227,165 +227,165 @@ type ImageContent = {
   type: "image";
   data: string;
   mimeType: string;
-  annotations?: any;
+  annotations: any;
 };
 
 type TextContent = {
   type: "text";
   text: string;
-  annotations?: any;
+  annotations: any;
 };
 
 type CodeInfoCol = {
-  children?: Record<any, string[]>;
+  children: Record<any, string[]>;
 };
 
 type EVEntry = {
-  value?: string;
+  value: string;
 };
 
 type ChartSettings = {
-  type?: string;
-  xAxisColumn?: string;
-  secondYAxisColumns?: string[];
-  xAxisLog?: boolean;
-  y1AxisLog?: boolean;
-  y2AxisLog?: boolean;
+  type: string;
+  xAxisColumn: string;
+  secondYAxisColumns: string[];
+  xAxisLog: boolean;
+  y1AxisLog: boolean;
+  y2AxisLog: boolean;
 };
 
 type DrawAreaCanvasSettings = {
-  activeLayerId?: any;
-  color?: string;
-  brushSize?: number;
-  brushShape?: string;
-  eraserBrushSize?: number;
-  drawThrottleDelay?: number;
-  canvasTransferQueueLength?: number;
-  mode?: string;
+  activeLayerId: any;
+  color: string;
+  brushSize: number;
+  brushShape: string;
+  eraserBrushSize: number;
+  drawThrottleDelay: number;
+  canvasTransferQueueLength: number;
+  mode: string;
 };
 
 type Visibility = {
-  DEV?: boolean;
-  USER?: boolean;
+  DEV: boolean;
+  USER: boolean;
 };
 
 type SectionSize = {
-  width?: number | "auto";
-  height?: number | "auto";
+  width: number | "auto";
+  height: number | "auto";
 };
 
 type ProjectConfigChild = {
-  x?: number;
-  y?: number;
-  zIndex?: number;
-  w?: number;
-  h?: number;
+  x: number;
+  y: number;
+  zIndex: number;
+  w: number;
+  h: number;
 };
 
 type UITypeColEntry = {
-  uiTypeId?: string;
-  nonPresetUITypeIds?: string[];
+  uiTypeId: string;
+  nonPresetUITypeIds: string[];
 };
 
 type CodeInfo = {
-  id?: string;
-  name?: string;
-  editable?: boolean;
-  rcType?: CodeInfoType;
-  defaultVal?: string;
-  description?: string;
-  passingStyle?: ParameterPassingStyle;
-  isPinned?: boolean;
-  isFrozen?: boolean;
-  isSelected?: boolean;
-  ignoreTypeErrors?: boolean;
+  id: string;
+  name: string;
+  editable: boolean;
+  rcType: CodeInfoType;
+  defaultVal: string;
+  description: string;
+  passingStyle: ParameterPassingStyle;
+  isPinned: boolean;
+  isFrozen: boolean;
+  isSelected: boolean;
+  ignoreTypeErrors: boolean;
 };
 
 type SectionVariant = {
-  name?: string;
-  values?: Record<string, EVEntry>;
-  children?: string[];
-  selectedItem?: any;
-  code?: string;
-  codeInfoColId?: any;
-  description?: string;
-  isFrozen?: boolean;
-  sweep?: any[];
-  runGroup?: Record<string, any>;
-  configLanguage?: ConfigLanguage;
-  isJsonSource?: boolean;
-  jsonSourceKeys?: string[];
-  jsonSourceMissing?: boolean;
+  name: string;
+  values: Record<string, EVEntry>;
+  children: string[];
+  selectedItem: any;
+  code: string;
+  codeInfoColId: any;
+  description: string;
+  isFrozen: boolean;
+  sweep: any[];
+  runGroup: Record<string, any>;
+  configLanguage: ConfigLanguage;
+  isJsonSource: boolean;
+  jsonSourceKeys: string[];
+  jsonSourceMissing: boolean;
 };
 
 type Section = {
-  id?: string;
-  name?: string;
-  size?: SectionSize;
-  parentId?: any;
-  variantId?: string;
-  uiTypeId?: string;
-  uiTypeColId?: any;
-  social?: string;
-  artifactGroupIds?: string[];
-  defaultVariantId?: any;
-  variantIds?: string[];
-  paramSweepSectionId?: any;
-  nonPresetUITypeIds?: string[];
-  codeLanguage?: CodeLanguage;
-  isEntryCodeBlock?: boolean;
-  isFrozen?: boolean;
-  isHorizontalOrientation?: boolean;
-  hideParams?: boolean;
-  hideSearch?: boolean;
-  hideUnpinnedParams?: boolean;
-  hideColumn?: boolean;
-  displayMode?: string;
-  visibility?: Visibility;
-  pinnedAreaHeight?: number | "auto";
-  isMinimized?: boolean;
-  canvasSettings?: DrawAreaCanvasSettings;
-  chartSettings?: ChartSettings;
-  isTemporary?: boolean;
-  renderMarkdown?: boolean;
-  positionAndSizeLocked?: boolean;
-  selectedVariantIds?: Record<string, any>;
-  paramFilter?: string;
-  isInOtherProjectConfigs?: boolean;
-  aspectRatio?: boolean;
-  aspectRatioExtraHeight?: number;
-  aspectRatioExtraWidth?: number;
-  columnWidth?: any;
-  renderedValue?: any;
-  headingAsSectionName?: boolean;
+  id: string;
+  name: string;
+  size: SectionSize;
+  parentId: any;
+  variantId: string;
+  uiTypeId: string;
+  uiTypeColId: any;
+  social: string;
+  artifactGroupIds: string[];
+  defaultVariantId: any;
+  variantIds: string[];
+  paramSweepSectionId: any;
+  nonPresetUITypeIds: string[];
+  codeLanguage: CodeLanguage;
+  isEntryCodeBlock: boolean;
+  isFrozen: boolean;
+  isHorizontalOrientation: boolean;
+  hideParams: boolean;
+  hideSearch: boolean;
+  hideUnpinnedParams: boolean;
+  hideColumn: boolean;
+  displayMode: string;
+  visibility: Visibility;
+  pinnedAreaHeight: number | "auto";
+  isMinimized: boolean;
+  canvasSettings: DrawAreaCanvasSettings;
+  chartSettings: ChartSettings;
+  isTemporary: boolean;
+  renderMarkdown: boolean;
+  positionAndSizeLocked: boolean;
+  selectedVariantIds: Record<string, any>;
+  paramFilter: string;
+  isInOtherProjectConfigs: boolean;
+  aspectRatio: boolean;
+  aspectRatioExtraHeight: number;
+  aspectRatioExtraWidth: number;
+  columnWidth: any;
+  renderedValue: any;
+  headingAsSectionName: boolean;
 };
 
 type ProjectConfig = {
-  id?: string;
-  name?: string;
-  previewImgColor?: string;
-  viewport?: any;
-  children?: Record<string, ProjectConfigChild>;
-  viewingEditingMode?: ViewingEditingMode;
-  genCodePrefix?: string;
-  genCodeSuffix?: string;
+  id: string;
+  name: string;
+  previewImgColor: string;
+  viewport: any;
+  children: Record<string, ProjectConfigChild>;
+  viewingEditingMode: ViewingEditingMode;
+  genCodePrefix: string;
+  genCodeSuffix: string;
 };
 
 type ProjectState = {
-  projectConfigs?: Record<string, ProjectConfig>;
-  sections?: Record<string, Section>;
-  variants?: Record<string, SectionVariant>;
-  codeInfo?: Record<string, CodeInfo>;
-  codeInfoCols?: Record<string, CodeInfoCol>;
-  uiTypes?: Record<string, UIType>;
-  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
-  defaultProjectConfigId?: any;
+  projectConfigs: Record<string, ProjectConfig>;
+  sections: Record<string, Section>;
+  variants: Record<string, SectionVariant>;
+  codeInfo: Record<string, CodeInfo>;
+  codeInfoCols: Record<string, CodeInfoCol>;
+  uiTypes: Record<string, UIType>;
+  uiTypeCols: Record<string, Record<string, UITypeColEntry>>;
+  defaultProjectConfigId: any;
 };
 
 type Artifact = {
   name: string;
   path: string;
-  value?: any;
+  value: any;
   type: string;
 };
 
@@ -402,112 +402,112 @@ type ProjectSaveState = {
 type ProjectUpdateState = {
   projectConfigId: string;
   projectState: ProjectState;
-  requestRenameRefactor?: boolean;
+  requestRenameRefactor: boolean;
 };
 
 type Viewport = {
-  x?: number;
-  y?: number;
-  zoom?: number;
+  x: number;
+  y: number;
+  zoom: number;
 };
 
 type SettingsBackend = {
-  showDefaultConfigOnLoad?: boolean;
-  autosave?: boolean;
-  autobackup?: boolean;
-  autobackupFreq?: number;
-  autobackupKeepLastN?: number;
-  clearTerminalBeforeMarkingAsReady?: boolean;
-  defaultTerminalShell?: any;
-  exportDbRawOnSave?: boolean;
-  exportDbReadableOnSave?: boolean;
-  exportDbReadableWithVariantsOnSave?: boolean;
-  renameRefactorMode?: string;
-  saveRenderedValues?: boolean;
+  showDefaultConfigOnLoad: boolean;
+  autosave: boolean;
+  autobackup: boolean;
+  autobackupFreq: number;
+  autobackupKeepLastN: number;
+  clearTerminalBeforeMarkingAsReady: boolean;
+  defaultTerminalShell: any;
+  exportDbRawOnSave: boolean;
+  exportDbReadableOnSave: boolean;
+  exportDbReadableWithVariantsOnSave: boolean;
+  renameRefactorMode: string;
+  saveRenderedValues: boolean;
 };
 
 type SettingsGUI = {
-  snapGrid?: number[];
-  showGridLines?: boolean;
-  gridPattern?: string;
-  gridPatternSize?: number;
-  gridColor?: string;
-  gridColorDarkMode?: string;
-  defaultZoomLevel?: number;
-  minZoom?: number;
-  maxZoom?: number;
-  panOnDrag?: boolean;
-  panOnScroll?: boolean;
-  panOnScrollSpeed?: number;
-  panOnScrollMode?: string;
-  zoomOnScroll?: boolean;
-  zoomOnPinch?: boolean;
-  zoomOnDoubleClick?: boolean;
-  selectionMode?: string;
-  leftSidePaneShiftsMap?: boolean;
-  transitionDuration?: number;
+  snapGrid: number[];
+  showGridLines: boolean;
+  gridPattern: string;
+  gridPatternSize: number;
+  gridColor: string;
+  gridColorDarkMode: string;
+  defaultZoomLevel: number;
+  minZoom: number;
+  maxZoom: number;
+  panOnDrag: boolean;
+  panOnScroll: boolean;
+  panOnScrollSpeed: number;
+  panOnScrollMode: string;
+  zoomOnScroll: boolean;
+  zoomOnPinch: boolean;
+  zoomOnDoubleClick: boolean;
+  selectionMode: string;
+  leftSidePaneShiftsMap: boolean;
+  transitionDuration: number;
 };
 
 type SettingsShortcuts = {
-  newCardShortcut?: string;
-  newGroupShortcut?: string;
-  typeCheckShortcut?: string;
-  newProjectConfigShortcut?: string;
-  undoShortcut?: string;
-  redoShortcut?: string;
-  groupShortcut?: string;
-  ungroupShortcut?: string;
-  saveShortcut?: string;
-  saveAsShortcut?: string;
-  loadShortcut?: string;
-  searchShortcut?: string;
-  advancedSearchShortcut?: string;
-  commandPaletteShortcut?: string;
-  resetZoomShortcut?: string;
-  copyShortcut?: string;
-  pasteShortcut?: string;
-  pasteAsRefShortcut?: string;
-  sortingShortcut?: string;
-  movingFreeShortcut?: string;
-  showTooltipShortcut?: string;
-  tooltipToPlaintextShortcut?: string;
-  tooltipToMarkdownShortcut?: string;
-  freezeTooltipShortcut?: string;
-  frozenTooltipToPlaintextShortcut?: string;
-  frozenTooltipToMarkdownShortcut?: string;
-  incrementTooltipPageShortcut?: string;
-  decrementTooltipPageShortcut?: string;
-  copyTooltipTextShortcut?: string;
-  frozenTooltipIncrementShortcut?: string;
-  frozenTooltipDecrementShortcut?: string;
-  frozenTooltipCopyShortcut?: string;
-  newTerminalShortcut?: string;
-  fitViewShortcut?: string;
-  zoomToMouseShortcut?: string;
-  deleteSectionShortcut?: string;
-  selectAll?: string;
-  selectTopLevelNonGroupSections?: string;
-  showVersionsTabShortcut?: string;
-  showParamUITypeTabShortcut?: string;
-  showProjectOverviewTabShortcut?: string;
-  runCodeShortcut?: string;
-  runEntryCodeBlockShortcut?: string;
-  sendProjectToAllInteractiveCode?: string;
-  paramSelect?: string;
-  formatCode?: string;
-  selectionKeyCode?: string;
-  multiSelectionKeyCode?: string;
-  panActivationKeyCode?: string;
-  zoomActivationKeyCode?: string;
-  zoomInShortcut?: string;
-  zoomOutShortcut?: string;
-  restartLanguageServerShortcut?: string;
+  newCardShortcut: string;
+  newGroupShortcut: string;
+  typeCheckShortcut: string;
+  newProjectConfigShortcut: string;
+  undoShortcut: string;
+  redoShortcut: string;
+  groupShortcut: string;
+  ungroupShortcut: string;
+  saveShortcut: string;
+  saveAsShortcut: string;
+  loadShortcut: string;
+  searchShortcut: string;
+  advancedSearchShortcut: string;
+  commandPaletteShortcut: string;
+  resetZoomShortcut: string;
+  copyShortcut: string;
+  pasteShortcut: string;
+  pasteAsRefShortcut: string;
+  sortingShortcut: string;
+  movingFreeShortcut: string;
+  showTooltipShortcut: string;
+  tooltipToPlaintextShortcut: string;
+  tooltipToMarkdownShortcut: string;
+  freezeTooltipShortcut: string;
+  frozenTooltipToPlaintextShortcut: string;
+  frozenTooltipToMarkdownShortcut: string;
+  incrementTooltipPageShortcut: string;
+  decrementTooltipPageShortcut: string;
+  copyTooltipTextShortcut: string;
+  frozenTooltipIncrementShortcut: string;
+  frozenTooltipDecrementShortcut: string;
+  frozenTooltipCopyShortcut: string;
+  newTerminalShortcut: string;
+  fitViewShortcut: string;
+  zoomToMouseShortcut: string;
+  deleteSectionShortcut: string;
+  selectAll: string;
+  selectTopLevelNonGroupSections: string;
+  showVersionsTabShortcut: string;
+  showParamUITypeTabShortcut: string;
+  showProjectOverviewTabShortcut: string;
+  runCodeShortcut: string;
+  runEntryCodeBlockShortcut: string;
+  sendProjectToAllInteractiveCode: string;
+  paramSelect: string;
+  formatCode: string;
+  selectionKeyCode: string;
+  multiSelectionKeyCode: string;
+  panActivationKeyCode: string;
+  zoomActivationKeyCode: string;
+  zoomInShortcut: string;
+  zoomOutShortcut: string;
+  restartLanguageServerShortcut: string;
 };
 
 type SettingsState = {
-  shortcuts?: SettingsShortcuts;
-  gui?: SettingsGUI;
-  backend?: SettingsBackend;
-  languageServer?: Record<string, any>;
-  sections?: Record<string, any>;
+  shortcuts: SettingsShortcuts;
+  gui: SettingsGUI;
+  backend: SettingsBackend;
+  languageServer: Record<string, any>;
+  sections: Record<string, any>;
 };
