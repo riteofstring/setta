@@ -2,6 +2,7 @@ import enum
 import importlib
 import inspect
 import pkgutil
+from collections.abc import Sequence as ABCSequence
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Set, Tuple, Union, get_args, get_origin
 
@@ -93,8 +94,8 @@ def python_type_to_ts(python_type):
             ts_types = [python_type_to_ts(t) for t in args]
             return f"({' | '.join(ts_types)})"
 
-    # Handle list/List types
-    if origin in (list, List):
+    # Handle list/List/Sequence types
+    if origin in (list, List, ABCSequence):
         args = get_args(python_type)
         if args:
             return f"{python_type_to_ts(args[0])}[]"
