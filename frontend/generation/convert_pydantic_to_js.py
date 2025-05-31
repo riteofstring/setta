@@ -86,7 +86,7 @@ def alias_to_ts(name, alias_type, type_definitions: dict, processed_types: set):
     # Generate any dependencies first
     dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
 
-    return dependency_ts + f"type {name} = {ts_type};\n\n"
+    return dependency_ts + f"export type {name} = {ts_type};\n\n"
 
 
 def enum_to_ts(enum_class, processed_types: set):
@@ -97,7 +97,7 @@ def enum_to_ts(enum_class, processed_types: set):
     processed_types.add(enum_name)
     members = [f'  {member.name} = "{member.value}"' for member in enum_class]
     members_str = ",\n".join(members)
-    return f"enum {enum_name} {{\n{members_str}\n}}\n\n"
+    return f"export enum {enum_name} {{\n{members_str}\n}}\n\n"
 
 
 def python_type_to_ts(python_type, type_definitions: dict, processed_types: set):
@@ -276,7 +276,7 @@ def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
     # Generate TypeScript for any dependencies that were discovered
     dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
 
-    return dependency_ts + f"type {name} = {{\n{members_str}\n}}\n\n"
+    return dependency_ts + f"export type {name} = {{\n{members_str}\n}}\n\n"
 
 
 def main(output_file):
@@ -292,7 +292,7 @@ def main(output_file):
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
 
-    ts_code = "type ID = string\n\n"
+    ts_code = "export type ID = string\n\n"
     processed_types = set()
     type_definitions = {}
 

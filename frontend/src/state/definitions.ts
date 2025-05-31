@@ -14,6 +14,7 @@ import {
   withVersion,
   ZUNDO_TEMPORAL_OPTIONS,
 } from "./utils";
+import { APIKeys, ChatMetadata, IDToUUIDForLLM, ProjectState, SettaNotification, SettingsState } from "utils/generatedTypes";
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -136,8 +137,10 @@ export const useNodeInternals = withProjectState(
   ),
 );
 
+type ZustandNotificationState = { notifications: Array<SettaNotification> };
+
 export const useNotifications = createWithEqualityFn(
-  withResetFn(() => ({
+  withResetFn<ZustandNotificationState>(() => ({
     notifications: [],
   })),
 );

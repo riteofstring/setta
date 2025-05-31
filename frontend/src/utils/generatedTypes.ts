@@ -1,10 +1,10 @@
-type ID = string;
+export type ID = string;
 
-type APIKeys = Record<string, string>;
+export type APIKeys = Record<string, string>;
 
-type IDToUUIDForLLM = Record<ID, string>;
+export type IDToUUIDForLLM = Record<ID, string>;
 
-enum UITypeName {
+export enum UITypeName {
   TEXT = "TEXT",
   SLIDER = "SLIDER",
   SWITCH = "SWITCH",
@@ -31,18 +31,18 @@ enum UITypeName {
   BROWSER = "BROWSER",
 }
 
-enum UITypePresetType {
+export enum UITypePresetType {
   BASE = "BASE",
   USER = "USER",
 }
 
-enum CodeInfoType {
+export enum CodeInfoType {
   PARAMETER = "parameter",
   CALLABLE = "callable",
   COLLECTION = "collection",
 }
 
-enum SettaNotificationType {
+export enum SettaNotificationType {
   SUCCESS = "success",
   ERROR = "error",
   WARNING = "warning",
@@ -50,17 +50,17 @@ enum SettaNotificationType {
   SAVE = "save",
 }
 
-enum CodeLanguage {
+export enum CodeLanguage {
   PYTHON = "python",
   BASH = "bash",
 }
 
-enum ConfigLanguage {
+export enum ConfigLanguage {
   PYTHON = "python",
   JSON = "json",
 }
 
-enum ParameterPassingStyle {
+export enum ParameterPassingStyle {
   DEFAULT = "DEFAULT",
   ARGS = "ARGS",
   KWARGS = "KWARGS",
@@ -68,17 +68,17 @@ enum ParameterPassingStyle {
   KEYWORD_ONLY = "KEYWORD_ONLY",
 }
 
-enum Size {
+export enum Size {
   AUTO = "auto",
 }
 
-enum ViewingEditingMode {
+export enum ViewingEditingMode {
   DEV = "DEV",
   USER = "USER",
   USER_EDIT = "USER_EDIT",
 }
 
-type UIType = {
+export type UIType = {
   id: string;
   type: UITypeName;
   name: string;
@@ -86,7 +86,7 @@ type UIType = {
   config: Record<string, any>;
 };
 
-type WebSearchResultBlock = {
+export type WebSearchResultBlock = {
   encrypted_content: string;
   page_age: string | null;
   title: string;
@@ -94,7 +94,7 @@ type WebSearchResultBlock = {
   url: string;
 };
 
-type WebSearchToolResultError = {
+export type WebSearchToolResultError = {
   error_code:
     | "invalid_tool_input"
     | "unavailable"
@@ -104,7 +104,7 @@ type WebSearchToolResultError = {
   type: "web_search_tool_result_error";
 };
 
-type CitationsWebSearchResultLocation = {
+export type CitationsWebSearchResultLocation = {
   cited_text: string;
   encrypted_index: string;
   title: string | null;
@@ -112,7 +112,7 @@ type CitationsWebSearchResultLocation = {
   url: string;
 };
 
-type CitationContentBlockLocation = {
+export type CitationContentBlockLocation = {
   cited_text: string;
   document_index: number;
   document_title: string | null;
@@ -121,7 +121,7 @@ type CitationContentBlockLocation = {
   type: "content_block_location";
 };
 
-type CitationPageLocation = {
+export type CitationPageLocation = {
   cited_text: string;
   document_index: number;
   document_title: string | null;
@@ -130,7 +130,7 @@ type CitationPageLocation = {
   type: "page_location";
 };
 
-type CitationCharLocation = {
+export type CitationCharLocation = {
   cited_text: string;
   document_index: number;
   document_title: string | null;
@@ -139,45 +139,45 @@ type CitationCharLocation = {
   type: "char_location";
 };
 
-type ToolResult = {
+export type ToolResult = {
   type: "tool_result";
   tool_use_id: string;
   content: any[];
   is_error: boolean;
 };
 
-type RedactedThinkingBlock = {
+export type RedactedThinkingBlock = {
   data: string;
   type: "redacted_thinking";
 };
 
-type ThinkingBlock = {
+export type ThinkingBlock = {
   signature: string;
   thinking: string;
   type: "thinking";
 };
 
-type WebSearchToolResultBlock = {
+export type WebSearchToolResultBlock = {
   content: WebSearchToolResultError | WebSearchResultBlock[];
   tool_use_id: string;
   type: "web_search_tool_result";
 };
 
-type ServerToolUseBlock = {
+export type ServerToolUseBlock = {
   id: string;
   input: any;
   name: "web_search";
   type: "server_tool_use";
 };
 
-type ToolUseBlock = {
+export type ToolUseBlock = {
   id: string;
   input: any;
   name: string;
   type: "tool_use";
 };
 
-type TextBlock = {
+export type TextBlock = {
   citations:
     | (
         | CitationCharLocation
@@ -190,7 +190,7 @@ type TextBlock = {
   type: "text";
 };
 
-type ChatMessage = {
+export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: (
@@ -206,53 +206,53 @@ type ChatMessage = {
   )[];
 };
 
-type Chat = {
+export type Chat = {
   id: string;
   name: string;
   lastUpdated: string;
   messages: ChatMessage[];
 };
 
-type ChatMetadata = {
+export type ChatMetadata = {
   id: string;
   name: string;
   lastUpdated: string;
 };
 
-type EmbeddedResource = {
+export type EmbeddedResource = {
   type: "resource";
   resource: any;
   annotations: any;
 };
 
-type FullMessageStop = {
+export type FullMessageStop = {
   type: "full_message_stop";
   messages: ChatMessage[];
   toolResults: Record<string, ToolResult>;
 };
 
-type ImageContent = {
+export type ImageContent = {
   type: "image";
   data: string;
   mimeType: string;
   annotations: any;
 };
 
-type TextContent = {
+export type TextContent = {
   type: "text";
   text: string;
   annotations: any;
 };
 
-type CodeInfoCol = {
+export type CodeInfoCol = {
   children: Record<any, string[]>;
 };
 
-type EVEntry = {
+export type EVEntry = {
   value: string;
 };
 
-type ChartSettings = {
+export type ChartSettings = {
   type: string;
   xAxisColumn: string;
   secondYAxisColumns: string[];
@@ -261,7 +261,7 @@ type ChartSettings = {
   y2AxisLog: boolean;
 };
 
-type DrawAreaCanvasSettings = {
+export type DrawAreaCanvasSettings = {
   activeLayerId: any;
   color: string;
   brushSize: number;
@@ -272,17 +272,17 @@ type DrawAreaCanvasSettings = {
   mode: string;
 };
 
-type Visibility = {
+export type Visibility = {
   DEV: boolean;
   USER: boolean;
 };
 
-type SectionSize = {
+export type SectionSize = {
   width: number | "auto";
   height: number | "auto";
 };
 
-type ProjectConfigChild = {
+export type ProjectConfigChild = {
   x: number;
   y: number;
   zIndex: number;
@@ -290,12 +290,12 @@ type ProjectConfigChild = {
   h: number;
 };
 
-type UITypeColEntry = {
+export type UITypeColEntry = {
   uiTypeId: string;
   nonPresetUITypeIds: string[];
 };
 
-type CodeInfo = {
+export type CodeInfo = {
   id: string;
   name: string;
   editable: boolean;
@@ -309,7 +309,7 @@ type CodeInfo = {
   ignoreTypeErrors: boolean;
 };
 
-type SectionVariant = {
+export type SectionVariant = {
   name: string;
   values: Record<string, EVEntry>;
   children: string[];
@@ -326,7 +326,7 @@ type SectionVariant = {
   jsonSourceMissing: boolean;
 };
 
-type Section = {
+export type Section = {
   id: string;
   name: string;
   size: SectionSize;
@@ -368,7 +368,7 @@ type Section = {
   headingAsSectionName: boolean;
 };
 
-type ProjectConfig = {
+export type ProjectConfig = {
   id: string;
   name: string;
   previewImgColor: string;
@@ -379,7 +379,7 @@ type ProjectConfig = {
   genCodeSuffix: string;
 };
 
-type ProjectState = {
+export type ProjectState = {
   projectConfigs: Record<string, ProjectConfig>;
   sections: Record<string, Section>;
   variants: Record<string, SectionVariant>;
@@ -390,9 +390,9 @@ type ProjectState = {
   defaultProjectConfigId: any;
 };
 
-type BaseModel = {};
+export type BaseModel = {};
 
-type SettaNotification = {
+export type SettaNotification = {
   id: string;
   type: SettaNotificationType;
   message: string;
@@ -402,36 +402,36 @@ type SettaNotification = {
   read_status: boolean;
 };
 
-type Artifact = {
+export type Artifact = {
   name: string;
   path: string;
   value: any;
   type: string;
 };
 
-type ProjectLoadState = {
+export type ProjectLoadState = {
   projectConfigId: string;
   projectState: ProjectState;
 };
 
-type ProjectSaveState = {
+export type ProjectSaveState = {
   projectConfigId: string;
   projectState: ProjectState;
 };
 
-type ProjectUpdateState = {
+export type ProjectUpdateState = {
   projectConfigId: string;
   projectState: ProjectState;
   requestRenameRefactor: boolean;
 };
 
-type Viewport = {
+export type Viewport = {
   x: number;
   y: number;
   zoom: number;
 };
 
-type SettingsBackend = {
+export type SettingsBackend = {
   showDefaultConfigOnLoad: boolean;
   autosave: boolean;
   autobackup: boolean;
@@ -446,7 +446,7 @@ type SettingsBackend = {
   saveRenderedValues: boolean;
 };
 
-type SettingsGUI = {
+export type SettingsGUI = {
   snapGrid: number[];
   showGridLines: boolean;
   gridPattern: string;
@@ -468,7 +468,7 @@ type SettingsGUI = {
   transitionDuration: number;
 };
 
-type SettingsShortcuts = {
+export type SettingsShortcuts = {
   newCardShortcut: string;
   newGroupShortcut: string;
   typeCheckShortcut: string;
@@ -524,7 +524,7 @@ type SettingsShortcuts = {
   restartLanguageServerShortcut: string;
 };
 
-type SettingsState = {
+export type SettingsState = {
   shortcuts: SettingsShortcuts;
   gui: SettingsGUI;
   backend: SettingsBackend;

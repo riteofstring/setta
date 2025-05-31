@@ -1,11 +1,12 @@
 import { useNotifications, useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { SettaNotification, SettaNotificationType } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
 const DEFAULT_TEMP_TIMEOUT = 2000;
 
 // Standalone notification actions as separate functions
-const addNotification = (notification) => {
+const addNotification = (notification: SettaNotification) => {
   useNotifications.setState((state) => ({
     notifications: [notification, ...state.notifications],
   }));
@@ -21,7 +22,7 @@ const addNotification = (notification) => {
   }
 };
 
-export const markAsRead = (notificationId) => {
+export const markAsRead = (notificationId: string) => {
   useNotifications.setState((state) => ({
     notifications: state.notifications.map((n) =>
       n.id === notificationId ? { ...n, read_status: true } : n,
@@ -29,13 +30,15 @@ export const markAsRead = (notificationId) => {
   }));
 };
 
-export const removeNotification = (notificationId) => {
+export const removeNotification = (notificationId: string) => {
   useNotifications.setState((state) => ({
     notifications: state.notifications.filter((n) => n.id !== notificationId),
   }));
 };
 
-export function addNotificationFromWebsocketMsg(notification) {
+export function addNotificationFromWebsocketMsg(
+  notification: SettaNotification,
+) {
   if (
     !notification ||
     (notification.projectConfigId !==
@@ -53,11 +56,11 @@ export function addNotificationFromWebsocketMsg(notification) {
 
 export const addTemporaryNotification = (
   message,
-  type = C.NOTIFICATION_TYPE_INFO,
+  type = SettaNotificationType.INFO,
   timeout = DEFAULT_TEMP_TIMEOUT,
 ) => {
   const id = createNewId();
-  const notification = {
+  const notification: SettaNotification = {
     id,
     timestamp: new Date().toISOString(),
     dateObj: Date.now(),
