@@ -41,8 +41,8 @@ export function ProjectChatHistory() {
         allChatMetadata
           .sort(
             (a, b) =>
-              getDateNumberForSorting(b.lastUpdated) -
-              getDateNumberForSorting(a.lastUpdated),
+              new Date(b.lastUpdated).getTime() -
+              new Date(a.lastUpdated).getTime(),
           ) // Sort by most recent
           .map((chat) => (
             <div
@@ -81,9 +81,7 @@ export function ProjectChatHistory() {
                       : ""
                   }`}
                 >
-                  {chat.lastUpdated
-                    ? new Date(chat.lastUpdated).toLocaleString()
-                    : null}
+                  {new Date(chat.lastUpdated).toLocaleString()}
                 </p>
               </div>
 
@@ -101,11 +99,4 @@ export function ProjectChatHistory() {
       )}
     </div>
   );
-}
-
-function getDateNumberForSorting(timestamp?: string) {
-  if (timestamp) {
-    return new Date(timestamp).getTime();
-  }
-  return 0;
 }

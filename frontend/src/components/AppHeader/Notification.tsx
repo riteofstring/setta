@@ -1,16 +1,17 @@
 import { getNotificationIcon } from "components/Panes/Overview/NotificationsArea";
 import { useEffect, useState } from "react";
-import { getTimeoutDuration } from "state/actions/notifications";
+import { DEFAULT_TEMP_TIMEOUT } from "state/actions/notifications";
 import { useNotifications } from "state/definitions";
 
 export function Notification() {
-  // State to track the notification to display in the navbar
-  const [displayNotification, setDisplayNotification] = useState(null);
-
   // Get the most recent notification from the store
   const latestNotification = useNotifications((state) =>
     state.notifications.length > 0 ? state.notifications[0] : null,
   );
+
+  // State to track the notification to display in the navbar
+  const [displayNotification, setDisplayNotification] =
+    useState(latestNotification);
 
   // Effect to handle new notifications
   useEffect(() => {
@@ -19,7 +20,7 @@ export function Notification() {
       latestNotification &&
       (!displayNotification || latestNotification.id !== displayNotification.id)
     ) {
-      const timeoutDuration = getTimeoutDuration(latestNotification);
+      const timeoutDuration = DEFAULT_TEMP_TIMEOUT;
       const nowTime = new Date().getTime();
       const notificationTime = new Date(latestNotification.timestamp).getTime();
       if (nowTime - notificationTime > timeoutDuration) {

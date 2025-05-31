@@ -13,12 +13,13 @@ import {
   dbGetNotifications,
 } from "requests/notifications";
 import {
-  getTimeoutDuration,
+  DEFAULT_TEMP_TIMEOUT,
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { SettaNotification } from "utils/generatedTypes";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -69,9 +70,12 @@ export function NotificationsArea() {
   );
 }
 
-function NotificationItem({ notification }) {
-  const { id, type, message, timestamp, dateObj, read_status, temporary } =
-    notification;
+function NotificationItem({
+  notification,
+}: {
+  notification: SettaNotification;
+}) {
+  const { id, type, message, timestamp, read_status, temporary } = notification;
   const [isExiting, setIsExiting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(temporary ? 100 : 0);
 
@@ -105,10 +109,10 @@ function NotificationItem({ notification }) {
   useEffect(() => {
     if (!temporary) return;
 
-    const timeout = getTimeoutDuration(notification) * 0.95;
+    const timeout = DEFAULT_TEMP_TIMEOUT * 0.95;
     // Update time remaining every 100ms
     const interval = setInterval(() => {
-      const elapsed = Date.now() - dateObj;
+      const elapsed = Date.now() - new Date(timestamp).getTime();
       const remaining = Math.max(0, 100 - (elapsed / timeout) * 100);
       setTimeRemaining(remaining);
 
@@ -119,7 +123,7 @@ function NotificationItem({ notification }) {
     }, 100);
 
     return () => clearInterval(interval);
-  }, [id, temporary, notification.timeout]);
+  }, [id, temporary]);
 
   return (
     <section
