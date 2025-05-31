@@ -8,9 +8,9 @@ from anthropic.types import (
     RawMessageStartEvent,
     TextBlock,
     ThinkingBlock,
-    ToolResultBlockParam,
     ToolUseBlock,
 )
+from mcp.types import CallToolResult
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
@@ -19,7 +19,12 @@ from setta.database.db_objs import DBQueue
 from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
 from setta.mcp.server import CHAT_ID_ARG_NAME
-from setta.project_state.chat_messages import Chat, ChatMessage
+from setta.project_state.chat_messages import (
+    Chat,
+    ChatMessage,
+    FullMessageStop,
+    ToolResult,
+)
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
 from setta.websockets.msg_handlers.chat_manager import WMHChatManager
@@ -59,7 +64,6 @@ class ChatManager:
 
     def save_current_stream_to_db(self, chat_id):
         messages = self.get_current_stream(chat_id)
-        messages = [maybe_pydantic_model_dump(m) for m in messages]
         messages = self.remove_incomplete_tool_uses(messages)
         self.save_messages_to_db(
             chat_id,
@@ -107,11 +111,11 @@ class ChatManager:
             chat = self.save_current_stream_to_db(chatId)
             self.end_current_stream(chatId)
             messages, tool_results = self.separate_tool_results(chat.messages)
-            chunk = {
-                "type": C.LLM_FULL_MESSAGE_STOP,
-                "messages": messages,
-                "toolResults": tool_results,
-            }
+            chunk = FullMessageStop(
+                type=C.LLM_FULL_MESSAGE_STOP,
+                messages=messages,
+                toolResults=tool_results,
+            )
             await self.send_streaming_response(chatId, None, chunk)
 
     async def _process_query(self, chat: Chat, model, deepThink: bool):
@@ -180,14 +184,17 @@ class ChatManager:
                     has_tool_call = True
                     result = await self.mcp_client.call_tool(
                         sub_msg.name,
-                        {CHAT_ID_ARG_NAME: chatId, **sub_msg.input.__dict__},
+                        {
+                            CHAT_ID_ARG_NAME: chatId,
+                            **self.tool_use_input_str_to_dict(sub_msg.input),
+                        },
                     )
                     result = self.process_tool_result(result)
-                    tool_result = ToolResultBlockParam(
+                    tool_result = ToolResult(
                         type=C.LLM_TOOL_RESULT,
                         tool_use_id=sub_msg.id,
-                        content=result["content"],
-                        is_error=result["isError"],
+                        content=result.content,
+                        is_error=result.isError,
                     )
                     await self.send_streaming_response(
                         chatId, assistant_message_id, tool_result
@@ -253,26 +260,21 @@ class ChatManager:
                     if not isinstance(curr_msg.input, str):
                         curr_msg.input = ""
                     curr_msg.input += event.delta.partial_json
-            elif event.type == C.LLM_CONTENT_BLOCK_STOP:
-                curr_msg = llm_msgs[event.index]
-                if curr_msg.type == C.LLM_TOOL_USE:
-                    curr_msg.input = self.tool_use_input_str_to_dict(curr_msg.input)
 
-            await self.send_streaming_response(
-                chatId, assistant_message_id, maybe_pydantic_model_dump(event)
-            )
+            await self.send_streaming_response(chatId, assistant_message_id, event)
 
         return assistant_message_id, llm_msgs
 
-    async def send_streaming_response(self, chatId, assistant_message_id, chunk):
+    async def send_streaming_response(
+        self, chatId: str, assistant_message_id: str | None, chunk: BaseModel
+    ):
         await self.websocket_msg_handler.send_streaming_response(
-            chatId, assistant_message_id, chunk
+            chatId, assistant_message_id, chunk.model_dump()
         )
 
-    def process_tool_result(self, result):
-        result = maybe_pydantic_model_dump(result)
-        for c in result["content"]:
-            c.pop("annotations", None)
+    def process_tool_result(self, result: CallToolResult):
+        for c in result.content:
+            del c.annotations
         return result
 
     async def request_stop_streaming(self, chat_id):
@@ -280,46 +282,50 @@ class ChatManager:
         if task:
             task.cancel()
 
-    def remove_incomplete_tool_uses(self, messages):
-        tool_use_has_result = set()
+    def remove_incomplete_tool_uses(self, messages: list[ChatMessage]):
+        tool_use_has_result: set[str] = set()
         for m in messages:
-            for c in m["content"]:
-                if c["type"] == C.LLM_TOOL_USE:
-                    if not isinstance(c["input"], dict):
-                        c["input"] = self.tool_use_input_str_to_dict(c["input"])
-                elif c["type"] == C.LLM_TOOL_RESULT:
-                    tool_use_has_result.add(c["tool_use_id"])
+            for c in m.content:
+                if isinstance(c, ToolUseBlock):
+                    if not isinstance(c.input, dict):
+                        c.input = self.tool_use_input_str_to_dict(c.input)
+                elif isinstance(c, ToolResult):
+                    tool_use_has_result.add(c.tool_use_id)
 
         for m in messages:
             new_content = []
-            for c in m["content"]:
-                if c["type"] == C.LLM_TOOL_USE and c["id"] not in tool_use_has_result:
+            for c in m.content:
+                if isinstance(c, ToolUseBlock) and c.id not in tool_use_has_result:
                     continue
                 new_content.append(c)
-            m["content"] = new_content
+            m.content = new_content
 
-        return [m for m in messages if len(m["content"]) > 0]
+        return [m for m in messages if len(m.content) > 0]
 
-    def tool_use_input_str_to_dict(self, input):
+    def tool_use_input_str_to_dict(self, input: object):
         if isinstance(input, str) and input:
             return json.loads(input)
         return {}
 
     def separate_tool_results(self, messages: list[ChatMessage]):
-        tool_results = {}
-        filtered_messages = []
+        tool_results: dict[str, ToolResult] = {}
+        filtered_messages: list[ChatMessage] = []
         for m in messages:
             if len(m.content) == 0:
                 continue
             c = m.content[0]
-            if c.get("type") == C.LLM_TOOL_RESULT:
-                tool_results[c["tool_use_id"]] = m.content[0]
+            if isinstance(c, ToolResult):
+                tool_results[c.tool_use_id] = c
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results
 
     async def get_tools_system_messages_thinking(
-        self, messages, curr_stream, model: str, deepThink: bool
+        self,
+        messages: list[ChatMessage],
+        curr_stream: list[ChatMessage],
+        model: str,
+        deepThink: bool,
     ):
         tools = self.mcp_client.available_tools
         tools = tools + maybe_get_str_replace_editor_tool(model)
@@ -333,10 +339,10 @@ class ChatManager:
 
         self.set_cache_control(system[0])
 
-        messages = [
+        output_messages = [
             {
-                "role": m["role"],
-                "content": m["content"],
+                "role": m.role,
+                "content": [c.model_dump() for c in m.content],
             }
             for m in [*messages, *curr_stream]
         ]
@@ -348,7 +354,7 @@ class ChatManager:
         )
 
         did_set_cache_control = False
-        for m in reversed(messages):
+        for m in reversed(output_messages):
             for c in reversed(m["content"]):
                 if did_set_cache_control:
                     c.pop("cache_control", None)
@@ -356,16 +362,10 @@ class ChatManager:
                     self.set_cache_control(c)
                     did_set_cache_control = True
 
-        return tools, system, messages, thinking
+        return tools, system, output_messages, thinking
 
     def set_cache_control(self, x):
         x["cache_control"] = {"type": "ephemeral"}
-
-
-def maybe_pydantic_model_dump(x):
-    if isinstance(x, BaseModel):
-        return x.model_dump()
-    return x
 
 
 def maybe_get_str_replace_editor_tool(model_name):

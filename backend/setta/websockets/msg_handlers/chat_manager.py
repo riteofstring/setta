@@ -1,10 +1,11 @@
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class WMHChatManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
+        self.websocket_manager: WebsocketManager = websocket_manager
 
     async def send_streaming_response(self, chatId, assistant_message_id, chunk):
         await self.websocket_manager.broadcast(

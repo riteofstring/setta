@@ -1,17 +1,18 @@
 import json
 
+from anthropic.types import TextBlock
+
 from setta.database.db_objs import DB
 from setta.database.utils import create_new_id
 from setta.project_state.chat_messages import Chat, ChatMessage
-from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 def create_new_chat_name(first_message: ChatMessage):
     name = None
     for c in first_message.content:
-        if c.get("type") == C.LLM_TEXT:
-            name = c.get("text", "")[:30]
+        if isinstance(c, TextBlock):
+            name = c.text[:30]
             break
     if not name:
         name = generate_memorable_string()
@@ -42,7 +43,7 @@ def create_new_chat(db: DB, first_message: ChatMessage):
             "chat_id": chat_id,
             "order": 0,
             "role": first_message.role,
-            "content": json.dumps(first_message.content),
+            "content": json.dumps([c.model_dump() for c in first_message.content]),
         },
     )
 
