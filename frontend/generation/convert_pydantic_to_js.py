@@ -4,7 +4,18 @@ import inspect
 import pkgutil
 from collections.abc import Sequence as ABCSequence
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Set, Tuple, Union, get_args, get_origin
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Set,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import setta.types
 from pydantic import BaseModel
@@ -59,6 +70,14 @@ def python_type_to_ts(python_type):
 
     # Get the origin for generic types
     origin = get_origin(python_type)
+
+    # Handle Annotated types - extract the actual type (first arg)
+    if origin is Annotated:
+        args = get_args(python_type)
+        if args:
+            # The first argument is the actual type, rest are annotations
+            return python_type_to_ts(args[0])
+        return "any"
 
     # Handle Literal types
     if origin is Literal:

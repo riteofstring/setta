@@ -82,7 +82,7 @@ type Chat = {
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
-  content: (Annotated | ToolResult)[];
+  content: ((TextBlock | ToolUseBlock | ServerToolUseBlock | WebSearchToolResultBlock | ThinkingBlock | RedactedThinkingBlock) | ToolResult)[];
 }
 
 type ChatMetadata = {
