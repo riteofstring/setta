@@ -1,0 +1,69 @@
+import httpx
+from typing import Optional, Dict
+
+class HTTPClient:
+    """Reusable HTTP client with common functionality"""
+
+    def __init__(self, headers: Optional[Dict[str, str]] = None, base_timeout: float = 30.0):
+        self.headers = headers or {}
+        self.base_timeout = base_timeout
+
+    def make_request(
+        self,
+        method: str,
+        url: str,
+        **kwargs
+    ) -> Optional[httpx.Response]:
+        """Make HTTP request with error handling"""
+        try:
+            timeout = kwargs.pop('timeout', self.base_timeout)
+
+            with httpx.Client() as client:
+                response = client.request(
+                    method=method,
+                    url=url,
+                    headers={**self.headers, **kwargs.pop('headers', {})},
+                    timeout=timeout,
+                    **kwargs
+                )
+                return response
+        except Exception as e:
+            print(f"Request failed: {type(e).__name__}: {e}")
+            return None
+
+    def get(self, url: str, **kwargs) -> Optional[httpx.Response]:
+        """Make GET request"""
+        return self.make_request("GET", url, **kwargs)
+
+    def post(self, url: str, **kwargs) -> Optional[httpx.Response]:
+        """Make POST request"""
+        return self.make_request("POST", url, **kwargs)
+
+    def delete(self, url: str, **kwargs) -> Optional[httpx.Response]:
+        """Make DELETE request"""
+        return self.make_request("DELETE", url, **kwargs)
+
+    def put(self, url: str, **kwargs) -> Optional[httpx.Response]:
+        """Make PUT request"""
+        return self.make_request("PUT", url, **kwargs)
+
+    def patch(self, url: str, **kwargs) -> Optional[httpx.Response]:
+        """Make PATCH request"""
+        return self.make_request("PATCH", url, **kwargs)
+
+
+def is_success(response: Optional[httpx.Response]) -> bool:
+    """Check if response was successful"""
+    return response is not None and 200 <= response.status_code < 300
+
+
+def parse_json(response: Optional[httpx.Response]) -> Optional[dict]:
+    """Parse JSON response"""
+    if not response or not is_success(response):
+        return None
+
+    try:
+        return response.json()
+    except Exception as e:
+        print(f"Failed to parse response: {e}")
+        return None
