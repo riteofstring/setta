@@ -4,15 +4,21 @@ import json
 from anthropic import AsyncAnthropic
 from anthropic.types import (
     CacheControlEphemeralParam,
+    ContentBlock,
+    MessageParam,
     RawContentBlockDeltaEvent,
     RawContentBlockStartEvent,
     RawMessageStartEvent,
     TextBlock,
     TextBlockParam,
     ThinkingBlock,
+    ThinkingBlockParam,
     ThinkingConfigDisabledParam,
     ThinkingConfigEnabledParam,
+    ToolResultBlockParam,
+    ToolTextEditor20250124Param,
     ToolUseBlock,
+    ToolUseBlockParam,
 )
 from pydantic import BaseModel
 
@@ -335,13 +341,18 @@ class ChatManager:
             )
         ]
 
-        output_messages = [
-            {
-                "role": m.role,
-                "content": [c.model_dump() for c in m.content],
-            }
-            for m in [*messages, *curr_stream]
-        ]
+        did_set_cache_control = False
+        output_messages: list[MessageParam] = []
+        for m in reversed([*messages, *curr_stream]):
+            content = []
+            for c in reversed(m.content):
+                c = convertToBlockParam(c)
+                if not did_set_cache_control and c["type"] != C.LLM_THINKING:
+                    c["cache_control"] = CacheControlEphemeralParam(type="ephemeral")
+                    did_set_cache_control = True
+                content.append(c)
+            output_messages.append(MessageParam(role=m.role, content=reversed(content)))
+        output_messages.reverse()
 
         if deepThink:
             thinking = ThinkingConfigEnabledParam(
@@ -350,24 +361,26 @@ class ChatManager:
         else:
             thinking = ThinkingConfigDisabledParam(type="disabled")
 
-        did_set_cache_control = False
-        for m in reversed(output_messages):
-            for c in reversed(m["content"]):
-                if did_set_cache_control:
-                    c.pop("cache_control", None)
-                elif c["type"] != C.LLM_THINKING:
-                    self.set_cache_control(c)
-                    did_set_cache_control = True
-
         return tools, system, output_messages, thinking
-
-    def set_cache_control(self, x):
-        x["cache_control"] = {"type": "ephemeral"}
 
 
 def maybe_get_str_replace_editor_tool(model_name):
     if "claude-3-7-sonnet" in model_name:
-        return [{"type": "text_editor_20250124", "name": C.LLM_STR_REPLACE_EDITOR_TOOL}]
-    if "claude-3-5-sonnet" in model_name:
-        return [{"type": "text_editor_20241022", "name": C.LLM_STR_REPLACE_EDITOR_TOOL}]
+        return [
+            ToolTextEditor20250124Param(
+                name="str_replace_editor", type="text_editor_20250124"
+            )
+        ]
     return []
+
+
+def convertToBlockParam(c: ContentBlock | ToolResult):
+    if isinstance(c, TextBlock):
+        return TextBlockParam(**c.model_dump())
+    elif isinstance(c, ToolResult):
+        return ToolResultBlockParam(**c.model_dump(exclude_defaults=True))
+    elif isinstance(c, ToolUseBlock):
+        return ToolUseBlockParam(**c.model_dump())
+    elif isinstance(c, ThinkingBlock):
+        return ThinkingBlockParam(**c.model_dump())
+    raise ValueError

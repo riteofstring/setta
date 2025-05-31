@@ -2,6 +2,7 @@ import asyncio
 import json
 from contextlib import AsyncExitStack
 
+from anthropic.types import ToolParam
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
@@ -22,7 +23,7 @@ class MCPClient:
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
-        self.available_tools = []
+        self.available_tools: list[ToolParam] = []
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -55,11 +56,11 @@ class MCPClient:
                 # List available tools to verify connection
                 response = await self.session.list_tools()
                 self.available_tools = [
-                    {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "input_schema": tool.inputSchema,
-                    }
+                    ToolParam(
+                        name=tool.name,
+                        description=tool.description if tool.description else "",
+                        input_schema=tool.inputSchema,
+                    )
                     for tool in response.tools
                 ]
 

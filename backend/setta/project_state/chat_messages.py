@@ -1,6 +1,8 @@
 from typing import Literal, Sequence
 
-from anthropic.types import ContentBlock
+from anthropic.types import (
+    ContentBlock,
+)
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel
 
