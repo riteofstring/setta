@@ -56,13 +56,13 @@ class ChatManager:
         self.save_messages_to_db(chat_id, [message])
         return self.get_chat(chat_id)
 
-    def save_messages_to_db(self, chat_id, messages):
+    def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
         if len(messages) == 0:
             return
         with self.dbq as db:
             save_messages(db, chat_id, messages)
 
-    def save_current_stream_to_db(self, chat_id):
+    def save_current_stream_to_db(self, chat_id: str):
         messages = self.get_current_stream(chat_id)
         messages = self.remove_incomplete_tool_uses(messages)
         self.save_messages_to_db(
@@ -203,7 +203,7 @@ class ChatManager:
                         ChatMessage(
                             id=create_new_id(),
                             role=C.LLM_USER_ROLE,
-                            content=[tool_result],
+                            toolResult=tool_result,
                         )
                     )
 
@@ -231,7 +231,7 @@ class ChatManager:
                         content=event.message.content,
                     )
                 )
-                llm_msgs = event.message.content
+                llm_msgs = self.current_streams[chatId][-1].content
             elif llm_msgs is None:
                 continue
 
@@ -289,8 +289,8 @@ class ChatManager:
                 if isinstance(c, ToolUseBlock):
                     if not isinstance(c.input, dict):
                         c.input = self.tool_use_input_str_to_dict(c.input)
-                elif isinstance(c, ToolResult):
-                    tool_use_has_result.add(c.tool_use_id)
+            if m.toolResult:
+                tool_use_has_result.add(m.toolResult.tool_use_id)
 
         for m in messages:
             new_content = []
@@ -311,11 +311,8 @@ class ChatManager:
         tool_results: dict[str, ToolResult] = {}
         filtered_messages: list[ChatMessage] = []
         for m in messages:
-            if len(m.content) == 0:
-                continue
-            c = m.content[0]
-            if isinstance(c, ToolResult):
-                tool_results[c.tool_use_id] = c
+            if m.toolResult:
+                tool_results[m.toolResult.tool_use_id] = m.toolResult
             else:
                 filtered_messages.append(m)
         return filtered_messages, tool_results

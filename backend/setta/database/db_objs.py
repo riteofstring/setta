@@ -50,10 +50,12 @@ class DB:
     def fetchall(self, *args, **kwargs):
         if self.cursor:
             return self.cursor.fetchall(*args, **kwargs)
+        raise ValueError
 
     def fetchone(self, *args, **kwargs):
         if self.cursor:
             return self.cursor.fetchone(*args, **kwargs)
+        raise ValueError
 
     @property
     def description(self):

@@ -2,7 +2,7 @@ from typing import Literal
 
 from anthropic.types import ContentBlock
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ToolResult(BaseModel):
@@ -15,7 +15,8 @@ class ToolResult(BaseModel):
 class ChatMessage(BaseModel):
     id: str
     role: Literal["user", "assistant"]
-    content: list[ContentBlock] | list[ToolResult]
+    content: list[ContentBlock] = Field(default_factory=list)
+    toolResult: ToolResult | None = None
 
 
 class Chat(BaseModel):

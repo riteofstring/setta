@@ -1,9 +1,10 @@
 import json
 
+from setta.database.db_objs import DB
 from setta.project_state.chat_messages import Chat, ChatMessage
 
 
-def load_chat(db, chat_id):
+def load_chat(db: DB, chat_id: str):
     chat_query = """
         SELECT id, name, lastUpdated
         FROM Chat
