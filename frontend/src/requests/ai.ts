@@ -31,9 +31,9 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
   }
 }
 
-export async function dbGetAllLLMChatMetadata(chatId) {
+export async function dbGetAllLLMChatMetadata() {
   return await post({
-    body: { chatId },
+    body: {},
     address: C.ROUTE_GET_ALL_LLM_CHAT_METADATA,
   });
 }

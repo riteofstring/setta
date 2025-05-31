@@ -18,7 +18,7 @@ from setta.utils.constants import C
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url):
+    def __init__(self, server_url: str):
         # Initialize session and client objects
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
@@ -94,7 +94,7 @@ class MCPClient:
             await asyncio.sleep(10)
             await self.session.send_ping()
 
-    async def call_tool(self, tool_name: str, tool_args):
+    async def call_tool(self, tool_name: str, tool_args: dict):
         if tool_name == C.LLM_STR_REPLACE_EDITOR_TOOL:
             return handle_str_replace_editor_tool(tool_args)
 
@@ -112,7 +112,7 @@ class MCPClient:
         print("MCPClient resources cleaned up successfully")
 
 
-def handle_str_replace_editor_tool(tool_args):
+def handle_str_replace_editor_tool(tool_args: dict):
     content = ""
     isError = False
     try:
