@@ -1,8 +1,8 @@
 import time
 from typing import List, Optional
 
-from config import settings
-from models import (
+from app.config import settings
+from app.models import (
     AllocateIPRequest,
     AppInfo,
     CreateAppRequest,
@@ -11,8 +11,8 @@ from models import (
     Machine,
     MachineState,
 )
-from models import AppStatus as AppStatusModel
-from utils import HTTPClient, is_success, parse_json
+from app.models import AppStatus as AppStatusModel
+from app.utils import HTTPClient, is_success, parse_json
 
 
 class FlyManager:

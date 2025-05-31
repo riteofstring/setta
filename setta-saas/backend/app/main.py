@@ -2,12 +2,12 @@ import re
 import time
 from contextlib import asynccontextmanager
 
-from config import settings
-from database_models import Project, create_db_and_tables, get_session
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
+from app.config import settings
+from app.database_models import Project, create_db_and_tables, get_session
 from app.fly_manager import FlyManager
 from app.schemas import (
     DeleteResponse,
