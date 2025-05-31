@@ -4,7 +4,7 @@ import {
   createNewId,
   createRandomName as generateMemorableString,
 } from "utils/idNameCreation";
-import { z } from "zod";
+import { z } from "zod/v4";
 // UITypePresetType enum
 export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
 export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
@@ -136,7 +136,7 @@ export const UITypeSchema = z.object({
   type: UITypeNameSchema.default(UITypeName.TEXT),
   name: z.string().default(() => generateMemorableString()),
   presetType: UITypePresetTypeSchema.nullable().default(null),
-  config: z.record(z.any()).default(() => ({})),
+  config: z.record(z.string(), z.any()).default(() => ({})),
 });
 export type UIType = z.infer<typeof UITypeSchema>;
 
@@ -195,11 +195,11 @@ export const CanvasSettingsSchema = z
   .object({
     activeLayerId: z.string().nullable().default(null),
     color: z.string().default("#ff0000"),
-    brushSize: z.number().int().default(16),
+    brushSize: z.int().default(16),
     brushShape: z.string().default("butt"),
-    eraserBrushSize: z.number().int().default(16),
-    drawThrottleDelay: z.number().int().default(0),
-    canvasTransferQueueLength: z.number().int().default(50),
+    eraserBrushSize: z.int().default(16),
+    drawThrottleDelay: z.int().default(0),
+    canvasTransferQueueLength: z.int().default(50),
     mode: z.string().default("draw"),
   })
   .strict();
@@ -267,12 +267,12 @@ export const SectionSchema = z
     isTemporary: z.boolean().default(false),
     renderMarkdown: z.boolean().default(false),
     positionAndSizeLocked: z.boolean().default(false),
-    selectedVariantIds: z.record(z.any()).default(() => ({})),
+    selectedVariantIds: z.record(z.string(), z.any()).default(() => ({})),
     paramFilter: z.string().default(""),
     isInOtherProjectConfigs: z.boolean().default(false),
     aspectRatio: z.boolean().default(false),
-    aspectRatioExtraHeight: z.number().int().default(0),
-    aspectRatioExtraWidth: z.number().int().default(0),
+    aspectRatioExtraHeight: z.int().default(0),
+    aspectRatioExtraWidth: z.int().default(0),
     columnWidth: z.number().nullable().default(null),
     renderedValue: z.any().default(null),
     headingAsSectionName: z.boolean().default(false),
@@ -302,7 +302,7 @@ export function createEVEntry(input: Partial<EVEntry> = {}): EVEntry {
 export const SectionVariantSchema = z
   .object({
     name: z.string().default(() => generateMemorableString()),
-    values: z.record(EVEntrySchema).default(() => ({})),
+    values: z.record(z.string(), EVEntrySchema).default(() => ({})),
     children: z.array(z.string()).default(() => []),
     selectedItem: z.string().nullable().default(null),
     code: z.string().default(""),
@@ -310,7 +310,7 @@ export const SectionVariantSchema = z
     description: z.string().default(""),
     isFrozen: z.boolean().default(false),
     sweep: z.array(z.any()).default(() => []),
-    runGroup: z.record(z.any()).default(() => ({})),
+    runGroup: z.record(z.string(), z.any()).default(() => ({})),
     configLanguage: ConfigLanguageSchema.default(ConfigLanguage.PYTHON),
     isJsonSource: z.boolean().default(false),
     jsonSourceKeys: z.array(z.string()).default(() => []),
@@ -354,7 +354,7 @@ export function createCodeInfo(input: Partial<CodeInfo> = {}): CodeInfo {
 // CodeInfoCol schema
 export const CodeInfoColSchema = z
   .object({
-    children: z.record(z.any()).default(() => ({})),
+    children: z.record(z.any(), z.any()).default(() => ({})),
   })
   .strict();
 export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
@@ -403,7 +403,7 @@ export const ProjectConfigChildSchema = z
   .object({
     x: z.number().default(0),
     y: z.number().default(0),
-    zIndex: z.number().int().default(0),
+    zIndex: z.int().default(0),
     w: z.number().default(1),
     h: z.number().default(1),
   })
@@ -424,7 +424,9 @@ export const ProjectConfigSchema = z
     name: z.string().default(() => generateMemorableString()),
     previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
     viewport: ViewportSchema.nullable().default(() => createViewport()),
-    children: z.record(ProjectConfigChildSchema).default(() => ({})),
+    children: z
+      .record(z.string(), ProjectConfigChildSchema)
+      .default(() => ({})),
     viewingEditingMode: ViewingEditingModeSchema.default(
       ViewingEditingMode.DEV,
     ),
@@ -444,13 +446,19 @@ export function createProjectConfig(
 // ProjectState schema
 export const ProjectStateSchema = z
   .object({
-    projectConfigs: z.record(ProjectConfigSchema).default(() => ({})),
-    sections: z.record(SectionSchema).default(() => ({})),
-    variants: z.record(SectionVariantSchema).default(() => ({})),
-    codeInfo: z.record(CodeInfoSchema).default(() => ({})),
-    codeInfoCols: z.record(CodeInfoColSchema).default(() => ({})),
-    uiTypes: z.record(UITypeSchema).default(() => _.cloneDeep(BASE_UI_TYPES)),
-    uiTypeCols: z.record(z.record(UITypeColEntrySchema)).default(() => ({})),
+    projectConfigs: z
+      .record(z.string(), ProjectConfigSchema)
+      .default(() => ({})),
+    sections: z.record(z.string(), SectionSchema).default(() => ({})),
+    variants: z.record(z.string(), SectionVariantSchema).default(() => ({})),
+    codeInfo: z.record(z.string(), CodeInfoSchema).default(() => ({})),
+    codeInfoCols: z.record(z.string(), CodeInfoColSchema).default(() => ({})),
+    uiTypes: z
+      .record(z.string(), UITypeSchema)
+      .default(() => _.cloneDeep(BASE_UI_TYPES)),
+    uiTypeCols: z
+      .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
+      .default(() => ({})),
     defaultProjectConfigId: z.string().nullable().default(null),
   })
   .strict();
@@ -579,10 +587,10 @@ export function createSettingsShortcuts(
 
 // SettingsGUI schema
 export const SettingsGUISchema = z.object({
-  snapGrid: z.array(z.number().int()).default([15, 15]),
+  snapGrid: z.array(z.int()).default([15, 15]),
   showGridLines: z.boolean().default(true),
   gridPattern: z.string().default("Dots"),
-  gridPatternSize: z.number().int().default(2),
+  gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf"),
   gridColorDarkMode: z.string().default("#2b364a"),
   defaultZoomLevel: z.number().default(1.0),
@@ -597,7 +605,7 @@ export const SettingsGUISchema = z.object({
   zoomOnDoubleClick: z.boolean().default(false),
   selectionMode: z.string().default("partial"),
   leftSidePaneShiftsMap: z.boolean().default(true),
-  transitionDuration: z.number().int().default(50),
+  transitionDuration: z.int().default(50),
 });
 export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
 
@@ -613,8 +621,8 @@ export const SettingsBackendSchema = z.object({
   showDefaultConfigOnLoad: z.boolean().default(true),
   autosave: z.boolean().default(false),
   autobackup: z.boolean().default(false),
-  autobackupFreq: z.number().int().default(300),
-  autobackupKeepLastN: z.number().int().default(10),
+  autobackupFreq: z.int().default(300),
+  autobackupKeepLastN: z.int().default(10),
   clearTerminalBeforeMarkingAsReady: z.boolean().default(true),
   defaultTerminalShell: z.string().nullable().default(null),
   exportDbRawOnSave: z.boolean().default(false),
@@ -638,9 +646,9 @@ export const SettingsStateSchema = z
     shortcuts: SettingsShortcutsSchema.default(() => createSettingsShortcuts()),
     gui: SettingsGUISchema.default(() => createSettingsGUI()),
     backend: SettingsBackendSchema.default(() => createSettingsBackend()),
-    languageServer: z.record(z.any()).default(() => ({})),
+    languageServer: z.record(z.any(), z.any()).default(() => ({})),
     sections: z
-      .record(z.any())
+      .record(z.any(), z.any())
       .default({
         CODE: { size: { width: 500 } },
         TERMINAL: { size: { width: 700, height: 300 } },
@@ -698,7 +706,7 @@ export const ChatMetadataSchema = z.object({
   lastUpdated: z
     .string()
     .datetime()
-    .default(() => datetime.now()),
+    .default(() => getNowTimestamp()),
 });
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
@@ -713,7 +721,7 @@ export function createChatMetadata(
 export const FullMessageStopSchema = z.object({
   type: z.any(),
   messages: z.array(ChatMessageSchema),
-  toolResults: z.record(ToolResultSchema),
+  toolResults: z.record(z.string(), ToolResultSchema),
 });
 export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
 

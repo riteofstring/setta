@@ -37,7 +37,7 @@ class PydanticToZodConverter:
         # Extended type mapping
         self.type_mapping = {
             "str": "z.string()",
-            "int": "z.number().int()",
+            "int": "z.int()",
             "float": "z.number()",
             "bool": "z.boolean()",
             "bytes": "z.instanceof(Uint8Array)",
@@ -46,22 +46,22 @@ class PydanticToZodConverter:
             "time": "z.string().time()",
             "UUID": "z.string().uuid()",
             "Decimal": "z.number()",
-            "list": "z.array(z.any())",
-            "dict": "z.record(z.any())",
+            "list": "z.array(z.any(), z.any())",
+            "dict": "z.record(z.any(), z.any())",
             "set": "z.set(z.any())",
             "tuple": "z.tuple([])",
             "Any": "z.any()",
             "None": "z.null()",
             "list[str]": "z.array(z.string())",
-            "list[int]": "z.array(z.number().int())",
+            "list[int]": "z.array(z.int())",
             "List[str]": "z.array(z.string())",
-            "List[int]": "z.array(z.number().int())",
-            "Dict[str, str]": "z.record(z.string())",
-            "Dict[str, int]": "z.record(z.number().int())",
+            "List[int]": "z.array(z.int())",
+            "Dict[str, str]": "z.record(z.string(), z.string())",
+            "Dict[str, int]": "z.record(z.string(), z.int())",
             "Set[str]": "z.set(z.string())",
-            "Set[int]": "z.set(z.number().int())",
+            "Set[int]": "z.set(z.int())",
             "Optional[str]": "z.string().nullable()",
-            "Optional[int]": "z.number().int().nullable()",
+            "Optional[int]": "z.int().nullable()",
             "Optional[bool]": "z.boolean().nullable()",
             "Optional[datetime]": "z.string().datetime().nullable()",
             "Optional[date]": "z.string().date().nullable()",
@@ -291,7 +291,7 @@ class PydanticToZodConverter:
         output = []
 
         # Add imports
-        output.append("import { z } from 'zod';")
+        output.append("import { z } from 'zod/v4';")
         output.append("import _ from 'lodash';")
         output.append(
             'import { createNewId, createRandomName as generateMemorableString } from "utils/idNameCreation";'
@@ -554,12 +554,13 @@ class PydanticToZodConverter:
             if "," in inner:
                 key_type, value_type = [t.strip() for t in inner.split(",", 1)]
                 if key_type == "str":
+                    key_zod = self._convert_type_to_zod(key_type)
                     value_zod = self._convert_type_to_zod(value_type)
-                    return f"z.record({value_zod})"
-            return "z.record(z.any())"
+                    return f"z.record({key_zod}, {value_zod})"
+            return "z.record(z.any(), z.any())"
 
         if python_type == "dict":
-            return "z.record(z.any())"
+            return "z.record(z.any(), z.any())"
 
         # Handle Optional types
         if python_type.startswith("Optional["):
