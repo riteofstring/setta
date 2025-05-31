@@ -1,21 +1,3 @@
-enum ParameterPassingStyle {
-  DEFAULT = "DEFAULT",
-  ARGS = "ARGS",
-  KWARGS = "KWARGS",
-  POSITIONAL_ONLY = "POSITIONAL_ONLY",
-  KEYWORD_ONLY = "KEYWORD_ONLY"
-}
-
-enum ConfigLanguage {
-  PYTHON = "python",
-  JSON = "json"
-}
-
-enum CodeLanguage {
-  PYTHON = "python",
-  BASH = "bash"
-}
-
 enum UITypeName {
   TEXT = "TEXT",
   SLIDER = "SLIDER",
@@ -43,10 +25,9 @@ enum UITypeName {
   BROWSER = "BROWSER"
 }
 
-enum ViewingEditingMode {
-  DEV = "DEV",
-  USER = "USER",
-  USER_EDIT = "USER_EDIT"
+enum UITypePresetType {
+  BASE = "BASE",
+  USER = "USER"
 }
 
 enum CodeInfoType {
@@ -55,13 +36,167 @@ enum CodeInfoType {
   COLLECTION = "collection"
 }
 
+enum CodeLanguage {
+  PYTHON = "python",
+  BASH = "bash"
+}
+
+enum ConfigLanguage {
+  PYTHON = "python",
+  JSON = "json"
+}
+
+enum ParameterPassingStyle {
+  DEFAULT = "DEFAULT",
+  ARGS = "ARGS",
+  KWARGS = "KWARGS",
+  POSITIONAL_ONLY = "POSITIONAL_ONLY",
+  KEYWORD_ONLY = "KEYWORD_ONLY"
+}
+
 enum Size {
   AUTO = "auto"
 }
 
-enum UITypePresetType {
-  BASE = "BASE",
-  USER = "USER"
+enum ViewingEditingMode {
+  DEV = "DEV",
+  USER = "USER",
+  USER_EDIT = "USER_EDIT"
+}
+
+type UIType = {
+  id?: string;
+  type?: UITypeName;
+  name?: string;
+  presetType?: any;
+  config?: Record<string, any>;
+}
+
+type Chat = {
+  id: string;
+  name: string;
+  lastUpdated?: datetime;
+  messages: ChatMessage[];
+}
+
+type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: Sequence;
+}
+
+type ChatMetadata = {
+  id: string;
+  name: string;
+  lastUpdated?: datetime;
+}
+
+type EmbeddedResource = {
+  type: "resource";
+  resource: any;
+  annotations?: any;
+}
+
+type FullMessageStop = {
+  type: "full_message_stop";
+  messages: ChatMessage[];
+  toolResults: Record<string, ToolResult>;
+}
+
+type ImageContent = {
+  type: "image";
+  data: string;
+  mimeType: string;
+  annotations?: any;
+}
+
+type TextContent = {
+  type: "text";
+  text: string;
+  annotations?: any;
+}
+
+type ToolResult = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: any[];
+  is_error: boolean;
+}
+
+type CodeInfoCol = {
+  children?: Record<any, string[]>;
+}
+
+type ProjectState = {
+  projectConfigs?: Record<string, ProjectConfig>;
+  sections?: Record<string, Section>;
+  variants?: Record<string, SectionVariant>;
+  codeInfo?: Record<string, CodeInfo>;
+  codeInfoCols?: Record<string, CodeInfoCol>;
+  uiTypes?: Record<string, UIType>;
+  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
+  defaultProjectConfigId?: any;
+}
+
+type UITypeColEntry = {
+  uiTypeId?: string;
+  nonPresetUITypeIds?: string[];
+}
+
+type Artifact = {
+  name: string;
+  path: string;
+  value?: any;
+  type: string;
+}
+
+type ChartSettings = {
+  type?: string;
+  xAxisColumn?: string;
+  secondYAxisColumns?: string[];
+  xAxisLog?: boolean;
+  y1AxisLog?: boolean;
+  y2AxisLog?: boolean;
+}
+
+type CodeInfo = {
+  id?: string;
+  name?: string;
+  editable?: boolean;
+  rcType?: CodeInfoType;
+  defaultVal?: string;
+  description?: string;
+  passingStyle?: ParameterPassingStyle;
+  isPinned?: boolean;
+  isFrozen?: boolean;
+  isSelected?: boolean;
+  ignoreTypeErrors?: boolean;
+}
+
+type DrawAreaCanvasSettings = {
+  activeLayerId?: any;
+  color?: string;
+  brushSize?: number;
+  brushShape?: string;
+  eraserBrushSize?: number;
+  drawThrottleDelay?: number;
+  canvasTransferQueueLength?: number;
+  mode?: string;
+}
+
+type EVEntry = {
+  value?: string;
+}
+
+type ProjectConfig = {
+  id?: string;
+  name?: string;
+  previewImgColor?: string;
+  viewport?: any;
+  children?: Record<string, ProjectConfigChild>;
+  viewingEditingMode?: ViewingEditingMode;
+  genCodePrefix?: string;
+  genCodeSuffix?: string;
 }
 
 type ProjectConfigChild = {
@@ -72,17 +207,67 @@ type ProjectConfigChild = {
   h?: number;
 }
 
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: Sequence;
+type ProjectLoadState = {
+  projectConfigId: string;
+  projectState: ProjectState;
 }
 
-type Chat = {
-  id: string;
-  name: string;
-  lastUpdated?: datetime;
-  messages: ChatMessage[];
+type ProjectSaveState = {
+  projectConfigId: string;
+  projectState: ProjectState;
+}
+
+type ProjectUpdateState = {
+  projectConfigId: string;
+  projectState: ProjectState;
+  requestRenameRefactor?: boolean;
+}
+
+type Section = {
+  id?: string;
+  name?: string;
+  size?: SectionSize;
+  parentId?: any;
+  variantId?: string;
+  uiTypeId?: string;
+  uiTypeColId?: any;
+  social?: string;
+  artifactGroupIds?: string[];
+  defaultVariantId?: any;
+  variantIds?: string[];
+  paramSweepSectionId?: any;
+  nonPresetUITypeIds?: string[];
+  codeLanguage?: CodeLanguage;
+  isEntryCodeBlock?: boolean;
+  isFrozen?: boolean;
+  isHorizontalOrientation?: boolean;
+  hideParams?: boolean;
+  hideSearch?: boolean;
+  hideUnpinnedParams?: boolean;
+  hideColumn?: boolean;
+  displayMode?: string;
+  visibility?: Visibility;
+  pinnedAreaHeight?: (number | "auto");
+  isMinimized?: boolean;
+  canvasSettings?: DrawAreaCanvasSettings;
+  chartSettings?: ChartSettings;
+  isTemporary?: boolean;
+  renderMarkdown?: boolean;
+  positionAndSizeLocked?: boolean;
+  selectedVariantIds?: Record<string, any>;
+  paramFilter?: string;
+  isInOtherProjectConfigs?: boolean;
+  aspectRatio?: boolean;
+  aspectRatioExtraHeight?: number;
+  aspectRatioExtraWidth?: number;
+  columnWidth?: any;
+  renderedValue?: any;
+  headingAsSectionName?: boolean;
+}
+
+type SectionSize = {
+  width?: (number | "auto");
+  height?: (number | "auto");
 }
 
 type SectionVariant = {
@@ -102,43 +287,15 @@ type SectionVariant = {
   jsonSourceMissing?: boolean;
 }
 
-type EVEntry = {
-  value?: string;
-}
-
-type ProjectConfig = {
-  id?: string;
-  name?: string;
-  previewImgColor?: string;
-  viewport?: any;
-  children?: Record<string, ProjectConfigChild>;
-  viewingEditingMode?: ViewingEditingMode;
-  genCodePrefix?: string;
-  genCodeSuffix?: string;
-}
-
-type ProjectUpdateState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-  requestRenameRefactor?: boolean;
-}
-
-type UITypeColEntry = {
-  uiTypeId?: string;
-  nonPresetUITypeIds?: string[];
-}
-
 type Viewport = {
   x?: number;
   y?: number;
   zoom?: number;
 }
 
-type ToolResult = {
-  type: "tool_result";
-  tool_use_id: string;
-  content: any[];
-  is_error: boolean;
+type Visibility = {
+  DEV?: boolean;
+  USER?: boolean;
 }
 
 type SettingsBackend = {
@@ -156,89 +313,26 @@ type SettingsBackend = {
   saveRenderedValues?: boolean;
 }
 
-type FullMessageStop = {
-  type: "full_message_stop";
-  messages: ChatMessage[];
-  toolResults: Record<string, ToolResult>;
-}
-
-type ChartSettings = {
-  type?: string;
-  xAxisColumn?: string;
-  secondYAxisColumns?: string[];
-  xAxisLog?: boolean;
-  y1AxisLog?: boolean;
-  y2AxisLog?: boolean;
-}
-
-type SectionSize = {
-  width?: (number | "auto");
-  height?: (number | "auto");
-}
-
-type Visibility = {
-  DEV?: boolean;
-  USER?: boolean;
-}
-
-type ProjectState = {
-  projectConfigs?: Record<string, ProjectConfig>;
-  sections?: Record<string, Section>;
-  variants?: Record<string, SectionVariant>;
-  codeInfo?: Record<string, CodeInfo>;
-  codeInfoCols?: Record<string, CodeInfoCol>;
-  uiTypes?: Record<string, UIType>;
-  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
-  defaultProjectConfigId?: any;
-}
-
-type CodeInfoCol = {
-  children?: Record<any, string[]>;
-}
-
-type Artifact = {
-  name: string;
-  path: string;
-  value?: any;
-  type: string;
-}
-
-type CodeInfo = {
-  id?: string;
-  name?: string;
-  editable?: boolean;
-  rcType?: CodeInfoType;
-  defaultVal?: string;
-  description?: string;
-  passingStyle?: ParameterPassingStyle;
-  isPinned?: boolean;
-  isFrozen?: boolean;
-  isSelected?: boolean;
-  ignoreTypeErrors?: boolean;
-}
-
-type ChatMetadata = {
-  id: string;
-  name: string;
-  lastUpdated?: datetime;
-}
-
-type ImageContent = {
-  type: "image";
-  data: string;
-  mimeType: string;
-  annotations?: any;
-}
-
-type CanvasSettings = {
-  activeLayerId?: any;
-  color?: string;
-  brushSize?: number;
-  brushShape?: string;
-  eraserBrushSize?: number;
-  drawThrottleDelay?: number;
-  canvasTransferQueueLength?: number;
-  mode?: string;
+type SettingsGUI = {
+  snapGrid?: number[];
+  showGridLines?: boolean;
+  gridPattern?: string;
+  gridPatternSize?: number;
+  gridColor?: string;
+  gridColorDarkMode?: string;
+  defaultZoomLevel?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  panOnDrag?: boolean;
+  panOnScroll?: boolean;
+  panOnScrollSpeed?: number;
+  panOnScrollMode?: string;
+  zoomOnScroll?: boolean;
+  zoomOnPinch?: boolean;
+  zoomOnDoubleClick?: boolean;
+  selectionMode?: string;
+  leftSidePaneShiftsMap?: boolean;
+  transitionDuration?: number;
 }
 
 type SettingsShortcuts = {
@@ -295,100 +389,6 @@ type SettingsShortcuts = {
   zoomInShortcut?: string;
   zoomOutShortcut?: string;
   restartLanguageServerShortcut?: string;
-}
-
-type ProjectSaveState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-}
-
-type UIType = {
-  id?: string;
-  type?: UITypeName;
-  name?: string;
-  presetType?: any;
-  config?: Record<string, any>;
-}
-
-type EmbeddedResource = {
-  type: "resource";
-  resource: any;
-  annotations?: any;
-}
-
-type Section = {
-  id?: string;
-  name?: string;
-  size?: SectionSize;
-  parentId?: any;
-  variantId?: string;
-  uiTypeId?: string;
-  uiTypeColId?: any;
-  social?: string;
-  artifactGroupIds?: string[];
-  defaultVariantId?: any;
-  variantIds?: string[];
-  paramSweepSectionId?: any;
-  nonPresetUITypeIds?: string[];
-  codeLanguage?: CodeLanguage;
-  isEntryCodeBlock?: boolean;
-  isFrozen?: boolean;
-  isHorizontalOrientation?: boolean;
-  hideParams?: boolean;
-  hideSearch?: boolean;
-  hideUnpinnedParams?: boolean;
-  hideColumn?: boolean;
-  displayMode?: string;
-  visibility?: Visibility;
-  pinnedAreaHeight?: (number | "auto");
-  isMinimized?: boolean;
-  canvasSettings?: CanvasSettings;
-  chartSettings?: ChartSettings;
-  isTemporary?: boolean;
-  renderMarkdown?: boolean;
-  positionAndSizeLocked?: boolean;
-  selectedVariantIds?: Record<string, any>;
-  paramFilter?: string;
-  isInOtherProjectConfigs?: boolean;
-  aspectRatio?: boolean;
-  aspectRatioExtraHeight?: number;
-  aspectRatioExtraWidth?: number;
-  columnWidth?: any;
-  renderedValue?: any;
-  headingAsSectionName?: boolean;
-}
-
-type SettingsGUI = {
-  snapGrid?: number[];
-  showGridLines?: boolean;
-  gridPattern?: string;
-  gridPatternSize?: number;
-  gridColor?: string;
-  gridColorDarkMode?: string;
-  defaultZoomLevel?: number;
-  minZoom?: number;
-  maxZoom?: number;
-  panOnDrag?: boolean;
-  panOnScroll?: boolean;
-  panOnScrollSpeed?: number;
-  panOnScrollMode?: string;
-  zoomOnScroll?: boolean;
-  zoomOnPinch?: boolean;
-  zoomOnDoubleClick?: boolean;
-  selectionMode?: string;
-  leftSidePaneShiftsMap?: boolean;
-  transitionDuration?: number;
-}
-
-type TextContent = {
-  type: "text";
-  text: string;
-  annotations?: any;
-}
-
-type ProjectLoadState = {
-  projectConfigId: string;
-  projectState: ProjectState;
 }
 
 type SettingsState = {

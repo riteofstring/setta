@@ -69,7 +69,7 @@ class Visibility(BaseModel, extra="forbid"):
     USER: bool = True
 
 
-class CanvasSettings(BaseModel, extra="forbid"):
+class DrawAreaCanvasSettings(BaseModel, extra="forbid"):
     activeLayerId: str | None = None
     color: str = "#ff0000"
     brushSize: int = 16
@@ -115,7 +115,9 @@ class Section(BaseModel, extra="forbid"):
     visibility: Visibility = Field(default_factory=Visibility)
     pinnedAreaHeight: Union[float, Literal[Size.AUTO]] = Size.AUTO
     isMinimized: bool = False
-    canvasSettings: CanvasSettings = Field(default_factory=CanvasSettings)
+    canvasSettings: DrawAreaCanvasSettings = Field(
+        default_factory=DrawAreaCanvasSettings
+    )
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
     isTemporary: bool = False
     renderMarkdown: bool = False

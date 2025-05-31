@@ -25,28 +25,22 @@ def get_modules_from_package(package):
 
 
 def get_all_enums(module):
-    return [
-        x[1]
-        for x in inspect.getmembers(
-            module,
-            lambda obj: inspect.isclass(obj)
-            and issubclass(obj, enum.Enum)
-            and obj is not enum.Enum
-            and obj is not enum.StrEnum,
-        )
-    ]
+    return inspect.getmembers(
+        module,
+        lambda obj: inspect.isclass(obj)
+        and issubclass(obj, enum.Enum)
+        and obj is not enum.Enum
+        and obj is not enum.StrEnum,
+    )
 
 
 def get_all_pydantic_models(module):
-    return [
-        x[1]
-        for x in inspect.getmembers(
-            module,
-            lambda obj: inspect.isclass(obj)
-            and issubclass(obj, BaseModel)
-            and obj is not BaseModel,
-        )
-    ]
+    return inspect.getmembers(
+        module,
+        lambda obj: inspect.isclass(obj)
+        and issubclass(obj, BaseModel)
+        and obj is not BaseModel,
+    )
 
 
 def enum_to_ts(enum_class):
@@ -187,20 +181,20 @@ def pydantic_model_to_ts(model):
 
 
 def main(output_file):
-    all_enums = set()
-    all_pydantic_models = set()
+    all_enums = {}
+    all_pydantic_models = {}
     modules = get_modules_from_package(setta.types)
     for module in modules:
         enums = get_all_enums(module)
-        all_enums.update(enums)
+        all_enums.update({k: v for k, v in enums})
         pydantic_models = get_all_pydantic_models(module)
-        all_pydantic_models.update(pydantic_models)
+        all_pydantic_models.update({k: v for k, v in pydantic_models})
 
     ts_code = ""
-    for e in all_enums:
+    for e in all_enums.values():
         ts_code += enum_to_ts(e)
 
-    for p in all_pydantic_models:
+    for p in all_pydantic_models.values():
         ts_code += pydantic_model_to_ts(p)
 
     with open(output_file, "w") as f:
