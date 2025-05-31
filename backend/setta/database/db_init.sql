@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS Notifications (
 CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
     name TEXT,
-    lastUpdated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+    lastUpdated TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f%z', 'now'))
 );
 CREATE TABLE IF NOT EXISTS ChatMessage (
     id TEXT PRIMARY KEY,
@@ -48,6 +48,6 @@ CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
 AFTER INSERT ON ChatMessage
 BEGIN
     UPDATE Chat
-    SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%f', 'now') || 'Z'
+    SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%f%z', 'now')
     WHERE id = NEW.chatId;
 END;

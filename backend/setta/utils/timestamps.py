@@ -15,5 +15,5 @@ def filename_to_datetime(filename_timestamp: str):
 
 
 def parse_timestamp_str(timestamp_str: str):
-    dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(timestamp_str)
     return dt.astimezone(timezone.utc)
