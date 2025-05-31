@@ -72,17 +72,109 @@ type UIType = {
   config?: Record<string, any>;
 }
 
-type Chat = {
+type WebSearchResultBlock = {
+  encrypted_content: string;
+  page_age?: string | null;
+  title: string;
+  type: "web_search_result";
+  url: string;
+}
+
+type WebSearchToolResultError = {
+  error_code: "invalid_tool_input" | "unavailable" | "max_uses_exceeded" | "too_many_requests" | "query_too_long";
+  type: "web_search_tool_result_error";
+}
+
+type CitationsWebSearchResultLocation = {
+  cited_text: string;
+  encrypted_index: string;
+  title?: string | null;
+  type: "web_search_result_location";
+  url: string;
+}
+
+type CitationContentBlockLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title?: string | null;
+  end_block_index: number;
+  start_block_index: number;
+  type: "content_block_location";
+}
+
+type CitationPageLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title?: string | null;
+  end_page_number: number;
+  start_page_number: number;
+  type: "page_location";
+}
+
+type CitationCharLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title?: string | null;
+  end_char_index: number;
+  start_char_index: number;
+  type: "char_location";
+}
+
+type ToolResult = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: any[];
+  is_error: boolean;
+}
+
+type RedactedThinkingBlock = {
+  data: string;
+  type: "redacted_thinking";
+}
+
+type ThinkingBlock = {
+  signature: string;
+  thinking: string;
+  type: "thinking";
+}
+
+type WebSearchToolResultBlock = {
+  content: (WebSearchToolResultError | WebSearchResultBlock[]);
+  tool_use_id: string;
+  type: "web_search_tool_result";
+}
+
+type ServerToolUseBlock = {
   id: string;
+  input: any;
+  name: "web_search";
+  type: "server_tool_use";
+}
+
+type ToolUseBlock = {
+  id: string;
+  input: any;
   name: string;
-  lastUpdated?: datetime;
-  messages: ChatMessage[];
+  type: "tool_use";
+}
+
+type TextBlock = {
+  citations?: (CitationCharLocation | CitationPageLocation | CitationContentBlockLocation | CitationsWebSearchResultLocation)[] | null;
+  text: string;
+  type: "text";
 }
 
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   content: ((TextBlock | ToolUseBlock | ServerToolUseBlock | WebSearchToolResultBlock | ThinkingBlock | RedactedThinkingBlock) | ToolResult)[];
+}
+
+type Chat = {
+  id: string;
+  name: string;
+  lastUpdated?: datetime;
+  messages: ChatMessage[];
 }
 
 type ChatMetadata = {
@@ -116,38 +208,12 @@ type TextContent = {
   annotations?: any;
 }
 
-type ToolResult = {
-  type: "tool_result";
-  tool_use_id: string;
-  content: any[];
-  is_error: boolean;
-}
-
 type CodeInfoCol = {
   children?: Record<any, string[]>;
 }
 
-type ProjectState = {
-  projectConfigs?: Record<string, ProjectConfig>;
-  sections?: Record<string, Section>;
-  variants?: Record<string, SectionVariant>;
-  codeInfo?: Record<string, CodeInfo>;
-  codeInfoCols?: Record<string, CodeInfoCol>;
-  uiTypes?: Record<string, UIType>;
-  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
-  defaultProjectConfigId?: any;
-}
-
-type UITypeColEntry = {
-  uiTypeId?: string;
-  nonPresetUITypeIds?: string[];
-}
-
-type Artifact = {
-  name: string;
-  path: string;
-  value?: any;
-  type: string;
+type EVEntry = {
+  value?: string;
 }
 
 type ChartSettings = {
@@ -157,6 +223,40 @@ type ChartSettings = {
   xAxisLog?: boolean;
   y1AxisLog?: boolean;
   y2AxisLog?: boolean;
+}
+
+type DrawAreaCanvasSettings = {
+  activeLayerId?: any;
+  color?: string;
+  brushSize?: number;
+  brushShape?: string;
+  eraserBrushSize?: number;
+  drawThrottleDelay?: number;
+  canvasTransferQueueLength?: number;
+  mode?: string;
+}
+
+type Visibility = {
+  DEV?: boolean;
+  USER?: boolean;
+}
+
+type SectionSize = {
+  width?: (number | "auto");
+  height?: (number | "auto");
+}
+
+type ProjectConfigChild = {
+  x?: number;
+  y?: number;
+  zIndex?: number;
+  w?: number;
+  h?: number;
+}
+
+type UITypeColEntry = {
+  uiTypeId?: string;
+  nonPresetUITypeIds?: string[];
 }
 
 type CodeInfo = {
@@ -173,54 +273,21 @@ type CodeInfo = {
   ignoreTypeErrors?: boolean;
 }
 
-type DrawAreaCanvasSettings = {
-  activeLayerId?: any;
-  color?: string;
-  brushSize?: number;
-  brushShape?: string;
-  eraserBrushSize?: number;
-  drawThrottleDelay?: number;
-  canvasTransferQueueLength?: number;
-  mode?: string;
-}
-
-type EVEntry = {
-  value?: string;
-}
-
-type ProjectConfig = {
-  id?: string;
+type SectionVariant = {
   name?: string;
-  previewImgColor?: string;
-  viewport?: any;
-  children?: Record<string, ProjectConfigChild>;
-  viewingEditingMode?: ViewingEditingMode;
-  genCodePrefix?: string;
-  genCodeSuffix?: string;
-}
-
-type ProjectConfigChild = {
-  x?: number;
-  y?: number;
-  zIndex?: number;
-  w?: number;
-  h?: number;
-}
-
-type ProjectLoadState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-}
-
-type ProjectSaveState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-}
-
-type ProjectUpdateState = {
-  projectConfigId: string;
-  projectState: ProjectState;
-  requestRenameRefactor?: boolean;
+  values?: Record<string, EVEntry>;
+  children?: string[];
+  selectedItem?: any;
+  code?: string;
+  codeInfoColId?: any;
+  description?: string;
+  isFrozen?: boolean;
+  sweep?: any[];
+  runGroup?: Record<string, any>;
+  configLanguage?: ConfigLanguage;
+  isJsonSource?: boolean;
+  jsonSourceKeys?: string[];
+  jsonSourceMissing?: boolean;
 }
 
 type Section = {
@@ -265,37 +332,55 @@ type Section = {
   headingAsSectionName?: boolean;
 }
 
-type SectionSize = {
-  width?: (number | "auto");
-  height?: (number | "auto");
+type ProjectConfig = {
+  id?: string;
+  name?: string;
+  previewImgColor?: string;
+  viewport?: any;
+  children?: Record<string, ProjectConfigChild>;
+  viewingEditingMode?: ViewingEditingMode;
+  genCodePrefix?: string;
+  genCodeSuffix?: string;
 }
 
-type SectionVariant = {
-  name?: string;
-  values?: Record<string, EVEntry>;
-  children?: string[];
-  selectedItem?: any;
-  code?: string;
-  codeInfoColId?: any;
-  description?: string;
-  isFrozen?: boolean;
-  sweep?: any[];
-  runGroup?: Record<string, any>;
-  configLanguage?: ConfigLanguage;
-  isJsonSource?: boolean;
-  jsonSourceKeys?: string[];
-  jsonSourceMissing?: boolean;
+type ProjectState = {
+  projectConfigs?: Record<string, ProjectConfig>;
+  sections?: Record<string, Section>;
+  variants?: Record<string, SectionVariant>;
+  codeInfo?: Record<string, CodeInfo>;
+  codeInfoCols?: Record<string, CodeInfoCol>;
+  uiTypes?: Record<string, UIType>;
+  uiTypeCols?: Record<string, Record<string, UITypeColEntry>>;
+  defaultProjectConfigId?: any;
+}
+
+type Artifact = {
+  name: string;
+  path: string;
+  value?: any;
+  type: string;
+}
+
+type ProjectLoadState = {
+  projectConfigId: string;
+  projectState: ProjectState;
+}
+
+type ProjectSaveState = {
+  projectConfigId: string;
+  projectState: ProjectState;
+}
+
+type ProjectUpdateState = {
+  projectConfigId: string;
+  projectState: ProjectState;
+  requestRenameRefactor?: boolean;
 }
 
 type Viewport = {
   x?: number;
   y?: number;
   zoom?: number;
-}
-
-type Visibility = {
-  DEV?: boolean;
-  USER?: boolean;
 }
 
 type SettingsBackend = {
