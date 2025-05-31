@@ -9,18 +9,18 @@ from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
-from setta.project_state.getters import get_section_type
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
-from setta.project_state.project_state import (
+from setta.project_state.utils import create_timestamped_folder
+from setta.types.getters import get_section_type
+from setta.types.project_state import (
     CodeLanguage,
     ProjectState,
     ProjectUpdateState,
 )
-from setta.project_state.utils import create_timestamped_folder
 from setta.utils.constants import CODE_FOLDER, C
 from setta.websockets.msg_handlers.project_manager import WMHProjectManager
 from setta.websockets.websocket_manager import WebsocketManager

@@ -25,7 +25,7 @@ from setta.database.db_objs import DBQueue
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.project_state.project_state import (
+from setta.types.project_state import (
     ProjectLoadState,
     ProjectSaveState,
     ProjectUpdateState,

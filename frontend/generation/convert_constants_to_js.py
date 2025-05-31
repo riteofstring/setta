@@ -142,7 +142,7 @@ def main():
     js_code = generate_javascript_constants(constants)
 
     # Define output path - adjust as needed
-    output_path = Path("../src/utils/c.js")  # Adjust path as needed
+    output_path = Path("../src/utils/c.ts")  # Adjust path as needed
 
     # Write the file
     write_javascript_file(js_code, output_path)

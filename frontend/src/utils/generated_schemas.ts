@@ -639,16 +639,18 @@ export const SettingsStateSchema = z
     gui: SettingsGUISchema.default(() => createSettingsGUI()),
     backend: SettingsBackendSchema.default(() => createSettingsBackend()),
     languageServer: z.record(z.any()).default(() => ({})),
-    sections: z.record(z.any()).default({
-      CODE: { size: { width: 500 } },
-      TERMINAL: { size: { width: 700, height: 300 } },
-      CHART: { size: { width: 400, height: 400 } },
-      GLOBAL_VARIABLES: { name: "Global Variables" },
-      GLOBAL_PARAM_SWEEP: { name: "Global Param Sweep" },
-      GEN_PYTHON_CODE: { name: "Generated Python Code" },
-      TEXT_BLOCK: { displayMode: "RENDER" },
-      CHAT: { size: { width: 405, height: 405 } },
-    }),
+    sections: z
+      .record(z.any())
+      .default({
+        CODE: { size: { width: 500 } },
+        TERMINAL: { size: { width: 700, height: 300 } },
+        CHART: { size: { width: 400, height: 400 } },
+        GLOBAL_VARIABLES: { name: "Global Variables" },
+        GLOBAL_PARAM_SWEEP: { name: "Global Param Sweep" },
+        GEN_PYTHON_CODE: { name: "Generated Python Code" },
+        TEXT_BLOCK: { displayMode: "RENDER" },
+        CHAT: { size: { width: 405, height: 405 } },
+      }),
   })
   .strict();
 export type SettingsState = z.infer<typeof SettingsStateSchema>;
@@ -658,4 +660,62 @@ export function createSettingsState(
   input: Partial<SettingsState> = {},
 ): SettingsState {
   return SettingsStateSchema.parse(input);
+}
+
+// ToolResult schema
+export const ToolResultSchema = z.object({
+  type: z.any(),
+  tool_use_id: z.string(),
+  content: z.array(z.any()),
+  is_error: z.boolean(),
+});
+export type ToolResult = z.infer<typeof ToolResultSchema>;
+
+// ToolResult factory function
+export function createToolResult(input: Partial<ToolResult> = {}): ToolResult {
+  return ToolResultSchema.parse(input);
+}
+
+// ChatMessage schema
+export const ChatMessageSchema = z.object({
+  id: z.string(),
+  role: z.any(),
+  content: z.any(),
+});
+export type ChatMessage = z.infer<typeof ChatMessageSchema>;
+
+// ChatMessage factory function
+export function createChatMessage(
+  input: Partial<ChatMessage> = {},
+): ChatMessage {
+  return ChatMessageSchema.parse(input);
+}
+
+// Chat schema
+export const ChatSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  lastUpdated: z.string().default(""),
+  messages: z.array(ChatMessageSchema),
+});
+export type Chat = z.infer<typeof ChatSchema>;
+
+// Chat factory function
+export function createChat(input: Partial<Chat> = {}): Chat {
+  return ChatSchema.parse(input);
+}
+
+// FullMessageStop schema
+export const FullMessageStopSchema = z.object({
+  type: z.any(),
+  messages: z.array(ChatMessageSchema),
+  toolResults: z.record(ToolResultSchema),
+});
+export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
+
+// FullMessageStop factory function
+export function createFullMessageStop(
+  input: Partial<FullMessageStop> = {},
+): FullMessageStop {
+  return FullMessageStopSchema.parse(input);
 }

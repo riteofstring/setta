@@ -1,6 +1,6 @@
 import json
 
-from setta.project_state.base_ui_types import BASE_UI_TYPES_LIST
+from setta.types.base_ui_types import BASE_UI_TYPES_LIST
 
 
 def convert_base_ui_types_to_js(output_file_path):
@@ -39,5 +39,5 @@ BASE_UI_TYPES_LIST.forEach(uiType => {
 
 if __name__ == "__main__":
     convert_base_ui_types_to_js(
-        "../src/utils/baseUITypes.js",
+        "../src/utils/baseUITypes.ts",
     )

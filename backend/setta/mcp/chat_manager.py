@@ -28,7 +28,7 @@ from setta.database.db_objs import DBQueue
 from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
 from setta.mcp.server import CHAT_ID_ARG_NAME
-from setta.project_state.chat_messages import (
+from setta.types.chat_messages import (
     Chat,
     ChatMessage,
     FullMessageStop,

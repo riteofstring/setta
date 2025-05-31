@@ -7,7 +7,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
-from setta.project_state.getters import (
+from setta.types.getters import (
     get_param_ui_type,
     get_section_children,
     get_section_code_info_children,
@@ -16,7 +16,7 @@ from setta.project_state.getters import (
     get_selected_section_variant,
     get_top_level_param_ids,
 )
-from setta.project_state.project_state import (
+from setta.types.project_state import (
     EVEntry,
     ParameterPassingStyle,
     ProjectState,

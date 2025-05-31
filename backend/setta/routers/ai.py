@@ -5,13 +5,13 @@ from pydantic import BaseModel
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.notifications.load import create_notification_dict
 from setta.mcp.chat_manager import ChatManager
-from setta.project_state.chat_messages import ChatMessage
 from setta.routers.dependencies import (
     get_chat_manager,
     get_dbq,
     get_wmh_base,
 )
 from setta.routers.utils import get_llm_api_keys_from_env_vars
+from setta.types.chat_messages import ChatMessage
 from setta.utils.constants import C
 
 load_dotenv()

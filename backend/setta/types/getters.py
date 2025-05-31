@@ -1,4 +1,4 @@
-from setta.project_state.project_state import (
+from setta.types.project_state import (
     CodeInfoCol,
     CodeInfoType,
     ProjectState,

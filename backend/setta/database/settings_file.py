@@ -5,14 +5,14 @@ from pathlib import Path
 
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
-from setta.project_state.getters import get_selected_section_variant
-from setta.project_state.project_state import (
+from setta.project_state.settings_project import create_settings_project_state
+from setta.types.getters import get_selected_section_variant
+from setta.types.project_state import (
     ProjectLoadState,
     ProjectSaveState,
     ProjectState,
 )
-from setta.project_state.settings_project import create_settings_project_state
-from setta.project_state.settings_state import SettingsState
+from setta.types.settings_state import SettingsState
 from setta.utils.constants import SETTA_FILES_FOLDER
 from setta.utils.utils import save_json_to_file
 

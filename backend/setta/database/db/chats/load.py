@@ -1,7 +1,7 @@
 import json
 
 from setta.database.db_objs import DB
-from setta.project_state.chat_messages import Chat, ChatMessage
+from setta.types.chat_messages import Chat, ChatMessage
 
 
 def load_chat(db: DB, chat_id: str):

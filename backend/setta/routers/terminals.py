@@ -7,8 +7,8 @@ from pydantic import BaseModel
 from setta.database.db.notifications.load import create_notification_dict
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager import ProjectManager
-from setta.project_state.project_state import ProjectUpdateState
 from setta.terminals.terminals import Terminals
+from setta.types.project_state import ProjectUpdateState
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.terminals import WMHTerminals
 

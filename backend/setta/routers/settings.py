@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from setta.database.db.notifications.load import create_notification_dict
 from setta.database.settings_file import SettingsFile
-from setta.project_state.project_state import ProjectSaveState
+from setta.types.project_state import ProjectSaveState
 from setta.utils.constants import C
 
 from .dependencies import (

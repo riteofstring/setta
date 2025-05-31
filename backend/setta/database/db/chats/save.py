@@ -4,7 +4,7 @@ from anthropic.types import TextBlock
 
 from setta.database.db_objs import DB
 from setta.database.utils import create_new_id
-from setta.project_state.chat_messages import Chat, ChatMessage
+from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 

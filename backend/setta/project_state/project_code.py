@@ -11,10 +11,6 @@ from setta.project_state.code import (
     BashCode,
     PythonCode,
 )
-from setta.project_state.getters import (
-    get_section_path_full_name,
-    get_selected_section_variant,
-)
 from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
@@ -23,6 +19,10 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
+)
+from setta.types.getters import (
+    get_section_path_full_name,
+    get_selected_section_variant,
 )
 
 

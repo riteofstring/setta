@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.database.utils import create_new_id
-from setta.project_state.project_state import (
+from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
     EVEntry,

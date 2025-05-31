@@ -10,7 +10,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.project_state.base_ui_types import (
+from setta.types.base_ui_types import (
     BASE_UI_TYPE_IDS,
     BASE_UI_TYPES,
     UIType,

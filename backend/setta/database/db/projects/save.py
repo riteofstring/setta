@@ -1,5 +1,5 @@
 from setta.database.db.projects.load import load_project_state
-from setta.project_state.project_state import ProjectConfig, ProjectState
+from setta.types.project_state import ProjectConfig, ProjectState
 
 
 def save_project_state(db, state: ProjectState):
