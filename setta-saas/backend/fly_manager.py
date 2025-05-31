@@ -1,33 +1,27 @@
-import os
 import time
-from typing import Optional, List
-from dotenv import load_dotenv
+from typing import List, Optional
 
-from utils import HTTPClient, is_success, parse_json
+from config import settings
 from models import (
+    AllocateIPRequest,
     AppInfo,
-    AppStatus as AppStatusModel,
+    CreateAppRequest,
+    CreateMachineRequest,
+    IPAddressType,
     Machine,
     MachineState,
-    CreateMachineRequest,
-    CreateAppRequest,
-    AllocateIPRequest,
-    IPAddressType
 )
-
-load_dotenv()
+from models import AppStatus as AppStatusModel
+from utils import HTTPClient, is_success, parse_json
 
 
 class FlyManager:
     """Manages Fly.io app lifecycle using REST APIs"""
 
     def __init__(self):
-        self.api_token = os.getenv("FLY_API_TOKEN")
+        self.api_token = settings.fly_api_token
         self.api_base = "https://api.fly.io/v1"
         self.machines_base = "https://api.machines.dev/v1"
-
-        if not self.api_token:
-            raise ValueError("FLY_API_TOKEN not found in environment variables!")
 
         print(f"FLY_API_TOKEN found: {self.api_token[:10]}...")
 
@@ -35,7 +29,7 @@ class FlyManager:
         self.client = HTTPClient(
             headers={
                 "Authorization": f"Bearer {self.api_token}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
         )
 
@@ -74,7 +68,7 @@ class FlyManager:
 
         for data in machines_data:
             try:
-                machine = Machine.parse_obj(data)
+                machine = Machine.model_validate(data)
                 machines.append(machine)
                 print(f"  - ID: {machine.id}")
                 print(f"    State: {machine.state}")
@@ -129,7 +123,7 @@ class FlyManager:
         request = CreateAppRequest(app_name=app_name)
         url = f"{self.api_base}/apps"
 
-        response = self.client.post(url, json=request.dict())
+        response = self.client.post(url, json=request.model_dump())
 
         if not is_success(response):
             if response:
@@ -143,7 +137,7 @@ class FlyManager:
 
         app_info = AppInfo(
             name=app_data.get("name") or app_name,  # Ensure name is never None
-            hostname=f"{app_name}.fly.dev"
+            hostname=f"{app_name}.fly.dev",
         )
 
         print(f"App created successfully: {app_info.hostname}")
@@ -160,19 +154,19 @@ class FlyManager:
 
         # Allocate shared IPv4
         request = AllocateIPRequest(type=IPAddressType.SHARED_V4)
-        response = self.client.post(url, json=request.dict())
+        response = self.client.post(url, json=request.model_dump())
         if is_success(response):
             print("✓ Shared IPv4 allocated")
         else:
-            print(f"Failed to allocate IPv4")
+            print("Failed to allocate IPv4")
 
         # Allocate IPv6
         request = AllocateIPRequest(type=IPAddressType.V6)
-        response = self.client.post(url, json=request.dict())
+        response = self.client.post(url, json=request.model_dump())
         if is_success(response):
             print("✓ IPv6 allocated")
         else:
-            print(f"Failed to allocate IPv6")
+            print("Failed to allocate IPv6")
 
         return True
 
@@ -206,7 +200,7 @@ class FlyManager:
             hostname=app_data.get("hostname", f"{app_name}.fly.dev"),
             status=app_data.get("status", "unknown"),
             deployed=deployed,
-            machines=machines
+            machines=machines,
         )
 
     def deploy_to_app(self, app_name: str) -> bool:
@@ -228,7 +222,7 @@ class FlyManager:
         if not self._ensure_machine_started(app_name, machine_id):
             return False
 
-        print(f"=== DEPLOYMENT COMPLETE ===")
+        print("=== DEPLOYMENT COMPLETE ===")
         return True
 
     def _create_machine(self, app_name: str) -> Optional[str]:
@@ -239,7 +233,7 @@ class FlyManager:
         request = CreateMachineRequest.default_config(app_name)
 
         print("Creating machine...")
-        response = self.client.post(url, json=request.dict(), timeout=60.0)
+        response = self.client.post(url, json=request.model_dump(), timeout=60.0)
 
         if not response:
             return None
