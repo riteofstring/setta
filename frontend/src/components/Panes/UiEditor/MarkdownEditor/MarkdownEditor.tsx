@@ -92,7 +92,7 @@ const _MarkdownEditorCore = React.forwardRef(
         ref={ref}
         className={wrapperClassName}
         onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
-        tabIndex="0"
+        tabIndex={0}
       >
         <CodeMirror
           maxHeight={maxHeight}

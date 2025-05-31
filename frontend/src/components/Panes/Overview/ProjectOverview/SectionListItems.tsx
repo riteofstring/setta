@@ -52,7 +52,7 @@ function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
       onClick={onClick}
       onKeyDown={onKeyDown}
       style={{ marginLeft: `${0.75 * depth}rem` }}
-      tabIndex="0"
+      tabIndex={0}
     >
       {sectionHeading}
     </li>

@@ -101,7 +101,7 @@ function _SortableCore({
     <div
       className="relative flex w-full outline-none"
       {...stackProps}
-      tabIndex="-1"
+      tabIndex={-1}
     >
       <TempSectionOrNot
         sectionId={sectionId}

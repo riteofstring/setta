@@ -44,7 +44,7 @@ function File({ id, name, onClick, onFileDoubleClick }) {
       ref={itemRef}
       onClick={_onClick}
       className={`flex flex-grow cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-setta-100 focus-visible:ring-1 dark:text-setta-100 dark:hover:bg-setta-900 dark:hover:text-white`}
-      tabIndex="0"
+      tabIndex={0}
     >
       <span className="w-4">
         <RadioGroup.Indicator>

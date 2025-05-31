@@ -12,15 +12,15 @@ export const StandardSearch = React.forwardRef(
       rightElement = false,
       inputStyles = false,
       onChange,
-      onFormSubmit,
       ...props
     },
     ref,
   ) => {
     const classes = ` flex-grow outline-0 cursor-auto min-w-0 placeholder-setta-300 dark:placeholder-setta-700 ${twClasses}`;
+    const styles = `flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200 ${outerClasses}`;
 
     return (
-      <MaybeForm onFormSubmit={onFormSubmit} outerClasses={outerClasses}>
+      <search className={styles}>
         {!noLeftElement && (
           <div
             className={`absolute left-0 grid select-none place-items-center ${leftElementStyles}`}
@@ -35,7 +35,7 @@ export const StandardSearch = React.forwardRef(
           placeholder={placeholder}
           {...props}
           ref={ref}
-          tabIndex="0"
+          tabIndex={0}
           onChange={onChange}
         />
         <div
@@ -43,18 +43,7 @@ export const StandardSearch = React.forwardRef(
         >
           {rightElement}
         </div>
-      </MaybeForm>
+      </search>
     );
   },
 );
-
-function MaybeForm({ onFormSubmit, children, outerClasses }) {
-  const styles = `flex min-w-0 mx-[2px] items-center relative nodrag dark:text-setta-200 ${outerClasses}`;
-  return onFormSubmit ? (
-    <form className={styles} onSubmit={onFormSubmit}>
-      {children}
-    </form>
-  ) : (
-    <search className={styles}>{children}</search>
-  );
-}

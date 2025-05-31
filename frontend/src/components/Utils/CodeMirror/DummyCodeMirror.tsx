@@ -60,7 +60,7 @@ function PlaceholderCode({
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
-      tabIndex="0"
+      tabIndex={0}
     >
       {placeholder ? placeholder : <br />}
     </span>
@@ -145,7 +145,7 @@ function HighlightedCode({
       style={lineWrapStyle}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
-      tabIndex="0"
+      tabIndex={0}
     >
       {outputDivs}
     </div>

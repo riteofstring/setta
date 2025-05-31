@@ -98,7 +98,7 @@ function InNonEditMode({
     <p
       onClick={onClick}
       className={titleProps}
-      tabIndex="0"
+      tabIndex={0}
       onKeyDown={onKeyDown}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

@@ -55,7 +55,7 @@ export function KwargsControls({
             <button
               className={classes}
               onClick={onClickDeleteKwarg}
-              tabIndex="0"
+              tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-math-minus before:!left-0 " />
@@ -63,19 +63,19 @@ export function KwargsControls({
             <button
               className={classes}
               onClick={onClickAddKwarg}
-              tabIndex="0"
+              tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-math-plus !scale-50" />
             </button>
 
-            <button className={classes} onClick={onClickPinParam} tabIndex="0">
+            <button className={classes} onClick={onClickPinParam} tabIndex={0}>
               <i className="gg-pin-alt mt-1 !scale-50" />
             </button>
             <button
               className={classes}
               onClick={onClickDeleteSelectedKwargs}
-              tabIndex="0"
+              tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-close !scale-50" />
@@ -113,7 +113,7 @@ function ParamFilter({ sectionId }) {
         value={paramFilterValue}
         className="min-w-0 flex-1 cursor-auto truncate border-solid border-transparent bg-transparent py-1 pl-3 text-xs text-setta-700 placeholder-setta-400  outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300"
         placeholder={`${sectionIsActive ? searchShortcut : "Filter"}`}
-        tabIndex="0"
+        tabIndex={0}
         onChange={onSearchChange}
         onKeyDown={(e) => {
           if (e.code === "Escape") {

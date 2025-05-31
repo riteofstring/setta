@@ -188,7 +188,7 @@ class CodeInfoCol(BaseModel, extra="forbid"):
     def convert_none_key(self):
         new_dict = {}
         for key, value in self.children.items():
-            if key == None:
+            if key is None:
                 new_dict["null"] = value
             else:
                 new_dict[key] = value

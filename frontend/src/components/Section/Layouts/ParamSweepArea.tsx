@@ -326,7 +326,7 @@ function Input({
       <button
         className="section-left-gutter ml-2 flex h-[0.66rem] w-[0.66rem] cursor-pointer items-center justify-center place-self-center rounded-full bg-transparent text-transparent opacity-75 outline-blue-500 hover:!text-setta-600 focus-visible:text-blue-500 focus-visible:outline group-hover:text-setta-300 dark:hover:!text-setta-200 group-hover:dark:text-setta-600"
         onClick={onDelete}
-        tabIndex="-1"
+        tabIndex={-1}
         disabled={isDisabled}
       >
         <i className="gg-close !scale-50" />

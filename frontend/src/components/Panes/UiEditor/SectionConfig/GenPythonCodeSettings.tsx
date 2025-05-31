@@ -41,7 +41,7 @@ export function GenPythonCodeSettings() {
   return (
     <article
       className="cursor-auto overflow-y-scroll [&_*]:!outline-0"
-      tabIndex="0"
+      tabIndex={0}
     >
       <CodeMirror
         value={localValue}

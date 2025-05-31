@@ -124,7 +124,7 @@ export function FloatingBox() {
       <MaybeResizable
         isFrozen={isFrozen}
         className={`flex max-h-96 min-h-32 min-w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg focus:outline focus:outline-2 focus:outline-blue-600 dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx].wrapperClassName}`}
-        tabIndex="0"
+        tabIndex={0}
         tooltipWidth={tooltipWidth}
         onResizeStop={(e, direction, ref, d) => {
           useLocalStorage.setState((state) => ({

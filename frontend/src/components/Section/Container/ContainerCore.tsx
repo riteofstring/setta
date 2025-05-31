@@ -54,7 +54,7 @@ function _Container({
       onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
-      tabIndex="-1" // needed so that onKeyDown works
+      tabIndex={-1} // needed so that onKeyDown works
     >
       {children}
     </div>
@@ -108,7 +108,7 @@ function ContainerGroup({
       onKeyDown={(e) =>
         sectionContainerCoreOnKeyDown(e, refForPosition, sectionId)
       }
-      tabIndex="-1" // needed so that onKeyDown works
+      tabIndex={-1} // needed so that onKeyDown works
       style={style}
     >
       <div

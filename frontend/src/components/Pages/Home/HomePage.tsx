@@ -228,7 +228,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
 
       <div
         className="col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid place-items-center overflow-hidden opacity-50 mix-blend-multiply [&>*]:scale-150"
-        tabIndex="0"
+        tabIndex={0}
         onKeyDown={(e) =>
           homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
