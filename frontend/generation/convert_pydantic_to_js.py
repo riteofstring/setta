@@ -276,4 +276,4 @@ def main(output_file):
 
 
 if __name__ == "__main__":
-    main(Path("../src/utils/generated_schemas.ts"))
+    main(Path("../src/utils/generatedTypes.ts"))
