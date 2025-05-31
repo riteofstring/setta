@@ -10,7 +10,7 @@ from mcp.server.sse import SseServerTransport
 from mcp.types import AnyFunction
 from mcp.types import Tool as MCPTool
 
-from setta.database.db.notifications.load import create_notification_dict
+from setta.types.notifications import SettaNotification
 
 CHAT_ID_ARG_NAME = "chatId"
 
@@ -83,7 +83,7 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     mcp_server.setta_terminals = app.state.terminals
     mcp_server.project_manager = app.state.project_manager
 
-    content = create_notification_dict("MCP Server Ready", temporary=True)
+    content = SettaNotification(message="MCP Server Ready", temporary=True)
     asyncio.create_task(
         mcp_server.setta_websocket.broadcast_notification_to_all_projects(content)
     )

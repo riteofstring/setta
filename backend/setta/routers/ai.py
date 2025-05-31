@@ -3,7 +3,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
-from setta.database.db.notifications.load import create_notification_dict
 from setta.mcp.chat_manager import ChatManager
 from setta.routers.dependencies import (
     get_chat_manager,
@@ -13,6 +12,7 @@ from setta.routers.dependencies import (
 from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.types.ai import APIKeys
 from setta.types.chat_messages import ChatMessage
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.utils.constants import C
 
 load_dotenv()
@@ -115,11 +115,13 @@ async def route_set_llm_api_keys(
         load_dotenv(override=True)
 
         print("Successfully updated API keys in .env file", flush=True)
-        notification = create_notification_dict("Saved LLM API keys", temporary=True)
+        notification = SettaNotification(message="Saved LLM API keys", temporary=True)
 
     except Exception:
-        notification = create_notification_dict(
-            "Error saving LLM API keys", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
+        notification = SettaNotification(
+            message="Error saving LLM API keys",
+            type=SettaNotificationType.ERROR,
+            temporary=True,
         )
 
     await websocket_msg_handler.broadcast_notification_to_all_projects(notification)
@@ -159,8 +161,10 @@ async def route_get_llm_chat(
         # it's possible for projectConfigId to be null
         # if the llm chats are requested before a project is loaded to the frontend
         if x.projectConfigId:
-            notification = create_notification_dict(
-                "Chat not found!", type="NOTIFICATION_TYPE_ERROR", temporary=True
+            notification = SettaNotification(
+                message="Chat not found!",
+                type=SettaNotificationType.ERROR,
+                temporary=True,
             )
             background_tasks.add_task(
                 websocket_msg_handler.broadcast_notification,

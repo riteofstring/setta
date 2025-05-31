@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS Artifact (
 CREATE TABLE IF NOT EXISTS Notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   projectConfigId TEXT NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f%z', 'now')),
   type TEXT NOT NULL,
   message TEXT NOT NULL,
   metadata JSON,

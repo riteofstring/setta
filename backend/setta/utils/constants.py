@@ -189,12 +189,6 @@ class C:
         "CHAT": ["chatHistory"],
     }
 
-    # Notification types
-    NOTIFICATION_TYPE_SUCCESS = "success"
-    NOTIFICATION_TYPE_ERROR = "error"
-    NOTIFICATION_TYPE_WARNING = "warning"
-    NOTIFICATION_TYPE_INFO = "info"
-    NOTIFICATION_TYPE_SAVE = "save"
     NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS"
 
     # WebSocket connection types

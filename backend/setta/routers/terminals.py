@@ -4,10 +4,10 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
-from setta.database.db.notifications.load import create_notification_dict
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
+from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectUpdateState
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.terminals import WMHTerminals
@@ -94,7 +94,7 @@ def route_kill_subprocesses(
         if num_killed > 0
         else "No subprocesses to kill"
     )
-    notification = create_notification_dict(message=msg, temporary=True)
+    notification = SettaNotification(message=msg, temporary=True)
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
@@ -127,7 +127,7 @@ async def route_run_code(
 
         asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
 
-    notification = create_notification_dict(message="Started", temporary=True)
+    notification = SettaNotification(message="Started", temporary=True)
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,

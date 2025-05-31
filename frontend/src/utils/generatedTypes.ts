@@ -42,6 +42,14 @@ enum CodeInfoType {
   COLLECTION = "collection",
 }
 
+enum SettaNotificationType {
+  SUCCESS = "success",
+  ERROR = "error",
+  WARNING = "warning",
+  INFO = "info",
+  SAVE = "save",
+}
+
 enum CodeLanguage {
   PYTHON = "python",
   BASH = "bash",
@@ -380,6 +388,18 @@ type ProjectState = {
   uiTypes: Record<string, UIType>;
   uiTypeCols: Record<string, Record<string, UITypeColEntry>>;
   defaultProjectConfigId: any;
+};
+
+type BaseModel = {};
+
+type SettaNotification = {
+  id: string;
+  type: SettaNotificationType;
+  message: string;
+  temporary: boolean;
+  timestamp: string;
+  metadata: Record<string, any>;
+  read_status: boolean;
 };
 
 type Artifact = {

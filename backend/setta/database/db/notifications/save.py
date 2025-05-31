@@ -1,7 +1,10 @@
 import json
 
+from setta.database.db_objs import DB
+from setta.types.notifications import SettaNotification
 
-def save_notification(db, project_config_id, type, message, metadata=None):
+
+def save_notification(db: DB, project_config_id: str, notification: SettaNotification):
     """
     Save a new notification to the database.
 

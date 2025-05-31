@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from setta.database.backup import maybe_create_backup
 from setta.database.db.notifications.delete import delete_notification
 from setta.database.db.notifications.load import (
-    create_notification_dict,
     load_project_notifications,
 )
 from setta.database.db.projects.load import (
@@ -25,6 +24,7 @@ from setta.database.db_objs import DBQueue
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectLoadState,
     ProjectSaveState,
@@ -152,11 +152,13 @@ async def route_save_project(
                 settings.exportDbReadableWithVariantsOnSave,
             )
             # Return success response with notification
-            notification = create_notification_dict(message="Saved!", temporary=True)
+            notification = SettaNotification(message="Saved!", temporary=True)
 
         except Exception:
-            notification = create_notification_dict(
-                message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
+            notification = SettaNotification(
+                message="Failed to save",
+                type=SettaNotificationType.ERROR,
+                temporary=True,
             )
 
         background_tasks.add_task(

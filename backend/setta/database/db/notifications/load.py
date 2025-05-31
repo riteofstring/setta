@@ -1,9 +1,8 @@
-from setta.database.utils import create_new_id
-from setta.utils.constants import C
-from setta.utils.utils import try_json
+from setta.database.db_objs import DB
+from setta.types.notifications import SettaNotification
 
 
-def load_project_notifications(db, project_config_id, limit=20):
+def load_project_notifications(db: DB, project_config_id: str, limit=20):
     """
     Load the latest notifications for a specific project.
 
@@ -36,15 +35,15 @@ def load_project_notifications(db, project_config_id, limit=20):
 
     db.execute(query, query_params)
 
-    notifications = []
+    notifications: list[SettaNotification] = []
     for row in db.fetchall():
-        notification = create_notification_dict(**row)
+        notification = SettaNotification(**row)
         notifications.append(notification)
 
     return notifications
 
 
-def load_notification(db, notification_id):
+def load_notification(db: DB, notification_id: str):
     """
     Load a single notification by its ID.
 
@@ -77,32 +76,4 @@ def load_notification(db, notification_id):
     if not row:
         return None
 
-    return create_notification_dict(**row)
-
-
-def create_notification_dict(
-    message,
-    id=None,
-    type=C.NOTIFICATION_TYPE_INFO,
-    timestamp=None,
-    metadata=None,
-    read_status=False,
-    temporary=False,
-):
-    if not id:
-        id = create_new_id()
-    read_status = bool(read_status)
-    if not isinstance(metadata, dict):
-        metadata = try_json(metadata)
-    if metadata is None:
-        metadata = {}
-
-    return {
-        "id": id,
-        "type": type,
-        "message": message,
-        "timestamp": timestamp,
-        "metadata": metadata,
-        "read_status": read_status,
-        "temporary": temporary,
-    }
+    return SettaNotification(**row)

@@ -1,6 +1,6 @@
 import asyncio
 
-from setta.database.db.notifications.load import create_notification_dict
+from setta.types.notifications import SettaNotification
 from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -41,8 +41,8 @@ class LSPReaders:
         websocket_msg_handler = BaseWebsocketMsgHandler(websocket_manager)
 
         def initialization_callback():
-            content = create_notification_dict(
-                "Language Server Started", temporary=True
+            content = SettaNotification(
+                message="Language Server Started", temporary=True
             )
             asyncio.create_task(
                 websocket_msg_handler.broadcast_notification_to_all_projects(content)

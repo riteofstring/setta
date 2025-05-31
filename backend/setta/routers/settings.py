@@ -1,8 +1,8 @@
 from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 
-from setta.database.db.notifications.load import create_notification_dict
 from setta.database.settings_file import SettingsFile
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectSaveState
 from setta.utils.constants import C
 
@@ -46,10 +46,10 @@ async def route_save_settings_project(
     output = None
     try:
         output = settings_file.save_settings_project(x.settingsProject)
-        notification = create_notification_dict(message="Saved!", temporary=True)
+        notification = SettaNotification(message="Saved!", temporary=True)
     except Exception:
-        notification = create_notification_dict(
-            message="Failed to save", type=C.NOTIFICATION_TYPE_ERROR, temporary=True
+        notification = SettaNotification(
+            message="Failed to save", type=SettaNotificationType.ERROR, temporary=True
         )
 
     background_tasks.add_task(

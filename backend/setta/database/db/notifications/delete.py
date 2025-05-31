@@ -1,4 +1,7 @@
-def delete_notification(db, notification_id):
+from setta.database.db_objs import DB
+
+
+def delete_notification(db: DB, notification_id: str):
     """
     Delete a notification from the database by its ID.
 
