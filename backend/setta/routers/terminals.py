@@ -84,7 +84,7 @@ def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     background_tasks: BackgroundTasks,
     terminals=Depends(get_terminals),
-    websocket_msg_handler=Depends(get_wmh_terminals),
+    websocket_msg_handler: WMHTerminals = Depends(get_wmh_terminals),
 ):
     existing = terminals.get_existing_terminals(x.projectConfigId)
     ids = [x["id"] for x in existing]
@@ -94,11 +94,12 @@ def route_kill_subprocesses(
         if num_killed > 0
         else "No subprocesses to kill"
     )
-    notification = SettaNotification(message=msg, temporary=True)
+    notification = SettaNotification(
+        projectConfigId=x.projectConfigId, message=msg, temporary=True
+    )
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
-        x.projectConfigId,
     )
 
 
@@ -127,11 +128,12 @@ async def route_run_code(
 
         asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
 
-    notification = SettaNotification(message="Started", temporary=True)
+    notification = SettaNotification(
+        projectConfigId=x.project.projectConfigId, message="Started", temporary=True
+    )
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
-        x.project.projectConfigId,
     )
 
     return {"terminalId": terminal_id, "newTerminalCreated": new_terminal_created}

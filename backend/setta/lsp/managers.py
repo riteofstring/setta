@@ -44,9 +44,7 @@ class LSPReaders:
             content = SettaNotification(
                 message="Language Server Started", temporary=True
             )
-            asyncio.create_task(
-                websocket_msg_handler.broadcast_notification_to_all_projects(content)
-            )
+            asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
         self.full = LanguageServerReader(servers.full, initialization_callback)
 

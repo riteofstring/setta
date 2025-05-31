@@ -31,6 +31,7 @@ from setta.types.project_state import (
     ProjectUpdateState,
 )
 from setta.utils.constants import C
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import get_dbq, get_project_manager, get_settings_file, get_wmh_base
 
@@ -129,7 +130,7 @@ async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
     dbq: DBQueue = Depends(get_dbq),
-    websocket_msg_handler=Depends(get_wmh_base),
+    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
     settings_file: SettingsFile = Depends(get_settings_file),
 ):
     with dbq as db:
@@ -152,10 +153,15 @@ async def route_save_project(
                 settings.exportDbReadableWithVariantsOnSave,
             )
             # Return success response with notification
-            notification = SettaNotification(message="Saved!", temporary=True)
+            notification = SettaNotification(
+                projectConfigId=x.project.projectConfigId,
+                message="Saved!",
+                temporary=True,
+            )
 
         except Exception:
             notification = SettaNotification(
+                projectConfigId=x.project.projectConfigId,
                 message="Failed to save",
                 type=SettaNotificationType.ERROR,
                 temporary=True,
@@ -164,7 +170,6 @@ async def route_save_project(
         background_tasks.add_task(
             websocket_msg_handler.broadcast_notification,
             notification,
-            x.project.projectConfigId,
         )
 
 

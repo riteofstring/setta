@@ -60,6 +60,7 @@ export const addTemporaryNotification = (
   const id = createNewId();
   const notification: SettaNotification = {
     id,
+    projectConfigId: useProjectState.getState().projectConfigId,
     timestamp: new Date().toISOString(),
     type,
     message,

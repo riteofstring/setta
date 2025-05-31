@@ -14,6 +14,7 @@ from setta.types.ai import APIKeys
 from setta.types.chat_messages import ChatMessage
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.utils.constants import C
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 load_dotenv()
 router = APIRouter()
@@ -124,7 +125,7 @@ async def route_set_llm_api_keys(
             temporary=True,
         )
 
-    await websocket_msg_handler.broadcast_notification_to_all_projects(notification)
+    await websocket_msg_handler.broadcast_notification(notification)
 
 
 @router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
@@ -154,7 +155,7 @@ async def route_get_llm_chat(
     x: GetLLMChatRequest,
     background_tasks: BackgroundTasks,
     chat_manager: ChatManager = Depends(get_chat_manager),
-    websocket_msg_handler=Depends(get_wmh_base),
+    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
 ):
     chat = chat_manager.get_chat(x.chatId)
     if not chat:
@@ -162,6 +163,7 @@ async def route_get_llm_chat(
         # if the llm chats are requested before a project is loaded to the frontend
         if x.projectConfigId:
             notification = SettaNotification(
+                projectConfigId=x.projectConfigId,
                 message="Chat not found!",
                 type=SettaNotificationType.ERROR,
                 temporary=True,
@@ -169,7 +171,6 @@ async def route_get_llm_chat(
             background_tasks.add_task(
                 websocket_msg_handler.broadcast_notification,
                 notification,
-                x.projectConfigId,
             )
         return {"messages": [], "waitingForResponse": False}
 

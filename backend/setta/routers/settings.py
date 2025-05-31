@@ -5,6 +5,7 @@ from setta.database.settings_file import SettingsFile
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectSaveState
 from setta.utils.constants import C
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import (
     get_project_manager,
@@ -40,22 +41,28 @@ async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
     settings_file: SettingsFile = Depends(get_settings_file),
-    websocket_msg_handler=Depends(get_wmh_base),
+    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
 ):
     notification = None
     output = None
     try:
         output = settings_file.save_settings_project(x.settingsProject)
-        notification = SettaNotification(message="Saved!", temporary=True)
+        notification = SettaNotification(
+            projectConfigId=x.settingsProject.projectConfigId,
+            message="Saved!",
+            temporary=True,
+        )
     except Exception:
         notification = SettaNotification(
-            message="Failed to save", type=SettaNotificationType.ERROR, temporary=True
+            projectConfigId=x.settingsProject.projectConfigId,
+            message="Failed to save",
+            type=SettaNotificationType.ERROR,
+            temporary=True,
         )
 
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,
         notification,
-        x.settingsProject.projectConfigId,
     )
 
     return output

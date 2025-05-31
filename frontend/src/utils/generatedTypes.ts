@@ -394,6 +394,7 @@ export type BaseModel = {};
 
 export type SettaNotification = {
   id: string;
+  projectConfigId: string;
   type: SettaNotificationType;
   message: string;
   temporary: boolean;

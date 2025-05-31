@@ -17,6 +17,7 @@ def load_project_notifications(db: DB, project_config_id: str, limit=20):
     query = """
         SELECT
             id,
+            projectConfigId,
             timestamp,
             type,
             message,
@@ -57,6 +58,7 @@ def load_notification(db: DB, notification_id: str):
     query = """
         SELECT
             id,
+            projectConfigId,
             timestamp,
             type,
             message,

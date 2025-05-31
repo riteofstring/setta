@@ -4,6 +4,14 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
 } from "utils/constants";
+import {
+  APIKeys,
+  ChatMetadata,
+  IDToUUIDForLLM,
+  ProjectState,
+  SettaNotification,
+  SettingsState,
+} from "utils/generatedTypes";
 import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -14,7 +22,6 @@ import {
   withVersion,
   ZUNDO_TEMPORAL_OPTIONS,
 } from "./utils";
-import { APIKeys, ChatMetadata, IDToUUIDForLLM, ProjectState, SettaNotification, SettingsState } from "utils/generatedTypes";
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -52,7 +59,7 @@ export const useContextMenus = withProjectState(
 );
 
 type ZustandProjectState = {
-  projectConfigId: string | null;
+  projectConfigId: string;
   projectConfigs: ProjectState["projectConfigs"];
   sections: ProjectState["sections"];
   variants: ProjectState["variants"];
@@ -69,7 +76,7 @@ export const useProjectState = withProjectState(
         immer(
           withResetFn(() =>
             withVersion<ZustandProjectState>({
-              projectConfigId: null,
+              projectConfigId: "",
               projectConfigs: {},
               sections: {},
               variants: {},

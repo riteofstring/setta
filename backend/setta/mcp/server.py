@@ -84,9 +84,7 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     mcp_server.project_manager = app.state.project_manager
 
     content = SettaNotification(message="MCP Server Ready", temporary=True)
-    asyncio.create_task(
-        mcp_server.setta_websocket.broadcast_notification_to_all_projects(content)
-    )
+    asyncio.create_task(mcp_server.setta_websocket.broadcast_notification(content))
 
 
 def extract_param_docstrings(func):

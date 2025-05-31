@@ -1,8 +1,10 @@
+from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class BaseWebsocketMsgHandler:
-    def __init__(self, websocket_manager):
+    def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
 
     async def on_connect(self, websocket_id):
@@ -14,18 +16,9 @@ class BaseWebsocketMsgHandler:
     async def process_message(self, message, fromWebsocketId):
         pass
 
-    async def broadcast_notification_to_all_projects(self, content):
-        content["projectConfigId"] = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
+    async def broadcast_notification(self, notification: SettaNotification):
         await self.websocket_manager.broadcast(
-            content,
-            C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
-        )
-
-    async def broadcast_notification(self, content, projectConfigId):
-        content["projectConfigId"] = projectConfigId
-        await self.websocket_manager.broadcast(
-            content,
+            notification.model_dump(),
             C.WS_NOTIFICATION,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )
