@@ -19,9 +19,6 @@ class Project(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_checked: datetime | None = None
 
-    # Future fields for multi-tenancy
-    user_id: str | None = None
-
     def update_status(self, status: ProjectStatus) -> None:
         """Update project status"""
         self.status = status.value
