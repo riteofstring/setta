@@ -48,28 +48,6 @@ CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
 AFTER INSERT ON ChatMessage
 BEGIN
     UPDATE Chat
-    SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+    SET lastUpdated = strftime('%Y-%m-%dT%H:%M:%f', 'now') || 'Z'
     WHERE id = NEW.chatId;
 END;
-
-
-
-
--- CREATE TABLE IF NOT EXISTS ArtifactGroupId (
---     id TEXT PRIMARY KEY,
---     name TEXT,
---     data TEXT,
---     originSectionId TEXT,
---     "order" INTEGER,
---     FOREIGN KEY (originSectionId) REFERENCES Section(id) ON DELETE CASCADE
-
--- );
--- CREATE TABLE IF NOT EXISTS ArtifactGroup (
---     idid TEXT,
---     artifactId TEXT,
---     data TEXT,
---     "order" INTEGER,
---     PRIMARY KEY (idid, "order"),
---     FOREIGN KEY (idid) REFERENCES ArtifactGroupId(id) ON DELETE CASCADE,
---     FOREIGN KEY (artifactId) REFERENCES Artifact(id) ON DELETE CASCADE
--- );

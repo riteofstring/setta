@@ -5,9 +5,9 @@ from anthropic.types import (
     ContentBlock,
 )
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from setta.utils.timestamps import get_now_timestamp
+from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
 class ToolResult(BaseModel):
@@ -27,6 +27,13 @@ class ChatMetadata(BaseModel):
     id: str
     name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+
+    @field_validator("lastUpdated", mode="before")
+    @classmethod
+    def parse_last_updated(cls, v):
+        if isinstance(v, str):
+            return parse_timestamp_str(v)
+        return v
 
 
 class Chat(ChatMetadata):
