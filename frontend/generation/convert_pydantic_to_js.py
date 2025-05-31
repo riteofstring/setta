@@ -82,6 +82,12 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
     # Get the origin for generic types
     origin = get_origin(python_type)
 
+    # Handle built-in types that aren't from typing module
+    if origin is None:
+        # Check if the type itself is a built-in collection type
+        if python_type in (list, dict, set, tuple):
+            origin = python_type
+
     # Handle Annotated types - extract the actual type (first arg)
     if origin is Annotated:
         args = get_args(python_type)

@@ -480,7 +480,7 @@ type SettingsState = {
   shortcuts?: SettingsShortcuts;
   gui?: SettingsGUI;
   backend?: SettingsBackend;
-  languageServer?: dict;
-  sections?: dict;
+  languageServer?: Record<string, any>;
+  sections?: Record<string, any>;
 }
 
