@@ -37,15 +37,16 @@ from setta.types.chat_messages import (
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
 from setta.websockets.msg_handlers.chat_manager import WMHChatManager
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class ChatManager:
     def __init__(
-        self, dbq: DBQueue, mcp_client: MCPClient, websocket_msg_handler: WMHChatManager
+        self, dbq: DBQueue, mcp_client: MCPClient, websocket_manager: WebsocketManager
     ):
         self.dbq = dbq
         self.mcp_client = mcp_client
-        self.websocket_msg_handler = websocket_msg_handler
+        self.websocket_msg_handler = WMHChatManager(websocket_manager)
         self.current_streams: dict[str, list[ChatMessage]] = {}
         self.stream_tasks = {}
         self.anthropic = AsyncAnthropic()
@@ -55,7 +56,7 @@ class ChatManager:
         self.thinking_budget_tokens = 10000
         self.cache_trigger_tokens = 1000
 
-    def get_chat(self, chat_id):
+    def get_chat(self, chat_id: str):
         with self.dbq as db:
             return load_chat(db, chat_id)
 
@@ -83,7 +84,7 @@ class ChatManager:
             raise ValueError
         return chat
 
-    def create_new_chat(self, first_message):
+    def create_new_chat(self, first_message: ChatMessage):
         with self.dbq as db:
             return create_new_chat(db, first_message)
 
@@ -91,20 +92,20 @@ class ChatManager:
         with self.dbq as db:
             return load_all_chat_metadata(db)
 
-    def delete_chat(self, chat_id):
+    def delete_chat(self, chat_id: str):
         with self.dbq as db:
             delete_chat(db, chat_id)
 
-    def is_waiting_for_response(self, chat_id):
+    def is_waiting_for_response(self, chat_id: str):
         return chat_id in self.current_streams
 
-    def init_current_stream(self, chatId):
+    def init_current_stream(self, chatId: str):
         self.current_streams[chatId] = []
 
-    def end_current_stream(self, chatId):
+    def end_current_stream(self, chatId: str):
         self.current_streams.pop(chatId, None)
 
-    def get_current_stream(self, chatId):
+    def get_current_stream(self, chatId: str):
         return self.current_streams.get(chatId, [])
 
     async def process_query(self, chat: Chat, model: str, deepThink: bool):
@@ -280,7 +281,7 @@ class ChatManager:
             chatId, assistant_message_id, chunk.model_dump()
         )
 
-    async def request_stop_streaming(self, chat_id):
+    async def request_stop_streaming(self, chat_id: str):
         task = self.stream_tasks.get(chat_id)
         if task:
             task.cancel()
@@ -364,7 +365,7 @@ class ChatManager:
         return tools, system, output_messages, thinking
 
 
-def maybe_get_str_replace_editor_tool(model_name):
+def maybe_get_str_replace_editor_tool(model_name: str):
     if "claude-3-7-sonnet" in model_name:
         return [
             ToolTextEditor20250124Param(

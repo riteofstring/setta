@@ -125,13 +125,15 @@ async def route_set_llm_api_keys(
 
 
 @router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
-def route_get_all_llm_chat_metadata(chat_manager=Depends(get_chat_manager)):
+def route_get_all_llm_chat_metadata(
+    chat_manager: ChatManager = Depends(get_chat_manager),
+):
     return chat_manager.get_all_chat_metadata()
 
 
 @router.post(C.ROUTE_DELETE_LLM_CHAT)
 def route_delete_llm_chat(
-    x: DeleteLLMChatRequest, chat_manager=Depends(get_chat_manager)
+    x: DeleteLLMChatRequest, chat_manager: ChatManager = Depends(get_chat_manager)
 ):
     return chat_manager.delete_chat(x.chatId)
 
@@ -139,7 +141,7 @@ def route_delete_llm_chat(
 @router.post(C.ROUTE_STOP_LLM_CHAT)
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
-    chat_manager=Depends(get_chat_manager),
+    chat_manager: ChatManager = Depends(get_chat_manager),
 ):
     await chat_manager.request_stop_streaming(x.chatId)
 
