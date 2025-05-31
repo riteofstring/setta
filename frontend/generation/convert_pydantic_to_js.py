@@ -3,7 +3,7 @@ import importlib
 import inspect
 import pkgutil
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Set, Tuple, Union, get_args, get_origin
+from typing import Any, Dict, List, Set, Tuple, Union, get_args, get_origin
 
 import setta.types
 from pydantic import BaseModel
@@ -64,22 +64,6 @@ def python_type_to_ts(python_type):
 
     # Get the origin for generic types
     origin = get_origin(python_type)
-
-    # Handle Literal types
-    if origin is Literal:
-        args = get_args(python_type)
-        # Convert each literal value to TypeScript syntax
-        ts_literals = []
-        for arg in args:
-            if isinstance(arg, str):
-                ts_literals.append(f'"{arg}"')
-            elif isinstance(arg, (int, float)):
-                ts_literals.append(str(arg))
-            elif isinstance(arg, bool):
-                ts_literals.append(str(arg).lower())
-            else:
-                ts_literals.append(f'"{arg}"')  # fallback to string representation
-        return " | ".join(ts_literals)
 
     # Handle Optional/Union types
     if origin is Union:
@@ -170,9 +154,16 @@ def pydantic_model_to_ts(model):
     # Get model fields
     fields = []
     for field_name, field_info in model.model_fields.items():
+        # Get the field type
         field_type = field_info.annotation
+
+        # Convert to TypeScript type
         ts_type = python_type_to_ts(field_type)
+
+        # Check if field is required
         is_required = field_info.is_required()
+
+        # Format field with optional marker if not required
         if is_required:
             fields.append(f"  {field_name}: {ts_type}")
         else:
@@ -208,4 +199,4 @@ def main(output_file):
 
 
 if __name__ == "__main__":
-    main(Path("../src/utils/generated_schemas.ts"))
+    main(Path("../src/utils/generated_schemas_2.ts"))
