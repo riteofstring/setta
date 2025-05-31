@@ -262,7 +262,7 @@ export const useAIStore = createWithEqualityFn<AIStore>()(
         apiKeysFilepath: ".env",
         apiKeysInitialLoadComplete: false,
         chatDetails: {}, // chatId to {messages, toolResults, waitingForResponse, streamTarget}
-        allChatMetadata: [], // list of {ids, names, updated}
+        allChatMetadata: [],
         currentChatId: null, // id of currently viewed chat
         viewHistory: false,
         userSelectedLLM: "",

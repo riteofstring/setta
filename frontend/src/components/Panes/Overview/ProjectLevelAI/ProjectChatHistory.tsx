@@ -39,7 +39,11 @@ export function ProjectChatHistory() {
         </p>
       ) : (
         allChatMetadata
-          .sort((a, b) => b.lastUpdated - a.lastUpdated) // Sort by most recent
+          .sort(
+            (a, b) =>
+              getDateNumberForSorting(b.lastUpdated) -
+              getDateNumberForSorting(a.lastUpdated),
+          ) // Sort by most recent
           .map((chat) => (
             <div
               key={chat.id}
@@ -77,7 +81,9 @@ export function ProjectChatHistory() {
                       : ""
                   }`}
                 >
-                  {new Date(chat.lastUpdated).toLocaleString()}
+                  {chat.lastUpdated
+                    ? new Date(chat.lastUpdated).toLocaleString()
+                    : null}
                 </p>
               </div>
 
@@ -95,4 +101,11 @@ export function ProjectChatHistory() {
       )}
     </div>
   );
+}
+
+function getDateNumberForSorting(timestamp?: string) {
+  if (timestamp) {
+    return new Date(timestamp).getTime();
+  }
+  return 0;
 }
