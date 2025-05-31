@@ -1,10 +1,11 @@
-from datetime import datetime
 from pathlib import Path
+
+from setta.utils.timestamps import get_now_timestamp, timestamp_to_filename
 
 
 def create_timestamped_folder(base_dir: Path, prefix=""):
     # Format the current timestamp with subsecond precision
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    timestamp = timestamp_to_filename(get_now_timestamp())
     # Create folder name with optional prefix and subsecond precision
     folder_name = f"_{prefix}{timestamp}"
     # Full path for the new folder

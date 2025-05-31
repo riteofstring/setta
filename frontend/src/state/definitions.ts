@@ -4,7 +4,11 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
 } from "utils/constants";
-import { createSettingsState, SettingsState } from "utils/generated_schemas";
+import {
+  ChatMetadata,
+  createSettingsState,
+  SettingsState,
+} from "utils/generated_schemas";
 import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
@@ -253,7 +257,10 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-export const useAIStore = createWithEqualityFn(
+type AIStore = { allChatMetadata: Array<ChatMetadata> };
+
+export const useAIStore = createWithEqualityFn<AIStore>()(
+  // @ts-ignore
   subscribeWithSelector(
     persist(
       () => ({

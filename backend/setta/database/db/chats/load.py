@@ -1,7 +1,7 @@
 import json
 
 from setta.database.db_objs import DB
-from setta.types.chat_messages import Chat, ChatMessage
+from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
 
 
 def load_chat(db: DB, chat_id: str):
@@ -57,9 +57,9 @@ def load_all_chat_metadata(db):
 
     db.execute(chat_query)
 
-    output = []
+    output: list[ChatMetadata] = []
     for row in db.fetchall():
-        output.append({"id": row[0], "name": row[1], "lastUpdated": row[2]})
+        output.append(ChatMetadata(id=row[0], name=row[1], lastUpdated=row[2]))
     return output
 
 

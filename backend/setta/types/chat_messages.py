@@ -1,10 +1,13 @@
+from datetime import datetime
 from typing import Literal, Sequence
 
 from anthropic.types import (
     ContentBlock,
 )
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from setta.utils.timestamps import get_now_timestamp
 
 
 class ToolResult(BaseModel):
@@ -20,10 +23,13 @@ class ChatMessage(BaseModel):
     content: Sequence[ContentBlock | ToolResult]
 
 
-class Chat(BaseModel):
+class ChatMetadata(BaseModel):
     id: str
     name: str
-    lastUpdated: str = ""
+    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+
+
+class Chat(ChatMetadata):
     messages: list[ChatMessage]
 
 

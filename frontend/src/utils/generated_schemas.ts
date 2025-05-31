@@ -691,18 +691,22 @@ export function createChatMessage(
   return ChatMessageSchema.parse(input);
 }
 
-// Chat schema
-export const ChatSchema = z.object({
+// ChatMetadata schema
+export const ChatMetadataSchema = z.object({
   id: z.string(),
   name: z.string(),
-  lastUpdated: z.string().default(""),
-  messages: z.array(ChatMessageSchema),
+  lastUpdated: z
+    .string()
+    .datetime()
+    .default(() => datetime.now()),
 });
-export type Chat = z.infer<typeof ChatSchema>;
+export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
-// Chat factory function
-export function createChat(input: Partial<Chat> = {}): Chat {
-  return ChatSchema.parse(input);
+// ChatMetadata factory function
+export function createChatMetadata(
+  input: Partial<ChatMetadata> = {},
+): ChatMetadata {
+  return ChatMetadataSchema.parse(input);
 }
 
 // FullMessageStop schema

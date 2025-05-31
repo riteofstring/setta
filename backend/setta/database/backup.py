@@ -1,10 +1,14 @@
 import logging
 import shutil
-import time
 from datetime import datetime
 from pathlib import Path
 
 from setta.utils.constants import DB_BACKUP_FOLDER
+from setta.utils.timestamps import (
+    filename_to_datetime,
+    get_now_timestamp,
+    timestamp_to_filename,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +26,7 @@ def get_backup_files() -> list[Path]:
     )
 
 
-def get_last_backup_time() -> float | None:
+def get_last_backup_time() -> datetime | None:
     """
     Get the timestamp of the last backup from the most recent backup filename.
     Returns None if no backups exist.
@@ -32,13 +36,8 @@ def get_last_backup_time() -> float | None:
         return None
 
     latest_backup = backup_files[0]
-    timestamp_str = "_".join(latest_backup.stem.split("_")[-2:])
-
-    # Convert the timestamp string to a datetime object
-    backup_datetime = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
-
-    # Convert the datetime to a Unix timestamp (seconds since epoch)
-    return backup_datetime.timestamp()
+    timestamp_str = "_".join(latest_backup.stem.split("_")[-3:])
+    return filename_to_datetime(timestamp_str)
 
 
 def cleanup_old_backups(autobackupKeepLastN: int):
@@ -50,8 +49,8 @@ def cleanup_old_backups(autobackupKeepLastN: int):
 def create_backup(db_path: Path, autobackupKeepLastN: int):
     """Create a new backup of the database."""
     ensure_backup_dir_exists()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_filename = f"backup_{timestamp}.db"
+    timestamp = get_now_timestamp()
+    backup_filename = f"backup_{timestamp_to_filename(timestamp)}.db"
     backup_path = DB_BACKUP_FOLDER / backup_filename
     logger.debug(f"creating backup: {backup_path}")
 
@@ -68,9 +67,9 @@ def should_create_backup(autobackup: bool, autobackupFreq: int) -> bool:
     if last_backup_time is None:
         return True
 
-    current_time = time.time()
+    current_time = get_now_timestamp()
     time_since_last_backup = current_time - last_backup_time
-    return time_since_last_backup >= autobackupFreq
+    return time_since_last_backup.total_seconds() >= autobackupFreq
 
 
 def maybe_create_backup(

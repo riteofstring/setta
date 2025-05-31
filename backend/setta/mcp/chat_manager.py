@@ -91,6 +91,7 @@ class ChatManager:
     def get_all_chat_metadata(self):
         with self.dbq as db:
             return load_all_chat_metadata(db)
+        raise ValueError
 
     def delete_chat(self, chat_id: str):
         with self.dbq as db:
