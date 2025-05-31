@@ -2,6 +2,7 @@ import enum
 import importlib
 import inspect
 import pkgutil
+import types
 from collections.abc import Sequence as ABCSequence
 from datetime import datetime
 from pathlib import Path
@@ -37,6 +38,10 @@ def get_modules_from_package(package):
     return modules
 
 
+def get_all_type_aliases(module):
+    return inspect.getmembers(module, lambda obj: isinstance(obj, types.GenericAlias))
+
+
 def get_all_enums(module):
     return inspect.getmembers(
         module,
@@ -54,6 +59,34 @@ def get_all_pydantic_models(module):
         and issubclass(obj, BaseModel)
         and obj is not BaseModel,
     )
+
+
+def generate_dependencies_ts(type_definitions: dict, processed_types: set):
+    """Generate TypeScript for any discovered dependencies."""
+    dependency_ts = ""
+    for dep_name, (dep_type, dep_obj) in list(type_definitions.items()):
+        if dep_name not in processed_types:
+            if dep_type == "enum":
+                dependency_ts += enum_to_ts(dep_obj, processed_types)
+            elif dep_type == "pydantic":
+                dependency_ts += pydantic_model_to_ts(
+                    dep_obj, type_definitions, processed_types
+                )
+    return dependency_ts
+
+
+def alias_to_ts(name, alias_type, type_definitions: dict, processed_types: set):
+    """Convert a type alias to TypeScript type definition."""
+    if name in processed_types:
+        return ""
+
+    processed_types.add(name)
+    ts_type = python_type_to_ts(alias_type, type_definitions, processed_types)
+
+    # Generate any dependencies first
+    dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
+
+    return dependency_ts + f"type {name} = {ts_type};\n\n"
 
 
 def enum_to_ts(enum_class, processed_types: set):
@@ -244,24 +277,19 @@ def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
         members_str += ";"
 
     # Generate TypeScript for any dependencies that were discovered
-    dependency_ts = ""
-    for dep_name, (dep_type, dep_obj) in list(type_definitions.items()):
-        if dep_name not in processed_types:
-            if dep_type == "enum":
-                dependency_ts += enum_to_ts(dep_obj, processed_types)
-            elif dep_type == "pydantic":
-                dependency_ts += pydantic_model_to_ts(
-                    dep_obj, type_definitions, processed_types
-                )
+    dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
 
     return dependency_ts + f"type {name} = {{\n{members_str}\n}}\n\n"
 
 
 def main(output_file):
+    all_aliases = {}
     all_enums = {}
     all_pydantic_models = {}
     modules = get_modules_from_package(setta.types)
     for module in modules:
+        aliases = get_all_type_aliases(module)
+        all_aliases.update({k: v for k, v in aliases})
         enums = get_all_enums(module)
         all_enums.update({k: v for k, v in enums})
         pydantic_models = get_all_pydantic_models(module)
@@ -271,13 +299,14 @@ def main(output_file):
     processed_types = set()
     type_definitions = {}
 
-    # Process enums first
-    for e in all_enums.values():
-        ts_code += enum_to_ts(e, processed_types)
+    for x_name, x in all_aliases.items():
+        ts_code += alias_to_ts(x_name, x, type_definitions, processed_types)
 
-    # Process Pydantic models with dependency tracking
-    for p in all_pydantic_models.values():
-        ts_code += pydantic_model_to_ts(p, type_definitions, processed_types)
+    for x in all_enums.values():
+        ts_code += enum_to_ts(x, processed_types)
+
+    for x in all_pydantic_models.values():
+        ts_code += pydantic_model_to_ts(x, type_definitions, processed_types)
 
     with open(output_file, "w") as f:
         f.write(ts_code)

@@ -250,7 +250,11 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-type AIStore = { allChatMetadata: Array<ChatMetadata> };
+type AIStore = {
+  apiKeys: APIKeys;
+  allChatMetadata: Array<ChatMetadata>;
+  currentChatId: string | null;
+};
 
 export const useAIStore = createWithEqualityFn<AIStore>()(
   // @ts-ignore

@@ -1,3 +1,5 @@
+type APIKeys = Record<string, string>;
+
 enum UITypeName {
   TEXT = "TEXT",
   SLIDER = "SLIDER",

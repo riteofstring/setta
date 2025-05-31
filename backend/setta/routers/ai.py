@@ -11,6 +11,7 @@ from setta.routers.dependencies import (
     get_wmh_base,
 )
 from setta.routers.utils import get_llm_api_keys_from_env_vars
+from setta.types.ai import APIKeys
 from setta.types.chat_messages import ChatMessage
 from setta.utils.constants import C
 
@@ -26,7 +27,7 @@ class GetLLMResponseRequest(BaseModel):
 
 
 class SetLLMApiKeysRequest(BaseModel):
-    apiKeys: dict[str, str]
+    apiKeys: APIKeys
     apiKeysFilepath: str
 
 

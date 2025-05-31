@@ -1,0 +1,1 @@
+APIKeys = dict[str, str]
