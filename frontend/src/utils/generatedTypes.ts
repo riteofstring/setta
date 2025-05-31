@@ -173,14 +173,14 @@ type ChatMessage = {
 type Chat = {
   id: string;
   name: string;
-  lastUpdated?: datetime;
+  lastUpdated?: Date;
   messages: ChatMessage[];
 }
 
 type ChatMetadata = {
   id: string;
   name: string;
-  lastUpdated?: datetime;
+  lastUpdated?: Date;
 }
 
 type EmbeddedResource = {

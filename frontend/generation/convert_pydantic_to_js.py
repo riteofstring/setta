@@ -3,6 +3,7 @@ import importlib
 import inspect
 import pkgutil
 from collections.abc import Sequence as ABCSequence
+from datetime import datetime
 from pathlib import Path
 from typing import (
     Annotated,
@@ -185,6 +186,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         bool: "boolean",
         bytes: "string",  # or could use Uint8Array
         type(None): "null",
+        datetime: "Date",
         object: "any",
         Any: "any",
     }
