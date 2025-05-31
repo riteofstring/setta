@@ -17,4 +17,4 @@ echo "API will be available at http://localhost:8000"
 echo "API docs at http://localhost:8000/docs"
 echo ""
 
-python -m uvicorn main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8000
