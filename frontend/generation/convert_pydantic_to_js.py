@@ -192,7 +192,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         bool: "boolean",
         bytes: "string",  # or could use Uint8Array
         type(None): "null",
-        datetime: "Date",
+        datetime: "string",
         object: "any",
         Any: "any",
     }
