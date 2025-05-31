@@ -20,7 +20,8 @@ class FlyManager:
 
     def __init__(self):
         self.api_token = settings.fly_api_token
-        self.api_base = "https://api.fly.io/v1"
+        # Use the Machines API endpoint for all operations
+        self.api_base = "https://api.machines.dev/v1"
         self.machines_base = "https://api.machines.dev/v1"
 
         print(f"FLY_API_TOKEN found: {self.api_token[:10]}...")
@@ -123,28 +124,37 @@ class FlyManager:
         request = CreateAppRequest(app_name=app_name)
         url = f"{self.api_base}/apps"
 
+        # Debug logging
+        print(f"API URL: {url}")
+        print(f"Request payload: {request.model_dump()}")
+
         response = self.client.post(url, json=request.model_dump())
 
         if not is_success(response):
             if response:
                 print(f"Failed to create app: {response.status_code} - {response.text}")
+                print(f"Response headers: {dict(response.headers)}")
             return None
 
         # Parse response - we need the raw data to construct AppInfo
         app_data = parse_json(response)
         if not app_data or not isinstance(app_data, dict):
+            print("Failed to parse app creation response")
             return None
 
+        # Extract the app name from response (it might be different from requested)
+        actual_app_name = app_data.get("name", app_name)
+
         app_info = AppInfo(
-            name=app_data.get("name") or app_name,  # Ensure name is never None
-            hostname=f"{app_name}.fly.dev",
+            name=actual_app_name,
+            hostname=f"{actual_app_name}.fly.dev",
         )
 
         print(f"App created successfully: {app_info.hostname}")
 
         # Allocate IPs
-        print(f"Allocating IPs for {app_name}...")
-        self._allocate_ips(app_name)
+        print(f"Allocating IPs for {actual_app_name}...")
+        self._allocate_ips(actual_app_name)
 
         return app_info
 
@@ -158,7 +168,12 @@ class FlyManager:
         if is_success(response):
             print("✓ Shared IPv4 allocated")
         else:
-            print("Failed to allocate IPv4")
+            if response:
+                print(
+                    f"Failed to allocate IPv4: {response.status_code} - {response.text}"
+                )
+            else:
+                print("Failed to allocate IPv4: No response")
 
         # Allocate IPv6
         request = AllocateIPRequest(type=IPAddressType.V6)
@@ -166,7 +181,12 @@ class FlyManager:
         if is_success(response):
             print("✓ IPv6 allocated")
         else:
-            print("Failed to allocate IPv6")
+            if response:
+                print(
+                    f"Failed to allocate IPv6: {response.status_code} - {response.text}"
+                )
+            else:
+                print("Failed to allocate IPv6: No response")
 
         return True
 

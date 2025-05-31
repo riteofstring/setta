@@ -57,6 +57,7 @@ class CreateAppRequest(BaseModel):
 
     app_name: str
     org_slug: str = "personal"
+    network: str | None = None  # Optional network isolation
 
 
 class AllocateIPRequest(BaseModel):

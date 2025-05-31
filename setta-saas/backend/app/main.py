@@ -108,8 +108,19 @@ async def create_project(
 ):
     """Create a new project and Fly.io container"""
     # Generate a unique app name for Fly.io
+    # App names must be globally unique and can only contain lowercase letters, numbers, and hyphens
     safe_name = re.sub(r"[^a-z0-9-]", "-", project_data.name.lower())
+    # Remove consecutive hyphens and trim hyphens from start/end
+    safe_name = re.sub(r"-+", "-", safe_name).strip("-")
+    # Ensure it starts with a letter (prepend 'app' if it doesn't)
+    if safe_name and not safe_name[0].isalpha():
+        safe_name = f"app-{safe_name}"
+    # Create unique name with timestamp
     app_name = f"setta-{safe_name}-{int(time.time())}"
+    # Ensure total length is within Fly.io limits (max 63 chars)
+    app_name = app_name[:63]
+
+    print(f"Generated app name: {app_name}")
 
     # Create project in database first
     project = Project(
