@@ -77,12 +77,16 @@ def get_all_pydantic_models(module):
     )
 
 
-def append_ts_type_and_creation_fn(name):
-    return f"""export type {name} = z.infer<typeof {name}Schema>;
+def create_ts_type_line(name):
+    return f"export type {name} = z.infer<typeof {name}Schema>;\n\n"
 
-export function create{name[0].upper() + name[1:]}(options: {name}){{
+
+def create_creation_fn_line(name):
+    return f"""export function create{name[0].upper() + name[1:]}(options: Partial<{name}> = {{}}): {name} {{
     return {name}Schema.parse(options);
-}};\n\n"""
+}}
+
+"""
 
 
 def generate_dependencies_zod(type_definitions: dict, processed_types: set):
@@ -112,7 +116,7 @@ def alias_to_zod(name: str, alias_type, type_definitions: dict, processed_types:
     return (
         dependency_zod
         + f"export const {name}Schema = {zod_schema}\n\n"
-        + append_ts_type_and_creation_fn(name)
+        + create_ts_type_line(name)
     )
 
 
@@ -126,7 +130,7 @@ def enum_to_zod(enum_class, processed_types: set):
     values_str = ", ".join(values)
     return (
         f"export const {name}Schema = z.enum([{values_str}]);\n\n"
-        + append_ts_type_and_creation_fn(name)
+        + create_ts_type_line(name)
     )
 
 
@@ -314,7 +318,8 @@ def pydantic_model_to_zod(
         + f"""export const {name}Schema = z.object({{
 {fields_str}
 }});\n\n"""
-        + append_ts_type_and_creation_fn(name)
+        + create_ts_type_line(name)
+        + create_creation_fn_line(name)
     )
 
 

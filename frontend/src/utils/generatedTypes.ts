@@ -7,25 +7,13 @@ export const APIKeysSchema = z.record(z.string(), z.string());
 
 export type APIKeys = z.infer<typeof APIKeysSchema>;
 
-export function createAPIKeys(options: APIKeys) {
-  return APIKeysSchema.parse(options);
-}
-
 export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
 
 export type IDToUUIDForLLM = z.infer<typeof IDToUUIDForLLMSchema>;
 
-export function createIDToUUIDForLLM(options: IDToUUIDForLLM) {
-  return IDToUUIDForLLMSchema.parse(options);
-}
-
 export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
 
 export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
-
-export function createUUIDToIDForLLM(options: UUIDToIDForLLM) {
-  return UUIDToIDForLLMSchema.parse(options);
-}
 
 export const JSONValueTypeSchema = z.union([
   z.record(z.string(), z.any()),
@@ -39,17 +27,9 @@ export const JSONValueTypeSchema = z.union([
 
 export type JSONValueType = z.infer<typeof JSONValueTypeSchema>;
 
-export function createJSONValueType(options: JSONValueType) {
-  return JSONValueTypeSchema.parse(options);
-}
-
 export const ChatRoleSchema = z.literal(["user", "assistant"]);
 
 export type ChatRole = z.infer<typeof ChatRoleSchema>;
-
-export function createChatRole(options: ChatRole) {
-  return ChatRoleSchema.parse(options);
-}
 
 export const WebSearchResultBlockSchema = z.object({
   encrypted_content: z.string(),
@@ -61,7 +41,9 @@ export const WebSearchResultBlockSchema = z.object({
 
 export type WebSearchResultBlock = z.infer<typeof WebSearchResultBlockSchema>;
 
-export function createWebSearchResultBlock(options: WebSearchResultBlock) {
+export function createWebSearchResultBlock(
+  options: Partial<WebSearchResultBlock> = {},
+): WebSearchResultBlock {
   return WebSearchResultBlockSchema.parse(options);
 }
 
@@ -81,8 +63,8 @@ export type WebSearchToolResultError = z.infer<
 >;
 
 export function createWebSearchToolResultError(
-  options: WebSearchToolResultError,
-) {
+  options: Partial<WebSearchToolResultError> = {},
+): WebSearchToolResultError {
   return WebSearchToolResultErrorSchema.parse(options);
 }
 
@@ -99,8 +81,8 @@ export type CitationsWebSearchResultLocation = z.infer<
 >;
 
 export function createCitationsWebSearchResultLocation(
-  options: CitationsWebSearchResultLocation,
-) {
+  options: Partial<CitationsWebSearchResultLocation> = {},
+): CitationsWebSearchResultLocation {
   return CitationsWebSearchResultLocationSchema.parse(options);
 }
 
@@ -118,8 +100,8 @@ export type CitationContentBlockLocation = z.infer<
 >;
 
 export function createCitationContentBlockLocation(
-  options: CitationContentBlockLocation,
-) {
+  options: Partial<CitationContentBlockLocation> = {},
+): CitationContentBlockLocation {
   return CitationContentBlockLocationSchema.parse(options);
 }
 
@@ -134,7 +116,9 @@ export const CitationPageLocationSchema = z.object({
 
 export type CitationPageLocation = z.infer<typeof CitationPageLocationSchema>;
 
-export function createCitationPageLocation(options: CitationPageLocation) {
+export function createCitationPageLocation(
+  options: Partial<CitationPageLocation> = {},
+): CitationPageLocation {
   return CitationPageLocationSchema.parse(options);
 }
 
@@ -149,7 +133,9 @@ export const CitationCharLocationSchema = z.object({
 
 export type CitationCharLocation = z.infer<typeof CitationCharLocationSchema>;
 
-export function createCitationCharLocation(options: CitationCharLocation) {
+export function createCitationCharLocation(
+  options: Partial<CitationCharLocation> = {},
+): CitationCharLocation {
   return CitationCharLocationSchema.parse(options);
 }
 
@@ -160,7 +146,9 @@ export const RedactedThinkingBlockSchema = z.object({
 
 export type RedactedThinkingBlock = z.infer<typeof RedactedThinkingBlockSchema>;
 
-export function createRedactedThinkingBlock(options: RedactedThinkingBlock) {
+export function createRedactedThinkingBlock(
+  options: Partial<RedactedThinkingBlock> = {},
+): RedactedThinkingBlock {
   return RedactedThinkingBlockSchema.parse(options);
 }
 
@@ -172,7 +160,9 @@ export const ThinkingBlockSchema = z.object({
 
 export type ThinkingBlock = z.infer<typeof ThinkingBlockSchema>;
 
-export function createThinkingBlock(options: ThinkingBlock) {
+export function createThinkingBlock(
+  options: Partial<ThinkingBlock> = {},
+): ThinkingBlock {
   return ThinkingBlockSchema.parse(options);
 }
 
@@ -190,8 +180,8 @@ export type WebSearchToolResultBlock = z.infer<
 >;
 
 export function createWebSearchToolResultBlock(
-  options: WebSearchToolResultBlock,
-) {
+  options: Partial<WebSearchToolResultBlock> = {},
+): WebSearchToolResultBlock {
   return WebSearchToolResultBlockSchema.parse(options);
 }
 
@@ -204,7 +194,9 @@ export const ServerToolUseBlockSchema = z.object({
 
 export type ServerToolUseBlock = z.infer<typeof ServerToolUseBlockSchema>;
 
-export function createServerToolUseBlock(options: ServerToolUseBlock) {
+export function createServerToolUseBlock(
+  options: Partial<ServerToolUseBlock> = {},
+): ServerToolUseBlock {
   return ServerToolUseBlockSchema.parse(options);
 }
 
@@ -217,7 +209,9 @@ export const ToolUseBlockSchema = z.object({
 
 export type ToolUseBlock = z.infer<typeof ToolUseBlockSchema>;
 
-export function createToolUseBlock(options: ToolUseBlock) {
+export function createToolUseBlock(
+  options: Partial<ToolUseBlock> = {},
+): ToolUseBlock {
   return ToolUseBlockSchema.parse(options);
 }
 
@@ -241,7 +235,7 @@ export const TextBlockSchema = z.object({
 
 export type TextBlock = z.infer<typeof TextBlockSchema>;
 
-export function createTextBlock(options: TextBlock) {
+export function createTextBlock(options: Partial<TextBlock> = {}): TextBlock {
   return TextBlockSchema.parse(options);
 }
 
@@ -256,10 +250,6 @@ export const ContentBlockSchema = z.union([
 
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
-export function createContentBlock(options: ContentBlock) {
-  return ContentBlockSchema.parse(options);
-}
-
 export const ArtifactTypeSchema = z.enum([
   "img",
   "brushStrokes",
@@ -268,10 +258,6 @@ export const ArtifactTypeSchema = z.enum([
 ]);
 
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
-
-export function createArtifactType(options: ArtifactType) {
-  return ArtifactTypeSchema.parse(options);
-}
 
 export const UITypeNameSchema = z.enum([
   "TEXT",
@@ -300,17 +286,9 @@ export const UITypeNameSchema = z.enum([
 
 export type UITypeName = z.infer<typeof UITypeNameSchema>;
 
-export function createUITypeName(options: UITypeName) {
-  return UITypeNameSchema.parse(options);
-}
-
 export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
 
 export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
-
-export function createUITypePresetType(options: UITypePresetType) {
-  return UITypePresetTypeSchema.parse(options);
-}
 
 export const CodeInfoTypeSchema = z.enum([
   "parameter",
@@ -319,10 +297,6 @@ export const CodeInfoTypeSchema = z.enum([
 ]);
 
 export type CodeInfoType = z.infer<typeof CodeInfoTypeSchema>;
-
-export function createCodeInfoType(options: CodeInfoType) {
-  return CodeInfoTypeSchema.parse(options);
-}
 
 export const SettaNotificationTypeSchema = z.enum([
   "success",
@@ -334,25 +308,13 @@ export const SettaNotificationTypeSchema = z.enum([
 
 export type SettaNotificationType = z.infer<typeof SettaNotificationTypeSchema>;
 
-export function createSettaNotificationType(options: SettaNotificationType) {
-  return SettaNotificationTypeSchema.parse(options);
-}
-
 export const CodeLanguageSchema = z.enum(["python", "bash"]);
 
 export type CodeLanguage = z.infer<typeof CodeLanguageSchema>;
 
-export function createCodeLanguage(options: CodeLanguage) {
-  return CodeLanguageSchema.parse(options);
-}
-
 export const ConfigLanguageSchema = z.enum(["python", "json"]);
 
 export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
-
-export function createConfigLanguage(options: ConfigLanguage) {
-  return ConfigLanguageSchema.parse(options);
-}
 
 export const ParameterPassingStyleSchema = z.enum([
   "DEFAULT",
@@ -364,25 +326,13 @@ export const ParameterPassingStyleSchema = z.enum([
 
 export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
 
-export function createParameterPassingStyle(options: ParameterPassingStyle) {
-  return ParameterPassingStyleSchema.parse(options);
-}
-
 export const SizeSchema = z.enum(["auto"]);
 
 export type Size = z.infer<typeof SizeSchema>;
 
-export function createSize(options: Size) {
-  return SizeSchema.parse(options);
-}
-
 export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
 
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
-
-export function createViewingEditingMode(options: ViewingEditingMode) {
-  return ViewingEditingModeSchema.parse(options);
-}
 
 export const ArtifactSchema = z.object({
   name: z.string(),
@@ -403,7 +353,7 @@ export const ArtifactSchema = z.object({
 
 export type Artifact = z.infer<typeof ArtifactSchema>;
 
-export function createArtifact(options: Artifact) {
+export function createArtifact(options: Partial<Artifact> = {}): Artifact {
   return ArtifactSchema.parse(options);
 }
 
@@ -427,7 +377,9 @@ export const ArtifactWithIdSchema = z.object({
 
 export type ArtifactWithId = z.infer<typeof ArtifactWithIdSchema>;
 
-export function createArtifactWithId(options: ArtifactWithId) {
+export function createArtifactWithId(
+  options: Partial<ArtifactWithId> = {},
+): ArtifactWithId {
   return ArtifactWithIdSchema.parse(options);
 }
 
@@ -439,7 +391,9 @@ export const ArtifactWithoutValueSchema = z.object({
 
 export type ArtifactWithoutValue = z.infer<typeof ArtifactWithoutValueSchema>;
 
-export function createArtifactWithoutValue(options: ArtifactWithoutValue) {
+export function createArtifactWithoutValue(
+  options: Partial<ArtifactWithoutValue> = {},
+): ArtifactWithoutValue {
   return ArtifactWithoutValueSchema.parse(options);
 }
 
@@ -453,7 +407,7 @@ export const UITypeSchema = z.object({
 
 export type UIType = z.infer<typeof UITypeSchema>;
 
-export function createUIType(options: UIType) {
+export function createUIType(options: Partial<UIType> = {}): UIType {
   return UITypeSchema.parse(options);
 }
 
@@ -465,7 +419,9 @@ export const BlobResourceContentsSchema = z.object({
 
 export type BlobResourceContents = z.infer<typeof BlobResourceContentsSchema>;
 
-export function createBlobResourceContents(options: BlobResourceContents) {
+export function createBlobResourceContents(
+  options: Partial<BlobResourceContents> = {},
+): BlobResourceContents {
   return BlobResourceContentsSchema.parse(options);
 }
 
@@ -477,7 +433,9 @@ export const TextResourceContentsSchema = z.object({
 
 export type TextResourceContents = z.infer<typeof TextResourceContentsSchema>;
 
-export function createTextResourceContents(options: TextResourceContents) {
+export function createTextResourceContents(
+  options: Partial<TextResourceContents> = {},
+): TextResourceContents {
   return TextResourceContentsSchema.parse(options);
 }
 
@@ -490,7 +448,9 @@ export const AnnotationsSchema = z.object({
 
 export type Annotations = z.infer<typeof AnnotationsSchema>;
 
-export function createAnnotations(options: Annotations) {
+export function createAnnotations(
+  options: Partial<Annotations> = {},
+): Annotations {
   return AnnotationsSchema.parse(options);
 }
 
@@ -502,7 +462,9 @@ export const EmbeddedResourceSchema = z.object({
 
 export type EmbeddedResource = z.infer<typeof EmbeddedResourceSchema>;
 
-export function createEmbeddedResource(options: EmbeddedResource) {
+export function createEmbeddedResource(
+  options: Partial<EmbeddedResource> = {},
+): EmbeddedResource {
   return EmbeddedResourceSchema.parse(options);
 }
 
@@ -515,7 +477,9 @@ export const ImageContentSchema = z.object({
 
 export type ImageContent = z.infer<typeof ImageContentSchema>;
 
-export function createImageContent(options: ImageContent) {
+export function createImageContent(
+  options: Partial<ImageContent> = {},
+): ImageContent {
   return ImageContentSchema.parse(options);
 }
 
@@ -527,7 +491,9 @@ export const TextContentSchema = z.object({
 
 export type TextContent = z.infer<typeof TextContentSchema>;
 
-export function createTextContent(options: TextContent) {
+export function createTextContent(
+  options: Partial<TextContent> = {},
+): TextContent {
   return TextContentSchema.parse(options);
 }
 
@@ -542,7 +508,9 @@ export const ToolResultSchema = z.object({
 
 export type ToolResult = z.infer<typeof ToolResultSchema>;
 
-export function createToolResult(options: ToolResult) {
+export function createToolResult(
+  options: Partial<ToolResult> = {},
+): ToolResult {
   return ToolResultSchema.parse(options);
 }
 
@@ -566,7 +534,9 @@ export const ChatMessageSchema = z.object({
 
 export type ChatMessage = z.infer<typeof ChatMessageSchema>;
 
-export function createChatMessage(options: ChatMessage) {
+export function createChatMessage(
+  options: Partial<ChatMessage> = {},
+): ChatMessage {
   return ChatMessageSchema.parse(options);
 }
 
@@ -579,7 +549,7 @@ export const ChatSchema = z.object({
 
 export type Chat = z.infer<typeof ChatSchema>;
 
-export function createChat(options: Chat) {
+export function createChat(options: Partial<Chat> = {}): Chat {
   return ChatSchema.parse(options);
 }
 
@@ -591,7 +561,9 @@ export const ChatMetadataSchema = z.object({
 
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
-export function createChatMetadata(options: ChatMetadata) {
+export function createChatMetadata(
+  options: Partial<ChatMetadata> = {},
+): ChatMetadata {
   return ChatMetadataSchema.parse(options);
 }
 
@@ -603,7 +575,9 @@ export const FullMessageStopSchema = z.object({
 
 export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
 
-export function createFullMessageStop(options: FullMessageStop) {
+export function createFullMessageStop(
+  options: Partial<FullMessageStop> = {},
+): FullMessageStop {
   return FullMessageStopSchema.parse(options);
 }
 
@@ -613,7 +587,9 @@ export const CodeInfoColSchema = z.object({
 
 export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
 
-export function createCodeInfoCol(options: CodeInfoCol) {
+export function createCodeInfoCol(
+  options: Partial<CodeInfoCol> = {},
+): CodeInfoCol {
   return CodeInfoColSchema.parse(options);
 }
 
@@ -623,7 +599,7 @@ export const EVEntrySchema = z.object({
 
 export type EVEntry = z.infer<typeof EVEntrySchema>;
 
-export function createEVEntry(options: EVEntry) {
+export function createEVEntry(options: Partial<EVEntry> = {}): EVEntry {
   return EVEntrySchema.parse(options);
 }
 
@@ -638,7 +614,9 @@ export const ChartSettingsSchema = z.object({
 
 export type ChartSettings = z.infer<typeof ChartSettingsSchema>;
 
-export function createChartSettings(options: ChartSettings) {
+export function createChartSettings(
+  options: Partial<ChartSettings> = {},
+): ChartSettings {
   return ChartSettingsSchema.parse(options);
 }
 
@@ -657,7 +635,9 @@ export type DrawAreaCanvasSettings = z.infer<
   typeof DrawAreaCanvasSettingsSchema
 >;
 
-export function createDrawAreaCanvasSettings(options: DrawAreaCanvasSettings) {
+export function createDrawAreaCanvasSettings(
+  options: Partial<DrawAreaCanvasSettings> = {},
+): DrawAreaCanvasSettings {
   return DrawAreaCanvasSettingsSchema.parse(options);
 }
 
@@ -668,7 +648,9 @@ export const VisibilitySchema = z.object({
 
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
-export function createVisibility(options: Visibility) {
+export function createVisibility(
+  options: Partial<Visibility> = {},
+): Visibility {
   return VisibilitySchema.parse(options);
 }
 
@@ -679,7 +661,9 @@ export const SectionSizeSchema = z.object({
 
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
 
-export function createSectionSize(options: SectionSize) {
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
   return SectionSizeSchema.parse(options);
 }
 
@@ -693,7 +677,9 @@ export const ProjectConfigChildSchema = z.object({
 
 export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
 
-export function createProjectConfigChild(options: ProjectConfigChild) {
+export function createProjectConfigChild(
+  options: Partial<ProjectConfigChild> = {},
+): ProjectConfigChild {
   return ProjectConfigChildSchema.parse(options);
 }
 
@@ -705,7 +691,7 @@ export const ViewportSchema = z.object({
 
 export type Viewport = z.infer<typeof ViewportSchema>;
 
-export function createViewport(options: Viewport) {
+export function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
 }
 
@@ -716,7 +702,9 @@ export const UITypeColEntrySchema = z.object({
 
 export type UITypeColEntry = z.infer<typeof UITypeColEntrySchema>;
 
-export function createUITypeColEntry(options: UITypeColEntry) {
+export function createUITypeColEntry(
+  options: Partial<UITypeColEntry> = {},
+): UITypeColEntry {
   return UITypeColEntrySchema.parse(options);
 }
 
@@ -736,7 +724,7 @@ export const CodeInfoSchema = z.object({
 
 export type CodeInfo = z.infer<typeof CodeInfoSchema>;
 
-export function createCodeInfo(options: CodeInfo) {
+export function createCodeInfo(options: Partial<CodeInfo> = {}): CodeInfo {
   return CodeInfoSchema.parse(options);
 }
 
@@ -757,7 +745,9 @@ export const SectionVariantSchema = z.object({
 
 export type SectionVariant = z.infer<typeof SectionVariantSchema>;
 
-export function createSectionVariant(options: SectionVariant) {
+export function createSectionVariant(
+  options: Partial<SectionVariant> = {},
+): SectionVariant {
   return SectionVariantSchema.parse(options);
 }
 
@@ -806,7 +796,7 @@ export const SectionSchema = z.object({
 
 export type Section = z.infer<typeof SectionSchema>;
 
-export function createSection(options: Section) {
+export function createSection(options: Partial<Section> = {}): Section {
   return SectionSchema.parse(options);
 }
 
@@ -823,7 +813,9 @@ export const ProjectConfigSchema = z.object({
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
-export function createProjectConfig(options: ProjectConfig) {
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
   return ProjectConfigSchema.parse(options);
 }
 
@@ -842,7 +834,9 @@ export const ProjectStateSchema = z.object({
 
 export type ProjectState = z.infer<typeof ProjectStateSchema>;
 
-export function createProjectState(options: ProjectState) {
+export function createProjectState(
+  options: Partial<ProjectState> = {},
+): ProjectState {
   return ProjectStateSchema.parse(options);
 }
 
@@ -850,7 +844,7 @@ export const BaseModelSchema = z.object({});
 
 export type BaseModel = z.infer<typeof BaseModelSchema>;
 
-export function createBaseModel(options: BaseModel) {
+export function createBaseModel(options: Partial<BaseModel> = {}): BaseModel {
   return BaseModelSchema.parse(options);
 }
 
@@ -867,7 +861,9 @@ export const SettaNotificationSchema = z.object({
 
 export type SettaNotification = z.infer<typeof SettaNotificationSchema>;
 
-export function createSettaNotification(options: SettaNotification) {
+export function createSettaNotification(
+  options: Partial<SettaNotification> = {},
+): SettaNotification {
   return SettaNotificationSchema.parse(options);
 }
 
@@ -878,7 +874,9 @@ export const ProjectLoadStateSchema = z.object({
 
 export type ProjectLoadState = z.infer<typeof ProjectLoadStateSchema>;
 
-export function createProjectLoadState(options: ProjectLoadState) {
+export function createProjectLoadState(
+  options: Partial<ProjectLoadState> = {},
+): ProjectLoadState {
   return ProjectLoadStateSchema.parse(options);
 }
 
@@ -889,7 +887,9 @@ export const ProjectSaveStateSchema = z.object({
 
 export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
 
-export function createProjectSaveState(options: ProjectSaveState) {
+export function createProjectSaveState(
+  options: Partial<ProjectSaveState> = {},
+): ProjectSaveState {
   return ProjectSaveStateSchema.parse(options);
 }
 
@@ -901,7 +901,9 @@ export const ProjectUpdateStateSchema = z.object({
 
 export type ProjectUpdateState = z.infer<typeof ProjectUpdateStateSchema>;
 
-export function createProjectUpdateState(options: ProjectUpdateState) {
+export function createProjectUpdateState(
+  options: Partial<ProjectUpdateState> = {},
+): ProjectUpdateState {
   return ProjectUpdateStateSchema.parse(options);
 }
 
@@ -922,7 +924,9 @@ export const SettingsBackendSchema = z.object({
 
 export type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
 
-export function createSettingsBackend(options: SettingsBackend) {
+export function createSettingsBackend(
+  options: Partial<SettingsBackend> = {},
+): SettingsBackend {
   return SettingsBackendSchema.parse(options);
 }
 
@@ -950,7 +954,9 @@ export const SettingsGUISchema = z.object({
 
 export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
 
-export function createSettingsGUI(options: SettingsGUI) {
+export function createSettingsGUI(
+  options: Partial<SettingsGUI> = {},
+): SettingsGUI {
   return SettingsGUISchema.parse(options);
 }
 
@@ -1012,7 +1018,9 @@ export const SettingsShortcutsSchema = z.object({
 
 export type SettingsShortcuts = z.infer<typeof SettingsShortcutsSchema>;
 
-export function createSettingsShortcuts(options: SettingsShortcuts) {
+export function createSettingsShortcuts(
+  options: Partial<SettingsShortcuts> = {},
+): SettingsShortcuts {
   return SettingsShortcutsSchema.parse(options);
 }
 
@@ -1026,6 +1034,8 @@ export const SettingsStateSchema = z.object({
 
 export type SettingsState = z.infer<typeof SettingsStateSchema>;
 
-export function createSettingsState(options: SettingsState) {
+export function createSettingsState(
+  options: Partial<SettingsState> = {},
+): SettingsState {
   return SettingsStateSchema.parse(options);
 }
