@@ -1,11 +1,11 @@
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     CheckConstraint,
-    Enum,
     Text,
     TypeDecorator,
     UniqueConstraint,
@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
 from setta.types.artifact import ArtifactType
+from setta.types.notifications import SettaNotificationType
 from setta.types.project_state import ProjectState
 
 
@@ -76,7 +77,17 @@ class ArtifactTable(BaseTable):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     name: Mapped[str]
-    path: Mapped[Path] = mapped_column(PathType, server_default="")
-    type: Mapped[ArtifactType] = mapped_column(Enum(ArtifactType))
+    path: Mapped[Path] = mapped_column(PathType)
+    type: Mapped[ArtifactType]
 
     __table_args__ = (UniqueConstraint("path", name="artifact_unique_constraint"),)
+
+
+class NotificationsTable(BaseTable):
+    __tablename__ = "Notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    projectConfigId: Mapped[uuid.UUID]
+    timestamp: Mapped[datetime]
+    type: Mapped[SettaNotificationType]
+    message: Mapped[str]

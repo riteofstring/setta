@@ -1,25 +1,3 @@
--- TABLES --
-CREATE TABLE IF NOT EXISTS ProjectState (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    state TEXT
-);
-CREATE TABLE IF NOT EXISTS Artifact (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    path TEXT NOT NULL DEFAULT '',
-    value TEXT,
-    type TEXT NOT NULL,
-    UNIQUE (name, path, type)
-);
-CREATE TABLE IF NOT EXISTS Notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  projectConfigId TEXT NOT NULL,
-  timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f%z', 'now')),
-  type TEXT NOT NULL,
-  message TEXT NOT NULL,
-  metadata JSON,
-  read_status BOOLEAN NOT NULL DEFAULT 0
-);
 CREATE TABLE IF NOT EXISTS Chat (
     id TEXT PRIMARY KEY,
     name TEXT,
