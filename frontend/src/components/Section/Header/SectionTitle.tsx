@@ -91,6 +91,8 @@ function useTitleIsEditable(sectionId) {
   return useProjectState((x) => {
     const isUneditableType = [
       C.GLOBAL_VARIABLES,
+      C.PARAM_SWEEP,
+      C.GLOBAL_PARAM_SWEEP,
       C.GEN_PYTHON_CODE,
     ].includes(getSectionType(sectionId, x));
 

@@ -22,11 +22,33 @@ def section_dict_to_yaml(exporter_objs, codeInfo, sectionVariant):
     return yamlValue
 
 
+def param_sweep_dict_to_yaml(exporter_obj):
+    return "\n---\n".join(raw_dump(x) for x in exporter_obj.prettyOutput)
+
+
+def run_group_dict_to_yaml(exporter_obj):
+    if len(exporter_obj.prettyOutput) == 0:
+        return "{}"
+    return yaml.dump(
+        exporter_obj.prettyOutput,
+        Dumper=RunGroupDumper,
+        explicit_end=False,
+        sort_keys=False,
+    )
+
+
 # Register representer for dict that skips empty ones
 def represent_dict_skip_empty(dumper, data):
     if not data:  # if dictionary is empty
         return dumper.represent_scalar("tag:yaml.org,2002:null", "")
     return dumper.represent_dict(data)
+
+
+class RunGroupDumper(yaml.Dumper):
+    pass
+
+
+RunGroupDumper.add_representer(dict, represent_dict_skip_empty)
 
 
 def raw_dump(input_data, indent=0):

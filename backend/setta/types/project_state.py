@@ -153,6 +153,7 @@ class SectionVariant(BaseModel, extra="forbid"):
     description: str = ""
     isFrozen: bool = False
     sweep: list[Any] = Field(default_factory=list)
+    runGroup: dict[str, Any] = Field(default_factory=dict)
     configLanguage: ConfigLanguage = ConfigLanguage.PYTHON
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
