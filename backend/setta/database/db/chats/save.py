@@ -3,8 +3,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from setta.database.table_definitions import ChatMessageTable, ChatTable
+from setta.database.table_definitions import (
+    ChatMessageTable,
+    ChatTable,
+    UUIDMappingForLLMTable,
+)
 from setta.database.utils import create_new_id
+from setta.types.ai import UUIDToIDForLLM
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -74,16 +79,17 @@ def save_messages(db: Session, chat_id: str, messages: list[ChatMessage]):
     db.execute(stmt)
 
 
-def save_uuid_mapping_for_llm(db, uuid_to_id):
-    query = """
-        INSERT INTO UUIDMappingForLLM (id, uuid)
-        VALUES (:id, :uuid)
-        ON CONFLICT (id)
-        DO NOTHING
-    """
-
-    query_params = []
+def save_uuid_mapping_for_llm(db: Session, uuid_to_id: UUIDToIDForLLM):
+    elements: list[dict] = []
     for uuid, id in uuid_to_id.items():
-        query_params.append({"uuid": uuid, "id": id})
+        table_el = UUIDMappingForLLMTable()
+        table_el.id = id
+        table_el.uuid_column = uuid
+        elements.append(table_el.to_dict())
 
-    db.executemany(query, query_params)
+    stmt = (
+        insert(UUIDMappingForLLMTable)
+        .values(elements)
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    db.execute(stmt)

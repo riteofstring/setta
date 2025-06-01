@@ -15,4 +15,4 @@ class ID(str):
 
 
 IDToUUIDForLLM = dict[ID, str]
-UUIDToIDForLLM = dict[ID, str]
+UUIDToIDForLLM = dict[str, ID]

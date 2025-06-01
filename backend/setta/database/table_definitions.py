@@ -114,7 +114,7 @@ class ChatMessageTable(BaseTable):
 class UUIDMappingForLLMTable(BaseTable):
     __tablename__ = "UUIDMappingForLLM"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(primary_key=True, autoincrement=True)
     uuid_column: Mapped[str] = mapped_column("uuid", unique=True)
 
 

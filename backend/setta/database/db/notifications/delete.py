@@ -1,24 +1,10 @@
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from setta.database.table_definitions import NotificationsTable
 
-def delete_notification(db: Session, notification_id: str):
-    """
-    Delete a notification from the database by its ID.
 
-    Args:
-        db: The database connection/cursor object
-        notification_id: The ID of the notification to delete
-
-    Returns:
-        True if the notification was deleted, False if it wasn't found
-    """
-    query = """
-        DELETE FROM Notifications
-        WHERE id = :notification_id
-        RETURNING id
-    """
-
-    db.execute(query, {"notification_id": notification_id})
-    result = db.fetchone()
-
-    return result is not None
+def delete_notification(db: Session, notification_id: str) -> bool:
+    stmt = delete(NotificationsTable).where(NotificationsTable.id == notification_id)
+    result = db.execute(stmt)
+    return result.rowcount > 0
