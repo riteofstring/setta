@@ -216,15 +216,17 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodeSuffix: str = ""
 
 
+def ui_types_default_factory():
+    return copy.deepcopy(BASE_UI_TYPES)
+
+
 class ProjectState(BaseModel, extra="forbid"):
     projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
     sections: dict[str, Section] = Field(default_factory=dict)
     variants: dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
-    uiTypes: dict[str, UIType] = Field(
-        default_factory=lambda: copy.deepcopy(BASE_UI_TYPES)
-    )
+    uiTypes: dict[str, UIType] = Field(default_factory=ui_types_default_factory)
     uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
     defaultProjectConfigId: str | None = None
 

@@ -21,6 +21,7 @@ from typing import (
 
 import setta.types
 from pydantic import AnyUrl, BaseModel
+from pydantic_core import PydanticUndefined
 
 
 def get_modules_from_package(package):
@@ -276,9 +277,30 @@ def pydantic_model_to_zod(
         field_type = field_info.annotation
         zod_schema = python_type_to_zod(field_type, type_definitions, processed_types)
 
-        # Handle optional fields
-        if not field_info.is_required():
-            zod_schema = f"{zod_schema}.optional()"
+        # Handle default values
+        if field_info.default is not PydanticUndefined:
+            default_value = field_info.default
+            if isinstance(default_value, str):
+                zod_schema = f'{zod_schema}.default("{default_value}")'
+            elif isinstance(default_value, bool):
+                zod_schema = f"{zod_schema}.default({str(default_value).lower()})"
+            elif isinstance(default_value, (int, float)):
+                zod_schema = f"{zod_schema}.default({default_value})"
+            elif default_value is None:
+                zod_schema = f"{zod_schema}.default(null)"
+        elif field_info.default_factory is not None:
+            if isinstance(field_info.default_factory, type(BaseModel)):
+                zod_schema = (
+                    f"{zod_schema}.default(create{field_info.default_factory.__name__})"
+                )
+            elif field_info.default_factory is dict:
+                zod_schema = f"{zod_schema}.default({{}})"
+            elif field_info.default_factory is list:
+                zod_schema = f"{zod_schema}.default([])"
+            else:
+                zod_schema = (
+                    f"{zod_schema}.default({field_info.default_factory.__name__})"
+                )
 
         fields.append(f"  {field_name}: {zod_schema}")
 
