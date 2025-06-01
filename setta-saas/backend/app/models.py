@@ -78,8 +78,7 @@ class CreateMachineRequest(BaseModel):
         return cls(
             region="ord",
             config={
-                # Use the test FOSS app image from your registry
-                # This should match what you deployed to test-foss-app
+                # Use your existing test FOSS app image
                 "image": "registry.fly.io/test-foss-app:latest",
                 "env": {
                     "PROJECT_NAME": app_name,
@@ -89,6 +88,8 @@ class CreateMachineRequest(BaseModel):
                     {
                         "protocol": "tcp",
                         "internal_port": 8000,  # Your FastAPI app runs on 8000
+                        "auto_stop_machines": True,
+                        "auto_start_machines": True,
                         "ports": [
                             {
                                 "port": 80,
@@ -101,7 +102,6 @@ class CreateMachineRequest(BaseModel):
                         ],
                     }
                 ],
-                "init": {},
                 "auto_destroy": True,
                 "restart": {
                     "policy": "always",

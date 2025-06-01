@@ -3,11 +3,9 @@ from typing import List, Optional
 
 from app.config import settings
 from app.models import (
-    AllocateIPRequest,
     AppInfo,
     CreateAppRequest,
     CreateMachineRequest,
-    IPAddressType,
     Machine,
     MachineState,
 )
@@ -51,11 +49,17 @@ class FlyManager:
 
         actual_app_name = app_data.get("name", app_name)
 
-        # Allocate IP addresses - THIS IS CRITICAL!
-        print("Allocating IP addresses...")
-        ip_allocated = self._allocate_ips(actual_app_name)
-        if not ip_allocated:
-            print("WARNING: Failed to allocate IPs, app may not be accessible")
+        # Wait for app to be fully created and propagated
+        print("Waiting for app to be ready...")
+        time.sleep(5)
+
+        # Verify app exists
+        verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
+        if not is_success(verify_response):
+            print(
+                f"App verification failed: {verify_response.status_code if verify_response else 'No response'}"
+            )
+            return None
 
         app_info = AppInfo(
             name=actual_app_name,
@@ -64,40 +68,13 @@ class FlyManager:
 
         print(f"App created successfully: {app_info.hostname}")
 
+        # Note: IP allocation via REST API is not available
+        # Fly.io will automatically allocate IPs when services are defined in the machine config
+        print(
+            "Note: IPs will be allocated automatically when machine is deployed with services"
+        )
+
         return app_info
-
-    def _allocate_ips(self, app_name: str) -> bool:
-        """Allocate IP addresses for the app"""
-        # Allocate shared IPv4
-        print("Allocating shared IPv4...")
-        request = AllocateIPRequest(type=IPAddressType.SHARED_V4)
-        response = self.client.post(
-            f"{self.api_base}/apps/{app_name}/ip_addresses", json=request.model_dump()
-        )
-
-        if not is_success(response):
-            if response:
-                print(
-                    f"Failed to allocate IPv4: {response.status_code} - {response.text}"
-                )
-            return False
-
-        # Allocate IPv6
-        print("Allocating IPv6...")
-        request = AllocateIPRequest(type=IPAddressType.V6)
-        response = self.client.post(
-            f"{self.api_base}/apps/{app_name}/ip_addresses", json=request.model_dump()
-        )
-
-        if not is_success(response):
-            if response:
-                print(
-                    f"Failed to allocate IPv6: {response.status_code} - {response.text}"
-                )
-            # IPv6 failure is not critical
-
-        print("✓ IP addresses allocated")
-        return True
 
     def deploy_to_app(self, app_name: str) -> bool:
         """Deploy a machine to the app"""
@@ -150,7 +127,7 @@ class FlyManager:
         print(f"✓ Machine created with ID: {machine_id}")
 
         # Wait for machine to be ready
-        time.sleep(5)
+        time.sleep(10)
 
         return machine_id
 
