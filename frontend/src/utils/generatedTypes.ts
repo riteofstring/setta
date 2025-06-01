@@ -4,6 +4,172 @@ export type APIKeys = Record<string, string>;
 
 export type IDToUUIDForLLM = Record<ID, string>;
 
+export type JSONValueType =
+  | (Record<string, any> | any[] | string | number | number | boolean)
+  | null;
+
+export type ChatRole = "user" | "assistant";
+
+export type WebSearchResultBlock = {
+  encrypted_content: string;
+  page_age: string | null;
+  title: string;
+  type: "web_search_result";
+  url: string;
+};
+
+export type WebSearchToolResultError = {
+  error_code:
+    | "invalid_tool_input"
+    | "unavailable"
+    | "max_uses_exceeded"
+    | "too_many_requests"
+    | "query_too_long";
+  type: "web_search_tool_result_error";
+};
+
+export type CitationsWebSearchResultLocation = {
+  cited_text: string;
+  encrypted_index: string;
+  title: string | null;
+  type: "web_search_result_location";
+  url: string;
+};
+
+export type CitationContentBlockLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title: string | null;
+  end_block_index: number;
+  start_block_index: number;
+  type: "content_block_location";
+};
+
+export type CitationPageLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title: string | null;
+  end_page_number: number;
+  start_page_number: number;
+  type: "page_location";
+};
+
+export type CitationCharLocation = {
+  cited_text: string;
+  document_index: number;
+  document_title: string | null;
+  end_char_index: number;
+  start_char_index: number;
+  type: "char_location";
+};
+
+export type RedactedThinkingBlock = {
+  data: string;
+  type: "redacted_thinking";
+};
+
+export type ThinkingBlock = {
+  signature: string;
+  thinking: string;
+  type: "thinking";
+};
+
+export type WebSearchToolResultBlock = {
+  content: WebSearchToolResultError | WebSearchResultBlock[];
+  tool_use_id: string;
+  type: "web_search_tool_result";
+};
+
+export type ServerToolUseBlock = {
+  id: string;
+  input: any;
+  name: "web_search";
+  type: "server_tool_use";
+};
+
+export type ToolUseBlock = {
+  id: string;
+  input: any;
+  name: string;
+  type: "tool_use";
+};
+
+export type TextBlock = {
+  citations:
+    | (
+        | CitationCharLocation
+        | CitationPageLocation
+        | CitationContentBlockLocation
+        | CitationsWebSearchResultLocation
+      )[]
+    | null;
+  text: string;
+  type: "text";
+};
+
+export type ContentBlock =
+  | TextBlock
+  | ToolUseBlock
+  | ServerToolUseBlock
+  | WebSearchToolResultBlock
+  | ThinkingBlock
+  | RedactedThinkingBlock;
+
+export type BlobResourceContents = {
+  uri: AnyUrl;
+  mimeType: string | null;
+  blob: string;
+};
+
+export type TextResourceContents = {
+  uri: AnyUrl;
+  mimeType: string | null;
+  text: string;
+};
+
+export type Annotations = {
+  audience: "user" | "assistant"[] | null;
+  priority: number | null;
+};
+
+export type EmbeddedResource = {
+  type: "resource";
+  resource: TextResourceContents | BlobResourceContents;
+  annotations: Annotations | null;
+};
+
+export type ImageContent = {
+  type: "image";
+  data: string;
+  mimeType: string;
+  annotations: Annotations | null;
+};
+
+export type TextContent = {
+  type: "text";
+  text: string;
+  annotations: Annotations | null;
+};
+
+export type ToolResult = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: (TextContent | ImageContent | EmbeddedResource)[];
+  is_error: boolean;
+};
+
+export type SettaChatMessageContent = (
+  | (
+      | TextBlock
+      | ToolUseBlock
+      | ServerToolUseBlock
+      | WebSearchToolResultBlock
+      | ThinkingBlock
+      | RedactedThinkingBlock
+    )
+  | ToolResult
+)[];
+
 export enum ArtifactType {
   IMG = "img",
   BRUSH_STROKES = "brushStrokes",
@@ -89,15 +255,19 @@ export type Artifact = {
   name: string;
   path: string;
   type: ArtifactType;
-  value: any;
+  value:
+    | (Record<string, any> | any[] | string | number | number | boolean)
+    | null;
 };
 
 export type ArtifactWithId = {
   name: string;
   path: string;
   type: ArtifactType;
-  value: any;
-  id: any;
+  value:
+    | (Record<string, any> | any[] | string | number | number | boolean)
+    | null;
+  id: string | null;
 };
 
 export type ArtifactWithoutValue = {
@@ -110,112 +280,8 @@ export type UIType = {
   id: string;
   type: UITypeName;
   name: string;
-  presetType: any;
+  presetType: UITypePresetType | null;
   config: Record<string, any>;
-};
-
-export type WebSearchResultBlock = {
-  encrypted_content: string;
-  page_age: string | null;
-  title: string;
-  type: "web_search_result";
-  url: string;
-};
-
-export type WebSearchToolResultError = {
-  error_code:
-    | "invalid_tool_input"
-    | "unavailable"
-    | "max_uses_exceeded"
-    | "too_many_requests"
-    | "query_too_long";
-  type: "web_search_tool_result_error";
-};
-
-export type CitationsWebSearchResultLocation = {
-  cited_text: string;
-  encrypted_index: string;
-  title: string | null;
-  type: "web_search_result_location";
-  url: string;
-};
-
-export type CitationContentBlockLocation = {
-  cited_text: string;
-  document_index: number;
-  document_title: string | null;
-  end_block_index: number;
-  start_block_index: number;
-  type: "content_block_location";
-};
-
-export type CitationPageLocation = {
-  cited_text: string;
-  document_index: number;
-  document_title: string | null;
-  end_page_number: number;
-  start_page_number: number;
-  type: "page_location";
-};
-
-export type CitationCharLocation = {
-  cited_text: string;
-  document_index: number;
-  document_title: string | null;
-  end_char_index: number;
-  start_char_index: number;
-  type: "char_location";
-};
-
-export type ToolResult = {
-  type: "tool_result";
-  tool_use_id: string;
-  content: any[];
-  is_error: boolean;
-};
-
-export type RedactedThinkingBlock = {
-  data: string;
-  type: "redacted_thinking";
-};
-
-export type ThinkingBlock = {
-  signature: string;
-  thinking: string;
-  type: "thinking";
-};
-
-export type WebSearchToolResultBlock = {
-  content: WebSearchToolResultError | WebSearchResultBlock[];
-  tool_use_id: string;
-  type: "web_search_tool_result";
-};
-
-export type ServerToolUseBlock = {
-  id: string;
-  input: any;
-  name: "web_search";
-  type: "server_tool_use";
-};
-
-export type ToolUseBlock = {
-  id: string;
-  input: any;
-  name: string;
-  type: "tool_use";
-};
-
-export type TextBlock = {
-  citations:
-    | (
-        | CitationCharLocation
-        | CitationPageLocation
-        | CitationContentBlockLocation
-        | CitationsWebSearchResultLocation
-      )[]
-    | null;
-  text: string;
-  type: "text";
 };
 
 export type ChatMessage = {
@@ -247,33 +313,14 @@ export type ChatMetadata = {
   lastUpdated: string;
 };
 
-export type EmbeddedResource = {
-  type: "resource";
-  resource: any;
-  annotations: any;
-};
-
 export type FullMessageStop = {
   type: "full_message_stop";
   messages: ChatMessage[];
   toolResults: Record<string, ToolResult>;
 };
 
-export type ImageContent = {
-  type: "image";
-  data: string;
-  mimeType: string;
-  annotations: any;
-};
-
-export type TextContent = {
-  type: "text";
-  text: string;
-  annotations: any;
-};
-
 export type CodeInfoCol = {
-  children: Record<any, string[]>;
+  children: Record<string, string[]>;
 };
 
 export type EVEntry = {
@@ -290,7 +337,7 @@ export type ChartSettings = {
 };
 
 export type DrawAreaCanvasSettings = {
-  activeLayerId: any;
+  activeLayerId: string | null;
   color: string;
   brushSize: number;
   brushShape: string;
@@ -318,6 +365,12 @@ export type ProjectConfigChild = {
   h: number;
 };
 
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
 export type UITypeColEntry = {
   uiTypeId: string;
   nonPresetUITypeIds: string[];
@@ -341,9 +394,9 @@ export type SectionVariant = {
   name: string;
   values: Record<string, EVEntry>;
   children: string[];
-  selectedItem: any;
+  selectedItem: string | null;
   code: string;
-  codeInfoColId: any;
+  codeInfoColId: string | null;
   description: string;
   isFrozen: boolean;
   sweep: any[];
@@ -358,15 +411,15 @@ export type Section = {
   id: string;
   name: string;
   size: SectionSize;
-  parentId: any;
+  parentId: string | null;
   variantId: string;
   uiTypeId: string;
-  uiTypeColId: any;
+  uiTypeColId: string | null;
   social: string;
   artifactGroupIds: string[];
-  defaultVariantId: any;
+  defaultVariantId: string | null;
   variantIds: string[];
-  paramSweepSectionId: any;
+  paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
   codeLanguage: CodeLanguage;
   isEntryCodeBlock: boolean;
@@ -391,7 +444,7 @@ export type Section = {
   aspectRatio: boolean;
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
-  columnWidth: any;
+  columnWidth: number | null;
   renderedValue: any;
   headingAsSectionName: boolean;
 };
@@ -400,7 +453,7 @@ export type ProjectConfig = {
   id: string;
   name: string;
   previewImgColor: string;
-  viewport: any;
+  viewport: Viewport | null;
   children: Record<string, ProjectConfigChild>;
   viewingEditingMode: ViewingEditingMode;
   genCodePrefix: string;
@@ -415,7 +468,7 @@ export type ProjectState = {
   codeInfoCols: Record<string, CodeInfoCol>;
   uiTypes: Record<string, UIType>;
   uiTypeCols: Record<string, Record<string, UITypeColEntry>>;
-  defaultProjectConfigId: any;
+  defaultProjectConfigId: string | null;
 };
 
 export type BaseModel = {};
@@ -447,12 +500,6 @@ export type ProjectUpdateState = {
   requestRenameRefactor: boolean;
 };
 
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
 export type SettingsBackend = {
   showDefaultConfigOnLoad: boolean;
   autosave: boolean;
@@ -460,7 +507,7 @@ export type SettingsBackend = {
   autobackupFreq: number;
   autobackupKeepLastN: number;
   clearTerminalBeforeMarkingAsReady: boolean;
-  defaultTerminalShell: any;
+  defaultTerminalShell: string | null;
   exportDbRawOnSave: boolean;
   exportDbReadableOnSave: boolean;
   exportDbReadableWithVariantsOnSave: boolean;

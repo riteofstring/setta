@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field, field_validator
 
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
+ChatRole = Literal["user", "assistant"]
+
 
 class ToolResult(BaseModel):
     type: Literal["tool_result"]
@@ -17,10 +19,13 @@ class ToolResult(BaseModel):
     is_error: bool
 
 
+SettaChatMessageContent = Sequence[ContentBlock | ToolResult]
+
+
 class ChatMessage(BaseModel):
     id: str
-    role: Literal["user", "assistant"]
-    content: Sequence[ContentBlock | ToolResult]
+    role: ChatRole
+    content: SettaChatMessageContent
 
 
 class ChatMetadata(BaseModel):

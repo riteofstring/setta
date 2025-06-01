@@ -39,7 +39,22 @@ def get_modules_from_package(package):
 
 
 def get_all_type_aliases(module):
-    return inspect.getmembers(module, lambda obj: isinstance(obj, types.GenericAlias))
+    exclusions = set(["CoreSchema", "Sequence"])
+
+    def is_type_alias(name, obj):
+        if inspect.isclass(obj) or inspect.ismodule(obj):
+            return False
+
+        if name in exclusions:
+            return False
+
+        return hasattr(obj, "__origin__") or hasattr(obj, "__args__")
+
+    return [
+        (name, obj)
+        for name, obj in inspect.getmembers(module)
+        if is_type_alias(name, obj)
+    ]
 
 
 def get_all_enums(module):
@@ -146,7 +161,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         return " | ".join(ts_literals)
 
     # Handle Optional/Union types
-    if origin is Union:
+    if origin in (Union, types.UnionType):
         args = get_args(python_type)
         # Check if it's Optional (Union with None)
         if type(None) in args:
@@ -172,7 +187,11 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
     if origin in (list, List, ABCSequence):
         args = get_args(python_type)
         if args:
-            return f"{python_type_to_ts(args[0], type_definitions, processed_types)}[]"
+            list_element_types = [
+                python_type_to_ts(arg, type_definitions, processed_types)
+                for arg in args
+            ]
+            return f"{' | '.join(list_element_types)}[]"
         return "any[]"
 
     # Handle dict/Dict types
@@ -180,6 +199,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         if args and len(args) >= 2:
             key_type = python_type_to_ts(args[0], type_definitions, processed_types)
+            key_type = key_type.replace(" | null", "").replace("null | ", "")
             value_type = python_type_to_ts(args[1], type_definitions, processed_types)
             return f"Record<{key_type}, {value_type}>"
         return "Record<string, any>"

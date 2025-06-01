@@ -6,13 +6,22 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     CheckConstraint,
+    ForeignKey,
     Text,
     TypeDecorator,
     UniqueConstraint,
+    func,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    MappedAsDataclass,
+    mapped_column,
+    relationship,
+)
 
 from setta.types.artifact import ArtifactType
+from setta.types.chat_messages import ChatRole, SettaChatMessageContent
 from setta.types.notifications import SettaNotificationType
 from setta.types.project_state import ProjectState
 
@@ -91,3 +100,36 @@ class NotificationsTable(BaseTable):
     timestamp: Mapped[datetime]
     type: Mapped[SettaNotificationType]
     message: Mapped[str]
+
+
+class ChatTable(BaseTable):
+    __tablename__ = "Chat"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    lastUpdated: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # Relationship to messages
+    messages: Mapped[list["ChatMessageTable"]] = relationship(
+        back_populates="chat", cascade="all, delete-orphan"
+    )
+
+
+class ChatMessageTable(BaseTable):
+    __tablename__ = "ChatMessage"
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    chatId: Mapped[uuid.UUID] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
+    order: Mapped[int] = mapped_column(name="order")  # "order" is a reserved word
+    role: Mapped[ChatRole]
+    content: Mapped[SettaChatMessageContent]
+
+    # Relationship to chat
+    chat: Mapped["ChatTable"] = relationship(back_populates="messages")
+
+
+class UUIDMappingForLLMTable(BaseTable):
+    __tablename__ = "UUIDMappingForLLM"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    uuid_column: Mapped[uuid.UUID] = mapped_column("uuid", unique=True)
