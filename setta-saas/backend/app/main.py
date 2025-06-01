@@ -110,9 +110,7 @@ async def check_project_status(
             if app_status.deployed:
                 is_healthy = check_app_health(project.url, max_retries=3)
                 status = (
-                    ProjectStatus.RUNNING
-                    if is_healthy
-                    else ProjectStatus.DEPLOYMENT_PENDING
+                    ProjectStatus.RUNNING if is_healthy else ProjectStatus.DNS_PENDING
                 )
             else:
                 status = ProjectStatus.DEPLOYMENT_PENDING
@@ -170,31 +168,17 @@ async def create_project(
     session.add(project)
     session.commit()
 
-    # Wait a bit more before deploying to ensure app is ready
-    print("Waiting for app to be fully ready before deployment...")
-    time.sleep(5)
-
     # Deploy to the app
     print(f"Deploying to {app_name}")
     deployment_success = fly_manager.deploy_to_app(app_name)
 
-    if not deployment_success:
-        project.update_status(ProjectStatus.DEPLOYMENT_PENDING)
-        session.add(project)
-        session.commit()
-        return project
-
-    # Wait longer for deployment to stabilize
-    print("Waiting for deployment to stabilize...")
-    time.sleep(20)
-
-    # Check if app is actually accessible
-    is_healthy = check_app_health(project.url, max_retries=15)
-
-    if is_healthy:
-        project.update_status(ProjectStatus.RUNNING)
+    if deployment_success:
+        # Mark as DNS pending - user can check status later
+        project.update_status(ProjectStatus.DNS_PENDING)
+        print("✓ Deployment successful - DNS propagation pending")
+        print("Note: It may take 1-2 minutes for the app to be accessible")
     else:
-        project.update_status(ProjectStatus.DEPLOYMENT_PENDING)
+        project.update_status(ProjectStatus.ERROR)
 
     session.add(project)
     session.commit()
@@ -224,9 +208,7 @@ async def sync_all_projects(session: Session = Depends(get_session)):
                 # Check if accessible
                 is_healthy = check_app_health(project.url, max_retries=2)
                 status = (
-                    ProjectStatus.RUNNING
-                    if is_healthy
-                    else ProjectStatus.DEPLOYMENT_PENDING
+                    ProjectStatus.RUNNING if is_healthy else ProjectStatus.DNS_PENDING
                 )
             else:
                 status = ProjectStatus.DEPLOYMENT_PENDING
@@ -278,6 +260,14 @@ async def delete_all_projects(session: Session = Depends(get_session)):
     count = len(projects)
 
     for project in projects:
+        # Try to delete from Fly.io
+        if project.url and "fly.dev" in project.url:
+            app_name = project.url.split("//")[1].split(".")[0]
+            try:
+                fly_manager.delete_app(app_name)
+            except Exception as e:
+                print(f"Error deleting Fly app {app_name}: {e}")
+
         session.delete(project)
 
     session.commit()

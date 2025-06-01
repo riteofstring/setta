@@ -49,19 +49,14 @@ class FlyManager:
 
         actual_app_name = app_data.get("name", app_name)
 
-        # Wait longer for app to be fully created and propagated
+        # Wait for app to be ready
         print("Waiting for app to be ready...")
-        for i in range(30):  # Wait up to 30 seconds
+        for i in range(10):
             time.sleep(1)
-
-            # Verify app exists
             verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
             if is_success(verify_response):
                 print(f"✓ App verified after {i + 1} seconds")
                 break
-        else:
-            print("App verification timed out after 30 seconds")
-            return None
 
         app_info = AppInfo(
             name=actual_app_name,
@@ -80,6 +75,10 @@ class FlyManager:
         if not machine_id:
             return False
 
+        # Wait for DNS to propagate
+        print("Waiting for DNS propagation (this can take 30-60 seconds)...")
+        time.sleep(30)
+
         print("=== DEPLOYMENT COMPLETE ===")
         return True
 
@@ -87,11 +86,9 @@ class FlyManager:
         """Create and launch a machine in one step"""
         url = f"{self.api_base}/apps/{app_name}/machines"
 
-        # Use a simple public image for now
         request = CreateMachineRequest.default_config(app_name)
 
         print(f"Creating machine for app {app_name}...")
-        print(f"Using image: {request.config['image']}")
 
         response = self.client.post(url, json=request.model_dump(), timeout=60.0)
 
@@ -100,11 +97,7 @@ class FlyManager:
             return None
 
         if response.status_code == 404:
-            print(f"App {app_name} not found - app may not be ready yet")
-            return None
-
-        if response.status_code == 422:
-            print(f"Invalid request: {response.text}")
+            print(f"App {app_name} not found")
             return None
 
         if not is_success(response):
@@ -123,12 +116,12 @@ class FlyManager:
 
         print(f"✓ Machine created with ID: {machine_id}")
 
-        # Check machine status
+        # Wait for machine to start
         self._wait_for_machine(app_name, machine_id)
 
         return machine_id
 
-    def _wait_for_machine(self, app_name: str, machine_id: str, timeout: int = 60):
+    def _wait_for_machine(self, app_name: str, machine_id: str, timeout: int = 30):
         """Wait for machine to start"""
         print(f"Waiting for machine {machine_id} to start...")
 
@@ -151,13 +144,10 @@ class FlyManager:
             if state == "started":
                 print(f"✓ Machine started after {i + 1} seconds")
                 return True
-            elif state in ["destroying", "destroyed"]:
-                print(f"✗ Machine failed to start - state: {state}")
-                return False
 
             time.sleep(1)
 
-        print(f"Timeout waiting for machine to start after {timeout} seconds")
+        print("Timeout waiting for machine to start")
         return False
 
     def get_app_status(self, app_name: str) -> Optional[AppStatusModel]:
@@ -168,18 +158,16 @@ class FlyManager:
             return None
 
         if response.status_code == 404:
-            print(f"App {app_name} not found")
             return None
 
         if not is_success(response):
-            print(f"Failed to get app status: {response.status_code}")
             return None
 
         app_data = parse_json(response)
         if not app_data:
             return None
 
-        # Get machines to check deployment status
+        # Get machines
         machines = self.list_machines(app_name)
         deployed = any(m.state == MachineState.STARTED for m in machines)
 
@@ -197,13 +185,10 @@ class FlyManager:
         response = self.client.get(f"{self.api_base}/apps/{app_name}/machines")
 
         if not is_success(response):
-            if response and response.status_code != 404:
-                print(f"Failed to list machines: {response.status_code}")
             return []
 
         machines_data = parse_json(response) or []
         if not isinstance(machines_data, list):
-            print("Expected list of machines")
             return []
 
         machines = []
@@ -211,49 +196,28 @@ class FlyManager:
             try:
                 machine = Machine.model_validate(data)
                 machines.append(machine)
-                print(f"  - Machine {machine.id}: {machine.state} in {machine.region}")
             except Exception as e:
-                print(f"Failed to parse machine: {e}")
+                print(f"Failed to parse machine data: {e}")
 
         return machines
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its machines"""
-        print(f"Deleting app {app_name}...")
-
-        # First delete all machines
+        # Delete machines first
         machines = self.list_machines(app_name)
         for machine in machines:
             self._delete_machine(app_name, machine.id)
 
-        # Wait a bit for machines to be deleted
-        if machines:
-            time.sleep(5)
-
-        # Then delete the app
+        # Delete the app
         response = self.client.delete(f"{self.api_base}/apps/{app_name}")
-
-        if not response:
-            return False
-
-        if response.status_code in [202, 204, 404]:
+        if response and response.status_code in [202, 204, 404]:
             print(f"✓ App {app_name} deleted")
             return True
 
-        print(f"Failed to delete app: {response.status_code} - {response.text}")
         return False
 
     def _delete_machine(self, app_name: str, machine_id: str) -> bool:
         """Delete a specific machine"""
         url = f"{self.api_base}/apps/{app_name}/machines/{machine_id}?force=true"
         response = self.client.delete(url)
-
-        if not response:
-            return False
-
-        if response.status_code in [200, 204, 404]:
-            print(f"✓ Deleted machine {machine_id}")
-            return True
-
-        print(f"Failed to delete machine: {response.status_code}")
-        return False
+        return response and response.status_code in [200, 204, 404]

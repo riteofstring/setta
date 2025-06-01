@@ -57,7 +57,7 @@ class CreateAppRequest(BaseModel):
 
     app_name: str
     org_slug: str = "personal"
-    network: str | None = None  # Optional network isolation
+    network: str | None = None
 
 
 class AllocateIPRequest(BaseModel):
@@ -74,33 +74,33 @@ class CreateMachineRequest(BaseModel):
 
     @classmethod
     def default_config(cls, app_name: str) -> "CreateMachineRequest":
-        """Create default machine configuration for test FOSS app"""
+        """Create default machine configuration"""
         return cls(
             region="ord",
             config={
-                # Use a simple public image with Python and uvicorn pre-installed
-                "image": "tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim",
+                # Use a simple nginx image for testing
+                "image": "nginx:alpine",
                 "env": {
                     "PROJECT_NAME": app_name,
                     "FLY_APP_NAME": app_name,
-                    "MODULE_NAME": "main",
-                    "VARIABLE_NAME": "app",
-                    "PORT": "8000",
                 },
                 "services": [
                     {
                         "protocol": "tcp",
-                        "internal_port": 8000,
+                        "internal_port": 80,  # nginx default port
                         "auto_stop_machines": True,
                         "auto_start_machines": True,
+                        "min_machines_running": 0,
                         "ports": [
                             {
                                 "port": 80,
                                 "handlers": ["http"],
+                                "force_https": False,
                             },
                             {
                                 "port": 443,
                                 "handlers": ["tls", "http"],
+                                "force_https": True,
                             },
                         ],
                         "concurrency": {
@@ -118,26 +118,6 @@ class CreateMachineRequest(BaseModel):
                     "cpu_kind": "shared",
                     "cpus": 1,
                     "memory_mb": 256,
-                },
-                # Add init command to create a simple FastAPI app
-                "init": {
-                    "cmd": [
-                        "sh",
-                        "-c",
-                        """echo 'from fastapi import FastAPI
-import os
-
-app = FastAPI()
-
-@app.get("/")
-def root():
-    app_name = os.getenv("FLY_APP_NAME", "unknown")
-    return {"message": f"Hello from {app_name}!", "app": app_name}
-
-@app.get("/health")
-def health():
-    return {"status": "healthy"}' > /app/main.py""",
-                    ]
                 },
             },
         )
