@@ -55,7 +55,7 @@ async def route_send_artifact(
     dbe=Depends(get_dbe),
     websocket_msg_handler=Depends(get_wmh_artifact),
 ):
-    with dbe as db:
+    with dbe.session as db:
         save_or_create_artifacts(db, x.data)
 
     await websocket_msg_handler.broadcast_artifact(x.data)
@@ -63,7 +63,7 @@ async def route_send_artifact(
 
 @router.post(C.ROUTE_LOAD_ARTIFACTS)
 def route_load_artifacts(x: LoadArtifactsRequest, dbe=Depends(get_dbe)):
-    with dbe as db:
+    with dbe.session as db:
         return load_artifact_metadata_and_maybe_value_from_disk(db, x.artifactIds)
 
 
@@ -71,7 +71,7 @@ def route_load_artifacts(x: LoadArtifactsRequest, dbe=Depends(get_dbe)):
 def route_load_available_artifacts(
     x: LoadAvailableArtifactsRequest, dbe=Depends(get_dbe)
 ):
-    with dbe as db:
+    with dbe.session as db:
         return load_available_artifacts(db, x.sectionType)
 
 
@@ -94,5 +94,5 @@ def route_read_csv_base64(x: ReadCSVBase64Request):
 def route_get_artifact_ids_from_name_path_type(
     x: FillInMissingArtifactIdsRequest, dbe=Depends(get_dbe)
 ):
-    with dbe as db:
+    with dbe.session as db:
         return fill_in_missing_artifact_ids(db, x.namesPathsTypes)

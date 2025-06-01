@@ -22,7 +22,7 @@ def _export_database(
 def export_database(path, raw, readable, readable_with_variants):
     # Connect to the SQLite database
     dbe = DBE(path)
-    with dbe as db:
+    with dbe.session as db:
         # Export the database, including schema and data, to JSON and YAML
         _export_database(db, path, raw, readable, readable_with_variants)
 

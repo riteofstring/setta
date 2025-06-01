@@ -16,7 +16,7 @@ class WMHMCP(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager, dbe):
         self.websocket_manager = websocket_manager
         self.dbe = dbe
-        with self.dbe as db:
+        with self.dbe.session as db:
             self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
 
     async def use_frontend_tool(self, fn_name, return_type, args=None):
@@ -43,7 +43,7 @@ class WMHMCP(BaseWebsocketMsgHandler):
             raise SettaMCPToolError(result[C.SETTA_MCP_TOOL_ERROR])
         result = TypeAdapter(return_type).validate_python(result)
         result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
-        with self.dbe as db:
+        with self.dbe.session as db:
             save_uuid_mapping_for_llm(db, self.uuid_to_id)
             await self.send_uuid_mapping()
         return result

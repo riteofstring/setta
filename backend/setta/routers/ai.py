@@ -205,6 +205,6 @@ def merge_db_messages_with_current_stream(
 async def route_get_uuid_mapping_for_llm(
     dbe=Depends(get_dbe),
 ):
-    with dbe as db:
+    with dbe.session as db:
         id_to_uuid, _ = load_uuid_mapping_for_llm(db)
     return id_to_uuid

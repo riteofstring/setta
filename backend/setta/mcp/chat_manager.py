@@ -57,7 +57,7 @@ class ChatManager:
         self.cache_trigger_tokens = 1000
 
     def get_chat(self, chat_id: str):
-        with self.dbe as db:
+        with self.dbe.session as db:
             return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
@@ -69,7 +69,7 @@ class ChatManager:
     def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
         if len(messages) == 0:
             return
-        with self.dbe as db:
+        with self.dbe.session as db:
             save_messages(db, chat_id, messages)
 
     def save_current_stream_to_db(self, chat_id: str):
@@ -85,16 +85,16 @@ class ChatManager:
         return chat
 
     def create_new_chat(self, first_message: ChatMessage):
-        with self.dbe as db:
+        with self.dbe.session as db:
             return create_new_chat(db, first_message)
 
     def get_all_chat_metadata(self):
-        with self.dbe as db:
+        with self.dbe.session as db:
             return load_all_chat_metadata(db)
         raise ValueError
 
     def delete_chat(self, chat_id: str):
-        with self.dbe as db:
+        with self.dbe.session as db:
             delete_chat(db, chat_id)
 
     def is_waiting_for_response(self, chat_id: str):
