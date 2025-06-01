@@ -6,7 +6,7 @@ from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.mcp.chat_manager import ChatManager
 from setta.routers.dependencies import (
     get_chat_manager,
-    get_dbq,
+    get_dbe,
     get_wmh_base,
 )
 from setta.routers.utils import get_llm_api_keys_from_env_vars
@@ -203,8 +203,8 @@ def merge_db_messages_with_current_stream(
 
 @router.post(C.ROUTE_GET_UUID_MAPPING_FOR_LLM)
 async def route_get_uuid_mapping_for_llm(
-    dbq=Depends(get_dbq),
+    dbe=Depends(get_dbe),
 ):
-    with dbq as db:
+    with dbe as db:
         id_to_uuid, _ = load_uuid_mapping_for_llm(db)
     return id_to_uuid

@@ -1,10 +1,13 @@
 import json
 
-from setta.database.db_objs import DB
+from sqlalchemy.orm import Session
+
 from setta.types.notifications import SettaNotification
 
 
-def save_notification(db: DB, project_config_id: str, notification: SettaNotification):
+def save_notification(
+    db: Session, project_config_id: str, notification: SettaNotification
+):
     """
     Save a new notification to the database.
 

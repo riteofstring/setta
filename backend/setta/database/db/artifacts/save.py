@@ -1,10 +1,11 @@
 import json
 
-from setta.database.db_objs import DB
+from sqlalchemy.orm import Session
+
 from setta.types.artifact import Artifact
 
 
-def save_artifacts(db: DB, artifacts: dict[str, Artifact]):
+def save_artifacts(db: Session, artifacts: dict[str, Artifact]):
     query = """
         INSERT INTO Artifact (id, name, path, value, type)
         VALUES (:id, :name, :path, :value, :type)

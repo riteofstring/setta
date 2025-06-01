@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
 from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
-from setta.database.db_objs import DBQueue
+from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
 from setta.mcp.server import CHAT_ID_ARG_NAME
@@ -42,9 +42,9 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 class ChatManager:
     def __init__(
-        self, dbq: DBQueue, mcp_client: MCPClient, websocket_manager: WebsocketManager
+        self, dbe: DBE, mcp_client: MCPClient, websocket_manager: WebsocketManager
     ):
-        self.dbq = dbq
+        self.dbe = dbe
         self.mcp_client = mcp_client
         self.websocket_msg_handler = WMHChatManager(websocket_manager)
         self.current_streams: dict[str, list[ChatMessage]] = {}
@@ -57,7 +57,7 @@ class ChatManager:
         self.cache_trigger_tokens = 1000
 
     def get_chat(self, chat_id: str):
-        with self.dbq as db:
+        with self.dbe as db:
             return load_chat(db, chat_id)
 
     def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
@@ -69,7 +69,7 @@ class ChatManager:
     def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
         if len(messages) == 0:
             return
-        with self.dbq as db:
+        with self.dbe as db:
             save_messages(db, chat_id, messages)
 
     def save_current_stream_to_db(self, chat_id: str):
@@ -85,16 +85,16 @@ class ChatManager:
         return chat
 
     def create_new_chat(self, first_message: ChatMessage):
-        with self.dbq as db:
+        with self.dbe as db:
             return create_new_chat(db, first_message)
 
     def get_all_chat_metadata(self):
-        with self.dbq as db:
+        with self.dbe as db:
             return load_all_chat_metadata(db)
         raise ValueError
 
     def delete_chat(self, chat_id: str):
-        with self.dbq as db:
+        with self.dbe as db:
             delete_chat(db, chat_id)
 
     def is_waiting_for_response(self, chat_id: str):

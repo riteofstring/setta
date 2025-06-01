@@ -1,5 +1,6 @@
+from sqlalchemy.orm import Session
+
 from setta.database.db.projects.load import load_project_state
-from setta.database.db_objs import DB
 from setta.types.project_state import ProjectConfig, ProjectState
 
 
@@ -7,7 +8,7 @@ class ProjectNameTaken(Exception):
     pass
 
 
-def save_project_state(db: DB, state: ProjectState):
+def save_project_state(db: Session, state: ProjectState):
     json_data = state.model_dump_json()
     query = """
         UPDATE ProjectState 
@@ -17,7 +18,7 @@ def save_project_state(db: DB, state: ProjectState):
     db.execute(query, {"state": json_data})
 
 
-def create_project_config(db: DB, previewImgColor: str):
+def create_project_config(db: Session, previewImgColor: str):
     state = load_project_state(db)
     new_project_config = ProjectConfig(previewImgColor=previewImgColor)
 
@@ -27,7 +28,7 @@ def create_project_config(db: DB, previewImgColor: str):
     return new_project_config.name
 
 
-def save_project_config_name(db: DB, projectConfigId: str, newName: str):
+def save_project_config_name(db: Session, projectConfigId: str, newName: str):
     state = load_project_state(db)
     for k, v in state.projectConfigs.items():
         if k != projectConfigId and v.name == newName:
@@ -36,7 +37,7 @@ def save_project_config_name(db: DB, projectConfigId: str, newName: str):
     save_project_state(db, state)
 
 
-def set_as_default_project(db: DB, projectConfigId: str):
+def set_as_default_project(db: Session, projectConfigId: str):
     state = load_project_state(db)
     state.defaultProjectConfigId = projectConfigId
     save_project_state(db, state)

@@ -1,7 +1,7 @@
-from setta.database.db_objs import DB
+from sqlalchemy.orm import Session
 
 
-def delete_notification(db: DB, notification_id: str):
+def delete_notification(db: Session, notification_id: str):
     """
     Delete a notification from the database by its ID.
 

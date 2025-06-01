@@ -1,8 +1,8 @@
 import json
 
 from anthropic.types import TextBlock
+from sqlalchemy.orm import Session
 
-from setta.database.db_objs import DB
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -19,7 +19,7 @@ def create_new_chat_name(first_message: ChatMessage):
     return name
 
 
-def create_new_chat(db: DB, first_message: ChatMessage):
+def create_new_chat(db: Session, first_message: ChatMessage):
     chat_id = create_new_id()
     name = create_new_chat_name(first_message)
 
@@ -58,7 +58,7 @@ def delete_chat(db, chat_id):
     db.execute(query, {"chatId": chat_id})
 
 
-def save_messages(db: DB, chat_id: str, messages: list[ChatMessage]):
+def save_messages(db: Session, chat_id: str, messages: list[ChatMessage]):
     # First, get the maximum order value for this chat
     max_order_query = """
         SELECT MAX("order") FROM ChatMessage WHERE chatId = :chat_id

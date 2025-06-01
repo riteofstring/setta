@@ -1,8 +1,9 @@
-from setta.database.db_objs import DB
+from sqlalchemy.orm import Session
+
 from setta.types.notifications import SettaNotification
 
 
-def load_project_notifications(db: DB, project_config_id: str, limit=20):
+def load_project_notifications(db: Session, project_config_id: str, limit=20):
     """
     Load the latest notifications for a specific project.
 
@@ -44,7 +45,7 @@ def load_project_notifications(db: DB, project_config_id: str, limit=20):
     return notifications
 
 
-def load_notification(db: DB, notification_id: str):
+def load_notification(db: Session, notification_id: str):
     """
     Load a single notification by its ID.
 

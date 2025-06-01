@@ -15,7 +15,7 @@ class WebsocketMsgHandlers:
         lsp_writers,
         project_manager,
         script_metadata,
-        dbq,
+        dbe,
         specific_file_watcher,
     ):
         self.base = BaseWebsocketMsgHandler(websocket_manager)
@@ -33,4 +33,4 @@ class WebsocketMsgHandlers:
             websocket_manager, script_metadata, project_manager
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
-        self.mcp = WMHMCP(websocket_manager, dbq)
+        self.mcp = WMHMCP(websocket_manager, dbe)

@@ -1,6 +1,6 @@
 import os
 
-from ..db_objs import DBQueue
+from ..db_objs import DBE
 from .export_raw import export_raw
 from .export_readable import export_readable
 
@@ -21,12 +21,10 @@ def _export_database(
 
 def export_database(path, raw, readable, readable_with_variants):
     # Connect to the SQLite database
-    dbq = DBQueue(path)
-    dbq.connect()
-    with dbq as db:
+    dbe = DBE(path)
+    with dbe as db:
         # Export the database, including schema and data, to JSON and YAML
         _export_database(db, path, raw, readable, readable_with_variants)
-    dbq.disconnect()
 
 
 def maybe_export_database(

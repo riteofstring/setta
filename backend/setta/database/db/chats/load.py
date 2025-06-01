@@ -1,11 +1,12 @@
 import json
 
-from setta.database.db_objs import DB
+from sqlalchemy.orm import Session
+
 from setta.types.ai import ID, IDToUUIDForLLM
 from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
 
 
-def load_chat(db: DB, chat_id: str):
+def load_chat(db: Session, chat_id: str):
     chat_query = """
         SELECT id, name, lastUpdated
         FROM Chat

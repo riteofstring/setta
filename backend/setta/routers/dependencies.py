@@ -1,8 +1,8 @@
 from fastapi import Request, WebSocket
 
 
-def get_dbq(request: Request):
-    return request.app.state.dbq
+def get_dbe(request: Request):
+    return request.app.state.dbe
 
 
 def get_settings_file(request: Request):

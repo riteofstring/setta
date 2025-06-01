@@ -26,7 +26,7 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.database.db_objs import DBQueue
+from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
@@ -39,7 +39,7 @@ from setta.types.project_state import (
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
-from .dependencies import get_dbq, get_project_manager, get_settings_file, get_wmh_base
+from .dependencies import get_dbe, get_project_manager, get_settings_file, get_wmh_base
 
 router = APIRouter()
 
@@ -97,19 +97,19 @@ class DeleteNotificationRequest(BaseModel):
 
 
 @router.post(C.ROUTE_LOAD_ALL_PROJECT_METADATA)
-def route_load_all_project_metadata(dbq=Depends(get_dbq)):
-    with dbq as db:
+def route_load_all_project_metadata(dbe=Depends(get_dbe)):
+    with dbe as db:
         return load_project_metadata(db)
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest,
-    dbq=Depends(get_dbq),
+    dbe=Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
-        with dbq as db:
+        with dbe as db:
             projectConfigId, projectState = load_project_state_and_confirm_config_name(
                 db, x.projectConfigName
             )
@@ -135,11 +135,11 @@ async def route_load_project_config(
 async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
-    dbq: DBQueue = Depends(get_dbq),
+    dbe: DBE = Depends(get_dbe),
     websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
     settings_file: SettingsFile = Depends(get_settings_file),
 ):
-    with dbq as db:
+    with dbe as db:
         notification = None
         try:
             # Perform existing save operations
@@ -180,51 +180,51 @@ async def route_save_project(
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
-def route_create_project_config(x: CreateProjectConfigRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
+def route_create_project_config(x: CreateProjectConfigRequest, dbe=Depends(get_dbe)):
+    with dbe as db:
         return create_project_config(db, x.previewImgColor)
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
 def route_save_as_new_project_config(
-    x: SaveAsNewProjectConfigRequest, dbq=Depends(get_dbq)
+    x: SaveAsNewProjectConfigRequest, dbe=Depends(get_dbe)
 ):
-    with dbq as db:
+    with dbe as db:
         return save_as_new_project_config(db, x.project, x.newConfigName, x.withRefs)
 
 
 @router.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)
 def route_save_as_existing_project_config(
-    x: SaveAsExistingProjectConfigRequest, dbq=Depends(get_dbq)
+    x: SaveAsExistingProjectConfigRequest, dbe=Depends(get_dbe)
 ):
-    with dbq as db:
+    with dbe as db:
         return save_as_existing_project_config(db, x.project, x.configName)
 
 
 @router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
-def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
+def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbe=Depends(get_dbe)):
+    with dbe as db:
         return delete_project_configs(db, x.ids)
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
-def route_set_project_config_name(x: SetProjectConfigNameRequest, dbq=Depends(get_dbq)):
+def route_set_project_config_name(x: SetProjectConfigNameRequest, dbe=Depends(get_dbe)):
     try:
-        with dbq as db:
+        with dbe as db:
             save_project_config_name(db, x.projectConfigId, x.newName)
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
 
 @router.post(C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME)
-def router_get_default_project_config_name(dbq=Depends(get_dbq)):
-    with dbq as db:
+def router_get_default_project_config_name(dbe=Depends(get_dbe)):
+    with dbe as db:
         return load_default_project_config_name(db)
 
 
 @router.post(C.ROUTE_SET_AS_DEFAULT_PROJECT)
-def router_set_as_default_project(x: SetAsDefaultProjectRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
+def router_set_as_default_project(x: SetAsDefaultProjectRequest, dbe=Depends(get_dbe)):
+    with dbe as db:
         set_as_default_project(db, x.projectId)
 
 
@@ -241,14 +241,14 @@ def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
 
 
 @router.post(C.ROUTE_GET_NOTIFICATIONS)
-def route_get_notifications(x: GetNotificationsRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
+def route_get_notifications(x: GetNotificationsRequest, dbe=Depends(get_dbe)):
+    with dbe as db:
         notifications = load_project_notifications(db, x.projectConfigId)
         return notifications
 
 
 @router.post(C.ROUTE_DELETE_NOTIFICATION)
-def route_delete_notification(x: DeleteNotificationRequest, dbq=Depends(get_dbq)):
-    with dbq as db:
+def route_delete_notification(x: DeleteNotificationRequest, dbe=Depends(get_dbe)):
+    with dbe as db:
         success = delete_notification(db, x.notificationId)
         return {"success": success}

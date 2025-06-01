@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
         app.state.lsp_writers, app.state.websocket_manager, app.state.settings_file
     )
     app.state.script_metadata = ScriptMetadata()
-    app.state.dbq = DBE(C.DB_PATH)
+    app.state.dbe = DBE(C.DB_PATH)
 
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_manager
@@ -68,7 +68,7 @@ async def lifespan(app: FastAPI):
         app.state.lsp_writers,
         app.state.project_manager,
         app.state.script_metadata,
-        app.state.dbq,
+        app.state.dbe,
         app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(
@@ -80,7 +80,7 @@ async def lifespan(app: FastAPI):
         f"{C.BACKEND}/mcp",
     )
     app.state.chat_manager = ChatManager(
-        app.state.dbq, app.state.mcp_client, app.state.websocket_manager
+        app.state.dbe, app.state.mcp_client, app.state.websocket_manager
     )
 
     asyncio.create_task(app.state.mcp_client.connect_to_server())
