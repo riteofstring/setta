@@ -79,7 +79,7 @@ def get_all_pydantic_models(module):
 def append_ts_type_and_creation_fn(name):
     return f"""export type {name} = z.infer<typeof {name}Schema>;
 
-export function create{name.capitalize()}(options: {name}){{
+export function create{name[0].upper() + name[1:]}(options: {name}){{
     return {name}Schema.parse(options);
 }};\n\n"""
 
