@@ -3,7 +3,7 @@ import os
 import shutil
 from pathlib import Path
 
-from setta.api.data_wrappers import save_base64_to_png
+from setta.api.logger import save_base64_to_png
 from setta.code_gen.utils import (
     export_param_sweep_section_to_dict,
     export_section_to_dict,
