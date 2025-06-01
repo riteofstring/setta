@@ -1,6 +1,7 @@
 import json
 
 from anthropic.types import TextBlock
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from setta.database.table_definitions import ChatMessageTable, ChatTable
@@ -40,12 +41,9 @@ def create_new_chat(db: Session, first_message: ChatMessage):
     return chat
 
 
-def delete_chat(db, chat_id):
-    query = """
-        DELETE FROM CHAT
-        WHERE ID = :chatId
-    """
-    db.execute(query, {"chatId": chat_id})
+def delete_chat(db: Session, chat_id: str):
+    stmt = delete(ChatTable).where(ChatTable.id == chat_id)
+    db.execute(stmt)
 
 
 def save_messages(db: Session, chat_id: str, messages: list[ChatMessage]):
