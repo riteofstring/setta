@@ -1,4 +1,6 @@
 from enum import StrEnum
+from pathlib import Path
+
 from pydantic import BaseModel
 
 
@@ -9,8 +11,11 @@ class ArtifactType(StrEnum):
     CHAT_HISTORY = "chatHistory"
 
 
-class Artifact(BaseModel, extra="forbid"):
+class ArtifactWithoutValue(BaseModel, extra="forbid"):
     name: str
-    path: str
-    value: str | None = None
+    path: Path
     type: ArtifactType
+
+
+class Artifact(ArtifactWithoutValue, extra="forbid"):
+    value: str | None = None

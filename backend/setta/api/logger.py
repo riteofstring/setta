@@ -7,9 +7,9 @@ from io import BytesIO
 from pathlib import Path
 
 import requests
-from setta.types.artifact import ArtifactType
 import websockets
 
+from setta.types.artifact import ArtifactType
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
 
 
@@ -289,13 +289,16 @@ class SettaChatHistory(SettaDataWrapper):
             self.messages = json.load(f)
 
 
-def get_wrapper_for_loading(data_type):
-    if data_type == ArtifactType.LIST:
-        return SettaList()
-    if data_type == ArtifactType.IMG:
-        return SettaImg()
-    if data_type == ArtifactType.CHAT_HISTORY:
-        return SettaChatHistory()
+def get_wrapper_for_loading(type: ArtifactType):
+    match type:
+        case ArtifactType.LIST:
+            return SettaList()
+        case ArtifactType.IMG:
+            return SettaImg()
+        case ArtifactType.CHAT_HISTORY:
+            return SettaChatHistory()
+        case ArtifactType.BRUSH_STROKES:
+            raise ValueError  # TODO
 
 
 def default_section_type(data_type):
