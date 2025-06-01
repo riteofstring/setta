@@ -261,9 +261,6 @@ def pydantic_model_to_zod(
 
     processed_types.add(name)
 
-    # Generate dependencies first
-    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
-
     # Build the object schema
     fields = []
     for field_name, field_info in model.model_fields.items():
@@ -277,6 +274,8 @@ def pydantic_model_to_zod(
         fields.append(f"  {field_name}: {zod_schema}")
 
     fields_str = ",\n".join(fields)
+
+    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
 
     # Generate schema and inferred type
     return (
