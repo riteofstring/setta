@@ -23,6 +23,8 @@ import setta.types
 from pydantic import AnyUrl, BaseModel
 from pydantic_core import PydanticUndefined
 
+from .utils import format_generated_code
+
 
 def get_modules_from_package(package):
     modules = []
@@ -366,6 +368,8 @@ export type ID = z.infer<typeof IDSchema>;
     with open(output_file, "w") as f:
         f.write(ts_code)
 
+    format_generated_code(output_file)
+
 
 if __name__ == "__main__":
-    main(Path("../src/utils/generatedTypes.ts"))
+    main(Path("src/utils/generatedTypes.ts"))

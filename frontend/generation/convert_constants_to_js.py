@@ -5,6 +5,8 @@ from typing import Any, Dict
 
 from setta.utils.constants import C, classproperty
 
+from .utils import format_generated_code
+
 EXCLUSIONS = set(["DEFAULT_DB_PATH", "DB_PATH"])
 
 
@@ -69,8 +71,9 @@ def main(output_file_path):
     js_code = generate_javascript_constants(constants)
     with open(output_file_path, "w") as f:
         f.write(js_code)
+    format_generated_code(output_file_path)
     print(f"Successfully converted Pydantic models to JavaScript in {output_file_path}")
 
 
 if __name__ == "__main__":
-    main(Path("../src/utils/c.ts"))
+    main(Path("src/utils/c.ts"))

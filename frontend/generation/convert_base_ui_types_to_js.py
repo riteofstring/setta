@@ -3,6 +3,8 @@ from pathlib import Path
 
 from setta.types.base_ui_types import BASE_UI_TYPES_LIST
 
+from .utils import format_generated_code
+
 
 def convert_base_ui_types_to_js(output_file_path):
     js_objects = []
@@ -30,9 +32,9 @@ BASE_UI_TYPES_LIST.forEach(uiType => {{
     # Write the JavaScript code to the output file
     with open(output_file_path, "w") as f:
         f.write(js_code)
-
+    format_generated_code(output_file_path)
     print(f"Successfully converted Pydantic models to JavaScript in {output_file_path}")
 
 
 if __name__ == "__main__":
-    convert_base_ui_types_to_js(Path("../src/utils/baseUITypes.ts"))
+    convert_base_ui_types_to_js(Path("src/utils/baseUITypes.ts"))
