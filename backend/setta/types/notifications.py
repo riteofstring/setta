@@ -1,14 +1,14 @@
 from datetime import datetime
-from enum import StrEnum
 
 from groq import BaseModel
 from pydantic import Field, field_serializer
 
 from setta.database.utils import create_new_id
+from setta.types.utils import AsIsStrEnum
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
-SettaNotificationType = StrEnum(
+SettaNotificationType = AsIsStrEnum(
     "SettaNotificationType", ["success", "error", "warning", "info", "save"]
 )
 

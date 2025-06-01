@@ -5,7 +5,7 @@ import { useActiveSection, useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { C } from "utils/c";
-import { VIEWING_EDITING_MODE } from "utils/constants";
+import { ViewingEditingModeSchema } from "utils/generatedTypes";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
@@ -98,7 +98,8 @@ function ContainerGroup({
     isInOtherProjectConfigs,
   });
 
-  const isEditingUser = viewingEditingMode === VIEWING_EDITING_MODE.USER_EDIT;
+  const isEditingUser =
+    viewingEditingMode === ViewingEditingModeSchema.enum.USER_EDIT;
 
   return (
     <div

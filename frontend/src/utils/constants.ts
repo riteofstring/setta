@@ -123,12 +123,6 @@ export const SECTION_DISPLAY_MODES = {
   GUI: "GUI",
 };
 
-export const VIEWING_EDITING_MODE = {
-  DEV: "DEV",
-  USER: "USER",
-  USER_EDIT: "USER_EDIT",
-};
-
 export const MODEL_GROUPS = [
   {
     group: "Anthropic",

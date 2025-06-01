@@ -1,15 +1,15 @@
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
+from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-UITypePresetType = StrEnum("UITypePresetType", ["BASE", "USER"])
+UITypePresetType = AsIsStrEnum("UITypePresetType", ["BASE", "USER"])
 
 
-class UITypeName(StrEnum):
+class UITypeName(AsIsStrEnum):
     TEXT = "TEXT"
     SLIDER = "SLIDER"
     SWITCH = "SWITCH"

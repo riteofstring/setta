@@ -1,5 +1,4 @@
 import copy
-from enum import StrEnum
 from typing import Any, Literal, Union
 
 from pydantic import (
@@ -16,22 +15,23 @@ from setta.types.base_ui_types import (
     UIType,
     UITypeName,
 )
+from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-Size = StrEnum("Size", ["auto"])
+Size = AsIsStrEnum("Size", ["auto"])
 
-CodeLanguage = StrEnum("CodeLanguage", ["python", "bash"])
+CodeLanguage = AsIsStrEnum("CodeLanguage", ["python", "bash"])
 
-ConfigLanguage = StrEnum("ConfigLanguage", ["python", "json"])
+ConfigLanguage = AsIsStrEnum("ConfigLanguage", ["python", "json"])
 
-ParameterPassingStyle = StrEnum(
+ParameterPassingStyle = AsIsStrEnum(
     "ParameterPassingStyle",
     ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
 )
 
-CodeInfoType = StrEnum("CodeInfoType", ["parameter", "callable", "collection"])
+CodeInfoType = AsIsStrEnum("CodeInfoType", ["parameter", "callable", "collection"])
 
-ViewingEditingMode = StrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
+ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
 
 class Viewport(BaseModel, extra="forbid"):

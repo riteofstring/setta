@@ -262,13 +262,17 @@ export const ContentBlockSchema = z.union([
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
 export const ArtifactTypeSchema = z.enum([
-  "img",
-  "brush_strokes",
-  "list",
-  "chat_history",
+  "IMG",
+  "BRUSH_STROKES",
+  "LIST",
+  "CHAT_HISTORY",
 ]);
 
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
+
+export const AsIsStrEnumSchema = z.enum([]);
+
+export type AsIsStrEnum = z.infer<typeof AsIsStrEnumSchema>;
 
 export const UITypeNameSchema = z.enum([
   "TEXT",
@@ -297,7 +301,7 @@ export const UITypeNameSchema = z.enum([
 
 export type UITypeName = z.infer<typeof UITypeNameSchema>;
 
-export const UITypePresetTypeSchema = z.enum(["base", "user"]);
+export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
 
 export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
 
@@ -328,11 +332,11 @@ export const ConfigLanguageSchema = z.enum(["python", "json"]);
 export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
 
 export const ParameterPassingStyleSchema = z.enum([
-  "default",
-  "args",
-  "kwargs",
-  "positional_only",
-  "keyword_only",
+  "DEFAULT",
+  "ARGS",
+  "KWARGS",
+  "POSITIONAL_ONLY",
+  "KEYWORD_ONLY",
 ]);
 
 export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
@@ -341,7 +345,7 @@ export const SizeSchema = z.enum(["auto"]);
 
 export type Size = z.infer<typeof SizeSchema>;
 
-export const ViewingEditingModeSchema = z.enum(["dev", "user", "user_edit"]);
+export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
 
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
 
@@ -726,7 +730,7 @@ export const CodeInfoSchema = z.object({
   rcType: CodeInfoTypeSchema.default("parameter"),
   defaultVal: z.string().default(""),
   description: z.string().default(""),
-  passingStyle: ParameterPassingStyleSchema.default("default"),
+  passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),
   isPinned: z.boolean().default(false),
   isFrozen: z.boolean().default(false),
   isSelected: z.boolean().default(false),
@@ -817,7 +821,7 @@ export const ProjectConfigSchema = z.object({
   previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
   children: z.record(z.string(), ProjectConfigChildSchema).default({}),
-  viewingEditingMode: ViewingEditingModeSchema.default("dev"),
+  viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
   genCodePrefix: z.string().default(""),
   genCodeSuffix: z.string().default(""),
 });

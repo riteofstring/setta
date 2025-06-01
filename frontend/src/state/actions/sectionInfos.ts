@@ -3,8 +3,12 @@ import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { VIEWING_EDITING_MODE } from "utils/constants";
-import { createCodeInfoCol, createEVEntry } from "utils/generatedTypes";
+import {
+  createCodeInfoCol,
+  createEVEntry,
+  ViewingEditingMode,
+  ViewingEditingModeSchema,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { getCurrentProjectConfig } from "./project/loadProject";
@@ -326,7 +330,9 @@ function deleteSectionVariant(sectionId, variantId, isCurr) {
 }
 
 export function getSectionShouldRender(visibility, viewingEditingMode) {
-  return visibility || viewingEditingMode !== VIEWING_EDITING_MODE.USER;
+  return (
+    visibility || viewingEditingMode !== ViewingEditingModeSchema.enum.USER
+  );
 }
 
 export function getSectionViewingEditingModeVisibility(sectionId, state) {
@@ -342,21 +348,23 @@ export function getSectionViewingEditingModeVisibility(sectionId, state) {
 
 export function getSectionVisibilityKey(viewingEditingMode) {
   switch (viewingEditingMode) {
-    case VIEWING_EDITING_MODE.DEV:
-    case VIEWING_EDITING_MODE.USER:
+    case ViewingEditingModeSchema.enum.DEV:
+    case ViewingEditingModeSchema.enum.USER:
       return viewingEditingMode;
-    case VIEWING_EDITING_MODE.USER_EDIT:
-      return VIEWING_EDITING_MODE.USER;
+    case ViewingEditingModeSchema.enum.USER_EDIT:
+      return ViewingEditingModeSchema.enum.USER;
   }
 }
 
-export function getSectionVisibilityKeyForDisplay(viewingEditingMode) {
+export function getSectionVisibilityKeyForDisplay(
+  viewingEditingMode: ViewingEditingMode,
+) {
   switch (viewingEditingMode) {
-    case VIEWING_EDITING_MODE.USER:
+    case ViewingEditingModeSchema.enum.USER:
       return viewingEditingMode;
-    case VIEWING_EDITING_MODE.DEV:
-    case VIEWING_EDITING_MODE.USER_EDIT:
-      return VIEWING_EDITING_MODE.DEV;
+    case ViewingEditingModeSchema.enum.DEV:
+    case ViewingEditingModeSchema.enum.USER_EDIT:
+      return ViewingEditingModeSchema.enum.DEV;
   }
 }
 
@@ -377,5 +385,5 @@ export function getAncestorSameVisibility(sectionId, state) {
 }
 
 export function getIsUserView(viewingEditingMode) {
-  return viewingEditingMode === VIEWING_EDITING_MODE.USER;
+  return viewingEditingMode === ViewingEditingModeSchema.enum.USER;
 }
