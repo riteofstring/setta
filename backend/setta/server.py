@@ -10,8 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-import setta.mcp.backend_tools  # noqa: F401
-import setta.mcp.frontend_tools  # noqa: F401
+import setta.mcp.tools  # noqa: F401
 from setta.database.db_init import maybe_create_tables_and_seed
 from setta.database.db_objs import DBQueue
 from setta.database.settings_file import SettingsFile
