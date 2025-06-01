@@ -39,10 +39,6 @@ CREATE TABLE IF NOT EXISTS UUIDMappingForLLM (
 );
 
 
--- INSERTS ---
-INSERT OR IGNORE INTO ProjectState (id, state) VALUES (1, NULL);
-
-
 -- TRIGGERS --
 CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
 AFTER INSERT ON ChatMessage

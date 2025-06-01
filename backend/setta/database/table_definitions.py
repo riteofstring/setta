@@ -1,9 +1,36 @@
+import uuid
+from pathlib import Path
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, TypeDecorator
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Enum,
+    Text,
+    TypeDecorator,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, MappedAsDataclass, mapped_column
 
+from setta.types.artifact import ArtifactType
 from setta.types.project_state import ProjectState
+
+
+class PathType(TypeDecorator):
+    """A SQLAlchemy type that stores pathlib.Path objects as strings."""
+
+    impl = Text
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            return str(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            return Path(value)
+        return value
 
 
 class PydanticColumnType(TypeDecorator):
@@ -42,3 +69,14 @@ class ProjectStateTable(BaseTable):
     state: Mapped[ProjectState] = mapped_column(PydanticColumnType(ProjectState))
 
     __table_args__ = (CheckConstraint("id = 1", name="projectstate_id_check"),)
+
+
+class ArtifactTable(BaseTable):
+    __tablename__ = "BasicArtifact"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    path: Mapped[Path] = mapped_column(PathType, server_default="")
+    type: Mapped[ArtifactType] = mapped_column(Enum(ArtifactType))
+
+    __table_args__ = (UniqueConstraint("path", name="artifact_unique_constraint"),)
