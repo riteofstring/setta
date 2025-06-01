@@ -1,52 +1,113 @@
 """
-Fly.io deployment operations using GraphQL.
-High-level operations that let Fly.io manage everything automatically.
+Fly.io deployment operations - Hybrid approach.
+Uses GraphQL for most operations, minimal REST for machine creation only.
 """
 
+import httpx
+
+from config import get_settings
 from fly.client import FlyClient
-from fly.queries import DEPLOY_IMAGE_MUTATION, SET_SECRETS_MUTATION
+from fly.queries import SET_SECRETS_MUTATION
 
 
 class FlyDeployment:
-    """Handles high-level Fly.io deployment operations via GraphQL."""
+    """Handles Fly.io deployment operations via hybrid GraphQL/REST approach."""
 
     def __init__(self, client: FlyClient):
         self.client = client
+        settings = get_settings()
+        self.api_token = settings.fly_api_token
+        self.machines_url = "https://api.machines.dev/v1"
 
     def deploy_image(self, app_id: str, image: str) -> dict:
         """
-        Deploy a Docker image to an app using GraphQL.
-        Fly.io automatically manages all machines, scaling, etc.
+        Deploy a Docker image to a Machines platform app.
+        Uses minimal REST API just for machine creation.
         """
-        print(f"Deploying {image} to app...")
+        print(f"Deploying {image} to app (Machines platform)...")
 
-        variables = {"input": {"appId": app_id, "image": image}}
+        # First get app name from app_id using GraphQL
+        app_info = self._get_app_info(app_id)
+        if not app_info:
+            raise Exception("App not found")
 
+        app_name = app_info["name"]
+
+        # Create a machine with auto-start/stop configuration
+        machine_config = {
+            "region": "ord",
+            "config": {
+                "image": image,
+                "auto_destroy": False,
+                "services": [
+                    {
+                        "ports": [
+                            {"port": 443, "handlers": ["tls", "http"]},
+                            {"port": 80, "handlers": ["http"]},
+                        ],
+                        "protocol": "tcp",
+                        "internal_port": 8080,
+                        "concurrency": {"type": "connections", "hard_limit": 25, "soft_limit": 20},
+                    }
+                ],
+                "restart": {"policy": "on-failure", "max_retries": 3},
+            },
+        }
+
+        # Single REST call to create the machine
         try:
-            result = self.client.graphql(DEPLOY_IMAGE_MUTATION, variables)
+            headers = {
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json",
+            }
 
-            if result.get("deployImage"):
-                deploy_data = result["deployImage"]
-                app = deploy_data.get("app", {})
-                release = deploy_data.get("release", {})
+            with httpx.Client() as client:
+                response = client.post(
+                    f"{self.machines_url}/apps/{app_name}/machines",
+                    json=machine_config,
+                    headers=headers,
+                    timeout=60.0,
+                )
 
-                print("✓ Deployment successful!")
-                print(f"  App: {app.get('name')} ({app.get('hostname')})")
-                if release:
-                    print(f"  Release: v{release.get('version')}")
+                if response.status_code not in [200, 201]:
+                    raise Exception(
+                        f"Machine creation failed: {response.status_code} - {response.text}"
+                    )
 
-                return deploy_data
-            else:
-                raise Exception("Deployment failed - no result returned")
+                machine = response.json()
+                print("✓ Machine created successfully!")
+                print(f"  Machine ID: {machine.get('id')}")
+                print(f"  App: {app_name}")
+
+                return {
+                    "app": {"id": app_id, "name": app_name, "hostname": app_info["hostname"]},
+                    "machine": machine,
+                }
 
         except Exception as e:
             print(f"✗ Deployment failed: {e}")
             raise
 
+    def _get_app_info(self, app_id: str) -> dict:
+        """Get app info using GraphQL."""
+        query = """
+        query($appId: ID!) {
+            node(id: $appId) {
+                ... on App {
+                    id
+                    name
+                    hostname
+                }
+            }
+        }
+        """
+
+        result = self.client.graphql(query, {"appId": app_id})
+        return result.get("node")
+
     def set_secrets(self, app_id: str, secrets: dict[str, str]) -> bool:
         """
-        Set environment variables/secrets for an app.
-        Fly.io will automatically restart machines with new config.
+        Set environment variables/secrets for an app (uses GraphQL).
         """
         print(f"Setting {len(secrets)} secrets...")
 
