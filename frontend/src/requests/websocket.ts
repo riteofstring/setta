@@ -20,7 +20,6 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { mcpToolUse } from "state/mcpToolRegistry";
 import { C } from "utils/c";
 
 let wss;
@@ -94,8 +93,6 @@ function receiveMessage(message) {
     // console.log(m.content);
   } else if (m.messageType === C.WS_LLM_STREAMING_RESPONSE) {
     receiveLLMResponseChunk(m.content);
-  } else if (m.messageType === C.WS_MCP_TOOL_USE) {
-    mcpToolUse(m.content);
   } else if (m.messageType === C.WS_UUID_MAPPING_FOR_LLM) {
     updateUUIDMappingForLLM(m.content);
   } else if (m.messageType === C.WS_RETURN_RENAME_REFACTOR_RESULTS) {
