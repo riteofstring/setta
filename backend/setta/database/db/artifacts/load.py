@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from setta.api.logger import get_wrapper_for_loading
+from setta.api.data_wrappers import get_wrapper_for_loading
 from setta.database.db_objs import DB
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithoutValue
 from setta.utils.constants import C

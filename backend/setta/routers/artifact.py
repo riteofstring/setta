@@ -3,7 +3,7 @@ import os
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
-from setta.api.logger import load_from_csv_base64
+from setta.api.data_wrappers import load_from_csv_base64
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
