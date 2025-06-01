@@ -160,6 +160,8 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
                 literals.append(f"{str(arg).lower()}")
             else:
                 literals.append(f"{arg}")
+        if len(literals) == 1:
+            return f"z.literal({literals[0]})"
         return f"z.literal([{', '.join(literals)}])"
 
     # Handle Optional/Union types

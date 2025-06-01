@@ -30,7 +30,7 @@ export const WebSearchResultBlockSchema = z.object({
   encrypted_content: z.string(),
   page_age: z.union([z.string(), z.null()]).optional(),
   title: z.string(),
-  type: z.literal(["web_search_result"]),
+  type: z.literal("web_search_result"),
   url: z.string(),
 });
 export type WebSearchResultBlock = z.infer<typeof WebSearchResultBlockSchema>;
@@ -43,7 +43,7 @@ export const WebSearchToolResultErrorSchema = z.object({
     "too_many_requests",
     "query_too_long",
   ]),
-  type: z.literal(["web_search_tool_result_error"]),
+  type: z.literal("web_search_tool_result_error"),
 });
 export type WebSearchToolResultError = z.infer<
   typeof WebSearchToolResultErrorSchema
@@ -53,7 +53,7 @@ export const CitationsWebSearchResultLocationSchema = z.object({
   cited_text: z.string(),
   encrypted_index: z.string(),
   title: z.union([z.string(), z.null()]).optional(),
-  type: z.literal(["web_search_result_location"]),
+  type: z.literal("web_search_result_location"),
   url: z.string(),
 });
 export type CitationsWebSearchResultLocation = z.infer<
@@ -66,7 +66,7 @@ export const CitationContentBlockLocationSchema = z.object({
   document_title: z.union([z.string(), z.null()]).optional(),
   end_block_index: z.int(),
   start_block_index: z.int(),
-  type: z.literal(["content_block_location"]),
+  type: z.literal("content_block_location"),
 });
 export type CitationContentBlockLocation = z.infer<
   typeof CitationContentBlockLocationSchema
@@ -78,7 +78,7 @@ export const CitationPageLocationSchema = z.object({
   document_title: z.union([z.string(), z.null()]).optional(),
   end_page_number: z.int(),
   start_page_number: z.int(),
-  type: z.literal(["page_location"]),
+  type: z.literal("page_location"),
 });
 export type CitationPageLocation = z.infer<typeof CitationPageLocationSchema>;
 
@@ -88,20 +88,20 @@ export const CitationCharLocationSchema = z.object({
   document_title: z.union([z.string(), z.null()]).optional(),
   end_char_index: z.int(),
   start_char_index: z.int(),
-  type: z.literal(["char_location"]),
+  type: z.literal("char_location"),
 });
 export type CitationCharLocation = z.infer<typeof CitationCharLocationSchema>;
 
 export const RedactedThinkingBlockSchema = z.object({
   data: z.string(),
-  type: z.literal(["redacted_thinking"]),
+  type: z.literal("redacted_thinking"),
 });
 export type RedactedThinkingBlock = z.infer<typeof RedactedThinkingBlockSchema>;
 
 export const ThinkingBlockSchema = z.object({
   signature: z.string(),
   thinking: z.string(),
-  type: z.literal(["thinking"]),
+  type: z.literal("thinking"),
 });
 export type ThinkingBlock = z.infer<typeof ThinkingBlockSchema>;
 
@@ -111,7 +111,7 @@ export const WebSearchToolResultBlockSchema = z.object({
     z.array(WebSearchResultBlockSchema),
   ]),
   tool_use_id: z.string(),
-  type: z.literal(["web_search_tool_result"]),
+  type: z.literal("web_search_tool_result"),
 });
 export type WebSearchToolResultBlock = z.infer<
   typeof WebSearchToolResultBlockSchema
@@ -120,8 +120,8 @@ export type WebSearchToolResultBlock = z.infer<
 export const ServerToolUseBlockSchema = z.object({
   id: z.string(),
   input: z.any(),
-  name: z.literal(["web_search"]),
-  type: z.literal(["server_tool_use"]),
+  name: z.literal("web_search"),
+  type: z.literal("server_tool_use"),
 });
 export type ServerToolUseBlock = z.infer<typeof ServerToolUseBlockSchema>;
 
@@ -129,7 +129,7 @@ export const ToolUseBlockSchema = z.object({
   id: z.string(),
   input: z.any(),
   name: z.string(),
-  type: z.literal(["tool_use"]),
+  type: z.literal("tool_use"),
 });
 export type ToolUseBlock = z.infer<typeof ToolUseBlockSchema>;
 
@@ -148,7 +148,7 @@ export const TextBlockSchema = z.object({
     ])
     .optional(),
   text: z.string(),
-  type: z.literal(["text"]),
+  type: z.literal("text"),
 });
 export type TextBlock = z.infer<typeof TextBlockSchema>;
 
@@ -312,14 +312,14 @@ export const AnnotationsSchema = z.object({
 export type Annotations = z.infer<typeof AnnotationsSchema>;
 
 export const EmbeddedResourceSchema = z.object({
-  type: z.literal(["resource"]),
+  type: z.literal("resource"),
   resource: z.union([TextResourceContentsSchema, BlobResourceContentsSchema]),
   annotations: z.union([AnnotationsSchema, z.null()]).optional(),
 });
 export type EmbeddedResource = z.infer<typeof EmbeddedResourceSchema>;
 
 export const ImageContentSchema = z.object({
-  type: z.literal(["image"]),
+  type: z.literal("image"),
   data: z.string(),
   mimeType: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).optional(),
@@ -327,14 +327,14 @@ export const ImageContentSchema = z.object({
 export type ImageContent = z.infer<typeof ImageContentSchema>;
 
 export const TextContentSchema = z.object({
-  type: z.literal(["text"]),
+  type: z.literal("text"),
   text: z.string(),
   annotations: z.union([AnnotationsSchema, z.null()]).optional(),
 });
 export type TextContent = z.infer<typeof TextContentSchema>;
 
 export const ToolResultSchema = z.object({
-  type: z.literal(["tool_result"]),
+  type: z.literal("tool_result"),
   tool_use_id: z.string(),
   content: z.array(
     z.union([TextContentSchema, ImageContentSchema, EmbeddedResourceSchema]),
@@ -378,7 +378,7 @@ export const ChatMetadataSchema = z.object({
 export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
 
 export const FullMessageStopSchema = z.object({
-  type: z.literal(["full_message_stop"]),
+  type: z.literal("full_message_stop"),
   messages: z.array(ChatMessageSchema),
   toolResults: z.record(z.string(), ToolResultSchema),
 });
@@ -425,8 +425,8 @@ export const VisibilitySchema = z.object({
 export type Visibility = z.infer<typeof VisibilitySchema>;
 
 export const SectionSizeSchema = z.object({
-  width: z.union([z.number(), z.literal(["auto"])]).optional(),
-  height: z.union([z.number(), z.literal(["auto"])]).optional(),
+  width: z.union([z.number(), z.literal("auto")]).optional(),
+  height: z.union([z.number(), z.literal("auto")]).optional(),
 });
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
 
@@ -506,7 +506,7 @@ export const SectionSchema = z.object({
   hideColumn: z.boolean().optional(),
   displayMode: z.string().optional(),
   visibility: VisibilitySchema.optional(),
-  pinnedAreaHeight: z.union([z.number(), z.literal(["auto"])]).optional(),
+  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   isMinimized: z.boolean().optional(),
   canvasSettings: DrawAreaCanvasSettingsSchema.optional(),
   chartSettings: ChartSettingsSchema.optional(),
