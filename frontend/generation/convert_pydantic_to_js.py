@@ -303,7 +303,7 @@ def main(output_file):
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
 
-    ts_code = """import { z } from 'zod';
+    ts_code = """import { z } from 'zod/v4';
 
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
