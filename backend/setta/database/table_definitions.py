@@ -9,6 +9,7 @@ from sqlalchemy import (
     Text,
     TypeDecorator,
     UniqueConstraint,
+    event,
     func,
 )
 from sqlalchemy.orm import (
@@ -22,7 +23,6 @@ from sqlalchemy.orm import (
 from setta.types.artifact import ArtifactType
 from setta.types.chat_messages import ChatRole, SettaChatMessageContent
 from setta.types.notifications import SettaNotificationType
-from setta.types.project_state import ProjectState
 
 
 class PathType(TypeDecorator):
@@ -40,27 +40,6 @@ class PathType(TypeDecorator):
         if value is not None:
             return Path(value)
         return value
-
-
-class ProjectStateColumnType(TypeDecorator):
-    """Store Pydantic models as JSON"""
-
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(
-        self, value: ProjectState | None, dialect: Any
-    ) -> dict | None:
-        if value is None:
-            return None
-        return value.model_dump()
-
-    def process_result_value(
-        self, value: dict | None, dialect: Any
-    ) -> ProjectState | None:
-        if value is None:
-            return None
-        return ProjectState(**value)
 
 
 class SettaChatMessageColumnType(TypeDecorator):
@@ -85,7 +64,7 @@ class ProjectStateTable(BaseTable):
     __tablename__ = "ProjectState"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    state: Mapped[ProjectState] = mapped_column(ProjectStateColumnType)
+    state: Mapped[dict | None] = mapped_column(JSON)
 
     __table_args__ = (CheckConstraint("id = 1", name="projectstate_id_check"),)
 
@@ -142,3 +121,8 @@ class UUIDMappingForLLMTable(BaseTable):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     uuid_column: Mapped[str] = mapped_column("uuid", unique=True)
+
+
+@event.listens_for(ProjectStateTable.__table__, "after_create")
+def insert_initial_state(target, connection, **kw):
+    connection.execute(target.insert(), {"id": 1, "state": None})

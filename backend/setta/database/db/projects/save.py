@@ -1,6 +1,8 @@
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from setta.database.db.projects.load import load_project_state
+from setta.database.table_definitions import ProjectStateTable
 from setta.types.project_state import ProjectConfig, ProjectState
 
 
@@ -9,13 +11,13 @@ class ProjectNameTaken(Exception):
 
 
 def save_project_state(db: Session, state: ProjectState):
-    json_data = state.model_dump_json()
-    query = """
-        UPDATE ProjectState 
-        SET state = :state
-        WHERE id = 1
-    """
-    db.execute(query, {"state": json_data})
+    json_data = state.model_dump()
+    stmt = (
+        update(ProjectStateTable)
+        .where(ProjectStateTable.id == 1)
+        .values(state=json_data)
+    )
+    db.execute(stmt)
 
 
 def create_project_config(db: Session, previewImgColor: str):

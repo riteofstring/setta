@@ -12,13 +12,14 @@ class ProjectNotFound(Exception):
 
 def load_project_state(db: Session):
     p = db.get(ProjectStateTable, 1)
-    if not p:
+    if not p or not p.state:
         return ProjectState()
-    return p.state
+    return ProjectState.model_validate(p.state)
 
 
 def load_project_state_and_confirm_config_name(db: Session, projectConfigName: str):
     state = load_project_state(db)
+    print("state", state, flush=True)
     for projectConfigId, p in state.projectConfigs.items():
         if projectConfigName == p.name:
             return projectConfigId, state

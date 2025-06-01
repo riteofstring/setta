@@ -145,7 +145,7 @@ async def route_save_project(
             # Perform existing save operations
             settings = settings_file.settings.backend
             maybe_create_backup(
-                db.path,
+                dbe.path,
                 settings.autobackup,
                 settings.autobackupFreq,
                 settings.autobackupKeepLastN,
@@ -153,7 +153,7 @@ async def route_save_project(
             save_project_state(db, x.project.projectState)
             maybe_export_database(
                 db,
-                db.path,
+                dbe.path,
                 settings.exportDbRawOnSave,
                 settings.exportDbReadableOnSave,
                 settings.exportDbReadableWithVariantsOnSave,
