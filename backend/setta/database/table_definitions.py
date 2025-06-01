@@ -43,15 +43,11 @@ class PathType(TypeDecorator):
         return value
 
 
-class PydanticColumnType(TypeDecorator):
+class ProjectStateColumnType(TypeDecorator):
     """Store Pydantic models as JSON"""
 
     impl = JSON
     cache_ok = True
-
-    def __init__(self, pydantic_model: type[ProjectState]):
-        super().__init__()
-        self.pydantic_model = pydantic_model
 
     def process_bind_param(
         self, value: ProjectState | None, dialect: Any
@@ -65,7 +61,21 @@ class PydanticColumnType(TypeDecorator):
     ) -> ProjectState | None:
         if value is None:
             return None
-        return self.pydantic_model(**value)
+        return ProjectState(**value)
+
+
+class SettaChatMessageColumnType(TypeDecorator):
+    """Store Pydantic models as JSON"""
+
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(
+        self, value: SettaChatMessageContent | None, dialect: Any
+    ) -> list | None:
+        if value is None:
+            return None
+        return [c.model_dump() for c in value]
 
 
 class BaseTable(MappedAsDataclass, DeclarativeBase):
@@ -76,7 +86,7 @@ class ProjectStateTable(BaseTable):
     __tablename__ = "ProjectState"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    state: Mapped[ProjectState] = mapped_column(PydanticColumnType(ProjectState))
+    state: Mapped[ProjectState] = mapped_column(ProjectStateColumnType)
 
     __table_args__ = (CheckConstraint("id = 1", name="projectstate_id_check"),)
 
@@ -122,7 +132,7 @@ class ChatMessageTable(BaseTable):
     chatId: Mapped[uuid.UUID] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
     order: Mapped[int] = mapped_column(name="order")  # "order" is a reserved word
     role: Mapped[ChatRole]
-    content: Mapped[SettaChatMessageContent]
+    content: Mapped[SettaChatMessageContent] = mapped_column(SettaChatMessageColumnType)
 
     # Relationship to chat
     chat: Mapped["ChatTable"] = relationship(back_populates="messages")
