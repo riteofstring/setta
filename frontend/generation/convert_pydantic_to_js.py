@@ -228,6 +228,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         datetime: "string",
         object: "any",
         Any: "any",
+        Path: "string",
     }
 
     # Direct type mapping

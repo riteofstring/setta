@@ -88,7 +88,21 @@ export enum ViewingEditingMode {
 export type Artifact = {
   name: string;
   path: string;
+  type: ArtifactType;
   value: any;
+};
+
+export type ArtifactWithId = {
+  name: string;
+  path: string;
+  type: ArtifactType;
+  value: any;
+  id: any;
+};
+
+export type ArtifactWithoutValue = {
+  name: string;
+  path: string;
   type: ArtifactType;
 };
 
