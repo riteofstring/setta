@@ -8,6 +8,7 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
+import { createUITypeColEntry } from "utils/objs/uiTypeCol";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
