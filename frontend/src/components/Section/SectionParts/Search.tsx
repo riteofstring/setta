@@ -33,8 +33,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
   return (
     <SectionSearchCore
       divId={`${sectionId}-search`}
-      dataSectionId={sectionId}
-      visualSectionId={sectionId}
+      sectionId={sectionId}
       selectedItem={selectedItem}
       onEnter={onEnter}
       onShiftEnter={onShiftEnter}
@@ -46,8 +45,7 @@ export function SectionSearch({ sectionId, selectedItem }) {
 }
 
 function SectionSearchCore({
-  dataSectionId,
-  visualSectionId,
+  sectionId,
   selectedItem,
   onEnter,
   onShiftEnter,
@@ -61,7 +59,7 @@ function SectionSearchCore({
     description,
     configLanguage,
   } = useProjectState((x) => {
-    const { configLanguage } = getSectionVariant(dataSectionId, x);
+    const { configLanguage } = getSectionVariant(sectionId, x);
     if (selectedItem) {
       const { name, description } = x.codeInfo[selectedItem];
       return { name, description, configLanguage };
@@ -107,7 +105,7 @@ function SectionSearchCore({
   function onEscape(completionResult) {
     if (!completionResult) {
       shouldResetValueOnBlur.current = true;
-      focusOnSection(null, visualSectionId, false);
+      focusOnSection(null, sectionId, false);
     }
   }
 
@@ -147,8 +145,7 @@ function SectionSearchCore({
     >
       <TextInputCodeMirror
         dummyDivId={divId}
-        dataSectionId={dataSectionId}
-        visualSectionId={visualSectionId}
+        sectionId={sectionId}
         paramInfoId={null}
         value={value}
         onBlur={onBlur}
@@ -162,7 +159,7 @@ function SectionSearchCore({
         language={configLanguage}
         isDisabled={isDisabled}
       />
-      <LoadingSpinner sectionId={dataSectionId} />
+      <LoadingSpinner sectionId={sectionId} />
     </search>
   );
 }

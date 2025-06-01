@@ -9,8 +9,7 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 
 export function TextInputCodeMirror({
-  dataSectionId,
-  visualSectionId,
+  sectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -54,7 +53,7 @@ export function TextInputCodeMirror({
     }
     if (event.button === 0) {
       setActivationEvent(event);
-      setActiveSectionIdAndUpdateZIndex(visualSectionId);
+      setActiveSectionIdAndUpdateZIndex(sectionId);
     }
     onMouseDown?.(event);
   }
@@ -85,8 +84,7 @@ export function TextInputCodeMirror({
       )}
       {activationEvent && (
         <CoreCodeMirror
-          dataSectionId={dataSectionId}
-          visualSectionId={visualSectionId}
+          sectionId={sectionId}
           paramInfoId={paramInfoId}
           value={value}
           defaultVal={defaultVal}
@@ -111,8 +109,7 @@ export function TextInputCodeMirror({
 }
 
 function CoreCodeMirror({
-  dataSectionId,
-  visualSectionId,
+  sectionId,
   paramInfoId,
   value,
   defaultVal,
@@ -131,17 +128,17 @@ function CoreCodeMirror({
   autocomplete,
   isKeyName,
 }) {
-  const divId = `CodeMirror-${visualSectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
 
   const completionsFn = useCallback(
     autocomplete && language === "python"
-      ? getTextFieldCompletionsFn(dataSectionId, paramInfoId)
+      ? getTextFieldCompletionsFn(sectionId, paramInfoId)
       : () => null,
-    [dataSectionId, paramInfoId, autocomplete],
+    [sectionId, paramInfoId, autocomplete],
   );
 
   const extensions = getExtensions({
-    parentDivId: `${visualSectionId}-CustomResizable`,
+    parentDivId: `${sectionId}-CustomResizable`,
     language,
     completionsFn,
     singleLine,

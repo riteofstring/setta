@@ -46,8 +46,7 @@ export function ParamNameInput({
   return (
     <>
       <TextInputCodeMirror
-        dataSectionId={sectionId}
-        visualSectionId={sectionId}
+        sectionId={sectionId}
         paramInfoId={paramInfoId}
         value={value}
         defaultVal={"Please Enter Key"}

@@ -33,25 +33,18 @@ export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
 }
 
 export async function setSelectedItem(
-  dataSectionId,
-  visualSectionId,
+  sectionId,
   selectedItemName,
   callbackSetAttr,
   refetchParams = false,
 ) {
-  if (
-    !refetchParams &&
-    itemIsAlreadySelected(dataSectionId, selectedItemName)
-  ) {
+  if (!refetchParams && itemIsAlreadySelected(sectionId, selectedItemName)) {
     useProjectState.setState((state) => {
       callbackSetAttr(undefined, state);
     });
     return;
   }
-  const prevSelected = itemHasBeenSelectedBefore(
-    dataSectionId,
-    selectedItemName,
-  );
+  const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
 
   if (!refetchParams && prevSelected !== undefined) {
     useProjectState.setState((state) => {
@@ -61,10 +54,10 @@ export async function setSelectedItem(
     return;
   }
 
-  const setToNotWaiting = setParametersRequestWaitingForLSP(visualSectionId);
+  const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
 
   const paramRes = await wsParametersRequest({
-    sectionId: dataSectionId,
+    sectionId: sectionId,
     fullText: selectedItemName,
   });
 
@@ -76,7 +69,7 @@ export async function setSelectedItem(
         editable: false,
         rcType: CodeInfoTypeSchema.enum.callable,
       });
-      addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
+      addCodeInfo({ sectionId, info, parent: null, state });
     } else {
       info = state.codeInfo[prevSelected];
     }
@@ -84,7 +77,7 @@ export async function setSelectedItem(
     if (paramRes) {
       const [documentation, params] = paramRes;
       if (params) {
-        createChildrenCodeInfo(dataSectionId, info.id, params, state);
+        createChildrenCodeInfo(sectionId, info.id, params, state);
       } else {
         addTemporaryNotification("No parameters found");
       }
