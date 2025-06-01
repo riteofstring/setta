@@ -76,6 +76,14 @@ def get_all_pydantic_models(module):
     )
 
 
+def append_ts_type_and_creation_fn(name):
+    return f"""export type {name} = z.infer<typeof {name}Schema>;
+
+export function create{name.capitalize()}(options: {name}){{
+    return {name}Schema.parse(options);
+}};\n\n"""
+
+
 def generate_dependencies_zod(type_definitions: dict, processed_types: set):
     """Generate TypeScript for any discovered dependencies."""
     dependency_ts = ""
@@ -90,7 +98,7 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
     return dependency_ts
 
 
-def alias_to_zod(name, alias_type, type_definitions: dict, processed_types: set):
+def alias_to_zod(name: str, alias_type, type_definitions: dict, processed_types: set):
     if name in processed_types:
         return ""
 
@@ -102,25 +110,23 @@ def alias_to_zod(name, alias_type, type_definitions: dict, processed_types: set)
 
     return (
         dependency_zod
-        + f"""export const {name}Schema = {zod_schema};
-export type {name} = z.infer<typeof {name}Schema>;
-
-"""
+        + f"export const {name}Schema = {zod_schema}\n\n"
+        + append_ts_type_and_creation_fn(name)
     )
 
 
 def enum_to_zod(enum_class, processed_types: set):
-    enum_name = enum_class.__name__
-    if enum_name in processed_types:
+    name = enum_class.__name__
+    if name in processed_types:
         return ""
 
-    processed_types.add(enum_name)
+    processed_types.add(name)
     values = [f'"{member.value}"' for member in enum_class]
     values_str = ", ".join(values)
-    return f"""export const {enum_name}Schema = z.enum([{values_str}]);
-export type {enum_name} = z.infer<typeof {enum_name}Schema>;
-
-"""
+    return (
+        f"export const {name}Schema = z.enum([{values_str}]);\n\n"
+        + append_ts_type_and_creation_fn(name)
+    )
 
 
 def python_type_to_zod(python_type, type_definitions: dict, processed_types: set):
@@ -285,10 +291,8 @@ def pydantic_model_to_zod(
         dependency_zod
         + f"""export const {name}Schema = z.object({{
 {fields_str}
-}});
-export type {name} = z.infer<typeof {name}Schema>;
-
-"""
+}});\n\n"""
+        + append_ts_type_and_creation_fn(name)
     )
 
 
