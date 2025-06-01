@@ -1,8 +1,3 @@
-# Full round-trip: timestamp -> filename -> back to datetime
+from typing import get_args
 
-import json
-import uuid
-
-x = {uuid.uuid4(): "hello"}
-
-json.dumps(x)
+print(get_args(tuple))

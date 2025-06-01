@@ -115,17 +115,12 @@ def enum_to_ts(enum_class, processed_types: set):
     return f"export enum {enum_name} {{\n{members_str}\n}}\n\n"
 
 
-def python_type_to_ts(python_type, type_definitions: dict, processed_types: set):
-    """Convert Python type to TypeScript type string.
+def python_type_to_zod(python_type, type_definitions: dict, processed_types: set):
+    """Convert Python type to Zod schema string."""
 
-    Args:
-        python_type: The Python type to convert
-        type_definitions: Dict to accumulate type definitions that need to be generated
-        processed_types: Set of already processed type names to avoid duplicates
-    """
     # Handle None type
     if python_type is type(None):
-        return "null"
+        return "z.null()"
 
     # Get the origin for generic types
     origin = get_origin(python_type)
@@ -141,118 +136,102 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         args = get_args(python_type)
         if args:
             # The first argument is the actual type, rest are annotations
-            return python_type_to_ts(args[0], type_definitions, processed_types)
-        return "any"
+            return python_type_to_zod(args[0], type_definitions, processed_types)
+        return "z.any()"
 
     # Handle Literal types
     if origin is Literal:
         args = get_args(python_type)
-        # Convert each literal value to TypeScript syntax
-        ts_literals = []
+        # Convert each literal value to zod syntax
+        # Multiple literals - use union
+        literals = []
         for arg in args:
             if isinstance(arg, str):
-                ts_literals.append(f'"{arg}"')
-            elif isinstance(arg, (int, float)):
-                ts_literals.append(str(arg))
+                literals.append(f'"{arg}"')
             elif isinstance(arg, bool):
-                ts_literals.append(str(arg).lower())
+                literals.append(f"{str(arg).lower()}")
             else:
-                ts_literals.append(f'"{arg}"')  # fallback to string representation
-        return " | ".join(ts_literals)
+                literals.append(f"{arg}")
+        return f"z.literal([{', '.join(literals)}])"
 
     # Handle Optional/Union types
     if origin in (Union, types.UnionType):
         args = get_args(python_type)
         # Check if it's Optional (Union with None)
-        if type(None) in args:
-            # Filter out None and convert the remaining type
-            non_none_types = [arg for arg in args if arg is not type(None)]
-            if len(non_none_types) == 1:
-                return f"{python_type_to_ts(non_none_types[0], type_definitions, processed_types)} | null"
-            else:
-                # Multiple non-None types
-                ts_types = [
-                    python_type_to_ts(t, type_definitions, processed_types)
-                    for t in non_none_types
-                ]
-                return f"({' | '.join(ts_types)}) | null"
-        else:
-            # Regular Union without None
-            ts_types = [
-                python_type_to_ts(t, type_definitions, processed_types) for t in args
-            ]
-            return f"({' | '.join(ts_types)})"
+        schemas = [
+            python_type_to_zod(t, type_definitions, processed_types) for t in args
+        ]
+        return f"z.union([{', '.join(schemas)}])"
 
-    # Handle list/List/Sequence types
+    # Handle list/List types
     if origin in (list, List, ABCSequence):
         args = get_args(python_type)
         if args:
-            list_element_types = [
-                python_type_to_ts(arg, type_definitions, processed_types)
-                for arg in args
-            ]
-            return f"{' | '.join(list_element_types)}[]"
-        return "any[]"
+            element_schema = python_type_to_zod(
+                args[0], type_definitions, processed_types
+            )
+            return f"z.array({element_schema})"
+        return "z.array(z.any())"
 
     # Handle dict/Dict types
     if origin in (dict, Dict):
         args = get_args(python_type)
         if args and len(args) >= 2:
-            key_type = python_type_to_ts(args[0], type_definitions, processed_types)
-            key_type = key_type.replace(" | null", "").replace("null | ", "")
-            value_type = python_type_to_ts(args[1], type_definitions, processed_types)
-            return f"Record<{key_type}, {value_type}>"
-        return "Record<string, any>"
+            key_schema = python_type_to_zod(args[0], type_definitions, processed_types)
+            value_schema = python_type_to_zod(
+                args[1], type_definitions, processed_types
+            )
+            return f"z.record({key_schema}, {value_schema})"
+        return "z.record(z.string(), z.any())"
 
     # Handle set/Set types
     if origin in (set, Set):
         args = get_args(python_type)
         if args:
-            return f"{python_type_to_ts(args[0], type_definitions, processed_types)}[]"
-        return "any[]"
+            element_schema = python_type_to_zod(
+                args[0], type_definitions, processed_types
+            )
+            return f"z.set({element_schema})"
+        return "z.set(z.any())"
 
     # Handle tuple/Tuple types
     if origin in (tuple, Tuple):
         args = get_args(python_type)
         if args:
-            ts_types = [
-                python_type_to_ts(t, type_definitions, processed_types) for t in args
+            schemas = [
+                python_type_to_zod(t, type_definitions, processed_types) for t in args
             ]
-            return f"[{', '.join(ts_types)}]"
-        return "[]"
+            return f"z.tuple([{', '.join(schemas)}])"
+        return "z.tuple()"
 
     # Check if it's an enum
     if inspect.isclass(python_type) and issubclass(python_type, enum.Enum):
         enum_name = python_type.__name__
-        # If not yet processed, add to definitions
         if enum_name not in processed_types:
             type_definitions[enum_name] = ("enum", python_type)
-        return enum_name
+        return f"{enum_name}Schema"
 
     # Check if it's a Pydantic model
     if inspect.isclass(python_type) and issubclass(python_type, BaseModel):
         model_name = python_type.__name__
-        # If not yet processed, add to definitions
         if model_name not in processed_types:
             type_definitions[model_name] = ("pydantic", python_type)
-        return model_name
+        return f"{model_name}Schema"
 
     # Basic type mappings
     type_map = {
-        str: "string",
-        int: "number",
-        float: "number",
-        bool: "boolean",
-        bytes: "string",  # or could use Uint8Array
-        type(None): "null",
-        datetime: "string",
-        object: "any",
-        Any: "any",
-        Path: "string",
-        AnyUrl: "any",  # TODO: handle this a better way?
+        str: "z.string()",
+        int: "z.int()",
+        float: "z.number()",
+        bool: "z.boolean()",
+        bytes: "z.string()",
+        datetime: "z.iso.datetime()",
+        object: "z.any()",
+        Any: "z.any()",
+        Path: "z.string()",
+        AnyUrl: "z.url()",
     }
 
-    # Direct type mapping
     if python_type in type_map:
         return type_map[python_type]
 
@@ -260,9 +239,8 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
     if hasattr(python_type, "__name__"):
         # Default to using the Python type name
         return python_type.__name__
-
     # Fallback
-    return "any"
+    return "z.any()"
 
 
 def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
@@ -286,7 +264,7 @@ def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
     fields = []
     for field_name, field_info in model.model_fields.items():
         field_type = field_info.annotation
-        ts_type = python_type_to_ts(field_type, type_definitions, processed_types)
+        ts_type = python_type_to_zod(field_type, type_definitions, processed_types)
         # is_required = field_info.is_required()
         fields.append(f"  {field_name}: {ts_type}")
 
