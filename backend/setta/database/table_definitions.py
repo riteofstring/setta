@@ -2,8 +2,10 @@ from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import (
+    DDL,
     JSON,
     CheckConstraint,
+    DateTime,
     ForeignKey,
     Text,
     TypeDecorator,
@@ -70,7 +72,9 @@ class NotificationsTable(BaseTable):
 
     id: Mapped[str] = mapped_column(primary_key=True)
     projectConfigId: Mapped[str]
-    timestamp: Mapped[datetime]
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.current_timestamp()
+    )
     type: Mapped[SettaNotificationType]
     message: Mapped[str]
 
@@ -80,7 +84,9 @@ class ChatTable(BaseTable):
 
     id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str]
-    lastUpdated: Mapped[datetime] = mapped_column(server_default=func.now())
+    lastUpdated: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.current_timestamp()
+    )
 
     # Relationship to messages
     messages: Mapped[list["ChatMessageTable"]] = relationship(
@@ -108,6 +114,20 @@ class UUIDMappingForLLMTable(BaseTable):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     uuid_column: Mapped[str] = mapped_column("uuid", unique=True)
+
+
+# 2. Create trigger using CURRENT_TIMESTAMP
+chat_timestamp_trigger = DDL("""
+CREATE TRIGGER IF NOT EXISTS update_chat_session_timestamp
+AFTER INSERT ON ChatMessage
+BEGIN
+    UPDATE Chat
+    SET lastUpdated = CURRENT_TIMESTAMP
+    WHERE id = NEW.chatId;
+END;
+""")
+
+event.listen(ChatMessageTable.__table__, "after_create", chat_timestamp_trigger)
 
 
 @event.listens_for(ProjectStateTable.__table__, "after_create")

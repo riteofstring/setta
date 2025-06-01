@@ -35,19 +35,14 @@ def load_chat(db: Session, chat_id: str):
     )
 
 
-def load_all_chat_metadata(db):
-    # First get chat metadata
-    chat_query = """
-        SELECT id, name, lastUpdated
-        FROM Chat
-        ORDER BY lastUpdated DESC
-    """
-
-    db.execute(chat_query)
-
+def load_all_chat_metadata(db: Session):
+    stmt = select(ChatTable).order_by(ChatTable.lastUpdated)
+    results = db.scalars(stmt).all()
     output: list[ChatMetadata] = []
-    for row in db.fetchall():
-        output.append(ChatMetadata(id=row[0], name=row[1], lastUpdated=row[2]))
+    for row in results:
+        output.append(
+            ChatMetadata(id=row.id, name=row.name, lastUpdated=row.lastUpdated)
+        )
     return output
 
 
