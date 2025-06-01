@@ -34,3 +34,9 @@ def save_project_config_name(db: DB, projectConfigId: str, newName: str):
             raise ProjectNameTaken(f"{newName} is already taken")
     state.projectConfigs[projectConfigId].name = newName
     save_project_state(db, state)
+
+
+def set_as_default_project(db: DB, projectConfigId: str):
+    state = load_project_state(db)
+    state.defaultProjectConfigId = projectConfigId
+    save_project_state(db, state)

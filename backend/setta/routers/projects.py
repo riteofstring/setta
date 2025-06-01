@@ -1,4 +1,3 @@
-import sqlite3
 import traceback
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -16,7 +15,13 @@ from setta.database.db.projects.load import (
     load_project_metadata,
     load_project_state_and_confirm_config_name,
 )
-from setta.database.db.projects.save import ProjectNameTaken, create_project_config, save_project_config_name, save_project_state
+from setta.database.db.projects.save import (
+    ProjectNameTaken,
+    create_project_config,
+    save_project_config_name,
+    save_project_state,
+    set_as_default_project,
+)
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
@@ -206,9 +211,7 @@ def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbq=Depends(get
 def route_set_project_config_name(x: SetProjectConfigNameRequest, dbq=Depends(get_dbq)):
     try:
         with dbq as db:
-            save_project_config_name(
-                db, x.projectConfigId, x.newName
-            )
+            save_project_config_name(db, x.projectConfigId, x.newName)
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
