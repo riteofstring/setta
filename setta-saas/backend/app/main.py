@@ -173,10 +173,14 @@ async def create_project(
     deployment_success = fly_manager.deploy_to_app(app_name)
 
     if deployment_success:
-        # Mark as DNS pending - user can check status later
-        project.update_status(ProjectStatus.DNS_PENDING)
-        print("✓ Deployment successful - DNS propagation pending")
-        print("Note: It may take 1-2 minutes for the app to be accessible")
+        # Check if app is immediately accessible
+        is_healthy = check_app_health(project.url, max_retries=5)
+        if is_healthy:
+            project.update_status(ProjectStatus.RUNNING)
+            print("✓ Deployment successful - app is accessible!")
+        else:
+            project.update_status(ProjectStatus.DNS_PENDING)
+            print("✓ Deployment successful - waiting for app to be fully ready")
     else:
         project.update_status(ProjectStatus.ERROR)
 

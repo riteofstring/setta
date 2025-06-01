@@ -69,7 +69,7 @@ def parse_json(response: Optional[httpx.Response]) -> Optional[dict]:
         return None
 
 
-def check_dns(hostname: str, timeout: int = 60) -> bool:
+def check_dns(hostname: str, timeout: int = 30) -> bool:
     """Check if hostname resolves to an IP"""
     for i in range(timeout // 3):
         try:
@@ -77,7 +77,7 @@ def check_dns(hostname: str, timeout: int = 60) -> bool:
             print(f"✓ DNS resolved {hostname} to {ip}")
             return True
         except socket.gaierror:
-            if i % 4 == 0:  # Print every 12 seconds
+            if i % 2 == 0:  # Print every 6 seconds
                 print(f"Waiting for DNS to resolve {hostname}...")
             import time
 
@@ -85,3 +85,18 @@ def check_dns(hostname: str, timeout: int = 60) -> bool:
 
     print(f"✗ DNS did not resolve {hostname} after {timeout} seconds")
     return False
+    # Deploy to the app
+    print(f"Deploying to {app_name}")
+    deployment_success = fly_manager.deploy_to_app(app_name)
+
+    if deployment_success:
+        # Check if app is immediately accessible
+        is_healthy = check_app_health(project.url, max_retries=5)
+        if is_healthy:
+            project.update_status(ProjectStatus.RUNNING)
+            print("✓ Deployment successful - app is accessible!")
+        else:
+            project.update_status(ProjectStatus.DNS_PENDING)
+            print("✓ Deployment successful - waiting for app to be fully ready")
+    else:
+        project.update_status(ProjectStatus.ERROR)

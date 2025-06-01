@@ -44,26 +44,12 @@ class AppStatus(BaseModel):
     machines: list[Machine] = Field(default_factory=list)
 
 
-class IPAddressType(str, Enum):
-    """Types of IP addresses that can be allocated"""
-
-    SHARED_V4 = "shared_v4"
-    V4 = "v4"
-    V6 = "v6"
-
-
 class CreateAppRequest(BaseModel):
     """Request body for creating an app"""
 
     app_name: str
     org_slug: str = "personal"
     network: str | None = None
-
-
-class AllocateIPRequest(BaseModel):
-    """Request body for allocating IP addresses"""
-
-    type: IPAddressType
 
 
 class CreateMachineRequest(BaseModel):

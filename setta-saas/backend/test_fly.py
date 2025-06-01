@@ -1,357 +1,268 @@
-#!/usr/bin/env python3
-"""
-Test script to debug Fly.io API issues
-Run with: python test_fly.py
-"""
-
-import os
-import sys
 import time
+from typing import List, Optional
 
-import httpx
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Get API token
-FLY_API_TOKEN = os.getenv("FLY_API_TOKEN")
-if not FLY_API_TOKEN:
-    print("ERROR: FLY_API_TOKEN not found in environment")
-    sys.exit(1)
-
-print(f"Using token: {FLY_API_TOKEN[:10]}...")
-
-# Set up headers
-headers = {
-    "Authorization": f"Bearer {FLY_API_TOKEN}",
-    "Content-Type": "application/json",
-}
-
-API_BASE = "https://api.machines.dev/v1"
+from app.config import settings
+from app.models import (
+    AppInfo,
+    CreateAppRequest,
+    CreateMachineRequest,
+    Machine,
+    MachineState,
+)
+from app.models import AppStatus as AppStatusModel
+from app.utils import HTTPClient, check_dns, is_success, parse_json
 
 
-def test_auth():
-    """Test if auth works"""
-    print("\n1. Testing authentication...")
-    # Need to provide org_slug parameter
-    response = httpx.get(f"{API_BASE}/apps?org_slug=personal", headers=headers)
+class FlyManager:
+    """Manages Fly.io app lifecycle using REST APIs"""
 
-    if response.status_code == 200:
-        print("✓ Authentication successful")
-        data = response.json()
-        apps = data.get("apps", [])
-        print(f"  Found {len(apps)} existing apps")
-        return True
-    else:
-        print(f"✗ Authentication failed: {response.status_code}")
-        print(f"  Response: {response.text}")
-        return False
+    def __init__(self):
+        self.api_token = settings.fly_api_token
+        self.api_base = "https://api.machines.dev/v1"
 
+        print(f"FLY_API_TOKEN found: {self.api_token[:10]}...")
 
-def create_test_app(app_name):
-    """Create a test app"""
-    print(f"\n2. Creating app '{app_name}'...")
-
-    data = {"app_name": app_name, "org_slug": "personal"}
-
-    response = httpx.post(f"{API_BASE}/apps", json=data, headers=headers)
-
-    if response.status_code in [200, 201]:
-        print("✓ App created successfully")
-        app_data = response.json()
-        app_id = app_data.get("id")
-        print(f"  App ID: {app_id}")
-        print(f"  App Name: {app_data.get('name')}")
-        return app_data
-    else:
-        print(f"✗ Failed to create app: {response.status_code}")
-        print(f"  Response: {response.text}")
-        return None
-
-
-def allocate_ip(app_id, ip_type="shared_v4"):
-    """Allocate IP using GraphQL API"""
-    print(f"\n  Allocating {ip_type} for app ID: {app_id}...")
-
-    # GraphQL endpoint
-    graphql_url = "https://api.fly.io/graphql"
-
-    # GraphQL mutation to allocate IP
-    mutation = """
-    mutation($appId: ID!, $type: IPAddressType!) {
-        allocateIpAddress(input: {appId: $appId, type: $type}) {
-            ipAddress {
-                id
-                address
-                type
+        self.client = HTTPClient(
+            headers={
+                "Authorization": f"Bearer {self.api_token}",
+                "Content-Type": "application/json",
             }
-        }
-    }
-    """
+        )
 
-    # Allocate IP
-    response = httpx.post(
-        graphql_url,
-        json={"query": mutation, "variables": {"appId": app_id, "type": ip_type}},
-        headers=headers,
-    )
+    def create_app(self, app_name: str) -> Optional[AppInfo]:
+        """Create a new Fly.io app"""
+        print(f"Creating app '{app_name}'...")
 
-    if response.status_code == 200:
-        data = response.json()
+        # Create the app
+        request = CreateAppRequest(app_name=app_name)
+        response = self.client.post(f"{self.api_base}/apps", json=request.model_dump())
 
-        ip_info = data.get("data", {}).get("allocateIpAddress", {}).get("ipAddress", {})
-        if ip_info:
-            print(f"  ✓ {ip_type} allocated: {ip_info.get('address')}")
-            return True
-        else:
-            errors = data.get("errors", [])
-            if errors:
-                print(f"  ✗ GraphQL error: {errors[0].get('message', 'Unknown error')}")
-            else:
-                print(f"  ✗ Failed to allocate {ip_type}: No IP returned")
+        if not is_success(response):
+            if response:
+                print(f"Failed to create app: {response.status_code} - {response.text}")
+            return None
+
+        app_data = parse_json(response)
+        if not app_data:
+            print("Failed to parse app creation response")
+            return None
+
+        # The actual app name should be what we requested
+        actual_app_name = app_name
+        rest_api_id = app_data.get("id")
+
+        print(f"✓ App created with REST API ID: {rest_api_id}")
+
+        # Wait for app to be ready
+        print("Waiting for app to be ready...")
+        for i in range(10):
+            time.sleep(1)
+            verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
+            if is_success(verify_response):
+                print(f"✓ App verified after {i + 1} seconds")
+                break
+
+        app_info = AppInfo(
+            name=actual_app_name,
+            hostname=f"{actual_app_name}.fly.dev",
+        )
+
+        print(f"App created successfully: {app_info.hostname}")
+        return app_info
+
+    def deploy_to_app(self, app_name: str) -> bool:
+        """Deploy a machine to the app"""
+        print(f"=== STARTING DEPLOYMENT FOR {app_name} ===")
+
+        # Create and launch machine
+        machine_id = self._create_and_launch_machine(app_name)
+        if not machine_id:
             return False
-    else:
-        print(f"  ✗ Failed to allocate {ip_type}: {response.status_code}")
-        print(f"    Response: {response.text}")
-        return False
 
+        # Note: We don't need to explicitly allocate IPs
+        # Fly.io automatically provides shared IPv4 when machines are created
 
-def create_machine(app_name):
-    """Create a machine"""
-    print(f"\n4. Creating machine for '{app_name}'...")
+        # Wait for DNS to propagate
+        hostname = f"{app_name}.fly.dev"
+        print(f"Waiting for DNS to resolve {hostname}...")
 
-    config = {
-        "region": "ord",
-        "config": {
-            "image": "nginx:alpine",
-            "services": [
-                {
-                    "protocol": "tcp",
-                    "internal_port": 80,
-                    "auto_stop_machines": True,
-                    "auto_start_machines": True,
-                    "min_machines_running": 0,
-                    "ports": [
-                        {"port": 80, "handlers": ["http"], "force_https": False},
-                        {"port": 443, "handlers": ["tls", "http"]},
-                    ],
-                }
-            ],
-            "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
-        },
-    }
+        if check_dns(hostname, timeout=60):
+            print("✓ DNS is resolving")
+        else:
+            print("⚠️  DNS not resolving yet, but app might still be accessible")
 
-    response = httpx.post(
-        f"{API_BASE}/apps/{app_name}/machines", json=config, headers=headers
-    )
+        print("=== DEPLOYMENT COMPLETE ===")
+        return True
 
-    if response.status_code in [200, 201]:
-        print("✓ Machine created successfully")
-        machine = response.json()
-        machine_id = machine.get("id")
-        print(f"  Machine ID: {machine_id}")
-        print(f"  Initial state: {machine.get('state')}")
+    def _create_and_launch_machine(self, app_name: str) -> Optional[str]:
+        """Create and launch a machine in one step"""
+        url = f"{self.api_base}/apps/{app_name}/machines"
+
+        request = CreateMachineRequest.default_config(app_name)
+
+        print(f"Creating machine for app {app_name}...")
+
+        response = self.client.post(url, json=request.model_dump(), timeout=60.0)
+
+        if not response:
+            print("No response from API")
+            return None
+
+        if response.status_code == 404:
+            print(f"App {app_name} not found")
+            return None
+
+        if not is_success(response):
+            print(f"Failed with status {response.status_code}: {response.text}")
+            return None
+
+        machine_data = parse_json(response)
+        if not machine_data:
+            print("Failed to parse machine response")
+            return None
+
+        machine_id = machine_data.get("id")
+        if not machine_id:
+            print("No machine ID in response")
+            return None
+
+        print(f"✓ Machine created with ID: {machine_id}")
 
         # Wait for machine to start
-        print("  Waiting for machine to start...")
-        for i in range(30):
-            response = httpx.get(
-                f"{API_BASE}/apps/{app_name}/machines/{machine_id}", headers=headers
+        if self._wait_for_machine(app_name, machine_id):
+            # Check deployment status
+            self._check_deployment_status(app_name, machine_id)
+
+        return machine_id
+
+    def _wait_for_machine(self, app_name: str, machine_id: str, timeout: int = 30):
+        """Wait for machine to start"""
+        print(f"Waiting for machine {machine_id} to start...")
+
+        for i in range(timeout):
+            response = self.client.get(
+                f"{self.api_base}/apps/{app_name}/machines/{machine_id}"
             )
-            if response.status_code == 200:
-                state = response.json().get("state")
-                if state == "started":
-                    print(f"  ✓ Machine started after {i + 1} seconds")
-                    break
-                elif state in ["stopped", "failed", "destroyed"]:
-                    print(f"  ✗ Machine failed to start: {state}")
-                    break
-            time.sleep(1)
+            if not is_success(response):
+                time.sleep(1)
+                continue
 
-        return machine
-    else:
-        print(f"✗ Failed to create machine: {response.status_code}")
-        print(f"  Response: {response.text}")
-        return None
+            machine_data = parse_json(response)
+            if not machine_data:
+                time.sleep(1)
+                continue
 
-
-def check_app_ips(app_name):
-    """Check what IPs are allocated to the app"""
-    print(f"\n6. Checking IPs for '{app_name}'...")
-
-    query = """
-    query($appName: String!) {
-        app(name: $appName) {
-            ipAddresses {
-                nodes {
-                    id
-                    address
-                    type
-                }
-            }
-        }
-    }
-    """
-
-    response = httpx.post(
-        "https://api.fly.io/graphql",
-        json={"query": query, "variables": {"appName": app_name}},
-        headers=headers,
-    )
-
-    if response.status_code == 200:
-        data = response.json()
-        ips = (
-            data.get("data", {}).get("app", {}).get("ipAddresses", {}).get("nodes", [])
-        )
-        if ips:
-            print("  Allocated IPs:")
-            for ip in ips:
-                print(f"    - {ip['address']} ({ip['type']})")
-        else:
-            print("  ✗ No IPs allocated")
-    else:
-        print(f"  Failed to check IPs: {response.status_code}")
-
-
-def wait_for_deployment(app_name, machine_id, timeout=60):
-    """Wait for machine to be fully deployed"""
-    print("\n5. Waiting for deployment to complete...")
-
-    for i in range(timeout):
-        response = httpx.get(
-            f"{API_BASE}/apps/{app_name}/machines/{machine_id}", headers=headers
-        )
-        if response.status_code == 200:
-            machine_data = response.json()
             state = machine_data.get("state")
 
-            # Check if instance ID is assigned (indicates deployment)
-            instance_id = machine_data.get("instance_id")
-            if state == "started" and instance_id:
-                print(f"  ✓ Deployment complete after {i + 1} seconds")
-                print(f"  Instance ID: {instance_id}")
+            if state == "started":
+                print(f"✓ Machine started after {i + 1} seconds")
                 return True
+            elif state in ["failed", "destroyed"]:
+                print(f"✗ Machine failed with state: {state}")
+                return False
 
-        time.sleep(1)
+            if i % 5 == 0:  # Print status every 5 seconds
+                print(f"  Machine state: {state}")
 
-    print(f"  ✗ Deployment did not complete after {timeout} seconds")
-    return False
+            time.sleep(1)
 
+        print("✗ Timeout waiting for machine to start")
+        return False
 
-def check_dns(hostname):
-    """Check if DNS resolves"""
-    print(f"\n7. Checking DNS for {hostname}...")
+    def _check_deployment_status(self, app_name: str, machine_id: str):
+        """Check if deployment is complete by looking for instance ID"""
+        print("Checking deployment status...")
 
-    import socket
+        for i in range(10):
+            response = self.client.get(
+                f"{self.api_base}/apps/{app_name}/machines/{machine_id}"
+            )
+            if is_success(response):
+                machine_data = parse_json(response)
+                if machine_data:
+                    instance_id = machine_data.get("instance_id")
+                    if instance_id:
+                        print(f"✓ Deployment verified - Instance ID: {instance_id}")
+                        return True
+            time.sleep(1)
 
-    for i in range(30):  # Try for 90 seconds
-        try:
-            ip = socket.gethostbyname(hostname)
-            print(f"✓ DNS resolved to {ip} after {i * 3} seconds")
-            return True
-        except socket.gaierror:
-            if i % 5 == 0:  # Print every 15 seconds
-                print(f"  Waiting for DNS... ({i + 1}/30)")
-            time.sleep(3)
+        print("⚠️  Could not verify deployment status")
+        return False
 
-    print("✗ DNS did not resolve after 90 seconds")
+    def get_app_status(self, app_name: str) -> Optional[AppStatusModel]:
+        """Check if an app exists and get its status"""
+        response = self.client.get(f"{self.api_base}/apps/{app_name}")
 
-    # Try to debug why
-    print("\n  Debugging DNS issue:")
-    try:
-        # Check if we can resolve fly.io itself
-        socket.gethostbyname("fly.io")
-        print("  ✓ Can resolve fly.io - DNS is working")
-    except:
-        print("  ✗ Cannot resolve fly.io - DNS issue on this machine")
+        if not response:
+            return None
 
-    return False
+        if response.status_code == 404:
+            return None
 
+        if not is_success(response):
+            return None
 
-def cleanup_app(app_name):
-    """Delete the test app"""
-    print(f"\n9. Cleaning up app '{app_name}'...")
+        app_data = parse_json(response)
+        if not app_data:
+            return None
 
-    response = httpx.delete(f"{API_BASE}/apps/{app_name}", headers=headers)
+        # Get machines
+        machines = self.list_machines(app_name)
+        deployed = any(m.state == MachineState.STARTED for m in machines)
 
-    if response.status_code in [202, 204, 404]:
-        print("✓ App deleted successfully")
-    else:
-        print(f"✗ Failed to delete app: {response.status_code}")
+        return AppStatusModel(
+            id=app_data.get("id"),
+            name=app_data.get("name", app_name),
+            hostname=app_data.get("hostname", f"{app_name}.fly.dev"),
+            status=app_data.get("status", "unknown"),
+            deployed=deployed,
+            machines=machines,
+        )
 
+    def list_machines(self, app_name: str) -> List[Machine]:
+        """List all machines for an app"""
+        response = self.client.get(f"{self.api_base}/apps/{app_name}/machines")
 
-def main():
-    """Run all tests"""
-    print("=== FLY.IO API TEST ===")
+        if not is_success(response):
+            return []
 
-    # Test auth
-    if not test_auth():
-        return
+        machines_data = parse_json(response) or []
+        if not isinstance(machines_data, list):
+            return []
 
-    # Generate test app name
-    app_name = f"test-{int(time.time())}"
-    actual_app_name = app_name  # Default to requested name
-
-    try:
-        # Create app
-        app = create_test_app(app_name)
-        if not app:
-            return
-
-        app_id = app.get("id")
-        # App name might be None in response, so use the requested name
-        actual_app_name = app.get("name") or app_name
-
-        # Try to allocate IPs
-        print("\n3. Allocating IPs...")
-        ipv4_allocated = allocate_ip(app_id, "shared_v4")  # lowercase
-        ipv6_allocated = allocate_ip(app_id, "v6")
-
-        if ipv4_allocated or ipv6_allocated:
-            # Wait longer for IP to propagate
-            print("\n  Waiting 20 seconds for IP to propagate...")
-            time.sleep(20)
-
-        # Create machine
-        machine = create_machine(actual_app_name)
-        if not machine:
-            return
-
-        machine_id = machine.get("id")
-
-        # Wait for deployment
-        wait_for_deployment(actual_app_name, machine_id)
-
-        # Check allocated IPs
-        check_app_ips(actual_app_name)
-
-        # Check DNS
-        hostname = f"{actual_app_name}.fly.dev"
-        check_dns(hostname)
-
-        # Test HTTP
-        print("\n8. Testing HTTP access...")
-        for url in [f"https://{hostname}", f"http://{hostname}"]:
-            print(f"  Trying {url}...")
+        machines = []
+        for data in machines_data:
             try:
-                response = httpx.get(url, timeout=10, follow_redirects=True)
-                print(f"  ✓ Response: {response.status_code}")
-                if response.status_code >= 200 and response.status_code < 500:
-                    print("  App is accessible!")
-                    break
-            except httpx.ConnectError as e:
-                print(f"  ✗ Connection failed: {e}")
+                machine = Machine.model_validate(data)
+                machines.append(machine)
             except Exception as e:
-                print(f"  ✗ Failed: {type(e).__name__}: {e}")
+                print(f"Failed to parse machine data: {e}")
 
-    finally:
-        # Always cleanup
-        cleanup_app(actual_app_name)
+        return machines
 
-    print("\n=== TEST COMPLETE ===")
+    def delete_app(self, app_name: str) -> bool:
+        """Delete a Fly.io app and all its machines"""
+        print(f"Deleting app {app_name}...")
 
+        # Delete machines first
+        machines = self.list_machines(app_name)
+        for machine in machines:
+            if self._delete_machine(app_name, machine.id):
+                print(f"  ✓ Deleted machine {machine.id}")
 
-if __name__ == "__main__":
-    main()
+        # Delete the app
+        response = self.client.delete(f"{self.api_base}/apps/{app_name}")
+        if response and response.status_code in [202, 204, 404]:
+            print(f"✓ App {app_name} deleted")
+            return True
+        else:
+            print(
+                f"✗ Failed to delete app: {response.status_code if response else 'No response'}"
+            )
+            return False
+
+    def _delete_machine(self, app_name: str, machine_id: str) -> bool:
+        """Delete a specific machine"""
+        url = f"{self.api_base}/apps/{app_name}/machines/{machine_id}?force=true"
+        response = self.client.delete(url)
+        return response and response.status_code in [200, 204, 404]

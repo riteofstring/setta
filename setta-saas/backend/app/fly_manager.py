@@ -47,20 +47,18 @@ class FlyManager:
             print("Failed to parse app creation response")
             return None
 
-        actual_app_name = app_data.get("name", app_name)
-
         # Wait for app to be ready
         print("Waiting for app to be ready...")
         for i in range(10):
             time.sleep(1)
-            verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
+            verify_response = self.client.get(f"{self.api_base}/apps/{app_name}")
             if is_success(verify_response):
                 print(f"✓ App verified after {i + 1} seconds")
                 break
 
         app_info = AppInfo(
-            name=actual_app_name,
-            hostname=f"{actual_app_name}.fly.dev",
+            name=app_name,
+            hostname=f"{app_name}.fly.dev",
         )
 
         print(f"App created successfully: {app_info.hostname}")
@@ -74,10 +72,6 @@ class FlyManager:
         machine_id = self._create_and_launch_machine(app_name)
         if not machine_id:
             return False
-
-        # Wait for DNS to propagate
-        print("Waiting for DNS propagation (this can take 30-60 seconds)...")
-        time.sleep(30)
 
         print("=== DEPLOYMENT COMPLETE ===")
         return True
@@ -117,7 +111,8 @@ class FlyManager:
         print(f"✓ Machine created with ID: {machine_id}")
 
         # Wait for machine to start
-        self._wait_for_machine(app_name, machine_id)
+        if not self._wait_for_machine(app_name, machine_id):
+            return None
 
         return machine_id
 
