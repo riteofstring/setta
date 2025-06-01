@@ -16,7 +16,6 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
-    MappedAsDataclass,
     mapped_column,
     relationship,
 )
@@ -43,7 +42,7 @@ class PathType(TypeDecorator):
         return value
 
 
-class BaseTable(MappedAsDataclass, DeclarativeBase):
+class BaseTable(DeclarativeBase):
     pass
 
 

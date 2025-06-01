@@ -3,6 +3,7 @@ import json
 from anthropic.types import TextBlock
 from sqlalchemy.orm import Session
 
+from setta.database.table_definitions import ChatMessageTable, ChatTable
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -22,32 +23,21 @@ def create_new_chat_name(first_message: ChatMessage):
 def create_new_chat(db: Session, first_message: ChatMessage):
     chat_id = create_new_id()
     name = create_new_chat_name(first_message)
+    chat = Chat(id=chat_id, name=name, messages=[first_message])
 
-    # Create new chat
-    query = """
-        INSERT INTO Chat (id, name) 
-        VALUES (:chat_id, :name)
-        ON CONFLICT (id)
-        DO NOTHING
-    """
-    db.execute(query, {"chat_id": chat_id, "name": name})
+    chat_msg_db_element = ChatMessageTable()
+    chat_msg_db_element.id = first_message.id
+    chat_msg_db_element.order = 0
+    chat_msg_db_element.role = first_message.role
+    chat_msg_db_element.content = [c.model_dump() for c in first_message.content]
 
-    query = """
-        INSERT INTO ChatMessage (id, chatId, "order", role, content) 
-        VALUES (:id, :chat_id, :order, :role, :content)
-    """
-    db.execute(
-        query,
-        {
-            "id": first_message.id,
-            "chat_id": chat_id,
-            "order": 0,
-            "role": first_message.role,
-            "content": json.dumps([c.model_dump() for c in first_message.content]),
-        },
-    )
+    chat_db_element = ChatTable()
+    chat_db_element.id = chat.id
+    chat_db_element.name = chat.name
+    chat_db_element.messages = [chat_msg_db_element]
+    db.add(chat_db_element)
 
-    return Chat(id=chat_id, name=name, messages=[first_message])
+    return chat
 
 
 def delete_chat(db, chat_id):
