@@ -338,6 +338,9 @@ def main(output_file):
 
     ts_code = """import { z } from 'zod/v4';
 
+import { createNewId as create_new_id, createRandomName as generate_memorable_string } from "utils/idNameCreation";
+import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
+
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
