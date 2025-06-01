@@ -78,9 +78,9 @@ class CreateMachineRequest(BaseModel):
         return cls(
             region="ord",
             config={
-                # For now, use a simple working image
-                # TODO: Replace with actual FOSS app image
-                "image": "flyio/hellofly:latest",
+                # Use the test FOSS app image from your registry
+                # This should match what you deployed to test-foss-app
+                "image": "registry.fly.io/test-foss-app:latest",
                 "env": {
                     "PROJECT_NAME": app_name,
                     "FLY_APP_NAME": app_name,
@@ -88,7 +88,7 @@ class CreateMachineRequest(BaseModel):
                 "services": [
                     {
                         "protocol": "tcp",
-                        "internal_port": 8080,  # hellofly runs on 8080
+                        "internal_port": 8000,  # Your FastAPI app runs on 8000
                         "ports": [
                             {
                                 "port": 80,

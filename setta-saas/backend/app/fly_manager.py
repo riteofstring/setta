@@ -3,9 +3,11 @@ from typing import List, Optional
 
 from app.config import settings
 from app.models import (
+    AllocateIPRequest,
     AppInfo,
     CreateAppRequest,
     CreateMachineRequest,
+    IPAddressType,
     Machine,
     MachineState,
 )
@@ -49,6 +51,12 @@ class FlyManager:
 
         actual_app_name = app_data.get("name", app_name)
 
+        # Allocate IP addresses - THIS IS CRITICAL!
+        print("Allocating IP addresses...")
+        ip_allocated = self._allocate_ips(actual_app_name)
+        if not ip_allocated:
+            print("WARNING: Failed to allocate IPs, app may not be accessible")
+
         app_info = AppInfo(
             name=actual_app_name,
             hostname=f"{actual_app_name}.fly.dev",
@@ -56,9 +64,40 @@ class FlyManager:
 
         print(f"App created successfully: {app_info.hostname}")
 
-        # Skip IP allocation - Fly.io will handle it automatically with services
-
         return app_info
+
+    def _allocate_ips(self, app_name: str) -> bool:
+        """Allocate IP addresses for the app"""
+        # Allocate shared IPv4
+        print("Allocating shared IPv4...")
+        request = AllocateIPRequest(type=IPAddressType.SHARED_V4)
+        response = self.client.post(
+            f"{self.api_base}/apps/{app_name}/ip_addresses", json=request.model_dump()
+        )
+
+        if not is_success(response):
+            if response:
+                print(
+                    f"Failed to allocate IPv4: {response.status_code} - {response.text}"
+                )
+            return False
+
+        # Allocate IPv6
+        print("Allocating IPv6...")
+        request = AllocateIPRequest(type=IPAddressType.V6)
+        response = self.client.post(
+            f"{self.api_base}/apps/{app_name}/ip_addresses", json=request.model_dump()
+        )
+
+        if not is_success(response):
+            if response:
+                print(
+                    f"Failed to allocate IPv6: {response.status_code} - {response.text}"
+                )
+            # IPv6 failure is not critical
+
+        print("✓ IP addresses allocated")
+        return True
 
     def deploy_to_app(self, app_name: str) -> bool:
         """Deploy a machine to the app"""

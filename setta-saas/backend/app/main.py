@@ -20,6 +20,7 @@ from app.schemas import (
     SyncAllResponse,
     SyncResultItem,
 )
+from app.utils import HTTPClient
 
 
 @asynccontextmanager
@@ -47,6 +48,24 @@ app.add_middleware(
 
 # Initialize Fly manager
 fly_manager = FlyManager()
+
+
+def check_app_health(url: str, max_retries: int = 10) -> bool:
+    """Check if the app is accessible"""
+    client = HTTPClient()
+
+    for i in range(max_retries):
+        print(f"Health check attempt {i + 1}/{max_retries} for {url}")
+        response = client.get(f"{url}/health", timeout=5.0)
+
+        if response and response.status_code == 200:
+            print(f"✓ App is healthy: {url}")
+            return True
+
+        time.sleep(3)
+
+    print(f"✗ App health check failed after {max_retries} attempts")
+    return False
 
 
 @app.get("/", response_model=RootResponse)
@@ -87,11 +106,17 @@ async def check_project_status(
         if not app_status:
             project.update_status(ProjectStatus.NOT_FOUND)
         else:
-            status = (
-                ProjectStatus.RUNNING
-                if app_status.deployed
-                else ProjectStatus.DEPLOYMENT_PENDING
-            )
+            # Check if app is actually accessible
+            if app_status.deployed:
+                is_healthy = check_app_health(project.url, max_retries=3)
+                status = (
+                    ProjectStatus.RUNNING
+                    if is_healthy
+                    else ProjectStatus.DEPLOYMENT_PENDING
+                )
+            else:
+                status = ProjectStatus.DEPLOYMENT_PENDING
+
             project.update_status(status)
 
         session.add(project)
@@ -155,8 +180,18 @@ async def create_project(
         session.commit()
         return project
 
-    # Mark as running
-    project.update_status(ProjectStatus.RUNNING)
+    # Wait a bit for deployment to stabilize
+    print("Waiting for deployment to stabilize...")
+    time.sleep(10)
+
+    # Check if app is actually accessible
+    is_healthy = check_app_health(project.url)
+
+    if is_healthy:
+        project.update_status(ProjectStatus.RUNNING)
+    else:
+        project.update_status(ProjectStatus.DEPLOYMENT_PENDING)
+
     session.add(project)
     session.commit()
     session.refresh(project)
@@ -178,11 +213,20 @@ async def sync_all_projects(session: Session = Depends(get_session)):
             print(f"Checking {app_name}...")
 
             app_status = fly_manager.get_app_status(app_name)
-            status = (
-                ProjectStatus.RUNNING
-                if app_status and app_status.deployed
-                else ProjectStatus.NOT_FOUND
-            )
+
+            if not app_status:
+                status = ProjectStatus.NOT_FOUND
+            elif app_status.deployed:
+                # Check if accessible
+                is_healthy = check_app_health(project.url, max_retries=2)
+                status = (
+                    ProjectStatus.RUNNING
+                    if is_healthy
+                    else ProjectStatus.DEPLOYMENT_PENDING
+                )
+            else:
+                status = ProjectStatus.DEPLOYMENT_PENDING
+
             project.update_status(status)
         else:
             project.update_status(ProjectStatus.ERROR)
