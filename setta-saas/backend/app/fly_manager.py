@@ -68,10 +68,22 @@ class FlyManager:
         """Deploy a machine to the app"""
         print(f"=== STARTING DEPLOYMENT FOR {app_name} ===")
 
+        # Allocate IPv6 to trigger automatic shared IPv4
+        if not self._allocate_ipv6(app_name):
+            print("Warning: IPv6 allocation failed, continuing anyway...")
+
         # Create and launch machine
         machine_id = self._create_and_launch_machine(app_name)
         if not machine_id:
             return False
+
+        # Verify app has IPs
+        print("Checking allocated IPs...")
+        time.sleep(5)  # Give it a moment
+        if self._check_app_ips(app_name):
+            print("✓ App has IP addresses")
+        else:
+            print("⚠️  Warning: App may not have IP addresses")
 
         print("=== DEPLOYMENT COMPLETE ===")
         return True
@@ -216,3 +228,78 @@ class FlyManager:
         url = f"{self.api_base}/apps/{app_name}/machines/{machine_id}?force=true"
         response = self.client.delete(url)
         return response and response.status_code in [200, 204, 404]
+
+    def _allocate_ipv6(self, app_name: str) -> bool:
+        """Allocate IPv6 address using GraphQL"""
+        print(f"Allocating IPv6 for {app_name}...")
+
+        graphql_url = "https://api.fly.io/graphql"
+
+        mutation = """
+        mutation($appId: ID!) {
+            allocateIpAddress(input: {appId: $appId, type: v6}) {
+                ipAddress {
+                    address
+                }
+            }
+        }
+        """
+
+        response = self.client.post(
+            graphql_url, json={"query": mutation, "variables": {"appId": app_name}}
+        )
+
+        if not is_success(response):
+            print(
+                f"Failed to allocate IPv6: {response.status_code if response else 'No response'}"
+            )
+            return False
+
+        data = parse_json(response)
+        if not data:
+            return False
+
+        ip_info = data.get("data", {}).get("allocateIpAddress", {}).get("ipAddress")
+        if ip_info and ip_info.get("address"):
+            print(f"✓ IPv6 allocated: {ip_info['address']}")
+            # Wait a bit for propagation
+            time.sleep(5)
+            return True
+
+        return False
+
+    def _check_app_ips(self, app_name: str) -> bool:
+        """Check if app has IP addresses via GraphQL"""
+        query = """
+        query($appName: String!) {
+            app(name: $appName) {
+                ipAddresses {
+                    nodes {
+                        address
+                        type
+                    }
+                }
+            }
+        }
+        """
+
+        response = self.client.post(
+            "https://api.fly.io/graphql",
+            json={"query": query, "variables": {"appName": app_name}},
+        )
+
+        if not is_success(response):
+            return False
+
+        data = parse_json(response)
+        if not data:
+            return False
+
+        ips = (
+            data.get("data", {}).get("app", {}).get("ipAddresses", {}).get("nodes", [])
+        )
+        if ips:
+            for ip in ips:
+                print(f"  - {ip['address']} ({ip['type']})")
+            return True
+        return False
