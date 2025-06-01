@@ -3,8 +3,8 @@ Fly.io deployment operations using GraphQL.
 High-level operations that let Fly.io manage everything automatically.
 """
 
-from .client import FlyClient
-from .queries import DEPLOY_IMAGE_MUTATION, SET_SECRETS_MUTATION
+from fly.client import FlyClient
+from fly.queries import DEPLOY_IMAGE_MUTATION, SET_SECRETS_MUTATION
 
 
 class FlyDeployment:

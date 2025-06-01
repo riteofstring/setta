@@ -9,9 +9,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from ..database import Project
-from ..models.project import ProjectCreate, ProjectResponse
-from .fly_service import FlyAPIError, FlyService
+from database import Project
+from fly.client import FlyAPIError
+from models.project import ProjectCreate, ProjectResponse
+from services.fly_service import FlyService
 
 
 class ProjectService:

@@ -3,9 +3,9 @@ High-level Fly.io operations service.
 Provides a clean interface for app management.
 """
 
-from ..fly.client import FlyAPIError, FlyClient
-from ..fly.deployment import FlyDeployment
-from ..fly.queries import (
+from fly.client import FlyAPIError, FlyClient
+from fly.deployment import FlyDeployment
+from fly.queries import (
     CREATE_APP_MUTATION,
     DELETE_APP_MUTATION,
     GET_APP_STATUS_QUERY,
