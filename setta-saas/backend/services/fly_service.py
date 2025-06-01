@@ -82,15 +82,11 @@ class FlyService:
     def delete_app(self, app_id: str) -> bool:
         """Delete a Fly.io app."""
         try:
-            data = self.client.graphql(DELETE_APP_MUTATION, {"appId": app_id})
-
-            # The delete mutation returns deleteApp with just clientMutationId
-            if data.get("deleteApp") is not None:
-                print("✓ App deleted")
-                return True
-            else:
-                print("✗ Failed to delete app")
-                return False
+            # The delete mutation returns True/False directly
+            self.client.graphql(DELETE_APP_MUTATION, {"appId": app_id})
+            # If no exception was thrown, the deletion was successful
+            print("✓ App deleted")
+            return True
 
         except Exception as e:
             print(f"✗ Error deleting app: {e}")

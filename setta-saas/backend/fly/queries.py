@@ -80,11 +80,9 @@ query($appName: String!) {
 }
 """
 
-# Delete an app - fixed response structure
+# Delete an app - simplified, just run the mutation
 DELETE_APP_MUTATION = """
 mutation($appId: ID!) {
-    deleteApp(appId: $appId) {
-        clientMutationId
-    }
+    deleteApp(appId: $appId)
 }
 """

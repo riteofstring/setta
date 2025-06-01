@@ -23,11 +23,11 @@ class FlyDeployment:
         """
         Deploy a Docker image to a Machines platform app.
         Uses minimal REST API just for machine creation.
-        Note: Now takes app_name directly instead of app_id.
         """
         print(f"Deploying {image} to app (Machines platform)...")
 
         # Create a machine with auto-start/stop configuration
+        # The services configuration will trigger automatic IP allocation
         machine_config = {
             "region": "ord",
             "config": {
@@ -42,9 +42,12 @@ class FlyDeployment:
                         "protocol": "tcp",
                         "internal_port": 8080,
                         "concurrency": {"type": "connections", "hard_limit": 25, "soft_limit": 20},
+                        "auto_stop_machines": {"enabled": True, "idle_timeout": "30m"},
+                        "auto_start_machines": {"enabled": True, "min_machines_running": 0},
                     }
                 ],
                 "restart": {"policy": "on-failure", "max_retries": 3},
+                "metadata": {"fly_platform_version": "v2"},
             },
         }
 
