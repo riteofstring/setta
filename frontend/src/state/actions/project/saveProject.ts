@@ -93,7 +93,7 @@ export function getProjectData({
 }
 
 export async function saveProject() {
-  addTemporaryNotification("Saving...", C.NOTIFICATION_TYPE_SAVE);
+  addTemporaryNotification("Saving...", SettaNotificationType.SAVE);
 
   if (getCurrentProjectConfig().name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));

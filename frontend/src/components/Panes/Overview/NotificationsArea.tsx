@@ -18,8 +18,7 @@ import {
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useProjectState } from "state/definitions";
-import { C } from "utils/c";
-import { SettaNotification } from "utils/generatedTypes";
+import { SettaNotification, SettaNotificationType } from "utils/generatedTypes";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -173,31 +172,31 @@ function NotificationItem({
 
 export function getNotificationIcon(type, className = "") {
   switch (type) {
-    case C.NOTIFICATION_TYPE_SUCCESS:
+    case SettaNotificationType.SUCCESS:
       return (
         <IoCheckmarkCircle
           className={`${className} text-green-500 dark:text-green-400`}
         />
       );
-    case C.NOTIFICATION_TYPE_ERROR:
+    case SettaNotificationType.ERROR:
       return (
         <IoAlertCircleSharp
           className={`${className} text-red-500 dark:text-red-400`}
         />
       );
-    case C.NOTIFICATION_TYPE_WARNING:
+    case SettaNotificationType.WARNING:
       return (
         <IoWarning
           className={`${className} text-yellow-500 dark:text-yellow-400`}
         />
       );
-    case C.NOTIFICATION_TYPE_SAVE:
+    case SettaNotificationType.SAVE:
       return (
         <VscSave
           className={`${className} text-setta-300 dark:text-setta-400`}
         />
       );
-    case C.NOTIFICATION_TYPE_INFO:
+    case SettaNotificationType.INFO:
     default:
       return (
         <IoInformationCircle

@@ -5,6 +5,7 @@ import {
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
+import { ArtifactType } from "utils/generatedTypes";
 
 function _ImageArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
@@ -14,7 +15,7 @@ function _ImageArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    C.ARTIFACT_TYPE_IMG,
+    ArtifactType.IMG,
   );
   return (
     <figure

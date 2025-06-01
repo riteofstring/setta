@@ -200,13 +200,6 @@ class UITypeColEntry(BaseModel, extra="forbid"):
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
 
 
-class Artifact(BaseModel, extra="forbid"):
-    name: str
-    path: str
-    value: str | None = None
-    type: str
-
-
 class ProjectConfigChild(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0

@@ -6,6 +6,7 @@ import _ from "lodash";
 import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { ArtifactType } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";
@@ -35,20 +36,20 @@ async function prepareArtifactsForRendering(artifactsFromBackend) {
 
 export async function prepareArtifactForRendering(type, value) {
   switch (type) {
-    case C.ARTIFACT_TYPE_IMG:
+    case ArtifactType.IMG:
       return await base64ToImageObj(value);
-    case C.ARTIFACT_TYPE_LIST:
-    case C.ARTIFACT_TYPE_BRUSH_STROKES:
-    case C.ARTIFACT_TYPE_CHAT_HISTORY:
+    case ArtifactType.LIST:
+    case ArtifactType.BRUSH_STROKES:
+    case ArtifactType.CHAT_HISTORY:
       return value;
   }
 }
 
 export async function prepareDataURLForRendering(type, value) {
   switch (type) {
-    case C.ARTIFACT_TYPE_IMG:
+    case ArtifactType.IMG:
       return await base64ToImageObj(value);
-    case C.ARTIFACT_TYPE_LIST:
+    case ArtifactType.LIST:
       const res = await dbReadCSVBase64(dataURLToBase64(value));
       if (res.status == 200) {
         return res.data;
@@ -65,7 +66,7 @@ export function getArtifactStateForSaving() {
     if (typeof artifact === "function") {
       continue;
     } else if (
-      artifact.type === C.ARTIFACT_TYPE_IMG &&
+      artifact.type === ArtifactType.IMG &&
       artifact.value instanceof Image
     ) {
       result[id] = { ...artifact, value: dataURLToBase64(artifact.value.src) };
@@ -106,7 +107,7 @@ function addArtifactUponSectionCreation({
 export function addDrawAreaLayer(sectionId, state) {
   const artifactGroupId = addArtifactUponSectionCreation({
     sectionId,
-    artifactType: C.ARTIFACT_TYPE_BRUSH_STROKES,
+    artifactType: ArtifactType.BRUSH_STROKES,
     sectionTypeName: C.DRAW,
     state,
   });
@@ -117,7 +118,7 @@ export function addDrawAreaLayer(sectionId, state) {
 export function addChatHistoryArtifact(sectionId, state) {
   addArtifactUponSectionCreation({
     sectionId,
-    artifactType: C.ARTIFACT_TYPE_CHAT_HISTORY,
+    artifactType: ArtifactType.CHAT_HISTORY,
     sectionTypeName: C.CHAT,
     state,
   });

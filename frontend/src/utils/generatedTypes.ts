@@ -4,6 +4,13 @@ export type APIKeys = Record<string, string>;
 
 export type IDToUUIDForLLM = Record<ID, string>;
 
+export enum ArtifactType {
+  IMG = "img",
+  BRUSH_STROKES = "brushStrokes",
+  LIST = "list",
+  CHAT_HISTORY = "chatHistory",
+}
+
 export enum UITypeName {
   TEXT = "TEXT",
   SLIDER = "SLIDER",
@@ -77,6 +84,13 @@ export enum ViewingEditingMode {
   USER = "USER",
   USER_EDIT = "USER_EDIT",
 }
+
+export type Artifact = {
+  name: string;
+  path: string;
+  value: any;
+  type: ArtifactType;
+};
 
 export type UIType = {
   id: string;
@@ -401,13 +415,6 @@ export type SettaNotification = {
   timestamp: string;
   metadata: Record<string, any>;
   read_status: boolean;
-};
-
-export type Artifact = {
-  name: string;
-  path: string;
-  value: any;
-  type: string;
 };
 
 export type ProjectLoadState = {

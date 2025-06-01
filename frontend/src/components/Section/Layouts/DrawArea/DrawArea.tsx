@@ -9,7 +9,7 @@ import {
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
-import { C } from "utils/c";
+import { ArtifactType } from "utils/generatedTypes";
 import { combinedAndSeparateLayersToBase64 } from "./base64Conversion";
 import {
   drawAllLayers,
@@ -58,8 +58,7 @@ export function DrawArea({ sectionId }) {
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
   const currBrushStrokeArtifactId = activeLayer?.artifactTransforms?.find(
-    (a) =>
-      loadedArtifacts[a.artifactId]?.type === C.ARTIFACT_TYPE_BRUSH_STROKES,
+    (a) => loadedArtifacts[a.artifactId]?.type === ArtifactType.BRUSH_STROKES,
   )?.artifactId;
 
   const updateDrawArea = useMisc(
@@ -196,7 +195,7 @@ export function DrawArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     true,
-    C.ARTIFACT_TYPE_IMG,
+    ArtifactType.IMG,
   );
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;

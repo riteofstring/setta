@@ -9,10 +9,6 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
-  static ARTIFACT_TYPE_BRUSH_STROKES = "brushStrokes";
-  static ARTIFACT_TYPE_CHAT_HISTORY = "chatHistory";
-  static ARTIFACT_TYPE_IMG = "img";
-  static ARTIFACT_TYPE_LIST = "list";
   static BROWSER = "BROWSER";
   static CALLABLE = "callable";
   static CHART = "CHART";
@@ -71,11 +67,6 @@ export class C {
     "PASSWORD",
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
-  static NOTIFICATION_TYPE_ERROR = "error";
-  static NOTIFICATION_TYPE_INFO = "info";
-  static NOTIFICATION_TYPE_SAVE = "save";
-  static NOTIFICATION_TYPE_SUCCESS = "success";
-  static NOTIFICATION_TYPE_WARNING = "warning";
   static PARAMETER = "parameter";
   static PARAM_SWEEP = "PARAM_SWEEP";
   static PASSWORD = "PASSWORD";

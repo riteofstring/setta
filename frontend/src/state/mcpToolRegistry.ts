@@ -3,46 +3,8 @@
 import { sendMessage } from "requests/websocket";
 import { C } from "utils/c";
 
-import { setGenCodePrefix } from "../components/Panes/UiEditor/SectionConfig/GenPythonCodeSettings";
-import { setParamValuesMcp } from "../components/Params/ParamItems/ParamInput";
-import { getPaneRectMcp } from "../forks/xyflow/core/utils/graphMcp";
-import {
-  deleteTextRange,
-  getCurrentCode,
-  startStreamingInto,
-  stopStreamingInto,
-} from "./actions/ai";
-import { addParametersMcp } from "./actions/kwargs";
-import { updateNodePositionsMcp } from "./actions/nodeInternals";
-import { getProjectConfigId } from "./actions/project/saveProject";
-import { runEntryCodeBlock } from "./actions/runOrImportCode";
-import {
-  groupSections,
-  ungroupGroupMcp,
-} from "./actions/sections/groupSections";
-import {
-  getAllSectionInformationMcp,
-  getSectionCurrentCodeInfoMcp,
-} from "./actions/sections/sectionContents";
-
 // Registry of all MCP tools
-const mcpToolRegistry = {
-  setGenCodePrefix,
-  setParamValuesMcp,
-  getPaneRectMcp,
-  startStreamingInto,
-  stopStreamingInto,
-  deleteTextRange,
-  getCurrentCode,
-  addParametersMcp,
-  updateNodePositionsMcp,
-  getProjectConfigId,
-  runEntryCodeBlock,
-  groupSections,
-  ungroupGroupMcp,
-  getSectionCurrentCodeInfoMcp,
-  getAllSectionInformationMcp,
-};
+const mcpToolRegistry = {};
 
 export async function mcpToolUse(details) {
   const { fnName, args = {}, id } = details;

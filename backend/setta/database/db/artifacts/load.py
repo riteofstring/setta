@@ -1,9 +1,11 @@
 from setta.api.logger import get_wrapper_for_loading
+from setta.database.db_objs import DB
+from setta.types.artifact import Artifact
 from setta.utils.constants import C
 from setta.utils.utils import try_json
 
 
-def load_artifacts(db, ids):
+def load_artifacts(db: DB, ids: list[str]):
     placeholders = ", ".join(["?"] * len(ids))
     query = f"""
         SELECT id, name, path, value, type
@@ -13,19 +15,19 @@ def load_artifacts(db, ids):
 
     db.execute(query, ids)
 
-    output = {}
+    output: dict[str, Artifact] = {}
     for row in db.fetchall():
-        output[row["id"]] = {
-            "name": row["name"],
-            "path": row["path"],
-            "value": try_json(row["value"]),
-            "type": row["type"],
-        }
+        output[row["id"]] = Artifact(
+            name=row["name"],
+            path=row["path"],
+            value=try_json(row["value"]),
+            type=row["type"],
+        )
 
     return output
 
 
-def load_available_artifacts(db, sectionType):
+def load_available_artifacts(db:DB, sectionType):
     allowed_types = C.ALLOWED_ARTIFACT_TYPES[sectionType]
 
     placeholders = ", ".join(["?"] * len(allowed_types))

@@ -7,6 +7,7 @@ from io import BytesIO
 from pathlib import Path
 
 import requests
+from setta.types.artifact import ArtifactType
 import websockets
 
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
@@ -203,7 +204,7 @@ class SettaList(SettaDataWrapper):
                 f.write(",".join(row_vals) + "\n")
 
     def serialize(self):
-        return {"value": self.data, "type": C.ARTIFACT_TYPE_LIST}
+        return {"value": self.data, "type": ArtifactType.LIST}
 
     def load(self, path):
         self.data = load_from_csv_file(path)
@@ -230,7 +231,7 @@ class SettaImg(SettaDataWrapper):
         if self.img is None:
             raise ValueError("No image data to serialize")
         b64_str = base64.b64encode(self.img).decode("utf-8")
-        return {"value": b64_str, "type": C.ARTIFACT_TYPE_IMG}
+        return {"value": b64_str, "type": ArtifactType.IMG}
 
     def load(self, path_with_extension):
         with open(path_with_extension, "rb") as f:
@@ -289,18 +290,18 @@ class SettaChatHistory(SettaDataWrapper):
 
 
 def get_wrapper_for_loading(data_type):
-    if data_type == C.ARTIFACT_TYPE_LIST:
+    if data_type == ArtifactType.LIST:
         return SettaList()
-    if data_type == C.ARTIFACT_TYPE_IMG:
+    if data_type == ArtifactType.IMG:
         return SettaImg()
-    if data_type == C.ARTIFACT_TYPE_CHAT_HISTORY:
+    if data_type == ArtifactType.CHAT_HISTORY:
         return SettaChatHistory()
 
 
 def default_section_type(data_type):
-    if data_type == C.ARTIFACT_TYPE_LIST:
+    if data_type == ArtifactType.LIST:
         return C.CHART
-    if data_type == C.ARTIFACT_TYPE_IMG:
+    if data_type == ArtifactType.IMG:
         return C.IMAGE
 
 
