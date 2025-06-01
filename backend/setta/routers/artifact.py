@@ -9,7 +9,7 @@ from setta.database.db.artifacts.load import (
     load_artifact_metadata_and_maybe_value_from_disk,
     load_available_artifacts,
 )
-from setta.database.db.artifacts.save_or_create import (
+from setta.database.db.artifacts.save import (
     fill_in_missing_artifact_ids,
     save_or_create_artifacts,
 )
