@@ -1,3 +1,3 @@
 export function getNowTimestamp() {
-    return new Date().toISOString();
+  return new Date().toISOString();
 }

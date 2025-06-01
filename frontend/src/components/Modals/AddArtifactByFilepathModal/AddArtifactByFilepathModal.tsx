@@ -10,7 +10,7 @@ import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
 import { C } from "utils/c";
-import { ArtifactType } from "utils/generatedTypes";
+import { ArtifactTypeSchema } from "utils/generatedTypes";
 
 export function AddArtifactByFilepathModal() {
   const sectionId = useModal((x) => x.modalData);
@@ -34,9 +34,9 @@ export function AddArtifactByFilepathModal() {
     switch (getSectionType(sectionId)) {
       case C.DRAW:
       case C.IMAGE:
-        return ArtifactType.IMG;
+        return ArtifactTypeSchema.enum.img;
       case C.CHART:
-        return ArtifactType.LIST;
+        return ArtifactTypeSchema.enum.list;
     }
   };
 

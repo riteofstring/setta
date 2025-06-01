@@ -121,7 +121,7 @@ async def route_set_llm_api_keys(
     except Exception:
         notification = SettaNotification(
             message="Error saving LLM API keys",
-            type=SettaNotificationType.ERROR,
+            type=SettaNotificationType.error,
             temporary=True,
         )
 
@@ -165,7 +165,7 @@ async def route_get_llm_chat(
             notification = SettaNotification(
                 projectConfigId=x.projectConfigId,
                 message="Chat not found!",
-                type=SettaNotificationType.ERROR,
+                type=SettaNotificationType.error,
                 temporary=True,
             )
             background_tasks.add_task(

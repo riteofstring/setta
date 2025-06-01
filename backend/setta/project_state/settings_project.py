@@ -149,7 +149,7 @@ def create_settings_project_state(settings_path: str):
             codeInfoColId=codeInfoColId,
             isJsonSource=True,
             jsonSourceKeys=[k],
-            configLanguage=ConfigLanguage.JSON,
+            configLanguage=ConfigLanguage.json,
         )
         variants[variantId] = variant
 

@@ -6,11 +6,7 @@ from pydantic import BaseModel
 JSONValueType = dict | list | str | int | float | bool | None
 
 
-class ArtifactType(StrEnum):
-    IMG = "img"
-    BRUSH_STROKES = "brushStrokes"
-    LIST = "list"
-    CHAT_HISTORY = "chatHistory"
+ArtifactType = StrEnum("ArtifactType", ["IMG", "BRUSH_STROKES", "LIST", "CHAT_HISTORY"])
 
 
 class ArtifactWithoutValue(BaseModel, extra="forbid"):

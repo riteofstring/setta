@@ -14,6 +14,7 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { createEVEntry } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
   getOrCreateCodeInfoCol,

@@ -2,7 +2,6 @@ import _ from "lodash";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useArtifacts, useProjectState } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
-import { ArtifactType } from "utils/generatedTypes";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
@@ -212,7 +211,7 @@ function drawOneLayer(
     artifactTempCtx.globalCompositeOperation = "source-over";
 
     if (
-      artifact.type === ArtifactType.IMG &&
+      artifact.type === ArtifactTypeSchema.enum.img &&
       artifact.value instanceof Image &&
       artifact.value.complete
     ) {
@@ -226,7 +225,7 @@ function drawOneLayer(
         transformInfo.transform,
       );
     } else if (
-      artifact.type === ArtifactType.BRUSH_STROKES &&
+      artifact.type === ArtifactTypeSchema.enum.brush_strokes &&
       artifact.value.length > 0
     ) {
       const strokes = realTimeValues?.[id] ?? artifact.value;
@@ -417,7 +416,10 @@ function hexToRGBA(_hex, opacity) {
 }
 
 function maybeGetImgSizeFromArtifact(artifact) {
-  if (artifact?.type === ArtifactType.IMG && artifact?.value?.complete) {
+  if (
+    artifact?.type === ArtifactTypeSchema.enum.img &&
+    artifact?.value?.complete
+  ) {
     const image = artifact.value;
     return { width: image.width, height: image.height };
   }

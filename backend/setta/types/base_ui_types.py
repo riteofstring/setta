@@ -6,10 +6,7 @@ from pydantic import BaseModel, Field
 from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-
-class UITypePresetType(StrEnum):
-    BASE = "BASE"
-    USER = "USER"
+UITypePresetType = StrEnum("UITypePresetType", ["BASE", "USER"])
 
 
 class UITypeName(StrEnum):

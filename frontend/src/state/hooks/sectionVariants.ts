@@ -4,6 +4,7 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { createEVEntry } from "utils/generatedTypes";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
   return useProjectState((x) => {

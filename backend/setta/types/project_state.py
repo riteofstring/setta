@@ -18,39 +18,20 @@ from setta.types.base_ui_types import (
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 
+Size = StrEnum("Size", ["auto"])
 
-class Size(StrEnum):
-    AUTO = "auto"
+CodeLanguage = StrEnum("CodeLanguage", ["python", "bash"])
 
+ConfigLanguage = StrEnum("ConfigLanguage", ["python", "json"])
 
-class CodeLanguage(StrEnum):
-    PYTHON = "python"
-    BASH = "bash"
+ParameterPassingStyle = StrEnum(
+    "ParameterPassingStyle",
+    ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
+)
 
+CodeInfoType = StrEnum("CodeInfoType", ["parameter", "callable", "collection"])
 
-class ConfigLanguage(StrEnum):
-    PYTHON = "python"
-    JSON = "json"
-
-
-class ParameterPassingStyle(StrEnum):
-    DEFAULT = "DEFAULT"
-    ARGS = "ARGS"
-    KWARGS = "KWARGS"
-    POSITIONAL_ONLY = "POSITIONAL_ONLY"
-    KEYWORD_ONLY = "KEYWORD_ONLY"
-
-
-class CodeInfoType(StrEnum):
-    PARAMETER = "parameter"
-    CALLABLE = "callable"
-    COLLECTION = "collection"
-
-
-class ViewingEditingMode(StrEnum):
-    DEV = "DEV"
-    USER = "USER"
-    USER_EDIT = "USER_EDIT"
+ViewingEditingMode = StrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
 
 class Viewport(BaseModel, extra="forbid"):
@@ -60,8 +41,8 @@ class Viewport(BaseModel, extra="forbid"):
 
 
 class SectionSize(BaseModel, extra="forbid"):
-    width: Union[float, Literal[Size.AUTO]] = Size.AUTO
-    height: Union[float, Literal[Size.AUTO]] = Size.AUTO
+    width: Union[float, Literal[Size.auto]] = Size.auto
+    height: Union[float, Literal[Size.auto]] = Size.auto
 
 
 class Visibility(BaseModel, extra="forbid"):
@@ -102,7 +83,7 @@ class Section(BaseModel, extra="forbid"):
     defaultVariantId: str | None = None
     variantIds: list[str] = Field(default_factory=list)
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
-    codeLanguage: CodeLanguage = CodeLanguage.PYTHON
+    codeLanguage: CodeLanguage = CodeLanguage.python
     isEntryCodeBlock: bool = False
     isFrozen: bool = False
     isHorizontalOrientation: bool = False
@@ -112,7 +93,7 @@ class Section(BaseModel, extra="forbid"):
     hideColumn: bool = False
     displayMode: str = "GUI"
     visibility: Visibility = Field(default_factory=Visibility)
-    pinnedAreaHeight: Union[float, Literal[Size.AUTO]] = Size.AUTO
+    pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
     isMinimized: bool = False
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
@@ -151,7 +132,7 @@ class SectionVariant(BaseModel, extra="forbid"):
     codeInfoColId: str | None = None
     description: str = ""
     isFrozen: bool = False
-    configLanguage: ConfigLanguage = ConfigLanguage.PYTHON
+    configLanguage: ConfigLanguage = ConfigLanguage.python
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
@@ -161,7 +142,7 @@ class CodeInfo(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     editable: bool = False
-    rcType: CodeInfoType = CodeInfoType.PARAMETER
+    rcType: CodeInfoType = CodeInfoType.parameter
     defaultVal: str = ""
     description: str = ""
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT

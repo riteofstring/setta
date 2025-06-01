@@ -1,6 +1,10 @@
 import { useNotifications, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { SettaNotification, SettaNotificationType } from "utils/generatedTypes";
+import {
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeSchema,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
@@ -55,7 +59,7 @@ export function addNotificationFromWebsocketMsg(
 
 export const addTemporaryNotification = (
   message: string,
-  type = SettaNotificationType.INFO,
+  type: SettaNotificationType = SettaNotificationTypeSchema.enum.info,
 ) => {
   const id = createNewId();
   const notification: SettaNotification = {

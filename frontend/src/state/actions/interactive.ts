@@ -5,7 +5,7 @@ import {
   useInteractiveDependencies,
   useProjectState,
 } from "state/definitions";
-import { ArtifactType } from "utils/generatedTypes";
+import { ArtifactTypeSchema } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./artifacts";
 import { getSectionVariant } from "./sectionInfos";
 
@@ -31,7 +31,7 @@ export async function updateInteractiveArtifacts(artifacts) {
   const artifactState = useArtifacts.getState();
   for (const a of artifacts) {
     if (!("path" in a)) a.path = "";
-    if (a.type === ArtifactType.IMG) {
+    if (a.type === ArtifactTypeSchema.enum.img) {
       a.value = await base64ToImageObj(a.value);
       a.modifiedByInfo = {
         modifiedBy: "interactive",

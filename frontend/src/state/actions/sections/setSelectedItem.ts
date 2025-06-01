@@ -1,5 +1,6 @@
 import { wsParametersRequest } from "requests/sections";
 import { useProjectState } from "state/definitions";
+import { CodeInfoTypeSchema } from "utils/generatedTypes";
 import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { addTemporaryNotification } from "../notifications";
@@ -73,7 +74,7 @@ export async function setSelectedItem(
       info = createCodeInfo({
         name: selectedItemName,
         editable: false,
-        rcType: CodeInfoType.CALLABLE,
+        rcType: CodeInfoTypeSchema.enum.callable,
       });
       addCodeInfo({ sectionId: dataSectionId, info, parent: null, state });
     } else {
@@ -113,7 +114,7 @@ function createChildrenCodeInfo(sectionId, parent, params, state) {
       id: existingId,
       name: p.name,
       editable: false,
-      rcType: CodeInfoType.PARAMETER,
+      rcType: CodeInfoTypeSchema.enum.parameter,
       defaultVal: p.defaultVal,
       description: p.description,
       passingStyle: p.passingStyle,

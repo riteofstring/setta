@@ -8,19 +8,15 @@ from setta.database.utils import create_new_id
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
-
-class SettaNotificationType(StrEnum):
-    SUCCESS = "success"
-    ERROR = "error"
-    WARNING = "warning"
-    INFO = "info"
-    SAVE = "save"
+SettaNotificationType = StrEnum(
+    "SettaNotificationType", ["success", "error", "warning", "info", "save"]
+)
 
 
 class SettaNotification(BaseModel):
     id: str = Field(default_factory=create_new_id)
     projectConfigId: str = C.NOTIFICATION_IS_FOR_ALL_PROJECTS
-    type: SettaNotificationType = SettaNotificationType.INFO
+    type: SettaNotificationType = SettaNotificationType.info
     message: str
     temporary: bool = False
     timestamp: datetime = Field(default_factory=get_now_timestamp)

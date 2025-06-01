@@ -10,6 +10,7 @@ import {
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
+import { createSection } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";

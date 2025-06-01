@@ -56,7 +56,7 @@ async def route_save_settings_project(
         notification = SettaNotification(
             projectConfigId=x.settingsProject.projectConfigId,
             message="Failed to save",
-            type=SettaNotificationType.ERROR,
+            type=SettaNotificationType.error,
             temporary=True,
         )
 

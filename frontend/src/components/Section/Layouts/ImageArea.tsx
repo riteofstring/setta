@@ -5,7 +5,7 @@ import {
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
-import { ArtifactType } from "utils/generatedTypes";
+import { ArtifactTypeSchema } from "utils/generatedTypes";
 
 function _ImageArea({ sectionId }) {
   const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
@@ -15,7 +15,7 @@ function _ImageArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    ArtifactType.IMG,
+    ArtifactTypeSchema.enum.img,
   );
   return (
     <figure

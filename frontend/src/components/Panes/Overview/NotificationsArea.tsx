@@ -18,7 +18,11 @@ import {
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useProjectState } from "state/definitions";
-import { SettaNotification, SettaNotificationType } from "utils/generatedTypes";
+import {
+  SettaNotification,
+  SettaNotificationType,
+  SettaNotificationTypeSchema,
+} from "utils/generatedTypes";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -170,33 +174,36 @@ function NotificationItem({
   );
 }
 
-export function getNotificationIcon(type, className = "") {
+export function getNotificationIcon(
+  type: SettaNotificationType,
+  className = "",
+) {
   switch (type) {
-    case SettaNotificationType.SUCCESS:
+    case SettaNotificationTypeSchema.enum.success:
       return (
         <IoCheckmarkCircle
           className={`${className} text-green-500 dark:text-green-400`}
         />
       );
-    case SettaNotificationType.ERROR:
+    case SettaNotificationTypeSchema.enum.error:
       return (
         <IoAlertCircleSharp
           className={`${className} text-red-500 dark:text-red-400`}
         />
       );
-    case SettaNotificationType.WARNING:
+    case SettaNotificationTypeSchema.enum.warning:
       return (
         <IoWarning
           className={`${className} text-yellow-500 dark:text-yellow-400`}
         />
       );
-    case SettaNotificationType.SAVE:
+    case SettaNotificationTypeSchema.enum.save:
       return (
         <VscSave
           className={`${className} text-setta-300 dark:text-setta-400`}
         />
       );
-    case SettaNotificationType.INFO:
+    case SettaNotificationTypeSchema.enum.info:
     default:
       return (
         <IoInformationCircle

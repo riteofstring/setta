@@ -293,7 +293,7 @@ class ProjectManager:
         self, project_temp_folder: Path, project_state: ProjectState, sectionId: str
     ):
         codeLanguage = project_state.sections[sectionId].codeLanguage
-        if codeLanguage == CodeLanguage.PYTHON:
+        if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
                 project_temp_folder,
                 self.lsp_writers,
@@ -301,7 +301,7 @@ class ProjectManager:
                 project_state,
                 sectionId,
             )
-        elif codeLanguage == CodeLanguage.BASH:
+        elif codeLanguage == CodeLanguage.bash:
             return ProjectBashCode(project_temp_folder, project_state, sectionId)
         return None
 

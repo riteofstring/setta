@@ -263,9 +263,9 @@ export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
 export const ArtifactTypeSchema = z.enum([
   "img",
-  "brushStrokes",
+  "brush_strokes",
   "list",
-  "chatHistory",
+  "chat_history",
 ]);
 
 export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
@@ -297,7 +297,7 @@ export const UITypeNameSchema = z.enum([
 
 export type UITypeName = z.infer<typeof UITypeNameSchema>;
 
-export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
+export const UITypePresetTypeSchema = z.enum(["base", "user"]);
 
 export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
 
@@ -328,11 +328,11 @@ export const ConfigLanguageSchema = z.enum(["python", "json"]);
 export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
 
 export const ParameterPassingStyleSchema = z.enum([
-  "DEFAULT",
-  "ARGS",
-  "KWARGS",
-  "POSITIONAL_ONLY",
-  "KEYWORD_ONLY",
+  "default",
+  "args",
+  "kwargs",
+  "positional_only",
+  "keyword_only",
 ]);
 
 export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
@@ -341,7 +341,7 @@ export const SizeSchema = z.enum(["auto"]);
 
 export type Size = z.infer<typeof SizeSchema>;
 
-export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
+export const ViewingEditingModeSchema = z.enum(["dev", "user", "user_edit"]);
 
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
 
@@ -726,7 +726,7 @@ export const CodeInfoSchema = z.object({
   rcType: CodeInfoTypeSchema.default("parameter"),
   defaultVal: z.string().default(""),
   description: z.string().default(""),
-  passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),
+  passingStyle: ParameterPassingStyleSchema.default("default"),
   isPinned: z.boolean().default(false),
   isFrozen: z.boolean().default(false),
   isSelected: z.boolean().default(false),
@@ -817,7 +817,7 @@ export const ProjectConfigSchema = z.object({
   previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
   children: z.record(z.string(), ProjectConfigChildSchema).default({}),
-  viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
+  viewingEditingMode: ViewingEditingModeSchema.default("dev"),
   genCodePrefix: z.string().default(""),
   genCodeSuffix: z.string().default(""),
 });

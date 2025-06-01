@@ -1,3 +1,4 @@
+import { createEVEntry, createUITypeColEntry } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getValueForUIType } from "utils/objs/ev";
 import { getSectionVariant, setParamEnteredValue } from "../sectionInfos";

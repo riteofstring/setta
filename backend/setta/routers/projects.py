@@ -169,7 +169,7 @@ async def route_save_project(
             notification = SettaNotification(
                 projectConfigId=x.project.projectConfigId,
                 message="Failed to save",
-                type=SettaNotificationType.ERROR,
+                type=SettaNotificationType.error,
                 temporary=True,
             )
 

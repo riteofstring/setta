@@ -15,7 +15,7 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
-import { SettaNotificationType } from "utils/generatedTypes";
+import { SettaNotificationTypeSchema } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
@@ -94,7 +94,7 @@ export function getProjectData({
 }
 
 export async function saveProject() {
-  addTemporaryNotification("Saving...", SettaNotificationType.SAVE);
+  addTemporaryNotification("Saving...", SettaNotificationTypeSchema.enum.save);
 
   if (getCurrentProjectConfig().name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));
