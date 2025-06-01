@@ -10,7 +10,7 @@ from setta.utils.constants import C
 
 
 def load_artifacts(db: Session, ids: list[str]):
-    stmt = select().where(ArtifactTable.id.in_(ids))
+    stmt = select(ArtifactTable).where(ArtifactTable.id.in_(ids))
     results = db.scalars(stmt).all()
     return [
         ArtifactWithoutValue(name=x.name, path=x.path, type=x.type) for x in results
