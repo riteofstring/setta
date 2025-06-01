@@ -1,6 +1,6 @@
-import json
-
 from anthropic.types import TextBlock
+from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from setta.database.table_definitions import ChatMessageTable, ChatTable
@@ -40,44 +40,38 @@ def create_new_chat(db: Session, first_message: ChatMessage):
     return chat
 
 
-def delete_chat(db, chat_id):
-    query = """
-        DELETE FROM CHAT
-        WHERE ID = :chatId
-    """
-    db.execute(query, {"chatId": chat_id})
+def delete_chat(db: Session, chat_id: str):
+    stmt = delete(ChatTable).where(ChatTable.id == chat_id)
+    db.execute(stmt)
 
 
 def save_messages(db: Session, chat_id: str, messages: list[ChatMessage]):
-    # First, get the maximum order value for this chat
-    max_order_query = """
-        SELECT MAX("order") FROM ChatMessage WHERE chatId = :chat_id
-    """
-    db.execute(max_order_query, {"chat_id": chat_id})
-    result = db.fetchone()[0]
+    stmt = select(func.max(ChatMessageTable.order)).where(
+        ChatMessageTable.chatId == chat_id
+    )
+    max_order = db.scalar(stmt)
+
     # If there are no existing messages, max_order would be None
-    max_order = result if result is not None else -1
+    if max_order is None:
+        max_order = -1
 
-    query = """
-        INSERT INTO ChatMessage (id, chatId, "order", role, content) 
-        VALUES (:id, :chat_id, :order, :role, :content)
-        ON CONFLICT (id)
-        DO NOTHING
-    """
-    query_params = []
-
+    # Prepare the message objects
+    cmt_list: list[dict] = []
     for idx, m in enumerate(messages):
-        query_params.append(
-            {
-                "id": m.id,
-                "chat_id": chat_id,
-                "order": max_order + 1 + idx,
-                "role": m.role,
-                "content": json.dumps([c.model_dump() for c in m.content]),
-            }
-        )
+        cmt = ChatMessageTable()
+        cmt.id = m.id
+        cmt.chatId = chat_id
+        cmt.order = max_order + 1 + idx
+        cmt.role = m.role
+        cmt.content = [c.model_dump() for c in m.content]
+        cmt_list.append(cmt.to_dict())
 
-    db.executemany(query, query_params)
+    stmt = (
+        insert(ChatMessageTable)
+        .values(cmt_list)
+        .on_conflict_do_nothing(index_elements=["id"])
+    )
+    db.execute(stmt)
 
 
 def save_uuid_mapping_for_llm(db, uuid_to_id):

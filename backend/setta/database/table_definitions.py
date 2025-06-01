@@ -43,7 +43,10 @@ class PathType(TypeDecorator):
 
 
 class BaseTable(DeclarativeBase):
-    pass
+    __abstract__ = True
+
+    def to_dict(self):
+        return {field.name: getattr(self, field.name) for field in self.__table__.c}
 
 
 class ProjectStateTable(BaseTable):

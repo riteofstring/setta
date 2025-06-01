@@ -10,6 +10,7 @@ def load_project_notifications(db: Session, project_config_id: str, limit=20):
         select(NotificationsTable)
         .where(NotificationsTable.projectConfigId == project_config_id)
         .order_by(desc(NotificationsTable.id))
+        .limit(limit)
     )
     results = db.scalars(stmt).all()
 
