@@ -9,8 +9,10 @@ from pathlib import Path
 import requests
 import websockets
 
-from setta.types.artifact import ArtifactType
+from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
+
+DataWrapperDict = dict[str, "SettaDataWrapper"]
 
 
 class SettaLogger:
@@ -22,7 +24,7 @@ class SettaLogger:
         self.root_path = Path(
             root_path or os.environ.get(CODE_FOLDER_ENV_VARIABLE, ".")
         )
-        self.name_path_type_to_id = {}
+        self.name_path_type_to_id: dict[tuple[str, Path, ArtifactType], str] = {}
         self.websocket = websocket
         self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_LOGGER}"
 
@@ -35,7 +37,7 @@ class SettaLogger:
             headers={"Content-Type": "application/json"},
         )
 
-    async def send_async(self, obj, messageType=None):
+    async def send_async(self, obj: DataWrapperDict, messageType=None):
         if messageType is None:
             messageType = C.WS_ARTIFACT
         if messageType == C.WS_ARTIFACT:
@@ -46,7 +48,7 @@ class SettaLogger:
             json.dumps({"content": obj, "messageType": messageType})
         )
 
-    def send(self, obj, messageType=None):
+    def send(self, obj: DataWrapperDict, messageType=None):
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
@@ -61,11 +63,11 @@ class SettaLogger:
             asyncio.set_event_loop(loop)
             loop.run_until_complete(self.send_async(obj, messageType))
 
-    def prepare_data(self, obj, save_to=None):
+    def prepare_data(self, obj: DataWrapperDict, save_to=None):
         data_to_send = []
         id_missing = False
         for name, data in obj.items():
-            artifact_path = ""
+            artifact_path = Path("")
 
             if save_to == "disk":
                 full_path = self.root_path / name
@@ -73,19 +75,23 @@ class SettaLogger:
                 directory = full_path.parent
                 directory.mkdir(parents=True, exist_ok=True)
                 data.save(full_path)
-                artifact_path = str(full_path)
+                artifact_path = full_path
 
             serialized = data.serialize()
-            curr_data = {
-                "name": name,
-                "path": artifact_path,
-                "value": serialized["value"],
-                "type": serialized["type"],
-            }
-            id = self.maybe_get_artifact_id(curr_data)
-            curr_data["id"] = id
+            id = self.name_path_type_to_id.get(
+                (name, artifact_path, data.artifact_type)
+            )
             if not id:
                 id_missing = True
+
+            curr_data = ArtifactWithId(
+                id=id,
+                name=name,
+                path=artifact_path,
+                value=serialized,
+                type=data.artifact_type,
+            )
+
             data_to_send.append(curr_data)
 
         if id_missing:
@@ -93,10 +99,7 @@ class SettaLogger:
 
         return data_to_send
 
-    def maybe_get_artifact_id(self, artifact):
-        return self.name_path_type_to_id.get(self.get_name_path_type_key(artifact))
-
-    def fill_in_missing_artifact_ids(self, data_to_send):
+    def fill_in_missing_artifact_ids(self, data_to_send: list[ArtifactWithId]):
         res = requests.post(
             f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS}",
             json={"namesPathsTypes": data_to_send},
@@ -109,30 +112,31 @@ class SettaLogger:
                 self.name_path_type_to_id[
                     self.get_name_path_type_key(data_to_send[idx])
                 ] = id
-                data_to_send[idx]["id"] = id
+                data_to_send[idx].id = id
 
-    def get_name_path_type_key(self, artifact):
-        return artifact["name"], artifact["path"], artifact["type"]
+    def get_name_path_type_key(self, artifact: Artifact):
+        return artifact.name, artifact.path, artifact.type
 
-    def list(self, name):
+    def list(self, name: str):
         """Get a list object configured for this logger"""
         return SettaList().with_context(self, name)
 
-    def image(self, name):
+    def image(self, name: str):
         """Get an image object configured for this logger"""
         return SettaImg().with_context(self, name)
 
-    def chat(self, name):
+    def chat(self, name: str):
         """Get a chat object configured for this logger"""
         return SettaChatHistory().with_context(self, name)
 
 
 class SettaDataWrapper(ABC):
-    def __init__(self):
-        self._logger = None
-        self._name = None
+    def __init__(self, artifact_type: ArtifactType):
+        self.artifact_type = artifact_type
+        self._logger: SettaLogger | None = None
+        self._name: str | None = None
 
-    def with_context(self, logger, name):
+    def with_context(self, logger: SettaLogger, name: str):
         self._logger = logger
         self._name = name
         return self
@@ -148,25 +152,25 @@ class SettaDataWrapper(ABC):
         return self._logger.send({self._name: self})
 
     @abstractmethod
-    def path_with_extension(self, path):
+    def path_with_extension(self, path: Path) -> Path:
         pass
 
     @abstractmethod
-    def save(self, path):
+    def save(self, path: Path):
         pass
 
     @abstractmethod
-    def serialize(self):
+    def serialize(self) -> JSONValueType:
         pass
 
     @abstractmethod
-    def load(self, path_with_extension):
+    def load(self, path_with_extension: Path):
         pass
 
 
 class SettaList(SettaDataWrapper):
     def __init__(self, **columns):
-        super().__init__()
+        super().__init__(ArtifactType.LIST)
         self.create(**columns)
 
     def create(self, **columns):
@@ -181,7 +185,7 @@ class SettaList(SettaDataWrapper):
                 self.data[column] = values
         return self
 
-    def path_with_extension(self, path):
+    def path_with_extension(self, path: Path):
         return path.with_suffix(".csv")
 
     def save(self, path):
@@ -204,15 +208,15 @@ class SettaList(SettaDataWrapper):
                 f.write(",".join(row_vals) + "\n")
 
     def serialize(self):
-        return {"value": self.data, "type": ArtifactType.LIST}
+        return self.data
 
-    def load(self, path):
-        self.data = load_from_csv_file(path)
+    def load(self, path_with_extension: Path):
+        self.data = load_from_csv_file(path_with_extension)
 
 
 class SettaImg(SettaDataWrapper):
     def __init__(self, img=None, format="png"):
-        super().__init__()
+        super().__init__(ArtifactType.IMG)
         self.create(img, format)
 
     def create(self, img, format="png"):
@@ -231,7 +235,7 @@ class SettaImg(SettaDataWrapper):
         if self.img is None:
             raise ValueError("No image data to serialize")
         b64_str = base64.b64encode(self.img).decode("utf-8")
-        return {"value": b64_str, "type": ArtifactType.IMG}
+        return b64_str
 
     def load(self, path_with_extension):
         with open(path_with_extension, "rb") as f:
@@ -240,7 +244,7 @@ class SettaImg(SettaDataWrapper):
 
 class SettaChatHistory(SettaDataWrapper):
     def __init__(self, messages=None):
-        super().__init__()
+        super().__init__(ArtifactType.CHAT_HISTORY)
         self.create(messages or [])
 
     def create(self, messages):
@@ -282,7 +286,7 @@ class SettaChatHistory(SettaDataWrapper):
             json.dump(self.messages, f)
 
     def serialize(self):
-        return {"value": self.messages, "type": "chat"}
+        return self.messages
 
     def load(self, path_with_extension):
         with open(path_with_extension, "r") as f:

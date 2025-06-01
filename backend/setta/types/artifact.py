@@ -3,6 +3,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+JSONValueType = dict | list | str | int | float | bool | None
+
 
 class ArtifactType(StrEnum):
     IMG = "img"
@@ -18,4 +20,8 @@ class ArtifactWithoutValue(BaseModel, extra="forbid"):
 
 
 class Artifact(ArtifactWithoutValue, extra="forbid"):
-    value: str | None = None
+    value: JSONValueType = None
+
+
+class ArtifactWithId(Artifact, extra="forbid"):
+    id: str | None
