@@ -1,4 +1,4 @@
-import { wsParametersRequest } from "requests/sections";
+import { wsSetSelectedItem } from "requests/sections";
 import { useProjectState } from "state/definitions";
 import { CodeInfoTypeSchema } from "utils/generatedTypes";
 import { addCodeInfo } from "../codeInfo";
@@ -35,31 +35,15 @@ export async function setSelectedItemMcp({ sectionId, selectedItemName }) {
 export async function setSelectedItem(
   sectionId,
   selectedItemName,
-  callbackSetAttr,
   refetchParams = false,
 ) {
-  if (!refetchParams && itemIsAlreadySelected(sectionId, selectedItemName)) {
-    useProjectState.setState((state) => {
-      callbackSetAttr(undefined, state);
-    });
-    return;
-  }
-  const prevSelected = itemHasBeenSelectedBefore(sectionId, selectedItemName);
-
-  if (!refetchParams && prevSelected !== undefined) {
-    useProjectState.setState((state) => {
-      callbackSetAttr(prevSelected, state);
-    });
-    maybeIncrementProjectStateVersion(true);
-    return;
-  }
-
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-
-  const paramRes = await wsParametersRequest({
-    sectionId: sectionId,
-    fullText: selectedItemName,
-  });
+  const paramRes = await wsSetSelectedItem(
+    sectionId,
+    selectedItemName,
+    refetchParams,
+  );
+  setToNotWaiting();
 
   useProjectState.setState((state) => {
     let info;

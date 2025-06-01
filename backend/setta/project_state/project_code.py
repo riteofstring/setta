@@ -23,7 +23,10 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 from setta.types.getters import (
     get_section_path_full_name,
     get_selected_section_variant,
+    item_has_been_selected_before,
+    item_is_already_selected,
 )
+from setta.types.project_state import ProjectState
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -81,9 +84,32 @@ class ProjectGenPythonCode(PythonCode):
             result = process_completion_response(response, self.code_generator.code)
             await self.websocket_msg_handler.return_to_requester(result, messageId)
 
-    async def parameters_request(self, messageId, sectionId, fullText):
+    async def set_selected_item(
+        self,
+        messageId: str,
+        project_state: ProjectState,
+        sectionId: str,
+        selectedItemName: str,
+        refetchParams: bool,
+    ):
+        if not refetchParams and item_is_already_selected(
+            project_state, sectionId, selectedItemName
+        ):
+            await self.websocket_msg_handler.return_to_requester(None, messageId)
+            return
+
+        was_prev_selected, code_info_id = item_has_been_selected_before(
+            project_state, sectionId, selectedItemName
+        )
+
+        if was_prev_selected and not refetchParams:
+            get_selected_section_variant(
+                project_state, sectionId
+            ).selectedItem = code_info_id
+            return
+
         line_col = await self.insert_code_at_position(
-            sectionId, None, fullText, len(fullText)
+            sectionId, None, selectedItemName, len(selectedItemName)
         )
         if line_col is None:
             await self.websocket_msg_handler.return_to_requester(None, messageId)

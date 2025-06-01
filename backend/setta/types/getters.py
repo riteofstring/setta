@@ -80,3 +80,21 @@ def get_section_path_full_name(p: ProjectState, section_id: str):
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
     return f"{child_name}{output}"
+
+
+def item_is_already_selected(p: ProjectState, sectionId: str, selectedItemName: str):
+    selected_item = get_selected_item(p, sectionId)
+    return selected_item and selected_item.name == selectedItemName
+
+
+def item_has_been_selected_before(
+    p: ProjectState, sectionId: str, selectedItemName: str
+):
+    # empty value is equivalent to the "null" callable id
+    if selectedItemName == "":
+        return True, None
+    code_info_children = get_section_code_info_children(p, sectionId)
+    for c in code_info_children[None]:
+        if p.codeInfo[c].name == selectedItemName:
+            return True, c
+    return False, None

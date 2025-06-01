@@ -231,12 +231,17 @@ class ProjectManager:
         )
 
     @enqueue_method
-    async def parameters_request(
-        self, messageId: str, projectConfigId: str, sectionId: str, fullText: str
+    async def set_selected_item(
+        self,
+        messageId: str,
+        projectConfigId: str,
+        sectionId: str,
+        selectedItemName: str,
+        refetchParams: bool,
     ):
-        print("parameters_request", flush=True)
-        await self.gen_code[projectConfigId].parameters_request(
-            messageId, sectionId, fullText
+        print("set_selected_item", flush=True)
+        await self.gen_code[projectConfigId].set_selected_item(
+            messageId, self.project_state, sectionId, selectedItemName, refetchParams
         )
 
     @enqueue_method

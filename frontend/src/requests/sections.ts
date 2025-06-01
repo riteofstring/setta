@@ -17,16 +17,21 @@ export async function dbRequestTypeCheck(userRequested = false) {
   });
 }
 
-export async function wsParametersRequest({ sectionId, fullText }) {
+export async function wsSetSelectedItem(
+  sectionId: string,
+  selectedItemName: string,
+  refetchParams: boolean = false,
+) {
   const projectConfigId = useProjectState.getState().projectConfigId;
 
   return await sendMessageAndWait({
     id: createNewId(),
-    messageType: C.WS_PARAMETERS_REQUEST,
+    messageType: C.WS_SET_SELECTED_ITEM,
     content: {
       projectConfigId,
       sectionId,
-      fullText,
+      selectedItemName,
+      refetchParams,
     },
   });
 }

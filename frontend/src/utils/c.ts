@@ -171,13 +171,13 @@ export class C {
   static WS_MCP_TOOL_USE = "mcpToolUse";
   static WS_MCP_TOOL_USE_RETURN = "WS_MCP_TOOL_USE_RETURN";
   static WS_NOTIFICATION = "notification";
-  static WS_PARAMETERS_REQUEST = "WS_PARAMETERS_REQUEST";
   static WS_PROJECT_DATA = "projectData";
   static WS_RETURN_RENAME_REFACTOR_RESULTS =
     "WS_RETURN_RENAME_REFACTOR_RESULTS";
   static WS_RUN_CODE = "runCode";
   static WS_SCRIPT_DEPENDENCIES = "scriptDependencies";
   static WS_SCRIPT_READY = "scriptReady";
+  static WS_SET_SELECTED_ITEM = "WS_SET_SELECTED_ITEM";
   static WS_SPECIFIC_FILE_WATCHER_UPDATE = "specificFileWatcherUpdate";
   static WS_TERMINAL_METADATA = "terminalMetadata";
   static WS_TERMINAL_RESIZE = "terminalResize";

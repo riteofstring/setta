@@ -2,9 +2,9 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { wsSetSelectedItem } from "requests/sections";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { getSectionVariant } from "state/actions/sectionInfos";
-import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -23,11 +23,12 @@ export function SectionSearch({ sectionId, selectedItem }) {
 
   function onEnter(value) {
     // gets called inside useSectionInfos.setState
-    setSelectedItem(sectionId, sectionId, value, callbackSetAttr);
+    // setSelectedItem(sectionId, sectionId, value, callbackSetAttr);
+    wsSetSelectedItem(sectionId, value);
   }
 
   function onShiftEnter(value) {
-    setSelectedItem(sectionId, sectionId, value, callbackSetAttr, true);
+    wsSetSelectedItem(sectionId, value, true);
   }
 
   return (
