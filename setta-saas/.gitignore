@@ -63,8 +63,3 @@ logs/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-
-# Railway
-.railway/
-railway.toml
-.railway.toml

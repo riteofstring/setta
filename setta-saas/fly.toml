@@ -1,9 +1,9 @@
-# fly.toml app configuration file generated for backend-ancient-haze-7294 on 2025-06-03T09:48:09-04:00
+# fly.toml app configuration file generated for test-setta-project on 2025-05-23T16:11:33-04:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'backend-ancient-haze-7294'
+app = 'test-setta-project'
 primary_region = 'yyz'
 
 [build]
