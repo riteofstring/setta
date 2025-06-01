@@ -1,0 +1,14 @@
+FROM nginx:alpine
+COPY <<EOF /usr/share/nginx/html/index.html
+<!DOCTYPE html>
+<html>
+<head><title>Test App - test-setta-1748958487</title></head>
+<body>
+<h1>Hello from Fly.io!</h1>
+<p>This is test app: test-setta-1748958487</p>
+<p>If you can see this, the deployment worked! 🎉</p>
+</body>
+</html>
+EOF
+
+EXPOSE 80
