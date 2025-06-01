@@ -11,8 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
-from setta.database.db_init import maybe_create_tables_and_seed
-from setta.database.db_objs import DBQueue
+from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import (
     LSPReaders,
@@ -59,13 +58,7 @@ async def lifespan(app: FastAPI):
         app.state.lsp_writers, app.state.websocket_manager, app.state.settings_file
     )
     app.state.script_metadata = ScriptMetadata()
-    app.state.dbq = DBQueue(
-        C.DB_PATH,
-    )
-    maybe_create_tables_and_seed(
-        app.state.dbq,
-    )
-    app.state.dbq.connect()
+    app.state.dbq = DBE(C.DB_PATH)
 
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_manager

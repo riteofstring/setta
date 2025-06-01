@@ -7,7 +7,6 @@ import click
 import uvicorn
 
 from . import __version__
-from .database.db_objs import get_default_db_path
 from .database.export_db.export_db import export_database
 from .utils.constants import SETTA_FILES_FOLDER, C
 from .websockets.connect import connect as _connect
@@ -29,7 +28,7 @@ def version():
 
 
 @click.command()
-@click.argument("path", default=get_default_db_path(), required=False)
+@click.argument("path", default=C.DEFAULT_DB_PATH, required=False)
 @click.option("--raw", is_flag=True, help="Export raw database format")
 @click.option("--readable", is_flag=True, help="Export in human-readable format")
 @click.option(
@@ -52,7 +51,7 @@ def export_db(path, raw, readable, readable_with_variants):
     ),
 )
 @click.option("--reload", is_flag=True)
-@click.option("--db", "-d", type=str, default=get_default_db_path())
+@click.option("--db", "-d", type=str, default=C.DEFAULT_DB_PATH)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.option(
