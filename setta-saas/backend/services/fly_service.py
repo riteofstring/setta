@@ -30,26 +30,22 @@ class FlyService:
 
     def _get_organization_id(self) -> str:
         """Get the user's personal organization ID."""
-        try:
-            data = self.client.graphql(GET_ORGANIZATIONS_QUERY)
+        data = self.client.graphql(GET_ORGANIZATIONS_QUERY)
+        orgs = data.get("viewer", {}).get("organizations", {}).get("nodes", [])
 
-            orgs = data.get("viewer", {}).get("organizations", {}).get("nodes", [])
-            if not orgs:
-                raise FlyAPIError("No organizations found")
+        if not orgs:
+            raise FlyAPIError("No organizations found")
 
-            # Find personal organization
-            for org in orgs:
-                if org["type"] == "PERSONAL":
-                    print(f"Using personal org: {org['name']} (ID: {org['id']})")
-                    return org["id"]
+        # Find personal organization
+        for org in orgs:
+            if org["type"] == "PERSONAL":
+                print(f"Using personal org: {org['name']} (ID: {org['id']})")
+                return org["id"]
 
-            # Fallback to first org
-            print(f"Using first org: {orgs[0]['name']} (ID: {orgs[0]['id']})")
-            return orgs[0]["id"]
-
-        except Exception as e:
-            print(f"Failed to get organization: {e}")
-            raise
+        # Fallback to first org
+        first_org = orgs[0]
+        print(f"Using first org: {first_org['name']} (ID: {first_org['id']})")
+        return first_org["id"]
 
     def create_app(self, app_name: str) -> dict:
         """Create a new Fly.io app."""
@@ -57,19 +53,14 @@ class FlyService:
 
         variables = {"input": {"name": app_name, "organizationId": self.organization_id}}
 
-        try:
-            data = self.client.graphql(CREATE_APP_MUTATION, variables)
+        data = self.client.graphql(CREATE_APP_MUTATION, variables)
 
-            if data.get("createApp"):
-                app = data["createApp"]["app"]
-                print(f"✓ App created: {app['hostname']}")
-                return app
-            else:
-                raise FlyAPIError("Failed to create app")
+        if not data.get("createApp"):
+            raise FlyAPIError("Failed to create app")
 
-        except Exception as e:
-            print(f"✗ Failed to create app: {e}")
-            raise
+        app = data["createApp"]["app"]
+        print(f"✓ App created: {app['hostname']}")
+        return app
 
     def deploy_image(self, app_id: str, image: str = "flyio/hellofly:latest") -> dict:
         """Deploy a Docker image to an app."""
@@ -90,16 +81,11 @@ class FlyService:
 
     def delete_app(self, app_id: str) -> bool:
         """Delete a Fly.io app."""
-        try:
-            data = self.client.graphql(DELETE_APP_MUTATION, {"appId": app_id})
+        data = self.client.graphql(DELETE_APP_MUTATION, {"appId": app_id})
 
-            if data.get("deleteApp"):
-                print("✓ App deleted")
-                return True
-            else:
-                print("✗ Failed to delete app")
-                return False
-
-        except Exception as e:
-            print(f"✗ Error deleting app: {e}")
+        if not data.get("deleteApp"):
+            print("✗ Failed to delete app")
             return False
+
+        print("✓ App deleted")
+        return True
