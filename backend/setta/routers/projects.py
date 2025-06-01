@@ -16,7 +16,7 @@ from setta.database.db.projects.load import (
     load_project_metadata,
     load_project_state_and_confirm_config_name,
 )
-from setta.database.db.projects.save import create_project_config, save_project_state
+from setta.database.db.projects.save import ProjectNameTaken, create_project_config, save_project_config_name, save_project_state
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
@@ -67,8 +67,8 @@ class DeleteProjectConfigsRequest(BaseModel):
 
 
 class SetProjectConfigNameRequest(BaseModel):
-    currProjectConfigName: str
-    newProjectConfigName: str
+    projectConfigId: str
+    newName: str
 
 
 class SetAsDefaultProjectRequest(BaseModel):
@@ -207,9 +207,9 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest, dbq=Depends(ge
     try:
         with dbq as db:
             save_project_config_name(
-                db, x.currProjectConfigName, x.newProjectConfigName
+                db, x.projectConfigId, x.newName
             )
-    except sqlite3.IntegrityError as e:
+    except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
 

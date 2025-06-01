@@ -58,7 +58,7 @@ export const useContextMenus = withProjectState(
   ),
 );
 
-type ZustandProjectState = {
+export type ZustandProjectState = {
   projectConfigId: string;
   projectConfigs: ProjectState["projectConfigs"];
   sections: ProjectState["sections"];

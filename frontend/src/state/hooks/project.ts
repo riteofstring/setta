@@ -5,6 +5,7 @@ import {
   dbLoadAllProjectMetadata,
 } from "requests/projects";
 import {
+  getCurrentProjectConfig,
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
@@ -84,8 +85,11 @@ export function useLoadProjectConfig() {
   }
 
   function changeFn() {
+    if (!projectConfigName) {
+      return;
+    }
     useProjectState.setState((state) => {
-      state.projectConfig.name = projectConfigName;
+      getCurrentProjectConfig(state).name = projectConfigName;
     });
     useProjectLoading.setState({
       projectIsLoading: false,

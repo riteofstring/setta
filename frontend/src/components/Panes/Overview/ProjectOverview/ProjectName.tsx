@@ -47,13 +47,13 @@ function ProjectNameOnly() {
 }
 
 function useEditableProjectName() {
-  const name = useProjectState((x) => getCurrentProjectConfig(x).name);
+  const name = useProjectState((x) => getCurrentProjectConfig(x)?.name ?? "");
   const navigate = useNavigate();
-  async function condition(v) {
+  async function condition(v: string) {
     const res = await dbSetProjectConfigName(v);
     return res.status === 200;
   }
-  async function onSetName(v) {
+  async function onSetName(v: string) {
     navigate(pathRelativeToProject(v), {
       state: { pageLoadType: PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME },
     });

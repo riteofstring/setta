@@ -7,6 +7,7 @@ import {
   useNodeInternals,
   useProjectState,
   useSectionColumnWidth,
+  ZustandProjectState,
 } from "state/definitions";
 import {
   PAGE_LOAD_TYPES,
@@ -128,7 +129,9 @@ function createNodesMapFromProjectConfigChildren(projectConfig, sections) {
   return nodesMap;
 }
 
-export function getCurrentProjectConfig(_state) {
+export function getCurrentProjectConfig(
+  _state: ZustandProjectState | null = null,
+) {
   const state = _state ?? useProjectState.getState();
   return state.projectConfigs[state.projectConfigId];
 }
