@@ -6,10 +6,10 @@ export type ID = z.infer<typeof IDSchema>;
 export const APIKeysSchema = z.record(z.string(), z.string());
 export type APIKeys = z.infer<typeof APIKeysSchema>;
 
-export const IDToUUIDForLLMSchema = z.record(ID, z.string());
+export const IDToUUIDForLLMSchema = z.record(IDSchema, z.string());
 export type IDToUUIDForLLM = z.infer<typeof IDToUUIDForLLMSchema>;
 
-export const UUIDToIDForLLMSchema = z.record(z.string(), ID);
+export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
 export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
 
 export const JSONValueTypeSchema = z.union([

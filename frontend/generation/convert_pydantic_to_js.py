@@ -249,7 +249,7 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
     # Try to get the name for other types
     if hasattr(python_type, "__name__"):
         # Default to using the Python type name
-        return python_type.__name__
+        return f"{python_type.__name__}Schema"
     # Fallback
     return "z.any()"
 
