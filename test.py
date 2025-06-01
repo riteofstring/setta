@@ -1,5 +1,8 @@
 # Full round-trip: timestamp -> filename -> back to datetime
 
-from setta.types.notifications import SettaNotification
+import json
+import uuid
 
-s = SettaNotification(message="hi").model_dump()
+x = {uuid.uuid4(): "hello"}
+
+json.dumps(x)

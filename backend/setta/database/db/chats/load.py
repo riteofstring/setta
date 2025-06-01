@@ -1,8 +1,10 @@
 import json
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from setta.types.ai import ID, IDToUUIDForLLM
+from setta.database.table_definitions import UUIDMappingForLLMTable
+from setta.types.ai import ID, IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
 
 
@@ -65,18 +67,11 @@ def load_all_chat_metadata(db):
     return output
 
 
-def load_uuid_mapping_for_llm(db):
-    query = """
-        SELECT id, uuid
-        FROM UUIDMappingForLLM
-    """
-
-    db.execute(query)
-
+def load_uuid_mapping_for_llm(db: Session) -> tuple[IDToUUIDForLLM, UUIDToIDForLLM]:
+    stmt = select(UUIDMappingForLLMTable)
     id_to_uuid: IDToUUIDForLLM = {}
     uuid_to_id = {}
-    for row in db.fetchall():
-        id_to_uuid[ID(row["id"])] = row["uuid"]
-        uuid_to_id[row["uuid"]] = str(row["id"])
-
+    for row in db.scalars(stmt).all():
+        id_to_uuid[ID(row.id)] = row.uuid_column
+        uuid_to_id[row.uuid_column] = str(row.id)
     return id_to_uuid, uuid_to_id

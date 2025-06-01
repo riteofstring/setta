@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -92,9 +91,9 @@ class ProjectStateTable(BaseTable):
 
 
 class ArtifactTable(BaseTable):
-    __tablename__ = "BasicArtifact"
+    __tablename__ = "Artifact"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str]
     path: Mapped[Path] = mapped_column(PathType)
     type: Mapped[ArtifactType]
@@ -106,7 +105,7 @@ class NotificationsTable(BaseTable):
     __tablename__ = "Notifications"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    projectConfigId: Mapped[uuid.UUID]
+    projectConfigId: Mapped[str]
     timestamp: Mapped[datetime]
     type: Mapped[SettaNotificationType]
     message: Mapped[str]
@@ -115,7 +114,7 @@ class NotificationsTable(BaseTable):
 class ChatTable(BaseTable):
     __tablename__ = "Chat"
 
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     name: Mapped[str]
     lastUpdated: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -129,7 +128,7 @@ class ChatMessageTable(BaseTable):
     __tablename__ = "ChatMessage"
 
     id: Mapped[str] = mapped_column(primary_key=True)
-    chatId: Mapped[uuid.UUID] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
+    chatId: Mapped[str] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
     order: Mapped[int] = mapped_column(name="order")  # "order" is a reserved word
     role: Mapped[ChatRole]
     content: Mapped[SettaChatMessageContent] = mapped_column(SettaChatMessageColumnType)
@@ -142,4 +141,4 @@ class UUIDMappingForLLMTable(BaseTable):
     __tablename__ = "UUIDMappingForLLM"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    uuid_column: Mapped[uuid.UUID] = mapped_column("uuid", unique=True)
+    uuid_column: Mapped[str] = mapped_column("uuid", unique=True)

@@ -1,33 +1,20 @@
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from setta.api.logger import get_wrapper_for_loading
-from setta.types.artifact import Artifact, ArtifactType, ArtifactWithoutValue
+from setta.database.table_definitions import ArtifactTable
+from setta.types.artifact import ArtifactType, ArtifactWithoutValue
 from setta.utils.constants import C
-from setta.utils.utils import try_json
 
 
 def load_artifacts(db: Session, ids: list[str]):
-    placeholders = ", ".join(["?"] * len(ids))
-    query = f"""
-        SELECT id, name, path, value, type
-        FROM Artifact
-        WHERE id IN ({placeholders})
-    """
-
-    db.execute(query, ids)
-
-    output: dict[str, Artifact] = {}
-    for row in db.fetchall():
-        output[row["id"]] = Artifact(
-            name=row["name"],
-            path=row["path"],
-            value=try_json(row["value"]),
-            type=row["type"],
-        )
-
-    return output
+    stmt = select(ArtifactTable).where(ArtifactTable.id.in_(ids))
+    results = db.scalars(stmt).all()
+    return [
+        ArtifactWithoutValue(name=x.name, path=x.path, type=x.type) for x in results
+    ]
 
 
 def load_available_artifacts(db: Session, sectionType):
