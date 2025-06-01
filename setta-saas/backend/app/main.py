@@ -107,22 +107,20 @@ async def create_project(
     project_data: ProjectCreateRequest, session: Session = Depends(get_session)
 ):
     """Create a new project and Fly.io container"""
-    # Generate a unique app name for Fly.io
-    # App names must be globally unique and can only contain lowercase letters, numbers, and hyphens
+    # Generate safe app name
     safe_name = re.sub(r"[^a-z0-9-]", "-", project_data.name.lower())
-    # Remove consecutive hyphens and trim hyphens from start/end
     safe_name = re.sub(r"-+", "-", safe_name).strip("-")
-    # Ensure it starts with a letter (prepend 'app' if it doesn't)
-    if safe_name and not safe_name[0].isalpha():
+
+    # Ensure it starts with a letter
+    if not safe_name or not safe_name[0].isalpha():
         safe_name = f"app-{safe_name}"
+
     # Create unique name with timestamp
-    app_name = f"setta-{safe_name}-{int(time.time())}"
-    # Ensure total length is within Fly.io limits (max 63 chars)
-    app_name = app_name[:63]
+    app_name = f"setta-{safe_name}-{int(time.time())}"[:63]
 
     print(f"Generated app name: {app_name}")
 
-    # Create project in database first
+    # Create project in database
     project = Project(
         name=project_data.name, url="Creating...", status=ProjectStatus.CREATING.value
     )
@@ -130,49 +128,35 @@ async def create_project(
     session.commit()
     session.refresh(project)
 
-    # Try to create Fly.io app
+    # Create Fly.io app
     print(f"Creating Fly.io app for project {project.name}")
     fly_app = fly_manager.create_app(app_name)
 
     if not fly_app:
+        project.url = "Failed to create app"
         project.update_status(ProjectStatus.ERROR)
-        project.url = "Failed to create"
         session.add(project)
         session.commit()
         return project
 
-    # Update project with real URL
+    # Update project with URL
     project.url = f"https://{fly_app.hostname}"
     project.update_status(ProjectStatus.CREATED)
     session.add(project)
     session.commit()
 
-    # Verify app exists
-    print(f"Verifying app {app_name} exists...")
-    app_status = fly_manager.get_app_status(app_name)
+    # Deploy to the app
+    print(f"Deploying to {app_name}")
+    deployment_success = fly_manager.deploy_to_app(app_name)
 
-    if not app_status:
-        print(f"WARNING: App {app_name} not found after creation!")
-        project.update_status(ProjectStatus.DNS_PENDING)
-        project.url = f"https://{app_name}.fly.dev (DNS pending)"
+    if not deployment_success:
+        project.update_status(ProjectStatus.DEPLOYMENT_PENDING)
         session.add(project)
         session.commit()
         return project
 
-    print(f"App verified: {app_status}")
-
-    # Deploy to the app
-    print(f"Attempting deployment to {app_name}")
-    deployment_success = fly_manager.deploy_to_app(app_name)
-
-    status = (
-        ProjectStatus.RUNNING
-        if deployment_success
-        else ProjectStatus.DEPLOYMENT_PENDING
-    )
-    project.update_status(status)
-    print(f"Project {app_name} status: {project.status}")
-
+    # Mark as running
+    project.update_status(ProjectStatus.RUNNING)
     session.add(project)
     session.commit()
     session.refresh(project)

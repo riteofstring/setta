@@ -74,34 +74,42 @@ class CreateMachineRequest(BaseModel):
 
     @classmethod
     def default_config(cls, app_name: str) -> "CreateMachineRequest":
-        """Create default machine configuration"""
+        """Create default machine configuration for test FOSS app"""
         return cls(
             region="ord",
             config={
+                # For now, use a simple working image
+                # TODO: Replace with actual FOSS app image
                 "image": "flyio/hellofly:latest",
-                "metadata": {
-                    "fly_platform_version": "v2",
-                    "fly_process_group": "app",
-                    "fly_auto_stop": "true",
-                    "fly_auto_start": "true",
+                "env": {
+                    "PROJECT_NAME": app_name,
+                    "FLY_APP_NAME": app_name,
                 },
-                "env": {"PROJECT_NAME": app_name, "FLY_APP_NAME": app_name},
                 "services": [
                     {
-                        "ports": [
-                            {"port": 443, "handlers": ["tls", "http"]},
-                            {"port": 80, "handlers": ["http"]},
-                        ],
                         "protocol": "tcp",
-                        "internal_port": 8080,
-                        "concurrency": {
-                            "type": "connections",
-                            "hard_limit": 25,
-                            "soft_limit": 20,
-                        },
+                        "internal_port": 8080,  # hellofly runs on 8080
+                        "ports": [
+                            {
+                                "port": 80,
+                                "handlers": ["http"],
+                            },
+                            {
+                                "port": 443,
+                                "handlers": ["tls", "http"],
+                            },
+                        ],
                     }
                 ],
-                "restart": {"policy": "on-failure", "max_retries": 10},
-                "auto_destroy": False,
+                "init": {},
+                "auto_destroy": True,
+                "restart": {
+                    "policy": "always",
+                },
+                "guest": {
+                    "cpu_kind": "shared",
+                    "cpus": 1,
+                    "memory_mb": 256,
+                },
             },
         )
