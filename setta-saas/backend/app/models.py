@@ -81,12 +81,12 @@ class CreateMachineRequest(BaseModel):
                             {
                                 "port": 80,
                                 "handlers": ["http"],
-                                "force_https": False,
+                                "force_https": True,  # Redirect HTTP to HTTPS
                             },
                             {
                                 "port": 443,
                                 "handlers": ["tls", "http"],
-                                "force_https": True,
+                                # Don't set force_https when tls handler is enabled
                             },
                         ],
                         "concurrency": {
