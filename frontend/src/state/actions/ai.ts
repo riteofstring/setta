@@ -38,6 +38,8 @@ export async function getLLMChat(chatId) {
       },
       currentChatId: chatId,
     }));
+  } else {
+    useAIStore.setState({ currentChatId: null });
   }
 }
 

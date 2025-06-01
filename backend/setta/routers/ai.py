@@ -1,5 +1,5 @@
 from dotenv import dotenv_values, load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
@@ -172,7 +172,7 @@ async def route_get_llm_chat(
                 websocket_msg_handler.broadcast_notification,
                 notification,
             )
-        return {"messages": [], "waitingForResponse": False}
+        raise HTTPException(status_code=404, detail="Chat not found")
 
     waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
     current_stream = chat_manager.get_current_stream(x.chatId)
