@@ -5,6 +5,8 @@ from typing import Any, Dict
 
 from setta.utils.constants import C, classproperty
 
+EXCLUSIONS = set(["DEFAULT_DB_PATH", "DB_PATH"])
+
 
 def extract_constants(constants_class) -> Dict[str, Any]:
     constants = {}
@@ -33,6 +35,8 @@ export class C {
 
     # Generate static properties for all constants
     for name, value in constants.items():
+        if name in EXCLUSIONS:
+            continue
         js_code += f"  static {name} = {json.dumps(value)};\n"
 
     js_code += """

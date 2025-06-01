@@ -18,7 +18,6 @@ export class C {
     "CODE_AREA_GEN_CODE_NOT_INITIALIZED";
   static COLLECTION = "collection";
   static COLOR_PICKER = "COLOR_PICKER";
-  static DB_PATH = "";
   static DEFAULT_BASH_SCRIPT_NAME = "setta_bash_script";
   static DEFAULT_DB_ALIAS = "default";
   static DEFAULT_HOST = "127.0.0.1";
