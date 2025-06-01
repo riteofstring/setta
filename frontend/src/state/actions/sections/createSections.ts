@@ -161,11 +161,13 @@ export function createSectionInfo({
   position,
   state,
 }) {
-  const newIds = [];
-  const topLevelSectionIds = [];
+  const newIds: string[] = [];
+  const topLevelSectionIds: string[] = [];
 
   for (let i = 0; i < numSections; i++) {
     const s = createSection(sectionProps);
+    s.variantIds = [s.variantId]
+    s.defaultVariantId = s.variantId
     newIds.push(s.id);
     state.sections[s.id] = s;
     state.variants[s.variantId] = createSectionVariant(sectionVariantProps);

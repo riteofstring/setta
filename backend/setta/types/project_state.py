@@ -81,6 +81,7 @@ class Section(BaseModel, extra="forbid"):
     social: str = ""
     artifactGroupIds: list[str] = Field(default_factory=list)
     defaultVariantId: str | None = None
+    previewVariantId: str | None = None
     variantIds: list[str] = Field(default_factory=list)
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.python

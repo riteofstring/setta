@@ -777,6 +777,7 @@ export const SectionSchema = z.object({
   social: z.string().default(""),
   artifactGroupIds: z.array(z.string()).default([]),
   defaultVariantId: z.union([z.string(), z.null()]).default(null),
+  previewVariantId: z.union([z.string(), z.null()]).default(null),
   variantIds: z.array(z.string()).default([]),
   nonPresetUITypeIds: z.array(z.string()).default([]),
   codeLanguage: CodeLanguageSchema.default("python"),
