@@ -76,43 +76,51 @@ def get_all_pydantic_models(module):
     )
 
 
-def generate_dependencies_ts(type_definitions: dict, processed_types: set):
+def generate_dependencies_zod(type_definitions: dict, processed_types: set):
     """Generate TypeScript for any discovered dependencies."""
     dependency_ts = ""
     for dep_name, (dep_type, dep_obj) in list(type_definitions.items()):
         if dep_name not in processed_types:
             if dep_type == "enum":
-                dependency_ts += enum_to_ts(dep_obj, processed_types)
+                dependency_ts += enum_to_zod(dep_obj, processed_types)
             elif dep_type == "pydantic":
-                dependency_ts += pydantic_model_to_ts(
+                dependency_ts += pydantic_model_to_zod(
                     dep_obj, type_definitions, processed_types
                 )
     return dependency_ts
 
 
-def alias_to_ts(name, alias_type, type_definitions: dict, processed_types: set):
-    """Convert a type alias to TypeScript type definition."""
+def alias_to_zod(name, alias_type, type_definitions: dict, processed_types: set):
     if name in processed_types:
         return ""
 
     processed_types.add(name)
-    ts_type = python_type_to_ts(alias_type, type_definitions, processed_types)
 
-    # Generate any dependencies first
-    dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
+    zod_schema = python_type_to_zod(alias_type, type_definitions, processed_types)
 
-    return dependency_ts + f"export type {name} = {ts_type};\n\n"
+    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
+
+    return (
+        dependency_zod
+        + f"""export const {name}Schema = {zod_schema};
+export type {name} = z.infer<typeof {name}Schema>;
+
+"""
+    )
 
 
-def enum_to_ts(enum_class, processed_types: set):
+def enum_to_zod(enum_class, processed_types: set):
     enum_name = enum_class.__name__
     if enum_name in processed_types:
         return ""
 
     processed_types.add(enum_name)
-    members = [f'  {member.name} = "{member.value}"' for member in enum_class]
-    members_str = ",\n".join(members)
-    return f"export enum {enum_name} {{\n{members_str}\n}}\n\n"
+    values = [f'"{member.value}"' for member in enum_class]
+    values_str = ", ".join(values)
+    return f"""export const {enum_name}Schema = z.enum([{values_str}]);
+export type {enum_name} = z.infer<typeof {enum_name}Schema>;
+
+"""
 
 
 def python_type_to_zod(python_type, type_definitions: dict, processed_types: set):
@@ -243,40 +251,43 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
     return "z.any()"
 
 
-def pydantic_model_to_ts(model, type_definitions: dict, processed_types: set):
-    """Convert a Pydantic model to TypeScript type definition.
-
-    Args:
-        model: The Pydantic model to convert
-        type_definitions: Dict to accumulate type definitions that need to be generated
-        processed_types: Set of already processed type names to avoid duplicates
-    """
+def pydantic_model_to_zod(
+    model: type[BaseModel], type_definitions: dict, processed_types: set
+):
     name = model.__name__
 
-    # Check if already processed
     if name in processed_types:
         return ""
 
-    # Mark as being processed (to handle circular references)
     processed_types.add(name)
 
-    # Get model fields
+    # Generate dependencies first
+    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
+
+    # Build the object schema
     fields = []
     for field_name, field_info in model.model_fields.items():
         field_type = field_info.annotation
-        ts_type = python_type_to_zod(field_type, type_definitions, processed_types)
-        # is_required = field_info.is_required()
-        fields.append(f"  {field_name}: {ts_type}")
+        zod_schema = python_type_to_zod(field_type, type_definitions, processed_types)
 
-    # Join fields with semicolons
-    members_str = ";\n".join(fields)
-    if members_str:
-        members_str += ";"
+        # Handle optional fields
+        if not field_info.is_required():
+            zod_schema = f"{zod_schema}.optional()"
 
-    # Generate TypeScript for any dependencies that were discovered
-    dependency_ts = generate_dependencies_ts(type_definitions, processed_types)
+        fields.append(f"  {field_name}: {zod_schema}")
 
-    return dependency_ts + f"export type {name} = {{\n{members_str}\n}}\n\n"
+    fields_str = ",\n".join(fields)
+
+    # Generate schema and inferred type
+    return (
+        dependency_zod
+        + f"""export const {name}Schema = z.object({{
+{fields_str}
+}});
+export type {name} = z.infer<typeof {name}Schema>;
+
+"""
+    )
 
 
 def main(output_file):
@@ -292,18 +303,23 @@ def main(output_file):
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
 
-    ts_code = "export type ID = string\n\n"
+    ts_code = """import { z } from 'zod';
+
+export const IDSchema = z.string();
+export type ID = z.infer<typeof IDSchema>;
+
+"""
     processed_types = set()
     type_definitions = {}
 
     for x_name, x in all_aliases.items():
-        ts_code += alias_to_ts(x_name, x, type_definitions, processed_types)
+        ts_code += alias_to_zod(x_name, x, type_definitions, processed_types)
 
     for x in all_enums.values():
-        ts_code += enum_to_ts(x, processed_types)
+        ts_code += enum_to_zod(x, processed_types)
 
     for x in all_pydantic_models.values():
-        ts_code += pydantic_model_to_ts(x, type_definitions, processed_types)
+        ts_code += pydantic_model_to_zod(x, type_definitions, processed_types)
 
     with open(output_file, "w") as f:
         f.write(ts_code)
