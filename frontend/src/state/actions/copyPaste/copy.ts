@@ -1,14 +1,8 @@
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useActiveSection, useProjectState } from "state/definitions";
-import { getForSectionId } from "state/hooks/paramSweep";
-import { C } from "utils/c";
 import { findAll } from "utils/getDescendants";
-import { addTemporaryNotification } from "../notifications";
-import {
-  getAllSectionsForDeletionOrCopying,
-  getSectionType,
-} from "../sectionInfos";
+import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
 
 export async function copy() {
   const activeSectionIds = useActiveSection.getState().ids;
@@ -45,21 +39,7 @@ export function copySections(sectionIds) {
 
 function getSections(sectionIds, state) {
   const ids = getAllSectionsForDeletionOrCopying(sectionIds, state);
-  const allSections = _.pick(state.sections, ids);
-
-  const withoutLoneParamSweeps = _.pickBy(allSections, (s) => {
-    if (getSectionType(s.id) !== C.PARAM_SWEEP) {
-      return true;
-    }
-    // if it's a param sweep section, then keep it only if it's corresponding section is also being copied.
-    return !!getForSectionId(s.id, allSections);
-  });
-
-  if (_.size(allSections) !== _.size(withoutLoneParamSweeps)) {
-    addTemporaryNotification("Lone param sweeps won't be included in copy");
-  }
-
-  return withoutLoneParamSweeps;
+  return _.pick(state.sections, ids);
 }
 
 function getSectionVariants(sections, state) {

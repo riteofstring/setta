@@ -14,13 +14,6 @@ def copy_section_variants(section_variants, code_info_id_map, code_info_col_id_m
         if obj["selectedItem"]:
             obj["selectedItem"] = code_info_id_map[obj["selectedItem"]]
 
-        # param sweep
-        for s in obj["sweep"]:
-            if s["selectedItem"]:
-                s["selectedItem"] = code_info_id_map[s["selectedItem"]]
-            for p in s["params"]:
-                p["paramInfoId"] = code_info_id_map[p["paramInfoId"]]
-
     return new_section_variants, section_variant_id_map
 
 

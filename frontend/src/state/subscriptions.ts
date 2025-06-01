@@ -22,10 +22,8 @@ import {
   updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
-import { updateRunGroupsWithNewHierarchy } from "./actions/runGroups/runGroups";
 import {
   getDisplayedSectionIdToChildren,
-  getSectionIdToParentId,
   getSectionShouldRender,
   getSectionType,
   getSectionViewingEditingModeVisibility,
@@ -50,14 +48,6 @@ export function subscribe() {
     getDisplayedSectionIdToChildren,
     (x) => {
       useDndChildren.getState().update(x);
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useProjectState.subscribe(
-    getSectionIdToParentId,
-    (newVal, oldVal) => {
-      updateRunGroupsWithNewHierarchy(newVal, oldVal);
     },
     { equalityFn: _.isEqual },
   );
@@ -173,14 +163,12 @@ export function subscribe() {
 function singletonSectionsSubscriptionFn(state) {
   const output = {
     [C.GLOBAL_VARIABLES]: null,
-    [C.GLOBAL_PARAM_SWEEP]: null,
     [C.GEN_PYTHON_CODE]: null,
   };
   for (const s of Object.values(state.sections)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[C.GLOBAL_VARIABLES] &&
-      output[C.GLOBAL_PARAM_SWEEP] &&
       output[C.GEN_PYTHON_CODE] &&
       output.temporaryTerminalGroup
     ) {
@@ -188,9 +176,6 @@ function singletonSectionsSubscriptionFn(state) {
     }
     if (!output[C.GLOBAL_VARIABLES] && uiType === C.GLOBAL_VARIABLES) {
       output[C.GLOBAL_VARIABLES] = s.id;
-    }
-    if (!output[C.GLOBAL_PARAM_SWEEP] && uiType === C.GLOBAL_PARAM_SWEEP) {
-      output[C.GLOBAL_PARAM_SWEEP] = s.id;
     }
     if (!output[C.GEN_PYTHON_CODE] && uiType === C.GEN_PYTHON_CODE) {
       output[C.GEN_PYTHON_CODE] = s.id;

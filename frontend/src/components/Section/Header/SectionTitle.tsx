@@ -1,7 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
-import { createParamSweepSectionName } from "state/actions/uiTypes/utils";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -79,9 +78,6 @@ function setSectionName(sectionId, name) {
   useProjectState.setState((x) => {
     const s = x.sections[sectionId];
     s.name = name;
-    if (s.paramSweepSectionId) {
-      x.sections[paramSweepSectionId].name = createParamSweepSectionName(name);
-    }
     x.requestRenameRefactor = true;
   });
   maybeIncrementProjectStateVersion(true);
@@ -89,12 +85,9 @@ function setSectionName(sectionId, name) {
 
 function useTitleIsEditable(sectionId) {
   return useProjectState((x) => {
-    const isUneditableType = [
-      C.GLOBAL_VARIABLES,
-      C.PARAM_SWEEP,
-      C.GLOBAL_PARAM_SWEEP,
-      C.GEN_PYTHON_CODE,
-    ].includes(getSectionType(sectionId, x));
+    const isUneditableType = [C.GLOBAL_VARIABLES, C.GEN_PYTHON_CODE].includes(
+      getSectionType(sectionId, x),
+    );
 
     const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);
 

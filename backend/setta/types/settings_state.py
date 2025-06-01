@@ -104,7 +104,6 @@ class SettingsState(BaseModel, extra="forbid"):
         "TERMINAL": {"size": {"width": 700, "height": 300}},
         "CHART": {"size": {"width": 400, "height": 400}},
         "GLOBAL_VARIABLES": {"name": "Global Variables"},
-        "GLOBAL_PARAM_SWEEP": {"name": "Global Param Sweep"},
         "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
         "TEXT_BLOCK": {"displayMode": "RENDER"},
         "CHAT": {"size": {"width": 405, "height": 405}},

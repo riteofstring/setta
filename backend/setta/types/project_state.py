@@ -101,7 +101,6 @@ class Section(BaseModel, extra="forbid"):
     artifactGroupIds: list[str] = Field(default_factory=list)
     defaultVariantId: str | None = None
     variantIds: list[str] = Field(default_factory=list)
-    paramSweepSectionId: str | None = None
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.PYTHON
     isEntryCodeBlock: bool = False
@@ -152,8 +151,6 @@ class SectionVariant(BaseModel, extra="forbid"):
     codeInfoColId: str | None = None
     description: str = ""
     isFrozen: bool = False
-    sweep: list[Any] = Field(default_factory=list)
-    runGroup: dict[str, Any] = Field(default_factory=dict)
     configLanguage: ConfigLanguage = ConfigLanguage.PYTHON
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)

@@ -132,22 +132,8 @@ export const BASE_UI_TYPES_LIST = [
     config: {},
   },
   {
-    id: "af0538a7-9667-400e-987e-ae3c844e0fcd",
-    type: "PARAM_SWEEP",
-    name: "",
-    presetType: "BASE",
-    config: {},
-  },
-  {
     id: "d6d40533-ee47-42a5-8b55-5455716c71ac",
     type: "TERMINAL",
-    name: "",
-    presetType: "BASE",
-    config: {},
-  },
-  {
-    id: "02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-    type: "GLOBAL_PARAM_SWEEP",
     name: "",
     presetType: "BASE",
     config: {},

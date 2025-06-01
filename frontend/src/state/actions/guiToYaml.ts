@@ -5,7 +5,6 @@ import {
   getDisplayedSectionVariantId,
   getSectionInfo,
   getSectionType,
-  getSectionVariant,
   setEnteredValue,
 } from "state/actions/sectionInfos";
 import {
@@ -13,19 +12,15 @@ import {
   useProjectState,
   useYamlValue,
 } from "state/definitions";
-import { getForSectionId } from "state/hooks/paramSweep";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
-import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { createNewId } from "utils/idNameCreation";
-import { parseAllDocuments } from "yaml";
 import {
   getOrCreateCodeInfoCol,
   newCodeInfoMaybeWithJsonSource,
 } from "./codeInfo";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
-import { paramNameFromPathArray } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId, variantId) {
   const res = await dbGuiToYaml(sectionId, variantId);
@@ -43,236 +38,12 @@ export function yamlToGUI(sectionId) {
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[variantId] ?? "";
   switch (sectionType) {
-    case C.PARAM_SWEEP:
-      paramSweepSectionYamlToGUI(sectionId, yamlValue);
-      break;
-    case C.GLOBAL_PARAM_SWEEP:
-      globalParamSweepSectionYamlToGUI(yamlValue, variantId);
-      break;
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
       const originalObj = useOriginalYamlObj.getState()[variantId] ?? {};
       sectionYamlToGUI(sectionId, yamlValue, originalObj);
       break;
   }
-}
-
-function paramSweepSectionYamlToGUI(sectionId, yamlValue) {
-  const state = useProjectState.getState();
-  const forSectionId = getForSectionId(sectionId, state.sections);
-  const documents = splitDocuments(yamlValue);
-  const parsedDocs = documents.map((doc) =>
-    doc.trim() ? parseRawDump(doc) : {},
-  );
-  const codeInfoChildren = getCodeInfoCol(forSectionId, state).children;
-  const codeInfoChildrenKeys = Object.keys(codeInfoChildren);
-  const newParamSweep = [];
-
-  for (const d of parsedDocs) {
-    const hasCallable = !Array.isArray(d);
-    let matchingCallableId = null,
-      callableName;
-    if (hasCallable) {
-      callableName = Object.keys(d)[0];
-      if (!callableName) {
-        newParamSweep.push({ selectedItem: null, params: [] });
-        continue;
-      }
-
-      matchingCallableId = tryFindingMatchingId(
-        callableName,
-        codeInfoChildrenKeys,
-        state.codeInfo,
-      );
-      if (!matchingCallableId) {
-        continue;
-      }
-    }
-
-    const { pathMap } = findAllParametersAndPathMaps({
-      allCodeInfo: state.codeInfo,
-      codeInfoChildren,
-      startingId: matchingCallableId,
-    });
-
-    let paramsInDoc = callableName ? d[callableName] : d;
-    // Usually this is a list.
-    // But if it's just "empty" then it'll be an empty dict.
-    // Hence why I'm using _.size
-    if (_.size(paramsInDoc) === 0) {
-      paramsInDoc = [];
-    }
-
-    const params = [];
-
-    for (const singleParam of paramsInDoc) {
-      const paramName = Object.keys(singleParam)[0];
-      let matchingParamId;
-      for (const id of Object.keys(pathMap)) {
-        if (paramNameFromPathArray(state.codeInfo, pathMap, id) === paramName) {
-          matchingParamId = id;
-          break;
-        }
-      }
-      if (!matchingParamId) {
-        continue;
-      }
-      const values = singleParam[paramName];
-      if (_.size(values) > 0) {
-        params.push({
-          paramInfoId: matchingParamId,
-          values,
-        });
-      }
-    }
-
-    newParamSweep.push({ selectedItem: matchingCallableId, params });
-  }
-
-  useProjectState.setState((x) => {
-    getSectionVariant(sectionId, x).sweep = newParamSweep;
-  });
-}
-
-function tryFindingMatchingId(name, codeInfoChildrenKeys, codeInfo) {
-  return codeInfoChildrenKeys.find((x) => codeInfo[x]?.name === name);
-}
-
-function globalParamSweepSectionYamlToGUI(yamlValue, runGroupId) {
-  const doc = parseAllDocuments(yamlValue)[0].toJS();
-  const state = useProjectState.getState();
-  const sections = state.sections;
-  const variants = state.variants;
-  const newRunGroupSections = {};
-
-  for (const [k, v] of Object.entries(doc)) {
-    recursiveHelper(k, v, sections, variants, newRunGroupSections, null, null);
-  }
-
-  useProjectState.setState((x) => {
-    x.variants[runGroupId].runGroup = newRunGroupSections;
-  });
-}
-
-function recursiveHelper(
-  name,
-  value,
-  sections,
-  variants,
-  newRunGroupSections,
-  forSectionId,
-  parentVariantId,
-) {
-  let nextForSectionId = forSectionId;
-  let nextParentVariantId = parentVariantId;
-  const [match, type] = getMatch(name, forSectionId, sections, variants);
-  if (type === "section") {
-    if (!(match in newRunGroupSections)) {
-      newRunGroupSections[match] = {};
-    }
-    newRunGroupSections[match][parentVariantId] = {
-      selected: true,
-      versions: {},
-      paramSweeps: {},
-    };
-    nextForSectionId = match;
-  } else if (type === "sectionVariant") {
-    newRunGroupSections[forSectionId][parentVariantId].versions[match] = true;
-    nextParentVariantId = match;
-  } else if (type === "paramSweep") {
-    newRunGroupSections[forSectionId][parentVariantId].paramSweeps[match] =
-      true;
-  }
-
-  if (value) {
-    // do param sweeps first, because they need to be registered with the current parentVariantId
-    for (const [k, v] of Object.entries(
-      _.pickBy(value, (innerV, innerK) => innerK.startsWith("~")),
-    )) {
-      recursiveHelper(
-        k,
-        v,
-        sections,
-        variants,
-        newRunGroupSections,
-        nextForSectionId,
-        nextParentVariantId,
-      );
-    }
-  }
-
-  if (type === "section") {
-    // if a section doesn't have any children
-    // or if none of the children start with @
-    // then we need to select the section's only version here because it won't be
-    // covered recursively
-    if (!value || !Object.keys(value).some((k) => k.startsWith("@"))) {
-      nextParentVariantId = sections[match].variantId;
-      newRunGroupSections[match][parentVariantId].versions[
-        nextParentVariantId
-      ] = true;
-    }
-  }
-
-  if (!value) {
-    return;
-  }
-
-  // do sections and variants
-  for (const [k, v] of Object.entries(
-    _.pickBy(value, (innerV, innerK) => !innerK.startsWith("~")),
-  )) {
-    recursiveHelper(
-      k,
-      v,
-      sections,
-      variants,
-      newRunGroupSections,
-      nextForSectionId,
-      nextParentVariantId,
-    );
-  }
-}
-
-function getMatch(name, forSectionId, sections, variants) {
-  let match, type;
-  if (forSectionId && name.startsWith("@")) {
-    const searchName = name.slice(1);
-    for (const v of sections[forSectionId].variantIds) {
-      if (variants[v].name === searchName) {
-        match = v;
-        type = "sectionVariant";
-        break;
-      }
-    }
-  } else if (forSectionId && name.startsWith("~")) {
-    const searchName = name.slice(1);
-    const { paramSweepSectionId } = sections[forSectionId];
-    for (const v of sections[paramSweepSectionId].variantIds) {
-      if (variants[v].name === searchName) {
-        match = v;
-        type = "paramSweep";
-        break;
-      }
-    }
-  } else if (forSectionId) {
-    for (const v of variants[sections[forSectionId].variantId].children) {
-      if (sections[v].name === name) {
-        match = v;
-        type = "section";
-        break;
-      }
-    }
-  } else {
-    for (const v of Object.values(sections)) {
-      if (v.name === name) {
-        match = v.id;
-        type = "section";
-        break;
-      }
-    }
-  }
-  return [match, type];
 }
 
 function sectionYamlToGUI(sectionId, yamlValue, originalObj) {

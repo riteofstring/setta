@@ -28,7 +28,6 @@ export class C {
   static DRAW = "DRAW";
   static DROPDOWN = "DROPDOWN";
   static GEN_PYTHON_CODE = "GEN_PYTHON_CODE";
-  static GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP";
   static GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
   static GROUP = "GROUP";
   static HOST = "127.0.0.1";
@@ -67,7 +66,6 @@ export class C {
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PARAMETER = "parameter";
-  static PARAM_SWEEP = "PARAM_SWEEP";
   static PASSWORD = "PASSWORD";
   static PORT = 8000;
   static PRESET_UI_TYPE_BASE = "BASE";
@@ -102,8 +100,6 @@ export class C {
   static ROUTE_GET_LLM_RESPONSE = "/getLLMResponse";
   static ROUTE_GET_NOTIFICATIONS = "/getNotifications";
   static ROUTE_GET_UUID_MAPPING_FOR_LLM = "/getUUIDMappingForLLM";
-  static ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML =
-    "/globalParamSweepSectionToYaml";
   static ROUTE_KILL_SUBPROCESSES = "/killSubprocesses";
   static ROUTE_LOAD_ALL_PROJECT_METADATA = "/loadAllProjectMetadata";
   static ROUTE_LOAD_ARTIFACTS = "/loadArtifacts";
@@ -115,7 +111,6 @@ export class C {
   static ROUTE_LOAD_SETTINGS_PROJECT = "/loadSettingsProject";
   static ROUTE_NEW_JSON_VERSION_NAME = "/newJsonVersionName";
   static ROUTE_OPENAPI_DOCS = "/openapi.json";
-  static ROUTE_PARAM_SWEEP_SECTION_TO_YAML = "/paramSweepSectionToYaml";
   static ROUTE_PREFIX = "/api";
   static ROUTE_READ_CSV_BASE64 = "/readCSVBase64";
   static ROUTE_REDOC_DOCS = "/redoc";

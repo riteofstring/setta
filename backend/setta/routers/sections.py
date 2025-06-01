@@ -5,13 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from setta.code_gen.utils import (
-    export_param_sweep_section_to_dict,
     export_section_to_dict,
-    export_single_run_group_to_dict,
 )
 from setta.code_gen.yaml.section_dict import (
-    param_sweep_dict_to_yaml,
-    run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
 from setta.database.db.jsonSource.load import (
@@ -43,18 +39,6 @@ class SectionToYamlRequest(BaseModel):
     sectionVariant: dict
     pinnedIds: dict[str, list[str]]
     unpinnedIds: dict[str, list[str]]
-
-
-class ParamSweepSectionToYamlRequest(BaseModel):
-    sweep: list
-    codeInfo: dict
-    codeInfoChildren: dict
-
-
-class GlobalParamSweepSectionToYamlRequest(BaseModel):
-    runGroup: dict | None
-    sections: dict
-    sectionVariants: dict
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
@@ -121,24 +105,6 @@ def route_section_to_yaml(x: SectionToYamlRequest):
             "unpinned": output["unpinned"].output,
         },
     }
-
-
-@router.post(C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML)
-def route_param_sweep_section_to_yaml(x: ParamSweepSectionToYamlRequest):
-    output = export_param_sweep_section_to_dict(x.sweep, x.codeInfo, x.codeInfoChildren)
-    yamlValue = param_sweep_dict_to_yaml(output)
-    return {"yamlValue": yamlValue, "originalObj": {}}
-
-
-@router.post(C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML)
-def route_global_param_sweep_section_to_yaml(x: GlobalParamSweepSectionToYamlRequest):
-    output = export_single_run_group_to_dict(
-        x.runGroup,
-        x.sections,
-        x.sectionVariants,
-    )
-    yamlValue = run_group_dict_to_yaml(output)
-    return {"yamlValue": yamlValue, "originalObj": {}}
 
 
 @router.post(C.ROUTE_LOAD_SECTION_JSON_SOURCE)

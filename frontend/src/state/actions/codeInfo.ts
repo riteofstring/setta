@@ -35,10 +35,6 @@ export function deleteCodeInfo(sectionId, ids, state) {
     ids,
   );
   state.uiTypeCols[uiTypeColId] = _.omit(state.uiTypeCols[uiTypeColId], ids);
-
-  for (const s of state.variants[variantId].sweep) {
-    s.params = s.params.filter((y) => !ids.includes(y.paramInfoId));
-  }
 }
 
 export function getOrCreateCodeInfoCol(variant, state) {

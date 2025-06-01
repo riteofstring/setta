@@ -31,9 +31,7 @@ class UITypeName(StrEnum):
     GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
     CODE = "CODE"
     GEN_PYTHON_CODE = "GEN_PYTHON_CODE"
-    PARAM_SWEEP = "PARAM_SWEEP"
     TERMINAL = "TERMINAL"
-    GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP"
     IFRAME = "IFRAME"
     CHAT = "CHAT"
     BROWSER = "BROWSER"
@@ -175,22 +173,8 @@ BASE_UI_TYPES_LIST: list[UIType] = [
         config={},
     ),
     UIType(
-        id="af0538a7-9667-400e-987e-ae3c844e0fcd",
-        type=UITypeName.PARAM_SWEEP,
-        name="",
-        presetType=UITypePresetType.BASE,
-        config={},
-    ),
-    UIType(
         id="d6d40533-ee47-42a5-8b55-5455716c71ac",
         type=UITypeName.TERMINAL,
-        name="",
-        presetType=UITypePresetType.BASE,
-        config={},
-    ),
-    UIType(
-        id="02f5da7b-71ae-4e42-b5b3-286fae1823ee",
-        type=UITypeName.GLOBAL_PARAM_SWEEP,
         name="",
         presetType=UITypePresetType.BASE,
         config={},

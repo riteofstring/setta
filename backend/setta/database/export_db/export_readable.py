@@ -5,10 +5,7 @@ from pathlib import Path
 
 from setta.api.logger import save_base64_to_png
 from setta.code_gen.utils import (
-    export_param_sweep_section_to_dict,
     export_section_to_dict,
-    export_single_run_group_to_dict,
-    get_for_section_id,
     get_section_variant_attr,
     get_section_variant_ids,
     get_selected_section_variant_id,
@@ -16,8 +13,6 @@ from setta.code_gen.utils import (
     get_variant_name,
 )
 from setta.code_gen.yaml.section_dict import (
-    param_sweep_dict_to_yaml,
-    run_group_dict_to_yaml,
     section_dict_to_yaml,
 )
 from setta.database.db.artifacts.load import (
@@ -145,42 +140,6 @@ def export_text_block_section(folder, config, section_id, variant_id, with_varia
         file.write(description)
 
 
-def export_param_sweep_section(folder, config, section_id, variant_id, with_variants):
-    for_section_id = get_for_section_id(config, section_id)
-    if not for_section_id:
-        return
-
-    sectionVariant = get_selected_section_variant(config, for_section_id)
-    codeInfoChildren = config["codeInfoCols"][sectionVariant["codeInfoColId"]][
-        "children"
-    ]
-    sweep = config["sectionVariants"][variant_id]["sweep"]
-    e = export_param_sweep_section_to_dict(sweep, config["codeInfo"], codeInfoChildren)
-    yamlValue = param_sweep_dict_to_yaml(e)
-    base = maybe_with_variant_in_filename(config, section_id, variant_id, with_variants)
-    with open(folder / f"{base}.yaml", "w") as file:
-        file.write(yamlValue)
-
-
-def export_global_param_sweep_section(folder, config, section_id, *_, **__):
-    subfolder_name = get_section_name(config, section_id)
-    folder = folder / subfolder_name
-    os.makedirs(folder, exist_ok=True)
-    variantIds = config["sections"][section_id]["variantIds"]
-    for v in variantIds:
-        variant = config["sectionVariants"][v]
-        run_group = variant["runGroup"]
-        e = export_single_run_group_to_dict(
-            run_group,
-            config["sections"],
-            config["sectionVariants"],
-        )
-        yamlValue = run_group_dict_to_yaml(e)
-        base = variant["name"]
-        with open(folder / f"{base}.yaml", "w") as file:
-            file.write(yamlValue)
-
-
 def export_social_section(folder, config, section_id, *_, **__):
     section = config["sections"][section_id]
     url = section["social"]
@@ -225,10 +184,6 @@ def get_exporter_fn(config, section_id):
         return export_list_section
     elif stype == C.TEXT_BLOCK:
         return export_text_block_section
-    elif stype == C.PARAM_SWEEP:
-        return export_param_sweep_section
-    elif stype == C.GLOBAL_PARAM_SWEEP:
-        return export_global_param_sweep_section
     # elif stype == C.DRAW:
     #     return export_canvas_rendered_value
     # elif stype == C.IMAGE:

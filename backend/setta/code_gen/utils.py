@@ -1,7 +1,5 @@
 import copy
 
-from setta.utils.section_contents import findAllParametersAndPathMaps
-
 from ..utils.constants import C
 
 SELF_IDENTIFIER = "s"
@@ -81,13 +79,6 @@ def get_section_code(p, id):
     return get_selected_section_variant(p, id)["code"]
 
 
-def get_for_section_id(p, section_id):
-    for sid, s in p["sections"].items():
-        if s["paramSweepSectionId"] == section_id:
-            return sid
-    return None
-
-
 def get_param_full_path_name(id, pathMap, codeInfo):
     if len(pathMap[id]) == 1:
         return codeInfo[pathMap[id][0]]["name"]
@@ -151,20 +142,6 @@ def export_section_to_dict(
         output[k] = e
 
     return output
-
-
-def export_param_sweep_section_to_dict(sweep, codeInfo, codeInfoChildren):
-    codeInfoChildren = replace_null_keys_with_none(codeInfoChildren)
-    e = ParamSweepSectionToDict(sweep, codeInfo, codeInfoChildren)
-    e.export()
-    return e
-
-
-def export_single_run_group_to_dict(runGroup, sections, sectionVariants):
-    runGroup = replace_null_keys_with_none(runGroup)
-    e = SingleRunGroupToDict(runGroup, sections, sectionVariants)
-    e.export()
-    return e
 
 
 def remove_unneeded_sections(p, keep_section_types):
@@ -359,101 +336,3 @@ class SectionToDict:
         else:
             value = new_ev_entry()["value"]
         return value, value
-
-
-class ParamSweepSectionToDict:
-    def __init__(
-        self,
-        sweep,
-        codeInfo,
-        codeInfoChildren,
-    ):
-        self.prettyOutput = []
-        self.sweep = sweep
-        self.codeInfo = codeInfo
-        self.codeInfoChildren = codeInfoChildren
-
-    def export(self):
-        for selectedItemSweep in self.sweep:
-            self.export_selected_item_sweep(selectedItemSweep)
-
-    def export_selected_item_sweep(self, selectedItemSweep):
-        selectedItem = selectedItemSweep["selectedItem"]
-        params = selectedItemSweep["params"]
-        if selectedItem:
-            selectedItemName = self.codeInfo[selectedItem]["name"]
-            currObj = {selectedItemName: []}
-            curr = currObj[selectedItemName]
-        else:
-            curr = currObj = []
-        result = findAllParametersAndPathMaps(
-            allCodeInfo=self.codeInfo,
-            codeInfoChildren=self.codeInfoChildren,
-            startingId=selectedItem,
-        )
-        pathMap = result["pathMap"]
-        for p in params:
-            if p["paramInfoId"]:
-                paramFullPathName = get_param_full_path_name(
-                    p["paramInfoId"], pathMap, self.codeInfo
-                )
-            else:
-                paramFullPathName = None
-            curr.append({paramFullPathName: p["values"]})
-        self.prettyOutput.append(currObj)
-
-
-class SingleRunGroupToDict:
-    def __init__(
-        self,
-        runGroup,
-        sections,
-        sectionVariants,
-    ):
-        self.prettyOutput = {}
-        self.runGroup = runGroup
-        self.sections = sections
-        self.sectionVariants = sectionVariants
-
-    def export(self):
-        if not self.runGroup:
-            return
-        for s in self.sections.values():
-            if not s["parentId"]:
-                result = self.export_section_details(s["id"], None)
-                if result:
-                    self.prettyOutput.update(result)
-
-    def export_section_details(self, sectionId, parentVariantId):
-        details = self.runGroup.get(sectionId, {}).get(parentVariantId, None)
-        if not details or not details["selected"]:
-            return {}
-        section_info = self.sections[sectionId]
-        section_name = section_info["name"]
-        output = {section_name: {}}
-
-        for variantId, selected in details["versions"].items():
-            if not selected:
-                continue
-            variant = self.sectionVariants[variantId]
-            variant_name = f"@{variant['name']}"
-            children = variant["children"]
-            child_dict = {}
-            for c in children:
-                child_result = self.export_section_details(c, variantId)
-                if child_result:
-                    child_dict.update(child_result)
-            output[section_name][variant_name] = child_dict
-
-        if len(section_info["variantIds"]) == 1:
-            output[section_name] = output[section_name][variant_name]
-
-        for paramSweepSectionVariantId, selected in details["paramSweeps"].items():
-            if not selected:
-                continue
-            param_sweep_name = (
-                f"~{self.sectionVariants[paramSweepSectionVariantId]['name']}"
-            )
-            output[section_name][param_sweep_name] = {}
-
-        return output

@@ -76,10 +76,4 @@ function removeSectionInfos(ids, state) {
       delete state.sections[id];
     }
   }
-
-  for (const [k, v] of Object.entries(state.sections)) {
-    if (idSet.has(v.paramSweepSectionId)) {
-      state.sections[k].paramSweepSectionId = null;
-    }
-  }
 }

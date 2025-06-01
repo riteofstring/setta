@@ -43,12 +43,8 @@ function getMinSectionHeight({
     return 58.2;
   } else if (sectionType === C.TEXT_BLOCK) {
     return 98;
-  } else if (sectionType === C.PARAM_SWEEP) {
-    return 50;
   } else if (sectionType === C.TERMINAL) {
     return 100;
-  } else if (sectionType === C.GLOBAL_PARAM_SWEEP) {
-    return 112;
   } else if (sectionType === C.DRAW || sectionType === C.IMAGE) {
     return 100;
   } else if (sectionType === C.CHART) {

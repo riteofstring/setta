@@ -1,21 +1,15 @@
 import {
   getCodeChildrenAndParentCodeInfoId,
-  getDisplayedCodeInfoCol,
   getSectionType,
 } from "state/actions/sectionInfos";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
-import { getForSectionId } from "state/hooks/paramSweep";
 import { C } from "utils/c";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId, variantId) {
   const sectionType = getSectionType(sectionId);
   switch (sectionType) {
-    case C.PARAM_SWEEP:
-      return await dbParamSweepSectionToYaml(sectionId, variantId);
-    case C.GLOBAL_PARAM_SWEEP:
-      return await dbGlobalParamSweepSectionToYaml(variantId);
     case C.GLOBAL_VARIABLES:
     case C.SECTION:
       return await dbSectionToYaml(variantId);
@@ -55,44 +49,6 @@ async function dbSectionToYaml(variantId) {
       unpinnedIds,
     },
     address: C.ROUTE_SECTION_TO_YAML,
-  });
-  return res;
-}
-
-async function dbParamSweepSectionToYaml(sectionId, variantId) {
-  const state = useProjectState.getState();
-  const forSectionId = getForSectionId(sectionId, state.sections);
-  const sectionVariant = state.variants[variantId];
-  const sweep = sectionVariant.sweep;
-  const codeInfo = state.codeInfo;
-  const codeInfoCol =
-    getDisplayedCodeInfoCol(forSectionId, state) ?? createCodeInfoCol();
-  const codeInfoChildren = codeInfoCol.children;
-
-  const res = await post({
-    body: {
-      sweep,
-      codeInfo,
-      codeInfoChildren,
-    },
-    address: C.ROUTE_PARAM_SWEEP_SECTION_TO_YAML,
-  });
-  return res;
-}
-
-async function dbGlobalParamSweepSectionToYaml(variantId) {
-  const state = useProjectState.getState();
-  const sections = state.sections;
-  const variants = state.variants;
-  const runGroup = variants[variantId].runGroup;
-
-  const res = await post({
-    body: {
-      runGroup,
-      sections,
-      variants,
-    },
-    address: C.ROUTE_GLOBAL_PARAM_SWEEP_SECTION_TO_YAML,
   });
   return res;
 }

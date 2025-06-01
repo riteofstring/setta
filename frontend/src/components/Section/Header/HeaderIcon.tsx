@@ -9,7 +9,7 @@ import { IoChatbox } from "react-icons/io5";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
-import { TbArrowIteration, TbFolderFilled } from "react-icons/tb";
+import { TbFolderFilled } from "react-icons/tb";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
@@ -41,14 +41,9 @@ export function HeaderIcon({
       );
     case C.TERMINAL:
       return <TerminalIcon sectionId={sectionId} />;
-    case C.GLOBAL_PARAM_SWEEP:
     case C.GLOBAL_VARIABLES:
       return (
         <RiGlobalFill className="text-setta-300 transition-colors group-hover/card-section:text-green-500  dark:text-setta-500 " />
-      );
-    case C.PARAM_SWEEP:
-      return (
-        <TbArrowIteration className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
     case C.TEXT_BLOCK:
       return <TextBlockIcon sectionId={sectionId} />;

@@ -45,69 +45,6 @@ export function SectionSearch({ sectionId, selectedItem }) {
   );
 }
 
-export function ParamSweepSectionSearch({
-  sectionId,
-  forSectionId,
-  selectedItem,
-  variantId,
-  selectedItemIdx,
-  onPlusClick,
-  onMinusClick,
-  disablePlusButton,
-  isDisabled,
-}) {
-  async function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    function callbackSetAttr(id, state) {
-      let selectedItem = id;
-      // for this callback, an undefined id means that the selectedItem is already selected in the forSectionId section
-      if (id === undefined) {
-        selectedItem =
-          state.variants[state.sections[forSectionId].variantId].selectedItem;
-      }
-      state.variants[variantId].sweep[selectedItemIdx].selectedItem =
-        selectedItem;
-    }
-
-    setSelectedItem(forSectionId, sectionId, value, callbackSetAttr);
-  }
-
-  function onShiftEnter(value) {}
-
-  return (
-    <div className="section-search flex items-center justify-between gap-0.5">
-      <SectionSearchCore
-        dataSectionId={forSectionId}
-        visualSectionId={sectionId}
-        selectedItem={selectedItem}
-        onEnter={onEnter}
-        onShiftEnter={onShiftEnter}
-        isDisabled={isDisabled}
-        dummyCodeClassName="single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]"
-        realCodeClassName="single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid border-blue-500 bg-white mx-[.125rem] py-1  dark:border-blue-400/50 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit"
-      />
-      <div className="flex">
-        <button
-          className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
-          onClick={onMinusClick}
-          disabled={isDisabled}
-        >
-          <i className="gg-remove" />
-        </button>
-        <button
-          className="flex h-[22px] cursor-pointer rounded-full text-setta-300 
-            hover:text-setta-600 dark:text-setta-700 dark:hover:text-setta-400 [&>i]:focus-visible:!border-blue-500"
-          onClick={onPlusClick}
-          disabled={disablePlusButton || isDisabled}
-        >
-          <i className="gg-add" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function SectionSearchCore({
   dataSectionId,
   visualSectionId,

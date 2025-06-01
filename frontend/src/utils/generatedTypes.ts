@@ -4,7 +4,7 @@ export type APIKeys = Record<string, string>;
 
 export type IDToUUIDForLLM = Record<ID, string>;
 
-export type UUIDToIDForLLM = Record<ID, string>;
+export type UUIDToIDForLLM = Record<string, ID>;
 
 export type JSONValueType =
   | (Record<string, any> | any[] | string | number | number | boolean)
@@ -143,9 +143,7 @@ export enum UITypeName {
   GLOBAL_VARIABLES = "GLOBAL_VARIABLES",
   CODE = "CODE",
   GEN_PYTHON_CODE = "GEN_PYTHON_CODE",
-  PARAM_SWEEP = "PARAM_SWEEP",
   TERMINAL = "TERMINAL",
-  GLOBAL_PARAM_SWEEP = "GLOBAL_PARAM_SWEEP",
   IFRAME = "IFRAME",
   CHAT = "CHAT",
   BROWSER = "BROWSER",
@@ -389,8 +387,6 @@ export type SectionVariant = {
   codeInfoColId: string | null;
   description: string;
   isFrozen: boolean;
-  sweep: any[];
-  runGroup: Record<string, any>;
   configLanguage: ConfigLanguage;
   isJsonSource: boolean;
   jsonSourceKeys: string[];
@@ -409,7 +405,6 @@ export type Section = {
   artifactGroupIds: string[];
   defaultVariantId: string | null;
   variantIds: string[];
-  paramSweepSectionId: string | null;
   nonPresetUITypeIds: string[];
   codeLanguage: CodeLanguage;
   isEntryCodeBlock: boolean;

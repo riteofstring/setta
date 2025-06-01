@@ -22,14 +22,8 @@ export const uiTypesToPretty = {
   [C.SOCIAL]: "Social",
   [C.GLOBAL_VARIABLES]: "Global Variables",
   [C.CODE]: "Code",
-  [C.PARAM_SWEEP]: "Parameter Sweep",
   [C.TERMINAL]: "Terminal",
-  [C.GLOBAL_PARAM_SWEEP]: "Global Param Sweep",
 };
-
-export function createParamSweepSectionName(sectionName) {
-  return `${sectionName} Sweep`;
-}
 
 export function isBasePreset(uiType) {
   return uiType.presetType === C.PRESET_UI_TYPE_BASE;

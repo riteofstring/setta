@@ -11,7 +11,6 @@ import { HideColumn } from "./HideColumn";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
-import { MultirunButton } from "./MultiRunButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
@@ -88,7 +87,6 @@ function getMenuItems(uiTypeName) {
     case C.SECTION:
       return [
         CreateNewVersionButton,
-        MultirunButton,
         HideShowSearchButton,
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
@@ -99,16 +97,11 @@ function getMenuItems(uiTypeName) {
     case C.GLOBAL_VARIABLES:
       return [
         CreateNewVersionButton,
-        MultirunButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case C.PARAM_SWEEP:
-      return [CreateNewVersionButton, ShowYaml, ResetToDefaultVersion];
-    case C.GLOBAL_PARAM_SWEEP:
-      return [ShowYaml];
     case C.LIST_ROOT:
     case C.DICT_ROOT:
     case C.CODE:

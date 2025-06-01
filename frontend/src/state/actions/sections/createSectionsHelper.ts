@@ -21,12 +21,6 @@ export function useCreateSectionsList() {
       specificProps: { type: C.GLOBAL_VARIABLES },
     });
   }
-  if (!singletonSections[C.GLOBAL_PARAM_SWEEP]) {
-    sectionGroupItems.push({
-      name: "Global Param Sweep",
-      specificProps: { type: C.GLOBAL_PARAM_SWEEP },
-    });
-  }
 
   const codeGroupItems = [
     {

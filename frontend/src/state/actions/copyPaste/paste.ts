@@ -64,11 +64,9 @@ function findTopLevelSections(sections, variants) {
 function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const { sections, uiTypes } = pasteData;
 
-  const {
-    [C.GLOBAL_VARIABLES]: globalVariables,
-    [C.GLOBAL_PARAM_SWEEP]: globalParamSweep,
-  } = useProjectState.getState().singletonSections;
-  if (!globalVariables && !globalParamSweep) {
+  const { [C.GLOBAL_VARIABLES]: globalVariables } =
+    useProjectState.getState().singletonSections;
+  if (!globalVariables) {
     return sections;
   }
 
@@ -76,12 +74,8 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
 
   for (const s of Object.values(sections)) {
     const uiTypeName = uiTypes[s.uiTypeId].type;
-    if (
-      (globalVariables && uiTypeName === C.GLOBAL_VARIABLES) ||
-      (globalParamSweep && uiTypeName === C.GLOBAL_PARAM_SWEEP)
-    ) {
+    if (globalVariables && uiTypeName === C.GLOBAL_VARIABLES) {
       toRemove.push(s.id);
-      toRemove.push(s.paramSweepSectionId);
       addTemporaryNotification("Can't have more than 1 global section!");
     }
   }

@@ -11,12 +11,10 @@ import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
 import { CodeArea, GenPythonCodeArea } from "../Layouts/CodeArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
-import { GlobalParamSweepArea } from "../Layouts/GlobalParamSweepArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { InputArea } from "../Layouts/InputArea";
-import { ParamSweepArea } from "../Layouts/ParamSweepArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -105,12 +103,8 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
       return <CodeArea sectionId={sectionId} />;
     case C.GEN_PYTHON_CODE:
       return <GenPythonCodeArea sectionId={sectionId} />;
-    case C.PARAM_SWEEP:
-      return <ParamSweepArea sectionId={sectionId} />;
     case C.TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
-    case C.GLOBAL_PARAM_SWEEP:
-      return <GlobalParamSweepArea sectionId={sectionId} />;
     case C.IFRAME:
       return <IframeArea sectionId={sectionId} />;
     case C.CHAT:

@@ -225,12 +225,8 @@ export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
       idsToDelete[idx],
       state,
     );
-    const { paramSweepSectionId } = state.sections[idsToDelete[idx]];
     if (idxChildren) {
       idsToDelete.push(...idxChildren);
-    }
-    if (paramSweepSectionId) {
-      idsToDelete.push(paramSweepSectionId);
     }
     idx += 1;
   }

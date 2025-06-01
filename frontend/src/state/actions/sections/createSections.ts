@@ -14,7 +14,6 @@ import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import { addChatHistoryArtifact, addDrawAreaLayer } from "../artifacts";
-import { initRunGroup } from "../runGroups/runGroups";
 import { setSectionVariantChildren } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
@@ -170,9 +169,6 @@ export function createSectionInfo({
     state.sections[s.id] = s;
     state.variants[s.variantId] = createSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
-      case C.GLOBAL_PARAM_SWEEP:
-        initRunGroup(s.variantId, state);
-        break;
       case C.DRAW:
         addDrawAreaLayer(s.id, state);
         break;

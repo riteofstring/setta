@@ -20,11 +20,8 @@ export function getBgColor(sectionTypeName) {
       return "bg-white dark:bg-setta-900";
     case C.TERMINAL:
       return "bg-setta-950 overflow-clip";
-    case C.GLOBAL_PARAM_SWEEP:
     case C.BROWSER:
       return "@container/multipane";
-    // case PARAM_SWEEP:
-    //   return "bg-setta-50 dark:bg-setta-850";
     case C.GLOBAL_VARIABLES:
       return "bg-white dark:bg-black";
     default:
