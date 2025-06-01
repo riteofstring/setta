@@ -385,9 +385,7 @@ export const FullMessageStopSchema = z.object({
 export type FullMessageStop = z.infer<typeof FullMessageStopSchema>;
 
 export const CodeInfoColSchema = z.object({
-  children: z
-    .record(z.union([z.string(), z.null()]), z.array(z.string()))
-    .optional(),
+  children: z.record(z.union([z.string()]), z.array(z.string())).optional(),
 });
 export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
 

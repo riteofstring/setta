@@ -186,6 +186,7 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
         args = get_args(python_type)
         if args and len(args) >= 2:
             key_schema = python_type_to_zod(args[0], type_definitions, processed_types)
+            key_schema = key_schema.replace("z.null(),", "").replace(", z.null()", "")
             value_schema = python_type_to_zod(
                 args[1], type_definitions, processed_types
             )
