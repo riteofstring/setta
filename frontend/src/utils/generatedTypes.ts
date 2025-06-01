@@ -232,13 +232,13 @@ export type UIType = {
 };
 
 export type BlobResourceContents = {
-  uri: AnyUrl;
+  uri: any;
   mimeType: string | null;
   blob: string;
 };
 
 export type TextResourceContents = {
-  uri: AnyUrl;
+  uri: any;
   mimeType: string | null;
   text: string;
 };

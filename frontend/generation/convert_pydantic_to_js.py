@@ -20,7 +20,7 @@ from typing import (
 )
 
 import setta.types
-from pydantic import BaseModel
+from pydantic import AnyUrl, BaseModel
 
 
 def get_modules_from_package(package):
@@ -249,6 +249,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
         object: "any",
         Any: "any",
         Path: "string",
+        AnyUrl: "any",  # TODO: handle this a better way?
     }
 
     # Direct type mapping
