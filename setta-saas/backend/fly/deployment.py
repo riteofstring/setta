@@ -19,19 +19,13 @@ class FlyDeployment:
         self.api_token = settings.fly_api_token
         self.machines_url = "https://api.machines.dev/v1"
 
-    def deploy_image(self, app_id: str, image: str) -> dict:
+    def deploy_image(self, app_name: str, image: str) -> dict:
         """
         Deploy a Docker image to a Machines platform app.
         Uses minimal REST API just for machine creation.
+        Note: Now takes app_name directly instead of app_id.
         """
         print(f"Deploying {image} to app (Machines platform)...")
-
-        # First get app name from app_id using GraphQL
-        app_info = self._get_app_info(app_id)
-        if not app_info:
-            raise Exception("App not found")
-
-        app_name = app_info["name"]
 
         # Create a machine with auto-start/stop configuration
         machine_config = {
@@ -80,30 +74,13 @@ class FlyDeployment:
                 print(f"  App: {app_name}")
 
                 return {
-                    "app": {"id": app_id, "name": app_name, "hostname": app_info["hostname"]},
+                    "app": {"name": app_name, "hostname": f"{app_name}.fly.dev"},
                     "machine": machine,
                 }
 
         except Exception as e:
             print(f"✗ Deployment failed: {e}")
             raise
-
-    def _get_app_info(self, app_id: str) -> dict:
-        """Get app info using GraphQL."""
-        query = """
-        query($appId: ID!) {
-            node(id: $appId) {
-                ... on App {
-                    id
-                    name
-                    hostname
-                }
-            }
-        }
-        """
-
-        result = self.client.graphql(query, {"appId": app_id})
-        return result.get("node")
 
     def set_secrets(self, app_id: str, secrets: dict[str, str]) -> bool:
         """

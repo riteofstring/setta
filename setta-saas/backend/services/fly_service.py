@@ -62,9 +62,9 @@ class FlyService:
         print(f"✓ App created: {app['hostname']}")
         return app
 
-    def deploy_image(self, app_id: str, image: str = "flyio/hellofly:latest") -> dict:
+    def deploy_image(self, app_name: str, image: str = "flyio/hellofly:latest") -> dict:
         """Deploy a Docker image to an app."""
-        return self.deployment.deploy_image(app_id, image)
+        return self.deployment.deploy_image(app_name, image)
 
     def set_secrets(self, app_id: str, secrets: dict[str, str]) -> bool:
         """Set environment variables for an app."""

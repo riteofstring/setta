@@ -36,14 +36,17 @@ class ProjectService:
 
     def create_project(self, project_data: ProjectCreate) -> ProjectResponse:
         """Create a new project with Fly.io app."""
+        # Generate unique app name
+        app_name = self._generate_app_name(project_data.name)
+
         # Create initial database record
         project = self._create_project_record(project_data.name)
 
         # Try to create and deploy Fly.io app
         try:
-            fly_app = self.fly.create_app(self._generate_app_name(project_data.name))
+            fly_app = self.fly.create_app(app_name)
             self._update_project_with_app(project, fly_app)
-            self._deploy_default_image(project, fly_app["id"])
+            self._deploy_default_image(project, fly_app["name"])
         except FlyAPIError as e:
             self._mark_project_as_failed(project, str(e))
 
@@ -101,10 +104,10 @@ class ProjectService:
         project.status = "created"
         self.db.commit()
 
-    def _deploy_default_image(self, project: Project, app_id: str):
+    def _deploy_default_image(self, project: Project, app_name: str):
         """Deploy default image to project."""
         try:
-            self.fly.deploy_image(app_id)
+            self.fly.deploy_image(app_name)
             project.status = "running"
         except Exception as e:
             print(f"Deployment pending: {e}")

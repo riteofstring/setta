@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     # Fly.io API
     fly_api_token: str
     fly_api_url: str = "https://api.fly.io/graphql"
+    fly_machines_url: str = "https://api.machines.dev/v1"
 
     # App settings
     app_name: str = "SaaS Platform API"
