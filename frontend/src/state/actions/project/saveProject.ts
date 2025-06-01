@@ -15,6 +15,7 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { SettaNotificationType } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";

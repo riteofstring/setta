@@ -1,6 +1,5 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -21,7 +20,7 @@ from sqlalchemy.orm import (
 )
 
 from setta.types.artifact import ArtifactType
-from setta.types.chat_messages import ChatRole, SettaChatMessageContent
+from setta.types.chat_messages import ChatRole
 from setta.types.notifications import SettaNotificationType
 
 
@@ -40,20 +39,6 @@ class PathType(TypeDecorator):
         if value is not None:
             return Path(value)
         return value
-
-
-class SettaChatMessageColumnType(TypeDecorator):
-    """Store Pydantic models as JSON"""
-
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(
-        self, value: SettaChatMessageContent | None, dialect: Any
-    ) -> list | None:
-        if value is None:
-            return None
-        return [c.model_dump() for c in value]
 
 
 class BaseTable(MappedAsDataclass, DeclarativeBase):
@@ -83,7 +68,7 @@ class ArtifactTable(BaseTable):
 class NotificationsTable(BaseTable):
     __tablename__ = "Notifications"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     projectConfigId: Mapped[str]
     timestamp: Mapped[datetime]
     type: Mapped[SettaNotificationType]
@@ -110,7 +95,7 @@ class ChatMessageTable(BaseTable):
     chatId: Mapped[str] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
     order: Mapped[int] = mapped_column(name="order")  # "order" is a reserved word
     role: Mapped[ChatRole]
-    content: Mapped[SettaChatMessageContent] = mapped_column(SettaChatMessageColumnType)
+    content: Mapped[list[dict]] = mapped_column(JSON)
 
     # Relationship to chat
     chat: Mapped["ChatTable"] = relationship(back_populates="messages")
