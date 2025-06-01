@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+
+from setta.database.table_definitions import ProjectStateTable
 from setta.types.project_state import (
     ProjectState,
 )
@@ -7,20 +10,14 @@ class ProjectNotFound(Exception):
     pass
 
 
-def load_project_state(db):
-    query = """
-        SELECT state
-        FROM ProjectState 
-        WHERE id = 1
-    """
-    db.execute(query)
-    row = db.fetchone()
-    if not row or row[0] is None:
+def load_project_state(db: Session):
+    p = db.get(ProjectStateTable, 1)
+    if not p:
         return ProjectState()
-    return ProjectState.model_validate_json(row[0])
+    return p.state
 
 
-def load_project_state_and_confirm_config_name(db, projectConfigName: str):
+def load_project_state_and_confirm_config_name(db: Session, projectConfigName: str):
     state = load_project_state(db)
     for projectConfigId, p in state.projectConfigs.items():
         if projectConfigName == p.name:
@@ -29,7 +26,7 @@ def load_project_state_and_confirm_config_name(db, projectConfigName: str):
     raise ProjectNotFound
 
 
-def load_project_metadata(db):
+def load_project_metadata(db: Session):
     state = load_project_state(db)
     defaultProjectConfigId = state.defaultProjectConfigId
     projectMetadata = list(state.projectConfigs.values())
@@ -39,7 +36,7 @@ def load_project_metadata(db):
     }
 
 
-def load_default_project_config_name(db):
+def load_default_project_config_name(db: Session):
     state = load_project_state(db)
     if state.defaultProjectConfigId:
         return state.projectConfigs[state.defaultProjectConfigId].name
