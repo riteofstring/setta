@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
+import { createCodeInfoCol } from "utils/generatedTypes";
 
 export function addCodeInfo({ sectionId, info, parent, insertIdx, state }) {
   state.codeInfo[info.id] = info;
