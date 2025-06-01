@@ -84,7 +84,9 @@ class ChatTable(BaseTable):
 
     # Relationship to messages
     messages: Mapped[list["ChatMessageTable"]] = relationship(
-        back_populates="chat", cascade="all, delete-orphan"
+        back_populates="chat",
+        cascade="all, delete-orphan",
+        order_by="ChatMessageTable.order",
     )
 
 
@@ -95,7 +97,7 @@ class ChatMessageTable(BaseTable):
     chatId: Mapped[str] = mapped_column(ForeignKey("Chat.id", ondelete="CASCADE"))
     order: Mapped[int] = mapped_column(name="order")  # "order" is a reserved word
     role: Mapped[ChatRole]
-    content: Mapped[list[dict]] = mapped_column(JSON)
+    content: Mapped[list] = mapped_column(JSON)
 
     # Relationship to chat
     chat: Mapped["ChatTable"] = relationship(back_populates="messages")

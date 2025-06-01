@@ -4,6 +4,8 @@ export type APIKeys = Record<string, string>;
 
 export type IDToUUIDForLLM = Record<ID, string>;
 
+export type UUIDToIDForLLM = Record<ID, string>;
+
 export type JSONValueType =
   | (Record<string, any> | any[] | string | number | number | boolean)
   | null;
@@ -114,61 +116,6 @@ export type ContentBlock =
   | WebSearchToolResultBlock
   | ThinkingBlock
   | RedactedThinkingBlock;
-
-export type BlobResourceContents = {
-  uri: AnyUrl;
-  mimeType: string | null;
-  blob: string;
-};
-
-export type TextResourceContents = {
-  uri: AnyUrl;
-  mimeType: string | null;
-  text: string;
-};
-
-export type Annotations = {
-  audience: "user" | "assistant"[] | null;
-  priority: number | null;
-};
-
-export type EmbeddedResource = {
-  type: "resource";
-  resource: TextResourceContents | BlobResourceContents;
-  annotations: Annotations | null;
-};
-
-export type ImageContent = {
-  type: "image";
-  data: string;
-  mimeType: string;
-  annotations: Annotations | null;
-};
-
-export type TextContent = {
-  type: "text";
-  text: string;
-  annotations: Annotations | null;
-};
-
-export type ToolResult = {
-  type: "tool_result";
-  tool_use_id: string;
-  content: (TextContent | ImageContent | EmbeddedResource)[];
-  is_error: boolean;
-};
-
-export type SettaChatMessageContent = (
-  | (
-      | TextBlock
-      | ToolUseBlock
-      | ServerToolUseBlock
-      | WebSearchToolResultBlock
-      | ThinkingBlock
-      | RedactedThinkingBlock
-    )
-  | ToolResult
-)[];
 
 export enum ArtifactType {
   IMG = "img",
@@ -282,6 +229,49 @@ export type UIType = {
   name: string;
   presetType: UITypePresetType | null;
   config: Record<string, any>;
+};
+
+export type BlobResourceContents = {
+  uri: AnyUrl;
+  mimeType: string | null;
+  blob: string;
+};
+
+export type TextResourceContents = {
+  uri: AnyUrl;
+  mimeType: string | null;
+  text: string;
+};
+
+export type Annotations = {
+  audience: "user" | "assistant"[] | null;
+  priority: number | null;
+};
+
+export type EmbeddedResource = {
+  type: "resource";
+  resource: TextResourceContents | BlobResourceContents;
+  annotations: Annotations | null;
+};
+
+export type ImageContent = {
+  type: "image";
+  data: string;
+  mimeType: string;
+  annotations: Annotations | null;
+};
+
+export type TextContent = {
+  type: "text";
+  text: string;
+  annotations: Annotations | null;
+};
+
+export type ToolResult = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: (TextContent | ImageContent | EmbeddedResource)[];
+  is_error: boolean;
 };
 
 export type ChatMessage = {

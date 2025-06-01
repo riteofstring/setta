@@ -19,13 +19,10 @@ class ToolResult(BaseModel):
     is_error: bool
 
 
-SettaChatMessageContent = Sequence[ContentBlock | ToolResult]
-
-
 class ChatMessage(BaseModel):
     id: str
     role: ChatRole
-    content: SettaChatMessageContent
+    content: Sequence[ContentBlock | ToolResult]
 
 
 class ChatMetadata(BaseModel):

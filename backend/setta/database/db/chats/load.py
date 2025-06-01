@@ -1,54 +1,38 @@
-import json
-
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from setta.database.table_definitions import UUIDMappingForLLMTable
+from setta.database.table_definitions import ChatTable, UUIDMappingForLLMTable
 from setta.types.ai import ID, IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
 
 
 def load_chat(db: Session, chat_id: str):
-    chat_query = """
-        SELECT id, name, lastUpdated
-        FROM Chat
-        WHERE id = :chat_id
-    """
-
-    db.execute(chat_query, {"chat_id": chat_id})
-    chat_row = db.fetchone()
-
-    if not chat_row:
-        return None  # Chat not found
-
-    # Create the base chat object
-    chat = Chat(
-        id=chat_row[0],
-        name=chat_row[1],
-        lastUpdated=chat_row[2],
-        messages=[],
+    # Load chat with all messages in one query using eager loading
+    stmt = (
+        select(ChatTable)
+        .where(ChatTable.id == chat_id)
+        .options(selectinload(ChatTable.messages))
     )
 
-    # Now get all messages for this chat
-    messages_query = """
-        SELECT id, role, content
-        FROM ChatMessage
-        WHERE chatId = :chat_id
-        ORDER BY "order" ASC
-    """
+    chat_row = db.scalars(stmt).first()
 
-    db.execute(messages_query, {"chat_id": chat_id})
+    if not chat_row:
+        return None
 
-    # Process each message
-    for row in db.fetchall():
-        message = ChatMessage(
-            id=row[0],
-            role=row[1],
-            content=json.loads(row[2]),
-        )
-        chat.messages.append(message)
-
-    return chat
+    # Convert to Pydantic model
+    return Chat(
+        id=chat_row.id,
+        name=chat_row.name,
+        lastUpdated=chat_row.lastUpdated,
+        messages=[
+            ChatMessage(
+                id=msg.id,
+                role=msg.role,
+                content=msg.content,
+            )
+            for msg in chat_row.messages
+        ],
+    )
 
 
 def load_all_chat_metadata(db):
