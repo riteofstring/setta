@@ -26,16 +26,16 @@ class FlyDeployment:
             result = self.client.graphql(DEPLOY_IMAGE_MUTATION, variables)
 
             if result.get("deployImage"):
-                deploy_result = result["deployImage"]
-                app = deploy_result.get("app", {})
-                release = deploy_result.get("release", {})
+                deploy_data = result["deployImage"]
+                app = deploy_data.get("app", {})
+                release = deploy_data.get("release", {})
 
                 print("✓ Deployment successful!")
                 print(f"  App: {app.get('name')} ({app.get('hostname')})")
                 if release:
                     print(f"  Release: v{release.get('version')}")
 
-                return deploy_result
+                return deploy_data
             else:
                 raise Exception("Deployment failed - no result returned")
 
