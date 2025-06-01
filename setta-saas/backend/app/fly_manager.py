@@ -49,16 +49,18 @@ class FlyManager:
 
         actual_app_name = app_data.get("name", app_name)
 
-        # Wait for app to be fully created and propagated
+        # Wait longer for app to be fully created and propagated
         print("Waiting for app to be ready...")
-        time.sleep(5)
+        for i in range(30):  # Wait up to 30 seconds
+            time.sleep(1)
 
-        # Verify app exists
-        verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
-        if not is_success(verify_response):
-            print(
-                f"App verification failed: {verify_response.status_code if verify_response else 'No response'}"
-            )
+            # Verify app exists
+            verify_response = self.client.get(f"{self.api_base}/apps/{actual_app_name}")
+            if is_success(verify_response):
+                print(f"✓ App verified after {i + 1} seconds")
+                break
+        else:
+            print("App verification timed out after 30 seconds")
             return None
 
         app_info = AppInfo(
@@ -67,13 +69,6 @@ class FlyManager:
         )
 
         print(f"App created successfully: {app_info.hostname}")
-
-        # Note: IP allocation via REST API is not available
-        # Fly.io will automatically allocate IPs when services are defined in the machine config
-        print(
-            "Note: IPs will be allocated automatically when machine is deployed with services"
-        )
-
         return app_info
 
     def deploy_to_app(self, app_name: str) -> bool:
@@ -92,10 +87,12 @@ class FlyManager:
         """Create and launch a machine in one step"""
         url = f"{self.api_base}/apps/{app_name}/machines"
 
-        # Use launch endpoint directly to avoid the created state issue
+        # Use a simple public image for now
         request = CreateMachineRequest.default_config(app_name)
 
-        print("Creating and launching machine...")
+        print(f"Creating machine for app {app_name}...")
+        print(f"Using image: {request.config['image']}")
+
         response = self.client.post(url, json=request.model_dump(), timeout=60.0)
 
         if not response:
@@ -103,7 +100,7 @@ class FlyManager:
             return None
 
         if response.status_code == 404:
-            print(f"App {app_name} not found")
+            print(f"App {app_name} not found - app may not be ready yet")
             return None
 
         if response.status_code == 422:
@@ -126,10 +123,42 @@ class FlyManager:
 
         print(f"✓ Machine created with ID: {machine_id}")
 
-        # Wait for machine to be ready
-        time.sleep(10)
+        # Check machine status
+        self._wait_for_machine(app_name, machine_id)
 
         return machine_id
+
+    def _wait_for_machine(self, app_name: str, machine_id: str, timeout: int = 60):
+        """Wait for machine to start"""
+        print(f"Waiting for machine {machine_id} to start...")
+
+        for i in range(timeout):
+            response = self.client.get(
+                f"{self.api_base}/apps/{app_name}/machines/{machine_id}"
+            )
+            if not is_success(response):
+                time.sleep(1)
+                continue
+
+            machine_data = parse_json(response)
+            if not machine_data:
+                time.sleep(1)
+                continue
+
+            state = machine_data.get("state")
+            print(f"Machine state: {state}")
+
+            if state == "started":
+                print(f"✓ Machine started after {i + 1} seconds")
+                return True
+            elif state in ["destroying", "destroyed"]:
+                print(f"✗ Machine failed to start - state: {state}")
+                return False
+
+            time.sleep(1)
+
+        print(f"Timeout waiting for machine to start after {timeout} seconds")
+        return False
 
     def get_app_status(self, app_name: str) -> Optional[AppStatusModel]:
         """Check if an app exists and get its status"""
@@ -152,9 +181,7 @@ class FlyManager:
 
         # Get machines to check deployment status
         machines = self.list_machines(app_name)
-        deployed = any(
-            m.state in [MachineState.STARTED, MachineState.CREATED] for m in machines
-        )
+        deployed = any(m.state == MachineState.STARTED for m in machines)
 
         return AppStatusModel(
             id=app_data.get("id"),
@@ -170,8 +197,8 @@ class FlyManager:
         response = self.client.get(f"{self.api_base}/apps/{app_name}/machines")
 
         if not is_success(response):
-            if response:
-                print(f"Failed to list machines: {response.text}")
+            if response and response.status_code != 404:
+                print(f"Failed to list machines: {response.status_code}")
             return []
 
         machines_data = parse_json(response) or []
@@ -192,10 +219,16 @@ class FlyManager:
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its machines"""
+        print(f"Deleting app {app_name}...")
+
         # First delete all machines
         machines = self.list_machines(app_name)
         for machine in machines:
             self._delete_machine(app_name, machine.id)
+
+        # Wait a bit for machines to be deleted
+        if machines:
+            time.sleep(5)
 
         # Then delete the app
         response = self.client.delete(f"{self.api_base}/apps/{app_name}")
@@ -207,7 +240,7 @@ class FlyManager:
             print(f"✓ App {app_name} deleted")
             return True
 
-        print(f"Failed to delete app: {response.status_code}")
+        print(f"Failed to delete app: {response.status_code} - {response.text}")
         return False
 
     def _delete_machine(self, app_name: str, machine_id: str) -> bool:

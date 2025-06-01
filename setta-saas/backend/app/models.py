@@ -78,16 +78,19 @@ class CreateMachineRequest(BaseModel):
         return cls(
             region="ord",
             config={
-                # Use your existing test FOSS app image
-                "image": "registry.fly.io/test-foss-app:latest",
+                # Use a simple public image with Python and uvicorn pre-installed
+                "image": "tiangolo/uvicorn-gunicorn-fastapi:python3.11-slim",
                 "env": {
                     "PROJECT_NAME": app_name,
                     "FLY_APP_NAME": app_name,
+                    "MODULE_NAME": "main",
+                    "VARIABLE_NAME": "app",
+                    "PORT": "8000",
                 },
                 "services": [
                     {
                         "protocol": "tcp",
-                        "internal_port": 8000,  # Your FastAPI app runs on 8000
+                        "internal_port": 8000,
                         "auto_stop_machines": True,
                         "auto_start_machines": True,
                         "ports": [
@@ -100,6 +103,11 @@ class CreateMachineRequest(BaseModel):
                                 "handlers": ["tls", "http"],
                             },
                         ],
+                        "concurrency": {
+                            "type": "requests",
+                            "hard_limit": 250,
+                            "soft_limit": 200,
+                        },
                     }
                 ],
                 "auto_destroy": True,
@@ -110,6 +118,26 @@ class CreateMachineRequest(BaseModel):
                     "cpu_kind": "shared",
                     "cpus": 1,
                     "memory_mb": 256,
+                },
+                # Add init command to create a simple FastAPI app
+                "init": {
+                    "cmd": [
+                        "sh",
+                        "-c",
+                        """echo 'from fastapi import FastAPI
+import os
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    app_name = os.getenv("FLY_APP_NAME", "unknown")
+    return {"message": f"Hello from {app_name}!", "app": app_name}
+
+@app.get("/health")
+def health():
+    return {"status": "healthy"}' > /app/main.py""",
+                    ]
                 },
             },
         )

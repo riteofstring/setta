@@ -170,6 +170,10 @@ async def create_project(
     session.add(project)
     session.commit()
 
+    # Wait a bit more before deploying to ensure app is ready
+    print("Waiting for app to be fully ready before deployment...")
+    time.sleep(5)
+
     # Deploy to the app
     print(f"Deploying to {app_name}")
     deployment_success = fly_manager.deploy_to_app(app_name)
@@ -180,12 +184,12 @@ async def create_project(
         session.commit()
         return project
 
-    # Wait a bit for deployment to stabilize
+    # Wait longer for deployment to stabilize
     print("Waiting for deployment to stabilize...")
-    time.sleep(10)
+    time.sleep(20)
 
     # Check if app is actually accessible
-    is_healthy = check_app_health(project.url)
+    is_healthy = check_app_health(project.url, max_retries=15)
 
     if is_healthy:
         project.update_status(ProjectStatus.RUNNING)
