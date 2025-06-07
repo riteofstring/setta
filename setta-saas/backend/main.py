@@ -3,7 +3,7 @@ FastAPI application for SaaS platform.
 Simplified with service layer architecture.
 """
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -12,6 +12,7 @@ from database import SessionLocal
 from models.project import ProjectCreate, ProjectResponse
 from services.fly_service import FlyService
 from services.project_service import ProjectService
+from services.websocket_service import get_connection_manager
 
 # Initialize settings
 settings = get_settings()
@@ -62,6 +63,25 @@ async def health():
     return {"status": "healthy", "environment": settings.environment}
 
 
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time updates."""
+    manager = get_connection_manager()
+    await manager.connect(websocket)
+
+    try:
+        while True:
+            # Keep connection alive and handle any incoming messages
+            # We don't expect clients to send much, but we need to keep reading
+            data = await websocket.receive_text()
+            # Could handle ping/pong or other client messages here if needed
+            print(f"Received from client: {data}")
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
+        print(f"Client disconnected. Active connections: {manager.get_connection_count()}")
+
+
 @app.get("/api/projects", response_model=list[ProjectResponse])
 async def list_projects(service: ProjectService = Depends(get_project_service)):
     """List all projects."""
@@ -73,7 +93,7 @@ async def create_project(
     project_data: ProjectCreate, service: ProjectService = Depends(get_project_service)
 ):
     """Create a new project."""
-    return service.create_project(project_data)
+    return await service.create_project(project_data)
 
 
 @app.get("/api/projects/{project_id}", response_model=ProjectResponse)
@@ -88,7 +108,8 @@ async def get_project(project_id: str, service: ProjectService = Depends(get_pro
 @app.delete("/api/projects/{project_id}")
 async def delete_project(project_id: str, service: ProjectService = Depends(get_project_service)):
     """Delete a project."""
-    if not service.delete_project(project_id):
+    success = await service.delete_project(project_id)
+    if not success:
         raise HTTPException(404, "Project not found")
     return {"message": "Project deleted"}
 
@@ -98,7 +119,7 @@ async def check_project_status(
     project_id: str, service: ProjectService = Depends(get_project_service)
 ):
     """Check and update project status."""
-    status = service.check_project_status(project_id)
+    status = await service.check_project_status(project_id)
     if status is None:
         raise HTTPException(404, "Project not found")
     return {"status": status}
@@ -126,7 +147,7 @@ async def cleanup_dead_projects(service: ProjectService = Depends(get_project_se
     return {"message": "Cleanup completed", "result": result}
 
 
-# NEW: Fly.io management endpoints (separate from database)
+# Fly.io management endpoints (separate from database)
 @app.get("/api/fly/apps")
 async def list_fly_apps(service: FlyService = Depends(get_fly_service)):
     """List all apps in the Fly.io organization."""
@@ -145,6 +166,17 @@ async def delete_all_fly_apps(service: FlyService = Depends(get_fly_service)):
         return {"message": "Delete all Fly.io apps completed", "result": result}
     except Exception as e:
         raise HTTPException(500, f"Failed to delete all apps: {str(e)}")
+
+
+# WebSocket status endpoint
+@app.get("/api/ws/status")
+async def websocket_status():
+    """Get WebSocket connection status."""
+    manager = get_connection_manager()
+    return {
+        "active_connections": manager.get_connection_count(),
+        "status": "active",
+    }
 
 
 if __name__ == "__main__":
