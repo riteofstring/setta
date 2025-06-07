@@ -13,6 +13,7 @@ import {
   addTemporaryNotification,
 } from "state/actions/notifications";
 import { processRenameRefactorResults } from "state/actions/referenceRenaming";
+import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeErrors";
 import {
@@ -76,6 +77,7 @@ function wssReady() {
 
 function receiveMessage(message) {
   const m = JSON.parse(message);
+  console.log(m)
   if (m.messageType === C.WS_ALL_CONNECTIONS) {
     setWebsocketConnections(m.content);
   } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
@@ -97,6 +99,8 @@ function receiveMessage(message) {
     updateUUIDMappingForLLM(m.content);
   } else if (m.messageType === C.WS_RETURN_RENAME_REFACTOR_RESULTS) {
     processRenameRefactorResults(m.content);
+  } else if (m.messageType === C.WS_UPDATE_FRONTEND_PROJECT_STATE) {
+    processProjectStateUpdateFromBackend(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

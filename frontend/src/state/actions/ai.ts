@@ -80,6 +80,7 @@ export async function submitMessage(message, deepThink) {
 
   try {
     const res = await dbGetLLMResponse(
+      useProjectState.getState().projectConfigId,
       state.userSelectedLLM,
       userMessage,
       deepThink,

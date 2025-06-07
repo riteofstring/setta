@@ -21,6 +21,7 @@ router = APIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
+    projectConfigId: str
     chatId: str | None
     message: ChatMessage
     model: str
@@ -62,6 +63,7 @@ async def route_get_llm_response(
     if chat:
         background_tasks.add_task(
             chat_manager.process_query,
+            x.projectConfigId,
             chat,
             x.model,
             x.deepThink,

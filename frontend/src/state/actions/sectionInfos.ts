@@ -109,6 +109,10 @@ export function setAllPreviewVariantIdsToNull() {
   });
 }
 
+export function processProjectStateUpdateFromBackend(content) {
+  useProjectState.setState(content);
+}
+
 export function updateProjectState({
   sections,
   variants,

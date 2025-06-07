@@ -108,11 +108,13 @@ class ChatManager:
     def get_current_stream(self, chatId: str):
         return self.current_streams.get(chatId, [])
 
-    async def process_query(self, chat: Chat, model: str, deepThink: bool):
+    async def process_query(
+        self, projectConfigId: str, chat: Chat, model: str, deepThink: bool
+    ):
         chatId = chat.id
         self.stream_tasks[chatId] = asyncio.current_task()
         try:
-            await self._process_query(chat, model, deepThink)
+            await self._process_query(projectConfigId, chat, model, deepThink)
         except asyncio.CancelledError:
             pass
         finally:
@@ -128,7 +130,9 @@ class ChatManager:
             )
             await self.send_streaming_response(chatId, None, chunk)
 
-    async def _process_query(self, chat: Chat, model, deepThink: bool):
+    async def _process_query(
+        self, projectConfigId: str, chat: Chat, model, deepThink: bool
+    ):
         chatId = chat.id
         original_messages = chat.messages
         self.init_current_stream(chatId)
@@ -195,6 +199,7 @@ class ChatManager:
                     result = await self.mcp_client.call_tool(
                         sub_msg.name,
                         {
+                            C.MCP_PROJECT_CONFIG_ID_ARG_NAME: projectConfigId,
                             C.MCP_CHAT_ID_ARG_NAME: chatId,
                             **self.tool_use_input_str_to_dict(sub_msg.input),
                         },

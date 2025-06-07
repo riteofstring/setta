@@ -56,6 +56,7 @@ export class C {
   static LLM_TOOL_USE = "tool_use";
   static LLM_USER_ROLE = "user";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
+  static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
   static MCP_SERVER_ARG_NAME = "setta_mcp_server";
   static NESTED_PARAM = "NESTED_PARAM";
   static NON_SECTION_TYPES = [
@@ -144,7 +145,11 @@ export class C {
   static ROUTE_WEBSOCKET_PYTHON_LOGGER = "/pythonLogger";
   static ROUTE_WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}";
   static SECTION = "SECTION";
-  static SETTA_MCP_PARAM_NAMES = ["setta_chat_id", "setta_mcp_server"];
+  static SETTA_MCP_PARAM_NAMES = [
+    "setta_chat_id",
+    "setta_mcp_server",
+    "projectConfigId",
+  ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SLIDER = "SLIDER";
@@ -185,6 +190,7 @@ export class C {
   static WS_TERMINAL_METADATA = "terminalMetadata";
   static WS_TERMINAL_RESIZE = "terminalResize";
   static WS_TEXT_FIELD_AUTOCOMPLETE = "WS_TEXT_FIELD_AUTOCOMPLETE";
+  static WS_UPDATE_FRONTEND_PROJECT_STATE = "WS_UPDATE_FRONTEND_PROJECT_STATE";
   static WS_UPDATE_PROJECT_STATE = "WS_UPDATE_PROJECT_STATE";
   static WS_UUID_MAPPING_FOR_LLM = "WS_UUID_MAPPING_FOR_LLM";
 

@@ -9,9 +9,13 @@ from typing import Any, Callable, cast
 import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.exceptions import ToolError
+from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool, ToolManager
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
+from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
+from mcp.shared.context import LifespanContextT
 from pydantic import TypeAdapter
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
@@ -88,6 +92,7 @@ class SettaFastMCP(FastMCP):
 
         @wraps(func)
         async def wrapper(**kwargs):
+            print(f"wrapper: {kwargs}\n\n\n", flush=True)
             # Filter out unwanted params
             kwargs = {
                 k: v
@@ -170,6 +175,28 @@ class SettaTool(Tool):
             is_async=is_async,
             context_kwarg=context_kwarg,
         )
+
+    async def run(
+        self,
+        arguments: dict[str, Any],
+        context: Context[ServerSessionT, LifespanContextT] | None = None,
+    ) -> Any:
+        """Run the tool with arguments."""
+        try:
+            pass_directly = {}
+            if self.context_kwarg is not None:
+                pass_directly[self.context_kwarg] = context
+            for k, v in arguments.items():
+                if k in C.SETTA_MCP_PARAM_NAMES:
+                    pass_directly[k] = v
+            return await self.fn_metadata.call_fn_with_arg_validation(
+                self.fn,
+                self.is_async,
+                arguments,
+                pass_directly,
+            )
+        except Exception as e:
+            raise ToolError(f"Error executing tool {self.name}: {e}") from e
 
 
 class SettaToolManager(ToolManager):

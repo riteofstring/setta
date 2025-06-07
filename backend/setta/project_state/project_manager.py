@@ -278,6 +278,19 @@ class ProjectManager:
         )
 
     @enqueue_method
+    async def set_gen_code_prefix(self, projectConfigId: str, value: str):
+        print("*************set_gen_code_prefix\n\n\n", flush=True)
+        projectConfig = self.project_state.projectConfigs[projectConfigId]
+        projectConfig.genCodePrefix = value
+        await self.update.direct(
+            self,
+            ProjectUpdateState(
+                projectConfigId=projectConfigId, projectState=self.project_state
+            ),
+        )
+        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+
+    @enqueue_method
     async def get_gen_python_code_path(self, projectConfigId: str):
         if self.gen_code.get(projectConfigId):
             return self.gen_code[projectConfigId].get_gen_python_code_path()

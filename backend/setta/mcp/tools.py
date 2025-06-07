@@ -28,7 +28,7 @@ def getTerminalOutput(setta_mcp_server: SettaFastMCP, sectionId: ID):
 
 
 @setta_tool
-async def getGenPythonCode(setta_mcp_server: SettaFastMCP, projectConfigId: ID):
+async def getGenPythonCode(setta_mcp_server: SettaFastMCP, projectConfigId: str):
     """
     Returns the current state of the generated python code.
     Args:
@@ -40,7 +40,7 @@ async def getGenPythonCode(setta_mcp_server: SettaFastMCP, projectConfigId: ID):
 @setta_tool
 async def setSelectedItem(
     setta_mcp_server: SettaFastMCP,
-    projectConfigId: ID,
+    projectConfigId: str,
     sectionId: ID,
     selectedItemName: str,
     refetchParams: bool,
@@ -58,4 +58,18 @@ async def setSelectedItem(
     )
 
     # TODO: return callable info and its children info
+    return "success"
+
+
+@setta_tool
+async def setGenCodePrefix(
+    setta_mcp_server: SettaFastMCP, projectConfigId: str, value: str
+):
+    """
+    Set the value of code that is prepended to the generated python code.
+    Args:
+        projectConfigId: The id of the project.
+        value: This is what will be prepended to the generated code.
+    """
+    await setta_mcp_server.project_manager.set_gen_code_prefix(projectConfigId, value)
     return "success"

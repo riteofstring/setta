@@ -68,12 +68,6 @@ function getGenCodePrefixCompletionsFn() {
   return wrappedCompletionsFn(fn);
 }
 
-/**
- * Set the value of code that is prepended to the generated python code.
- * @SETTA_MCP_TOOL
- * @param {string} value This is what will be prepended to the generated code.
- *
- */
 export function setGenCodePrefix({ value }) {
   useProjectState.setState((state) => {
     getCurrentProjectConfig(state).genCodePrefix = value;

@@ -150,7 +150,7 @@ class ProjectGenPythonCode(PythonCode):
         variant.selectedItem = callable_code_info.id
 
     async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
-        self.code_generator.change_gen_code_prefix(fullText)
+        self.code_generator.set_gen_code_prefix(fullText)
         await self.update_file()
         line, col = position_to_line_col(self.code_generator.code, position)
         response = await self.lsp_writer.send_and_wait(
