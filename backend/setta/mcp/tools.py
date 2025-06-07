@@ -8,7 +8,7 @@ from setta.types.ai import ID
 @setta_tool
 def getInstalledPythonPackages():
     """
-    Returns the available packages and their version numbersin the current python environment.
+    Returns the available packages and their version numbers in the current python environment.
     """
     installed_packages = importlib.metadata.distributions()
     output = ""

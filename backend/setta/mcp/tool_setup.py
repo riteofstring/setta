@@ -1,47 +1,8 @@
-import inspect
-from dataclasses import dataclass
+from typing import Callable
 
-import docstring_parser
-from mcp.types import AnyFunction
+SETTA_MCP_TOOLS: list[Callable] = []
 
 
-@dataclass
-class SettaToolMetadata:
-    fn: AnyFunction
-    description: str | None
-    param_descriptions: dict[str, str]
-
-
-SETTA_MCP_TOOLS: list[SettaToolMetadata] = []
-
-
-def setta_tool(fn):
-    description, param_descriptions = extract_tool_docstrings(fn)
-    SETTA_MCP_TOOLS.append(
-        SettaToolMetadata(
-            fn=fn, description=description, param_descriptions=param_descriptions
-        )
-    )
+def setta_tool(fn: Callable):
+    SETTA_MCP_TOOLS.append(fn)
     return fn
-
-
-def extract_tool_docstrings(func):
-    # Get the function's docstring
-    docstring = inspect.getdoc(func)
-    if not docstring:
-        return None, {}
-
-    # Parse the docstring using docstring_parser
-    try:
-        parsed = docstring_parser.parse(docstring)
-    except Exception as e:
-        print(f"Failed to parse docstring: {e}")
-        return None, {}
-
-    # Extract parameter descriptions
-    param_docs = {}
-    for param in parsed.params:
-        if param.description:
-            param_docs[param.arg_name] = param.description
-
-    return parsed.description, param_docs

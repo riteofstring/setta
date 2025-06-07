@@ -6,12 +6,12 @@ import logging
 from functools import wraps
 from typing import Any, Callable, cast
 
+import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.tools import Tool, ToolManager
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.server.sse import SseServerTransport
-from mcp.types import Tool as MCPTool
 from pydantic import TypeAdapter
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
@@ -75,30 +75,9 @@ class SettaFastMCP(FastMCP):
         content = SettaNotification(message="MCP Server Ready", temporary=True)
         asyncio.create_task(self.websocket_msg_handler.broadcast_notification(content))
 
-    async def list_tools(self) -> list[MCPTool]:
-        """List all available tools."""
-        tools = self._tool_manager.list_tools()
-        output = []
-        for t in tools:
-            mcpt = MCPTool(
-                name=t.name,
-                description=t.description,
-                inputSchema=t.parameters,
-            )
-            for arg_name, arg_metadata in mcpt.inputSchema["properties"].items():
-                if "description" in arg_metadata:
-                    continue
-                description = self.fn_param_docstrings.get(t.fn, {}).get(arg_name, None)
-                if description:
-                    arg_metadata["description"] = description
-
-            output.append(mcpt)
-        return output
-
     def add_setta_tools(self):
-        for t in SETTA_MCP_TOOLS:
-            self.add_tool(self.setta_uuid_transformer(t.fn), description=t.description)
-            self.fn_param_docstrings[t.fn] = t.param_descriptions
+        for fn in SETTA_MCP_TOOLS:
+            self.add_tool(self.setta_uuid_transformer(fn))
 
     def setta_uuid_transformer(self, func):
         @wraps(func)
@@ -135,7 +114,6 @@ class SettaTool(Tool):
         if func_name == "<lambda>":
             raise ValueError("You must provide a name for lambda functions")
 
-        func_doc = description or fn.__doc__ or ""
         is_async = inspect.iscoroutinefunction(fn)
 
         skip_names = []
@@ -152,10 +130,18 @@ class SettaTool(Tool):
         )
         parameters = func_arg_metadata.arg_model.model_json_schema()
 
+        description, param_descriptions = extract_tool_docstrings(fn)
+        for arg_name, arg_metadata in parameters["properties"].items():
+            if "description" in arg_metadata:
+                continue
+            description = param_descriptions.get(arg_name, None)
+            if description:
+                arg_metadata["description"] = description
+
         return cls(
             fn=fn,
             name=func_name,
-            description=func_doc,
+            description=description if description else "",
             parameters=parameters,
             fn_metadata=func_arg_metadata,
             is_async=is_async,
@@ -179,3 +165,25 @@ class SettaToolManager(ToolManager):
             return cast(SettaTool, existing)
         self._tools[tool.name] = tool
         return tool
+
+
+def extract_tool_docstrings(func):
+    # Get the function's docstring
+    docstring = inspect.getdoc(func)
+    if not docstring:
+        return None, {}
+
+    # Parse the docstring using docstring_parser
+    try:
+        parsed = docstring_parser.parse(docstring)
+    except Exception as e:
+        print(f"Failed to parse docstring: {e}")
+        return None, {}
+
+    # Extract parameter descriptions
+    param_docs = {}
+    for param in parsed.params:
+        if param.description:
+            param_docs[param.arg_name] = param.description
+
+    return parsed.description, param_docs
