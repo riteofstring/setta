@@ -45,35 +45,37 @@ export async function setSelectedItem(
   );
   setToNotWaiting();
 
-  useProjectState.setState((state) => {
-    let info;
-    if (!prevSelected) {
-      info = createCodeInfo({
-        name: selectedItemName,
-        editable: false,
-        rcType: CodeInfoTypeSchema.enum.callable,
-      });
-      addCodeInfo({ sectionId, info, parent: null, state });
-    } else {
-      info = state.codeInfo[prevSelected];
-    }
+  console.log("paramRes", paramRes)
 
-    if (paramRes) {
-      const [documentation, params] = paramRes;
-      if (params) {
-        createChildrenCodeInfo(sectionId, info.id, params, state);
-      } else {
-        addTemporaryNotification("No parameters found");
-      }
-      state.codeInfo[info.id].description = documentation;
-    } else {
-      addTemporaryNotification("No parameters found");
-    }
-    setToNotWaiting();
-    callbackSetAttr(info.id, state);
-  });
+  // useProjectState.setState((state) => {
+  //   let info;
+  //   if (!prevSelected) {
+  //     info = createCodeInfo({
+  //       name: selectedItemName,
+  //       editable: false,
+  //       rcType: CodeInfoTypeSchema.enum.callable,
+  //     });
+  //     addCodeInfo({ sectionId, info, parent: null, state });
+  //   } else {
+  //     info = state.codeInfo[prevSelected];
+  //   }
 
-  maybeIncrementProjectStateVersion(true);
+  //   if (paramRes) {
+  //     const [documentation, params] = paramRes;
+  //     if (params) {
+  //       createChildrenCodeInfo(sectionId, info.id, params, state);
+  //     } else {
+  //       addTemporaryNotification("No parameters found");
+  //     }
+  //     state.codeInfo[info.id].description = documentation;
+  //   } else {
+  //     addTemporaryNotification("No parameters found");
+  //   }
+  //   setToNotWaiting();
+  //   callbackSetAttr(info.id, state);
+  // });
+
+  // maybeIncrementProjectStateVersion(true);
 }
 
 function createChildrenCodeInfo(sectionId, parent, params, state) {

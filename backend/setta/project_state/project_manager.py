@@ -38,6 +38,7 @@ class ProjectManager:
         self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
+        self.project_state: ProjectState = ProjectState()
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
@@ -161,16 +162,16 @@ class ProjectManager:
         messageId: str | None = None,
     ):
         self.used_files = set()
-        projectState = projectUpdateState.projectState
+        self.project_state = projectUpdateState.projectState
         projectConfigId = projectUpdateState.projectConfigId
-        dep_graph = DependencyGraph(projectState, projectConfigId)
+        dep_graph = DependencyGraph(self.project_state, projectConfigId)
         if self.gen_code.get(projectConfigId):
             await self.maybe_do_rename_refactor(
                 messageId, projectUpdateState, dep_graph
             )
             self.gen_code[projectConfigId].callback_cleanup()
 
-        projectConfig = projectState.projectConfigs[projectConfigId]
+        projectConfig = self.project_state.projectConfigs[projectConfigId]
         gen_code_prefix = projectConfig.genCodePrefix
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
         code_generator.generate_code()
@@ -195,11 +196,11 @@ class ProjectManager:
         self.code_dict[projectConfigId] = {}
 
         for sectionId in dep_graph.all_sections_in_project_config:
-            section_type = get_section_type(projectState, sectionId)
+            section_type = get_section_type(self.project_state, sectionId)
 
             if section_type == C.CODE:
                 section_code = self.create_code_obj(
-                    project_temp_folder, projectState, sectionId
+                    project_temp_folder, self.project_state, sectionId
                 )
 
                 if not section_code:

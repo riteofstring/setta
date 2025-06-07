@@ -161,6 +161,8 @@ class CodeInfoCol(BaseModel, extra="forbid"):
         if "null" in self.children:
             c = self.children.pop("null")
             self.children[None] = c
+        else:
+            self.children[None] = []
         return self
 
     @model_serializer
