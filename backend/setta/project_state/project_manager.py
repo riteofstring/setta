@@ -234,15 +234,14 @@ class ProjectManager:
     @enqueue_method
     async def set_selected_item(
         self,
-        messageId: str,
         projectConfigId: str,
         sectionId: str,
         selectedItemName: str,
         refetchParams: bool,
+        messageId: str | None = None,
     ):
-        print("set_selected_item", flush=True)
         await self.gen_code[projectConfigId].set_selected_item(
-            messageId, self.project_state, sectionId, selectedItemName, refetchParams
+            self.project_state, sectionId, selectedItemName, refetchParams
         )
         await self.update.direct(
             self,
@@ -250,9 +249,10 @@ class ProjectManager:
                 projectConfigId=projectConfigId, projectState=self.project_state
             ),
         )
-        await self.websocket_msg_handler.return_to_requester(
-            self.project_state.model_dump(), messageId
-        )
+        if messageId:
+            await self.websocket_msg_handler.return_to_requester(
+                self.project_state.model_dump(), messageId
+            )
 
     @enqueue_method
     async def code_area_autocomplete(

@@ -38,3 +38,28 @@ async def getGenPythonCode(projectConfigId: ID):
         projectConfigId, mcp_server.websocket_msg_handler.id_to_uuid
     )
     return await mcp_server.project_manager.get_gen_python_code(convertedId)  # type: ignore
+
+
+@mcp_server.tool(description="Sets the selectedItem (i.e. the callable) of a section.")
+async def setSelectedItem(
+    projectConfigId: ID, sectionId: ID, selectedItemName: str, refetchParams: bool
+):
+    """
+    Args:
+        projectConfigId: The id of the project.
+        sectionId: The id of the section we're setting the selectedItem of.
+        selectedItemName: The selected item name, for example "math.sqrt"
+    """
+    convertedProjectConfigId = replace_ids_with_uuids(
+        projectConfigId, mcp_server.websocket_msg_handler.id_to_uuid
+    )
+    convertedSectionId = replace_ids_with_uuids(
+        sectionId, mcp_server.websocket_msg_handler.id_to_uuid
+    )
+
+    await mcp_server.project_manager.set_selected_item(
+        convertedProjectConfigId, convertedSectionId, selectedItemName, refetchParams
+    )
+
+    # TODO: return callable info and its children info
+    return "success"

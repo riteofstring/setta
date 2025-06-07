@@ -7,6 +7,7 @@ from setta.code_gen.utils import (
     CLASS_NAME,
     sanitize_name,
 )
+from setta.database.utils import create_new_id
 from setta.project_state.code import (
     BashCode,
     PythonCode,
@@ -88,7 +89,6 @@ class ProjectGenPythonCode(PythonCode):
 
     async def set_selected_item(
         self,
-        messageId: str,
         project_state: ProjectState,
         sectionId: str,
         selectedItemName: str,
@@ -120,14 +120,15 @@ class ProjectGenPythonCode(PythonCode):
 
         line, col = line_col
         col += 1  # put cursor inside parentheses
+        request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_signature_help_request(
                 filepath=self.temp_file,
                 line=line,
                 character=col,
-                request_id=messageId,
+                request_id=request_id,
             ),
-            messageId,
+            request_id,
         )
         result = process_signature_help_response(response)
         if not prev_selected:
