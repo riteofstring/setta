@@ -122,4 +122,7 @@ async def route_run_code(
         notification,
     )
 
-    return {"terminalId": terminal_id, "newTerminalCreated": new_terminal_created}
+    if new_terminal_created:
+        await terminals.websocket_msg_handler.send_new_terminal_id(
+            x.projectConfigId, terminal_id
+        )

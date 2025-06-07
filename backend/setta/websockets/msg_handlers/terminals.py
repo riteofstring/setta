@@ -1,9 +1,10 @@
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class WMHTerminals(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
+    def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
 
     async def send_command(self, command, cliId):
@@ -14,5 +15,12 @@ class WMHTerminals(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             terminal_metadata,
             C.WS_TERMINAL_METADATA,
+            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        )
+
+    async def send_new_terminal_id(self, projectConfigId, terminalId):
+        await self.websocket_manager.broadcast(
+            {"projectConfigId": projectConfigId, "terminalId": terminalId},
+            C.WS_NEW_TERMINAL_CREATED,
             connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
         )

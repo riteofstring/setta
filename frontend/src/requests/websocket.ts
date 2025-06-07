@@ -21,6 +21,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
+import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { C } from "utils/c";
 
 let wss;
@@ -101,6 +102,8 @@ function receiveMessage(message) {
     processRenameRefactorResults(m.content);
   } else if (m.messageType === C.WS_UPDATE_FRONTEND_PROJECT_STATE) {
     processProjectStateUpdateFromBackend(m.content);
+  } else if (m.messageType === C.WS_NEW_TERMINAL_CREATED) {
+    createTemporaryTerminalFromBackend(m.content);
   } else if (m.id) {
     setTemporaryMiscState(m.id, m.content);
   }

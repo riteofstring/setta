@@ -215,7 +215,13 @@ function getTemporaryTerminalsGroupName() {
   return name;
 }
 
-export function createTemporaryTerminalFromBackend(terminalId) {
+export function createTemporaryTerminalFromBackend({
+  projectConfigId,
+  terminalId,
+}) {
+  if (useProjectState.getState().projectConfigId !== projectConfigId) {
+    return;
+  }
   useProjectState.setState((state) => {
     const groupId = maybeCreateTemporaryTerminalGroup(state);
     createTemporaryTerminal(terminalId, groupId, state);

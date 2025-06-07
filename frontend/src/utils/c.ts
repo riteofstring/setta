@@ -179,6 +179,7 @@ export class C {
   static WS_LSP_DIAGNOSTICS = "lspDiagnostics";
   static WS_MCP_TOOL_USE = "mcpToolUse";
   static WS_MCP_TOOL_USE_RETURN = "WS_MCP_TOOL_USE_RETURN";
+  static WS_NEW_TERMINAL_CREATED = "WS_NEW_TERMINAL_CREATED";
   static WS_NOTIFICATION = "notification";
   static WS_PROJECT_DATA = "projectData";
   static WS_RETURN_RENAME_REFACTOR_RESULTS =
