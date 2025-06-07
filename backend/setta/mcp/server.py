@@ -4,35 +4,59 @@ import asyncio
 import inspect
 
 import docstring_parser
-from fastapi import Request
+from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from mcp.types import AnyFunction
 from mcp.types import Tool as MCPTool
 
+from setta.database.db_objs import DBE
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
 from setta.websockets.msg_handlers.mcp import WMHMCP
+from setta.websockets.websocket_manager import WebsocketManager
 
 CHAT_ID_ARG_NAME = "chatId"
 
 
 # TODO use FastMCP once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
 class CustomFastMCP(FastMCP):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fn_param_docstrings = {}
-
-    def set_setta_objs(
+    def __init__(
         self,
-        websocket_msg_handler: WMHMCP,
+        app: FastAPI,
+        mount_path: str,
+        name: str,
+        websocket_manager: WebsocketManager,
+        dbe: DBE,
         terminals: Terminals,
         project_manager: ProjectManager,
+        instructions=None,
+        **settings,
     ):
-        self.websocket_msg_handler = websocket_msg_handler
+        super().__init__(name=name, instructions=instructions, **settings)
+        self.websocket_msg_handler = WMHMCP(websocket_manager, dbe)
         self.terminals = terminals
         self.project_manager = project_manager
+        self.fn_param_docstrings = {}
+        msg_path = f"{mount_path}/messages/"
+        sse_transport = SseServerTransport(msg_path)
+
+        async def handle_mcp_connection(request: Request):
+            async with sse_transport.connect_sse(
+                request.scope, request.receive, request._send
+            ) as streams:
+                await self._mcp_server.run(
+                    streams[0],
+                    streams[1],
+                    self._mcp_server.create_initialization_options(),
+                )
+
+        app.get(mount_path)(handle_mcp_connection)
+        app.mount(msg_path, app=sse_transport.handle_post_message)
+
+        content = SettaNotification(message="MCP Server Ready", temporary=True)
+        asyncio.create_task(self.websocket_msg_handler.broadcast_notification(content))
 
     def add_tool(
         self, fn: AnyFunction, name: str | None = None, description: str | None = None
@@ -67,38 +91,6 @@ class CustomFastMCP(FastMCP):
 
             output.append(mcpt)
         return output
-
-
-mcp_server = CustomFastMCP("Setta MCP Server")
-
-
-def add_mcp_server_to_fastapi_server(app, mount_path):
-    msg_path = f"{mount_path}/messages/"
-    sse_transport = SseServerTransport(msg_path)
-
-    async def handle_mcp_connection(request: Request):
-        async with sse_transport.connect_sse(
-            request.scope, request.receive, request._send
-        ) as streams:
-            await mcp_server._mcp_server.run(
-                streams[0],
-                streams[1],
-                mcp_server._mcp_server.create_initialization_options(),
-            )
-
-    app.get(mount_path)(handle_mcp_connection)
-    app.mount(msg_path, app=sse_transport.handle_post_message)
-
-    mcp_server.set_setta_objs(
-        WMHMCP(app.state.websocket_manager, app.state.dbe),
-        app.state.terminals,
-        app.state.project_manager,
-    )
-
-    content = SettaNotification(message="MCP Server Ready", temporary=True)
-    asyncio.create_task(
-        mcp_server.websocket_msg_handler.broadcast_notification(content)
-    )
 
 
 def extract_param_docstrings(func):
