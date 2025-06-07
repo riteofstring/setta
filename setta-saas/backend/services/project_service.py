@@ -1,18 +1,21 @@
 """
-Project management service.
-Handles business logic for creating and managing projects.
+Project service for managing user projects.
 """
 
+import logging
 import re
 import time
+import uuid
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
+from config import get_settings
 from database import Project
-from fly.client import FlyAPIError
 from models.project import ProjectCreate, ProjectResponse
 from services.fly_service import FlyService
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
@@ -20,47 +23,101 @@ class ProjectService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.fly = FlyService()
+        settings = get_settings()
+        self.fly = FlyService(settings.fly_api_token)
 
     def list_projects(self) -> list[ProjectResponse]:
         """List all projects."""
         projects = self.db.query(Project).all()
-        return [ProjectResponse.from_orm(p) for p in projects]
+        return [
+            ProjectResponse(
+                id=p.id,
+                name=p.name,
+                url=p.url or "",
+                status=p.status,
+                created_at=p.created_at,
+            )
+            for p in projects
+        ]
 
     def get_project(self, project_id: str) -> ProjectResponse | None:
         """Get a specific project."""
         project = self.db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return None
-        return ProjectResponse.from_orm(project)
+
+        return ProjectResponse(
+            id=project.id,
+            name=project.name,
+            url=project.url or "",
+            status=project.status,
+            created_at=project.created_at,
+        )
 
     def create_project(self, project_data: ProjectCreate) -> ProjectResponse:
-        """Create a new project with Fly.io app."""
+        """Create a new project."""
         # Generate unique app name
         app_name = self._generate_app_name(project_data.name)
 
-        # Create initial database record
-        project = self._create_project_record(project_data.name)
+        # Create DB record first
+        project = Project(
+            id=str(uuid.uuid4()),
+            name=project_data.name,
+            url="Creating...",
+            status="creating",
+        )
+        self.db.add(project)
+        self.db.commit()
 
-        # Try to create and deploy Fly.io app
+        # Create Fly.io app
         try:
             fly_app = self.fly.create_app(app_name)
-            self._update_project_with_app(project, fly_app)
-            self._deploy_default_image(project, fly_app["name"])
-        except FlyAPIError as e:
-            self._mark_project_as_failed(project, str(e))
+            if not fly_app:
+                raise Exception("Failed to create Fly.io app")
 
-        self.db.refresh(project)
-        return ProjectResponse.from_orm(project)
+            # Update project with successful creation
+            project.url = f"https://{fly_app['hostname']}"
+            project.status = "running"
+            self.db.commit()
+
+            logger.info(f"Project {project.id} created successfully")
+
+        except Exception as e:
+            logger.error(f"Failed to create Fly.io app: {e}")
+            project.url = "Failed to create"
+            project.status = "error"
+            self.db.commit()
+
+        return ProjectResponse(
+            id=project.id,
+            name=project.name,
+            url=project.url,
+            status=project.status,
+            created_at=project.created_at,
+        )
 
     def delete_project(self, project_id: str) -> bool:
-        """Delete a project and its Fly.io app."""
+        """Delete a project."""
         project = self.db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return False
 
-        # Try to delete Fly.io app if it exists
-        self._try_delete_fly_app(project)
+        # Extract app name from URL if possible
+        app_name = None
+        if project.url and project.url.startswith("https://"):
+            # Extract app name from URL like https://app-name.fly.dev
+            match = re.match(r"https://([^.]+)\.fly\.dev", project.url)
+            if match:
+                app_name = match.group(1)
+
+        # Try to delete Fly.io app if we have the name
+        if app_name:
+            try:
+                self.fly.delete_app(app_name)
+                logger.info(f"Deleted Fly.io app: {app_name}")
+            except Exception as e:
+                logger.error(f"Failed to delete Fly.io app: {e}")
+                # Continue with DB deletion even if Fly.io deletion fails
 
         # Delete from database
         self.db.delete(project)
@@ -73,74 +130,44 @@ class ProjectService:
         if not project:
             return None
 
-        # Skip if no valid Fly.io URL
-        if not project.url or "fly.dev" not in project.url:
+        # Extract app name from URL
+        if not project.url or not project.url.startswith("https://"):
             return project.status
 
-        # Extract app name and check status
-        app_name = project.url.split("//")[1].split(".")[0]
-        app_status = self.fly.get_app_status(app_name)
+        match = re.match(r"https://([^.]+)\.fly\.dev", project.url)
+        if not match:
+            return project.status
 
-        # Update status based on result
-        project.status = "running" if app_status and app_status.get("deployed") else "not_found"
-        project.last_checked = datetime.utcnow()
-        self.db.commit()
+        app_name = match.group(1)
+
+        # Check app status
+        try:
+            app_status = self.fly.get_app_status(app_name)
+            if app_status:
+                new_status = (
+                    "running"
+                    if app_status.get("status") == "deployed"
+                    else app_status.get("status", "unknown")
+                )
+                if new_status != project.status:
+                    project.status = new_status
+                    project.last_checked = datetime.utcnow()
+                    self.db.commit()
+                return new_status
+        except Exception as e:
+            logger.error(f"Failed to check app status: {e}")
 
         return project.status
 
-    # Helper methods (kept simple and focused)
-
-    def _create_project_record(self, name: str) -> Project:
-        """Create initial project database record."""
-        project = Project(name=name, url="Creating...", status="creating")
-        self.db.add(project)
-        self.db.commit()
-        self.db.refresh(project)
-        return project
-
-    def _update_project_with_app(self, project: Project, fly_app: dict):
-        """Update project with Fly app info."""
-        project.url = f"https://{fly_app['hostname']}"
-        project.status = "created"
-        self.db.commit()
-
-    def _deploy_default_image(self, project: Project, app_name: str):
-        """Deploy default image to project."""
-        try:
-            self.fly.deploy_image(app_name)
-            project.status = "running"
-        except Exception as e:
-            print(f"Deployment pending: {e}")
-            project.status = "deployment_pending"
-        self.db.commit()
-
-    def _mark_project_as_failed(self, project: Project, error: str):
-        """Mark project as failed with error."""
-        project.status = "error"
-        project.url = "Failed to create"
-        self.db.commit()
-        print(f"Failed to create Fly app: {error}")
-
-    def _try_delete_fly_app(self, project: Project):
-        """Try to delete Fly.io app if it exists."""
-        if not project.url or "fly.dev" not in project.url:
-            return
-
-        try:
-            app_name = project.url.split("//")[1].split(".")[0]
-            app_info = self.fly.get_app_status(app_name)
-            if app_info:
-                self.fly.delete_app(app_info["id"])
-        except Exception as e:
-            print(f"Error deleting Fly app: {e}")
-
     def _generate_app_name(self, project_name: str) -> str:
         """Generate a unique app name for Fly.io."""
-        # Clean the name
-        safe_name = re.sub(r"[^a-z0-9-]", "-", project_name.lower())
-        safe_name = re.sub(r"-+", "-", safe_name)
-        safe_name = safe_name.strip("-")[:40]
+        # Clean the project name
+        clean_name = re.sub(r"[^a-z0-9-]", "-", project_name.lower())
+        clean_name = re.sub(r"-+", "-", clean_name).strip("-")
 
         # Add timestamp for uniqueness
         timestamp = int(time.time())
-        return f"setta-{safe_name}-{timestamp}"[:63]
+        app_name = f"setta-{clean_name[:20]}-{timestamp}"
+
+        # Ensure it's within Fly.io limits (63 chars)
+        return app_name[:63]

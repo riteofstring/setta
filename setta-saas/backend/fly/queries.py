@@ -1,10 +1,51 @@
 """
-GraphQL queries for Fly.io API.
-All the ugly GraphQL is contained here so you can ignore it.
+GraphQL and REST API queries for Fly.io operations.
 """
 
-# Get user's organizations
-GET_ORGANIZATIONS_QUERY = """
+# GraphQL Queries
+CREATE_APP_MUTATION = """
+mutation($input: CreateAppInput!) {
+    createApp(input: $input) {
+        app {
+            id
+            name
+            hostname
+            network
+            organization {
+                slug
+            }
+        }
+    }
+}
+"""
+
+DELETE_APP_MUTATION = """
+mutation($appId: ID!) {
+    deleteApp(appId: $appId) {
+        deletedAppId
+    }
+}
+"""
+
+GET_APP_QUERY = """
+query($appName: String!) {
+    app(name: $appName) {
+        id
+        name
+        hostname
+        status
+        ipAddresses {
+            nodes {
+                id
+                address
+                type
+            }
+        }
+    }
+}
+"""
+
+GET_ORGANIZATION_QUERY = """
 query {
     viewer {
         organizations {
@@ -19,70 +60,51 @@ query {
 }
 """
 
-# Create a new Fly app
-CREATE_APP_MUTATION = """
-mutation($input: CreateAppInput!) {
-    createApp(input: $input) {
+# New queries for IP allocation
+ALLOCATE_IPV4_MUTATION = """
+mutation($input: AllocateIPAddressInput!) {
+    allocateIpAddress(input: $input) {
         app {
-            id
-            name
-            hostname
+            sharedIpAddress
         }
     }
 }
 """
 
-# Deploy an image to an app (high-level operation)
-DEPLOY_IMAGE_MUTATION = """
-mutation($input: DeployImageInput!) {
-    deployImage(input: $input) {
-        app {
+ALLOCATE_IPV6_MUTATION = """
+mutation($input: AllocateIPAddressInput!) {
+    allocateIpAddress(input: $input) {
+        ipAddress {
             id
-            name
-            hostname
-        }
-        release {
-            id
-            version
-            stable
+            address
+            type
+            region
+            createdAt
         }
     }
 }
 """
 
-# Set secrets/environment variables
-SET_SECRETS_MUTATION = """
-mutation($input: SetSecretsInput!) {
-    setSecrets(input: $input) {
-        app {
-            id
-            name
-        }
-    }
-}
-"""
 
-# Get app status and details
-GET_APP_STATUS_QUERY = """
-query($appName: String!) {
-    app(name: $appName) {
-        id
-        name
-        hostname
-        status
-        deployed
-        currentRelease {
-            id
-            version
-            stable
-        }
+# Machine configuration for deployment
+def get_machine_config(app_name: str):
+    """Get the machine configuration for deployment."""
+    return {
+        "region": "yyz",  # Toronto, matching your test app
+        "config": {
+            "image": "flyio/hellofly:latest",  # Using Fly's hello world image for now
+            "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
+            "services": [
+                {
+                    "protocol": "tcp",
+                    "internal_port": 8080,
+                    "autostop": "stop",
+                    "autostart": True,
+                    "ports": [
+                        {"port": 80, "handlers": ["http"], "force_https": True},
+                        {"port": 443, "handlers": ["http", "tls"]},
+                    ],
+                }
+            ],
+        },
     }
-}
-"""
-
-# Delete an app - simplified, just run the mutation
-DELETE_APP_MUTATION = """
-mutation($appId: ID!) {
-    deleteApp(appId: $appId)
-}
-"""

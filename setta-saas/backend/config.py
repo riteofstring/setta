@@ -1,6 +1,5 @@
 """
-Configuration management for the SaaS platform.
-Centralizes all settings and environment variables.
+Configuration management using pydantic-settings.
 """
 
 from functools import lru_cache
@@ -9,34 +8,24 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings."""
+
+    # App settings
+    app_name: str = "Setta SaaS"
+    environment: str = "development"
 
     # Database
     database_url: str
 
-    # Fly.io API
-    fly_api_token: str
-    fly_api_url: str = "https://api.fly.io/graphql"
-    fly_machines_url: str = "https://api.machines.dev/v1"
+    # CORS
+    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
-    # App settings
-    app_name: str = "SaaS Platform API"
-    environment: str = "development"
+    # Fly.io
+    fly_api_token: str = ""
+    fly_org_id: str = "personal"  # or your actual org ID
 
-    # CORS settings
-    cors_origins: list[str] = [
-        "http://localhost:5173",
-        "https://frontend-production-*.up.railway.app",
-        "*",  # Will tighten this later
-    ]
-
-    model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Fix postgres:// to postgresql:// if needed
-        if self.database_url.startswith("postgres://"):
-            self.database_url = self.database_url.replace("postgres://", "postgresql://", 1)
+    class Config:
+        env_file = ".env"
 
 
 @lru_cache
