@@ -144,7 +144,6 @@ class ProjectGenPythonCode(PythonCode):
             callable_code_info = project_state.codeInfo[prev_selected]
 
         if result is None:
-            print("RETURNING EARLY\n\n")
             await self.websocket_msg_handler.return_to_requester(
                 project_state, messageId
             )
@@ -156,6 +155,7 @@ class ProjectGenPythonCode(PythonCode):
         create_children_code_info(
             project_state, sectionId, callable_code_info.id, params
         )
+        variant.selectedItem = callable_code_info.id
         await self.websocket_msg_handler.return_to_requester(
             project_state.model_dump(), messageId
         )

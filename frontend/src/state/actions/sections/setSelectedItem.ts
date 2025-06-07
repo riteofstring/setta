@@ -40,6 +40,7 @@ export async function setSelectedItem(
     refetchParams,
   );
   if (newProjectState) {
+    console.log(newProjectState)
     useProjectState.setState((state) => {
       updateProjectState({ ...newProjectState, state });
     });

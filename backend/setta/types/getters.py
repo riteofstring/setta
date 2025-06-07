@@ -1,3 +1,4 @@
+from setta.database.utils import create_new_id
 from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
@@ -34,10 +35,10 @@ def get_section_children(p: ProjectState, id: str) -> list[str]:
 def get_top_level_param_ids(p: ProjectState, id: str) -> list[str]:
     section_code_info_children = get_section_code_info_children(p, id)
     selected_item = get_selected_item(p, id)
-    if selected_item:
-        children = section_code_info_children.get(selected_item.id, [])
-    else:
-        children = section_code_info_children.get(None, [])
+    sid = selected_item.id if selected_item else None
+    if sid not in section_code_info_children:
+        section_code_info_children[sid] = []
+    children = section_code_info_children[sid]
     return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.parameter]
 
 
@@ -45,7 +46,10 @@ def get_section_code_info_children(p: ProjectState, section_id: str):
     variant = get_selected_section_variant(p, section_id)
     codeInfoColId = variant.codeInfoColId
     if not codeInfoColId:
+        newId = create_new_id()
         codeInfoCol = CodeInfoCol()
+        p.codeInfoCols[newId] = codeInfoCol
+        variant.codeInfoColId = newId
     else:
         codeInfoCol = p.codeInfoCols[codeInfoColId]
     return codeInfoCol.children
@@ -54,7 +58,9 @@ def get_section_code_info_children(p: ProjectState, section_id: str):
 def get_param_ui_type(p: ProjectState, section_id: str, id: str):
     ui_type_col_id = p.sections[section_id].uiTypeColId
     ui_type_col = p.uiTypeCols[ui_type_col_id] if ui_type_col_id else {}
-    ui_type_col_entry = ui_type_col.get(id, UITypeColEntry())
+    if id not in ui_type_col:
+        ui_type_col[id] = UITypeColEntry()
+    ui_type_col_entry = ui_type_col[id]
     ui_type_id = ui_type_col_entry.uiTypeId
     ui_type = p.uiTypes[ui_type_id]
     return ui_type.type
