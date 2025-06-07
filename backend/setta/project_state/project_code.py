@@ -97,7 +97,6 @@ class ProjectGenPythonCode(PythonCode):
         if not refetchParams and item_is_already_selected(
             project_state, sectionId, selectedItemName
         ):
-            await self.websocket_msg_handler.return_to_requester(None, messageId)
             return
 
         variant = get_selected_section_variant(project_state, sectionId)
@@ -111,16 +110,12 @@ class ProjectGenPythonCode(PythonCode):
 
         if prev_selected and not refetchParams:
             variant.selectedItem = prev_selected
-            await self.websocket_msg_handler.return_to_requester(
-                project_state, messageId
-            )
             return
 
         line_col = await self.insert_code_at_position(
             sectionId, None, selectedItemName, len(selectedItemName)
         )
         if line_col is None:
-            await self.websocket_msg_handler.return_to_requester(None, messageId)
             return
 
         line, col = line_col
@@ -144,21 +139,14 @@ class ProjectGenPythonCode(PythonCode):
             callable_code_info = project_state.codeInfo[prev_selected]
 
         if result is None:
-            await self.websocket_msg_handler.return_to_requester(
-                project_state, messageId
-            )
             return
 
         [documentation, params] = result
-        print("[documentation, params]\n\n", [documentation, params], flush=True)
         callable_code_info.description = documentation
         create_children_code_info(
             project_state, sectionId, callable_code_info.id, params
         )
         variant.selectedItem = callable_code_info.id
-        await self.websocket_msg_handler.return_to_requester(
-            project_state.model_dump(), messageId
-        )
 
     async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
         self.code_generator.change_gen_code_prefix(fullText)

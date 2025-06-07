@@ -244,6 +244,15 @@ class ProjectManager:
         await self.gen_code[projectConfigId].set_selected_item(
             messageId, self.project_state, sectionId, selectedItemName, refetchParams
         )
+        await self.update.direct(
+            self,
+            ProjectUpdateState(
+                projectConfigId=projectConfigId, projectState=self.project_state
+            ),
+        )
+        await self.websocket_msg_handler.return_to_requester(
+            self.project_state.model_dump(), messageId
+        )
 
     @enqueue_method
     async def code_area_autocomplete(
