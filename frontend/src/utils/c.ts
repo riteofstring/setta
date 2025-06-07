@@ -55,6 +55,8 @@ export class C {
   static LLM_TOOL_RESULT = "tool_result";
   static LLM_TOOL_USE = "tool_use";
   static LLM_USER_ROLE = "user";
+  static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
+  static MCP_SERVER_ARG_NAME = "setta_mcp_server";
   static NESTED_PARAM = "NESTED_PARAM";
   static NON_SECTION_TYPES = [
     "TEXT",
@@ -142,6 +144,7 @@ export class C {
   static ROUTE_WEBSOCKET_PYTHON_LOGGER = "/pythonLogger";
   static ROUTE_WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}";
   static SECTION = "SECTION";
+  static SETTA_MCP_PARAM_NAMES = ["setta_chat_id", "setta_mcp_server"];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
   static SLIDER = "SLIDER";

@@ -25,8 +25,8 @@ from setta.mcp.utils import (
 )
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
-from setta.types.ai import ChatID
 from setta.types.notifications import SettaNotification
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.mcp import WMHMCP
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -80,15 +80,35 @@ class SettaFastMCP(FastMCP):
             self.add_tool(self.setta_uuid_transformer(fn))
 
     def setta_uuid_transformer(self, func):
+        setta_params: set[str] = set()
+        for param_name in inspect.signature(func).parameters.keys():
+            if param_name in C.SETTA_MCP_PARAM_NAMES:
+                setta_params.add(param_name)
+        is_async = inspect.iscoroutinefunction(func)
+
         @wraps(func)
         async def wrapper(**kwargs):
+            # Filter out unwanted params
+            kwargs = {
+                k: v
+                for k, v in kwargs.items()
+                if k not in C.SETTA_MCP_PARAM_NAMES or k in setta_params
+            }
+            if C.MCP_SERVER_ARG_NAME in setta_params:
+                kwargs[C.MCP_SERVER_ARG_NAME] = self
             try:
                 kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
             except IDDoesNotExist as e:
                 return {"error": str(e)}
-            result = await func(**kwargs)
-            result = TypeAdapter(func.__annotations__["return"]).validate_python(result)
-            result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
+            result = func(**kwargs)
+            if is_async:
+                result = await result
+            return_type = func.__annotations__.get("return")
+            if return_type:
+                result = TypeAdapter(return_type).validate_python(result)
+                result = replace_uuids_with_ids(
+                    result, self.uuid_to_id, self.id_to_uuid
+                )
             with self.dbe.session as db:
                 save_uuid_mapping_for_llm(db, self.uuid_to_id)
                 await self.websocket_msg_handler.send_uuid_mapping(self.id_to_uuid)
@@ -116,13 +136,16 @@ class SettaTool(Tool):
 
         is_async = inspect.iscoroutinefunction(fn)
 
-        skip_names = []
         if context_kwarg is None:
             sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if param.annotation in (Context, SettaFastMCP, ChatID):
-                    skip_names.append(param_name)
+                if param.annotation is Context:
+                    context_kwarg = param_name
                     break
+
+        skip_names = [*C.SETTA_MCP_PARAM_NAMES]
+        if context_kwarg is not None:
+            skip_names.append(context_kwarg)
 
         func_arg_metadata = func_metadata(
             fn,
