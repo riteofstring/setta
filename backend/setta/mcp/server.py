@@ -113,7 +113,7 @@ class SettaFastMCP(FastMCP):
                 kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
             except IDDoesNotExist as e:
                 return {"error": str(e)}
-            result = func(**kwargs)
+            result = await func(**kwargs)
             result = TypeAdapter(func.__annotations__["return"]).validate_python(result)
             result = replace_uuids_with_ids(result, self.uuid_to_id, self.id_to_uuid)
             with self.dbe.session as db:

@@ -80,6 +80,9 @@ def save_messages(db: Session, chat_id: str, messages: list[ChatMessage]):
 
 
 def save_uuid_mapping_for_llm(db: Session, uuid_to_id: UUIDToIDForLLM):
+    if len(uuid_to_id) == 0:
+        return
+
     elements: list[dict] = []
     for uuid, id in uuid_to_id.items():
         table_el = UUIDMappingForLLMTable()
