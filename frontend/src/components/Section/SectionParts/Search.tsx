@@ -2,7 +2,7 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
+import { wsClearTextFieldCompletion } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useProjectState } from "state/definitions";
@@ -87,9 +87,7 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
-      // we have to explicitly call this here because the global state
-      // won't have captured any intermediate updates
-      updateBackendProjectState();
+      wsClearTextFieldCompletion({ sectionId, paramInfoId: null });
     }
     shouldResetValueOnBlur.current = false;
   }

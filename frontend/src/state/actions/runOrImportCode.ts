@@ -3,10 +3,10 @@ import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/termin
 import { getProjectDataToGenerateCode } from "./project/generateCode";
 import { getCurrentProjectConfig } from "./project/loadProject";
 
-export async function runCodeBlock(sectionId) {
+export async function runCodeBlock(sectionId: string | null) {
   const project = await getProjectDataToGenerateCode({});
   const res = await dbRunCode(project, sectionId);
-  if (res.status == 200) {
+  if (res.status === 200) {
     const { terminalId, newTerminalCreated } = res.data;
     console.log(res.data);
     if (newTerminalCreated) {

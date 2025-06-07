@@ -237,6 +237,14 @@ class ProjectManager:
         )
 
     @enqueue_method
+    async def clear_text_field_completion(
+        self, projectConfigId, sectionId, paramInfoId
+    ):
+        await self.gen_code[projectConfigId].clear_text_field_completion(
+            sectionId, paramInfoId
+        )
+
+    @enqueue_method
     async def set_selected_item(
         self,
         projectConfigId: str,

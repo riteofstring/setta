@@ -4,6 +4,7 @@ import { useProjectState, useTypeErrors } from "state/definitions";
 import { C } from "utils/c";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
+import { sendMessage } from "./websocket";
 
 export async function dbRequestTypeCheck(userRequested = false) {
   if (userRequested) {
@@ -68,6 +69,20 @@ export async function wsTextFieldCompletion({
       paramInfoId,
       fullText,
       position,
+    },
+  });
+}
+
+export async function wsClearTextFieldCompletion({ sectionId, paramInfoId }) {
+  const projectConfigId = useProjectState.getState().projectConfigId;
+
+  sendMessage({
+    id: createNewId(),
+    messageType: C.WS_CLEAR_TEXT_FIELD_COMPLETION,
+    content: {
+      projectConfigId,
+      sectionId,
+      paramInfoId,
     },
   });
 }
