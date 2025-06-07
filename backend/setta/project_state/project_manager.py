@@ -15,7 +15,11 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.types.getters import get_section_type, set_param_entered_value
+from setta.types.getters import (
+    get_all_simplified_section_info,
+    get_section_type,
+    set_param_entered_value,
+)
 from setta.types.project_state import (
     CodeLanguage,
     ProjectState,
@@ -316,6 +320,10 @@ class ProjectManager:
         if self.gen_code.get(projectConfigId):
             return self.gen_code[projectConfigId].get_gen_python_code()
         return ""
+
+    @enqueue_method
+    async def get_all_simplified_section_info(self, projectConfigId: str):
+        return get_all_simplified_section_info(self.project_state, projectConfigId)
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:

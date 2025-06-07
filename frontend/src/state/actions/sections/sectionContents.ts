@@ -1,4 +1,3 @@
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
@@ -10,7 +9,6 @@ import { bothTruthyOrFalsey } from "utils/utils";
 import {
   getCodeChildrenAndParentCodeInfoId,
   getCodeInfoCol,
-  getSectionType,
   getSectionVariant,
 } from "../sectionInfos";
 
@@ -151,25 +149,4 @@ export function getSectionCurrentCodeInfoMcp({ sectionId }) {
   );
 
   return { callableInfo, paramInfos };
-}
-
-/**
- * Gets information about all the sections that currently exist.
- * @SETTA_MCP_TOOL
- * @returns {Object<ID, SimplifiedSectionInfo>} an object that maps from sectionId to that section's information.
- */
-export function getAllSectionInformationMcp() {
-  const state = useProjectState.getState();
-  const output = {};
-  for (const s of Object.values(state.sections)) {
-    const { x, y, height, width } = getSectionRect(s.id);
-    output[s.id] = {
-      name: s.name,
-      type: getSectionType(s.id, state),
-      codeInfo: getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
-      position: { x, y },
-      size: { width, height },
-    };
-  }
-  return output;
 }

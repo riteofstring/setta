@@ -4,6 +4,7 @@ from typing import cast
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
 from setta.types.ai import ID
+from setta.types.simplified_states import SimplifiedSection
 
 
 @setta_tool
@@ -93,3 +94,16 @@ async def setParamValues(
         projectConfigId, sectionId, cast(dict[str, str], paramIdsToValues)
     )
     return "success"
+
+
+@setta_tool
+async def getAllSimplifiedSectionInfo(
+    setta_mcp_server: SettaFastMCP, projectConfigId: str
+) -> dict[ID, SimplifiedSection]:
+    """
+    Set the values of multiple parameters in a particular section. Returns an object that maps from sectionId to that section's information.
+    """
+    output = await setta_mcp_server.project_manager.get_all_simplified_section_info(
+        projectConfigId
+    )
+    return cast(dict[ID, SimplifiedSection], output)

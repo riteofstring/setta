@@ -7,6 +7,7 @@ from setta.types.project_state import (
     ProjectState,
     UITypeColEntry,
 )
+from setta.types.simplified_states import SimplifiedSection
 from setta.utils.constants import C
 
 
@@ -155,3 +156,14 @@ def set_param_entered_value(
     if paramInfoId not in variant.values:
         variant.values[paramInfoId] = EVEntry()
     variant.values[paramInfoId].value = value
+
+
+def get_all_simplified_section_info(
+    p: ProjectState, projectConfigId: str
+) -> dict[str, SimplifiedSection]:
+    output = {}
+    projectConfig = p.projectConfigs[projectConfigId]
+    for c in projectConfig.children.keys():
+        section = p.sections[c]
+        output[c] = SimplifiedSection(name=section.name)
+    return output

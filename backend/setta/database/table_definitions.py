@@ -115,7 +115,7 @@ class UUIDMappingForLLMTable(BaseTable):
     __tablename__ = "UUIDMappingForLLM"
 
     id: Mapped[str] = mapped_column(primary_key=True)
-    uuid_column: Mapped[str] = mapped_column("uuid", unique=True)
+    uuid_column: Mapped[str] = mapped_column(unique=True)
 
 
 # 2. Create trigger using CURRENT_TIMESTAMP
