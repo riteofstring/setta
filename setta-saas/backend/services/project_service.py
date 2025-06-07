@@ -66,20 +66,12 @@ class ProjectService:
         )
 
         # Start deployment in background
-        asyncio.create_task(self._deploy_project(project, app_name))
+        asyncio.create_task(self._deploy_project_with_progress(project, app_name))
 
         return self._to_response(project)
 
-    async def _deploy_project(self, project: Project, app_name: str):
-        """Deploy project to Fly.io with progress updates."""
-        deployment_steps = [
-            (DeploymentStep.CREATING_APP, 20),
-            (DeploymentStep.ALLOCATING_IPS, 40),
-            (DeploymentStep.DEPLOYING_MACHINE, 60),
-            (DeploymentStep.WAITING_FOR_DNS, 80),
-            (DeploymentStep.VERIFYING_DEPLOYMENT, 100),
-        ]
-
+    async def _deploy_project_with_progress(self, project: Project, app_name: str):
+        """Deploy project to Fly.io with real progress updates."""
         try:
             # Update status to deploying
             project.status = "deploying"
@@ -89,14 +81,10 @@ class ProjectService:
                 project, EventType.PROJECT_DEPLOYING, "Deploying to Fly.io..."
             )
 
-            # Send progress updates during deployment
-            for step, percent in deployment_steps:
-                await self._broadcast_progress(project, step.value, percent)
+            # Send initial progress
+            await self._broadcast_progress(project, DeploymentStep.CREATING_APP.value, 20)
 
-                # Simulate work for demo - remove in production
-                await asyncio.sleep(2)
-
-            # Actually deploy
+            # Actually deploy (this is synchronous so run in thread)
             deployment = await asyncio.to_thread(self.fly.create_and_deploy_app, app_name)
 
             # Update project with deployment info
@@ -104,6 +92,9 @@ class ProjectService:
             project.status = "running"
             project.last_checked = datetime.utcnow()
             self.db.commit()
+
+            # Send completion progress
+            await self._broadcast_progress(project, DeploymentStep.COMPLETE.value, 100)
 
             # Broadcast success
             await self._broadcast_project_event(
@@ -120,6 +111,7 @@ class ProjectService:
             await self._broadcast_project_event(
                 project, EventType.PROJECT_ERROR, f"Deployment failed: {str(e)}"
             )
+            print(f"Deployment error for {app_name}: {str(e)}")
 
     async def delete_project(self, project_id: str) -> bool:
         """Delete a project and its Fly.io resources."""

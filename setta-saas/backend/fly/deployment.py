@@ -97,7 +97,8 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
 
 def delete_app_force(client: FlyClient, app_name: str) -> bool:
     """Delete a Fly.io app using REST API with force (stops machines first)."""
-    return client.delete_app_rest(app_name, force=True)
+    result = client.delete_app_rest(app_name, force=True)
+    return result.get("success", False)
 
 
 def list_all_apps(client: FlyClient, org_slug: str = "personal") -> list[dict]:

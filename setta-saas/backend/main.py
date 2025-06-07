@@ -3,6 +3,9 @@ FastAPI application for SaaS platform.
 Simplified with service layer architecture.
 """
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -17,8 +20,19 @@ from services.websocket_service import get_connection_manager
 # Initialize settings
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan."""
+    # Startup
+    print("Starting up...")
+    yield
+    # Shutdown
+    print("Shutting down...")
+
+
 # Create FastAPI app
-app = FastAPI(title=settings.app_name)
+app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 # Configure CORS
 app.add_middleware(
@@ -40,8 +54,22 @@ def get_db():
         db.close()
 
 
+async def get_async_db():
+    """Get database session for async operations."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
 def get_project_service(db: Session = Depends(get_db)) -> ProjectService:
     """Get project service instance."""
+    return ProjectService(db)
+
+
+async def get_async_project_service(db: Session = Depends(get_async_db)) -> ProjectService:
+    """Get project service instance for async operations."""
     return ProjectService(db)
 
 
@@ -73,13 +101,15 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             # Keep connection alive and handle any incoming messages
-            # We don't expect clients to send much, but we need to keep reading
             data = await websocket.receive_text()
             # Could handle ping/pong or other client messages here if needed
             print(f"Received from client: {data}")
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
         print(f"Client disconnected. Active connections: {manager.get_connection_count()}")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        await manager.disconnect(websocket)
 
 
 @app.get("/api/projects", response_model=list[ProjectResponse])
@@ -90,7 +120,7 @@ async def list_projects(service: ProjectService = Depends(get_project_service)):
 
 @app.post("/api/projects", response_model=ProjectResponse)
 async def create_project(
-    project_data: ProjectCreate, service: ProjectService = Depends(get_project_service)
+    project_data: ProjectCreate, service: ProjectService = Depends(get_async_project_service)
 ):
     """Create a new project."""
     return await service.create_project(project_data)
@@ -106,7 +136,9 @@ async def get_project(project_id: str, service: ProjectService = Depends(get_pro
 
 
 @app.delete("/api/projects/{project_id}")
-async def delete_project(project_id: str, service: ProjectService = Depends(get_project_service)):
+async def delete_project(
+    project_id: str, service: ProjectService = Depends(get_async_project_service)
+):
     """Delete a project."""
     success = await service.delete_project(project_id)
     if not success:
@@ -116,7 +148,7 @@ async def delete_project(project_id: str, service: ProjectService = Depends(get_
 
 @app.post("/api/projects/{project_id}/check-status")
 async def check_project_status(
-    project_id: str, service: ProjectService = Depends(get_project_service)
+    project_id: str, service: ProjectService = Depends(get_async_project_service)
 ):
     """Check and update project status."""
     status = await service.check_project_status(project_id)
@@ -129,8 +161,9 @@ async def check_project_status(
 @app.post("/api/projects/sync-all")
 async def sync_all_projects(service: ProjectService = Depends(get_project_service)):
     """Sync all project statuses with Fly.io."""
-    result = service.sync_all_projects()
-    return {"message": "Sync completed", "result": result}
+    # Run sync in background to avoid timeout
+    asyncio.create_task(_sync_all_projects_task(service))
+    return {"message": "Sync started", "status": "processing"}
 
 
 @app.delete("/api/projects/delete-all")
@@ -145,6 +178,16 @@ async def cleanup_dead_projects(service: ProjectService = Depends(get_project_se
     """Remove projects with error status or failed deployments."""
     result = service.cleanup_dead_projects()
     return {"message": "Cleanup completed", "result": result}
+
+
+# Background task helpers
+async def _sync_all_projects_task(service: ProjectService):
+    """Background task to sync all projects."""
+    try:
+        result = service.sync_all_projects()
+        print(f"Sync completed: {result}")
+    except Exception as e:
+        print(f"Sync failed: {e}")
 
 
 # Fly.io management endpoints (separate from database)

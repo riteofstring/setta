@@ -39,23 +39,29 @@ class FlyService:
         print(f"Creating app '{app_name}'...")
 
         try:
+            # Create the app
             app = create_app(self.client, app_name, self.org_id)
             print(f"✓ App created: {app['hostname']}")
 
+            # Allocate IP addresses
             print("Allocating IP addresses...")
             ipv4, ipv6 = allocate_ips(self.client, app_name)
             print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
+            # Deploy machine
             print("Deploying machine...")
             machine_id = create_and_deploy_machine(self.client, app_name)
             print(f"✓ Machine created: {machine_id}")
 
+            # Wait for app to be ready
             print("Waiting for DNS propagation...")
-            if wait_for_app_ready(self.client, app_name):
+            is_ready = wait_for_app_ready(self.client, app_name)
+            if is_ready:
                 print("✓ App is ready!")
             else:
                 print("⚠ App deployment may still be in progress")
 
+            # Return deployment info
             return {
                 "app_name": app_name,
                 "hostname": app["hostname"],
@@ -68,15 +74,17 @@ class FlyService:
 
         except Exception as e:
             print(f"✗ Error during deployment: {str(e)}")
+            # Try to clean up if deployment failed
             self._cleanup_failed_app(app_name)
             raise
 
     def _cleanup_failed_app(self, app_name: str) -> None:
         """Clean up a failed app deployment."""
         try:
+            print(f"Cleaning up failed app: {app_name}")
             delete_app_force(self.client, app_name)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Failed to cleanup app: {e}")
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its resources."""
@@ -85,12 +93,12 @@ class FlyService:
         try:
             result = delete_app_force(self.client, app_name)
 
-            if result["success"]:
+            if result:
                 print(f"✓ App '{app_name}' deleted successfully")
                 return True
-
-            print(f"✗ Failed to delete '{app_name}': {result['status_code']} - {result['error']}")
-            return False
+            else:
+                print(f"✗ Failed to delete '{app_name}'")
+                return False
 
         except Exception as e:
             print(f"✗ Error deleting app: {str(e)}")

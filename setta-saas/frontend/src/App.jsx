@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./components/Login";
-import ProjectsList from "./components/ProjectsList";
+import ProjectsList from "./components/ProjectsList/ProjectsList";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Header from "./components/Header";
 
