@@ -2,7 +2,6 @@ from setta.websockets.msg_handlers.artifact import WMHArtifact
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.msg_handlers.cli import WMHCLI
 from setta.websockets.msg_handlers.frontend import WMHFrontend
-from setta.websockets.msg_handlers.mcp import WMHMCP
 from setta.websockets.msg_handlers.python_logger import WMHPythonLogger
 from setta.websockets.msg_handlers.python_script import WMHPythonScript
 from setta.websockets.msg_handlers.terminals import WMHTerminals
@@ -15,7 +14,6 @@ class WebsocketMsgHandlers:
         lsp_writers,
         project_manager,
         script_metadata,
-        dbe,
         specific_file_watcher,
     ):
         self.base = BaseWebsocketMsgHandler(websocket_manager)
@@ -33,4 +31,3 @@ class WebsocketMsgHandlers:
             websocket_manager, script_metadata, project_manager
         )
         self.python_logger = WMHPythonLogger(websocket_manager)
-        self.mcp = WMHMCP(websocket_manager, dbe)

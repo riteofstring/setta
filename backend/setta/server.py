@@ -68,7 +68,6 @@ async def lifespan(app: FastAPI):
         app.state.lsp_writers,
         app.state.project_manager,
         app.state.script_metadata,
-        app.state.dbe,
         app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(

@@ -10,7 +10,10 @@ from mcp.server.sse import SseServerTransport
 from mcp.types import AnyFunction
 from mcp.types import Tool as MCPTool
 
+from setta.project_state.project_manager import ProjectManager
+from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
+from setta.websockets.msg_handlers.mcp import WMHMCP
 
 CHAT_ID_ARG_NAME = "chatId"
 
@@ -20,9 +23,16 @@ class CustomFastMCP(FastMCP):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fn_param_docstrings = {}
-        self.setta_websocket = None
-        self.setta_terminals = None
-        self.project_manager = None
+
+    def set_setta_objs(
+        self,
+        websocket_msg_handler: WMHMCP,
+        terminals: Terminals,
+        project_manager: ProjectManager,
+    ):
+        self.websocket_msg_handler = websocket_msg_handler
+        self.terminals = terminals
+        self.project_manager = project_manager
 
     def add_tool(
         self, fn: AnyFunction, name: str | None = None, description: str | None = None
@@ -79,12 +89,16 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     app.get(mount_path)(handle_mcp_connection)
     app.mount(msg_path, app=sse_transport.handle_post_message)
 
-    mcp_server.setta_websocket = app.state.websocket_msg_handlers.mcp
-    mcp_server.setta_terminals = app.state.terminals
-    mcp_server.project_manager = app.state.project_manager
+    mcp_server.set_setta_objs(
+        WMHMCP(app.state.websocket_manager, app.state.dbe),
+        app.state.terminals,
+        app.state.project_manager,
+    )
 
     content = SettaNotification(message="MCP Server Ready", temporary=True)
-    asyncio.create_task(mcp_server.setta_websocket.broadcast_notification(content))
+    asyncio.create_task(
+        mcp_server.websocket_msg_handler.broadcast_notification(content)
+    )
 
 
 def extract_param_docstrings(func):

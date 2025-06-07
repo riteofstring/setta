@@ -2,6 +2,7 @@ from pydantic import TypeAdapter
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.database.db.chats.save import save_uuid_mapping_for_llm
+from setta.database.db_objs import DBE
 from setta.mcp.utils import (
     IDDoesNotExist,
     SettaMCPToolError,
@@ -10,10 +11,11 @@ from setta.mcp.utils import (
 )
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.websocket_manager import WebsocketManager
 
 
 class WMHMCP(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager, dbe):
+    def __init__(self, websocket_manager: WebsocketManager, dbe: DBE):
         self.websocket_manager = websocket_manager
         self.dbe = dbe
         with self.dbe.session as db:
