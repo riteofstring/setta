@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 
     add_mcp_server_to_fastapi_server(app, "/mcp")
     app.state.mcp_client = MCPClient(
-        f"{C.BACKEND}/mcp",
+        f"{C.BACKEND}/mcp", app.state.dbe
     )
     app.state.chat_manager = ChatManager(
         app.state.dbe, app.state.mcp_client, app.state.websocket_manager

@@ -15,20 +15,12 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 
 class WMHMCP(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager: WebsocketManager, dbe: DBE):
+    def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
-        self.dbe = dbe
-        with self.dbe.session as db:
-            self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
 
     async def use_frontend_tool(self, fn_name, return_type, args=None):
         # Generate request ID
         request_id = self.websocket_manager.create_pending_request()
-
-        try:
-            args = replace_ids_with_uuids(args, self.id_to_uuid)
-        except IDDoesNotExist as e:
-            return {"error": str(e)}
 
         if args is None:
             args = {}

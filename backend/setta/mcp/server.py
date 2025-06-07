@@ -90,7 +90,7 @@ def add_mcp_server_to_fastapi_server(app, mount_path):
     app.mount(msg_path, app=sse_transport.handle_post_message)
 
     mcp_server.set_setta_objs(
-        WMHMCP(app.state.websocket_manager, app.state.dbe),
+        WMHMCP(app.state.websocket_manager),
         app.state.terminals,
         app.state.project_manager,
     )

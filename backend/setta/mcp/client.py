@@ -7,23 +7,29 @@ from mcp import ClientSession
 from mcp.client.sse import sse_client
 from mcp.types import CallToolResult, TextContent
 
+from setta.database.db.chats.load import load_uuid_mapping_for_llm
+from setta.database.db_objs import DBE
 from setta.mcp.str_replace_editor_tool_fns import (
     handle_str_replace_editor_tool_create,
     handle_str_replace_editor_tool_insert,
     handle_str_replace_editor_tool_str_replace,
     handle_str_replace_editor_tool_view,
 )
+from setta.mcp.utils import IDDoesNotExist, replace_ids_with_uuids
 from setta.utils.constants import C
 
 
 # adapted from: https://github.com/modelcontextprotocol/quickstart-resources/blob/main/mcp-client-python/client.py
 class MCPClient:
-    def __init__(self, server_url: str):
+    def __init__(self, server_url: str, dbe: DBE):
         # Initialize session and client objects
         self.session: ClientSession | None = None
         self.exit_stack = AsyncExitStack()
         self.server_url = server_url
         self.available_tools: list[ToolParam] = []
+        self.dbe = dbe
+        with self.dbe.session as db:
+            self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
 
     async def connect_to_server(self, retry_delay=1):
         """Connect to an MCP server over HTTP with retry logic
@@ -101,7 +107,14 @@ class MCPClient:
         if not self.session:
             raise ValueError
 
-        return await self.session.call_tool(tool_name, tool_args)
+        try:
+            converted_tool_args = replace_ids_with_uuids(tool_args, self.id_to_uuid)
+            result = await self.session.call_tool(tool_name, converted_tool_args)
+            
+        except IDDoesNotExist as e:
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps({"error": str(e)}))], isError=True
+            )
 
     async def stop(self):
         # Then close the exit stack to release resources
