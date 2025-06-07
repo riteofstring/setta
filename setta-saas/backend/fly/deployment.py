@@ -89,14 +89,55 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
     delete_variables = {"appId": app_id}
     delete_result = client.execute_graphql(DELETE_APP, delete_variables)
 
-    # Check for GraphQL errors
     if "errors" in delete_result:
         raise Exception(f"Failed to delete app: {delete_result['errors']}")
 
-    # If no errors, deletion was successful
-    # We don't need to check the response data since the organization field
-    # is just confirmation that the app's org was returned
     return True
+
+
+def list_all_apps(client: FlyClient, org_slug: str = "personal") -> list[dict]:
+    """List all apps in the organization."""
+    return client.list_apps(org_slug)
+
+
+def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dict:
+    """Delete ALL apps in the organization. Use with caution!"""
+    apps = list_all_apps(client, org_slug)
+
+    if not apps:
+        return {"deleted": 0, "failed": 0, "total": 0, "apps": []}
+
+    print(f"Found {len(apps)} apps in organization '{org_slug}'")
+
+    deleted_count = 0
+    failed_count = 0
+    deleted_apps = []
+    failed_apps = []
+
+    for app in apps:
+        app_name = app["name"]
+        try:
+            print(f"Deleting app: {app_name}")
+            if delete_app(client, app_name):
+                deleted_count += 1
+                deleted_apps.append(app_name)
+                print(f"✓ Deleted: {app_name}")
+            else:
+                failed_count += 1
+                failed_apps.append(app_name)
+                print(f"✗ Failed to delete: {app_name}")
+        except Exception as e:
+            failed_count += 1
+            failed_apps.append(app_name)
+            print(f"✗ Error deleting {app_name}: {str(e)}")
+
+    return {
+        "deleted": deleted_count,
+        "failed": failed_count,
+        "total": len(apps),
+        "deleted_apps": deleted_apps,
+        "failed_apps": failed_apps,
+    }
 
 
 def get_app_status(client: FlyClient, app_name: str) -> dict | None:

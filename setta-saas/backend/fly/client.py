@@ -37,6 +37,17 @@ class FlyClient:
 
             return result
 
+    def list_apps(self, org_slug: str = "personal") -> list[dict]:
+        """List all apps in the organization using REST API."""
+        url = f"{self.machines_url}/apps?org_slug={org_slug}"
+
+        with httpx.Client() as client:
+            response = client.get(url, headers=self.headers, timeout=30.0)
+            response.raise_for_status()
+            result = response.json()
+
+            return result.get("apps", [])
+
     def create_machine(self, app_name: str, config: dict, region: str = "ewr") -> dict:
         """Create a machine via REST API."""
         url = f"{self.machines_url}/apps/{app_name}/machines"

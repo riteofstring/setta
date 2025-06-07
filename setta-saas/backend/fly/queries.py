@@ -37,9 +37,7 @@ mutation CreateApp($input: CreateAppInput!) {
 DELETE_APP = """
 mutation DeleteApp($appId: ID!) {
     deleteApp(appId: $appId) {
-        organization {
-            id
-        }
+        deletedAppId
     }
 }
 """
@@ -54,6 +52,23 @@ query GetApp($appName: String!) {
         status
         version
         appUrl
+    }
+}
+"""
+
+# NEW: List all apps in organization
+LIST_APPS = """
+query {
+    apps {
+        nodes {
+            id
+            name
+            hostname
+            status
+            organization {
+                slug
+            }
+        }
     }
 }
 """

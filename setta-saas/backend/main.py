@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from config import get_settings
 from database import SessionLocal
 from models.project import ProjectCreate, ProjectResponse
+from services.fly_service import FlyService
 from services.project_service import ProjectService
 
 # Initialize settings
@@ -41,6 +42,11 @@ def get_db():
 def get_project_service(db: Session = Depends(get_db)) -> ProjectService:
     """Get project service instance."""
     return ProjectService(db)
+
+
+def get_fly_service() -> FlyService:
+    """Get fly service instance."""
+    return FlyService()
 
 
 # Routes
@@ -98,7 +104,7 @@ async def check_project_status(
     return {"status": status}
 
 
-# New management endpoints
+# Project management endpoints
 @app.post("/api/projects/sync-all")
 async def sync_all_projects(service: ProjectService = Depends(get_project_service)):
     """Sync all project statuses with Fly.io."""
@@ -118,6 +124,27 @@ async def cleanup_dead_projects(service: ProjectService = Depends(get_project_se
     """Remove projects with error status or failed deployments."""
     result = service.cleanup_dead_projects()
     return {"message": "Cleanup completed", "result": result}
+
+
+# NEW: Fly.io management endpoints (separate from database)
+@app.get("/api/fly/apps")
+async def list_fly_apps(service: FlyService = Depends(get_fly_service)):
+    """List all apps in the Fly.io organization."""
+    try:
+        apps = service.list_all_apps()
+        return {"apps": apps, "total": len(apps)}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to list apps: {str(e)}")
+
+
+@app.delete("/api/fly/apps/delete-all")
+async def delete_all_fly_apps(service: FlyService = Depends(get_fly_service)):
+    """Delete ALL apps in the Fly.io organization. Nuclear option!"""
+    try:
+        result = service.delete_all_apps()
+        return {"message": "Delete all Fly.io apps completed", "result": result}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to delete all apps: {str(e)}")
 
 
 if __name__ == "__main__":

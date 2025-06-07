@@ -8,9 +8,11 @@ from fly.deployment import (
     allocate_ips,
     create_and_deploy_machine,
     create_app,
+    delete_all_apps_in_org,
     delete_app,
     get_app_status,
     get_organization_id,
+    list_all_apps,
     wait_for_app_ready,
 )
 
@@ -91,3 +93,12 @@ class FlyService:
     def get_app_status(self, app_name: str) -> dict | None:
         """Get current status of a Fly.io app."""
         return get_app_status(self.client, app_name)
+
+    def list_all_apps(self) -> list[dict]:
+        """List all apps in the organization."""
+        return list_all_apps(self.client, self.org_slug)
+
+    def delete_all_apps(self) -> dict:
+        """Delete ALL apps in the organization. Nuclear option!"""
+        print(f"⚠️  WARNING: This will delete ALL apps in organization '{self.org_slug}'")
+        return delete_all_apps_in_org(self.client, self.org_slug)
