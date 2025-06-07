@@ -226,9 +226,6 @@ class C:
     RENAME_REFACTOR_ALWAYS_RENAME = "Always Rename"
     RENAME_REFACTOR_NEVER_RENAME = "Never Rename"
 
-    MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
-    MCP_SERVER_ARG_NAME = "setta_mcp_server"
-
     @classproperty
     def FRONTEND_ORIGINS(cls):
         if is_dev_mode():

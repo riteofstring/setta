@@ -25,8 +25,8 @@ from setta.mcp.utils import (
 )
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
+from setta.types.ai import ChatID
 from setta.types.notifications import SettaNotification
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.mcp import WMHMCP
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -55,9 +55,6 @@ class SettaFastMCP(FastMCP):
         with self.dbe.session as db:
             self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
         self.fn_param_docstrings = {}
-        self.excluded_setta_params = set(
-            [C.MCP_CHAT_ID_ARG_NAME, C.MCP_SERVER_ARG_NAME]
-        )
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
 
@@ -88,17 +85,7 @@ class SettaFastMCP(FastMCP):
                 description=t.description,
                 inputSchema=t.parameters,
             )
-            schema = mcpt.inputSchema
-            schema["properties"] = {
-                k: v
-                for k, v in schema["properties"].items()
-                if k not in self.excluded_setta_params
-            }
-            if schema.get("required"):
-                schema["required"] = [
-                    k for k in schema["required"] if k not in self.excluded_setta_params
-                ]
-            for arg_name, arg_metadata in schema["properties"].items():
+            for arg_name, arg_metadata in mcpt.inputSchema["properties"].items():
                 if "description" in arg_metadata:
                     continue
                 description = self.fn_param_docstrings.get(t.fn, {}).get(arg_name, None)
@@ -151,16 +138,14 @@ class SettaTool(Tool):
         func_doc = description or fn.__doc__ or ""
         is_async = inspect.iscoroutinefunction(fn)
 
+        skip_names = []
         if context_kwarg is None:
             sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if param.annotation is Context:
-                    context_kwarg = param_name
+                if param.annotation in (Context, SettaFastMCP, ChatID):
+                    skip_names.append(param_name)
                     break
 
-        skip_names = [C.MCP_CHAT_ID_ARG_NAME, C.MCP_SERVER_ARG_NAME]
-        if context_kwarg is not None:
-            skip_names.append(context_kwarg)
         func_arg_metadata = func_metadata(
             fn,
             skip_names=skip_names,

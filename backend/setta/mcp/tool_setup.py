@@ -6,19 +6,19 @@ from mcp.types import AnyFunction
 
 
 @dataclass
-class SettaMCPTool:
+class SettaToolMetadata:
     fn: AnyFunction
     description: str | None
     param_descriptions: dict[str, str]
 
 
-SETTA_MCP_TOOLS: list[SettaMCPTool] = []
+SETTA_MCP_TOOLS: list[SettaToolMetadata] = []
 
 
 def setta_tool(fn):
     description, param_descriptions = extract_tool_docstrings(fn)
     SETTA_MCP_TOOLS.append(
-        SettaMCPTool(
+        SettaToolMetadata(
             fn=fn, description=description, param_descriptions=param_descriptions
         )
     )
