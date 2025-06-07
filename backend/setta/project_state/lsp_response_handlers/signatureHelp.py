@@ -2,7 +2,7 @@ import re
 
 import docstring_parser
 
-from setta.types.project_state import ParameterPassingStyle
+from setta.types.project_state import CodeInfo, CodeInfoType, ParameterPassingStyle
 
 
 def process_signature_help_response(response):
@@ -22,7 +22,7 @@ def parse_signature(signature):
             signature, docstring, get_docstring_parser_param_proposals
         )
     documentation = signature.get("documentation", {"value": ""})["value"]
-    return [documentation, param_info_list]
+    return documentation, param_info_list
 
 
 def process_docstring(signature):
@@ -40,7 +40,7 @@ def process_docstring(signature):
 
 def wrapper_parse_signature(signature, docstring, get_proposed_params):
     params = get_proposed_params(signature, docstring)
-    param_info_list = []
+    param_info_list: list[CodeInfo] = []
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
 
@@ -66,12 +66,14 @@ def wrapper_parse_signature(signature, docstring, get_proposed_params):
 
         # Append parsed information to list
         param_info_list.append(
-            {
-                "name": name.lstrip("*"),
-                "defaultVal": default,
-                "description": description,
-                "passingStyle": passingStyle,
-            }
+            CodeInfo(
+                name=name.lstrip("*"),
+                editable=False,
+                defaultVal=default,
+                description=description,
+                passingStyle=passingStyle,
+                rcType=CodeInfoType.parameter,
+            )
         )
 
     return param_info_list

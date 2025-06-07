@@ -1,11 +1,7 @@
 import { wsSetSelectedItem } from "requests/sections";
 import { useProjectState } from "state/definitions";
-import { CodeInfoTypeSchema } from "utils/generatedTypes";
-import { addCodeInfo } from "../codeInfo";
 import { setParametersRequestWaitingForLSP } from "../lsp";
-import { addTemporaryNotification } from "../notifications";
-import { getCodeInfoCol, getSectionVariant } from "../sectionInfos";
-import { maybeIncrementProjectStateVersion } from "../undo";
+import { getSectionVariant, updateProjectState } from "../sectionInfos";
 import { getSectionCurrentCodeInfoMcp } from "./sectionContents";
 
 /**
@@ -38,96 +34,15 @@ export async function setSelectedItem(
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const paramRes = await wsSetSelectedItem(
+  const newProjectState = await wsSetSelectedItem(
     sectionId,
     selectedItemName,
     refetchParams,
   );
-  setToNotWaiting();
-
-  console.log("paramRes", paramRes)
-
-  // useProjectState.setState((state) => {
-  //   let info;
-  //   if (!prevSelected) {
-  //     info = createCodeInfo({
-  //       name: selectedItemName,
-  //       editable: false,
-  //       rcType: CodeInfoTypeSchema.enum.callable,
-  //     });
-  //     addCodeInfo({ sectionId, info, parent: null, state });
-  //   } else {
-  //     info = state.codeInfo[prevSelected];
-  //   }
-
-  //   if (paramRes) {
-  //     const [documentation, params] = paramRes;
-  //     if (params) {
-  //       createChildrenCodeInfo(sectionId, info.id, params, state);
-  //     } else {
-  //       addTemporaryNotification("No parameters found");
-  //     }
-  //     state.codeInfo[info.id].description = documentation;
-  //   } else {
-  //     addTemporaryNotification("No parameters found");
-  //   }
-  //   setToNotWaiting();
-  //   callbackSetAttr(info.id, state);
-  // });
-
-  // maybeIncrementProjectStateVersion(true);
-}
-
-function createChildrenCodeInfo(sectionId, parent, params, state) {
-  const existingChildrenNameToId = {};
-  for (const c of getCodeInfoCol(sectionId, state)?.children?.[parent] ?? []) {
-    existingChildrenNameToId[state.codeInfo[c].name] = c;
-  }
-
-  const paramIdsInOrder = [];
-  for (const p of params) {
-    // if the param name is already a child of parent, then get its id
-    // otherwise it'll be undefined and id will be created in newCodeInfo
-    const existingId = existingChildrenNameToId[p.name];
-    const info = createCodeInfo({
-      id: existingId,
-      name: p.name,
-      editable: false,
-      rcType: CodeInfoTypeSchema.enum.parameter,
-      defaultVal: p.defaultVal,
-      description: p.description,
-      passingStyle: p.passingStyle,
+  if (newProjectState) {
+    useProjectState.setState((state) => {
+      updateProjectState({ ...newProjectState, state });
     });
-    paramIdsInOrder.push(info.id);
-    if (!existingId) {
-      addCodeInfo({ sectionId, info, parent, state });
-    } else {
-      state.codeInfo[existingId] = info;
-    }
   }
-
-  // ensures the params are in the right order, regardless of whether we are
-  // creating new children, or updating existing ones.
-  getCodeInfoCol(sectionId, state).children[parent] = paramIdsInOrder;
-}
-
-function itemHasBeenSelectedBefore(sectionId, selectedItemName) {
-  // empty value is equivalent to the "null" callable id
-  if (selectedItemName === "") {
-    return null;
-  }
-  const state = useProjectState.getState();
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  for (const c of codeInfoChildren[null]) {
-    if (state.codeInfo[c].name === selectedItemName) {
-      return c;
-    }
-  }
-  return undefined;
-}
-
-function itemIsAlreadySelected(sectionId, selectedItemName) {
-  const state = useProjectState.getState();
-  const currSelectedItem = getSectionVariant(sectionId, state).selectedItem;
-  return state.codeInfo[currSelectedItem]?.name === selectedItemName;
+  setToNotWaiting();
 }

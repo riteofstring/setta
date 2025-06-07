@@ -1,4 +1,5 @@
 from setta.types.project_state import (
+    CodeInfo,
     CodeInfoCol,
     CodeInfoType,
     ProjectState,
@@ -90,11 +91,51 @@ def item_is_already_selected(p: ProjectState, sectionId: str, selectedItemName: 
 def item_has_been_selected_before(
     p: ProjectState, sectionId: str, selectedItemName: str
 ):
-    # empty value is equivalent to the "null" callable id
-    if selectedItemName == "":
-        return True, None
     code_info_children = get_section_code_info_children(p, sectionId)
     for c in code_info_children[None]:
         if p.codeInfo[c].name == selectedItemName:
-            return True, c
-    return False, None
+            return c
+    return None
+
+
+def add_code_info(
+    state: ProjectState,
+    section_id: str,
+    info: CodeInfo,
+    parent: str | None = None,
+    insert_idx: int | None = None,
+):
+    state.codeInfo[info.id] = info
+    code_info_children = get_section_code_info_children(state, section_id)
+
+    if parent not in code_info_children:
+        code_info_children[parent] = []
+
+    if insert_idx is None:
+        code_info_children[parent].append(info.id)
+    else:
+        code_info_children[parent].insert(insert_idx, info.id)
+
+    code_info_children[info.id] = []
+
+
+def create_children_code_info(
+    state: ProjectState, section_id: str, parent: str, params: list[CodeInfo]
+):
+    existing_children_name_to_id = {}
+    code_info_children = get_section_code_info_children(state, section_id)
+    for c in code_info_children.get(parent, []):
+        existing_children_name_to_id[state.codeInfo[c].name] = c
+
+    param_ids_in_order = []
+    for p in params:
+        existing_id = existing_children_name_to_id.get(p.name)
+        if existing_id:
+            p.id = existing_id
+        param_ids_in_order.append(p.id)
+        if not existing_id:
+            add_code_info(state, section_id, p, parent)
+        else:
+            state.codeInfo[existing_id] = p
+
+    code_info_children[parent] = param_ids_in_order

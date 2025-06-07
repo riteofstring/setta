@@ -109,7 +109,7 @@ export function setAllPreviewVariantIdsToNull() {
   });
 }
 
-export function updateSectionInfos({
+export function updateProjectState({
   sections,
   variants,
   uiTypes,

@@ -1,7 +1,7 @@
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { getSectionVariant, updateSectionInfos } from "./sectionInfos";
+import { getSectionVariant, updateProjectState } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
   const { fileWatchGroupName } = updatedFileInfo;
@@ -41,7 +41,7 @@ async function updateJSONSourceContents(updatedFileInfo) {
     await loadJsonContents(variantIdsToLoad);
 
   useProjectState.setState((state) => {
-    updateSectionInfos({
+    updateProjectState({
       variants,
       codeInfo,
       codeInfoCols,

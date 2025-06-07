@@ -13,7 +13,7 @@ import {
 import {
   deleteSectionVariantAndMaybeJsonFile,
   setDefaultSectionVariant,
-  updateSectionInfos,
+  updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -231,7 +231,7 @@ async function maybeLoadJsonContents(variantId) {
       variantId,
     ]);
     useProjectState.setState((state) => {
-      updateSectionInfos({
+      updateProjectState({
         variants,
         codeInfo,
         codeInfoCols,

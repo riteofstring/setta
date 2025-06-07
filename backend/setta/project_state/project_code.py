@@ -21,12 +21,14 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
 from setta.types.getters import (
+    add_code_info,
+    create_children_code_info,
     get_section_path_full_name,
     get_selected_section_variant,
     item_has_been_selected_before,
     item_is_already_selected,
 )
-from setta.types.project_state import ProjectState
+from setta.types.project_state import CodeInfo, CodeInfoType, ProjectState
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -98,14 +100,20 @@ class ProjectGenPythonCode(PythonCode):
             await self.websocket_msg_handler.return_to_requester(None, messageId)
             return
 
-        was_prev_selected, code_info_id = item_has_been_selected_before(
+        variant = get_selected_section_variant(project_state, sectionId)
+
+        if selectedItemName == "":
+            variant.selectedItem = None
+
+        prev_selected = item_has_been_selected_before(
             project_state, sectionId, selectedItemName
         )
 
-        if was_prev_selected and not refetchParams:
-            get_selected_section_variant(
-                project_state, sectionId
-            ).selectedItem = code_info_id
+        if prev_selected and not refetchParams:
+            variant.selectedItem = prev_selected
+            await self.websocket_msg_handler.return_to_requester(
+                project_state, messageId
+            )
             return
 
         line_col = await self.insert_code_at_position(
@@ -113,20 +121,44 @@ class ProjectGenPythonCode(PythonCode):
         )
         if line_col is None:
             await self.websocket_msg_handler.return_to_requester(None, messageId)
-        else:
-            line, col = line_col
-            col += 1  # put cursor inside parentheses
-            response = await self.lsp_writer.send_and_wait(
-                self.lsp_writer.send_signature_help_request(
-                    filepath=self.temp_file,
-                    line=line,
-                    character=col,
-                    request_id=messageId,
-                ),
-                messageId,
+            return
+
+        line, col = line_col
+        col += 1  # put cursor inside parentheses
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_signature_help_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=messageId,
+            ),
+            messageId,
+        )
+        result = process_signature_help_response(response)
+        if not prev_selected:
+            callable_code_info = CodeInfo(
+                name=selectedItemName, editable=False, rcType=CodeInfoType.callable
             )
-            result = process_signature_help_response(response)
-            await self.websocket_msg_handler.return_to_requester(result, messageId)
+            add_code_info(project_state, sectionId, callable_code_info)
+        else:
+            callable_code_info = project_state.codeInfo[prev_selected]
+
+        if result is None:
+            print("RETURNING EARLY\n\n")
+            await self.websocket_msg_handler.return_to_requester(
+                project_state, messageId
+            )
+            return
+
+        [documentation, params] = result
+        print("[documentation, params]\n\n", [documentation, params], flush=True)
+        callable_code_info.description = documentation
+        create_children_code_info(
+            project_state, sectionId, callable_code_info.id, params
+        )
+        await self.websocket_msg_handler.return_to_requester(
+            project_state.model_dump(), messageId
+        )
 
     async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
         self.code_generator.change_gen_code_prefix(fullText)

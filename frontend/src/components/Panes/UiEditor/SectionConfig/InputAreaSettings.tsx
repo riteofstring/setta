@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { dbCreateFile } from "requests/jsonSource";
 import { loadJsonContents } from "state/actions/fileUpdates";
-import { updateSectionInfos } from "state/actions/sectionInfos";
+import { updateProjectState } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
 
@@ -23,7 +23,7 @@ export function InputAreaSettings({ sectionId }) {
       await loadJsonContents({ [sectionId]: jsonSource });
     useProjectState.setState((state) => {
       state.sections[sectionId].jsonSource = jsonSource;
-      updateSectionInfos({
+      updateProjectState({
         sections,
         variants,
         codeInfo,

@@ -7,7 +7,7 @@ import {
   getSectionParentId,
   manualDndChildrenReset,
   setSectionVariantChildren,
-  updateSectionInfos,
+  updateProjectState,
 } from "state/actions/sectionInfos";
 import {
   maybeMakeCopyOfSection,
@@ -91,7 +91,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   let newSectionId;
   useProjectState.setState((state) => {
     if (maybeNewSectionData.sections) {
-      updateSectionInfos({ ...maybeNewSectionData, state });
+      updateProjectState({ ...maybeNewSectionData, state });
       newSectionId = Object.keys(maybeNewSectionData.sections)[0];
     } else {
       newSectionId = maybeNewSectionData;
