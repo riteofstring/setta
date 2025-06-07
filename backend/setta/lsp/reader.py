@@ -38,7 +38,7 @@ class LanguageServerReader(LanguageServerInteractor):
             try:
                 await self.read_and_process_message()
             except Exception as e:
-                logging.error(f"Error reading from language server: {e}")
+                logger.error(f"Error reading from language server: {e}")
                 # Optional: add a small delay to prevent tight loop if there's a persistent error
                 await asyncio.sleep(0.1)
 
