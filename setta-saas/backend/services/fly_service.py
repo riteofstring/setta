@@ -83,10 +83,15 @@ class FlyService:
         print(f"Force deleting app '{app_name}'...")
 
         try:
-            success = delete_app_force(self.client, app_name)
-            if success:
+            result = delete_app_force(self.client, app_name)
+
+            if result["success"]:
                 print(f"✓ App '{app_name}' deleted successfully")
-            return success
+                return True
+
+            print(f"✗ Failed to delete '{app_name}': {result['status_code']} - {result['error']}")
+            return False
+
         except Exception as e:
             print(f"✗ Error deleting app: {str(e)}")
             raise
