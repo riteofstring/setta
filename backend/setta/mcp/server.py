@@ -1,10 +1,15 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
 import asyncio
+import inspect
+import logging
 from functools import wraps
+from typing import Any, Callable, cast
 
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp.tools import Tool, ToolManager
+from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.server.sse import SseServerTransport
 from mcp.types import Tool as MCPTool
 from pydantic import TypeAdapter
@@ -25,8 +30,9 @@ from setta.utils.constants import C
 from setta.websockets.msg_handlers.mcp import WMHMCP
 from setta.websockets.websocket_manager import WebsocketManager
 
+logger = logging.getLogger(__name__)
 
-# TODO use FastMCP once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
+
 class SettaFastMCP(FastMCP):
     def __init__(
         self,
@@ -41,6 +47,7 @@ class SettaFastMCP(FastMCP):
         **settings,
     ):
         super().__init__(name=name, instructions=instructions, **settings)
+        self._tool_manager = SettaToolManager()
         self.websocket_msg_handler = WMHMCP(websocket_manager)
         self.dbe = dbe
         self.terminals = terminals
@@ -122,3 +129,68 @@ class SettaFastMCP(FastMCP):
             return result
 
         return wrapper
+
+
+class SettaTool(Tool):
+    @classmethod
+    def from_function(
+        cls,
+        fn: Callable[..., Any],
+        name: str | None = None,
+        description: str | None = None,
+        context_kwarg: str | None = None,
+    ) -> "SettaTool":
+        """Create a Tool from a function."""
+        from mcp.server.fastmcp import Context
+
+        func_name = name or fn.__name__
+
+        if func_name == "<lambda>":
+            raise ValueError("You must provide a name for lambda functions")
+
+        func_doc = description or fn.__doc__ or ""
+        is_async = inspect.iscoroutinefunction(fn)
+
+        if context_kwarg is None:
+            sig = inspect.signature(fn)
+            for param_name, param in sig.parameters.items():
+                if param.annotation is Context:
+                    context_kwarg = param_name
+                    break
+
+        skip_names = [C.MCP_CHAT_ID_ARG_NAME, C.MCP_SERVER_ARG_NAME]
+        if context_kwarg is not None:
+            skip_names.append(context_kwarg)
+        func_arg_metadata = func_metadata(
+            fn,
+            skip_names=skip_names,
+        )
+        parameters = func_arg_metadata.arg_model.model_json_schema()
+
+        return cls(
+            fn=fn,
+            name=func_name,
+            description=func_doc,
+            parameters=parameters,
+            fn_metadata=func_arg_metadata,
+            is_async=is_async,
+            context_kwarg=context_kwarg,
+        )
+
+
+class SettaToolManager(ToolManager):
+    def add_tool(
+        self,
+        fn: Callable[..., Any],
+        name: str | None = None,
+        description: str | None = None,
+    ) -> SettaTool:
+        """Add a tool to the server."""
+        tool = SettaTool.from_function(fn, name=name, description=description)
+        existing = self._tools.get(tool.name)
+        if existing:
+            if self.warn_on_duplicate_tools:
+                logger.warning(f"Tool already exists: {tool.name}")
+            return cast(SettaTool, existing)
+        self._tools[tool.name] = tool
+        return tool

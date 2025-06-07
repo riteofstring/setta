@@ -2,7 +2,6 @@ import importlib.metadata
 
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
-from setta.mcp.utils import replace_ids_with_uuids
 from setta.types.ai import ID
 
 
@@ -25,10 +24,7 @@ def getTerminalOutput(setta_mcp_server: SettaFastMCP, sectionId: ID):
     Args:
         sectionId: The id of the terminal.
     """
-    convertedId = replace_ids_with_uuids(
-        sectionId, setta_mcp_server.websocket_msg_handler.id_to_uuid
-    )
-    return setta_mcp_server.terminals.get_terminal_history(convertedId)
+    return setta_mcp_server.terminals.get_terminal_history(sectionId)
 
 
 @setta_tool
@@ -38,10 +34,7 @@ async def getGenPythonCode(setta_mcp_server: SettaFastMCP, projectConfigId: ID):
     Args:
         projectConfigId: The id of the project.
     """
-    convertedId = replace_ids_with_uuids(
-        projectConfigId, setta_mcp_server.websocket_msg_handler.id_to_uuid
-    )
-    return await setta_mcp_server.project_manager.get_gen_python_code(convertedId)  # type: ignore
+    return await setta_mcp_server.project_manager.get_gen_python_code(projectConfigId)
 
 
 @setta_tool
@@ -59,15 +52,8 @@ async def setSelectedItem(
         sectionId: The id of the section we're setting the selectedItem of.
         selectedItemName: The selected item name, for example "math.sqrt"
     """
-    convertedProjectConfigId = replace_ids_with_uuids(
-        projectConfigId, setta_mcp_server.websocket_msg_handler.id_to_uuid
-    )
-    convertedSectionId = replace_ids_with_uuids(
-        sectionId, setta_mcp_server.websocket_msg_handler.id_to_uuid
-    )
-
     await setta_mcp_server.project_manager.set_selected_item(
-        convertedProjectConfigId, convertedSectionId, selectedItemName, refetchParams
+        projectConfigId, sectionId, selectedItemName, refetchParams
     )
 
     # TODO: return callable info and its children info
