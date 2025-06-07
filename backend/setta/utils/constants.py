@@ -226,7 +226,7 @@ class C:
     RENAME_REFACTOR_ALWAYS_RENAME = "Always Rename"
     RENAME_REFACTOR_NEVER_RENAME = "Never Rename"
 
-    CHAT_ID_ARG_NAME = "chatId"
+    CHAT_ID_ARG_NAME = "settaChatId"
 
     @classproperty
     def FRONTEND_ORIGINS(cls):

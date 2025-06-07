@@ -36,6 +36,7 @@ class SettaFastMCP(FastMCP):
         self.terminals = terminals
         self.project_manager = project_manager
         self.fn_param_docstrings = {}
+        self.excluded_setta_params = set([C.CHAT_ID_ARG_NAME])
         msg_path = f"{mount_path}/messages/"
         sse_transport = SseServerTransport(msg_path)
 
@@ -68,11 +69,13 @@ class SettaFastMCP(FastMCP):
             )
             schema = mcpt.inputSchema
             schema["properties"] = {
-                k: v for k, v in schema["properties"].items() if k != C.CHAT_ID_ARG_NAME
+                k: v
+                for k, v in schema["properties"].items()
+                if k not in self.excluded_setta_params
             }
             if schema.get("required"):
                 schema["required"] = [
-                    k for k in schema["required"] if k != C.CHAT_ID_ARG_NAME
+                    k for k in schema["required"] if k not in self.excluded_setta_params
                 ]
             for arg_name, arg_metadata in schema["properties"].items():
                 if "description" in arg_metadata:
@@ -87,3 +90,4 @@ class SettaFastMCP(FastMCP):
     def add_setta_tools(self):
         for t in SETTA_MCP_TOOLS:
             self.add_tool(t.fn, description=t.description)
+            self.fn_param_docstrings[t.fn] = t.param_descriptions
