@@ -121,21 +121,17 @@ def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dic
 
     for app in apps:
         app_name = app["name"]
-        try:
-            print(f"Force deleting app: {app_name}")
-            # Use the new force delete method
-            if delete_app_force(client, app_name):
-                deleted_count += 1
-                deleted_apps.append(app_name)
-                print(f"✓ Deleted: {app_name}")
-            else:
-                failed_count += 1
-                failed_apps.append(app_name)
-                print(f"✗ Failed to delete: {app_name}")
-        except Exception as e:
-            failed_count += 1
-            failed_apps.append(app_name)
-            print(f"✗ Error deleting {app_name}: {str(e)}")
+        print(f"Force deleting app: {app_name}")
+
+        if _try_delete_app(client, app_name):
+            deleted_count += 1
+            deleted_apps.append(app_name)
+            print(f"✓ Deleted: {app_name}")
+            continue
+
+        failed_count += 1
+        failed_apps.append(app_name)
+        print(f"✗ Failed to delete: {app_name}")
 
     return {
         "deleted": deleted_count,
@@ -144,6 +140,15 @@ def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dic
         "deleted_apps": deleted_apps,
         "failed_apps": failed_apps,
     }
+
+
+def _try_delete_app(client: FlyClient, app_name: str) -> bool:
+    """Try to delete a single app, return success status."""
+    try:
+        return delete_app_force(client, app_name)
+    except Exception as e:
+        print(f"✗ Error deleting {app_name}: {str(e)}")
+        return False
 
 
 def get_app_status(client: FlyClient, app_name: str) -> dict | None:

@@ -36,23 +36,20 @@ class FlyService:
 
     def create_and_deploy_app(self, app_name: str) -> dict:
         """Create app, allocate IPs, and deploy a machine."""
+        print(f"Creating app '{app_name}'...")
+
         try:
-            # Step 1: Create the app
-            print(f"Creating app '{app_name}'...")
             app = create_app(self.client, app_name, self.org_id)
             print(f"✓ App created: {app['hostname']}")
 
-            # Step 2: Allocate IP addresses (CRITICAL!)
             print("Allocating IP addresses...")
             ipv4, ipv6 = allocate_ips(self.client, app_name)
             print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
-            # Step 3: Deploy a machine
             print("Deploying machine...")
             machine_id = create_and_deploy_machine(self.client, app_name)
             print(f"✓ Machine created: {machine_id}")
 
-            # Step 4: Wait for DNS propagation
             print("Waiting for DNS propagation...")
             if wait_for_app_ready(self.client, app_name):
                 print("✓ App is ready!")
@@ -71,18 +68,21 @@ class FlyService:
 
         except Exception as e:
             print(f"✗ Error during deployment: {str(e)}")
-            # Try to clean up on failure
-            try:
-                delete_app_force(self.client, app_name)
-            except Exception:
-                pass
+            self._cleanup_failed_app(app_name)
             raise
+
+    def _cleanup_failed_app(self, app_name: str) -> None:
+        """Clean up a failed app deployment."""
+        try:
+            delete_app_force(self.client, app_name)
+        except Exception:
+            pass
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its resources."""
+        print(f"Force deleting app '{app_name}'...")
+
         try:
-            print(f"Force deleting app '{app_name}'...")
-            # Use force delete for more reliable deletion
             success = delete_app_force(self.client, app_name)
             if success:
                 print(f"✓ App '{app_name}' deleted successfully")
