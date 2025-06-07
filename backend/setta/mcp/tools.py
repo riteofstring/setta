@@ -51,6 +51,7 @@ async def setSelectedItem(
         projectConfigId: The id of the project.
         sectionId: The id of the section we're setting the selectedItem of.
         selectedItemName: The selected item name, for example "math.sqrt"
+        refetchParams: If True, then the parameter list will be recomputed. Only do this if something with the python environment or language server has changed.
     """
     await setta_mcp_server.project_manager.set_selected_item(
         projectConfigId, sectionId, selectedItemName, refetchParams
