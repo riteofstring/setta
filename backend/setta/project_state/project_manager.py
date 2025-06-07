@@ -15,7 +15,7 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.types.getters import get_section_type
+from setta.types.getters import get_section_type, set_param_entered_value
 from setta.types.project_state import (
     CodeLanguage,
     ProjectState,
@@ -282,6 +282,21 @@ class ProjectManager:
         print("*************set_gen_code_prefix\n\n\n", flush=True)
         projectConfig = self.project_state.projectConfigs[projectConfigId]
         projectConfig.genCodePrefix = value
+        await self.update.direct(
+            self,
+            ProjectUpdateState(
+                projectConfigId=projectConfigId, projectState=self.project_state
+            ),
+        )
+        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+
+    @enqueue_method
+    async def set_param_values(
+        self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
+    ):
+        print("*************set_param_values\n\n\n", flush=True)
+        for paramInfoId, value in paramIdsToValues.items():
+            set_param_entered_value(self.project_state, sectionId, paramInfoId, value)
         await self.update.direct(
             self,
             ProjectUpdateState(

@@ -3,6 +3,7 @@ from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
     CodeInfoType,
+    EVEntry,
     ProjectState,
     UITypeColEntry,
 )
@@ -145,3 +146,12 @@ def create_children_code_info(
             state.codeInfo[existing_id] = p
 
     code_info_children[parent] = param_ids_in_order
+
+
+def set_param_entered_value(
+    p: ProjectState, sectionId: str, paramInfoId: str, value: str
+):
+    variant = get_selected_section_variant(p, sectionId)
+    if paramInfoId not in variant.values:
+        variant.values[paramInfoId] = EVEntry()
+    variant.values[paramInfoId].value = value

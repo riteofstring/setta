@@ -43,17 +43,3 @@ const debouncedSetParamEnteredValue = _.debounce(
   },
   50,
 );
-
-/**
- * Set the values of multiple parameters in a particular section.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the section that contains the parameters.
- * @param {Object<ID, string>} paramIdsToValues A mapping from parameter id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
- */
-export function setParamValuesMcp({ sectionId, paramIdsToValues }) {
-  useProjectState.setState((state) => {
-    for (const [paramInfoId, vStr] of Object.entries(paramIdsToValues)) {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
-    }
-  });
-}

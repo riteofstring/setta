@@ -1,4 +1,5 @@
 import importlib.metadata
+from typing import cast
 
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
@@ -68,8 +69,27 @@ async def setGenCodePrefix(
     """
     Set the value of code that is prepended to the generated python code.
     Args:
-        projectConfigId: The id of the project.
         value: This is what will be prepended to the generated code.
     """
     await setta_mcp_server.project_manager.set_gen_code_prefix(projectConfigId, value)
+    return "success"
+
+
+@setta_tool
+async def setParamValues(
+    setta_mcp_server: SettaFastMCP,
+    projectConfigId: str,
+    sectionId: ID,
+    paramIdsToValues: dict[ID, str],
+):
+    """
+    Set the values of multiple parameters in a particular section.
+    Args:
+        sectionId: The id of the section that contains the parameters.
+        paramIdsToValues: A mapping from parameter id to value. Each value is a string that contains python code that evaluates to whatever you want the parameter's value to be. For example to set the parameter to True, pass in "True". To set the parameter to "dog", pass in '"dog"'.
+    """
+
+    await setta_mcp_server.project_manager.set_param_values(
+        projectConfigId, sectionId, cast(dict[str, str], paramIdsToValues)
+    )
     return "success"
