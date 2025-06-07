@@ -89,9 +89,13 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
     delete_variables = {"appId": app_id}
     delete_result = client.execute_graphql(DELETE_APP, delete_variables)
 
+    # Check for GraphQL errors
     if "errors" in delete_result:
         raise Exception(f"Failed to delete app: {delete_result['errors']}")
 
+    # If no errors, deletion was successful
+    # We don't need to check the response data since the organization field
+    # is just confirmation that the app's org was returned
     return True
 
 

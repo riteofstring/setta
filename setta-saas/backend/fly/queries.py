@@ -37,7 +37,9 @@ mutation CreateApp($input: CreateAppInput!) {
 DELETE_APP = """
 mutation DeleteApp($appId: ID!) {
     deleteApp(appId: $appId) {
-        deletedAppId
+        organization {
+            id
+        }
     }
 }
 """
