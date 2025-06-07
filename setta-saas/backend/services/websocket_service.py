@@ -4,6 +4,7 @@ WebSocket service for managing connections and broadcasting events.
 
 import asyncio
 import json
+from datetime import datetime
 
 from fastapi import WebSocket
 
@@ -28,17 +29,25 @@ class ConnectionManager:
             type=EventType.CONNECTION_ESTABLISHED,
             data={"message": "Connected to real-time updates"},
         )
-        await self.send_to_websocket(websocket, event)
+
+        try:
+            # Send as JSON string directly
+            await websocket.send_text(event.json())
+            print("Sent connection message to new WebSocket client")
+        except Exception as e:
+            print(f"Error sending initial connection message: {e}")
 
     async def disconnect(self, websocket: WebSocket):
         """Remove a WebSocket connection."""
         async with self._lock:
             self.active_connections.discard(websocket)
+        print(f"WebSocket disconnected. Active connections: {len(self.active_connections)}")
 
     async def send_to_websocket(self, websocket: WebSocket, event: WebSocketEvent):
         """Send an event to a specific WebSocket connection."""
         try:
-            await websocket.send_json(event.dict())
+            # Use send_text with JSON string instead of send_json
+            await websocket.send_text(event.json())
         except Exception as e:
             print(f"Error sending to websocket: {e}")
             await self.disconnect(websocket)
@@ -53,8 +62,12 @@ class ConnectionManager:
             connections = list(self.active_connections)
 
         # Send to all connections concurrently
-        tasks = [self.send_to_websocket(ws, event) for ws in connections]
+        tasks = []
+        for ws in connections:
+            tasks.append(self.send_to_websocket(ws, event))
+
         await asyncio.gather(*tasks, return_exceptions=True)
+        print(f"Broadcasted {event.type} to {len(connections)} clients")
 
     async def broadcast_json(self, data: dict):
         """Broadcast raw JSON data to all connections."""
@@ -77,10 +90,19 @@ class ConnectionManager:
         if disconnected:
             async with self._lock:
                 self.active_connections -= disconnected
+            print(f"Removed {len(disconnected)} disconnected clients")
 
     def get_connection_count(self) -> int:
         """Get the number of active connections."""
         return len(self.active_connections)
+
+    async def send_heartbeat(self):
+        """Send periodic heartbeat to all connections."""
+        event = WebSocketEvent(
+            type=EventType.HEARTBEAT,
+            data={"timestamp": datetime.utcnow().isoformat()},
+        )
+        await self.broadcast(event)
 
 
 # Global connection manager instance

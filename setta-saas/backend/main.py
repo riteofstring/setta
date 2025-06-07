@@ -4,7 +4,9 @@ Simplified with service layer architecture.
 """
 
 import asyncio
+import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -97,13 +99,31 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""
     manager = get_connection_manager()
     await manager.connect(websocket)
+    print(f"New WebSocket connected. Total connections: {manager.get_connection_count()}")
 
     try:
         while True:
             # Keep connection alive and handle any incoming messages
             data = await websocket.receive_text()
-            # Could handle ping/pong or other client messages here if needed
             print(f"Received from client: {data}")
+
+            # Parse and handle the message
+            try:
+                message = json.loads(data)
+
+                # Echo ping messages back as pong
+                if message.get("type") == "ping":
+                    pong_response = {
+                        "type": "pong",
+                        "data": message.get("data", ""),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    await websocket.send_text(json.dumps(pong_response))
+                    print("Sent pong response")
+
+            except json.JSONDecodeError:
+                print(f"Received non-JSON message: {data}")
+
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
         print(f"Client disconnected. Active connections: {manager.get_connection_count()}")
