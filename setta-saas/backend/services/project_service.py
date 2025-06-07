@@ -89,6 +89,69 @@ class ProjectService:
         self.db.commit()
         return True
 
+    def delete_all_projects(self) -> dict:
+        """Delete all projects and their Fly.io resources."""
+        projects = self.db.query(Project).all()
+        deleted_count = 0
+        failed_count = 0
+
+        for project in projects:
+            try:
+                if self.delete_project(project.id):
+                    deleted_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                print(f"Failed to delete project {project.id}: {str(e)}")
+                failed_count += 1
+
+        return {"deleted": deleted_count, "failed": failed_count, "total": len(projects)}
+
+    def sync_all_projects(self) -> dict:
+        """Sync all project statuses with Fly.io."""
+        projects = self.db.query(Project).all()
+        synced_count = 0
+        failed_count = 0
+
+        for project in projects:
+            try:
+                if self.check_project_status(project.id):
+                    synced_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                print(f"Failed to sync project {project.id}: {str(e)}")
+                failed_count += 1
+
+        return {"synced": synced_count, "failed": failed_count, "total": len(projects)}
+
+    def cleanup_dead_projects(self) -> dict:
+        """Remove projects with error status or failed deployments."""
+        dead_projects = (
+            self.db.query(Project).filter(Project.status.in_(["error", "deployment_pending"])).all()
+        )
+
+        deleted_count = 0
+        failed_count = 0
+
+        for project in dead_projects:
+            try:
+                # Check if it's been pending for more than 5 minutes
+                if project.status == "deployment_pending":
+                    age = datetime.utcnow() - project.created_at
+                    if age.total_seconds() < 300:  # Less than 5 minutes
+                        continue
+
+                if self.delete_project(project.id):
+                    deleted_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                print(f"Failed to cleanup project {project.id}: {str(e)}")
+                failed_count += 1
+
+        return {"deleted": deleted_count, "failed": failed_count, "total": len(dead_projects)}
+
     def check_project_status(self, project_id: str) -> str | None:
         """Check and update project status."""
         project = self.db.query(Project).filter(Project.id == project_id).first()
@@ -110,6 +173,8 @@ class ProjectService:
                 self.db.commit()
             except Exception as e:
                 print(f"Status check failed: {str(e)}")
+                project.status = "error"
+                self.db.commit()
 
         return project.status
 

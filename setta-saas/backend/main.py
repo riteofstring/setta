@@ -98,6 +98,28 @@ async def check_project_status(
     return {"status": status}
 
 
+# New management endpoints
+@app.post("/api/projects/sync-all")
+async def sync_all_projects(service: ProjectService = Depends(get_project_service)):
+    """Sync all project statuses with Fly.io."""
+    result = service.sync_all_projects()
+    return {"message": "Sync completed", "result": result}
+
+
+@app.delete("/api/projects/delete-all")
+async def delete_all_projects(service: ProjectService = Depends(get_project_service)):
+    """Delete all projects and their Fly.io resources."""
+    result = service.delete_all_projects()
+    return {"message": "Delete all completed", "result": result}
+
+
+@app.post("/api/projects/cleanup-dead")
+async def cleanup_dead_projects(service: ProjectService = Depends(get_project_service)):
+    """Remove projects with error status or failed deployments."""
+    result = service.cleanup_dead_projects()
+    return {"message": "Cleanup completed", "result": result}
+
+
 if __name__ == "__main__":
     import uvicorn
 

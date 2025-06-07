@@ -10,6 +10,7 @@ from fly.deployment import (
     create_app,
     delete_app,
     get_app_status,
+    get_organization_id,
     wait_for_app_ready,
 )
 
@@ -21,13 +22,22 @@ class FlyService:
         settings = get_settings()
         self.client = FlyClient(settings.fly_api_token)
         self.org_slug = settings.fly_org_slug or "personal"
+        self._org_id = None
+
+    @property
+    def org_id(self) -> str:
+        """Get organization ID (cached)."""
+        if not self._org_id:
+            self._org_id = get_organization_id(self.client, self.org_slug)
+            print(f"Using organization: {self.org_slug} (ID: {self._org_id})")
+        return self._org_id
 
     def create_and_deploy_app(self, app_name: str) -> dict:
         """Create app, allocate IPs, and deploy a machine."""
         try:
             # Step 1: Create the app
             print(f"Creating app '{app_name}'...")
-            app = create_app(self.client, app_name, self.org_slug)
+            app = create_app(self.client, app_name, self.org_id)
             print(f"✓ App created: {app['hostname']}")
 
             # Step 2: Allocate IP addresses (CRITICAL!)

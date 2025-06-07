@@ -11,15 +11,36 @@ from fly.queries import (
     CREATE_APP,
     DELETE_APP,
     GET_APP,
+    GET_ORGANIZATION,
 )
 
 
-def create_app(client: FlyClient, app_name: str, org_slug: str) -> dict:
+def get_organization_id(client: FlyClient, org_slug: str = "personal") -> str:
+    """Get organization ID from slug."""
+    result = client.execute_graphql(GET_ORGANIZATION)
+    if "errors" in result:
+        raise Exception(f"Failed to get organizations: {result['errors']}")
+
+    orgs = result["data"]["viewer"]["organizations"]["nodes"]
+
+    # Find the organization by slug
+    for org in orgs:
+        if org["slug"] == org_slug:
+            return org["id"]
+
+    # If not found and looking for personal, use the first org
+    if org_slug == "personal" and orgs:
+        return orgs[0]["id"]
+
+    raise Exception(f"Organization '{org_slug}' not found")
+
+
+def create_app(client: FlyClient, app_name: str, org_id: str) -> dict:
     """Create a new Fly.io app."""
     variables = {
         "input": {
             "name": app_name,
-            "organizationId": org_slug,
+            "organizationId": org_id,  # Use the actual ID, not slug
         }
     }
 
@@ -114,10 +135,11 @@ def wait_for_app_ready(client: FlyClient, app_name: str, timeout: int = 60) -> b
 
     while time.time() - start_time < timeout:
         status = get_app_status(client, app_name)
-        if status and status.get("deployed"):
-            # Give DNS a bit more time to propagate
-            time.sleep(5)
+        if status and status.get("hostname"):
+            # Give DNS extra time to propagate after hostname is available
+            print(f"App hostname available: {status['hostname']}")
+            time.sleep(10)  # DNS can take 5-10 seconds
             return True
-        time.sleep(2)
+        time.sleep(3)
 
     return False
