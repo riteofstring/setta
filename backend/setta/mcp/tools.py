@@ -3,6 +3,7 @@ from typing import cast
 
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
+from setta.terminals.run_code import run_code
 from setta.types.ai import ID
 from setta.types.simplified_states import SimplifiedCodeInfo, SimplifiedSection
 
@@ -116,3 +117,22 @@ async def getAllSectionInfo(
     for k, v in output.items():
         simplified_output[ID(k)] = SimplifiedSection(name=v.name)
     return simplified_output
+
+
+@setta_tool
+async def runCode(setta_mcp_server: SettaFastMCP, projectConfigId: str, sectionId: ID):
+    """
+    Runs the specified code block in a terminal. Returns the id of the terminal running the code.
+    Args:
+        sectionId: The id of the code block to run.
+    """
+
+    terminal_id, _ = await run_code(
+        projectConfigId,
+        sectionId,
+        None,
+        setta_mcp_server.project_manager,
+        setta_mcp_server.terminals,
+    )
+
+    return terminal_id

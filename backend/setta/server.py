@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
         app.state.specific_file_watcher,
     )
     app.state.terminals = Terminals(
-        app.state.websocket_msg_handlers.terminals, app.state.settings_file
+        app.state.websocket_manager, app.state.settings_file
     )
 
     app.state.mcp_server = SettaFastMCP(

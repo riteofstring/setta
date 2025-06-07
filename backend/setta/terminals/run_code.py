@@ -1,0 +1,31 @@
+import asyncio
+
+from setta.database.utils import create_new_id
+from setta.project_state.project_manager import ProjectManager
+from setta.terminals.terminals import Terminals
+
+
+async def run_code(
+    projectConfigId: str,
+    sectionId: str | None,
+    cliId: str | None,
+    project_manager: ProjectManager,
+    terminals: Terminals,
+):
+    terminal_id, new_terminal_created = None, None
+
+    command = await project_manager.create_run_command(projectConfigId, sectionId)
+    if cliId:
+        await terminals.websocket_msg_handler.send_command(command, cliId)
+    else:
+        terminal_id = terminals.get_free_terminal(projectConfigId)
+
+        new_terminal_created = False
+        if not terminal_id:
+            terminal_id = create_new_id()
+            terminals.new_terminal(projectConfigId, terminal_id, True)
+            new_terminal_created = True
+
+        asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
+
+    return terminal_id, new_terminal_created

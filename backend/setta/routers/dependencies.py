@@ -25,10 +25,6 @@ def get_wmh_artifact(request: Request):
     return request.app.state.websocket_msg_handlers.artifact
 
 
-def get_wmh_terminals(request: Request):
-    return request.app.state.websocket_msg_handlers.terminals
-
-
 def get_wmh_frontend_from_websocket(websocket: WebSocket):
     return websocket.app.state.websocket_msg_handlers.frontend
 

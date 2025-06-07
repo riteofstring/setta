@@ -4,18 +4,16 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
-from setta.database.utils import create_new_id
 from setta.project_state.project_manager import ProjectManager
+from setta.terminals.run_code import run_code
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.terminals import WMHTerminals
 
 from .dependencies import (
     get_project_manager,
     get_terminals,
     get_terminals_from_websocket,
-    get_wmh_terminals,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,8 +80,7 @@ def route_terminal_get_existing_terminals(
 def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     background_tasks: BackgroundTasks,
-    terminals=Depends(get_terminals),
-    websocket_msg_handler: WMHTerminals = Depends(get_wmh_terminals),
+    terminals: Terminals = Depends(get_terminals),
 ):
     existing = terminals.get_existing_terminals(x.projectConfigId)
     ids = [x["id"] for x in existing]
@@ -97,7 +94,7 @@ def route_kill_subprocesses(
         projectConfigId=x.projectConfigId, message=msg, temporary=True
     )
     background_tasks.add_task(
-        websocket_msg_handler.broadcast_notification,
+        terminals.websocket_msg_handler.broadcast_notification,
         notification,
     )
 
@@ -108,29 +105,20 @@ async def route_run_code(
     background_tasks: BackgroundTasks,
     project_manager: ProjectManager = Depends(get_project_manager),
     terminals: Terminals = Depends(get_terminals),
-    websocket_msg_handler: WMHTerminals = Depends(get_wmh_terminals),
 ):
-    terminal_id, new_terminal_created = None, None
-
-    command = await project_manager.create_run_command(x.projectConfigId, x.sectionId)
-    if x.cliId:
-        await websocket_msg_handler.send_command(command, x.cliId)
-    else:
-        terminal_id = terminals.get_free_terminal(x.projectConfigId)
-
-        new_terminal_created = False
-        if not terminal_id:
-            terminal_id = create_new_id()
-            terminals.new_terminal(x.projectConfigId, terminal_id, True)
-            new_terminal_created = True
-
-        asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
+    terminal_id, new_terminal_created = await run_code(
+        x.projectConfigId,
+        x.sectionId,
+        x.cliId,
+        project_manager,
+        terminals,
+    )
 
     notification = SettaNotification(
         projectConfigId=x.projectConfigId, message="Started", temporary=True
     )
     background_tasks.add_task(
-        websocket_msg_handler.broadcast_notification,
+        terminals.websocket_msg_handler.broadcast_notification,
         notification,
     )
 
