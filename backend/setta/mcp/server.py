@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 from functools import wraps
-from typing import Any, Callable, cast
+from typing import Any, Callable, cast, get_origin
 
 import docstring_parser
 from fastapi import FastAPI, Request
@@ -12,10 +12,12 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool, ToolManager
+from mcp.server.fastmcp.tools.base import _is_async_callable
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
 from mcp.server.session import ServerSessionT
 from mcp.server.sse import SseServerTransport
 from mcp.shared.context import LifespanContextT
+from mcp.types import ToolAnnotations
 from pydantic import TypeAdapter
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
@@ -130,21 +132,24 @@ class SettaTool(Tool):
         name: str | None = None,
         description: str | None = None,
         context_kwarg: str | None = None,
+        annotations: ToolAnnotations | None = None,
     ) -> "SettaTool":
         """Create a Tool from a function."""
-        from mcp.server.fastmcp import Context
+        from mcp.server.fastmcp.server import Context
 
         func_name = name or fn.__name__
 
         if func_name == "<lambda>":
             raise ValueError("You must provide a name for lambda functions")
 
-        is_async = inspect.iscoroutinefunction(fn)
+        is_async = _is_async_callable(fn)
 
         if context_kwarg is None:
             sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if param.annotation is Context:
+                if get_origin(param.annotation) is not None:
+                    continue
+                if issubclass(param.annotation, Context):
                     context_kwarg = param_name
                     break
 
@@ -174,6 +179,7 @@ class SettaTool(Tool):
             fn_metadata=func_arg_metadata,
             is_async=is_async,
             context_kwarg=context_kwarg,
+            annotations=annotations,
         )
 
     async def run(
@@ -205,9 +211,12 @@ class SettaToolManager(ToolManager):
         fn: Callable[..., Any],
         name: str | None = None,
         description: str | None = None,
+        annotations: ToolAnnotations | None = None,
     ) -> SettaTool:
         """Add a tool to the server."""
-        tool = SettaTool.from_function(fn, name=name, description=description)
+        tool = SettaTool.from_function(
+            fn, name=name, description=description, annotations=annotations
+        )
         existing = self._tools.get(tool.name)
         if existing:
             if self.warn_on_duplicate_tools:
