@@ -596,6 +596,26 @@ export function createFullMessageStop(
   return FullMessageStopSchema.parse(options);
 }
 
+export const CodeInfoSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  editable: z.boolean().default(false),
+  rcType: CodeInfoTypeSchema.default("parameter"),
+  defaultVal: z.string().default(""),
+  description: z.string().default(""),
+  passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),
+  isPinned: z.boolean().default(false),
+  isFrozen: z.boolean().default(false),
+  isSelected: z.boolean().default(false),
+  ignoreTypeErrors: z.boolean().default(false),
+});
+
+export type CodeInfo = z.infer<typeof CodeInfoSchema>;
+
+export function createCodeInfo(options: Partial<CodeInfo> = {}): CodeInfo {
+  return CodeInfoSchema.parse(options);
+}
+
 export const CodeInfoColSchema = z.object({
   children: z.record(z.union([z.string()]), z.array(z.string())).default({}),
 });
@@ -721,26 +741,6 @@ export function createUITypeColEntry(
   options: Partial<UITypeColEntry> = {},
 ): UITypeColEntry {
   return UITypeColEntrySchema.parse(options);
-}
-
-export const CodeInfoSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  editable: z.boolean().default(false),
-  rcType: CodeInfoTypeSchema.default("parameter"),
-  defaultVal: z.string().default(""),
-  description: z.string().default(""),
-  passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),
-  isPinned: z.boolean().default(false),
-  isFrozen: z.boolean().default(false),
-  isSelected: z.boolean().default(false),
-  ignoreTypeErrors: z.boolean().default(false),
-});
-
-export type CodeInfo = z.infer<typeof CodeInfoSchema>;
-
-export function createCodeInfo(options: Partial<CodeInfo> = {}): CodeInfo {
-  return CodeInfoSchema.parse(options);
 }
 
 export const SectionVariantSchema = z.object({

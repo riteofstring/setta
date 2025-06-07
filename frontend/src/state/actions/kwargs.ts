@@ -1,12 +1,7 @@
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { CodeInfoTypeSchema, createCodeInfo } from "utils/generatedTypes";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
-import { createNewId } from "utils/idNameCreation";
-import {
-  addCodeInfo,
-  deleteCodeInfo,
-  newCodeInfoMaybeWithJsonSource,
-} from "./codeInfo";
+import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
@@ -36,11 +31,11 @@ export function addKwarg({
   insertIdx = null,
   state,
 }) {
-  const kwargInfo = newCodeInfoMaybeWithJsonSource(
-    { id: createNewId(), name, rcType: C.PARAMETER, editable: true },
-    sectionId,
-    state,
-  );
+  const kwargInfo = createCodeInfo({
+    name,
+    rcType: CodeInfoTypeSchema.enum.parameter,
+    editable: true,
+  });
   addCodeInfo({
     sectionId,
     info: kwargInfo,

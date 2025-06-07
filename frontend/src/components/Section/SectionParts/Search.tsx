@@ -14,16 +14,7 @@ import { focusOnSection } from "utils/tabbingLogic";
 export function SectionSearch({ sectionId, selectedItem }) {
   const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
 
-  function callbackSetAttr(id, state) {
-    // for this callback, an undefined id means that the selectedItem is already selected.
-    if (id !== undefined) {
-      getSectionVariant(sectionId, state).selectedItem = id;
-    }
-  }
-
   function onEnter(value) {
-    // gets called inside useSectionInfos.setState
-    // setSelectedItem(sectionId, sectionId, value, callbackSetAttr);
     setSelectedItem(sectionId, value);
   }
 

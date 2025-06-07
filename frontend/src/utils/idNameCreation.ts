@@ -9,10 +9,6 @@ export function createNewId() {
   return uuidv4();
 }
 
-export function maybeNewId(x) {
-  return x ? x : createNewId();
-}
-
 export function createVarName(existingVarNames) {
   const customConfig = {
     dictionaries: [adjectives, colors],

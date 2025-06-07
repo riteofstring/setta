@@ -14,12 +14,13 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
-import { createEVEntry } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import {
-  getOrCreateCodeInfoCol,
-  newCodeInfoMaybeWithJsonSource,
-} from "./codeInfo";
+  CodeInfoTypeSchema,
+  createCodeInfo,
+  createEVEntry,
+} from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
+import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 
@@ -174,17 +175,13 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
   const defaultValue = createEVEntry().value;
   for (const v of output) {
     if (!(v.id in cState)) {
-      newInfos[v.id] = newCodeInfoMaybeWithJsonSource(
-        {
-          id: v.id,
-          name: v.key,
-          editable: v.editable ?? true,
-          rcType: C.PARAMETER,
-          isPinned: v.isPinned,
-        },
-        sectionId,
-        useProjectState.getState(),
-      );
+      newInfos[v.id] = createCodeInfo({
+        id: v.id,
+        name: v.key,
+        editable: v.editable ?? true,
+        rcType: CodeInfoTypeSchema.enum.parameter,
+        isPinned: v.isPinned,
+      });
     } else {
       updatedInfos[v.id] = { name: v.key, isPinned: v.isPinned };
     }

@@ -1,11 +1,11 @@
 import { useNotifications, useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import {
+  createSettaNotification,
   SettaNotification,
   SettaNotificationType,
   SettaNotificationTypeSchema,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 
@@ -61,9 +61,7 @@ export const addTemporaryNotification = (
   message: string,
   type: SettaNotificationType = SettaNotificationTypeSchema.enum.info,
 ) => {
-  const id = createNewId();
-  const notification: SettaNotification = {
-    id,
+  const notification = createSettaNotification({
     projectConfigId: useProjectState.getState().projectConfigId,
     timestamp: new Date().toISOString(),
     type,
@@ -71,8 +69,8 @@ export const addTemporaryNotification = (
     read_status: false,
     temporary: true,
     metadata: {},
-  };
+  });
 
   addNotification(notification);
-  return id;
+  return notification.id;
 };
