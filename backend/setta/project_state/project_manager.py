@@ -139,25 +139,28 @@ class ProjectManager:
     @enqueue_method
     async def create_run_command(
         self,
-        projectUpdateState: ProjectUpdateState,
-        entryCodeBlock: str | None,
+        projectConfigId: str,
+        sectionId: str | None,
     ):
-        await self.update.direct(self, projectUpdateState)
         target_folder = create_timestamped_folder(CODE_FOLDER)
-
-        projectConfigId = projectUpdateState.projectConfigId
         gen_code = self.gen_code[projectConfigId]
+
+        if not sectionId:
+            sectionId = self.project_state.projectConfigs[
+                projectConfigId
+            ].entryCodeBlockId
+
         gen_code_path = gen_code.write_to_folder(
-            target_folder, as_entry_code_block=not entryCodeBlock
+            target_folder, as_entry_code_block=not sectionId
         )
 
         code_dict = self.code_dict[projectConfigId]
         code_paths = {}
-        for sectionId, c in code_dict.items():
-            code_paths[sectionId] = c.write_to_folder(target_folder)
+        for sid, c in code_dict.items():
+            code_paths[sid] = c.write_to_folder(target_folder)
 
-        if entryCodeBlock:
-            return code_dict[entryCodeBlock].get_run_command(code_paths[entryCodeBlock])
+        if sectionId:
+            return code_dict[sectionId].get_run_command(code_paths[sectionId])
         return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method

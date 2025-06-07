@@ -8,7 +8,6 @@ from setta.database.utils import create_new_id
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectUpdateState
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.terminals import WMHTerminals
 
@@ -34,8 +33,8 @@ class KillSubprocessesRequest(BaseModel):
 
 
 class RunCodeRequest(BaseModel):
-    project: ProjectUpdateState
-    entryCodeBlock: str | None
+    projectConfigId: str
+    sectionId: str | None
     cliId: str | None = None
 
 
@@ -113,23 +112,22 @@ async def route_run_code(
 ):
     terminal_id, new_terminal_created = None, None
 
-    command = await project_manager.create_run_command(x.project, x.entryCodeBlock)
+    command = await project_manager.create_run_command(x.projectConfigId, x.sectionId)
     if x.cliId:
         await websocket_msg_handler.send_command(command, x.cliId)
     else:
-        projectConfigId = x.project.projectConfigId
-        terminal_id = terminals.get_free_terminal(projectConfigId)
+        terminal_id = terminals.get_free_terminal(x.projectConfigId)
 
         new_terminal_created = False
         if not terminal_id:
             terminal_id = create_new_id()
-            terminals.new_terminal(projectConfigId, terminal_id, True)
+            terminals.new_terminal(x.projectConfigId, terminal_id, True)
             new_terminal_created = True
 
         asyncio.create_task(terminals.run_command_in_terminal(terminal_id, command))
 
     notification = SettaNotification(
-        projectConfigId=x.project.projectConfigId, message="Started", temporary=True
+        projectConfigId=x.projectConfigId, message="Started", temporary=True
     )
     background_tasks.add_task(
         websocket_msg_handler.broadcast_notification,

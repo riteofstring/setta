@@ -18,10 +18,13 @@ export async function dbDeleteTerminals(sectionIds) {
   });
 }
 
-export async function dbRunCode(project, entryCodeBlock) {
+export async function dbRunCode(
+  projectConfigId: string,
+  sectionId: string | null,
+) {
   addTemporaryNotification("Sending Run Request");
   return await post({
-    body: { project, entryCodeBlock, cliId: null },
+    body: { projectConfigId, sectionId, cliId: null },
     address: C.ROUTE_RUN_CODE,
   });
 }
