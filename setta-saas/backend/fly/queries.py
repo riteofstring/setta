@@ -1,51 +1,9 @@
 """
-GraphQL and REST API queries for Fly.io operations.
+GraphQL queries for Fly.io API operations.
 """
 
-# GraphQL Queries
-CREATE_APP_MUTATION = """
-mutation($input: CreateAppInput!) {
-    createApp(input: $input) {
-        app {
-            id
-            name
-            hostname
-            network
-            organization {
-                slug
-            }
-        }
-    }
-}
-"""
-
-DELETE_APP_MUTATION = """
-mutation($appId: ID!) {
-    deleteApp(appId: $appId) {
-        deletedAppId
-    }
-}
-"""
-
-GET_APP_QUERY = """
-query($appName: String!) {
-    app(name: $appName) {
-        id
-        name
-        hostname
-        status
-        ipAddresses {
-            nodes {
-                id
-                address
-                type
-            }
-        }
-    }
-}
-"""
-
-GET_ORGANIZATION_QUERY = """
+# Organization queries
+GET_ORGANIZATION = """
 query {
     viewer {
         organizations {
@@ -60,19 +18,71 @@ query {
 }
 """
 
-# New queries for IP allocation
-ALLOCATE_IPV4_MUTATION = """
-mutation($input: AllocateIPAddressInput!) {
-    allocateIpAddress(input: $input) {
+# App queries
+CREATE_APP = """
+mutation CreateApp($input: CreateAppInput!) {
+    createApp(input: $input) {
         app {
-            sharedIpAddress
+            id
+            name
+            organization {
+                slug
+            }
+            hostname
         }
     }
 }
 """
 
-ALLOCATE_IPV6_MUTATION = """
-mutation($input: AllocateIPAddressInput!) {
+DELETE_APP = """
+mutation DeleteApp($appId: ID!) {
+    deleteApp(appId: $appId) {
+        deletedAppId
+    }
+}
+"""
+
+GET_APP = """
+query GetApp($appName: String!) {
+    app(name: $appName) {
+        id
+        name
+        hostname
+        deployed
+        status
+        version
+        appUrl
+    }
+}
+"""
+
+# Volume queries
+CREATE_VOLUME = """
+mutation CreateVolume($input: CreateVolumeInput!) {
+    createVolume(input: $input) {
+        volume {
+            id
+            name
+            region
+            sizeGb
+            encrypted
+            createdAt
+        }
+    }
+}
+"""
+
+DELETE_VOLUME = """
+mutation DeleteVolume($volumeId: ID!) {
+    deleteVolume(volumeId: $volumeId) {
+        deletedVolumeId
+    }
+}
+"""
+
+# IP Address allocation queries
+ALLOCATE_IP_ADDRESS = """
+mutation AllocateIPAddress($input: AllocateIPAddressInput!) {
     allocateIpAddress(input: $input) {
         ipAddress {
             id
@@ -85,26 +95,27 @@ mutation($input: AllocateIPAddressInput!) {
 }
 """
 
-
-# Machine configuration for deployment
-def get_machine_config(app_name: str):
-    """Get the machine configuration for deployment."""
-    return {
-        "region": "yyz",  # Toronto, matching your test app
-        "config": {
-            "image": "flyio/hellofly:latest",  # Using Fly's hello world image for now
-            "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
-            "services": [
-                {
-                    "protocol": "tcp",
-                    "internal_port": 8080,
-                    "autostop": "stop",
-                    "autostart": True,
-                    "ports": [
-                        {"port": 80, "handlers": ["http"], "force_https": True},
-                        {"port": 443, "handlers": ["http", "tls"]},
-                    ],
-                }
-            ],
-        },
+# For shared IPv4
+ALLOCATE_SHARED_IP = """
+mutation AllocateSharedIP($input: AllocateIPAddressInput!) {
+    allocateIpAddress(input: $input) {
+        app {
+            sharedIpAddress
+        }
     }
+}
+"""
+
+# Deployment queries
+SET_VM_SIZE = """
+mutation SetVMSize($input: SetVMSizeInput!) {
+    setVmSize(input: $input) {
+        vmSize {
+            name
+            cpuCores
+            memoryGb
+        }
+        processGroup
+    }
+}
+"""

@@ -17,15 +17,22 @@ class Settings(BaseSettings):
     # Database
     database_url: str
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
-
     # Fly.io
-    fly_api_token: str = ""
-    fly_org_id: str = "personal"  # or your actual org ID
+    fly_api_token: str
+    fly_api_url: str = "https://api.fly.io/graphql"
+    fly_machines_url: str = "https://api.machines.dev/v1"
+    fly_org_slug: str = "personal"  # Default to personal org
+
+    # CORS
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://frontend-production-c08f.up.railway.app",
+    ]
 
     class Config:
         env_file = ".env"
+        case_sensitive = False
 
 
 @lru_cache

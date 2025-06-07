@@ -1,79 +1,67 @@
 """
-HTTP client for Fly.io API.
+Fly.io API client for GraphQL and REST operations.
 """
-
-from typing import Any
 
 import httpx
 
 
-class FlyError(Exception):
-    """Base exception for Fly.io errors."""
-
-    pass
-
-
-class FlyAuthError(FlyError):
-    """Authentication error."""
-
-    pass
-
-
-class FlyNotFoundError(FlyError):
-    """Resource not found error."""
-
-    pass
-
-
 class FlyClient:
-    """HTTP client for Fly.io GraphQL and Machines API."""
+    """Client for Fly.io API operations."""
 
-    def __init__(self, api_token: str, api_url: str, machines_url: str):
+    def __init__(self, api_token: str):
         self.api_token = api_token
-        self.api_url = api_url
-        self.machines_url = machines_url
+        self.graphql_url = "https://api.fly.io/graphql"
+        self.machines_url = "https://api.machines.dev/v1"
         self.headers = {
             "Authorization": f"Bearer {api_token}",
             "Content-Type": "application/json",
         }
 
-    async def graphql(self, query: str, variables: dict[str, Any] | None = None) -> dict:
+    def execute_graphql(self, query: str, variables: dict = None) -> dict:
         """Execute a GraphQL query."""
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self.api_url,
-                json={"query": query, "variables": variables or {}},
-                headers=self.headers,
+        payload = {"query": query}
+        if variables:
+            payload["variables"] = variables
+
+        with httpx.Client() as client:
+            response = client.post(
+                self.graphql_url, json=payload, headers=self.headers, timeout=30.0
             )
 
-            if response.status_code == 401:
-                raise FlyAuthError("Invalid Fly.io API token")
-
+            response.raise_for_status()
             result = response.json()
 
-            if errors := result.get("errors"):
-                error_msg = errors[0].get("message", "Unknown error")
-                raise FlyError(f"GraphQL error: {error_msg}")
+            # Log errors for debugging
+            if "errors" in result:
+                print(f"GraphQL errors: {result['errors']}")
 
-            return result.get("data", {})
+            return result
 
-    async def machines_request(self, method: str, path: str, json: dict | None = None) -> dict:
-        """Make a request to the Machines API."""
-        url = f"{self.machines_url}/{path}"
+    def create_machine(self, app_name: str, config: dict, region: str = "ewr") -> dict:
+        """Create a machine via REST API."""
+        url = f"{self.machines_url}/apps/{app_name}/machines"
 
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method=method,
-                url=url,
-                headers=self.headers,
-                json=json,
-            )
+        payload = {"region": region, "config": config}
 
-            if response.status_code == 401:
-                raise FlyAuthError("Invalid Fly.io API token")
-            elif response.status_code == 404:
-                raise FlyNotFoundError(f"Resource not found: {path}")
-            elif response.status_code >= 400:
-                raise FlyError(f"Machines API error: {response.text}")
+        with httpx.Client() as client:
+            response = client.post(url, json=payload, headers=self.headers, timeout=30.0)
 
-            return response.json() if response.text else {}
+            response.raise_for_status()
+            return response.json()
+
+    def get_machine(self, app_name: str, machine_id: str) -> dict:
+        """Get machine details."""
+        url = f"{self.machines_url}/apps/{app_name}/machines/{machine_id}"
+
+        with httpx.Client() as client:
+            response = client.get(url, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+
+    def delete_machine(self, app_name: str, machine_id: str) -> bool:
+        """Delete a machine."""
+        url = f"{self.machines_url}/apps/{app_name}/machines/{machine_id}"
+
+        with httpx.Client() as client:
+            response = client.delete(url, headers=self.headers)
+            return response.status_code == 200
