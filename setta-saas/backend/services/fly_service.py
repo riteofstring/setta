@@ -9,7 +9,7 @@ from fly.deployment import (
     create_and_deploy_machine,
     create_app,
     delete_all_apps_in_org,
-    delete_app,
+    delete_app_force,
     get_app_status,
     get_organization_id,
     list_all_apps,
@@ -73,16 +73,17 @@ class FlyService:
             print(f"✗ Error during deployment: {str(e)}")
             # Try to clean up on failure
             try:
-                delete_app(self.client, app_name)
-            except:
+                delete_app_force(self.client, app_name)
+            except Exception:
                 pass
             raise
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its resources."""
         try:
-            print(f"Deleting app '{app_name}'...")
-            success = delete_app(self.client, app_name)
+            print(f"Force deleting app '{app_name}'...")
+            # Use force delete for more reliable deletion
+            success = delete_app_force(self.client, app_name)
             if success:
                 print(f"✓ App '{app_name}' deleted successfully")
             return success

@@ -76,3 +76,13 @@ class FlyClient:
         with httpx.Client() as client:
             response = client.delete(url, headers=self.headers)
             return response.status_code == 200
+
+    def delete_app_rest(self, app_name: str, force: bool = True) -> bool:
+        """Delete an app using REST API with force option."""
+        url = f"{self.machines_url}/apps/{app_name}"
+        if force:
+            url += "?force=true"
+
+        with httpx.Client() as client:
+            response = client.delete(url, headers=self.headers, timeout=30.0)
+            return response.status_code == 200

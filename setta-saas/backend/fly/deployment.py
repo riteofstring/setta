@@ -95,6 +95,11 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
     return True
 
 
+def delete_app_force(client: FlyClient, app_name: str) -> bool:
+    """Delete a Fly.io app using REST API with force (stops machines first)."""
+    return client.delete_app_rest(app_name, force=True)
+
+
 def list_all_apps(client: FlyClient, org_slug: str = "personal") -> list[dict]:
     """List all apps in the organization."""
     return client.list_apps(org_slug)
@@ -117,8 +122,9 @@ def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dic
     for app in apps:
         app_name = app["name"]
         try:
-            print(f"Deleting app: {app_name}")
-            if delete_app(client, app_name):
+            print(f"Force deleting app: {app_name}")
+            # Use the new force delete method
+            if delete_app_force(client, app_name):
                 deleted_count += 1
                 deleted_apps.append(app_name)
                 print(f"✓ Deleted: {app_name}")
