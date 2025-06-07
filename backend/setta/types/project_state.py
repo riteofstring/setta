@@ -85,7 +85,6 @@ class Section(BaseModel, extra="forbid"):
     variantIds: list[str] = Field(default_factory=list)
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.python
-    isEntryCodeBlock: bool = False
     isFrozen: bool = False
     isHorizontalOrientation: bool = False
     hideParams: bool = False
@@ -198,6 +197,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
+    entryCodeBlockId: str | None = None
 
 
 def ui_types_default_factory():

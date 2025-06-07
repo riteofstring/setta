@@ -781,7 +781,6 @@ export const SectionSchema = z.object({
   variantIds: z.array(z.string()).default([]),
   nonPresetUITypeIds: z.array(z.string()).default([]),
   codeLanguage: CodeLanguageSchema.default("python"),
-  isEntryCodeBlock: z.boolean().default(false),
   isFrozen: z.boolean().default(false),
   isHorizontalOrientation: z.boolean().default(false),
   hideParams: z.boolean().default(false),
@@ -825,6 +824,7 @@ export const ProjectConfigSchema = z.object({
   viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
   genCodePrefix: z.string().default(""),
   genCodeSuffix: z.string().default(""),
+  entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
@@ -854,14 +854,6 @@ export function createProjectState(
   options: Partial<ProjectState> = {},
 ): ProjectState {
   return ProjectStateSchema.parse(options);
-}
-
-export const BaseModelSchema = z.object({});
-
-export type BaseModel = z.infer<typeof BaseModelSchema>;
-
-export function createBaseModel(options: Partial<BaseModel> = {}): BaseModel {
-  return BaseModelSchema.parse(options);
 }
 
 export const SettaNotificationSchema = z.object({
@@ -1054,4 +1046,31 @@ export function createSettingsState(
   options: Partial<SettingsState> = {},
 ): SettingsState {
   return SettingsStateSchema.parse(options);
+}
+
+export const SimplifiedCodeInfoSchema = z.object({
+  name: z.string(),
+  editable: z.boolean(),
+  defaultVal: z.string().default(""),
+  description: z.string().default(""),
+});
+
+export type SimplifiedCodeInfo = z.infer<typeof SimplifiedCodeInfoSchema>;
+
+export function createSimplifiedCodeInfo(
+  options: Partial<SimplifiedCodeInfo> = {},
+): SimplifiedCodeInfo {
+  return SimplifiedCodeInfoSchema.parse(options);
+}
+
+export const SimplifiedSectionSchema = z.object({
+  name: z.string(),
+});
+
+export type SimplifiedSection = z.infer<typeof SimplifiedSectionSchema>;
+
+export function createSimplifiedSection(
+  options: Partial<SimplifiedSection> = {},
+): SimplifiedSection {
+  return SimplifiedSectionSchema.parse(options);
 }

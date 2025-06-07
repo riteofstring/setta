@@ -12,6 +12,7 @@ import {
   useMisc,
   useNodeInternals,
   useProjectState,
+  ZustandProjectState,
 } from "state/definitions";
 import { C } from "utils/c";
 import { getNamePathTypeKey } from "./actions/artifacts";
@@ -22,6 +23,7 @@ import {
   updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
+import { getCurrentProjectConfig } from "./actions/project/loadProject";
 import {
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
@@ -64,20 +66,21 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useProjectState.subscribe(entryCodeBlockSubscriptionFn, (newVal) => {
-    // newVal is true if there is already an entry code block.
-    // otherwise it's a number indicating the number of code blocks.
-    // if there isn't an entry code block, make an arbitrary code block the entry.
-    if (newVal !== true) {
-      useProjectState.setState((state) => {
-        for (const s of Object.values(state.sections)) {
-          if (getSectionType(s.id) === C.CODE) {
-            state.sections[s.id].isEntryCodeBlock = true;
-            break;
-          }
-        }
-      });
-    }
+  useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
+    useProjectState.setState((state) => {
+      const configState = getCurrentProjectConfig(state);
+      if (!configState) {
+        return;
+      }
+      if (codeBlockIds.length === 0) {
+        configState.entryCodeBlockId = null;
+      } else if (
+        !configState.entryCodeBlockId ||
+        !codeBlockIds.includes(configState.entryCodeBlockId)
+      ) {
+        configState.entryCodeBlockId = codeBlockIds[0];
+      }
+    });
   });
 
   useProjectState.subscribe(updateBackendSubscriptionFn, () => {
@@ -241,17 +244,14 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
   return output;
 }
 
-function entryCodeBlockSubscriptionFn(state) {
-  let count = 0;
+function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
+  const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
     if (getSectionType(s.id) === C.CODE) {
-      count += 1;
-      if (state.sections[s.id].isEntryCodeBlock) {
-        return true;
-      }
+      codeBlockIds.push(s.id);
     }
   }
-  return count;
+  return codeBlockIds;
 }
 
 function apiKeysFilepathSubscriptionFn(state) {
