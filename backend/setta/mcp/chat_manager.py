@@ -195,7 +195,7 @@ class ChatManager:
                     result = await self.mcp_client.call_tool(
                         sub_msg.name,
                         {
-                            C.CHAT_ID_ARG_NAME: chatId,
+                            C.MCP_CHAT_ID_ARG_NAME: chatId,
                             **self.tool_use_input_str_to_dict(sub_msg.input),
                         },
                     )

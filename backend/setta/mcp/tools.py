@@ -19,34 +19,34 @@ def getInstalledPythonPackages():
 
 
 @setta_tool
-def getTerminalOutput(mcp_server: SettaFastMCP, sectionId: ID):
+def getTerminalOutput(setta_mcp_server: SettaFastMCP, sectionId: ID):
     """
     Returns the history of outputs of a terminal
     Args:
         sectionId: The id of the terminal.
     """
     convertedId = replace_ids_with_uuids(
-        sectionId, mcp_server.websocket_msg_handler.id_to_uuid
+        sectionId, setta_mcp_server.websocket_msg_handler.id_to_uuid
     )
-    return mcp_server.terminals.get_terminal_history(convertedId)
+    return setta_mcp_server.terminals.get_terminal_history(convertedId)
 
 
 @setta_tool
-async def getGenPythonCode(mcp_server: SettaFastMCP, projectConfigId: ID):
+async def getGenPythonCode(setta_mcp_server: SettaFastMCP, projectConfigId: ID):
     """
     Returns the current state of the generated python code.
     Args:
         projectConfigId: The id of the project.
     """
     convertedId = replace_ids_with_uuids(
-        projectConfigId, mcp_server.websocket_msg_handler.id_to_uuid
+        projectConfigId, setta_mcp_server.websocket_msg_handler.id_to_uuid
     )
-    return await mcp_server.project_manager.get_gen_python_code(convertedId)  # type: ignore
+    return await setta_mcp_server.project_manager.get_gen_python_code(convertedId)  # type: ignore
 
 
 @setta_tool
 async def setSelectedItem(
-    mcp_server: SettaFastMCP,
+    setta_mcp_server: SettaFastMCP,
     projectConfigId: ID,
     sectionId: ID,
     selectedItemName: str,
@@ -60,13 +60,13 @@ async def setSelectedItem(
         selectedItemName: The selected item name, for example "math.sqrt"
     """
     convertedProjectConfigId = replace_ids_with_uuids(
-        projectConfigId, mcp_server.websocket_msg_handler.id_to_uuid
+        projectConfigId, setta_mcp_server.websocket_msg_handler.id_to_uuid
     )
     convertedSectionId = replace_ids_with_uuids(
-        sectionId, mcp_server.websocket_msg_handler.id_to_uuid
+        sectionId, setta_mcp_server.websocket_msg_handler.id_to_uuid
     )
 
-    await mcp_server.project_manager.set_selected_item(
+    await setta_mcp_server.project_manager.set_selected_item(
         convertedProjectConfigId, convertedSectionId, selectedItemName, refetchParams
     )
 
