@@ -88,8 +88,6 @@ async def route_set_llm_api_keys(
     websocket_msg_handler=Depends(get_wmh_base),
 ):
     """
-    Write API keys to .env file to be used by litellm
-
     This endpoint accepts a list of API keys with their associated model IDs
     and provider names, then writes them to the .env file in the correct format.
     """

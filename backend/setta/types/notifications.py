@@ -1,7 +1,6 @@
 from datetime import datetime
 
-from groq import BaseModel
-from pydantic import Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 from setta.database.utils import create_new_id
 from setta.types.utils import AsIsStrEnum
