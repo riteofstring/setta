@@ -4,7 +4,7 @@ from typing import cast
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
 from setta.types.ai import ID
-from setta.types.simplified_states import SimplifiedSection
+from setta.types.simplified_states import SimplifiedCodeInfo, SimplifiedSection
 
 
 @setta_tool
@@ -46,21 +46,27 @@ async def setSelectedItem(
     sectionId: ID,
     selectedItemName: str,
     refetchParams: bool,
-):
+) -> dict[ID, SimplifiedCodeInfo]:
     """
-    Sets the selectedItem (i.e. the callable) of a section.
+    Sets the selectedItem (i.e. the callable) of a section. Returns a list of function argument information.
     Args:
         projectConfigId: The id of the project.
         sectionId: The id of the section we're setting the selectedItem of.
         selectedItemName: The selected item name, for example "math.sqrt"
         refetchParams: If True, then the parameter list will be recomputed. Only do this if something with the python environment or language server has changed.
     """
-    await setta_mcp_server.project_manager.set_selected_item(
+    children = await setta_mcp_server.project_manager.set_selected_item(
         projectConfigId, sectionId, selectedItemName, refetchParams
     )
-
-    # TODO: return callable info and its children info
-    return "success"
+    output: dict[ID, SimplifiedCodeInfo] = {}
+    for c in children:
+        output[ID(c.id)] = SimplifiedCodeInfo(
+            name=c.name,
+            editable=c.editable,
+            defaultVal=c.defaultVal,
+            description=c.description,
+        )
+    return output
 
 
 @setta_tool
@@ -97,13 +103,16 @@ async def setParamValues(
 
 
 @setta_tool
-async def getAllSimplifiedSectionInfo(
+async def getAllSectionInfo(
     setta_mcp_server: SettaFastMCP, projectConfigId: str
 ) -> dict[ID, SimplifiedSection]:
     """
     Set the values of multiple parameters in a particular section. Returns an object that maps from sectionId to that section's information.
     """
-    output = await setta_mcp_server.project_manager.get_all_simplified_section_info(
+    output = await setta_mcp_server.project_manager.get_top_level_sections(
         projectConfigId
     )
-    return cast(dict[ID, SimplifiedSection], output)
+    simplified_output: dict[ID, SimplifiedSection] = {}
+    for k, v in output.items():
+        simplified_output[ID(k)] = SimplifiedSection(name=v.name)
+    return simplified_output

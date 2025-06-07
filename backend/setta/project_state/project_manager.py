@@ -16,8 +16,9 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.getters import (
-    get_all_simplified_section_info,
+    get_children_of_selected_item,
     get_section_type,
+    get_top_level_sections,
     set_param_entered_value,
 )
 from setta.types.project_state import (
@@ -257,6 +258,10 @@ class ProjectManager:
             await self.websocket_msg_handler.return_to_requester(
                 self.project_state.model_dump(), messageId
             )
+        else:
+            await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+
+        return get_children_of_selected_item(self.project_state, sectionId)
 
     @enqueue_method
     async def code_area_autocomplete(
@@ -322,8 +327,8 @@ class ProjectManager:
         return ""
 
     @enqueue_method
-    async def get_all_simplified_section_info(self, projectConfigId: str):
-        return get_all_simplified_section_info(self.project_state, projectConfigId)
+    async def get_top_level_sections(self, projectConfigId: str):
+        return get_top_level_sections(self.project_state, projectConfigId)
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:

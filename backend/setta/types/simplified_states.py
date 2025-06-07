@@ -10,3 +10,10 @@ class SimplifiedSection(BaseModel):
 #       codeInfo: getSectionCurrentCodeInfoMcp({ sectionId: s.id }),
 #       position: { x, y },
 #       size: { width, height },
+
+
+class SimplifiedCodeInfo(BaseModel):
+    name: str
+    editable: bool
+    defaultVal: str = ""
+    description: str = ""
