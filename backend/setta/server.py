@@ -24,7 +24,7 @@ from setta.lsp.managers import (
 from setta.lsp.specific_file_watcher import create_specific_file_watcher
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
-from setta.mcp.server import CustomFastMCP
+from setta.mcp.server import SettaFastMCP
 from setta.project_state.project_manager import ProjectManager
 from setta.routers import (
     ai_router,
@@ -74,7 +74,7 @@ async def lifespan(app: FastAPI):
         app.state.websocket_msg_handlers.terminals, app.state.settings_file
     )
 
-    app.state.mcp_server = CustomFastMCP(
+    app.state.mcp_server = SettaFastMCP(
         app,
         "/mcp",
         "Setta MCP Server",

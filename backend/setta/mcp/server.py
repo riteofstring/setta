@@ -1,27 +1,24 @@
 # some parts borrowed from https://github.com/tadata-org/fastapi_mcp/blob/main/fastapi_mcp/server.py
 
 import asyncio
-import inspect
 
-import docstring_parser
 from fastapi import FastAPI, Request
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
-from mcp.types import AnyFunction
 from mcp.types import Tool as MCPTool
 
 from setta.database.db_objs import DBE
+from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
+from setta.utils.constants import C
 from setta.websockets.msg_handlers.mcp import WMHMCP
 from setta.websockets.websocket_manager import WebsocketManager
 
-CHAT_ID_ARG_NAME = "chatId"
-
 
 # TODO use FastMCP once this is resolved: https://github.com/modelcontextprotocol/python-sdk/issues/226
-class CustomFastMCP(FastMCP):
+class SettaFastMCP(FastMCP):
     def __init__(
         self,
         app: FastAPI,
@@ -55,14 +52,9 @@ class CustomFastMCP(FastMCP):
         app.get(mount_path)(handle_mcp_connection)
         app.mount(msg_path, app=sse_transport.handle_post_message)
 
+        self.add_setta_tools()
         content = SettaNotification(message="MCP Server Ready", temporary=True)
         asyncio.create_task(self.websocket_msg_handler.broadcast_notification(content))
-
-    def add_tool(
-        self, fn: AnyFunction, name: str | None = None, description: str | None = None
-    ) -> None:
-        super().add_tool(fn, name, description)
-        self.fn_param_docstrings[fn] = extract_param_docstrings(fn)
 
     async def list_tools(self) -> list[MCPTool]:
         """List all available tools."""
@@ -76,11 +68,11 @@ class CustomFastMCP(FastMCP):
             )
             schema = mcpt.inputSchema
             schema["properties"] = {
-                k: v for k, v in schema["properties"].items() if k != CHAT_ID_ARG_NAME
+                k: v for k, v in schema["properties"].items() if k != C.CHAT_ID_ARG_NAME
             }
             if schema.get("required"):
                 schema["required"] = [
-                    k for k in schema["required"] if k != CHAT_ID_ARG_NAME
+                    k for k in schema["required"] if k != C.CHAT_ID_ARG_NAME
                 ]
             for arg_name, arg_metadata in schema["properties"].items():
                 if "description" in arg_metadata:
@@ -92,32 +84,6 @@ class CustomFastMCP(FastMCP):
             output.append(mcpt)
         return output
 
-
-def extract_param_docstrings(func):
-    """
-    Extract docstring descriptions for each parameter of a function.
-
-    Args:
-        func: A Python function object.
-
-    Returns:
-        dict: A dictionary mapping parameter names to their docstring descriptions.
-    """
-    # Get the function's docstring
-    docstring = inspect.getdoc(func)
-    if not docstring:
-        return {}
-
-    # Parse the docstring using docstring_parser
-    try:
-        parsed = docstring_parser.parse(docstring)
-    except Exception as e:
-        print(f"Failed to parse docstring: {e}")
-        return {}
-
-    # Extract parameter descriptions
-    param_docs = {}
-    for param in parsed.params:
-        param_docs[param.arg_name] = param.description or "No description available"
-
-    return param_docs
+    def add_setta_tools(self):
+        for t in SETTA_MCP_TOOLS:
+            self.add_tool(t.fn, description=t.description)

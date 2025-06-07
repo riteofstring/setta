@@ -27,7 +27,6 @@ from setta.database.db.chats.save import create_new_chat, delete_chat, save_mess
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
-from setta.mcp.server import CHAT_ID_ARG_NAME
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
@@ -196,7 +195,7 @@ class ChatManager:
                     result = await self.mcp_client.call_tool(
                         sub_msg.name,
                         {
-                            CHAT_ID_ARG_NAME: chatId,
+                            C.CHAT_ID_ARG_NAME: chatId,
                             **self.tool_use_input_str_to_dict(sub_msg.input),
                         },
                     )
