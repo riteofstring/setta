@@ -8,7 +8,6 @@ from setta.database.db.notifications.delete import delete_notification
 from setta.database.db.notifications.load import (
     load_project_notifications,
 )
-from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_default_project_config_name,
 )
@@ -198,9 +197,15 @@ def route_save_as_existing_project_config(
 
 
 @router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
-def route_delete_project_configs(x: DeleteProjectConfigsRequest, dbe=Depends(get_dbe)):
+def route_delete_project_configs(
+    x: DeleteProjectConfigsRequest,
+    dbe: DBE = Depends(get_dbe),
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    project_manager.delete_project_configs(x.ids)
     with dbe.session as db:
-        return delete_project_configs(db, x.ids)
+        save_project_state(db, project_manager.project_state)
+    return True
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)

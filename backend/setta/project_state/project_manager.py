@@ -428,3 +428,7 @@ class ProjectManager:
         project_config_id = new_project_config.id
         self.project_state.projectConfigs[project_config_id] = new_project_config
         return new_project_config.name
+
+    def delete_project_configs(self, project_config_ids: list[str]):
+        for id in project_config_ids:
+            del self.project_state.projectConfigs[id]
