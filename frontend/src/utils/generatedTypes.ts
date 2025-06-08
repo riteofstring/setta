@@ -1126,3 +1126,36 @@ export function createSimplifiedSection(
 ): SimplifiedSection {
   return SimplifiedSectionSchema.parse(options);
 }
+
+export const WebsocketConnectionInfoSchema = z.object({
+  id: z.string(),
+  connectionType: WebsocketConnectionTypeSchema,
+  location: z.union([z.string(), z.null()]),
+});
+
+export type WebsocketConnectionInfo = z.infer<
+  typeof WebsocketConnectionInfoSchema
+>;
+
+export function createWebsocketConnectionInfo(
+  options: Partial<WebsocketConnectionInfo> = {},
+): WebsocketConnectionInfo {
+  return WebsocketConnectionInfoSchema.parse(options);
+}
+
+export const WebsocketConnectionInfoWithSocketSchema = z.object({
+  id: z.string(),
+  connectionType: WebsocketConnectionTypeSchema,
+  location: z.union([z.string(), z.null()]),
+  websocket: WebSocket,
+});
+
+export type WebsocketConnectionInfoWithSocket = z.infer<
+  typeof WebsocketConnectionInfoWithSocketSchema
+>;
+
+export function createWebsocketConnectionInfoWithSocket(
+  options: Partial<WebsocketConnectionInfoWithSocket> = {},
+): WebsocketConnectionInfoWithSocket {
+  return WebsocketConnectionInfoWithSocketSchema.parse(options);
+}

@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import importlib
 import inspect
@@ -20,6 +21,7 @@ from typing import (
 )
 
 import setta.types
+from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic_core import PydanticUndefined
 
@@ -79,6 +81,14 @@ def get_all_pydantic_models(module):
     )
 
 
+# Add this function after get_all_pydantic_models
+def get_all_dataclasses(module):
+    return inspect.getmembers(
+        module,
+        lambda obj: inspect.isclass(obj) and dataclasses.is_dataclass(obj),
+    )
+
+
 def create_ts_type_line(name):
     return f"export type {name} = z.infer<typeof {name}Schema>;\n\n"
 
@@ -100,6 +110,10 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
                 dependency_ts += enum_to_zod(dep_obj, processed_types)
             elif dep_type == "pydantic":
                 dependency_ts += pydantic_model_to_zod(
+                    dep_obj, type_definitions, processed_types
+                )
+            elif dep_type == "dataclass":
+                dependency_ts += dataclass_to_zod(
                     dep_obj, type_definitions, processed_types
                 )
     return dependency_ts
@@ -242,6 +256,12 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
             type_definitions[model_name] = ("pydantic", python_type)
         return f"{model_name}Schema"
 
+    if dataclasses.is_dataclass(python_type):
+        dc_name = python_type.__name__
+        if dc_name not in processed_types:
+            type_definitions[dc_name] = ("dataclass", python_type)
+        return f"{dc_name}Schema"
+
     # Basic type mappings
     type_map = {
         str: "z.string()",
@@ -254,6 +274,7 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
         Any: "z.any()",
         Path: "z.string()",
         AnyUrl: "z.url()",
+        WebSocket: "WebSocket",
     }
 
     if python_type in type_map:
@@ -325,10 +346,66 @@ def pydantic_model_to_zod(
     )
 
 
+# Add this function after pydantic_model_to_zod
+def dataclass_to_zod(model: type, type_definitions: dict, processed_types: set):
+    name = model.__name__
+
+    if name in processed_types:
+        return ""
+
+    processed_types.add(name)
+
+    # Build the object schema
+    fields_list = []
+    for field in dataclasses.fields(model):
+        field_name = field.name
+        field_type = field.type
+        zod_schema = python_type_to_zod(field_type, type_definitions, processed_types)
+
+        # Handle default values
+        if field.default is not dataclasses.MISSING:
+            default_value = field.default
+            if isinstance(default_value, str):
+                zod_schema = f'{zod_schema}.default("{default_value}")'
+            elif isinstance(default_value, bool):
+                zod_schema = f"{zod_schema}.default({str(default_value).lower()})"
+            elif isinstance(default_value, (int, float)):
+                zod_schema = f"{zod_schema}.default({default_value})"
+            elif default_value is None:
+                zod_schema = f"{zod_schema}.default(null)"
+        elif field.default_factory is not dataclasses.MISSING:
+            default_factory = field.default_factory
+            if dataclasses.is_dataclass(default_factory):
+                zod_schema = f"{zod_schema}.default(create{default_factory.__name__})"
+            elif default_factory is dict:
+                zod_schema = f"{zod_schema}.default({{}})"
+            elif default_factory is list:
+                zod_schema = f"{zod_schema}.default([])"
+            else:
+                raise ValueError("this else case is not yet supported")
+
+        fields_list.append(f"  {field_name}: {zod_schema}")
+
+    fields_str = ",\n".join(fields_list)
+
+    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
+
+    # Generate schema and inferred type
+    return (
+        dependency_zod
+        + f"""export const {name}Schema = z.object({{
+{fields_str}
+}});\n\n"""
+        + create_ts_type_line(name)
+        + create_creation_fn_line(name)
+    )
+
+
 def main(output_file):
     all_aliases = {}
     all_enums = {}
     all_pydantic_models = {}
+    all_dataclasses = {}
     modules = get_modules_from_package(setta.types)
     for module in modules:
         aliases = get_all_type_aliases(module)
@@ -337,6 +414,8 @@ def main(output_file):
         all_enums.update({k: v for k, v in enums})
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
+        dataclasses_list = get_all_dataclasses(module)
+        all_dataclasses.update({k: v for k, v in dataclasses_list})
 
     ts_code = """import { z } from 'zod/v4';
 import { createNewId as create_new_id, createRandomName as generate_memorable_string } from "utils/idNameCreation";
@@ -364,6 +443,9 @@ export type ID = z.infer<typeof IDSchema>;
 
     for x in all_pydantic_models.values():
         ts_code += pydantic_model_to_zod(x, type_definitions, processed_types)
+
+    for x in all_dataclasses.values():
+        ts_code += dataclass_to_zod(x, type_definitions, processed_types)
 
     with open(output_file, "w") as f:
         f.write(ts_code)
