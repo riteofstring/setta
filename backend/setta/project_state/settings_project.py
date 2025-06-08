@@ -13,6 +13,7 @@ from setta.types.project_state import (
     ProjectConfigChild,
     ProjectState,
     Section,
+    SectionConfig,
     SectionSize,
     SectionVariant,
     UITypeColEntry,
@@ -128,6 +129,7 @@ def create_settings_project_state(settings_path: str):
     codeInfoWithUIType, uiTypes = create_settings_code_info_with_ui_types(section_names)
 
     sections: dict[str, Section] = {}
+    sectionConfigs: dict[str, SectionConfig] = {}
     variants: dict[str, SectionVariant] = {}
     codeInfo: dict[str, CodeInfo] = {}
     codeInfoCols: dict[str, CodeInfoCol] = {}
@@ -139,11 +141,14 @@ def create_settings_project_state(settings_path: str):
 
         section = Section(
             name=k,
-            size=SectionSize(width=550),
-            variantId=variantId,
             uiTypeColId=uiTypeColId,
         )
         sections[section.id] = section
+        sectionConfig = SectionConfig(
+            size=SectionSize(width=550),
+            variantId=variantId,
+        )
+        sectionConfigs[section.id] = sectionConfig
         variant = SectionVariant(
             name=settings_path,
             codeInfoColId=codeInfoColId,
@@ -164,7 +169,9 @@ def create_settings_project_state(settings_path: str):
     projectConfigChildren = {
         k: ProjectConfigChild(x=idx * 600) for idx, k in enumerate(sections.keys())
     }
-    projectConfig = ProjectConfig(name="settings", children=projectConfigChildren)
+    projectConfig = ProjectConfig(
+        name="settings", children=projectConfigChildren, sectionConfigs=sectionConfigs
+    )
     projectConfigId = projectConfig.id
 
     return ProjectState(

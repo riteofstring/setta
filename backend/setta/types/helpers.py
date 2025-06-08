@@ -19,32 +19,40 @@ class ProjectNameTaken(Exception):
     pass
 
 
+def get_current_section_config(p: ProjectState, projectConfigId: str, sectionId: str):
+    return p.projectConfigs[projectConfigId].sectionConfigs[sectionId]
+
+
 def get_section_type(p: ProjectState, id: str):
     ui_type_id = p.sections[id].uiTypeId
     ui_type = p.uiTypes[ui_type_id]
     return ui_type.type
 
 
-def get_selected_section_variant(p: ProjectState, section_id: str):
-    variantId = p.sections[section_id].variantId
+def get_selected_section_variant(
+    p: ProjectState, projectConfigId: str, section_id: str
+):
+    variantId = get_current_section_config(p, projectConfigId, section_id).variantId
     return p.variants[variantId]
 
 
-def get_selected_item(p: ProjectState, id: str):
-    variant = get_selected_section_variant(p, id)
+def get_selected_item(p: ProjectState, projectConfigId: str, id: str):
+    variant = get_selected_section_variant(p, projectConfigId, id)
     selected_item = variant.selectedItem
     if selected_item:
         return p.codeInfo[selected_item]
 
 
-def get_section_children(p: ProjectState, id: str) -> list[str]:
-    variant = get_selected_section_variant(p, id)
+def get_section_children(p: ProjectState, projectConfigId: str, id: str) -> list[str]:
+    variant = get_selected_section_variant(p, projectConfigId, id)
     return variant.children
 
 
-def get_top_level_param_ids(p: ProjectState, id: str) -> list[str]:
+def get_top_level_param_ids(
+    p: ProjectState, projectConfigId: str, id: str
+) -> list[str]:
     section_code_info_children = get_section_code_info_children(p, id)
-    selected_item = get_selected_item(p, id)
+    selected_item = get_selected_item(p, projectConfigId, id)
     sid = selected_item.id if selected_item else None
     if sid not in section_code_info_children:
         section_code_info_children[sid] = []
@@ -52,8 +60,10 @@ def get_top_level_param_ids(p: ProjectState, id: str) -> list[str]:
     return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.parameter]
 
 
-def get_section_code_info_children(p: ProjectState, section_id: str):
-    variant = get_selected_section_variant(p, section_id)
+def get_section_code_info_children(
+    p: ProjectState, projectConfigId: str, section_id: str
+):
+    variant = get_selected_section_variant(p, projectConfigId, section_id)
     codeInfoColId = variant.codeInfoColId
     if not codeInfoColId:
         newId = create_new_id()
@@ -76,7 +86,7 @@ def get_param_ui_type(p: ProjectState, section_id: str, id: str):
     return ui_type.type
 
 
-def get_section_path_full_name(p: ProjectState, section_id: str):
+def get_section_path_full_name(p: ProjectState, projectConfigId: str, section_id: str):
     parent_id = p.sections[section_id].parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -85,7 +95,7 @@ def get_section_path_full_name(p: ProjectState, section_id: str):
     output = ""
     while parent_id:
         if get_section_type(p, parent_id) == C.LIST_ROOT:
-            idx = get_section_children(p, parent_id).index(section_id)
+            idx = get_section_children(p, projectConfigId, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name
@@ -99,15 +109,17 @@ def get_section_path_full_name(p: ProjectState, section_id: str):
     return f"{child_name}{output}"
 
 
-def item_is_already_selected(p: ProjectState, sectionId: str, selectedItemName: str):
-    selected_item = get_selected_item(p, sectionId)
+def item_is_already_selected(
+    p: ProjectState, projectConfigId: str, sectionId: str, selectedItemName: str
+):
+    selected_item = get_selected_item(p, projectConfigId, sectionId)
     return selected_item and selected_item.name == selectedItemName
 
 
 def item_has_been_selected_before(
-    p: ProjectState, sectionId: str, selectedItemName: str
+    p: ProjectState, projectConfigId: str, sectionId: str, selectedItemName: str
 ):
-    code_info_children = get_section_code_info_children(p, sectionId)
+    code_info_children = get_section_code_info_children(p, projectConfigId, sectionId)
     for c in code_info_children[None]:
         if p.codeInfo[c].name == selectedItemName:
             return c
@@ -116,13 +128,16 @@ def item_has_been_selected_before(
 
 def add_code_info(
     state: ProjectState,
+    projectConfigId: str,
     section_id: str,
     info: CodeInfo,
     parent: str | None = None,
     insert_idx: int | None = None,
 ):
     state.codeInfo[info.id] = info
-    code_info_children = get_section_code_info_children(state, section_id)
+    code_info_children = get_section_code_info_children(
+        state, projectConfigId, section_id
+    )
 
     if parent not in code_info_children:
         code_info_children[parent] = []
@@ -136,10 +151,16 @@ def add_code_info(
 
 
 def create_children_code_info(
-    state: ProjectState, section_id: str, parent: str, params: list[CodeInfo]
+    state: ProjectState,
+    projectConfigId: str,
+    section_id: str,
+    parent: str,
+    params: list[CodeInfo],
 ):
     existing_children_name_to_id = {}
-    code_info_children = get_section_code_info_children(state, section_id)
+    code_info_children = get_section_code_info_children(
+        state, projectConfigId, section_id
+    )
     for c in code_info_children.get(parent, []):
         existing_children_name_to_id[state.codeInfo[c].name] = c
 
@@ -150,7 +171,7 @@ def create_children_code_info(
             p.id = existing_id
         param_ids_in_order.append(p.id)
         if not existing_id:
-            add_code_info(state, section_id, p, parent)
+            add_code_info(state, projectConfigId, section_id, p, parent)
         else:
             state.codeInfo[existing_id] = p
 
@@ -158,9 +179,9 @@ def create_children_code_info(
 
 
 def set_param_entered_value(
-    p: ProjectState, sectionId: str, paramInfoId: str, value: str
+    p: ProjectState, projectConfigId: str, sectionId: str, paramInfoId: str, value: str
 ):
-    variant = get_selected_section_variant(p, sectionId)
+    variant = get_selected_section_variant(p, projectConfigId, sectionId)
     if paramInfoId not in variant.values:
         variant.values[paramInfoId] = EVEntry()
     variant.values[paramInfoId].value = value
@@ -174,8 +195,10 @@ def get_top_level_sections(p: ProjectState, projectConfigId: str) -> dict[str, S
     return output
 
 
-def get_children_of_selected_item(p: ProjectState, sectionId: str):
-    param_ids = get_top_level_param_ids(p, sectionId)
+def get_children_of_selected_item(
+    p: ProjectState, projectConfigId: str, sectionId: str
+):
+    param_ids = get_top_level_param_ids(p, projectConfigId, sectionId)
     return [p.codeInfo[x] for x in param_ids]
 
 

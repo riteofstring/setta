@@ -93,22 +93,25 @@ class ProjectGenPythonCode(PythonCode):
     async def set_selected_item(
         self,
         project_state: ProjectState,
+        projectConfigId: str,
         sectionId: str,
         selectedItemName: str,
         refetchParams: bool,
     ):
         if not refetchParams and item_is_already_selected(
-            project_state, sectionId, selectedItemName
+            project_state, projectConfigId, sectionId, selectedItemName
         ):
             return
 
-        variant = get_selected_section_variant(project_state, sectionId)
+        variant = get_selected_section_variant(
+            project_state, projectConfigId, sectionId
+        )
 
         if selectedItemName == "":
             variant.selectedItem = None
 
         prev_selected = item_has_been_selected_before(
-            project_state, sectionId, selectedItemName
+            project_state, projectConfigId, sectionId, selectedItemName
         )
 
         if prev_selected and not refetchParams:
@@ -138,7 +141,7 @@ class ProjectGenPythonCode(PythonCode):
             callable_code_info = CodeInfo(
                 name=selectedItemName, editable=False, rcType=CodeInfoType.callable
             )
-            add_code_info(project_state, sectionId, callable_code_info)
+            add_code_info(project_state, projectConfigId, sectionId, callable_code_info)
         else:
             callable_code_info = project_state.codeInfo[prev_selected]
 
@@ -148,7 +151,7 @@ class ProjectGenPythonCode(PythonCode):
         [documentation, params] = result
         callable_code_info.description = documentation
         create_children_code_info(
-            project_state, sectionId, callable_code_info.id, params
+            project_state, projectConfigId, sectionId, callable_code_info.id, params
         )
         variant.selectedItem = callable_code_info.id
 
@@ -206,14 +209,22 @@ class ProjectGenPythonCode(PythonCode):
 
 class ProjectPythonCode(PythonCode):
     def __init__(
-        self, temp_folder, lsp_writers, websocket_msg_handler, project_state, sectionId
+        self,
+        temp_folder,
+        lsp_writers,
+        websocket_msg_handler,
+        project_state,
+        projectConfigId,
+        sectionId,
     ):
         super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
         self.section_path_full_name = get_section_path_full_name(
-            project_state, sectionId
+            project_state, projectConfigId, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId).code
+        self.code = get_selected_section_variant(
+            project_state, projectConfigId, self.sectionId
+        ).code
         self.diagnostics_callback = self.process_diagnostics_response
 
     async def update_file(self):
@@ -250,13 +261,15 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(self, temp_folder, project_state, sectionId):
+    def __init__(self, temp_folder, project_state, projectConfigId, sectionId):
         super().__init__(temp_folder)
         self.section_path_full_name = get_section_path_full_name(
-            project_state, sectionId
+            project_state, projectConfigId, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId).code
+        self.code = get_selected_section_variant(
+            project_state, projectConfigId, self.sectionId
+        ).code
 
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)

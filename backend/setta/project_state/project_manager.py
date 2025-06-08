@@ -214,7 +214,7 @@ class ProjectManager:
 
             if section_type == C.CODE:
                 section_code = self.create_code_obj(
-                    project_temp_folder, self.project_state, sectionId
+                    project_temp_folder, self.project_state, projectConfigId, sectionId
                 )
 
                 if not section_code:
@@ -263,7 +263,11 @@ class ProjectManager:
         messageId: str | None = None,
     ):
         await self.gen_code[projectConfigId].set_selected_item(
-            self.project_state, sectionId, selectedItemName, refetchParams
+            self.project_state,
+            projectConfigId,
+            sectionId,
+            selectedItemName,
+            refetchParams,
         )
         await self.update.direct(
             self,
@@ -278,7 +282,9 @@ class ProjectManager:
         else:
             await self.websocket_msg_handler.broadcast_project_state(self.project_state)
 
-        return get_children_of_selected_item(self.project_state, sectionId)
+        return get_children_of_selected_item(
+            self.project_state, projectConfigId, sectionId
+        )
 
     @enqueue_method
     async def code_area_autocomplete(
@@ -322,7 +328,9 @@ class ProjectManager:
     ):
         print("*************set_param_values\n\n\n", flush=True)
         for paramInfoId, value in paramIdsToValues.items():
-            set_param_entered_value(self.project_state, sectionId, paramInfoId, value)
+            set_param_entered_value(
+                self.project_state, projectConfigId, sectionId, paramInfoId, value
+            )
         await self.update.direct(
             self,
             ProjectUpdateState(
@@ -363,7 +371,11 @@ class ProjectManager:
                         print(f"Error deleting file {file_path}: {e}")
 
     def create_code_obj(
-        self, project_temp_folder: Path, project_state: ProjectState, sectionId: str
+        self,
+        project_temp_folder: Path,
+        project_state: ProjectState,
+        projectConfigId: str,
+        sectionId: str,
     ):
         codeLanguage = project_state.sections[sectionId].codeLanguage
         if codeLanguage == CodeLanguage.python:
@@ -372,10 +384,13 @@ class ProjectManager:
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 project_state,
+                projectConfigId,
                 sectionId,
             )
         elif codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(project_temp_folder, project_state, sectionId)
+            return ProjectBashCode(
+                project_temp_folder, project_state, projectConfigId, sectionId
+            )
         return None
 
     async def maybe_do_rename_refactor(

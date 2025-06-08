@@ -68,7 +68,7 @@ class MetaSettingsFile:
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
         p = self.load_meta_settings()
-        for k in self.obj_seed_settings.model_fields.keys():
+        for k in SettingsState.model_fields.keys():
             path = self.find_path_for_settings_slice(p, k)
             if not path:
                 path = self.seed_settings(self.path_default_settings)
@@ -78,8 +78,9 @@ class MetaSettingsFile:
         return settings_slice_to_path
 
     def find_path_for_settings_slice(self, p: ProjectState, slice: str):
+        projectConfigId = list(p.projectConfigs.keys())[0]
         for sectionId in p.sections.keys():
-            variant = get_selected_section_variant(p, sectionId)
+            variant = get_selected_section_variant(p, projectConfigId, sectionId)
             if variant.jsonSourceKeys == [slice]:
                 return Path(variant.name)
         return None

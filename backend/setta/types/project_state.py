@@ -73,9 +73,7 @@ class ChartSettings(BaseModel, extra="forbid"):
 class Section(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    size: SectionSize = Field(default_factory=SectionSize)
     parentId: str | None = None
-    variantId: str = Field(default_factory=create_new_id)
     uiTypeId: str = Field(default=BASE_UI_TYPE_IDS[UITypeName.SECTION])
     uiTypeColId: str | None = None
     social: str = ""
@@ -86,22 +84,18 @@ class Section(BaseModel, extra="forbid"):
     nonPresetUITypeIds: list[str] = Field(default_factory=list)
     codeLanguage: CodeLanguage = CodeLanguage.python
     isFrozen: bool = False
-    isHorizontalOrientation: bool = False
     hideParams: bool = False
     hideSearch: bool = False
     hideUnpinnedParams: bool = False
     hideColumn: bool = False
     displayMode: str = "GUI"
     visibility: Visibility = Field(default_factory=Visibility)
-    pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
-    isMinimized: bool = False
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
     )
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
     isTemporary: bool = False
     renderMarkdown: bool = False
-    positionAndSizeLocked: bool = False
     selectedVariantIds: dict[str, Any] = Field(default_factory=dict)
     paramFilter: str = ""
     isInOtherProjectConfigs: bool = False
@@ -112,11 +106,14 @@ class Section(BaseModel, extra="forbid"):
     renderedValue: Any = None
     headingAsSectionName: bool = False
 
-    @model_validator(mode="after")
-    def set_default_variant_id(self):
-        if not self.defaultVariantId:
-            self.defaultVariantId = self.variantId
-        return self
+
+class SectionConfig(BaseModel, extra="forbid"):
+    variantId: str = Field(default_factory=create_new_id)
+    size: SectionSize = Field(default_factory=SectionSize)
+    isHorizontalOrientation: bool = False
+    pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
+    isMinimized: bool = False
+    positionAndSizeLocked: bool = False
 
 
 class EVEntry(BaseModel, extra="forbid"):
@@ -198,6 +195,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
     entryCodeBlockId: str | None = None
+    sectionConfigs: dict[str, SectionConfig] = Field(default_factory=dict)
 
 
 def ui_types_default_factory():
@@ -222,13 +220,6 @@ class ProjectState(BaseModel, extra="forbid"):
     @model_validator(mode="after")
     def validator_ensure_base_ui_types(self):
         self.uiTypes.update(BASE_UI_TYPES)
-        return self
-
-    @model_validator(mode="after")
-    def validator_ensure_variants_exist(self):
-        for section in self.sections.values():
-            if section.variantId not in self.variants:
-                self.variants[section.variantId] = SectionVariant()
         return self
 
     def ensure_default_project_id(self):
