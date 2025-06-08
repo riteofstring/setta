@@ -3,26 +3,6 @@ import { CodeInfoTypeSchema, createCodeInfo } from "utils/generatedTypes";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
-import { maybeIncrementProjectStateVersion } from "./undo";
-
-/**
- * Add parameters to a section.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The section to add parameters to.
- * @param {Array<string>} names The names of the newly created parameters.
- * @param {ID} [codeInfoId] The id of the callable to add parameters to. If not specified, then parameters will be added to the "empty" state of the section, i.e. the section when its callable field is set to null.
- * @returns {Array<ID>} the created parameter ids.
- */
-export function addParametersMcp({ sectionId, names, codeInfoId }) {
-  let ids = [];
-  useProjectState.setState((state) => {
-    for (const name of names) {
-      ids.push(addKwarg({ sectionId, name, parentId: codeInfoId, state }));
-    }
-  });
-  maybeIncrementProjectStateVersion(true);
-  return ids;
-}
 
 export function addKwarg({
   sectionId,
