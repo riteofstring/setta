@@ -119,13 +119,20 @@ class ProjectService:
         if not project:
             return False
 
-        # Extract app name from URL if available
-        if project.url and project.url.startswith("https://"):
+        # Extract app name from URL (e.g., https://setta-c0-1749387393.fly.dev)
+        if project.url and "fly.dev" in project.url:
             try:
                 app_name = project.url.split("//")[1].split(".")[0]
-                await asyncio.to_thread(self.fly.delete_app, app_name)
+                print(f"Deleting Fly.io app: {app_name}")
+
+                # Delete from Fly.io
+                deleted = await asyncio.to_thread(self.fly.delete_app, app_name)
+                if deleted:
+                    print(f"✓ Fly.io app '{app_name}' deleted")
+                else:
+                    print(f"✗ Failed to delete Fly.io app '{app_name}'")
             except Exception as e:
-                print(f"Failed to delete Fly.io app: {str(e)}")
+                print(f"Error deleting Fly.io app: {str(e)}")
 
         # Delete from database
         self.db.delete(project)
