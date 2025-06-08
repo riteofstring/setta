@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from config import get_settings
 from database import SessionLocal
+from middleware import CurrentUser
 from models.project import ProjectCreate, ProjectResponse
 from services.fly_service import FlyService
 from services.project_service import ProjectService
@@ -133,23 +134,31 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 @app.get("/api/projects", response_model=list[ProjectResponse])
-async def list_projects(service: ProjectService = Depends(get_project_service)):
-    """List all projects."""
-    return service.list_projects()
+async def list_projects(
+    user_id: str = CurrentUser, service: ProjectService = Depends(get_project_service)
+):
+    """List all projects for the authenticated user."""
+    return service.list_user_projects(user_id)
 
 
 @app.post("/api/projects", response_model=ProjectResponse)
 async def create_project(
-    project_data: ProjectCreate, service: ProjectService = Depends(get_async_project_service)
+    project_data: ProjectCreate,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
 ):
-    """Create a new project."""
-    return await service.create_project(project_data)
+    """Create a new project for the authenticated user."""
+    return await service.create_project(project_data, user_id)
 
 
 @app.get("/api/projects/{project_id}", response_model=ProjectResponse)
-async def get_project(project_id: str, service: ProjectService = Depends(get_project_service)):
-    """Get a specific project."""
-    project = service.get_project(project_id)
+async def get_project(
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_project_service),
+):
+    """Get a specific project if owned by the authenticated user."""
+    project = service.get_project(project_id, user_id)
     if not project:
         raise HTTPException(404, "Project not found")
     return project
@@ -157,23 +166,27 @@ async def get_project(project_id: str, service: ProjectService = Depends(get_pro
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
-    project_id: str, service: ProjectService = Depends(get_async_project_service)
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
 ):
-    """Delete a project."""
-    success = await service.delete_project(project_id)
+    """Delete a project if owned by the authenticated user."""
+    success = await service.delete_project(project_id, user_id)
     if not success:
-        raise HTTPException(404, "Project not found")
+        raise HTTPException(404, "Project not found or not authorized")
     return {"message": "Project deleted"}
 
 
 @app.post("/api/projects/{project_id}/check-status")
 async def check_project_status(
-    project_id: str, service: ProjectService = Depends(get_async_project_service)
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
 ):
-    """Check and update project status."""
-    status = await service.check_project_status(project_id)
+    """Check and update project status if owned by the authenticated user."""
+    status = await service.check_project_status(project_id, user_id)
     if status is None:
-        raise HTTPException(404, "Project not found")
+        raise HTTPException(404, "Project not found or not authorized")
     return {"status": status}
 
 
@@ -240,6 +253,13 @@ async def websocket_status():
         "active_connections": manager.get_connection_count(),
         "status": "active",
     }
+
+
+# User endpoints
+@app.get("/api/me")
+async def get_current_user(user_id: str = CurrentUser):
+    """Get current user info."""
+    return {"user_id": user_id}
 
 
 if __name__ == "__main__":

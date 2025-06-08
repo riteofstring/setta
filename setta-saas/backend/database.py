@@ -29,6 +29,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     url = Column(String)
     status = Column(String, default="running")
+    user_id = Column(String, nullable=False)  # Clerk user ID
     created_at = Column(DateTime, default=datetime.utcnow)
     last_checked = Column(DateTime, nullable=True)
 

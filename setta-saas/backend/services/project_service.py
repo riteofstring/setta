@@ -31,19 +31,33 @@ class ProjectService:
         self.fly = FlyService()
         self.ws_manager = get_connection_manager()
 
-    def list_projects(self) -> list[ProjectResponse]:
-        """List all projects."""
-        projects = self.db.query(Project).all()
+    def list_projects(self, user_id: str | None = None) -> list[ProjectResponse]:
+        """List all projects, optionally filtered by user."""
+        query = self.db.query(Project)
+
+        if user_id:
+            query = query.filter(Project.user_id == user_id)
+
+        projects = query.all()
         return [self._to_response(p) for p in projects]
 
-    def get_project(self, project_id: str) -> ProjectResponse | None:
-        """Get a specific project."""
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+    def list_user_projects(self, user_id: str) -> list[ProjectResponse]:
+        """List projects for a specific user."""
+        return self.list_projects(user_id)
+
+    def get_project(self, project_id: str, user_id: str | None = None) -> ProjectResponse | None:
+        """Get a specific project, optionally filtered by user."""
+        query = self.db.query(Project).filter(Project.id == project_id)
+
+        if user_id:
+            query = query.filter(Project.user_id == user_id)
+
+        project = query.first()
         if not project:
             return None
         return self._to_response(project)
 
-    async def create_project(self, project_data: ProjectCreate) -> ProjectResponse:
+    async def create_project(self, project_data: ProjectCreate, user_id: str) -> ProjectResponse:
         """Create a new project and deploy to Fly.io."""
         # Generate unique app name
         timestamp = int(time.time())
@@ -56,6 +70,7 @@ class ProjectService:
             name=project_data.name,
             url="Creating...",
             status="creating",
+            user_id=user_id,  # Set the user who owns this project
         )
         self.db.add(project)
         self.db.commit()
@@ -124,11 +139,17 @@ class ProjectService:
         finally:
             db.close()
 
-    async def delete_project(self, project_id: str) -> bool:
+    async def delete_project(self, project_id: str, user_id: str | None = None) -> bool:
         """Delete a project and its Fly.io resources."""
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        query = self.db.query(Project).filter(Project.id == project_id)
+
+        if user_id:
+            query = query.filter(Project.user_id == user_id)
+
+        project = query.first()
         if not project:
             return False
+
         print(f"Delete project called for ID: {project_id}")
         print(f"Project URL: {project.url}")
         print(f"Project status: {project.status}")
@@ -165,9 +186,14 @@ class ProjectService:
 
         return True
 
-    async def check_project_status(self, project_id: str) -> str | None:
+    async def check_project_status(self, project_id: str, user_id: str | None = None) -> str | None:
         """Check and update project status."""
-        project = self.db.query(Project).filter(Project.id == project_id).first()
+        query = self.db.query(Project).filter(Project.id == project_id)
+
+        if user_id:
+            query = query.filter(Project.user_id == user_id)
+
+        project = query.first()
         if not project:
             return None
 

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
         "https://frontend-production-c08f.up.railway.app",
     ]
 
+    # Clerk Authentication
+    clerk_jwt_public_key: str | None = None
+    clerk_api_key: str | None = None  # Optional: for API verification fallback
+
     class Config:
         env_file = ".env"
         case_sensitive = False
