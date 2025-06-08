@@ -25,6 +25,7 @@ from setta.types.getters import (
 )
 from setta.types.project_state import (
     CodeLanguage,
+    ProjectConfig,
     ProjectState,
     ProjectUpdateState,
 )
@@ -421,3 +422,9 @@ class ProjectManager:
             "defaultProjectConfigId": defaultProjectConfigId,
             "projectMetadata": projectMetadata,
         }
+
+    def create_project_config(self, previewImgColor: str):
+        new_project_config = ProjectConfig(previewImgColor=previewImgColor)
+        project_config_id = new_project_config.id
+        self.project_state.projectConfigs[project_config_id] = new_project_config
+        return new_project_config.name

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from setta.database.db.projects.load import load_project_state
 from setta.database.table_definitions import ProjectStateTable
-from setta.types.project_state import ProjectConfig, ProjectState
+from setta.types.project_state import ProjectState
 
 
 class ProjectNameTaken(Exception):
@@ -18,16 +18,6 @@ def save_project_state(db: Session, state: ProjectState):
         .values(state=json_data)
     )
     db.execute(stmt)
-
-
-def create_project_config(db: Session, previewImgColor: str):
-    state = load_project_state(db)
-    new_project_config = ProjectConfig(previewImgColor=previewImgColor)
-
-    project_config_id = new_project_config.id
-    state.projectConfigs[project_config_id] = new_project_config
-    save_project_state(db, state)
-    return new_project_config.name
 
 
 def save_project_config_name(db: Session, projectConfigId: str, newName: str):

@@ -14,7 +14,6 @@ from setta.database.db.projects.load import (
 )
 from setta.database.db.projects.save import (
     ProjectNameTaken,
-    create_project_config,
     save_project_config_name,
     save_project_state,
     set_as_default_project,
@@ -171,9 +170,15 @@ async def route_save_project(
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
-def route_create_project_config(x: CreateProjectConfigRequest, dbe=Depends(get_dbe)):
+def route_create_project_config(
+    x: CreateProjectConfigRequest,
+    dbe: DBE = Depends(get_dbe),
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    newProjectConfigName = project_manager.create_project_config(x.previewImgColor)
     with dbe.session as db:
-        return create_project_config(db, x.previewImgColor)
+        save_project_state(db, project_manager.project_state)
+    return newProjectConfigName
 
 
 @router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
