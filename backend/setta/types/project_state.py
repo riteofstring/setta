@@ -109,7 +109,7 @@ class SectionConfig(BaseModel, extra="forbid"):
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool = False
     aspectRatioExtraHeight: int = 0
-    aspectRatioExtraWidth: int = 0 
+    aspectRatioExtraWidth: int = 0
     isHorizontalOrientation: bool = False
     pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
     isMinimized: bool = False

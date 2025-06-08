@@ -8,12 +8,19 @@ import {
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
-import { createSection, createSectionVariant } from "utils/generatedTypes";
+import {
+  createSection,
+  createSectionConfig,
+  createSectionVariant,
+} from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import { addChatHistoryArtifact, addDrawAreaLayer } from "../artifacts";
-import { setSectionVariantChildren } from "../sectionInfos";
+import {
+  getCurrentSectionConfigs,
+  setSectionVariantChildren,
+} from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
   let newId;
@@ -139,11 +146,14 @@ export function createSectionInfo({
 
   for (let i = 0; i < numSections; i++) {
     const s = createSection(sectionProps);
-    s.variantIds = [s.variantId];
-    s.defaultVariantId = s.variantId;
+    const sConfig = createSectionConfig();
+    s.variantIds = [sConfig.variantId];
+    s.defaultVariantId = sConfig.variantId;
     newIds.push(s.id);
     state.sections[s.id] = s;
-    state.variants[s.variantId] = createSectionVariant(sectionVariantProps);
+    getCurrentSectionConfigs(state)[s.id] = sConfig;
+    state.variants[sConfig.variantId] =
+      createSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
       case C.DRAW:
         addDrawAreaLayer(s.id, state);

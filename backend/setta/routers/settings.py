@@ -8,7 +8,6 @@ from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import (
-    get_project_manager,
     get_settings_file,
     get_wmh_base,
 )
@@ -26,13 +25,13 @@ class SaveSettingsProjectRequest(BaseModel):
 
 @router.post(C.ROUTE_SAVE_SETTINGS)
 def route_save_settings(
-    x: SaveSettingsRequest, settings_file=Depends(get_settings_file)
+    x: SaveSettingsRequest, settings_file: SettingsFile = Depends(get_settings_file)
 ):
     return settings_file.save_settings(x.settings)
 
 
 @router.post(C.ROUTE_LOAD_SETTINGS)
-def route_load_settings(settings_file=Depends(get_settings_file)):
+def route_load_settings(settings_file: SettingsFile = Depends(get_settings_file)):
     return settings_file.load_settings()
 
 
@@ -71,8 +70,6 @@ async def route_save_settings_project(
 @router.post(C.ROUTE_LOAD_SETTINGS_PROJECT)
 async def route_load_settings_project(
     settings_file: SettingsFile = Depends(get_settings_file),
-    project_manager=Depends(get_project_manager),
 ):
     p = settings_file.load_settings_project()
-    # await project_manager.update(p)
     return p
