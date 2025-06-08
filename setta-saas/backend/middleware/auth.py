@@ -6,9 +6,9 @@ Handles JWT verification and user extraction.
 from functools import lru_cache
 
 import httpx
+import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
-from jose import JWTError, jwt
 
 from config import get_settings
 
@@ -64,7 +64,7 @@ def verify_jwt_token(token: str) -> dict:
         )
         return payload
 
-    except JWTError as e:
+    except jwt.InvalidTokenError as e:
         raise AuthError(f"Invalid token: {str(e)}")
     except Exception as e:
         raise AuthError(f"Token verification failed: {str(e)}")
