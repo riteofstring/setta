@@ -158,7 +158,7 @@ class CodeInfoCol(BaseModel, extra="forbid"):
     children: dict[str | None, list[str]] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def convert_null_key(self):
+    def validator_convert_null_key(self):
         if "null" in self.children:
             c = self.children.pop("null")
             self.children[None] = c
@@ -167,7 +167,7 @@ class CodeInfoCol(BaseModel, extra="forbid"):
         return self
 
     @model_serializer
-    def convert_none_key(self):
+    def serializer_convert_none_key(self):
         new_dict = {}
         for key, value in self.children.items():
             if key is None:
@@ -226,6 +226,24 @@ class ProjectState(BaseModel, extra="forbid"):
     def validator_ensure_base_ui_types(self):
         self.uiTypes.update(BASE_UI_TYPES)
         return self
+    
+    @model_validator(mode="after")
+    def validate_variant_ids(self):
+        for p in self.projectConfigs.values():
+            for sectionId, s in p.sectionConfigs.items():
+                if s.variantId not in self.sections[sectionId].variantIds:
+                    self.sections[sectionId].variantIds.append(s.variantId)
+
+        for s in self.sections.values():
+            for v in s.variantIds:
+                if v not in self.variants:
+                    self.variants[v] = SectionVariant()
+                
+            if not s.defaultVariantId:
+                s.defaultVariantId = s.variantIds[0]
+
+        return self
+            
 
     def ensure_default_project_id(self):
         if self.projectConfigs:
