@@ -4,6 +4,7 @@ import traceback
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.msg_handlers.cli import WMHCLI
@@ -28,7 +29,7 @@ async def websocket_route_loop(
     websocket: WebSocket,
     websocket_manager: WebsocketManager,
     websocket_msg_handler: BaseWebsocketMsgHandler,
-    connectionType: str,
+    connectionType: WebsocketConnectionType,
     id: str | None = None,
 ):
     fromWebsocketId = None
@@ -66,7 +67,7 @@ async def route_websocket_frontend(
         websocket,
         websocket_manager,
         websocket_msg_handler,
-        C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+        WebsocketConnectionType.FRONTEND,
     )
 
 
@@ -82,7 +83,7 @@ async def route_websocket_cli(
         websocket,
         websocket_manager,
         websocket_msg_handler,
-        C.WEBSOCKET_CONNECTION_TYPE_CLI,
+        WebsocketConnectionType.CLI,
         id=id,
     )
 
@@ -100,7 +101,7 @@ async def route_websocket_python_script(
         websocket,
         websocket_manager,
         websocket_msg_handler,
-        C.WEBSOCKET_CONNECTION_TYPE_PYTHON_SCRIPT,
+        WebsocketConnectionType.PYTHON_SCRIPT,
         id=id,
     )
 
@@ -117,5 +118,5 @@ async def route_websocket_python_logger(
         websocket,
         websocket_manager,
         websocket_msg_handler,
-        C.WEBSOCKET_CONNECTION_TYPE_PYTHON_LOGGER,
+        WebsocketConnectionType.PYTHON_LOGGER,
     )

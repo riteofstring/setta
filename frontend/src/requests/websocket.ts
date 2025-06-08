@@ -23,6 +23,7 @@ import {
 } from "state/actions/websocketConnectionList";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { C } from "utils/c";
+import { WebsocketConnectionTypeSchema } from "utils/generatedTypes";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -36,7 +37,7 @@ export const openWebSocket = _.debounce(
         addTemporaryNotification("Connected to server");
         addWebsocketConnection({
           websocketId: "main",
-          connectionType: C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+          connectionType: WebsocketConnectionTypeSchema.enum.SERVER,
         });
         wasOpen = true;
       });

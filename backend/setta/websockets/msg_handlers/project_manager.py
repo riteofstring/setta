@@ -1,4 +1,5 @@
 from setta.types.project_state import ProjectStateBackend
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
@@ -15,7 +16,7 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             content,
             C.WS_LSP_DIAGNOSTICS,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )
 
     async def return_rename_refactor_results(self, content, messageId):
@@ -27,5 +28,5 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             project_state.model_dump(),
             C.WS_UPDATE_FRONTEND_PROJECT_STATE,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )

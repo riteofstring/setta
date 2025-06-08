@@ -1,5 +1,6 @@
 from setta.mcp.utils import SettaMCPToolError
 from setta.types.ai import IDToUUIDForLLM
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
@@ -19,7 +20,7 @@ class WMHMCP(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             {"id": request_id, "fnName": fn_name, "args": args},
             C.WS_MCP_TOOL_USE,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )
 
         # Wait for response
@@ -32,5 +33,5 @@ class WMHMCP(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             id_to_uuid,
             C.WS_UUID_MAPPING_FOR_LLM,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )

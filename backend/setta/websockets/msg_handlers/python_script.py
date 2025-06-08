@@ -1,3 +1,4 @@
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -21,7 +22,7 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
             await self.broadcast_all_dependencies()
         elif msg_type == C.WS_ARTIFACT:
             await self.websocket_manager.broadcast(
-                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+                message=message, connectionType=WebsocketConnectionType.FRONTEND
             )
 
     async def on_disconnect(self, websocket_id):
@@ -32,5 +33,5 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
         await self.websocket_manager.broadcast(
             self.script_metadata.dependencies,
             C.WS_ALL_DEPENDENCIES,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )

@@ -1,3 +1,4 @@
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -10,5 +11,5 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
         msg_type = message["messageType"]
         if msg_type == C.WS_ARTIFACT:
             await self.websocket_manager.broadcast(
-                message=message, connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND
+                message=message, connectionType=WebsocketConnectionType.FRONTEND
             )

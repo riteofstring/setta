@@ -349,6 +349,18 @@ export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
 
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
 
+export const WebsocketConnectionTypeSchema = z.enum([
+  "CLI",
+  "SERVER",
+  "PYTHON_SCRIPT",
+  "PYTHON_LOGGER",
+  "FRONTEND",
+]);
+
+export type WebsocketConnectionType = z.infer<
+  typeof WebsocketConnectionTypeSchema
+>;
+
 export const ArtifactSchema = z.object({
   name: z.string(),
   path: z.string(),

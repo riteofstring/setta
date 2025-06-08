@@ -1,4 +1,5 @@
 from setta.types.notifications import SettaNotification
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -20,5 +21,5 @@ class BaseWebsocketMsgHandler:
         await self.websocket_manager.broadcast(
             notification.model_dump(),
             C.WS_NOTIFICATION,
-            connectionType=C.WEBSOCKET_CONNECTION_TYPE_FRONTEND,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )

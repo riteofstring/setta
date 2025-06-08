@@ -6,6 +6,7 @@ from fastapi import WebSocket
 from websockets.exceptions import ConnectionClosedError
 
 from setta.database.utils import create_new_id
+from setta.types.websocket_manager import WebsocketConnectionType
 from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -21,7 +22,10 @@ class WebsocketManager:
         self.pending_requests = {}
 
     async def on_connect(
-        self, websocket: WebSocket, connectionType: str, id: str | None = None
+        self,
+        websocket: WebSocket,
+        connectionType: WebsocketConnectionType,
+        id: str | None = None,
     ):
         await websocket.accept()
         if id and id in self.sockets:
@@ -93,7 +97,7 @@ class WebsocketManager:
         connections.append(
             {
                 "websocketId": self.main_id,
-                "connectionType": C.WEBSOCKET_CONNECTION_TYPE_SERVER,
+                "connectionType": WebsocketConnectionType.SERVER,
             }
         )
         await self.broadcast(connections, C.WS_ALL_CONNECTIONS)
