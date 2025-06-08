@@ -118,6 +118,9 @@ class ProjectService:
         project = self.db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return False
+        print(f"Delete project called for ID: {project_id}")
+        print(f"Project URL: {project.url}")
+        print(f"Project status: {project.status}")
 
         # Extract app name from URL (e.g., https://setta-c0-1749387393.fly.dev)
         if project.url and "fly.dev" in project.url:
