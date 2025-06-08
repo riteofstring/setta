@@ -1,8 +1,10 @@
 import { sendMessage } from "requests/websocket";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { SETTINGS_PROJECT_NAME } from "utils/constants";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
+import { getCurrentProjectConfig } from "../sectionInfos";
 import { getProjectData } from "./saveProject";
 
 export async function getProjectDataToGenerateCode({
@@ -31,6 +33,9 @@ export async function getProjectDataToGenerateCode({
 }
 
 export const updateBackendProjectState = asyncDebounce(async () => {
+  if (getCurrentProjectConfig().name === SETTINGS_PROJECT_NAME) {
+    return;
+  }
   const { projectConfigId, projectState } = await getProjectDataToGenerateCode(
     {},
   );
