@@ -24,7 +24,7 @@ import {
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { C } from "utils/c";
 
-let wss;
+let wss: WebSocket | null;
 let wasOpen = false;
 
 export const openWebSocket = _.debounce(
@@ -72,8 +72,8 @@ function closeWebSocket() {
   }
 }
 
-function wssReady() {
-  return wss && wss.readyState === 1;
+function wssReady(wss: WebSocket | null): wss is WebSocket {
+  return wss !== null && wss.readyState === 1;
 }
 
 function receiveMessage(message) {
@@ -110,13 +110,13 @@ function receiveMessage(message) {
 }
 
 export function sendLocation(pathname) {
-  if (wssReady()) {
+  if (wssReady(wss)) {
     wss.send(JSON.stringify({ location: pathname }));
   }
 }
 
 export async function sendMessage({ content, id, messageType }) {
-  if (wssReady()) {
+  if (wssReady(wss)) {
     wss.send(
       JSON.stringify({
         id,
