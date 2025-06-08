@@ -25,15 +25,77 @@ class ProjectNameTaken(Exception):
     pass
 
 
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
+def convert_backend_to_single_config(
+    p: ProjectStateBackend, projectConfigId: str
+) -> ProjectStateSingleConfig:
+    project_config = p.projectConfigs[projectConfigId]
+
+    # Collectors for all the IDs we need
+    section_ids: set[str] = set()
+    variant_ids: set[str] = set()
+    code_info_ids: set[str] = set()
+    code_info_col_ids: set[str] = set()
+    ui_type_ids: set[str] = set()
+    ui_type_col_ids: set[str] = set()
+
+    # Start with top-level sections from project config
+    sections_to_process = list(project_config.children.keys())
+
+    # Process sections recursively
+    while sections_to_process:
+        section_id = sections_to_process.pop()
+        if section_id in section_ids:
+            continue
+
+        section_ids.add(section_id)
+        section = p.sections[section_id]
+
+        # Collect UI type references
+        ui_type_ids.add(section.uiTypeId)
+        ui_type_ids.update(section.nonPresetUITypeIds)
+
+        # Collect UI type column reference
+        if section.uiTypeColId:
+            ui_type_col_ids.add(section.uiTypeColId)
+
+        for variant_id in section.variantIds:
+            if variant_id in variant_ids:
+                continue
+            variant_ids.add(variant_id)
+            variant = p.variants[variant_id]
+
+            # Add child sections to process list
+            sections_to_process.extend(variant.children)
+
+            # Collect code info column reference
+            if variant.codeInfoColId:
+                code_info_col_ids.add(variant.codeInfoColId)
+
+    # Process code info columns to find code info IDs
+    for col_id in code_info_col_ids:
+        col = p.codeInfoCols[col_id]
+        # Collect all code info IDs from all children lists
+        for code_info_id, code_info_children in col.children.items():
+            if code_info_id:
+                code_info_ids.add(code_info_id)
+            code_info_ids.update(code_info_children)
+
+    # Process UI type columns to find additional UI type references
+    for col_id in ui_type_col_ids:
+        col_entries = p.uiTypeCols[col_id]
+        for entry in col_entries.values():
+            ui_type_ids.add(entry.uiTypeId)
+            ui_type_ids.update(entry.nonPresetUITypeIds)
+
+    # Build the sliced state
     return ProjectStateSingleConfig(
-        sections=p.sections,
-        variants=p.variants,
-        codeInfo=p.codeInfo,
-        codeInfoCols=p.codeInfoCols,
-        uiTypes=p.uiTypes,
-        uiTypeCols=p.uiTypeCols,
-        projectConfig=p.projectConfigs[projectConfigId],
+        sections={x: p.sections[x] for x in section_ids},
+        variants={x: p.variants[x] for x in variant_ids},
+        codeInfo={x: p.codeInfo[x] for x in code_info_ids},
+        codeInfoCols={x: p.codeInfoCols[x] for x in code_info_col_ids},
+        uiTypes={x: p.uiTypes[x] for x in ui_type_ids},
+        uiTypeCols={x: p.uiTypeCols[x] for x in ui_type_col_ids},
+        projectConfig=project_config,
     )
 
 
