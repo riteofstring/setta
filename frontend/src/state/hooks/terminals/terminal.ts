@@ -11,7 +11,8 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
-import { UITypeNameEnum } from "utils/generatedTypes";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { RouteEnum, UITypeNameEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
@@ -92,7 +93,7 @@ function newTerminalWebsocket(sectionId) {
   const id = createNewId();
   const isTemporary =
     !!useProjectState.getState().sections[sectionId].isTemporary;
-  const wsTerminalAddress = `${C.WEBSOCKET}${pseudoTemplatedStr(C.ROUTE_TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
+  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${pseudoTemplatedStr(RouteEnum.TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {

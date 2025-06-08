@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
 
+from setta.types.routes import Route
+
 from .utils import is_dev_mode
 
 logger = logging.getLogger(__name__)
@@ -43,70 +45,6 @@ class C:
         "DROPDOWN",
         "PASSWORD",
     ]
-
-    # API Routes
-    ROUTE_PREFIX = "/api"
-    ROUTE_SWAGGER_DOCS = "/docs"
-    ROUTE_OPENAPI_DOCS = "/openapi.json"
-    ROUTE_REDOC_DOCS = "/redoc"
-    ROUTE_LOAD_ALL_PROJECT_METADATA = "/loadAllProjectMetadata"
-    ROUTE_LOAD_PROJECT_CONFIG = "/loadProjectConfig"
-    ROUTE_SAVE_PROJECT = "/projects/save"
-    ROUTE_CREATE_PROJECT_CONFIG = "/projects/createProjectConfig"
-    ROUTE_DELETE_PROJECT_CONFIGS = "/deleteProjectConfigs"
-    ROUTE_SAVE_AS_NEW_PROJECT_CONFIG = "/projects/saveAsNewProjectConfig"
-    ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG = "/projects/saveAsExistingProjectConfig"
-    ROUTE_SET_PROJECT_CONFIG_NAME = "/setProjectConfigName"
-    ROUTE_SAVE_SETTINGS = "/saveSettings"
-    ROUTE_LOAD_SETTINGS = "/loadSettings"
-    ROUTE_SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
-    ROUTE_LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
-    ROUTE_TERMINAL = "/terminal/{projectConfigId}/{sectionId}/{id}/{isTemporary}"
-    ROUTE_DELETE_TERMINALS = "/terminal/deleteTerminals"
-    ROUTE_WEBSOCKET_FRONTEND = "/frontend"
-    ROUTE_WEBSOCKET_CLI = "/cli"
-    ROUTE_WEBSOCKET_CLI_WITH_ID = "/cli/{id}"
-    ROUTE_WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}"
-    ROUTE_WEBSOCKET_PYTHON_LOGGER = "/pythonLogger"
-    ROUTE_GET_EXISTING_TERMINALS = "/terminal/getExistingTerminals/{projectConfigId}"
-    ROUTE_SAVE_CODE_INFO = "/codeInfo/save"
-    ROUTE_COPY_SECTIONS = "/copySections"
-    ROUTE_SEND_PROJECT_TO_INTERACTIVE_CODE = "/sendProjectTointeractiveCode"
-    ROUTE_KILL_SUBPROCESSES = "/killSubprocesses"
-    ROUTE_FORMAT_CODE = "/formatCode"
-    ROUTE_SEND_ARTIFACT = "/sendArtfiact"
-    ROUTE_LOAD_ARTIFACTS = "/loadArtifacts"
-    ROUTE_LOAD_AVAILABLE_ARTIFACTS = "/loadAvailableArtifacts"
-    ROUTE_READ_CSV_BASE64 = "/readCSVBase64"
-    ROUTE_FILL_IN_MISSING_ARTIFACT_IDS = "/getArtifactIdsFromNamePathType"
-    ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME = "/getDefaultConfigName"
-    ROUTE_SECTION_TO_YAML = "/sectionToYaml"
-    ROUTE_LOAD_SECTION_JSON_SOURCE = "/loadSectionJSONSource"
-    ROUTE_DOCSTRING_TO_MARKDOWN = "/docstringToMarkdown"
-    ROUTE_NEW_JSON_VERSION_NAME = "/newJsonVersionName"
-    ROUTE_SAVE_SECTION_JSON_SOURCE = "/saveSectionJsonSource"
-    ROUTE_SET_AS_DEFAULT_PROJECT = "/setAsDefaultProject"
-    ROUTE_FILTER_DATA_FOR_JSON_EXPORT = "/filterDataForJSONExport"
-    ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT = "/addDefaultDataForJSONImport"
-    ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED = "/getJsonSourcePathToBeDeleted"
-    ROUTE_CREATE_FILE = "/createFile"
-    ROUTE_DELETE_FILE = "/deleteFile"
-    ROUTE_CHECK_IF_FILE_EXISTS = "/checkIfFileExists"
-    ROUTE_LOAD_ARTIFACT_FROM_DISK = "/loadArtifactFromDisk"
-    ROUTE_RESTART_LANGUAGE_SERVER = "/restartLanguageServer"
-    ROUTE_FILE_WATCH_LIST = "/fileWatchList"
-    ROUTE_FILE_WATCH_GEN_PYTHON_CODE = "/fileWatchGenPythonCode"
-    ROUTE_GET_NOTIFICATIONS = "/getNotifications"
-    ROUTE_DELETE_NOTIFICATION = "/deleteNotification"
-    ROUTE_GET_LLM_RESPONSE = "/getLLMResponse"
-    ROUTE_SET_LLM_API_KEYS = "/setLLMApiKeys"
-    ROUTE_GET_ALL_LLM_CHAT_METADATA = "/getAllLLMChatMetadata"
-    ROUTE_DELETE_LLM_CHAT = "/deleteLLMChat"
-    ROUTE_STOP_LLM_CHAT = "/stopLLMChat"
-    ROUTE_GET_LLM_CHAT = "/getLLMChat"
-    ROUTE_GET_UUID_MAPPING_FOR_LLM = "/getUUIDMappingForLLM"
-    ROUTE_RUN_CODE = "/runCode"
-    ROUTE_TYPE_CHECK = "/typeCheck"
 
     # Nested parameter
     NESTED_PARAM = "NESTED_PARAM"
@@ -201,4 +139,4 @@ class C:
 
     @classproperty
     def WEBSOCKET(cls):
-        return f"ws://{cls.HOST}:{cls.PORT}{cls.ROUTE_PREFIX}"
+        return f"ws://{cls.HOST}:{cls.PORT}{Route.PREFIX.value}"

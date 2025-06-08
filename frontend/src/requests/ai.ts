@@ -1,4 +1,4 @@
-import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbGetLLMResponse(
@@ -11,7 +11,7 @@ export async function dbGetLLMResponse(
   try {
     const response = await post({
       body: { projectConfigId, model, message, deepThink, chatId },
-      address: C.ROUTE_GET_LLM_RESPONSE,
+      address: RouteEnum.GET_LLM_RESPONSE,
     });
     return response;
   } catch (error) {
@@ -27,7 +27,7 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
         apiKeys,
         apiKeysFilepath,
       },
-      address: C.ROUTE_SET_LLM_API_KEYS,
+      address: RouteEnum.SET_LLM_API_KEYS,
     });
 
     return response;
@@ -40,34 +40,34 @@ export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
 export async function dbGetAllLLMChatMetadata() {
   return await post({
     body: {},
-    address: C.ROUTE_GET_ALL_LLM_CHAT_METADATA,
+    address: RouteEnum.GET_ALL_LLM_CHAT_METADATA,
   });
 }
 
 export async function dbDeleteLLMChat(chatId) {
   return await post({
     body: { chatId },
-    address: C.ROUTE_DELETE_LLM_CHAT,
+    address: RouteEnum.DELETE_LLM_CHAT,
   });
 }
 
 export async function dbStopLLMChat(chatId) {
   return await post({
     body: { chatId },
-    address: C.ROUTE_STOP_LLM_CHAT,
+    address: RouteEnum.STOP_LLM_CHAT,
   });
 }
 
 export async function dbGetLLMChat(chatId, projectConfigId) {
   return await post({
     body: { chatId, projectConfigId },
-    address: C.ROUTE_GET_LLM_CHAT,
+    address: RouteEnum.GET_LLM_CHAT,
   });
 }
 
 export async function dbGetUUIDMappingForLLM() {
   return await post({
     body: {},
-    address: C.ROUTE_GET_UUID_MAPPING_FOR_LLM,
+    address: RouteEnum.GET_UUID_MAPPING_FOR_LLM,
   });
 }

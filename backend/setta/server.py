@@ -39,6 +39,7 @@ from setta.routers import (
     websocket_router,
 )
 from setta.terminals.terminals import Terminals
+from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path, is_dev_mode
 from setta.websockets.msg_handlers.wrapper import WebsocketMsgHandlers
@@ -132,9 +133,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    openapi_url=f"{C.ROUTE_PREFIX}{C.ROUTE_OPENAPI_DOCS}",
-    docs_url=f"{C.ROUTE_PREFIX}{C.ROUTE_SWAGGER_DOCS}",
-    redoc_url=f"{C.ROUTE_PREFIX}{C.ROUTE_REDOC_DOCS}",
+    openapi_url=f"{Route.PREFIX.value}{Route.OPENAPI_DOCS.value}",
+    docs_url=f"{Route.PREFIX.value}{Route.SWAGGER_DOCS.value}",
+    redoc_url=f"{Route.PREFIX.value}{Route.REDOC_DOCS.value}",
 )
 
 app.add_middleware(
@@ -145,7 +146,7 @@ app.add_middleware(
 )
 
 
-kwargs: dict[Literal["prefix"], str] = {"prefix": C.ROUTE_PREFIX}
+kwargs: dict[Literal["prefix"], str] = {"prefix": Route.PREFIX.value}
 app.include_router(projects_router, **kwargs)
 app.include_router(sections_router, **kwargs)
 app.include_router(terminals_router, **kwargs)

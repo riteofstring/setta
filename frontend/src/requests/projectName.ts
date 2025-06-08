@@ -1,5 +1,5 @@
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbSetProjectConfigName(newName: string) {
@@ -8,6 +8,6 @@ export async function dbSetProjectConfigName(newName: string) {
       projectConfigId: useProjectState.getState().projectConfig.id,
       newName,
     },
-    address: C.ROUTE_SET_PROJECT_CONFIG_NAME,
+    address: RouteEnum.SET_PROJECT_CONFIG_NAME,
   });
 }

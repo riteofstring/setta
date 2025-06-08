@@ -11,6 +11,7 @@ import websockets
 
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
 from setta.types.base_ui_types import UITypeName
+from setta.types.routes import Route
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
 
 DataWrapperDict = dict[str, "SettaDataWrapper"]
@@ -27,13 +28,13 @@ class SettaLogger:
         )
         self.name_path_type_to_id: dict[tuple[str, Path, ArtifactType], str] = {}
         self.websocket = websocket
-        self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_LOGGER}"
+        self.endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_PYTHON_LOGGER}"
 
     def log(self, obj, save_to="db"):
         data = self.prepare_data(obj, save_to)
 
         requests.post(
-            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_SEND_ARTIFACT}",
+            f"{C.BACKEND}{Route.PREFIX}{Route.SEND_ARTIFACT}",
             json={"data": data},
             headers={"Content-Type": "application/json"},
         )
@@ -102,7 +103,7 @@ class SettaLogger:
 
     def fill_in_missing_artifact_ids(self, data_to_send: list[ArtifactWithId]):
         res = requests.post(
-            f"{C.BACKEND}{C.ROUTE_PREFIX}{C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS}",
+            f"{C.BACKEND}{Route.PREFIX}{Route.FILL_IN_MISSING_ARTIFACT_IDS}",
             json={"namesPathsTypes": data_to_send},
             headers={"Content-Type": "application/json"},
         )

@@ -23,8 +23,10 @@ import {
 } from "state/actions/websocketConnectionList";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { C } from "utils/c";
+import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createWebsocketConnectionInfo,
+  RouteEnum,
   WebsocketConnectionTypeEnum,
 } from "utils/generatedTypes";
 
@@ -34,7 +36,9 @@ let wasOpen = false;
 export const openWebSocket = _.debounce(
   (pathname) => {
     if (!wss) {
-      wss = new WebSocket(`${C.WEBSOCKET}${C.ROUTE_WEBSOCKET_FRONTEND}`);
+      wss = new WebSocket(
+        `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
+      );
       wss.addEventListener("open", () => {
         sendLocation(pathname);
         addTemporaryNotification("Connected to server");

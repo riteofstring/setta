@@ -1,11 +1,11 @@
 import { addTemporaryNotification } from "state/actions/notifications";
-import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { post, pseudoTemplatedStr } from "./utils";
 
 export async function dbGetExistingTerminals(projectConfigId) {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(C.ROUTE_GET_EXISTING_TERMINALS, {
+    address: pseudoTemplatedStr(RouteEnum.GET_EXISTING_TERMINALS, {
       projectConfigId,
     }),
   });
@@ -14,7 +14,7 @@ export async function dbGetExistingTerminals(projectConfigId) {
 export async function dbDeleteTerminals(sectionIds) {
   return await post({
     body: { sectionIds },
-    address: C.ROUTE_DELETE_TERMINALS,
+    address: RouteEnum.DELETE_TERMINALS,
   });
 }
 
@@ -25,6 +25,6 @@ export async function dbRunCode(
   addTemporaryNotification("Sending Run Request");
   return await post({
     body: { projectConfigId, sectionId, cliId: null },
-    address: C.ROUTE_RUN_CODE,
+    address: RouteEnum.RUN_CODE,
   });
 }

@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends
+from fastapi import Depends
 from pydantic import BaseModel
 
 from setta.api.logger import load_from_csv_base64
@@ -13,11 +13,12 @@ from setta.database.db.artifacts.save import (
     fill_in_missing_artifact_ids,
     save_or_create_artifacts,
 )
-from setta.utils.constants import C
+from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.routes import Route
 
 from .dependencies import get_dbe, get_wmh_artifact
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class SendArtifactRequest(BaseModel):
@@ -49,7 +50,7 @@ class FillInMissingArtifactIdsRequest(BaseModel):
     namesPathsTypes: list
 
 
-@router.post(C.ROUTE_SEND_ARTIFACT)
+@router.post(Route.SEND_ARTIFACT)
 async def route_send_artifact(
     x: SendArtifactRequest,
     dbe=Depends(get_dbe),
@@ -61,13 +62,13 @@ async def route_send_artifact(
     await websocket_msg_handler.broadcast_artifact(x.data)
 
 
-@router.post(C.ROUTE_LOAD_ARTIFACTS)
+@router.post(Route.LOAD_ARTIFACTS)
 def route_load_artifacts(x: LoadArtifactsRequest, dbe=Depends(get_dbe)):
     with dbe.session as db:
         return load_artifact_metadata_and_maybe_value_from_disk(db, x.artifactIds)
 
 
-@router.post(C.ROUTE_LOAD_AVAILABLE_ARTIFACTS)
+@router.post(Route.LOAD_AVAILABLE_ARTIFACTS)
 def route_load_available_artifacts(
     x: LoadAvailableArtifactsRequest, dbe=Depends(get_dbe)
 ):
@@ -75,22 +76,22 @@ def route_load_available_artifacts(
         return load_available_artifacts(db, x.sectionType)
 
 
-@router.post(C.ROUTE_CHECK_IF_FILE_EXISTS)
+@router.post(Route.CHECK_IF_FILE_EXISTS)
 def route_check_if_file_exists(x: CheckIfFileExistsRequests):
     return os.path.exists(x.filepath)
 
 
-@router.post(C.ROUTE_LOAD_ARTIFACT_FROM_DISK)
+@router.post(Route.LOAD_ARTIFACT_FROM_DISK)
 def route_load_artifact_from_disk(x: LoadArtifactFromDiskRequest):
     return load_artifact_from_disk(x.filepath, x.type)
 
 
-@router.post(C.ROUTE_READ_CSV_BASE64)
+@router.post(Route.READ_CSV_BASE64)
 def route_read_csv_base64(x: ReadCSVBase64Request):
     return load_from_csv_base64(x.base64Str)
 
 
-@router.post(C.ROUTE_FILL_IN_MISSING_ARTIFACT_IDS)
+@router.post(Route.FILL_IN_MISSING_ARTIFACT_IDS)
 def route_get_artifact_ids_from_name_path_type(
     x: FillInMissingArtifactIdsRequest, dbe=Depends(get_dbe)
 ):

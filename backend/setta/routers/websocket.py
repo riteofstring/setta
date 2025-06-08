@@ -2,10 +2,11 @@ import json
 import logging
 import traceback
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from fastapi import Depends, WebSocket, WebSocketDisconnect
 
+from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.routes import Route
 from setta.types.websocket_manager import WebsocketConnectionType
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.msg_handlers.cli import WMHCLI
 from setta.websockets.msg_handlers.python_logger import WMHPythonLogger
@@ -22,7 +23,7 @@ from .dependencies import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 async def websocket_route_loop(
@@ -57,7 +58,7 @@ async def websocket_route_loop(
             await websocket_msg_handler.on_disconnect(fromWebsocketId)
 
 
-@router.websocket(C.ROUTE_WEBSOCKET_FRONTEND)
+@router.websocket(Route.WEBSOCKET_FRONTEND)
 async def route_websocket_frontend(
     websocket: WebSocket,
     websocket_manager=Depends(get_websocket_manager_from_websocket),
@@ -71,8 +72,8 @@ async def route_websocket_frontend(
     )
 
 
-@router.websocket(C.ROUTE_WEBSOCKET_CLI)
-@router.websocket(C.ROUTE_WEBSOCKET_CLI_WITH_ID)
+@router.websocket(Route.WEBSOCKET_CLI)
+@router.websocket(Route.WEBSOCKET_CLI_WITH_ID)
 async def route_websocket_cli(
     websocket: WebSocket,
     id: str | None = None,
@@ -88,7 +89,7 @@ async def route_websocket_cli(
     )
 
 
-@router.websocket(C.ROUTE_WEBSOCKET_PYTHON_SCRIPT)
+@router.websocket(Route.WEBSOCKET_PYTHON_SCRIPT)
 async def route_websocket_python_script(
     websocket: WebSocket,
     id: str,
@@ -106,7 +107,7 @@ async def route_websocket_python_script(
     )
 
 
-@router.websocket(C.ROUTE_WEBSOCKET_PYTHON_LOGGER)
+@router.websocket(Route.WEBSOCKET_PYTHON_LOGGER)
 async def route_websocket_python_logger(
     websocket: WebSocket,
     websocket_manager: WebsocketManager = Depends(get_websocket_manager_from_websocket),

@@ -1,30 +1,30 @@
-import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbLoadAllProjectMetadata() {
   return await post({
     body: {},
-    address: C.ROUTE_LOAD_ALL_PROJECT_METADATA,
+    address: RouteEnum.LOAD_ALL_PROJECT_METADATA,
   });
 }
 
 export async function dbLoadProjectConfig(projectConfigName) {
   return await post({
     body: { projectConfigName },
-    address: C.ROUTE_LOAD_PROJECT_CONFIG,
+    address: RouteEnum.LOAD_PROJECT_CONFIG,
   });
 }
 
 export async function dbCreateProjectConfig({ name, previewImgColor }) {
   return await post({
-    address: C.ROUTE_CREATE_PROJECT_CONFIG,
+    address: RouteEnum.CREATE_PROJECT_CONFIG,
     body: { name, previewImgColor },
   });
 }
 
 export async function dbSaveProject({ project }) {
   return await post({
-    address: C.ROUTE_SAVE_PROJECT,
+    address: RouteEnum.SAVE_PROJECT,
     body: { project },
   });
 }
@@ -35,49 +35,49 @@ export async function dbSaveAsNewProjectConfig({
   withRefs,
 }) {
   return await post({
-    address: C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG,
+    address: RouteEnum.SAVE_AS_NEW_PROJECT_CONFIG,
     body: { project, newConfigName, withRefs },
   });
 }
 
 export async function dbSaveAsExistingProjectConfig({ project, configName }) {
   return await post({
-    address: C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG,
+    address: RouteEnum.SAVE_AS_EXISTING_PROJECT_CONFIG,
     body: { project, configName },
   });
 }
 
 export async function dbDeleteProjectConfigs(ids) {
   return await post({
-    address: C.ROUTE_DELETE_PROJECT_CONFIGS,
+    address: RouteEnum.DELETE_PROJECT_CONFIGS,
     body: { ids },
   });
 }
 
 export async function dbGetDefaultProjectConfigName() {
   return await post({
-    address: C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME,
+    address: RouteEnum.GET_DEFAULT_PROJECT_CONFIG_NAME,
     body: {},
   });
 }
 
 export async function dbSetAsDefaultProject(projectId: string) {
   return await post({
-    address: C.ROUTE_SET_AS_DEFAULT_PROJECT,
+    address: RouteEnum.SET_AS_DEFAULT_PROJECT,
     body: { projectId },
   });
 }
 
 export async function dbFilterDataForJSONExport(project) {
   return await post({
-    address: C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT,
+    address: RouteEnum.FILTER_DATA_FOR_JSON_EXPORT,
     body: { project },
   });
 }
 
 export async function dbAddDefaultDataForJSONImport(project) {
   return await post({
-    address: C.ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT,
+    address: RouteEnum.ADD_DEFAULT_DATA_FOR_JSON_IMPORT,
     body: { project },
   });
 }

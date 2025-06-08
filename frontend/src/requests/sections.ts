@@ -2,6 +2,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectState, useTypeErrors } from "state/definitions";
 import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { post } from "./utils";
 import { sendMessage } from "./websocket";
@@ -14,7 +15,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   post({
     body: { projectConfigId },
-    address: C.ROUTE_TYPE_CHECK,
+    address: RouteEnum.TYPE_CHECK,
   });
 }
 

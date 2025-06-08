@@ -1,14 +1,15 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, Depends, WebSocket
+from fastapi import BackgroundTasks, Depends, WebSocket
 from pydantic import BaseModel
 
 from setta.project_state.project_manager import ProjectManager
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
-from setta.utils.constants import C
+from setta.types.routes import Route
 
 from .dependencies import (
     get_project_manager,
@@ -19,7 +20,7 @@ from .dependencies import (
 logger = logging.getLogger(__name__)
 
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class DeleteTerminalsRequest(BaseModel):
@@ -36,7 +37,7 @@ class RunCodeRequest(BaseModel):
     cliId: str | None = None
 
 
-@router.websocket(C.ROUTE_TERMINAL)
+@router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
     projectConfigId: str,
@@ -62,21 +63,21 @@ async def terminal_websocket_endpoint(
         terminals.disconnect(sectionId, id)
 
 
-@router.post(C.ROUTE_DELETE_TERMINALS)
+@router.post(Route.DELETE_TERMINALS)
 async def route_terminal_delete_terminals(
     x: DeleteTerminalsRequest, terminals=Depends(get_terminals)
 ):
     await terminals.delete_terminals(x.sectionIds)
 
 
-@router.post(C.ROUTE_GET_EXISTING_TERMINALS)
+@router.post(Route.GET_EXISTING_TERMINALS)
 def route_terminal_get_existing_terminals(
     projectConfigId, terminals=Depends(get_terminals)
 ):
     return terminals.get_existing_terminals(projectConfigId)
 
 
-@router.post(C.ROUTE_KILL_SUBPROCESSES)
+@router.post(Route.KILL_SUBPROCESSES)
 def route_kill_subprocesses(
     x: KillSubprocessesRequest,
     background_tasks: BackgroundTasks,
@@ -99,7 +100,7 @@ def route_kill_subprocesses(
     )
 
 
-@router.post(C.ROUTE_RUN_CODE)
+@router.post(Route.RUN_CODE)
 async def route_run_code(
     x: RunCodeRequest,
     background_tasks: BackgroundTasks,

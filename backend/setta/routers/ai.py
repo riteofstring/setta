@@ -1,5 +1,5 @@
 from dotenv import dotenv_values, load_dotenv
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
@@ -9,15 +9,16 @@ from setta.routers.dependencies import (
     get_dbe,
     get_wmh_base,
 )
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.types.ai import APIKeys
 from setta.types.chat_messages import ChatMessage
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.utils.constants import C
+from setta.types.routes import Route
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 load_dotenv()
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class GetLLMResponseRequest(BaseModel):
@@ -50,7 +51,7 @@ class GetLLMApiKeysRequest(BaseModel):
     apiKeysFilepath: str
 
 
-@router.post(C.ROUTE_GET_LLM_RESPONSE)
+@router.post(Route.GET_LLM_RESPONSE)
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
@@ -82,7 +83,7 @@ async def route_get_llm_response(
     #     }
 
 
-@router.post(C.ROUTE_SET_LLM_API_KEYS)
+@router.post(Route.SET_LLM_API_KEYS)
 async def route_set_llm_api_keys(
     x: SetLLMApiKeysRequest,
     websocket_msg_handler=Depends(get_wmh_base),
@@ -128,21 +129,21 @@ async def route_set_llm_api_keys(
     await websocket_msg_handler.broadcast_notification(notification)
 
 
-@router.post(C.ROUTE_GET_ALL_LLM_CHAT_METADATA)
+@router.post(Route.GET_ALL_LLM_CHAT_METADATA)
 def route_get_all_llm_chat_metadata(
     chat_manager: ChatManager = Depends(get_chat_manager),
 ):
     return chat_manager.get_all_chat_metadata()
 
 
-@router.post(C.ROUTE_DELETE_LLM_CHAT)
+@router.post(Route.DELETE_LLM_CHAT)
 def route_delete_llm_chat(
     x: DeleteLLMChatRequest, chat_manager: ChatManager = Depends(get_chat_manager)
 ):
     return chat_manager.delete_chat(x.chatId)
 
 
-@router.post(C.ROUTE_STOP_LLM_CHAT)
+@router.post(Route.STOP_LLM_CHAT)
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     chat_manager: ChatManager = Depends(get_chat_manager),
@@ -150,7 +151,7 @@ async def route_stop_llm_chat(
     await chat_manager.request_stop_streaming(x.chatId)
 
 
-@router.post(C.ROUTE_GET_LLM_CHAT)
+@router.post(Route.GET_LLM_CHAT)
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
     background_tasks: BackgroundTasks,
@@ -201,7 +202,7 @@ def merge_db_messages_with_current_stream(
             existing_ids.add(message.id)
 
 
-@router.post(C.ROUTE_GET_UUID_MAPPING_FOR_LLM)
+@router.post(Route.GET_UUID_MAPPING_FOR_LLM)
 async def route_get_uuid_mapping_for_llm(
     dbe=Depends(get_dbe),
 ):

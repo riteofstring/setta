@@ -1,18 +1,18 @@
-from fastapi import APIRouter
 from pydantic import BaseModel
 
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.base_ui_types import UITypeName
-from setta.utils.constants import C
+from setta.types.routes import Route
 from setta.utils.format_code import ruff_format
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class FormatCodeRequest(BaseModel):
     project: dict
 
 
-@router.post(C.ROUTE_FORMAT_CODE)
+@router.post(Route.FORMAT_CODE)
 async def route_format_code(x: FormatCodeRequest):
     p = x.project
     formattedCode = {}

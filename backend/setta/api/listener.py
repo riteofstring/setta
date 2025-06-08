@@ -12,6 +12,7 @@ from pathlib import Path
 import websockets
 
 from setta.project_state.utils import convert_path_to_module_path
+from setta.types.routes import Route
 from setta.utils.constants import CWD, C
 
 from .logger import SettaLogger
@@ -36,7 +37,7 @@ class SettaListener:
             )
         self.rel_path = Path(self.caller_frame.f_code.co_filename).relative_to(CWD)
         self.script_id = convert_path_to_module_path(self.rel_path)
-        self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}".format(
+        self.endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_PYTHON_SCRIPT}".format(
             id=self.script_id
         )
         self.fns = []

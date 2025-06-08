@@ -1,6 +1,6 @@
 import traceback
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from setta.database.backup import maybe_create_backup
@@ -19,6 +19,7 @@ from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers import (
     ProjectNameTaken,
     ProjectNotFound,
@@ -27,12 +28,12 @@ from setta.types.helpers import (
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.utils.constants import C
+from setta.types.routes import Route
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import get_dbe, get_project_manager, get_settings_file, get_wmh_base
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class ProjectLoadRequest(BaseModel):
@@ -87,7 +88,7 @@ class DeleteNotificationRequest(BaseModel):
     notificationId: str
 
 
-@router.post(C.ROUTE_LOAD_ALL_PROJECT_METADATA)
+@router.post(Route.LOAD_ALL_PROJECT_METADATA)
 def route_load_all_project_metadata(
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
@@ -95,7 +96,7 @@ def route_load_all_project_metadata(
     return output
 
 
-@router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
+@router.post(Route.LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest,
     project_manager: ProjectManager = Depends(get_project_manager),
@@ -117,7 +118,7 @@ async def route_load_project_config(
         print("[DEBUG] route_load_project_config finished", flush=True)
 
 
-@router.post(C.ROUTE_SAVE_PROJECT)
+@router.post(Route.SAVE_PROJECT)
 async def route_save_project(
     x: ProjectSaveRequest,
     background_tasks: BackgroundTasks,
@@ -167,7 +168,7 @@ async def route_save_project(
         )
 
 
-@router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
+@router.post(Route.CREATE_PROJECT_CONFIG)
 async def route_create_project_config(
     x: CreateProjectConfigRequest,
     dbe: DBE = Depends(get_dbe),
@@ -181,7 +182,7 @@ async def route_create_project_config(
     return newProjectConfigName
 
 
-@router.post(C.ROUTE_SAVE_AS_NEW_PROJECT_CONFIG)
+@router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
 def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, dbe=Depends(get_dbe)
 ):
@@ -189,7 +190,7 @@ def route_save_as_new_project_config(
         return save_as_new_project_config(db, x.project, x.newConfigName, x.withRefs)
 
 
-@router.post(C.ROUTE_SAVE_AS_EXISTING_PROJECT_CONFIG)
+@router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
 def route_save_as_existing_project_config(
     x: SaveAsExistingProjectConfigRequest, dbe=Depends(get_dbe)
 ):
@@ -197,7 +198,7 @@ def route_save_as_existing_project_config(
         return save_as_existing_project_config(db, x.project, x.configName)
 
 
-@router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
+@router.post(Route.DELETE_PROJECT_CONFIGS)
 async def route_delete_project_configs(
     x: DeleteProjectConfigsRequest,
     dbe: DBE = Depends(get_dbe),
@@ -209,7 +210,7 @@ async def route_delete_project_configs(
     return True
 
 
-@router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
+@router.post(Route.SET_PROJECT_CONFIG_NAME)
 async def route_set_project_config_name(
     x: SetProjectConfigNameRequest,
     dbe: DBE = Depends(get_dbe),
@@ -223,14 +224,14 @@ async def route_set_project_config_name(
         raise HTTPException(status_code=422, detail=repr(e))
 
 
-@router.post(C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME)
+@router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)
 def router_get_default_project_config_name(
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     return project_manager.get_default_project_config_name()
 
 
-@router.post(C.ROUTE_SET_AS_DEFAULT_PROJECT)
+@router.post(Route.SET_AS_DEFAULT_PROJECT)
 async def router_set_as_default_project(
     x: SetAsDefaultProjectRequest,
     dbe: DBE = Depends(get_dbe),
@@ -241,26 +242,26 @@ async def router_set_as_default_project(
         save_project_state(db, project_manager.project_state_backend)
 
 
-@router.post(C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT)
+@router.post(Route.FILTER_DATA_FOR_JSON_EXPORT)
 def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
     filter_data_for_json_export(x.project)
     return x.project
 
 
-@router.post(C.ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT)
+@router.post(Route.ADD_DEFAULT_DATA_FOR_JSON_IMPORT)
 def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
     add_defaults_to_project_and_load_json_sources(x.project)
     return x.project
 
 
-@router.post(C.ROUTE_GET_NOTIFICATIONS)
+@router.post(Route.GET_NOTIFICATIONS)
 def route_get_notifications(x: GetNotificationsRequest, dbe=Depends(get_dbe)):
     with dbe.session as db:
         notifications = load_project_notifications(db, x.projectConfigId)
         return notifications
 
 
-@router.post(C.ROUTE_DELETE_NOTIFICATION)
+@router.post(Route.DELETE_NOTIFICATION)
 def route_delete_notification(x: DeleteNotificationRequest, dbe=Depends(get_dbe)):
     with dbe.session as db:
         success = delete_notification(db, x.notificationId)

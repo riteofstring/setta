@@ -4,8 +4,7 @@ import {
 } from "state/actions/sectionInfos";
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
-import { UITypeNameEnum } from "utils/generatedTypes";
+import { RouteEnum, UITypeNameEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId, variantId) {
@@ -49,7 +48,7 @@ async function dbSectionToYaml(variantId) {
       pinnedIds,
       unpinnedIds,
     },
-    address: C.ROUTE_SECTION_TO_YAML,
+    address: RouteEnum.SECTION_TO_YAML,
   });
   return res;
 }

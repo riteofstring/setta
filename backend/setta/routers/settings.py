@@ -1,10 +1,11 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import BackgroundTasks, Depends
 from pydantic import BaseModel
 
 from setta.database.settings_file import SettingsFile
+from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.utils.constants import C
+from setta.types.routes import Route
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import (
@@ -12,7 +13,7 @@ from .dependencies import (
     get_wmh_base,
 )
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class SaveSettingsRequest(BaseModel):
@@ -23,19 +24,19 @@ class SaveSettingsProjectRequest(BaseModel):
     settingsProject: ProjectStateSingleConfig
 
 
-@router.post(C.ROUTE_SAVE_SETTINGS)
+@router.post(Route.SAVE_SETTINGS)
 def route_save_settings(
     x: SaveSettingsRequest, settings_file: SettingsFile = Depends(get_settings_file)
 ):
     return settings_file.save_settings(x.settings)
 
 
-@router.post(C.ROUTE_LOAD_SETTINGS)
+@router.post(Route.LOAD_SETTINGS)
 def route_load_settings(settings_file: SettingsFile = Depends(get_settings_file)):
     return settings_file.load_settings()
 
 
-@router.post(C.ROUTE_SAVE_SETTINGS_PROJECT)
+@router.post(Route.SAVE_SETTINGS_PROJECT)
 async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
@@ -67,7 +68,7 @@ async def route_save_settings_project(
     return output
 
 
-@router.post(C.ROUTE_LOAD_SETTINGS_PROJECT)
+@router.post(Route.LOAD_SETTINGS_PROJECT)
 async def route_load_settings_project(
     settings_file: SettingsFile = Depends(get_settings_file),
 ):

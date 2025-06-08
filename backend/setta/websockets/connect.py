@@ -4,6 +4,8 @@ import logging
 
 import websockets
 
+from setta.types.routes import Route
+
 from ..utils.constants import C
 
 logger = logging.getLogger(__name__)
@@ -13,10 +15,10 @@ async def connect(websocket_id):
     while True:  # Add reconnection loop
         try:
             if websocket_id:
-                endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI_WITH_ID}"
+                endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_CLI_WITH_ID}"
                 endpoint = endpoint.format(id=websocket_id)
             else:
-                endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_CLI}"
+                endpoint = f"{C.WEBSOCKET}{Route.WEBSOCKET_CLI}"
             async with websockets.connect(endpoint) as websocket:
                 logger.debug("Connected to websocket")
                 await consumer_handler(websocket)

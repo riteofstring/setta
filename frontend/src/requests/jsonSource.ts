@@ -1,5 +1,5 @@
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { RouteEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbLoadSectionJSONSource(variantIdsToLoad) {
@@ -8,7 +8,7 @@ export async function dbLoadSectionJSONSource(variantIdsToLoad) {
       project: dataForRequest(),
       variantIdsToLoad,
     },
-    address: C.ROUTE_LOAD_SECTION_JSON_SOURCE,
+    address: RouteEnum.LOAD_SECTION_JSON_SOURCE,
   });
 }
 
@@ -18,7 +18,7 @@ export async function dbSaveSectionJSONSource(variantId) {
       project: dataForRequest(),
       variantId,
     },
-    address: C.ROUTE_SAVE_SECTION_JSON_SOURCE,
+    address: RouteEnum.SAVE_SECTION_JSON_SOURCE,
   });
 }
 
@@ -33,7 +33,7 @@ export async function dbGetJSONSourcePathToBeDeleted(variantName) {
     body: {
       variantName,
     },
-    address: C.ROUTE_GET_JSON_SOURCE_PATH_TO_BE_DELETED,
+    address: RouteEnum.GET_JSON_SOURCE_PATH_TO_BE_DELETED,
   });
 }
 
@@ -42,7 +42,7 @@ export async function dbCreateFile(filepath) {
     body: {
       filepath,
     },
-    address: C.ROUTE_CREATE_FILE,
+    address: RouteEnum.CREATE_FILE,
   });
 }
 
@@ -51,7 +51,7 @@ export async function dbDeleteFile(filepath) {
     body: {
       filepath,
     },
-    address: C.ROUTE_DELETE_FILE,
+    address: RouteEnum.DELETE_FILE,
   });
 }
 
@@ -61,7 +61,7 @@ async function dbFileWatch(filepaths, fileWatchGroupName) {
       filepaths,
       fileWatchGroupName,
     },
-    address: C.ROUTE_FILE_WATCH_LIST,
+    address: RouteEnum.FILE_WATCH_LIST,
   });
 }
 
@@ -79,6 +79,6 @@ export async function dbFileWatchGenPythonCode({ watch, projectConfigId }) {
       watch,
       projectConfigId,
     },
-    address: C.ROUTE_FILE_WATCH_GEN_PYTHON_CODE,
+    address: RouteEnum.FILE_WATCH_GEN_PYTHON_CODE,
   });
 }

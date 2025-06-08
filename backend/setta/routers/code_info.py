@@ -1,17 +1,18 @@
 import docstring_to_markdown
-from fastapi import APIRouter, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
-from setta.utils.constants import C
+from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.routes import Route
 
-router = APIRouter()
+router = SettaAPIRouter()
 
 
 class DocstringToMarkdownRequest(BaseModel):
     docstring: str
 
 
-@router.post(C.ROUTE_DOCSTRING_TO_MARKDOWN)
+@router.post(Route.DOCSTRING_TO_MARKDOWN)
 def route_docstring_to_markdown(x: DocstringToMarkdownRequest):
     try:
         return docstring_to_markdown.convert(x.docstring)
