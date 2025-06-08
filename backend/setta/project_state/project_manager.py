@@ -34,8 +34,9 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import SimplifiedSectionCreation
-from setta.utils.constants import CODE_FOLDER, C
+from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.project_manager import WMHProjectManager
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -415,11 +416,11 @@ class ProjectManager:
             return
 
         renameRefactorMode = self.settings_file.settings.backend.renameRefactorMode
-        if renameRefactorMode == C.RENAME_REFACTOR_NEVER_RENAME:
+        if renameRefactorMode == RenameRefactorMode.NEVER_RENAME:
             return
 
         old_dep_graph = self.gen_code[projectConfigId].dep_graph
-        if renameRefactorMode == C.RENAME_REFACTOR_ALWAYS_ASK:
+        if renameRefactorMode == RenameRefactorMode.ALWAYS_ASK:
             # we operate on a copy in this case, because we don't want to
             # immediately apply any of the renaming operations
             new_dep_graph = copy.deepcopy(new_dep_graph)

@@ -48,9 +48,6 @@ export class C {
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PORT = 8000;
-  static RENAME_REFACTOR_ALWAYS_ASK = "Always Ask";
-  static RENAME_REFACTOR_ALWAYS_RENAME = "Always Rename";
-  static RENAME_REFACTOR_NEVER_RENAME = "Never Rename";
   static ROUTE_ADD_DEFAULT_DATA_FOR_JSON_IMPORT =
     "/addDefaultDataForJSONImport";
   static ROUTE_CHECK_IF_FILE_EXISTS = "/checkIfFileExists";

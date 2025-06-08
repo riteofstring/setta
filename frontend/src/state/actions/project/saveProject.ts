@@ -18,7 +18,6 @@ import {
   ProjectStateSingleConfig,
   SettaNotificationTypeSchema,
   UITypeNameSchema,
-  UITypePresetTypeSchema,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
@@ -53,12 +52,8 @@ export function getProjectData({
     children: x.children.filter((c) => c in sections),
   }));
   const artifactGroups = useProjectState.getState().artifactGroups;
-  const uiTypes = _.pickBy(
-    useProjectState.getState().uiTypes,
-    (u) => u.presetType !== UITypePresetTypeSchema.enum.BASE,
-  );
+  const uiTypes = useProjectState.getState().uiTypes;
   const uiTypeCols = useProjectState.getState().uiTypeCols;
-
   const codeInfo = useProjectState.getState().codeInfo;
   const codeInfoCols = useProjectState.getState().codeInfoCols;
 

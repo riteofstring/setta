@@ -349,6 +349,14 @@ export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
 
 export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
 
+export const RenameRefactorModeSchema = z.enum([
+  "ALWAYS_ASK",
+  "ALWAYS_RENAME",
+  "NEVER_RENAME",
+]);
+
+export type RenameRefactorMode = z.infer<typeof RenameRefactorModeSchema>;
+
 export const WebsocketConnectionTypeSchema = z.enum([
   "CLI",
   "SERVER",
@@ -978,7 +986,7 @@ export const SettingsBackendSchema = z.object({
   exportDbRawOnSave: z.boolean().default(false),
   exportDbReadableOnSave: z.boolean().default(false),
   exportDbReadableWithVariantsOnSave: z.boolean().default(false),
-  renameRefactorMode: z.string().default("Always Ask"),
+  renameRefactorMode: RenameRefactorModeSchema.default("ALWAYS_ASK"),
   saveRenderedValues: z.boolean().default(false),
 });
 

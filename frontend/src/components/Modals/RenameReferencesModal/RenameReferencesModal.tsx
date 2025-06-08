@@ -5,7 +5,7 @@ import { dbSaveSettings } from "requests/settings";
 import { setModalOpen } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
-import { C } from "utils/c";
+import { RenameRefactorModeSchema } from "utils/generatedTypes";
 
 export function RenameReferencesModal() {
   const modalData = useModal((x) => x.modalData);
@@ -18,7 +18,7 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameRefactorMode: C.RENAME_REFACTOR_NEVER_RENAME,
+          renameRefactorMode: RenameRefactorModeSchema.enum.NEVER_RENAME,
         },
       }));
 
@@ -31,7 +31,7 @@ export function RenameReferencesModal() {
       useSettings.setState((state) => ({
         backend: {
           ...state.backend,
-          renameRefactorMode: C.RENAME_REFACTOR_ALWAYS_RENAME,
+          renameRefactorMode: RenameRefactorModeSchema.enum.ALWAYS_RENAME,
         },
       }));
 

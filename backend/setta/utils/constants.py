@@ -176,11 +176,6 @@ class C:
     LLM_STR_REPLACE_EDITOR_TOOL = "str_replace_editor"
     SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR"
 
-    # Rename refactor options
-    RENAME_REFACTOR_ALWAYS_ASK = "Always Ask"
-    RENAME_REFACTOR_ALWAYS_RENAME = "Always Rename"
-    RENAME_REFACTOR_NEVER_RENAME = "Never Rename"
-
     MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
     MCP_SERVER_ARG_NAME = "setta_mcp_server"
     MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId"

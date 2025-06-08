@@ -1,5 +1,11 @@
 from pydantic import BaseModel, Field
 
+from setta.types.utils import AsIsStrEnum
+
+RenameRefactorMode = AsIsStrEnum(
+    "RenameRefactorMode", ["ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"]
+)
+
 
 class SettingsShortcuts(BaseModel):
     newCardShortcut: str = "N"
@@ -90,7 +96,7 @@ class SettingsBackend(BaseModel):
     exportDbRawOnSave: bool = False
     exportDbReadableOnSave: bool = False
     exportDbReadableWithVariantsOnSave: bool = False
-    renameRefactorMode: str = "Always Ask"
+    renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
 
 

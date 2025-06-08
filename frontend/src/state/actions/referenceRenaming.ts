@@ -1,5 +1,5 @@
 import { useProjectState, useSettings } from "state/definitions";
-import { C } from "utils/c";
+import { RenameRefactorModeSchema } from "utils/generatedTypes";
 import { openRenameReferencesModal } from "./modal";
 import { getSectionVariant } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
@@ -7,10 +7,10 @@ import { maybeIncrementProjectStateVersion } from "./undo";
 export function processRenameRefactorResults(changedValues) {
   const renameMode = useSettings.getState().backend.renameRefactorMode;
   // this shouldn't ever be true, but good to be safe I guess
-  if (renameMode === C.RENAME_REFACTOR_NEVER_RENAME) {
+  if (renameMode === RenameRefactorModeSchema.enum.NEVER_RENAME) {
     return;
   }
-  if (renameMode === C.RENAME_REFACTOR_ALWAYS_ASK) {
+  if (renameMode === RenameRefactorModeSchema.enum.ALWAYS_ASK) {
     openRenameReferencesModal(changedValues);
     return;
   }
