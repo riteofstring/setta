@@ -140,7 +140,7 @@ class ProjectGenPythonCode(PythonCode):
         result = process_signature_help_response(response)
         if not prev_selected:
             callable_code_info = CodeInfo(
-                name=selectedItemName, editable=False, rcType=CodeInfoType.callable
+                name=selectedItemName, editable=False, rcType=CodeInfoType.CALLABLE
             )
             add_code_info(project_state, sectionId, callable_code_info)
         else:

@@ -146,7 +146,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
     if sid not in section_code_info_children:
         section_code_info_children[sid] = []
     children = section_code_info_children[sid]
-    return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.parameter]
+    return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.PARAMETER]
 
 
 def get_section_code_info_children(p: ProjectStateSingleConfig, section_id: str):

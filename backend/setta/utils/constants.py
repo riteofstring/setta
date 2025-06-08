@@ -45,11 +45,6 @@ class C:
         "PASSWORD",
     ]
 
-    # Collection types
-    COLLECTION = "collection"
-    CALLABLE = "callable"
-    PARAMETER = "parameter"
-
     # Preset UI types
     PRESET_UI_TYPE_BASE = "BASE"
     PRESET_UI_TYPE_USER = "USER"

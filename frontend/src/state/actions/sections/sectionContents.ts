@@ -1,4 +1,4 @@
-import { C } from "utils/c";
+import { CodeInfoTypeSchema } from "utils/generatedTypes";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,
@@ -84,7 +84,7 @@ function getSectionHasSomeParamCondition(sectionId, state, condition) {
 
 export function getSectionHasParams(sectionId, state) {
   return getSectionHasSomeParamCondition(sectionId, state, (c) => {
-    return c?.rcType === C.PARAMETER;
+    return c?.rcType === CodeInfoTypeSchema.enum.PARAMETER;
   });
 }
 

@@ -9,10 +9,8 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
-  static CALLABLE = "callable";
   static CODE_AREA_GEN_CODE_NOT_INITIALIZED =
     "CODE_AREA_GEN_CODE_NOT_INITIALIZED";
-  static COLLECTION = "collection";
   static DEFAULT_BASH_SCRIPT_NAME = "setta_bash_script";
   static DEFAULT_DB_ALIAS = "default";
   static DEFAULT_HOST = "127.0.0.1";
@@ -54,7 +52,6 @@ export class C {
     "PASSWORD",
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
-  static PARAMETER = "parameter";
   static PORT = 8000;
   static PRESET_UI_TYPE_BASE = "BASE";
   static PRESET_UI_TYPE_USER = "USER";

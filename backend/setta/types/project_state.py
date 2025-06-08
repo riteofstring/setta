@@ -29,7 +29,7 @@ ParameterPassingStyle = AsIsStrEnum(
     ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
 )
 
-CodeInfoType = AsIsStrEnum("CodeInfoType", ["parameter", "callable", "collection"])
+CodeInfoType = AsIsStrEnum("CodeInfoType", ["PARAMETER", "CALLABLE", "COLLECTION"])
 
 ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
@@ -143,7 +143,7 @@ class CodeInfo(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     editable: bool = False
-    rcType: CodeInfoType = CodeInfoType.parameter
+    rcType: CodeInfoType = CodeInfoType.PARAMETER
     defaultVal: str = ""
     description: str = ""
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT

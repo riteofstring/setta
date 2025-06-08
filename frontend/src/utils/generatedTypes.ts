@@ -306,9 +306,9 @@ export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
 export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
 
 export const CodeInfoTypeSchema = z.enum([
-  "parameter",
-  "callable",
-  "collection",
+  "PARAMETER",
+  "CALLABLE",
+  "COLLECTION",
 ]);
 
 export type CodeInfoType = z.infer<typeof CodeInfoTypeSchema>;
@@ -612,7 +612,7 @@ export const CodeInfoSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   editable: z.boolean().default(false),
-  rcType: CodeInfoTypeSchema.default("parameter"),
+  rcType: CodeInfoTypeSchema.default("PARAMETER"),
   defaultVal: z.string().default(""),
   description: z.string().default(""),
   passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),

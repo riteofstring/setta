@@ -1,4 +1,4 @@
-from setta.utils.constants import C
+from setta.types.project_state import CodeInfoType
 
 # js->python conversion done by claude
 
@@ -66,13 +66,13 @@ def findAllParameters(
     # if startingId is None, then we're starting at the root
     # so we don't want to avoid the parameters of callables
     def stackCondition(c):
-        return True if startingId else c.get("rcType") == C.PARAMETER
+        return True if startingId else c.get("rcType") == CodeInfoType.PARAMETER
 
     return _findAllDescendants(
         allCodeInfo,
         codeInfoChildren,
         codeInfoIds or [],
-        lambda c: c.get("rcType") == C.PARAMETER
+        lambda c: c.get("rcType") == CodeInfoType.PARAMETER
         and (not additionalOutputCondition or additionalOutputCondition(c)),
         stackCondition,
         paramPathCondition,
@@ -82,7 +82,7 @@ def findAllParameters(
 
 def findAllParametersAndPathMaps(**kwargs):
     return findAllParameters(
-        **kwargs, paramPathCondition=lambda p: p.get("rcType") == C.PARAMETER
+        **kwargs, paramPathCondition=lambda p: p.get("rcType") == CodeInfoType.PARAMETER
     )
 
 

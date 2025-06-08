@@ -72,7 +72,7 @@ def wrapper_parse_signature(signature, docstring, get_proposed_params):
                 defaultVal=default,
                 description=description,
                 passingStyle=passingStyle,
-                rcType=CodeInfoType.parameter,
+                rcType=CodeInfoType.PARAMETER,
             )
         )
 
