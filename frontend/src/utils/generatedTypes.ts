@@ -638,6 +638,19 @@ export function createEVEntry(options: Partial<EVEntry> = {}): EVEntry {
   return EVEntrySchema.parse(options);
 }
 
+export const SectionSizeSchema = z.object({
+  width: z.union([z.number(), z.literal("auto")]).default("auto"),
+  height: z.union([z.number(), z.literal("auto")]).default("auto"),
+});
+
+export type SectionSize = z.infer<typeof SectionSizeSchema>;
+
+export function createSectionSize(
+  options: Partial<SectionSize> = {},
+): SectionSize {
+  return SectionSizeSchema.parse(options);
+}
+
 export const ChartSettingsSchema = z.object({
   type: z.string().default("line"),
   xAxisColumn: z.string().default(""),
@@ -689,17 +702,21 @@ export function createVisibility(
   return VisibilitySchema.parse(options);
 }
 
-export const SectionSizeSchema = z.object({
-  width: z.union([z.number(), z.literal("auto")]).default("auto"),
-  height: z.union([z.number(), z.literal("auto")]).default("auto"),
+export const SectionConfigSchema = z.object({
+  variantId: z.string().default(create_new_id),
+  size: SectionSizeSchema.default(createSectionSize),
+  isHorizontalOrientation: z.boolean().default(false),
+  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).default("auto"),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
 });
 
-export type SectionSize = z.infer<typeof SectionSizeSchema>;
+export type SectionConfig = z.infer<typeof SectionConfigSchema>;
 
-export function createSectionSize(
-  options: Partial<SectionSize> = {},
-): SectionSize {
-  return SectionSizeSchema.parse(options);
+export function createSectionConfig(
+  options: Partial<SectionConfig> = {},
+): SectionConfig {
+  return SectionConfigSchema.parse(options);
 }
 
 export const ProjectConfigChildSchema = z.object({
@@ -769,9 +786,7 @@ export function createSectionVariant(
 export const SectionSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  size: SectionSizeSchema.default(createSectionSize),
   parentId: z.union([z.string(), z.null()]).default(null),
-  variantId: z.string().default(create_new_id),
   uiTypeId: z.string().default("0191cde4-3d98-4ba0-972a-fead19b8ac73"),
   uiTypeColId: z.union([z.string(), z.null()]).default(null),
   social: z.string().default(""),
@@ -782,22 +797,18 @@ export const SectionSchema = z.object({
   nonPresetUITypeIds: z.array(z.string()).default([]),
   codeLanguage: CodeLanguageSchema.default("python"),
   isFrozen: z.boolean().default(false),
-  isHorizontalOrientation: z.boolean().default(false),
   hideParams: z.boolean().default(false),
   hideSearch: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
   displayMode: z.string().default("GUI"),
   visibility: VisibilitySchema.default(createVisibility),
-  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).default("auto"),
-  isMinimized: z.boolean().default(false),
   canvasSettings: DrawAreaCanvasSettingsSchema.default(
     createDrawAreaCanvasSettings,
   ),
   chartSettings: ChartSettingsSchema.default(createChartSettings),
   isTemporary: z.boolean().default(false),
   renderMarkdown: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
   selectedVariantIds: z.record(z.string(), z.any()).default({}),
   paramFilter: z.string().default(""),
   isInOtherProjectConfigs: z.boolean().default(false),
@@ -825,6 +836,7 @@ export const ProjectConfigSchema = z.object({
   genCodePrefix: z.string().default(""),
   genCodeSuffix: z.string().default(""),
   entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
+  sectionConfigs: z.record(z.string(), SectionConfigSchema).default({}),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
