@@ -1,7 +1,11 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import {
+  useNodeInternals,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
 import {
   createCodeInfoCol,
   createEVEntry,
@@ -84,6 +88,12 @@ export function setAllPreviewVariantIdsToNull() {
 
 export function processProjectStateUpdateFromBackend(content) {
   useProjectState.setState(content);
+  useNodeInternals.setState({
+    x: createNodesMapFromProjectConfigChildren(
+      content.projectConfigs[useProjectState.getState().projectConfigId],
+      content.sections,
+    ),
+  });
 }
 
 export function updateProjectState({
@@ -101,6 +111,29 @@ export function updateProjectState({
   state.uiTypeCols = { ...state.uiTypeCols, ...uiTypeCols };
   state.codeInfo = { ...state.codeInfo, ...codeInfo };
   state.codeInfoCols = { ...state.codeInfoCols, ...codeInfoCols };
+}
+
+export function createNodesMapFromProjectConfigChildren(
+  projectConfig,
+  sections,
+) {
+  const nodesMap = new Map();
+  const visibilityKey = getSectionVisibilityKeyForDisplay(
+    projectConfig.viewingEditingMode,
+  );
+
+  for (let k of Object.keys(projectConfig.children)) {
+    const v = projectConfig.children[k];
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+      visibility: sections[k].visibility[visibilityKey],
+    });
+  }
+
+  return nodesMap;
 }
 
 export function setEnteredValue(variantId, paramInfoId, value, state) {

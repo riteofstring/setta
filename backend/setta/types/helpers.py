@@ -1,13 +1,18 @@
 from setta.database.utils import create_new_id
+from setta.types.base_ui_types import BASE_UI_TYPE_IDS
 from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
     CodeInfoType,
     EVEntry,
+    ProjectConfigChild,
     ProjectState,
     Section,
+    SectionConfig,
+    SectionVariant,
     UITypeColEntry,
 )
+from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import C
 
 
@@ -214,3 +219,20 @@ def set_project_config_name(p: ProjectState, projectConfigId: str, newName: str)
         if k != projectConfigId and v.name == newName:
             raise ProjectNameTaken(f"{newName} is already taken")
     p.projectConfigs[projectConfigId].name = newName
+
+
+def create_sections(
+    p: ProjectState, projectConfigId: str, sections: list[SimplifiedSectionCreation]
+):
+    projectConfig = p.projectConfigs[projectConfigId]
+    for s in sections:
+        new_section = Section(name=s.name, uiTypeId=BASE_UI_TYPE_IDS[s.type])
+        new_section_config = SectionConfig(size=s.size)
+        p.sections[new_section.id] = new_section
+        p.variants[new_section_config.variantId] = SectionVariant()
+        new_section.variantIds = [new_section_config.variantId]
+        new_section.defaultVariantId = new_section_config.variantId
+        projectConfig.sectionConfigs[new_section.id] = new_section_config
+        projectConfig.children[new_section.id] = ProjectConfigChild(
+            x=s.position.x, y=s.position.y
+        )

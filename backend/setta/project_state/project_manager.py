@@ -18,6 +18,7 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
+    create_sections,
     get_children_of_selected_item,
     get_section_type,
     get_top_level_sections,
@@ -30,6 +31,7 @@ from setta.types.project_state import (
     ProjectState,
     ProjectUpdateState,
 )
+from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER, C
 from setta.websockets.msg_handlers.project_manager import WMHProjectManager
 from setta.websockets.websocket_manager import WebsocketManager
@@ -460,6 +462,19 @@ class ProjectManager:
     @enqueue_method
     async def set_project_config_name(self, projectConfigId: str, newName: str):
         set_project_config_name(self.project_state, projectConfigId, newName)
+
+    @enqueue_method
+    async def create_sections(
+        self, projectConfigId: str, sections: list[SimplifiedSectionCreation]
+    ):
+        create_sections(self.project_state, projectConfigId, sections)
+        await self.update.direct(
+            self,
+            ProjectUpdateState(
+                projectConfigId=projectConfigId, projectState=self.project_state
+            ),
+        )
+        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
 
     def get_default_project_config_name(self):
         if self.project_state.defaultProjectConfigId:

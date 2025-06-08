@@ -5,7 +5,11 @@ from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
 from setta.terminals.run_code import run_code
 from setta.types.ai import ID
-from setta.types.simplified_states import SimplifiedCodeInfo, SimplifiedSection
+from setta.types.simplified_states import (
+    SimplifiedCodeInfo,
+    SimplifiedSection,
+    SimplifiedSectionCreation,
+)
 
 
 @setta_tool
@@ -143,3 +147,18 @@ async def runCode(
         )
 
     return ID(terminal_id)
+
+
+@setta_tool
+async def createSections(
+    setta_mcp_server: SettaFastMCP,
+    projectConfigId: str,
+    sections: list[SimplifiedSectionCreation],
+):
+    """
+    Args:
+        sections: A list of information about sections to create.
+    """
+
+    await setta_mcp_server.project_manager.create_sections(projectConfigId, sections)
+    return "success"

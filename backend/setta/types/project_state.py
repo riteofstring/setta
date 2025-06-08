@@ -34,6 +34,11 @@ CodeInfoType = AsIsStrEnum("CodeInfoType", ["parameter", "callable", "collection
 ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
 
+class Position(BaseModel, extra="forbid"):
+    x: float = 0
+    y: float = 0
+
+
 class Viewport(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0
