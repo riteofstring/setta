@@ -107,7 +107,7 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
     for dep_name, (dep_type, dep_obj) in list(type_definitions.items()):
         if dep_name not in processed_types:
             if dep_type == "enum":
-                dependency_ts += enum_to_zod(dep_obj, processed_types)
+                dependency_ts += enum_to_ts(dep_obj, processed_types)
             elif dep_type == "pydantic":
                 dependency_ts += pydantic_model_to_zod(
                     dep_obj, type_definitions, processed_types
@@ -136,18 +136,16 @@ def alias_to_zod(name: str, alias_type, type_definitions: dict, processed_types:
     )
 
 
-def enum_to_zod(enum_class, processed_types: set):
+# just to regular ts enum, not zod enum
+def enum_to_ts(enum_class, processed_types: set):
     name = enum_class.__name__
     if name in processed_types:
         return ""
 
     processed_types.add(name)
-    values = [f'"{member.value}"' for member in enum_class]
+    values = [f'"{member.name}"="{member.value}"' for member in enum_class]
     values_str = ", ".join(values)
-    return (
-        f"export const {name}Schema = z.enum([{values_str}]);\n\n"
-        + create_ts_type_line(name)
-    )
+    return f"export enum {name}Enum {{{values_str}}};\n\n"
 
 
 def python_type_to_zod(python_type, type_definitions: dict, processed_types: set):
@@ -247,7 +245,7 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
         enum_name = python_type.__name__
         if enum_name not in processed_types:
             type_definitions[enum_name] = ("enum", python_type)
-        return f"{enum_name}Schema"
+        return f"z.enum({enum_name}Enum)"
 
     # Check if it's a Pydantic model
     if inspect.isclass(python_type) and issubclass(python_type, BaseModel):
@@ -307,7 +305,13 @@ def pydantic_model_to_zod(
         # Handle default values
         if field_info.default is not PydanticUndefined:
             default_value = field_info.default
-            if isinstance(default_value, str):
+            if isinstance(default_value, enum.Enum):
+                enum_class_name = default_value.__class__.__name__
+                enum_member_name = default_value.name
+                zod_schema = (
+                    f"{zod_schema}.default({enum_class_name}Enum.{enum_member_name})"
+                )
+            elif isinstance(default_value, str):
                 zod_schema = f'{zod_schema}.default("{default_value}")'
             elif isinstance(default_value, bool):
                 zod_schema = f"{zod_schema}.default({str(default_value).lower()})"
@@ -365,7 +369,13 @@ def dataclass_to_zod(model: type, type_definitions: dict, processed_types: set):
         # Handle default values
         if field.default is not dataclasses.MISSING:
             default_value = field.default
-            if isinstance(default_value, str):
+            if isinstance(default_value, enum.Enum):
+                enum_class_name = default_value.__class__.__name__
+                enum_member_name = default_value.name
+                zod_schema = (
+                    f"{zod_schema}.default({enum_class_name}Enum.{enum_member_name})"
+                )
+            elif isinstance(default_value, str):
                 zod_schema = f'{zod_schema}.default("{default_value}")'
             elif isinstance(default_value, bool):
                 zod_schema = f"{zod_schema}.default({str(default_value).lower()})"
@@ -439,7 +449,7 @@ export type ID = z.infer<typeof IDSchema>;
         ts_code += alias_to_zod(x_name, x, type_definitions, processed_types)
 
     for x in all_enums.values():
-        ts_code += enum_to_zod(x, processed_types)
+        ts_code += enum_to_ts(x, processed_types)
 
     for x in all_pydantic_models.values():
         ts_code += pydantic_model_to_zod(x, type_definitions, processed_types)

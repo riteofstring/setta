@@ -3,8 +3,7 @@ import { C } from "utils/c";
 import {
   createSettaNotification,
   SettaNotification,
-  SettaNotificationType,
-  SettaNotificationTypeSchema,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
@@ -59,7 +58,7 @@ export function addNotificationFromWebsocketMsg(
 
 export const addTemporaryNotification = (
   message: string,
-  type: SettaNotificationType = SettaNotificationTypeSchema.enum.info,
+  type: SettaNotificationTypeEnum = SettaNotificationTypeEnum.info,
 ) => {
   const notification = createSettaNotification({
     projectConfigId: useProjectState.getState().projectConfig.id,

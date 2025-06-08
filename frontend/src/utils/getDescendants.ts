@@ -1,4 +1,4 @@
-import { CodeInfoTypeSchema } from "./generatedTypes";
+import { CodeInfoTypeEnum } from "./generatedTypes";
 
 function _findAllDescendants(
   allCodeInfo,
@@ -71,14 +71,14 @@ export function findAllParameters({
   // so we don't want to avoid the parameters of callables
   const stackCondition = startingId
     ? () => true
-    : (c) => c?.rcType === CodeInfoTypeSchema.enum.PARAMETER;
+    : (c) => c?.rcType === CodeInfoTypeEnum.PARAMETER;
 
   return _findAllDescendants(
     allCodeInfo,
     codeInfoChildren,
     codeInfoIds ?? [],
     (c) =>
-      c?.rcType === CodeInfoTypeSchema.enum.PARAMETER &&
+      c?.rcType === CodeInfoTypeEnum.PARAMETER &&
       (!additionalOutputCondition || additionalOutputCondition(c)),
     stackCondition,
     paramPathCondition,
@@ -99,6 +99,6 @@ export function findAll(allCodeInfo, codeInfoChildren) {
 export function findAllParametersAndPathMaps(props) {
   return findAllParameters({
     ...props,
-    paramPathCondition: (p) => p.rcType === CodeInfoTypeSchema.enum.PARAMETER,
+    paramPathCondition: (p) => p.rcType === CodeInfoTypeEnum.PARAMETER,
   });
 }

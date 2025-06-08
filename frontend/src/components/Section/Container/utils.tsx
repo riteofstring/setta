@@ -10,19 +10,19 @@ import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sec
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import "./dndline.css";
 
-export function getBgColor(sectionTypeName) {
+export function getBgColor(sectionTypeName: UITypeNameEnum) {
   switch (sectionTypeName) {
-    case UITypeNameSchema.enum.CODE:
-    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
+    case UITypeNameEnum.CODE:
+    case UITypeNameEnum.GEN_PYTHON_CODE:
       return "bg-white dark:bg-setta-900";
-    case UITypeNameSchema.enum.TERMINAL:
+    case UITypeNameEnum.TERMINAL:
       return "bg-setta-950 overflow-clip";
-    case UITypeNameSchema.enum.BROWSER:
+    case UITypeNameEnum.BROWSER:
       return "@container/multipane";
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
       return "bg-white dark:bg-black";
     default:
       return "bg-setta-50 dark:bg-setta-860";

@@ -11,7 +11,7 @@ import {
   ProjectStateSingleConfig,
   SettaNotification,
   SettingsState,
-  UITypeNameSchema,
+  UITypeNameEnum,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { temporal } from "zundo";
@@ -72,8 +72,8 @@ export const useProjectState = withProjectState(
               codeInfo: {},
               artifactGroups: {},
               singletonSections: {
-                [UITypeNameSchema.enum.GLOBAL_VARIABLES]: null,
-                [UITypeNameSchema.enum.GEN_PYTHON_CODE]: null,
+                [UITypeNameEnum.GLOBAL_VARIABLES]: null,
+                [UITypeNameEnum.GEN_PYTHON_CODE]: null,
                 temporaryTerminalGroup: null,
               },
               requestRenameRefactor: false,

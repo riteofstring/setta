@@ -6,7 +6,7 @@ import {
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
@@ -18,7 +18,7 @@ function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
     return {
       visibility,
       viewingEditingMode,
-      isGroup: getSectionType(sectionId, x) === UITypeNameSchema.enum.GROUP,
+      isGroup: getSectionType(sectionId, x) === UITypeNameEnum.GROUP,
     };
   });
 

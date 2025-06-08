@@ -1,16 +1,16 @@
 import { getSectionType } from "state/actions/sectionInfos";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function getIsTwitterSection(sectionId, state) {
   return (
-    getSectionType(sectionId) === UITypeNameSchema.enum.SOCIAL &&
+    getSectionType(sectionId) === UITypeNameEnum.SOCIAL &&
     linkIsTwitter(state.sections[sectionId].social)
   );
 }
 
 export function getIsYouTubeSection(sectionId, state) {
   return (
-    getSectionType(sectionId) === UITypeNameSchema.enum.SOCIAL &&
+    getSectionType(sectionId) === UITypeNameEnum.SOCIAL &&
     linkIsYouTube(state.sections[sectionId].social)
   );
 }

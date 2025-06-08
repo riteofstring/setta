@@ -14,7 +14,7 @@ import {
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
@@ -38,7 +38,7 @@ export function subscribe() {
         state.singletonSections = x;
       });
       dbFileWatchGenPythonCode({
-        watch: Boolean(x[UITypeNameSchema.enum.GEN_PYTHON_CODE]),
+        watch: Boolean(x[UITypeNameEnum.GEN_PYTHON_CODE]),
         projectConfigId: useProjectState.getState().projectConfig.id,
       });
     },
@@ -161,34 +161,34 @@ export function subscribe() {
 
 function singletonSectionsSubscriptionFn(state) {
   const output = {
-    [UITypeNameSchema.enum.GLOBAL_VARIABLES]: null,
-    [UITypeNameSchema.enum.GEN_PYTHON_CODE]: null,
+    [UITypeNameEnum.GLOBAL_VARIABLES]: null,
+    [UITypeNameEnum.GEN_PYTHON_CODE]: null,
   };
   for (const s of Object.values(state.sections)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
-      output[UITypeNameSchema.enum.GLOBAL_VARIABLES] &&
-      output[UITypeNameSchema.enum.GEN_PYTHON_CODE] &&
+      output[UITypeNameEnum.GLOBAL_VARIABLES] &&
+      output[UITypeNameEnum.GEN_PYTHON_CODE] &&
       output.temporaryTerminalGroup
     ) {
       break;
     }
     if (
-      !output[UITypeNameSchema.enum.GLOBAL_VARIABLES] &&
-      uiType === UITypeNameSchema.enum.GLOBAL_VARIABLES
+      !output[UITypeNameEnum.GLOBAL_VARIABLES] &&
+      uiType === UITypeNameEnum.GLOBAL_VARIABLES
     ) {
-      output[UITypeNameSchema.enum.GLOBAL_VARIABLES] = s.id;
+      output[UITypeNameEnum.GLOBAL_VARIABLES] = s.id;
     }
     if (
-      !output[UITypeNameSchema.enum.GEN_PYTHON_CODE] &&
-      uiType === UITypeNameSchema.enum.GEN_PYTHON_CODE
+      !output[UITypeNameEnum.GEN_PYTHON_CODE] &&
+      uiType === UITypeNameEnum.GEN_PYTHON_CODE
     ) {
-      output[UITypeNameSchema.enum.GEN_PYTHON_CODE] = s.id;
+      output[UITypeNameEnum.GEN_PYTHON_CODE] = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (
       !output.temporaryTerminalGroup &&
-      uiType === UITypeNameSchema.enum.GROUP &&
+      uiType === UITypeNameEnum.GROUP &&
       s.isTemporary
     ) {
       output.temporaryTerminalGroup = s.id;
@@ -253,7 +253,7 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
-    if (getSectionType(s.id) === UITypeNameSchema.enum.CODE) {
+    if (getSectionType(s.id) === UITypeNameEnum.CODE) {
       codeBlockIds.push(s.id);
     }
   }

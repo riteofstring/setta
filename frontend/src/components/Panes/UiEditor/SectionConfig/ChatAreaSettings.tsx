@@ -1,11 +1,11 @@
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChatAreaSettings({ sectionId }) {
   return (
     <JustListOfArtifacts
       sectionId={sectionId}
-      sectionTypeName={UITypeNameSchema.enum.CHAT}
+      sectionTypeName={UITypeNameEnum.CHAT}
     />
   );
 }

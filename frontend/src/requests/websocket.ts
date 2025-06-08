@@ -25,7 +25,7 @@ import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/termin
 import { C } from "utils/c";
 import {
   createWebsocketConnectionInfo,
-  WebsocketConnectionTypeSchema,
+  WebsocketConnectionTypeEnum,
 } from "utils/generatedTypes";
 
 let wss: WebSocket | null;
@@ -41,7 +41,7 @@ export const openWebSocket = _.debounce(
         addWebsocketConnection(
           createWebsocketConnectionInfo({
             id: "main",
-            connectionType: WebsocketConnectionTypeSchema.enum.SERVER,
+            connectionType: WebsocketConnectionTypeEnum.SERVER,
             location: null,
           }),
         );

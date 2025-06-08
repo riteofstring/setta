@@ -2,7 +2,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
 import { useProjectState } from "state/definitions";
-import { ViewingEditingModeSchema } from "utils/generatedTypes";
+import { ViewingEditingModeEnum } from "utils/generatedTypes";
 
 export function ViewingEditingMode() {
   const selectedMode = useProjectState(
@@ -11,17 +11,17 @@ export function ViewingEditingMode() {
 
   const modes = [
     {
-      id: ViewingEditingModeSchema.enum.DEV,
+      id: ViewingEditingModeEnum.DEV,
       label: "Developer View",
       icon: <HiCode size={20} />,
     },
     {
-      id: ViewingEditingModeSchema.enum.USER,
+      id: ViewingEditingModeEnum.USER,
       label: "User View",
       icon: <TbUser size={20} />,
     },
     {
-      id: ViewingEditingModeSchema.enum.USER_EDIT,
+      id: ViewingEditingModeEnum.USER_EDIT,
       label: "Edit User View",
       icon: <FiEdit3 size={20} />,
     },

@@ -8,7 +8,7 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -27,7 +27,7 @@ function getMinSectionHeight({
     return MINIMIZE_SECTION_HEIGHT;
   }
 
-  if (sectionType === UITypeNameSchema.enum.SECTION) {
+  if (sectionType === UITypeNameEnum.SECTION) {
     if (hideSearch) {
       return 78;
     } else if (hideParams) {
@@ -36,30 +36,30 @@ function getMinSectionHeight({
       return 104;
     }
   } else if (
-    sectionType === UITypeNameSchema.enum.LIST_ROOT ||
-    sectionType === UITypeNameSchema.enum.DICT_ROOT
+    sectionType === UITypeNameEnum.LIST_ROOT ||
+    sectionType === UITypeNameEnum.DICT_ROOT
   ) {
     return ROOT_SECTION_HEIGHT;
-  } else if (sectionType === UITypeNameSchema.enum.GLOBAL_VARIABLES) {
+  } else if (sectionType === UITypeNameEnum.GLOBAL_VARIABLES) {
     return 78;
-  } else if (sectionType === UITypeNameSchema.enum.CODE) {
+  } else if (sectionType === UITypeNameEnum.CODE) {
     return 58.2;
-  } else if (sectionType === UITypeNameSchema.enum.TEXT_BLOCK) {
+  } else if (sectionType === UITypeNameEnum.TEXT_BLOCK) {
     return 98;
-  } else if (sectionType === UITypeNameSchema.enum.TERMINAL) {
+  } else if (sectionType === UITypeNameEnum.TERMINAL) {
     return 100;
   } else if (
-    sectionType === UITypeNameSchema.enum.DRAW ||
-    sectionType === UITypeNameSchema.enum.IMAGE
+    sectionType === UITypeNameEnum.DRAW ||
+    sectionType === UITypeNameEnum.IMAGE
   ) {
     return 100;
-  } else if (sectionType === UITypeNameSchema.enum.CHART) {
+  } else if (sectionType === UITypeNameEnum.CHART) {
     return 300;
-  } else if (sectionType === UITypeNameSchema.enum.SOCIAL) {
+  } else if (sectionType === UITypeNameEnum.SOCIAL) {
     return 50;
-  } else if (sectionType === UITypeNameSchema.enum.CHAT) {
+  } else if (sectionType === UITypeNameEnum.CHAT) {
     return 200;
-  } else if (sectionType === UITypeNameSchema.enum.BROWSER) {
+  } else if (sectionType === UITypeNameEnum.BROWSER) {
     return 250;
   }
 }
@@ -69,8 +69,8 @@ function getMaxSectionHeight({ sectionType, isMinimized }) {
     return MINIMIZE_SECTION_HEIGHT;
   }
   if (
-    sectionType === UITypeNameSchema.enum.LIST_ROOT ||
-    sectionType === UITypeNameSchema.enum.DICT_ROOT
+    sectionType === UITypeNameEnum.LIST_ROOT ||
+    sectionType === UITypeNameEnum.DICT_ROOT
   ) {
     return ROOT_SECTION_HEIGHT;
   }
@@ -81,11 +81,11 @@ function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
     return 370;
   }
-  if (sectionType === UITypeNameSchema.enum.DRAW) {
+  if (sectionType === UITypeNameEnum.DRAW) {
     return 402;
-  } else if (sectionType === UITypeNameSchema.enum.CHART) {
+  } else if (sectionType === UITypeNameEnum.CHART) {
     return 300;
-  } else if (sectionType === UITypeNameSchema.enum.CHAT) {
+  } else if (sectionType === UITypeNameEnum.CHAT) {
     return 400;
   }
 
@@ -100,13 +100,13 @@ function getMaxSectionWidth({ isTwitter }) {
 }
 
 function getSizeMode({ sectionType, hideParams, isTwitter }) {
-  if (sectionType === UITypeNameSchema.enum.SECTION) {
+  if (sectionType === UITypeNameEnum.SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
   } else if (
-    sectionType === UITypeNameSchema.enum.TERMINAL ||
-    sectionType === UITypeNameSchema.enum.CHART
+    sectionType === UITypeNameEnum.TERMINAL ||
+    sectionType === UITypeNameEnum.CHART
   ) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   }
@@ -270,7 +270,7 @@ export function setDrawAreaSectionSize({
 
   if (imgSize) {
     if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
-      const sectionType = UITypeNameSchema.enum.DRAW;
+      const sectionType = UITypeNameEnum.DRAW;
       const minHeight = getMinSectionHeight({ sectionType });
       const minWidth = getMinSectionWidth({ sectionType });
       canvasSize = adjustSizeToBeAtLeastMin(

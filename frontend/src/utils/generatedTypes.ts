@@ -261,118 +261,105 @@ export const ContentBlockSchema = z.union([
 
 export type ContentBlock = z.infer<typeof ContentBlockSchema>;
 
-export const ArtifactTypeSchema = z.enum([
-  "IMG",
-  "BRUSH_STROKES",
-  "LIST",
-  "CHAT_HISTORY",
-]);
+export enum ArtifactTypeEnum {
+  "IMG" = "IMG",
+  "BRUSH_STROKES" = "BRUSH_STROKES",
+  "LIST" = "LIST",
+  "CHAT_HISTORY" = "CHAT_HISTORY",
+}
 
-export type ArtifactType = z.infer<typeof ArtifactTypeSchema>;
+export enum AsIsStrEnumEnum {}
 
-export const AsIsStrEnumSchema = z.enum([]);
+export enum UITypeNameEnum {
+  "TEXT" = "TEXT",
+  "SLIDER" = "SLIDER",
+  "SWITCH" = "SWITCH",
+  "COLOR_PICKER" = "COLOR_PICKER",
+  "DROPDOWN" = "DROPDOWN",
+  "PASSWORD" = "PASSWORD",
+  "SECTION" = "SECTION",
+  "LIST_ROOT" = "LIST_ROOT",
+  "DICT_ROOT" = "DICT_ROOT",
+  "GROUP" = "GROUP",
+  "IMAGE" = "IMAGE",
+  "CHART" = "CHART",
+  "DRAW" = "DRAW",
+  "TEXT_BLOCK" = "TEXT_BLOCK",
+  "SOCIAL" = "SOCIAL",
+  "GLOBAL_VARIABLES" = "GLOBAL_VARIABLES",
+  "CODE" = "CODE",
+  "GEN_PYTHON_CODE" = "GEN_PYTHON_CODE",
+  "TERMINAL" = "TERMINAL",
+  "IFRAME" = "IFRAME",
+  "CHAT" = "CHAT",
+  "BROWSER" = "BROWSER",
+}
 
-export type AsIsStrEnum = z.infer<typeof AsIsStrEnumSchema>;
+export enum UITypePresetTypeEnum {
+  "BASE" = "BASE",
+  "USER" = "USER",
+}
 
-export const UITypeNameSchema = z.enum([
-  "TEXT",
-  "SLIDER",
-  "SWITCH",
-  "COLOR_PICKER",
-  "DROPDOWN",
-  "PASSWORD",
-  "SECTION",
-  "LIST_ROOT",
-  "DICT_ROOT",
-  "GROUP",
-  "IMAGE",
-  "CHART",
-  "DRAW",
-  "TEXT_BLOCK",
-  "SOCIAL",
-  "GLOBAL_VARIABLES",
-  "CODE",
-  "GEN_PYTHON_CODE",
-  "TERMINAL",
-  "IFRAME",
-  "CHAT",
-  "BROWSER",
-]);
+export enum CodeInfoTypeEnum {
+  "PARAMETER" = "PARAMETER",
+  "CALLABLE" = "CALLABLE",
+  "COLLECTION" = "COLLECTION",
+}
 
-export type UITypeName = z.infer<typeof UITypeNameSchema>;
+export enum SettaNotificationTypeEnum {
+  "success" = "success",
+  "error" = "error",
+  "warning" = "warning",
+  "info" = "info",
+  "save" = "save",
+}
 
-export const UITypePresetTypeSchema = z.enum(["BASE", "USER"]);
+export enum CodeLanguageEnum {
+  "python" = "python",
+  "bash" = "bash",
+}
 
-export type UITypePresetType = z.infer<typeof UITypePresetTypeSchema>;
+export enum ConfigLanguageEnum {
+  "python" = "python",
+  "json" = "json",
+}
 
-export const CodeInfoTypeSchema = z.enum([
-  "PARAMETER",
-  "CALLABLE",
-  "COLLECTION",
-]);
+export enum ParameterPassingStyleEnum {
+  "DEFAULT" = "DEFAULT",
+  "ARGS" = "ARGS",
+  "KWARGS" = "KWARGS",
+  "POSITIONAL_ONLY" = "POSITIONAL_ONLY",
+  "KEYWORD_ONLY" = "KEYWORD_ONLY",
+}
 
-export type CodeInfoType = z.infer<typeof CodeInfoTypeSchema>;
+export enum SizeEnum {
+  "auto" = "auto",
+}
 
-export const SettaNotificationTypeSchema = z.enum([
-  "success",
-  "error",
-  "warning",
-  "info",
-  "save",
-]);
+export enum ViewingEditingModeEnum {
+  "DEV" = "DEV",
+  "USER" = "USER",
+  "USER_EDIT" = "USER_EDIT",
+}
 
-export type SettaNotificationType = z.infer<typeof SettaNotificationTypeSchema>;
+export enum RenameRefactorModeEnum {
+  "ALWAYS_ASK" = "ALWAYS_ASK",
+  "ALWAYS_RENAME" = "ALWAYS_RENAME",
+  "NEVER_RENAME" = "NEVER_RENAME",
+}
 
-export const CodeLanguageSchema = z.enum(["python", "bash"]);
-
-export type CodeLanguage = z.infer<typeof CodeLanguageSchema>;
-
-export const ConfigLanguageSchema = z.enum(["python", "json"]);
-
-export type ConfigLanguage = z.infer<typeof ConfigLanguageSchema>;
-
-export const ParameterPassingStyleSchema = z.enum([
-  "DEFAULT",
-  "ARGS",
-  "KWARGS",
-  "POSITIONAL_ONLY",
-  "KEYWORD_ONLY",
-]);
-
-export type ParameterPassingStyle = z.infer<typeof ParameterPassingStyleSchema>;
-
-export const SizeSchema = z.enum(["auto"]);
-
-export type Size = z.infer<typeof SizeSchema>;
-
-export const ViewingEditingModeSchema = z.enum(["DEV", "USER", "USER_EDIT"]);
-
-export type ViewingEditingMode = z.infer<typeof ViewingEditingModeSchema>;
-
-export const RenameRefactorModeSchema = z.enum([
-  "ALWAYS_ASK",
-  "ALWAYS_RENAME",
-  "NEVER_RENAME",
-]);
-
-export type RenameRefactorMode = z.infer<typeof RenameRefactorModeSchema>;
-
-export const WebsocketConnectionTypeSchema = z.enum([
-  "CLI",
-  "SERVER",
-  "PYTHON_SCRIPT",
-  "PYTHON_LOGGER",
-  "FRONTEND",
-]);
-
-export type WebsocketConnectionType = z.infer<
-  typeof WebsocketConnectionTypeSchema
->;
+export enum WebsocketConnectionTypeEnum {
+  "CLI" = "CLI",
+  "SERVER" = "SERVER",
+  "PYTHON_SCRIPT" = "PYTHON_SCRIPT",
+  "PYTHON_LOGGER" = "PYTHON_LOGGER",
+  "FRONTEND" = "FRONTEND",
+}
 
 export const ArtifactSchema = z.object({
   name: z.string(),
   path: z.string(),
-  type: ArtifactTypeSchema,
+  type: z.enum(ArtifactTypeEnum),
   value: z
     .union([
       z.record(z.string(), z.any()),
@@ -395,7 +382,7 @@ export function createArtifact(options: Partial<Artifact> = {}): Artifact {
 export const ArtifactWithIdSchema = z.object({
   name: z.string(),
   path: z.string(),
-  type: ArtifactTypeSchema,
+  type: z.enum(ArtifactTypeEnum),
   value: z
     .union([
       z.record(z.string(), z.any()),
@@ -421,7 +408,7 @@ export function createArtifactWithId(
 export const ArtifactWithoutValueSchema = z.object({
   name: z.string(),
   path: z.string(),
-  type: ArtifactTypeSchema,
+  type: z.enum(ArtifactTypeEnum),
 });
 
 export type ArtifactWithoutValue = z.infer<typeof ArtifactWithoutValueSchema>;
@@ -434,9 +421,9 @@ export function createArtifactWithoutValue(
 
 export const UITypeSchema = z.object({
   id: z.string().default(create_new_id),
-  type: UITypeNameSchema.default("TEXT"),
+  type: z.enum(UITypeNameEnum).default(UITypeNameEnum.TEXT),
   name: z.string().default(generate_memorable_string),
-  presetType: z.union([UITypePresetTypeSchema, z.null()]).default(null),
+  presetType: z.union([z.enum(UITypePresetTypeEnum), z.null()]).default(null),
   config: z.record(z.string(), z.any()).default({}),
 });
 
@@ -620,10 +607,12 @@ export const CodeInfoSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   editable: z.boolean().default(false),
-  rcType: CodeInfoTypeSchema.default("PARAMETER"),
+  rcType: z.enum(CodeInfoTypeEnum).default(CodeInfoTypeEnum.PARAMETER),
   defaultVal: z.string().default(""),
   description: z.string().default(""),
-  passingStyle: ParameterPassingStyleSchema.default("DEFAULT"),
+  passingStyle: z
+    .enum(ParameterPassingStyleEnum)
+    .default(ParameterPassingStyleEnum.DEFAULT),
   isPinned: z.boolean().default(false),
   isFrozen: z.boolean().default(false),
   isSelected: z.boolean().default(false),
@@ -675,8 +664,8 @@ export function createProjectConfigChild(
 }
 
 export const SectionSizeSchema = z.object({
-  width: z.union([z.number(), z.literal("auto")]).default("auto"),
-  height: z.union([z.number(), z.literal("auto")]).default("auto"),
+  width: z.union([z.number(), z.literal("auto")]).default(SizeEnum.auto),
+  height: z.union([z.number(), z.literal("auto")]).default(SizeEnum.auto),
 });
 
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
@@ -694,7 +683,9 @@ export const SectionConfigSchema = z.object({
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
   isHorizontalOrientation: z.boolean().default(false),
-  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).default("auto"),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SizeEnum.auto),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
 });
@@ -776,7 +767,9 @@ export const ProjectConfigSchema = z.object({
   previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
   children: z.record(z.string(), ProjectConfigChildSchema).default({}),
-  viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
+  viewingEditingMode: z
+    .enum(ViewingEditingModeEnum)
+    .default(ViewingEditingModeEnum.DEV),
   genCodePrefix: z.string().default(""),
   genCodeSuffix: z.string().default(""),
   entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
@@ -813,7 +806,7 @@ export const SectionVariantSchema = z.object({
   codeInfoColId: z.union([z.string(), z.null()]).default(null),
   description: z.string().default(""),
   isFrozen: z.boolean().default(false),
-  configLanguage: ConfigLanguageSchema.default("python"),
+  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
@@ -839,7 +832,7 @@ export const SectionSchema = z.object({
   previewVariantId: z.union([z.string(), z.null()]).default(null),
   variantIds: z.array(z.string()).default([]),
   nonPresetUITypeIds: z.array(z.string()).default([]),
-  codeLanguage: CodeLanguageSchema.default("python"),
+  codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
   isFrozen: z.boolean().default(false),
   hideParams: z.boolean().default(false),
   hideSearch: z.boolean().default(false),
@@ -924,7 +917,7 @@ export const SimplifiedSectionCreationSchema = z.object({
   name: z.string(),
   position: PositionSchema.default(createPosition),
   size: SectionSizeSchema.default(createSectionSize),
-  type: UITypeNameSchema.default("SECTION"),
+  type: z.enum(UITypeNameEnum).default(UITypeNameEnum.SECTION),
 });
 
 export type SimplifiedSectionCreation = z.infer<
@@ -940,7 +933,9 @@ export function createSimplifiedSectionCreation(
 export const SettaNotificationSchema = z.object({
   id: z.string().default(create_new_id),
   projectConfigId: z.string().default("NOTIFICATION_IS_FOR_ALL_PROJECTS"),
-  type: SettaNotificationTypeSchema.default("info"),
+  type: z
+    .enum(SettaNotificationTypeEnum)
+    .default(SettaNotificationTypeEnum.info),
   message: z.string(),
   temporary: z.boolean().default(false),
   timestamp: z.iso.datetime().default(get_now_timestamp),
@@ -986,7 +981,9 @@ export const SettingsBackendSchema = z.object({
   exportDbRawOnSave: z.boolean().default(false),
   exportDbReadableOnSave: z.boolean().default(false),
   exportDbReadableWithVariantsOnSave: z.boolean().default(false),
-  renameRefactorMode: RenameRefactorModeSchema.default("ALWAYS_ASK"),
+  renameRefactorMode: z
+    .enum(RenameRefactorModeEnum)
+    .default(RenameRefactorModeEnum.ALWAYS_ASK),
   saveRenderedValues: z.boolean().default(false),
 });
 
@@ -1137,7 +1134,7 @@ export function createSimplifiedSection(
 
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
-  connectionType: WebsocketConnectionTypeSchema,
+  connectionType: z.enum(WebsocketConnectionTypeEnum),
   location: z.union([z.string(), z.null()]),
 });
 
@@ -1153,7 +1150,7 @@ export function createWebsocketConnectionInfo(
 
 export const WebsocketConnectionInfoWithSocketSchema = z.object({
   id: z.string(),
-  connectionType: WebsocketConnectionTypeSchema,
+  connectionType: z.enum(WebsocketConnectionTypeEnum),
   location: z.union([z.string(), z.null()]),
   websocket: WebSocket,
 });

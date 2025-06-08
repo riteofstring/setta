@@ -3,7 +3,7 @@ import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
@@ -12,7 +12,7 @@ export function ChartAreaSettings({ sectionId }) {
       <ChartConfig sectionId={sectionId} />
       <JustListOfArtifacts
         sectionId={sectionId}
-        sectionTypeName={UITypeNameSchema.enum.CHART}
+        sectionTypeName={UITypeNameEnum.CHART}
       />
     </div>
   );

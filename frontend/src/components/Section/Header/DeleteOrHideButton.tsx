@@ -4,7 +4,7 @@ import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { ViewingEditingModeSchema } from "utils/generatedTypes";
+import { ViewingEditingModeEnum } from "utils/generatedTypes";
 
 // absolute top-1 right-1
 export function DeleteOrHideButton({
@@ -20,14 +20,11 @@ export function DeleteOrHideButton({
 
   const onClick = () => {
     useProjectState.setState((state) => {
-      if (viewingEditingMode === ViewingEditingModeSchema.enum.DEV) {
+      if (viewingEditingMode === ViewingEditingModeEnum.DEV) {
         deleteSections([sectionId], state);
-      } else if (
-        viewingEditingMode === ViewingEditingModeSchema.enum.USER_EDIT
-      ) {
-        state.sections[sectionId].visibility[
-          ViewingEditingModeSchema.enum.USER
-        ] = !visibility;
+      } else if (viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
+        state.sections[sectionId].visibility[ViewingEditingModeEnum.USER] =
+          !visibility;
       }
     });
 
@@ -51,9 +48,9 @@ export function DeleteOrHideButton({
 
 function getIcon(viewingEditingMode, visibility) {
   switch (viewingEditingMode) {
-    case ViewingEditingModeSchema.enum.DEV:
+    case ViewingEditingModeEnum.DEV:
       return <i className="gg-close" />;
-    case ViewingEditingModeSchema.enum.USER_EDIT:
+    case ViewingEditingModeEnum.USER_EDIT:
       return visibility ? <BiShow /> : <BiHide />;
   }
 }

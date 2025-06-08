@@ -14,7 +14,7 @@ import {
 } from "state/hooks/artifacts";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
-import { ArtifactTypeSchema } from "utils/generatedTypes";
+import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
@@ -57,9 +57,9 @@ const LayersList = ({
 
   function getArtifactTypeIcon(type) {
     switch (type) {
-      case ArtifactTypeSchema.enum.IMG:
+      case ArtifactTypeEnum.IMG:
         return <i className="gg-image text-setta-300 dark:text-setta-600" />;
-      case ArtifactTypeSchema.enum.BRUSH_STROKES:
+      case ArtifactTypeEnum.BRUSH_STROKES:
         return <BiPaint className="text-setta-300 dark:text-setta-600" />;
     }
   }

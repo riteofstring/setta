@@ -1,5 +1,5 @@
 import { useProjectState } from "state/definitions";
-import { CodeInfoTypeSchema, createCodeInfo } from "utils/generatedTypes";
+import { CodeInfoTypeEnum, createCodeInfo } from "utils/generatedTypes";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
@@ -13,7 +13,7 @@ export function addKwarg({
 }) {
   const kwargInfo = createCodeInfo({
     name,
-    rcType: CodeInfoTypeSchema.enum.parameter,
+    rcType: CodeInfoTypeEnum.PARAMETER,
     editable: true,
   });
   addCodeInfo({

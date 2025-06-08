@@ -1,7 +1,7 @@
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";
@@ -92,7 +92,7 @@ function setSectionSizeAfterMove(newParentId, sectionId, state) {
   }
   const isGroup =
     state.uiTypes[state.sections[newParentId].uiTypeId].type ===
-    UITypeNameSchema.enum.GROUP;
+    UITypeNameEnum.GROUP;
 
   // if new parent is a group and the group has children and is not horizontal
   if (isGroup) {

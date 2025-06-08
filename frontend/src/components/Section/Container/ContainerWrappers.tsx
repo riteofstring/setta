@@ -4,7 +4,7 @@ import _ from "lodash";
 import React from "react";
 import { getAncestorSameVisibility } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { ViewingEditingModeSchema } from "utils/generatedTypes";
+import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { Container } from "./ContainerCore";
 import { DndSlot } from "./DndSlot";
 
@@ -108,10 +108,7 @@ function maybeGetOpacityStyle(
   viewingEditingMode,
   ancestorHasSameVisibility,
 ) {
-  if (
-    !visibility &&
-    viewingEditingMode === ViewingEditingModeSchema.enum.USER_EDIT
-  ) {
+  if (!visibility && viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
   }
   if (activeIsSelf) {

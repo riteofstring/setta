@@ -11,7 +11,7 @@ import {
   createSection,
   createSectionConfig,
   createSectionVariant,
-  UITypeNameSchema,
+  UITypeNameEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
@@ -26,7 +26,7 @@ export function addRegularSectionInEmptySpace() {
   let newId;
   useProjectState.setState((state) => {
     newId = addSectionInEmptySpace({
-      type: UITypeNameSchema.enum.SECTION,
+      type: UITypeNameEnum.SECTION,
       state,
     });
   });
@@ -47,7 +47,7 @@ export function addGroupInEmptySpace() {
   let newId;
   useProjectState.setState((state) => {
     newId = addSectionInEmptySpace({
-      type: UITypeNameSchema.enum.GROUP,
+      type: UITypeNameEnum.GROUP,
       state,
     });
   });
@@ -57,7 +57,7 @@ export function addGroupInEmptySpace() {
 
 export function addTerminalInEmptySpace() {
   useProjectState.setState((state) => {
-    addSectionInEmptySpace({ type: UITypeNameSchema.enum.TERMINAL, state });
+    addSectionInEmptySpace({ type: UITypeNameEnum.TERMINAL, state });
   });
   maybeIncrementProjectStateVersion(true);
 }
@@ -161,10 +161,10 @@ export function createSectionInfo({
     state.variants[sConfig.variantId] =
       createSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
-      case UITypeNameSchema.enum.DRAW:
+      case UITypeNameEnum.DRAW:
         addDrawAreaLayer(s.id, state);
         break;
-      case UITypeNameSchema.enum.CHAT:
+      case UITypeNameEnum.CHAT:
         addChatHistoryArtifact(s.id, state);
         break;
     }

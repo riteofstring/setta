@@ -3,7 +3,7 @@ import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";
@@ -25,8 +25,7 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
     };
   }, _.isEqual);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const isGlobalVariables =
-    sectionTypeName === UITypeNameSchema.enum.GLOBAL_VARIABLES;
+  const isGlobalVariables = sectionTypeName === UITypeNameEnum.GLOBAL_VARIABLES;
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection

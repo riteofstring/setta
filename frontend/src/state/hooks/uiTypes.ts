@@ -7,7 +7,7 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { createUITypeColEntry, UITypeNameSchema } from "utils/generatedTypes";
+import { createUITypeColEntry, UITypeNameEnum } from "utils/generatedTypes";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -45,7 +45,7 @@ export function useIsSeriesElement(sectionId) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(
       sectionId,
-      [UITypeNameSchema.enum.LIST_ROOT, UITypeNameSchema.enum.DICT_ROOT],
+      [UITypeNameEnum.LIST_ROOT, UITypeNameEnum.DICT_ROOT],
       x,
     ),
   );
@@ -53,7 +53,7 @@ export function useIsSeriesElement(sectionId) {
 
 export function useIsListElement(sectionId) {
   return useProjectState((x) =>
-    getIsSeriesElementHelper(sectionId, [UITypeNameSchema.enum.LIST_ROOT], x),
+    getIsSeriesElementHelper(sectionId, [UITypeNameEnum.LIST_ROOT], x),
   );
 }
 
@@ -80,29 +80,29 @@ export function useUIEditorTab(sectionId) {
 
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
-    case UITypeNameSchema.enum.SECTION:
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.SECTION:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
       return [
         // SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
         QUICKINFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
-    case UITypeNameSchema.enum.LIST_ROOT:
-    case UITypeNameSchema.enum.DICT_ROOT:
-    case UITypeNameSchema.enum.CODE:
+    case UITypeNameEnum.LIST_ROOT:
+    case UITypeNameEnum.DICT_ROOT:
+    case UITypeNameEnum.CODE:
       return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
+    case UITypeNameEnum.GEN_PYTHON_CODE:
       return [SECTION_CONFIG_TAB];
-    case UITypeNameSchema.enum.TEXT_BLOCK:
+    case UITypeNameEnum.TEXT_BLOCK:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case UITypeNameSchema.enum.SOCIAL:
+    case UITypeNameEnum.SOCIAL:
       return [SECTION_CONFIG_TAB];
-    case UITypeNameSchema.enum.GROUP:
-    case UITypeNameSchema.enum.TERMINAL:
-    case UITypeNameSchema.enum.DRAW:
-    case UITypeNameSchema.enum.IMAGE:
-    case UITypeNameSchema.enum.CHART:
+    case UITypeNameEnum.GROUP:
+    case UITypeNameEnum.TERMINAL:
+    case UITypeNameEnum.DRAW:
+    case UITypeNameEnum.IMAGE:
+    case UITypeNameEnum.CHART:
       return [SECTION_CONFIG_TAB];
     default:
       return [

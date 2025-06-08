@@ -2,12 +2,12 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import { getSectionType, toggleSectionLock } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
     return {
-      isGroup: getSectionType(sectionId, x) === UITypeNameSchema.enum.GROUP,
+      isGroup: getSectionType(sectionId, x) === UITypeNameEnum.GROUP,
       positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
     };
   }, _.isEqual);

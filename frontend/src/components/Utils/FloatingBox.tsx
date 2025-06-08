@@ -9,7 +9,7 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
@@ -375,7 +375,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
         : item.content;
       useProjectState.setState((state) => {
         addSectionInEmptySpace({
-          type: UITypeNameSchema.enum.TEXT_BLOCK,
+          type: UITypeNameEnum.TEXT_BLOCK,
           sectionProps: {
             name: s.title,
             size: { width: 300, height: 300 },

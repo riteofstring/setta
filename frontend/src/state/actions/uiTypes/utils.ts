@@ -1,40 +1,40 @@
-import { UITypeNameSchema, UITypePresetTypeSchema } from "utils/generatedTypes";
+import { UITypeNameEnum, UITypePresetTypeEnum } from "utils/generatedTypes";
 
 export function getIsRoot(sectionTypeName) {
   return [
-    UITypeNameSchema.enum.LIST_ROOT,
-    UITypeNameSchema.enum.DICT_ROOT,
-    UITypeNameSchema.enum.GROUP,
+    UITypeNameEnum.LIST_ROOT,
+    UITypeNameEnum.DICT_ROOT,
+    UITypeNameEnum.GROUP,
   ].includes(sectionTypeName);
 }
 
 export const uiTypesToPretty = {
-  [UITypeNameSchema.enum.TEXT]: "Text",
-  [UITypeNameSchema.enum.SLIDER]: "Slider",
-  [UITypeNameSchema.enum.SWITCH]: "Switch",
-  [UITypeNameSchema.enum.COLOR_PICKER]: "Color Picker",
-  [UITypeNameSchema.enum.DROPDOWN]: "Dropdown",
-  [UITypeNameSchema.enum.PASSWORD]: "Password",
-  [UITypeNameSchema.enum.SECTION]: "Object",
-  [UITypeNameSchema.enum.LIST_ROOT]: "List of Objects",
-  [UITypeNameSchema.enum.DICT_ROOT]: "Dict of Objects",
-  [UITypeNameSchema.enum.GROUP]: "Group",
-  [UITypeNameSchema.enum.IMAGE]: "Image",
-  [UITypeNameSchema.enum.CHART]: "Chart",
-  [UITypeNameSchema.enum.DRAW]: "Drawing Area",
-  [UITypeNameSchema.enum.TEXT_BLOCK]: "Text Block",
-  [UITypeNameSchema.enum.SOCIAL]: "Social",
-  [UITypeNameSchema.enum.GLOBAL_VARIABLES]: "Global Variables",
-  [UITypeNameSchema.enum.CODE]: "Code",
-  [UITypeNameSchema.enum.TERMINAL]: "Terminal",
+  [UITypeNameEnum.TEXT]: "Text",
+  [UITypeNameEnum.SLIDER]: "Slider",
+  [UITypeNameEnum.SWITCH]: "Switch",
+  [UITypeNameEnum.COLOR_PICKER]: "Color Picker",
+  [UITypeNameEnum.DROPDOWN]: "Dropdown",
+  [UITypeNameEnum.PASSWORD]: "Password",
+  [UITypeNameEnum.SECTION]: "Object",
+  [UITypeNameEnum.LIST_ROOT]: "List of Objects",
+  [UITypeNameEnum.DICT_ROOT]: "Dict of Objects",
+  [UITypeNameEnum.GROUP]: "Group",
+  [UITypeNameEnum.IMAGE]: "Image",
+  [UITypeNameEnum.CHART]: "Chart",
+  [UITypeNameEnum.DRAW]: "Drawing Area",
+  [UITypeNameEnum.TEXT_BLOCK]: "Text Block",
+  [UITypeNameEnum.SOCIAL]: "Social",
+  [UITypeNameEnum.GLOBAL_VARIABLES]: "Global Variables",
+  [UITypeNameEnum.CODE]: "Code",
+  [UITypeNameEnum.TERMINAL]: "Terminal",
 };
 
 export function isBasePreset(uiType) {
-  return uiType.presetType === UITypePresetTypeSchema.enum.BASE;
+  return uiType.presetType === UITypePresetTypeEnum.BASE;
 }
 
 export function isUserPreset(uiType) {
-  return uiType.presetType === UITypePresetTypeSchema.enum.USER;
+  return uiType.presetType === UITypePresetTypeEnum.USER;
 }
 
 export function isPreset(uiType) {

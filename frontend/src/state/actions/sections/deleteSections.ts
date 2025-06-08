@@ -1,7 +1,7 @@
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,
@@ -17,7 +17,7 @@ export function deleteSections(sectionIds, state) {
   const terminalIds = idsToDelete.filter(
     (id) =>
       state.uiTypes[state.sections[id].uiTypeId].type ===
-      UITypeNameSchema.enum.TERMINAL,
+      UITypeNameEnum.TERMINAL,
   );
   removeSectionInfos(idsToDelete, state);
   if (terminalIds) {

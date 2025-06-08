@@ -8,7 +8,7 @@ import {
 } from "requests/ai";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 
@@ -355,10 +355,10 @@ function streamInto(chatId, streamTarget, content) {
       .filter(Boolean)
       .join("\n");
 
-    if (sectionType === UITypeNameSchema.enum.CODE) {
+    if (sectionType === UITypeNameEnum.CODE) {
       // Reconstruct the text with the updated streamed content in the middle
       sectionVariant.code = newContent;
-    } else if (sectionType === UITypeNameSchema.enum.TEXT_BLOCK) {
+    } else if (sectionType === UITypeNameEnum.TEXT_BLOCK) {
       sectionVariant.description = newContent;
     }
   });
@@ -395,10 +395,10 @@ export function startStreamingInto({ sectionId, insertAtLine, chatId }) {
   let currText;
   const sectionType = getSectionType(sectionId);
   switch (sectionType) {
-    case UITypeNameSchema.enum.CODE:
+    case UITypeNameEnum.CODE:
       currText = getSectionVariant(sectionId).code;
       break;
-    case UITypeNameSchema.enum.TEXT_BLOCK:
+    case UITypeNameEnum.TEXT_BLOCK:
       currText = getSectionVariant(sectionId).description;
       break;
     default:

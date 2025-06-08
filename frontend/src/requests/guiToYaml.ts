@@ -5,14 +5,14 @@ import {
 import { getParamIdsToShowInArea } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
 export async function dbGuiToYaml(sectionId, variantId) {
   const sectionType = getSectionType(sectionId);
   switch (sectionType) {
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
-    case UITypeNameSchema.enum.SECTION:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.SECTION:
       return await dbSectionToYaml(variantId);
   }
 }

@@ -14,10 +14,10 @@ import {
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import {
-  CodeInfoTypeSchema,
+  CodeInfoTypeEnum,
   createCodeInfo,
   createEVEntry,
-  UITypeNameSchema,
+  UITypeNameEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
@@ -40,8 +40,8 @@ export function yamlToGUI(sectionId) {
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[variantId] ?? "";
   switch (sectionType) {
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
-    case UITypeNameSchema.enum.SECTION:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.SECTION:
       const originalObj = useOriginalYamlObj.getState()[variantId] ?? {};
       sectionYamlToGUI(sectionId, yamlValue, originalObj);
       break;
@@ -179,7 +179,7 @@ function sectionYamlToGUI(sectionId, yamlValue, originalObj) {
         id: v.id,
         name: v.key,
         editable: v.editable ?? true,
-        rcType: CodeInfoTypeSchema.enum.parameter,
+        rcType: CodeInfoTypeEnum.PARAMETER,
         isPinned: v.isPinned,
       });
     } else {

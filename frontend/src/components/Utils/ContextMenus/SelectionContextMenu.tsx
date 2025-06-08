@@ -9,7 +9,7 @@ import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { ViewingEditingModeSchema } from "utils/generatedTypes";
+import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function SelectionContextMenu() {
@@ -102,7 +102,7 @@ export function SelectionContextMenu() {
       <Item onClick={onClickCreate}>Create Group</Item>
       <Item onClick={onClickDelete}>Delete</Item>
       <Item onClick={onClickLock}>{lockItem}</Item>
-      {viewingEditingMode === ViewingEditingModeSchema.enum.USER_EDIT && (
+      {viewingEditingMode === ViewingEditingModeEnum.USER_EDIT && (
         <Item onClick={onClickVisibility}>{visibilityItem}</Item>
       )}
     </ContextMenuCore>

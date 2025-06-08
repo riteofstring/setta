@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function useCreateSectionsList() {
   const singletonSections = useProjectState(
@@ -8,17 +8,17 @@ export function useCreateSectionsList() {
     _.isEqual,
   );
   const sectionGroupItems = [
-    { name: "Section", specificProps: { type: UITypeNameSchema.enum.SECTION } },
-    { name: "List", specificProps: { type: UITypeNameSchema.enum.LIST_ROOT } },
-    { name: "Dict", specificProps: { type: UITypeNameSchema.enum.DICT_ROOT } },
-    { name: "Group", specificProps: { type: UITypeNameSchema.enum.GROUP } },
-    { name: "Text", specificProps: { type: UITypeNameSchema.enum.TEXT_BLOCK } },
+    { name: "Section", specificProps: { type: UITypeNameEnum.SECTION } },
+    { name: "List", specificProps: { type: UITypeNameEnum.LIST_ROOT } },
+    { name: "Dict", specificProps: { type: UITypeNameEnum.DICT_ROOT } },
+    { name: "Group", specificProps: { type: UITypeNameEnum.GROUP } },
+    { name: "Text", specificProps: { type: UITypeNameEnum.TEXT_BLOCK } },
   ];
 
-  if (!singletonSections[UITypeNameSchema.enum.GLOBAL_VARIABLES]) {
+  if (!singletonSections[UITypeNameEnum.GLOBAL_VARIABLES]) {
     sectionGroupItems.push({
       name: "Global Variables",
-      specificProps: { type: UITypeNameSchema.enum.GLOBAL_VARIABLES },
+      specificProps: { type: UITypeNameEnum.GLOBAL_VARIABLES },
     });
   }
 
@@ -26,28 +26,28 @@ export function useCreateSectionsList() {
     {
       name: "Python Code",
       specificProps: {
-        type: UITypeNameSchema.enum.CODE,
+        type: UITypeNameEnum.CODE,
         sectionProps: { codeLanguage: "python" },
       },
     },
     {
       name: "Bash Script",
       specificProps: {
-        type: UITypeNameSchema.enum.CODE,
+        type: UITypeNameEnum.CODE,
         sectionProps: { codeLanguage: "bash" },
       },
     },
     {
       name: "Terminal",
-      specificProps: { type: UITypeNameSchema.enum.TERMINAL },
+      specificProps: { type: UITypeNameEnum.TERMINAL },
     },
   ];
 
-  if (!singletonSections[UITypeNameSchema.enum.GEN_PYTHON_CODE]) {
+  if (!singletonSections[UITypeNameEnum.GEN_PYTHON_CODE]) {
     codeGroupItems.push({
       name: "Show Generated Python",
       specificProps: {
-        type: UITypeNameSchema.enum.GEN_PYTHON_CODE,
+        type: UITypeNameEnum.GEN_PYTHON_CODE,
       },
     });
   }
@@ -66,14 +66,14 @@ export function useCreateSectionsList() {
       items: [
         {
           name: "Drawing Area",
-          specificProps: { type: UITypeNameSchema.enum.DRAW },
+          specificProps: { type: UITypeNameEnum.DRAW },
         },
-        { name: "Image", specificProps: { type: UITypeNameSchema.enum.IMAGE } },
-        { name: "Chart", specificProps: { type: UITypeNameSchema.enum.CHART } },
-        { name: "Chat", specificProps: { type: UITypeNameSchema.enum.CHAT } },
+        { name: "Image", specificProps: { type: UITypeNameEnum.IMAGE } },
+        { name: "Chart", specificProps: { type: UITypeNameEnum.CHART } },
+        { name: "Chat", specificProps: { type: UITypeNameEnum.CHAT } },
         {
           name: "Browser",
-          specificProps: { type: UITypeNameSchema.enum.BROWSER },
+          specificProps: { type: UITypeNameEnum.BROWSER },
         },
       ],
     },
@@ -82,11 +82,11 @@ export function useCreateSectionsList() {
       items: [
         {
           name: "Social",
-          specificProps: { type: UITypeNameSchema.enum.SOCIAL },
+          specificProps: { type: UITypeNameEnum.SOCIAL },
         },
         {
           name: "IFrame",
-          specificProps: { type: UITypeNameSchema.enum.IFRAME },
+          specificProps: { type: UITypeNameEnum.IFRAME },
         },
       ],
     },

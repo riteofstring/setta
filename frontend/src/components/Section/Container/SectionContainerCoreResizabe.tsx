@@ -4,7 +4,7 @@ import { getIsUserView } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
@@ -73,7 +73,7 @@ export function SectionContainerCoreResizable({
 
 function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
   switch (sectionTypeName) {
-    case UITypeNameSchema.enum.SECTION:
+    case UITypeNameEnum.SECTION:
       return (
         <InputArea
           sectionId={sectionId}
@@ -81,17 +81,17 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
           isUserView={isUserView}
         />
       );
-    case UITypeNameSchema.enum.IMAGE:
+    case UITypeNameEnum.IMAGE:
       return <ImageArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.CHART:
+    case UITypeNameEnum.CHART:
       return <ChartArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.DRAW:
+    case UITypeNameEnum.DRAW:
       return <DrawArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.SOCIAL:
+    case UITypeNameEnum.SOCIAL:
       return <SocialArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.TEXT_BLOCK:
+    case UITypeNameEnum.TEXT_BLOCK:
       return <TextBlock sectionId={sectionId} />;
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
       return (
         <GlobalVariablesArea
           sectionId={sectionId}
@@ -99,17 +99,17 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
           isUserView={isUserView}
         />
       );
-    case UITypeNameSchema.enum.CODE:
+    case UITypeNameEnum.CODE:
       return <CodeArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
+    case UITypeNameEnum.GEN_PYTHON_CODE:
       return <GenPythonCodeArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.TERMINAL:
+    case UITypeNameEnum.TERMINAL:
       return <TerminalArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.IFRAME:
+    case UITypeNameEnum.IFRAME:
       return <IframeArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.CHAT:
+    case UITypeNameEnum.CHAT:
       return <ChatArea sectionId={sectionId} />;
-    case UITypeNameSchema.enum.BROWSER:
+    case UITypeNameEnum.BROWSER:
       return <BrowserArea sectionId={sectionId} />;
     default:
       return null;

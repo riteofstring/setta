@@ -8,7 +8,7 @@ import {
 } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { UITypePresetTypeSchema } from "utils/generatedTypes";
+import { UITypePresetTypeEnum } from "utils/generatedTypes";
 import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {
@@ -54,7 +54,7 @@ function filterUITypes(
     id: v.id,
     name: createName(v),
     presetType: v.presetType,
-    displayType: v.presetType ?? UITypePresetTypeSchema.enum.BASE, // display non-preset types as "base" types
+    displayType: v.presetType ?? UITypePresetTypeEnum.BASE, // display non-preset types as "base" types
   }));
 }
 

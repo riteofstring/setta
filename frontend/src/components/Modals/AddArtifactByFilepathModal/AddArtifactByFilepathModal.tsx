@@ -9,7 +9,7 @@ import { setModalOpen } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
-import { ArtifactTypeSchema, UITypeNameSchema } from "utils/generatedTypes";
+import { ArtifactTypeEnum, UITypeNameEnum } from "utils/generatedTypes";
 
 export function AddArtifactByFilepathModal() {
   const sectionId = useModal((x) => x.modalData);
@@ -26,16 +26,16 @@ export function AddArtifactByFilepathModal() {
   };
 
   const shouldCreateNewArtifactGroup = () => {
-    return getSectionType(sectionId) === UITypeNameSchema.enum.DRAW;
+    return getSectionType(sectionId) === UITypeNameEnum.DRAW;
   };
 
   const getArtifactType = () => {
     switch (getSectionType(sectionId)) {
-      case UITypeNameSchema.enum.DRAW:
-      case UITypeNameSchema.enum.IMAGE:
-        return ArtifactTypeSchema.enum.IMG;
-      case UITypeNameSchema.enum.CHART:
-        return ArtifactTypeSchema.enum.LIST;
+      case UITypeNameEnum.DRAW:
+      case UITypeNameEnum.IMAGE:
+        return ArtifactTypeEnum.IMG;
+      case UITypeNameEnum.CHART:
+        return ArtifactTypeEnum.LIST;
     }
   };
 

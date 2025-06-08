@@ -9,8 +9,7 @@ import {
 import {
   createCodeInfoCol,
   createEVEntry,
-  ViewingEditingMode,
-  ViewingEditingModeSchema,
+  ViewingEditingModeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
@@ -334,9 +333,7 @@ function deleteSectionVariant(sectionId, variantId, isCurr) {
 }
 
 export function getSectionShouldRender(visibility, viewingEditingMode) {
-  return (
-    visibility || viewingEditingMode !== ViewingEditingModeSchema.enum.USER
-  );
+  return visibility || viewingEditingMode !== ViewingEditingModeEnum.USER;
 }
 
 export function getSectionViewingEditingModeVisibility(
@@ -355,23 +352,23 @@ export function getSectionViewingEditingModeVisibility(
 
 export function getSectionVisibilityKey(viewingEditingMode) {
   switch (viewingEditingMode) {
-    case ViewingEditingModeSchema.enum.DEV:
-    case ViewingEditingModeSchema.enum.USER:
+    case ViewingEditingModeEnum.DEV:
+    case ViewingEditingModeEnum.USER:
       return viewingEditingMode;
-    case ViewingEditingModeSchema.enum.USER_EDIT:
-      return ViewingEditingModeSchema.enum.USER;
+    case ViewingEditingModeEnum.USER_EDIT:
+      return ViewingEditingModeEnum.USER;
   }
 }
 
 export function getSectionVisibilityKeyForDisplay(
-  viewingEditingMode: ViewingEditingMode,
+  viewingEditingMode: ViewingEditingModeEnum,
 ) {
   switch (viewingEditingMode) {
-    case ViewingEditingModeSchema.enum.USER:
+    case ViewingEditingModeEnum.USER:
       return viewingEditingMode;
-    case ViewingEditingModeSchema.enum.DEV:
-    case ViewingEditingModeSchema.enum.USER_EDIT:
-      return ViewingEditingModeSchema.enum.DEV;
+    case ViewingEditingModeEnum.DEV:
+    case ViewingEditingModeEnum.USER_EDIT:
+      return ViewingEditingModeEnum.DEV;
   }
 }
 
@@ -395,7 +392,7 @@ export function getAncestorSameVisibility(
 }
 
 export function getIsUserView(viewingEditingMode) {
-  return viewingEditingMode === ViewingEditingModeSchema.enum.USER;
+  return viewingEditingMode === ViewingEditingModeEnum.USER;
 }
 
 export function getCurrentSectionConfigs(

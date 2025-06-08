@@ -4,7 +4,7 @@ import {
 } from "state/actions/uiTypes/cloneUITypes";
 import { useProjectState } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionInfos";
 import { setParamUITypeId } from "./setParamUITypeId";
@@ -76,7 +76,7 @@ function createNonPresetForParam({
 function updateEVs(uiTypeId, configName, state) {
   const uiType = state.uiTypes[uiTypeId];
   if (
-    uiType.type === UITypeNameSchema.enum.SLIDER &&
+    uiType.type === UITypeNameEnum.SLIDER &&
     ["min", "max"].includes(configName)
   ) {
     _updateEVs(uiType, state);

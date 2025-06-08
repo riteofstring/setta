@@ -16,8 +16,8 @@ import {
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import {
   ProjectStateSingleConfig,
-  SettaNotificationTypeSchema,
-  UITypeNameSchema,
+  SettaNotificationTypeEnum,
+  UITypeNameEnum,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
@@ -89,7 +89,7 @@ export function getProjectData({
 }
 
 export async function saveProject() {
-  addTemporaryNotification("Saving...", SettaNotificationTypeSchema.enum.save);
+  addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
 
   if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));
@@ -151,7 +151,7 @@ export async function getProjectDataForSaving() {
 async function updateSectionsWithRenderedValues(sections) {
   for (const sectionId of Object.keys(sections)) {
     if (
-      [UITypeNameSchema.enum.DRAW, UITypeNameSchema.enum.CHART].includes(
+      [UITypeNameEnum.DRAW, UITypeNameEnum.CHART].includes(
         getSectionType(sectionId),
       )
     ) {

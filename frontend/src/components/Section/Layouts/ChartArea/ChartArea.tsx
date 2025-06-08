@@ -9,7 +9,7 @@ import {
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ArtifactTypeSchema } from "utils/generatedTypes";
+import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,
@@ -24,7 +24,7 @@ function _ChartArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    ArtifactTypeSchema.enum.LIST,
+    ArtifactTypeEnum.LIST,
   );
 
   return (

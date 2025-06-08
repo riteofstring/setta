@@ -2,7 +2,7 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
-import { UITypeNameSchema } from "./generatedTypes";
+import { UITypeNameEnum } from "./generatedTypes";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {
@@ -145,7 +145,7 @@ function shiftTabBackToOverviewListItem(e, sectionId) {
 
 export function focusOnSection(e, sectionId, focusOnFirstElement = true) {
   e?.preventDefault();
-  if (getSectionType(sectionId) === UITypeNameSchema.enum.GROUP) {
+  if (getSectionType(sectionId) === UITypeNameEnum.GROUP) {
     useSectionRefs
       .getState()
       .withNested[sectionId].focus({ preventScroll: true });

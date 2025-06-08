@@ -2,7 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
@@ -77,14 +77,14 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 
 function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
-    case UITypeNameSchema.enum.TEXT_BLOCK:
+    case UITypeNameEnum.TEXT_BLOCK:
       return [
         RenderTextBlock,
         ConvertFormat,
         CreateNewVersionButton,
         ResetToDefaultVersion,
       ];
-    case UITypeNameSchema.enum.SECTION:
+    case UITypeNameEnum.SECTION:
       return [
         CreateNewVersionButton,
         HideShowSearchButton,
@@ -94,7 +94,7 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
+    case UITypeNameEnum.GLOBAL_VARIABLES:
       return [
         CreateNewVersionButton,
         HideShowUnpinnedParamsButton,
@@ -102,17 +102,17 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case UITypeNameSchema.enum.LIST_ROOT:
-    case UITypeNameSchema.enum.DICT_ROOT:
-    case UITypeNameSchema.enum.CODE:
+    case UITypeNameEnum.LIST_ROOT:
+    case UITypeNameEnum.DICT_ROOT:
+    case UITypeNameEnum.CODE:
       return [CreateNewVersionButton, ResetToDefaultVersion];
-    case UITypeNameSchema.enum.GROUP:
+    case UITypeNameEnum.GROUP:
       return [UngroupButton];
-    case UITypeNameSchema.enum.DRAW:
-    case UITypeNameSchema.enum.IMAGE:
-    case UITypeNameSchema.enum.CHART:
+    case UITypeNameEnum.DRAW:
+    case UITypeNameEnum.IMAGE:
+    case UITypeNameEnum.CHART:
       return [AddArtifactByFilepath];
-    case UITypeNameSchema.enum.BROWSER:
+    case UITypeNameEnum.BROWSER:
       return [HideColumn];
     default:
       return [];

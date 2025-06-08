@@ -2,7 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
@@ -14,7 +14,7 @@ export function groupSections({ sectionIds, position, name }) {
   useProjectState.setState((state) => {
     groupId = addSectionAtPosition({
       sectionProps: { name },
-      type: UITypeNameSchema.enum.GROUP,
+      type: UITypeNameEnum.GROUP,
       position,
       state,
     });
@@ -52,7 +52,7 @@ export async function groupActiveSections() {
 }
 
 export function ungroupGroup(groupId, state) {
-  if (getSectionType(groupId, state) !== UITypeNameSchema.enum.GROUP) {
+  if (getSectionType(groupId, state) !== UITypeNameEnum.GROUP) {
     return;
   }
   const childIds = getSectionVariant(groupId, state).children;

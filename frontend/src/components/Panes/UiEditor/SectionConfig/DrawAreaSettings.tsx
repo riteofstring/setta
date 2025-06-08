@@ -1,7 +1,7 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameEnum } from "utils/generatedTypes";
 import { LayerListAndListOfArtifacts } from "./ListOfArtifacts";
 
 export function DrawAreaSettings({ sectionId }) {
@@ -10,7 +10,7 @@ export function DrawAreaSettings({ sectionId }) {
       <DrawAreaAvailableColors sectionId={sectionId} />
       <LayerListAndListOfArtifacts
         sectionId={sectionId}
-        sectionTypeName={UITypeNameSchema.enum.DRAW}
+        sectionTypeName={UITypeNameEnum.DRAW}
       />
     </>
   );
