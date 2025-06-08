@@ -12,6 +12,7 @@ import {
   SettaNotification,
   SettingsState,
   UITypeNameSchema,
+  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -199,8 +200,12 @@ export const useTypeErrors = withProjectState(
   ),
 );
 
+type ZustandWebsocketConnectionList = {
+  connections: Array<WebsocketConnectionInfo>;
+};
+
 export const useWebsocketConnectionList = createWithEqualityFn(
-  withResetFn(() => ({
+  withResetFn<ZustandWebsocketConnectionList>(() => ({
     connections: [],
   })),
 );
