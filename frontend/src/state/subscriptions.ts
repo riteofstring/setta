@@ -39,7 +39,7 @@ export function subscribe() {
       });
       dbFileWatchGenPythonCode({
         watch: Boolean(x[C.GEN_PYTHON_CODE]),
-        projectConfigId: useProjectState.getState().projectConfigId,
+        projectConfigId: useProjectState.getState().projectConfig.id,
       });
     },
     { equalityFn: _.isEqual },

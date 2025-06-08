@@ -11,7 +11,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   post({
     body: { projectConfigId },
     address: C.ROUTE_TYPE_CHECK,
@@ -23,7 +23,7 @@ export async function wsSetSelectedItem(
   selectedItemName: string,
   refetchParams: boolean = false,
 ) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -38,7 +38,7 @@ export async function wsSetSelectedItem(
 }
 
 export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -58,7 +58,7 @@ export async function wsTextFieldCompletion({
   fullText,
   position,
 }) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
 
   return await sendMessageAndWait({
     id: createNewId(),
@@ -74,7 +74,7 @@ export async function wsTextFieldCompletion({
 }
 
 export async function wsClearTextFieldCompletion({ sectionId, paramInfoId }) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
 
   sendMessage({
     id: createNewId(),
@@ -88,7 +88,7 @@ export async function wsClearTextFieldCompletion({ sectionId, paramInfoId }) {
 }
 
 export async function wsGenCodePrefixCompletion({ fullText, position }) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
 
   return await sendMessageAndWait({
     id: createNewId(),

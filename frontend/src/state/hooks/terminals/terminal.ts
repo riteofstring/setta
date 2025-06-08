@@ -87,7 +87,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 }
 
 function newTerminalWebsocket(sectionId) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   const id = createNewId();
   const isTemporary =
     !!useProjectState.getState().sections[sectionId].isTemporary;
@@ -152,7 +152,7 @@ function removeWsFromArray(x, ws) {
 
 export async function restoreTerminals() {
   const res = await dbGetExistingTerminals(
-    useProjectState.getState().projectConfigId,
+    useProjectState.getState().projectConfig.id,
   );
   if (res.status === 200) {
     const existingTerminalInfo = res.data;
@@ -219,7 +219,7 @@ export function createTemporaryTerminalFromBackend({
   projectConfigId,
   terminalId,
 }) {
-  if (useProjectState.getState().projectConfigId !== projectConfigId) {
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
     return;
   }
   useProjectState.setState((state) => {

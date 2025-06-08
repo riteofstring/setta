@@ -23,6 +23,7 @@ from setta.types.helpers import (
     get_children_of_selected_item,
     get_section_type,
     get_top_level_sections,
+    merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
 )
@@ -179,7 +180,6 @@ class ProjectManager:
         projectState: ProjectStateSingleConfig,
         requestRenameRefactor: bool = False,
     ):
-        print("projectState", projectState)
         await self.update(projectState, requestRenameRefactor, messageId)
 
     async def update(
@@ -490,14 +490,4 @@ class ProjectManager:
         )
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
-        p = self.project_state_backend
-        return ProjectStateBackend(
-            sections={**p.sections, **x.sections},
-            variants={**p.variants, **x.variants},
-            codeInfo={**p.codeInfo, **x.codeInfo},
-            codeInfoCols={**p.codeInfoCols, **x.codeInfoCols},
-            uiTypes={**p.uiTypes, **x.uiTypes},
-            uiTypeCols={**p.uiTypeCols, **x.uiTypeCols},
-            projectConfigs={**p.projectConfigs, x.projectConfig.id: x.projectConfig},
-            defaultProjectConfigId=p.defaultProjectConfigId,
-        )
+        return merge_single_config_into_backend(self.project_state_backend, x)

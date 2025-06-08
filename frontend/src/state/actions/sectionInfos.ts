@@ -90,7 +90,7 @@ export function processProjectStateUpdateFromBackend(content) {
   useProjectState.setState(content);
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(
-      content.projectConfigs[useProjectState.getState().projectConfigId],
+      content.projectConfigs[useProjectState.getState().projectConfig.id],
       content.sections,
     ),
   });

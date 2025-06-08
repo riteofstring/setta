@@ -4,7 +4,7 @@ import { addTemporaryNotification } from "./notifications";
 
 export function processTypeErrors(content) {
   const { projectConfigId, codeSectionId, diagnostics } = content;
-  if (projectConfigId !== useProjectState.getState().projectConfigId) {
+  if (projectConfigId !== useProjectState.getState().projectConfig.id) {
     return;
   }
 

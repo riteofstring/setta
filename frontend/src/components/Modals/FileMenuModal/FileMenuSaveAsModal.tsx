@@ -15,7 +15,7 @@ export function FileMenuSaveAsModal({ open, modalType }) {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
   async function onClickSaveAsProject({ selected, filename }) {
-    if (selected === useProjectState.getState().projectConfigId) {
+    if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
     } else {
       selected

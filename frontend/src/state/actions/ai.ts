@@ -21,7 +21,7 @@ export function getDefaultChatDetails() {
 }
 
 export async function getLLMChat(chatId) {
-  const projectConfigId = useProjectState.getState().projectConfigId;
+  const projectConfigId = useProjectState.getState().projectConfig.id;
   const res = await dbGetLLMChat(chatId, projectConfigId);
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
@@ -80,7 +80,7 @@ export async function submitMessage(message, deepThink) {
 
   try {
     const res = await dbGetLLMResponse(
-      useProjectState.getState().projectConfigId,
+      useProjectState.getState().projectConfig.id,
       state.userSelectedLLM,
       userMessage,
       deepThink,

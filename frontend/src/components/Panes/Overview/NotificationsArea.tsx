@@ -31,7 +31,7 @@ export function NotificationsArea() {
     _.isEqual,
   );
 
-  const projectConfigId = useProjectState((x) => x.projectConfigId);
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
 
   // Fetch notifications when component mounts
   useEffect(() => {

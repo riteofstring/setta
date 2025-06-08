@@ -37,6 +37,24 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
     )
 
 
+def merge_single_config_into_backend(
+    x: ProjectStateBackend, config: ProjectStateSingleConfig
+):
+    return ProjectStateBackend(
+        sections={**x.sections, **config.sections},
+        variants={**x.variants, **config.variants},
+        codeInfo={**x.codeInfo, **config.codeInfo},
+        codeInfoCols={**x.codeInfoCols, **config.codeInfoCols},
+        uiTypes={**x.uiTypes, **config.uiTypes},
+        uiTypeCols={**x.uiTypeCols, **config.uiTypeCols},
+        projectConfigs={
+            **x.projectConfigs,
+            config.projectConfig.id: config.projectConfig,
+        },
+        defaultProjectConfigId=x.defaultProjectConfigId,
+    )
+
+
 def get_section_type(p: ProjectStateSingleConfig, id: str):
     ui_type_id = p.sections[id].uiTypeId
     ui_type = p.uiTypes[ui_type_id]

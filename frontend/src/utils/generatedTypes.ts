@@ -936,19 +936,6 @@ export function createSettaNotification(
   return SettaNotificationSchema.parse(options);
 }
 
-export const ProjectSaveStateSchema = z.object({
-  projectConfigId: z.string(),
-  projectState: ProjectStateBackendSchema,
-});
-
-export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
-
-export function createProjectSaveState(
-  options: Partial<ProjectSaveState> = {},
-): ProjectSaveState {
-  return ProjectSaveStateSchema.parse(options);
-}
-
 export const ProjectStateCoreSchema = z.object({
   sections: z.record(z.string(), SectionSchema).default({}),
   variants: z.record(z.string(), SectionVariantSchema).default({}),
