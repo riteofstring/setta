@@ -134,6 +134,14 @@ class ProjectService:
             except Exception as e:
                 print(f"Error deleting Fly.io app: {str(e)}")
 
+        if project.url and "fly.dev" in project.url:
+            try:
+                app_name = project.url.split("//")[1].split(".")[0]
+                print(f"Deleting Fly.io app: {app_name}")
+                await asyncio.to_thread(self.fly.delete_app, app_name)
+            except Exception as e:
+                print(f"Error deleting Fly.io app: {e}")
+
         # Delete from database
         self.db.delete(project)
         self.db.commit()
