@@ -9,8 +9,6 @@ from setta.database.db.notifications.load import (
     load_project_notifications,
 )
 from setta.database.db.projects.save import (
-    ProjectNameTaken,
-    save_project_config_name,
     save_project_state,
 )
 from setta.database.db.projects.saveAs import (
@@ -21,7 +19,7 @@ from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.types.helpers import ProjectNotFound, confirm_config_name
+from setta.types.helpers import ProjectNameTaken, ProjectNotFound, confirm_config_name
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectLoadState,
@@ -208,13 +206,15 @@ async def route_delete_project_configs(
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
-def route_set_project_config_name(
+async def route_set_project_config_name(
     x: SetProjectConfigNameRequest,
-    dbe=Depends(get_dbe),
+    dbe: DBE = Depends(get_dbe),
+    project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
+        await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         with dbe.session as db:
-            save_project_config_name(db, x.projectConfigId, x.newName)
+            save_project_state(db, project_manager.project_state)
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 

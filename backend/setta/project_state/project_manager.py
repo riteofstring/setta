@@ -22,6 +22,7 @@ from setta.types.helpers import (
     get_section_type,
     get_top_level_sections,
     set_param_entered_value,
+    set_project_config_name,
 )
 from setta.types.project_state import (
     CodeLanguage,
@@ -440,6 +441,10 @@ class ProjectManager:
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: str):
         self.project_state.defaultProjectConfigId = projectConfigId
+
+    @enqueue_method
+    async def set_project_config_name(self, projectConfigId: str, newName: str):
+        set_project_config_name(self.project_state, projectConfigId, newName)
 
     def get_default_project_config_name(self):
         if self.project_state.defaultProjectConfigId:

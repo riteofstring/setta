@@ -15,6 +15,10 @@ class ProjectNotFound(Exception):
     pass
 
 
+class ProjectNameTaken(Exception):
+    pass
+
+
 def get_section_type(p: ProjectState, id: str):
     ui_type_id = p.sections[id].uiTypeId
     ui_type = p.uiTypes[ui_type_id]
@@ -180,3 +184,10 @@ def confirm_config_name(p: ProjectState, projectConfigName: str):
         if projectConfigName == config.name:
             return projectConfigId
     raise ProjectNotFound
+
+
+def set_project_config_name(p: ProjectState, projectConfigId: str, newName: str):
+    for k, v in p.projectConfigs.items():
+        if k != projectConfigId and v.name == newName:
+            raise ProjectNameTaken(f"{newName} is already taken")
+    p.projectConfigs[projectConfigId].name = newName
