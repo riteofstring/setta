@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
 export const useTypewriterEffect = (
-  fullText,
+  fullText: string,
   isStreaming = false,
   typingSpeed = 5,
 ) => {
   // Initialize state with the full text to avoid empty initial render
   const [displayedText, setDisplayedText] = useState(fullText || "");
   const previousTextRef = useRef(fullText || "");
-  const animationRef = useRef(null);
+  const animationRef = useRef<number | null>(null);
   const indexRef = useRef(fullText ? fullText.length : 0);
   const firstRenderRef = useRef(true);
 
@@ -82,7 +82,9 @@ export const useTypewriterEffect = (
           indexRef.current++;
           setDisplayedText(fullText.substring(0, indexRef.current));
         } else {
-          clearInterval(animationRef.current);
+          if (animationRef.current !== null) {
+            clearInterval(animationRef.current);
+          }
           animationRef.current = null;
         }
       }, typingSpeed);
