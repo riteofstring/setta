@@ -9,21 +9,6 @@ export function createNewId() {
   return uuidv4();
 }
 
-export function createVarName(existingVarNames) {
-  const customConfig = {
-    dictionaries: [adjectives, colors],
-    separator: "_",
-    length: 2,
-  };
-
-  let varName;
-  while (!varName || existingVarNames.includes(varName)) {
-    varName = uniqueNamesGenerator(customConfig);
-  }
-
-  return varName;
-}
-
 export function createRandomName() {
   const customConfig = {
     dictionaries: [adjectives, colors],

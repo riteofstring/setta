@@ -16,19 +16,6 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
   }, _.isEqual);
 }
 
-export function useGetSectionVariantNames(sectionId) {
-  return useProjectState(
-    (x) =>
-      sectionId
-        ? x.sections[sectionId].variantIds.map((e) => ({
-            id: e,
-            name: x.variants[e].name,
-          }))
-        : [],
-    _.isEqual,
-  );
-}
-
 export function useListElementIdx(sectionId) {
   return useProjectState((x) => {
     const parentId = x.sections[sectionId].parentId;

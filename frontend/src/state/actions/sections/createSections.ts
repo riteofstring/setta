@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
@@ -170,15 +169,4 @@ export function createSectionInfo({
   }
 
   return newIds;
-}
-
-export function createAdjacentSection(sectionId, sectionProps, state) {
-  const { x, y, width } = getSectionRect(sectionId);
-
-  const position = {
-    x: x + width,
-    y,
-  };
-
-  createSectionInfo({ sectionProps, position, state });
 }

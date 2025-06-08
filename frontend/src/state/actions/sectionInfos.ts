@@ -2,7 +2,6 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
 import {
   createCodeInfoCol,
   createEVEntry,
@@ -45,31 +44,6 @@ export function getHighestAncestor(
   }
 
   return highestAncestor;
-}
-
-export function getSectionPathFullName(sectionId, state) {
-  let parentId = state.sections[sectionId].parentId;
-  if (!parentId) {
-    return state.sections[sectionId].name;
-  }
-
-  let childId = sectionId;
-  let output = "";
-  while (parentId) {
-    if (getSectionType(parentId, state) === C.LIST_ROOT) {
-      const idx = getSectionVariant(parentId, state).children.indexOf(
-        sectionId,
-      );
-      output = `[${idx}]${output}`;
-    } else {
-      output = `["${state.sections[childId].name}"]${output}`;
-    }
-    childId = parentId;
-    parentId = state.sections[parentId].parentId;
-  }
-
-  // childId will contain the highest parent's id
-  return `${state.sections[childId].name}${output}`;
 }
 
 export function getSectionDescendants(sectionId, state) {
@@ -205,15 +179,6 @@ export function getDisplayedSectionIdToChildren(
         output[null].push(section.id);
       }
     }
-  }
-  return output;
-}
-
-export function getSectionIdToParentId(state) {
-  const output = {};
-  const s = state ?? useProjectState.getState();
-  for (const section of Object.values(s.sections)) {
-    output[section.id] = section.parentId;
   }
   return output;
 }
