@@ -2,8 +2,11 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getCurrentProjectConfig } from "state/actions/project/loadProject";
-import { useProjectState } from "state/definitions";
+import {
+  getCurrentProjectConfig,
+  getCurrentSectionConfigs,
+} from "state/actions/sectionInfos";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
@@ -59,7 +62,12 @@ export function useOverviewListing() {
   }, _.isEqual);
 }
 
-function getDepthListingHelper(sectionId, depth, x, outputList) {
+function getDepthListingHelper(
+  sectionId: string,
+  depth: number,
+  x: ZustandProjectState,
+  outputList,
+) {
   const section = x.sections[sectionId];
   if (section.visibility[getCurrentProjectConfig(x).viewingEditingMode])
     outputList.push({
@@ -68,7 +76,8 @@ function getDepthListingHelper(sectionId, depth, x, outputList) {
       depth: depth,
     });
 
-  const children = x.variants[section.variantId].children;
+  const { variantId } = getCurrentSectionConfigs(x)[section.id];
+  const children = x.variants[variantId].children;
   if (children) {
     for (const childId of children) {
       getDepthListingHelper(childId, depth + 1, x, outputList);

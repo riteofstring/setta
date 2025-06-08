@@ -23,8 +23,8 @@ import {
   updateNodeVisibility,
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
-import { getCurrentProjectConfig } from "./actions/project/loadProject";
 import {
+  getCurrentProjectConfig,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionType,

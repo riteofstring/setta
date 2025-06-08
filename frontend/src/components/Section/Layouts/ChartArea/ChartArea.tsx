@@ -1,6 +1,7 @@
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
+import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
@@ -41,9 +42,11 @@ function _ChartAreaCore({ sectionId }) {
     _.pick(x, ["name", "value"]),
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const size = useProjectState((x) => x.sections[sectionId].size, _.isEqual);
-  const chartSettings = useProjectState(
-    (x) => x.sections[sectionId].chartSettings,
+  const { size, chartSettings } = useProjectState(
+    (x) => ({
+      size: getCurrentSectionConfigs(x)[sectionId].size,
+      chartSettings: x.sections[sectionId],
+    }),
     _.isEqual,
   );
   const canvasRef = useRef();

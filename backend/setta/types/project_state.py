@@ -99,9 +99,6 @@ class Section(BaseModel, extra="forbid"):
     selectedVariantIds: dict[str, Any] = Field(default_factory=dict)
     paramFilter: str = ""
     isInOtherProjectConfigs: bool = False
-    aspectRatio: bool = False
-    aspectRatioExtraHeight: int = 0
-    aspectRatioExtraWidth: int = 0
     columnWidth: float | None = None
     renderedValue: Any = None
     headingAsSectionName: bool = False
@@ -110,6 +107,9 @@ class Section(BaseModel, extra="forbid"):
 class SectionConfig(BaseModel, extra="forbid"):
     variantId: str = Field(default_factory=create_new_id)
     size: SectionSize = Field(default_factory=SectionSize)
+    aspectRatio: bool = False
+    aspectRatioExtraHeight: int = 0
+    aspectRatioExtraWidth: int = 0 
     isHorizontalOrientation: bool = False
     pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
     isMinimized: bool = False

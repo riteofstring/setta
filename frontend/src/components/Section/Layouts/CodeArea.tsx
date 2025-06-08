@@ -8,6 +8,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { wsCodeAreaCompletion } from "requests/sections";
 import {
+  getCurrentSectionConfigs,
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
@@ -162,7 +163,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
 export function useCodeAreaHeight({ sectionId }) {
   const height = useProjectState((x) => {
-    return x.sections[sectionId].size.height;
+    return getCurrentSectionConfigs(x)[sectionId].size.height;
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
 

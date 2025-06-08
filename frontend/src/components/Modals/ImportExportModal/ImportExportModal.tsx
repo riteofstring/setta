@@ -4,10 +4,8 @@ import { setViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { dbAddDefaultDataForJSONImport } from "requests/projects";
-import {
-  getCurrentProjectConfig,
-  loadProjectState,
-} from "state/actions/project/loadProject";
+import { loadProjectState } from "state/actions/project/loadProject";
+import { getCurrentProjectConfig } from "state/actions/sectionInfos";
 import { useExportProjectJson } from "state/hooks/project";
 import { resetProjectStores } from "state/utils";
 

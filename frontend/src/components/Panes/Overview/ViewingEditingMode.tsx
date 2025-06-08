@@ -1,7 +1,7 @@
 import { FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
-import { getCurrentProjectConfig } from "state/actions/project/loadProject";
+import { getCurrentProjectConfig } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { ViewingEditingModeSchema } from "utils/generatedTypes";
 

@@ -51,7 +51,7 @@ def get_section_children(p: ProjectState, projectConfigId: str, id: str) -> list
 def get_top_level_param_ids(
     p: ProjectState, projectConfigId: str, id: str
 ) -> list[str]:
-    section_code_info_children = get_section_code_info_children(p, id)
+    section_code_info_children = get_section_code_info_children(p, projectConfigId, id)
     selected_item = get_selected_item(p, projectConfigId, id)
     sid = selected_item.id if selected_item else None
     if sid not in section_code_info_children:

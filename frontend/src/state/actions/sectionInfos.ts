@@ -1,7 +1,7 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   createCodeInfoCol,
   createEVEntry,
@@ -10,7 +10,6 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
-import { getCurrentProjectConfig } from "./project/loadProject";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getSectionInfo(sectionId) {
@@ -28,7 +27,7 @@ export function getSectionType(sectionId, _state = null) {
 
 export function getSectionVariant(sectionId, _state) {
   const state = _state ?? useProjectState.getState();
-  return state.variants[state.sections[sectionId].variantId];
+  return state.variants[getCurrentSectionConfigs(state)[sectionId].variantId];
 }
 
 export function getHighestAncestor(
@@ -140,11 +139,14 @@ export function getDisplayedSectionVariant(sectionId, _state) {
   return state.variants[getDisplayedSectionVariantId(sectionId, state)];
 }
 
-export function getDisplayedSectionVariantId(sectionId, _state) {
+export function getDisplayedSectionVariantId(
+  sectionId: string,
+  _state: ZustandProjectState | null,
+) {
   const state = _state ?? useProjectState.getState();
   return (
     state.sections[sectionId].previewVariantId ??
-    state.sections[sectionId].variantId
+    getCurrentSectionConfigs(state)[sectionId].variantId
   );
 }
 
@@ -355,4 +357,18 @@ export function getAncestorSameVisibility(sectionId, state) {
 
 export function getIsUserView(viewingEditingMode) {
   return viewingEditingMode === ViewingEditingModeSchema.enum.USER;
+}
+
+export function getCurrentProjectConfig(
+  _state: ZustandProjectState | null = null,
+) {
+  const state = _state ?? useProjectState.getState();
+  return state.projectConfigs[state.projectConfigId];
+}
+
+export function getCurrentSectionConfigs(
+  _state: ZustandProjectState | null = null,
+) {
+  const state = _state ?? useProjectState.getState();
+  return getCurrentProjectConfig(state).sectionConfigs;
 }

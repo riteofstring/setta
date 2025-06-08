@@ -4,8 +4,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getCurrentProjectConfig } from "state/actions/project/loadProject";
-import { getSectionVisibilityKey } from "state/actions/sectionInfos";
+import {
+  getCurrentProjectConfig,
+  getSectionVisibilityKey,
+} from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";

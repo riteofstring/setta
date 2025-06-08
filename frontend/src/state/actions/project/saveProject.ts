@@ -21,7 +21,7 @@ import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
 import { getSectionType } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
-import { getCurrentProjectConfig } from "./loadProject";
+import { getCurrentProjectConfig } from "state/actions/sectionInfos"
 
 export function getProjectData({
   withArtifacts = false,

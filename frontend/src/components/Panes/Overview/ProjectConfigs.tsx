@@ -4,8 +4,10 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import { getCurrentProjectConfig } from "state/actions/project/loadProject";
-import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
+import {
+  getCurrentProjectConfig,
+  setAllPreviewVariantIdsToNull,
+} from "state/actions/sectionInfos";
 import {
   useLocalStorage,
   useProjectLoading,

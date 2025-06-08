@@ -5,11 +5,11 @@ import {
   dbLoadAllProjectMetadata,
 } from "requests/projects";
 import {
-  getCurrentProjectConfig,
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
 import { getProjectDataForSaving } from "state/actions/project/saveProject";
+import { getCurrentProjectConfig } from "state/actions/sectionInfos";
 import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
