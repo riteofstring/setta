@@ -48,8 +48,6 @@ export class C {
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PORT = 8000;
-  static PRESET_UI_TYPE_BASE = "BASE";
-  static PRESET_UI_TYPE_USER = "USER";
   static RENAME_REFACTOR_ALWAYS_ASK = "Always Ask";
   static RENAME_REFACTOR_ALWAYS_RENAME = "Always Rename";
   static RENAME_REFACTOR_NEVER_RENAME = "Never Rename";

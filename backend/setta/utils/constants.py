@@ -44,10 +44,6 @@ class C:
         "PASSWORD",
     ]
 
-    # Preset UI types
-    PRESET_UI_TYPE_BASE = "BASE"
-    PRESET_UI_TYPE_USER = "USER"
-
     # API Routes
     ROUTE_PREFIX = "/api"
     ROUTE_SWAGGER_DOCS = "/docs"

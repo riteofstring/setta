@@ -13,12 +13,12 @@ import {
   useSectionColumnWidth,
   useSettings,
 } from "state/definitions";
-import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import {
   ProjectStateSingleConfig,
   SettaNotificationTypeSchema,
   UITypeNameSchema,
+  UITypePresetTypeSchema,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
@@ -55,7 +55,7 @@ export function getProjectData({
   const artifactGroups = useProjectState.getState().artifactGroups;
   const uiTypes = _.pickBy(
     useProjectState.getState().uiTypes,
-    (u) => u.presetType !== C.PRESET_UI_TYPE_BASE,
+    (u) => u.presetType !== UITypePresetTypeSchema.enum.BASE,
   );
   const uiTypeCols = useProjectState.getState().uiTypeCols;
 

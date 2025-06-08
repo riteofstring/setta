@@ -4,7 +4,7 @@ import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { isPreset, isUserPreset } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypePresetTypeSchema } from "utils/generatedTypes";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open, modalType }) {
@@ -23,7 +23,7 @@ export function SaveUITypeConfigModal({ open, modalType }) {
     const newUIType = cloneNewUIType({
       uiType,
       name: filename,
-      presetType: C.PRESET_UI_TYPE_USER,
+      presetType: UITypePresetTypeSchema.enum.USER,
     });
     setParamUITypeId({
       uiTypeId: newUIType.id,

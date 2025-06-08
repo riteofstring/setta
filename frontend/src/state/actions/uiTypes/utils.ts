@@ -1,5 +1,4 @@
-import { C } from "utils/c";
-import { UITypeNameSchema } from "utils/generatedTypes";
+import { UITypeNameSchema, UITypePresetTypeSchema } from "utils/generatedTypes";
 
 export function getIsRoot(sectionTypeName) {
   return [
@@ -31,11 +30,11 @@ export const uiTypesToPretty = {
 };
 
 export function isBasePreset(uiType) {
-  return uiType.presetType === C.PRESET_UI_TYPE_BASE;
+  return uiType.presetType === UITypePresetTypeSchema.enum.BASE;
 }
 
 export function isUserPreset(uiType) {
-  return uiType.presetType === C.PRESET_UI_TYPE_USER;
+  return uiType.presetType === UITypePresetTypeSchema.enum.USER;
 }
 
 export function isPreset(uiType) {
