@@ -9,12 +9,8 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
-  static CODE_AREA_GEN_CODE_NOT_INITIALIZED =
-    "CODE_AREA_GEN_CODE_NOT_INITIALIZED";
-  static DEFAULT_BASH_SCRIPT_NAME = "setta_bash_script";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
-  static DEFAULT_PYTHON_SCRIPT_NAME = "setta_python_script";
   static DEV_MODE_FRONTEND_PORT = 3000;
   static HOST = "127.0.0.1";
   static LLM_API_KEY_NAMES = {
