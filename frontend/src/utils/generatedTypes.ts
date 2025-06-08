@@ -638,6 +638,22 @@ export function createEVEntry(options: Partial<EVEntry> = {}): EVEntry {
   return EVEntrySchema.parse(options);
 }
 
+export const ProjectConfigChildSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zIndex: z.int().default(0),
+  w: z.number().default(1),
+  h: z.number().default(1),
+});
+
+export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
+
+export function createProjectConfigChild(
+  options: Partial<ProjectConfigChild> = {},
+): ProjectConfigChild {
+  return ProjectConfigChildSchema.parse(options);
+}
+
 export const SectionSizeSchema = z.object({
   width: z.union([z.number(), z.literal("auto")]).default("auto"),
   height: z.union([z.number(), z.literal("auto")]).default("auto"),
@@ -722,22 +738,6 @@ export function createSectionConfig(
   return SectionConfigSchema.parse(options);
 }
 
-export const ProjectConfigChildSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zIndex: z.int().default(0),
-  w: z.number().default(1),
-  h: z.number().default(1),
-});
-
-export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
-
-export function createProjectConfigChild(
-  options: Partial<ProjectConfigChild> = {},
-): ProjectConfigChild {
-  return ProjectConfigChildSchema.parse(options);
-}
-
 export const ViewportSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -812,7 +812,6 @@ export const SectionSchema = z.object({
   chartSettings: ChartSettingsSchema.default(createChartSettings),
   isTemporary: z.boolean().default(false),
   renderMarkdown: z.boolean().default(false),
-  selectedVariantIds: z.record(z.string(), z.any()).default({}),
   paramFilter: z.string().default(""),
   isInOtherProjectConfigs: z.boolean().default(false),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -866,6 +865,34 @@ export function createProjectState(
   options: Partial<ProjectState> = {},
 ): ProjectState {
   return ProjectStateSchema.parse(options);
+}
+
+export const PositionSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+});
+
+export type Position = z.infer<typeof PositionSchema>;
+
+export function createPosition(options: Partial<Position> = {}): Position {
+  return PositionSchema.parse(options);
+}
+
+export const SimplifiedSectionCreationSchema = z.object({
+  name: z.string(),
+  position: PositionSchema.default(createPosition),
+  size: SectionSizeSchema.default(createSectionSize),
+  type: UITypeNameSchema.default("SECTION"),
+});
+
+export type SimplifiedSectionCreation = z.infer<
+  typeof SimplifiedSectionCreationSchema
+>;
+
+export function createSimplifiedSectionCreation(
+  options: Partial<SimplifiedSectionCreation> = {},
+): SimplifiedSectionCreation {
+  return SimplifiedSectionCreationSchema.parse(options);
 }
 
 export const SettaNotificationSchema = z.object({

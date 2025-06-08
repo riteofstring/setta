@@ -101,7 +101,6 @@ class Section(BaseModel, extra="forbid"):
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
     isTemporary: bool = False
     renderMarkdown: bool = False
-    selectedVariantIds: dict[str, Any] = Field(default_factory=dict)
     paramFilter: str = ""
     isInOtherProjectConfigs: bool = False
     columnWidth: float | None = None
