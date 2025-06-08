@@ -17,7 +17,7 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.types.getters import (
+from setta.types.helpers import (
     get_children_of_selected_item,
     get_section_type,
     get_top_level_sections,
@@ -423,12 +423,26 @@ class ProjectManager:
             "projectMetadata": projectMetadata,
         }
 
-    def create_project_config(self, previewImgColor: str):
+    @enqueue_method
+    async def create_project_config(self, previewImgColor: str):
         new_project_config = ProjectConfig(previewImgColor=previewImgColor)
         project_config_id = new_project_config.id
         self.project_state.projectConfigs[project_config_id] = new_project_config
+        self.project_state.ensure_default_project_id()
         return new_project_config.name
 
-    def delete_project_configs(self, project_config_ids: list[str]):
+    @enqueue_method
+    async def delete_project_configs(self, project_config_ids: list[str]):
         for id in project_config_ids:
             del self.project_state.projectConfigs[id]
+        self.project_state.ensure_default_project_id()
+
+    @enqueue_method
+    async def set_as_default_project(self, projectConfigId: str):
+        self.project_state.defaultProjectConfigId = projectConfigId
+
+    def get_default_project_config_name(self):
+        if self.project_state.defaultProjectConfigId:
+            defaultId = self.project_state.defaultProjectConfigId
+            return self.project_state.projectConfigs[defaultId].name
+        return None

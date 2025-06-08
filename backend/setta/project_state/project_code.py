@@ -21,7 +21,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
-from setta.types.getters import (
+from setta.types.helpers import (
     add_code_info,
     create_children_code_info,
     get_section_path_full_name,

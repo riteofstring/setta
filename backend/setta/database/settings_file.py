@@ -6,7 +6,7 @@ from pathlib import Path
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
-from setta.types.getters import get_selected_section_variant
+from setta.types.helpers import get_selected_section_variant
 from setta.types.project_state import (
     ProjectLoadState,
     ProjectSaveState,

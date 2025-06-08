@@ -215,26 +215,33 @@ class ProjectState(BaseModel, extra="forbid"):
     defaultProjectConfigId: str | None = None
 
     @model_validator(mode="after")
-    def set_default_project_id(self):
-        if self.projectConfigs:
-            # If projects exist, use first key when defaultProjectConfigId is None
-            if self.defaultProjectConfigId is None:
-                self.defaultProjectConfigId = next(iter(self.projectConfigs))
-        else:
-            # If projects is empty, defaultProjectConfigId should be None
-            self.defaultProjectConfigId = None
+    def validator_ensure_default_project_id(self):
+        self.ensure_default_project_id()
         return self
 
     @model_validator(mode="after")
-    def ensure_base_ui_types(self):
+    def validator_ensure_base_ui_types(self):
         self.uiTypes.update(BASE_UI_TYPES)
         return self
 
     @model_validator(mode="after")
-    def ensure_variants_exist(self):
+    def validator_ensure_variants_exist(self):
         for section in self.sections.values():
             if section.variantId not in self.variants:
                 self.variants[section.variantId] = SectionVariant()
+        return self
+
+    def ensure_default_project_id(self):
+        if self.projectConfigs:
+            # If projects exist, use first key when defaultProjectConfigId is None
+            if (
+                self.defaultProjectConfigId is None
+                or self.defaultProjectConfigId not in self.projectConfigs
+            ):
+                self.defaultProjectConfigId = next(iter(self.projectConfigs))
+        else:
+            # If projects is empty, defaultProjectConfigId should be None
+            self.defaultProjectConfigId = None
         return self
 
 

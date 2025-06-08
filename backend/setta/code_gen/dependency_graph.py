@@ -7,7 +7,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
-from setta.types.getters import (
+from setta.types.helpers import (
     get_param_ui_type,
     get_section_children,
     get_section_code_info_children,

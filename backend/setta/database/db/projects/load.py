@@ -11,10 +11,3 @@ def load_project_state(db: Session):
     if not p or not p.state:
         return ProjectState()
     return ProjectState.model_validate(p.state)
-
-
-def load_default_project_config_name(db: Session):
-    state = load_project_state(db)
-    if state.defaultProjectConfigId:
-        return state.projectConfigs[state.defaultProjectConfigId].name
-    return None

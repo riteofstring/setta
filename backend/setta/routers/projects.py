@@ -8,14 +8,10 @@ from setta.database.db.notifications.delete import delete_notification
 from setta.database.db.notifications.load import (
     load_project_notifications,
 )
-from setta.database.db.projects.load import (
-    load_default_project_config_name,
-)
 from setta.database.db.projects.save import (
     ProjectNameTaken,
     save_project_config_name,
     save_project_state,
-    set_as_default_project,
 )
 from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
@@ -25,7 +21,7 @@ from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.types.getters import ProjectNotFound, confirm_config_name
+from setta.types.helpers import ProjectNotFound, confirm_config_name
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectLoadState,
@@ -95,7 +91,8 @@ class DeleteNotificationRequest(BaseModel):
 def route_load_all_project_metadata(
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
-    return project_manager.get_project_metadata()
+    output = project_manager.get_project_metadata()
+    return output
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
@@ -169,12 +166,14 @@ async def route_save_project(
 
 
 @router.post(C.ROUTE_CREATE_PROJECT_CONFIG)
-def route_create_project_config(
+async def route_create_project_config(
     x: CreateProjectConfigRequest,
     dbe: DBE = Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
-    newProjectConfigName = project_manager.create_project_config(x.previewImgColor)
+    newProjectConfigName = await project_manager.create_project_config(
+        x.previewImgColor
+    )
     with dbe.session as db:
         save_project_state(db, project_manager.project_state)
     return newProjectConfigName
@@ -197,19 +196,22 @@ def route_save_as_existing_project_config(
 
 
 @router.post(C.ROUTE_DELETE_PROJECT_CONFIGS)
-def route_delete_project_configs(
+async def route_delete_project_configs(
     x: DeleteProjectConfigsRequest,
     dbe: DBE = Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
-    project_manager.delete_project_configs(x.ids)
+    await project_manager.delete_project_configs(x.ids)
     with dbe.session as db:
         save_project_state(db, project_manager.project_state)
     return True
 
 
 @router.post(C.ROUTE_SET_PROJECT_CONFIG_NAME)
-def route_set_project_config_name(x: SetProjectConfigNameRequest, dbe=Depends(get_dbe)):
+def route_set_project_config_name(
+    x: SetProjectConfigNameRequest,
+    dbe=Depends(get_dbe),
+):
     try:
         with dbe.session as db:
             save_project_config_name(db, x.projectConfigId, x.newName)
@@ -218,15 +220,21 @@ def route_set_project_config_name(x: SetProjectConfigNameRequest, dbe=Depends(ge
 
 
 @router.post(C.ROUTE_GET_DEFAULT_PROJECT_CONFIG_NAME)
-def router_get_default_project_config_name(dbe=Depends(get_dbe)):
-    with dbe.session as db:
-        return load_default_project_config_name(db)
+def router_get_default_project_config_name(
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    return project_manager.get_default_project_config_name()
 
 
 @router.post(C.ROUTE_SET_AS_DEFAULT_PROJECT)
-def router_set_as_default_project(x: SetAsDefaultProjectRequest, dbe=Depends(get_dbe)):
+async def router_set_as_default_project(
+    x: SetAsDefaultProjectRequest,
+    dbe: DBE = Depends(get_dbe),
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    await project_manager.set_as_default_project(x.projectId)
     with dbe.session as db:
-        set_as_default_project(db, x.projectId)
+        save_project_state(db, project_manager.project_state)
 
 
 @router.post(C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT)
