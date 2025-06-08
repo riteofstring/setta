@@ -103,7 +103,9 @@ async def route_load_project_config(
     try:
         projectState = project_manager.project_state_backend
         projectConfigId = confirm_config_name(projectState, x.projectConfigName)
-        return convert_backend_to_single_config(projectState, projectConfigId)
+        projectState = convert_backend_to_single_config(projectState, projectConfigId)
+        await project_manager.maybe_init_project_config(projectState)
+        return projectState
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))

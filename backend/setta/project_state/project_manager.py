@@ -174,6 +174,12 @@ class ProjectManager:
         return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
+    async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
+        if projectState.projectConfig.id in self.gen_code:
+            return
+        await self.update(projectState)
+
+    @enqueue_method
     async def update_from_frontend(
         self,
         messageId: str | None,
