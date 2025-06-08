@@ -4,14 +4,6 @@ import shutil
 from pathlib import Path
 
 from setta.api.logger import save_base64_to_png
-from setta.code_gen.utils import (
-    export_section_to_dict,
-    get_section_variant_attr,
-    get_section_variant_ids,
-    get_selected_section_variant_id,
-    get_variant_code,
-    get_variant_name,
-)
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )

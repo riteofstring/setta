@@ -4,9 +4,6 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from setta.code_gen.utils import (
-    export_section_to_dict,
-)
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )

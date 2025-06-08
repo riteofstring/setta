@@ -11,7 +11,6 @@ from pathlib import Path
 
 import websockets
 
-from setta.code_gen.utils import export_for_interactive_fn
 from setta.project_state.utils import convert_path_to_module_path
 from setta.utils.constants import CWD, C
 
