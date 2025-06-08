@@ -23,12 +23,10 @@ from setta.types.helpers import (
     ProjectNameTaken,
     ProjectNotFound,
     confirm_config_name,
-    convert_backend_to_frontend,
+    convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import (
-    ProjectSaveState,
-)
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -42,7 +40,7 @@ class ProjectLoadRequest(BaseModel):
 
 
 class ProjectSaveRequest(BaseModel):
-    project: ProjectSaveState
+    project: ProjectStateSingleConfig
 
 
 class SaveAsNewProjectConfigRequest(BaseModel):
@@ -103,9 +101,9 @@ async def route_load_project_config(
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
-        projectState = project_manager.project_state
+        projectState = project_manager.project_state_backend
         projectConfigId = confirm_config_name(projectState, x.projectConfigName)
-        return convert_backend_to_frontend(projectState, projectConfigId)
+        return convert_backend_to_single_config(projectState, projectConfigId)
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
@@ -124,6 +122,7 @@ async def route_save_project(
     dbe: DBE = Depends(get_dbe),
     websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
     settings_file: SettingsFile = Depends(get_settings_file),
+    project_manager: ProjectManager = Depends(get_project_manager),
 ):
     with dbe.session as db:
         notification = None
@@ -136,7 +135,8 @@ async def route_save_project(
                 settings.autobackupFreq,
                 settings.autobackupKeepLastN,
             )
-            save_project_state(db, x.project.projectState)
+            await project_manager.update_from_frontend(None, x.project)
+            save_project_state(db, project_manager.project_state_backend)
             maybe_export_database(
                 db,
                 dbe.path,
@@ -146,14 +146,14 @@ async def route_save_project(
             )
             # Return success response with notification
             notification = SettaNotification(
-                projectConfigId=x.project.projectConfigId,
+                projectConfigId=x.project.projectConfig.id,
                 message="Saved!",
                 temporary=True,
             )
 
         except Exception:
             notification = SettaNotification(
-                projectConfigId=x.project.projectConfigId,
+                projectConfigId=x.project.projectConfig.id,
                 message="Failed to save",
                 type=SettaNotificationType.error,
                 temporary=True,
@@ -175,7 +175,7 @@ async def route_create_project_config(
         x.previewImgColor
     )
     with dbe.session as db:
-        save_project_state(db, project_manager.project_state)
+        save_project_state(db, project_manager.project_state_backend)
     return newProjectConfigName
 
 
@@ -203,7 +203,7 @@ async def route_delete_project_configs(
 ):
     await project_manager.delete_project_configs(x.ids)
     with dbe.session as db:
-        save_project_state(db, project_manager.project_state)
+        save_project_state(db, project_manager.project_state_backend)
     return True
 
 
@@ -216,7 +216,7 @@ async def route_set_project_config_name(
     try:
         await project_manager.set_project_config_name(x.projectConfigId, x.newName)
         with dbe.session as db:
-            save_project_state(db, project_manager.project_state)
+            save_project_state(db, project_manager.project_state_backend)
     except ProjectNameTaken as e:
         raise HTTPException(status_code=422, detail=repr(e))
 
@@ -236,7 +236,7 @@ async def router_set_as_default_project(
 ):
     await project_manager.set_as_default_project(x.projectId)
     with dbe.session as db:
-        save_project_state(db, project_manager.project_state)
+        save_project_state(db, project_manager.project_state_backend)
 
 
 @router.post(C.ROUTE_FILTER_DATA_FOR_JSON_EXPORT)

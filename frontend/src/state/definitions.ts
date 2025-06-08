@@ -9,7 +9,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   IDToUUIDForLLM,
-  ProjectStateFrontend,
+  ProjectStateSingleConfig,
   SettaNotification,
   SettingsState,
 } from "utils/generatedTypes";
@@ -45,13 +45,13 @@ export const useContextMenus = withProjectState(
 );
 
 export type ZustandProjectState = {
-  projectConfig: ProjectStateFrontend["projectConfig"];
-  sections: ProjectStateFrontend["sections"];
-  variants: ProjectStateFrontend["variants"];
-  uiTypeCols: ProjectStateFrontend["uiTypeCols"];
-  uiTypes: ProjectStateFrontend["uiTypes"];
-  codeInfoCols: ProjectStateFrontend["codeInfoCols"];
-  codeInfo: ProjectStateFrontend["codeInfo"];
+  projectConfig: ProjectStateSingleConfig["projectConfig"];
+  sections: ProjectStateSingleConfig["sections"];
+  variants: ProjectStateSingleConfig["variants"];
+  uiTypeCols: ProjectStateSingleConfig["uiTypeCols"];
+  uiTypes: ProjectStateSingleConfig["uiTypes"];
+  codeInfoCols: ProjectStateSingleConfig["codeInfoCols"];
+  codeInfo: ProjectStateSingleConfig["codeInfo"];
   activeIds: Array<string>;
 };
 

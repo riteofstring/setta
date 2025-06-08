@@ -19,7 +19,7 @@ from setta.types.helpers import (
 from setta.types.project_state import (
     EVEntry,
     ParameterPassingStyle,
-    ProjectStateBackend,
+    ProjectStateSingleConfig,
 )
 from setta.utils.utils import replace_at_positions
 
@@ -62,7 +62,7 @@ class ParamNode(Node):
 
 
 class DependencyGraph:
-    def __init__(self, p: ProjectStateBackend, projectConfigId: str):
+    def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -73,7 +73,7 @@ class DependencyGraph:
                 C.TEXT_BLOCK,
             ]
         )
-        self.construct_graph(p, projectConfigId)
+        self.construct_graph(p)
 
     def reset(self):
         self.graph: dict[GraphKeyType, Node] = {}
@@ -81,25 +81,22 @@ class DependencyGraph:
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
         self.all_sections_in_project_config: set[str] = set()
 
-    def construct_graph(self, p: ProjectStateBackend, projectConfigId: str):
+    def construct_graph(self, p: ProjectStateSingleConfig):
         self.reset()
-        ids = list(p.projectConfigs[projectConfigId].children.keys())
-        self.export_sections(p, projectConfigId, ids, isTopLevel=True)
+        ids = list(p.projectConfig.children.keys())
+        self.export_sections(p, ids, isTopLevel=True)
         self.resolve_references()
 
     def export_sections(
         self,
-        p: ProjectStateBackend,
-        projectConfigId: str,
+        p: ProjectStateSingleConfig,
         ids: list[str],
         isTopLevel=False,
         parent_node=None,
     ):
         deps = {}
         for idx, x in enumerate(ids):
-            graph_key = self.export_section(
-                p, projectConfigId, x, isTopLevel, parent_node, idx
-            )
+            graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
             node = self.get_node(graph_key)
             if node:
                 deps[graph_key] = node.has_name_and_value
@@ -107,8 +104,7 @@ class DependencyGraph:
 
     def export_section(
         self,
-        p: ProjectStateBackend,
-        projectConfigId: str,
+        p: ProjectStateSingleConfig,
         id: str,
         isTopLevel=False,
         parent_node: Node | None = None,
@@ -121,9 +117,7 @@ class DependencyGraph:
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if type == C.SECTION:
-                value, potential_refs = self.export_section_value(
-                    p, projectConfigId, id
-                )
+                value, potential_refs = self.export_section_value(p, id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 node = SectionNode(
@@ -135,14 +129,12 @@ class DependencyGraph:
                     value=value,
                     deps={},
                 )
-                node.deps = self.export_section_params(
-                    p, projectConfigId, id, parent_node=node
-                )
+                node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
                 children = [
                     c
-                    for c in get_section_children(p, projectConfigId, id)
+                    for c in get_section_children(p, id)
                     if get_section_type(p, c) in self.section_types_to_process
                 ]
                 node = SectionNode(
@@ -154,12 +146,10 @@ class DependencyGraph:
                     value=None,
                     deps={},
                 )
-                node.deps = self.export_sections(
-                    p, projectConfigId, children, parent_node=node
-                )
+                node.deps = self.export_sections(p, children, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif type == C.GLOBAL_VARIABLES:
-                self.export_section_params(p, projectConfigId, id, isTopLevel=True)
+                self.export_section_params(p, id, isTopLevel=True)
             # elif type == C.TEXT_BLOCK:
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
@@ -170,10 +160,8 @@ class DependencyGraph:
         self.all_sections_in_project_config.add(id)
         return graph_key
 
-    def export_section_value(
-        self, p: ProjectStateBackend, projectConfigId: str, sectionId: str
-    ):
-        selected_item = get_selected_item(p, projectConfigId, sectionId)
+    def export_section_value(self, p: ProjectStateSingleConfig, sectionId: str):
+        selected_item = get_selected_item(p, sectionId)
         if selected_item:
             selected_item_name = selected_item.name
             potential_refs = find_undefined_special_var_expressions(
@@ -184,16 +172,14 @@ class DependencyGraph:
 
     def export_section_params(
         self,
-        p: ProjectStateBackend,
-        projectConfigId: str,
+        p: ProjectStateSingleConfig,
         sectionId: str,
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
-        paramIds = get_top_level_param_ids(p, projectConfigId, sectionId)
+        paramIds = get_top_level_param_ids(p, sectionId)
         return self.export_params(
             p,
-            projectConfigId,
             sectionId,
             paramIds,
             parent_node=parent_node,
@@ -202,8 +188,7 @@ class DependencyGraph:
 
     def export_params(
         self,
-        p: ProjectStateBackend,
-        projectConfigId: str,
+        p: ProjectStateSingleConfig,
         sectionId: str,
         paramIds: list[str],
         parent_node: Node | None = None,
@@ -215,18 +200,16 @@ class DependencyGraph:
             param = self.get_node(graph_key)
             if not param:
                 codeInfo = p.codeInfo[pid]
-                param_children = get_section_code_info_children(
-                    p, projectConfigId, sectionId
-                ).get(pid, [])
+                param_children = get_section_code_info_children(p, sectionId).get(
+                    pid, []
+                )
                 if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
                     type = get_param_ui_type(p, sectionId, pid)
                 name = codeInfo.name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
-                value, potential_refs = self.export_param_value(
-                    p, projectConfigId, sectionId, pid
-                )
+                value, potential_refs = self.export_param_value(p, sectionId, pid)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 param = ParamNode(
@@ -240,16 +223,16 @@ class DependencyGraph:
                     deps={},
                 )
                 param.deps = self.export_params(
-                    p, projectConfigId, sectionId, param_children, parent_node=param
+                    p, sectionId, param_children, parent_node=param
                 )
                 self.add_to_graph(graph_key, param)
             output_deps[graph_key] = param.has_name_and_value
         return output_deps
 
     def export_param_value(
-        self, p: ProjectStateBackend, projectConfigId: str, sectionId: str, paramId: str
+        self, p: ProjectStateSingleConfig, sectionId: str, paramId: str
     ):
-        variant = get_selected_section_variant(p, projectConfigId, sectionId)
+        variant = get_selected_section_variant(p, sectionId)
         if paramId in variant.values:
             value = variant.values[paramId].value
             potential_refs = find_undefined_special_var_expressions(

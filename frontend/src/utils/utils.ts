@@ -65,7 +65,7 @@ export function shortcutPrettified(shortcut: string) {
   return shortcut.replace(modRegex, isMacOs() ? macSymbol : windowsText);
 }
 
-export function shortcutCodemirrorFormat(shortcut:string) {
+export function shortcutCodemirrorFormat(shortcut: string) {
   // Remove all spaces and split by '+'
   const parts = shortcut.replace(/\s+/g, "").split("+");
 
@@ -78,6 +78,6 @@ export function shortcutCodemirrorFormat(shortcut:string) {
   return convertedParts.join("-");
 }
 
-export function positiveMod(n:number, m:number) {
+export function positiveMod(n: number, m: number) {
   return ((n % m) + m) % m;
 }

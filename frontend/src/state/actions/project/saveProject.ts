@@ -16,7 +16,7 @@ import {
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import {
-  ProjectStateFrontend,
+  ProjectStateSingleConfig,
   SettaNotificationTypeSchema,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
@@ -62,7 +62,7 @@ export function getProjectData({
   const codeInfoCols = useProjectState.getState().codeInfoCols;
 
   const projectConfig = getProjectConfigMetadata();
-  const children: ProjectStateFrontend["projectConfig"]["children"] = {};
+  const children: ProjectStateSingleConfig["projectConfig"]["children"] = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
@@ -77,7 +77,7 @@ export function getProjectData({
   }
   projectConfig.children = children;
 
-  const output: ProjectStateFrontend = {
+  const output: ProjectStateSingleConfig = {
     projectConfig,
     variants,
     // artifacts,

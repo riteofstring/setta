@@ -3,13 +3,13 @@ from collections import defaultdict
 from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
-    ProjectStateBackend,
+    ProjectStateSingleConfig,
     SectionVariant,
 )
 from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p: ProjectStateBackend, variant_ids=None):
+def save_json_source_data(p: ProjectStateSingleConfig, variant_ids=None):
     to_be_saved = defaultdict(dict)
 
     for variant_id, variant in p.variants.items():

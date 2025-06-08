@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 from setta.database.settings_file import SettingsFile
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import ProjectSaveState
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -20,7 +20,7 @@ class SaveSettingsRequest(BaseModel):
 
 
 class SaveSettingsProjectRequest(BaseModel):
-    settingsProject: ProjectSaveState
+    settingsProject: ProjectStateSingleConfig
 
 
 @router.post(C.ROUTE_SAVE_SETTINGS)
@@ -47,13 +47,13 @@ async def route_save_settings_project(
     try:
         output = settings_file.save_settings_project(x.settingsProject)
         notification = SettaNotification(
-            projectConfigId=x.settingsProject.projectConfigId,
+            projectConfigId=x.settingsProject.projectConfig.id,
             message="Saved!",
             temporary=True,
         )
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.settingsProject.projectConfigId,
+            projectConfigId=x.settingsProject.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
             temporary=True,

@@ -1,6 +1,7 @@
 from setta.lsp.managers import LSPWriters
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.script_metadata import ScriptMetadata
@@ -45,7 +46,10 @@ class WMHFrontend(BaseWebsocketMsgHandler):
         elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
             await self.project_manager.update_from_frontend(
                 messageId=message["id"],
-                **message["content"],
+                projectState=ProjectStateSingleConfig.model_validate(
+                    message["content"]["projectState"]
+                ),
+                requestRenameRefactor=message["content"]["requestRenameRefactor"],
             )
         elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
             await self.project_manager.code_area_autocomplete(

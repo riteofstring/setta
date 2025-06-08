@@ -7,12 +7,10 @@ from setta.database.db.jsonSource.load import load_json_sources_into_data_struct
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
 from setta.types.helpers import (
-    convert_backend_to_frontend,
     get_selected_section_variant,
 )
 from setta.types.project_state import (
-    ProjectSaveState,
-    ProjectStateBackend,
+    ProjectStateSingleConfig,
 )
 from setta.types.settings_state import SettingsState
 from setta.utils.constants import SETTA_FILES_FOLDER
@@ -53,7 +51,7 @@ class SettingsFile:
     def load_settings_project(self):
         return self.meta_settings_file.load_settings_project()
 
-    def save_settings_project(self, p: ProjectSaveState):
+    def save_settings_project(self, p: ProjectStateSingleConfig):
         self.meta_settings_file.save_settings_project(p)
         return self.load_settings()
 
@@ -79,10 +77,9 @@ class MetaSettingsFile:
             settings_slice_to_path[k] = path
         return settings_slice_to_path
 
-    def find_path_for_settings_slice(self, p: ProjectStateBackend, slice: str):
-        projectConfigId = list(p.projectConfigs.keys())[0]
+    def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            variant = get_selected_section_variant(p, projectConfigId, sectionId)
+            variant = get_selected_section_variant(p, sectionId)
             if variant.jsonSourceKeys == [slice]:
                 return Path(variant.name)
         return None
@@ -102,14 +99,13 @@ class MetaSettingsFile:
         logger.debug("Loading meta settings")
         self.seed_meta_settings()
         with open(self.path_meta_settings, "r") as f:
-            return ProjectStateBackend.model_validate(json.load(f))
+            return ProjectStateSingleConfig.model_validate(json.load(f))
 
     def load_settings_project(self):
         p = self.load_meta_settings()
         load_json_sources_into_data_structures(p)
-        projectConfigId = list(p.projectConfigs.keys())[0]
-        return convert_backend_to_frontend(p, projectConfigId)
+        return p
 
-    def save_settings_project(self, p: ProjectSaveState):
-        save_json_source_data(p.projectState)
-        save_json_to_file(self.path_meta_settings, p.projectState.model_dump())
+    def save_settings_project(self, p: ProjectStateSingleConfig):
+        save_json_source_data(p)
+        save_json_to_file(self.path_meta_settings, p.model_dump())

@@ -243,10 +243,5 @@ class ProjectStateBackend(ProjectStateCore, extra="forbid"):
         return self
 
 
-class ProjectStateFrontend(ProjectStateCore, extra="forbid"):
+class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
-
-
-class ProjectSaveState(BaseModel, extra="forbid"):
-    projectConfigId: str
-    projectState: ProjectStateBackend

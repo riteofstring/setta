@@ -16,7 +16,7 @@ async def main():
     settings_file = SettingsFile()
     dbe = DBE(Path("setta_files/setta.db"))
     pm = ProjectManager(lsp_writers, websocket_manager, settings_file, dbe)
-    print(pm.project_state.projectConfigs)
+    print(pm.project_state_backend.projectConfigs)
     await pm.create_sections(
         "2cd25ec7-18ea-455e-ad28-5ba67aef5f3b", [SimplifiedSectionCreation(name="dog")]
     )

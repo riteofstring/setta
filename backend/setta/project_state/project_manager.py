@@ -18,6 +18,7 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
+    convert_backend_to_single_config,
     create_sections,
     get_children_of_selected_item,
     get_section_type,
@@ -29,7 +30,7 @@ from setta.types.project_state import (
     CodeLanguage,
     ProjectConfig,
     ProjectStateBackend,
-    ProjectStateFrontend,
+    ProjectStateSingleConfig,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER, C
@@ -51,7 +52,7 @@ class ProjectManager:
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         with dbe.session as db:
-            self.project_state = load_project_state(db)
+            self.project_state_backend: ProjectStateBackend = load_project_state(db)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
@@ -154,7 +155,7 @@ class ProjectManager:
         gen_code = self.gen_code[projectConfigId]
 
         if not sectionId:
-            sectionId = self.project_state.projectConfigs[
+            sectionId = self.project_state_backend.projectConfigs[
                 projectConfigId
             ].entryCodeBlockId
 
@@ -174,29 +175,29 @@ class ProjectManager:
     @enqueue_method
     async def update_from_frontend(
         self,
-        messageId: str,
-        projectState: ProjectStateFrontend,
-        requestRenameRefactor: bool,
+        messageId: str | None,
+        projectState: ProjectStateSingleConfig,
+        requestRenameRefactor: bool = False,
     ):
-        print("\n\n\nupdate_from_frontend")
+        print("projectState", projectState)
+        await self.update(projectState, requestRenameRefactor, messageId)
 
     async def update(
         self,
-        projectState: ProjectStateBackend,
-        projectConfigId: str,
+        projectState: ProjectStateSingleConfig,
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
         self.used_files = set()
-        self.project_state = projectState
-        dep_graph = DependencyGraph(self.project_state, projectConfigId)
+        dep_graph = DependencyGraph(projectState)
+        projectConfig = projectState.projectConfig
+        projectConfigId = projectConfig.id
         if self.gen_code.get(projectConfigId):
             await self.maybe_do_rename_refactor(
                 messageId, requestRenameRefactor, projectConfigId, dep_graph
             )
             self.gen_code[projectConfigId].callback_cleanup()
 
-        projectConfig = self.project_state.projectConfigs[projectConfigId]
         gen_code_prefix = projectConfig.genCodePrefix
         code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
         code_generator.generate_code()
@@ -221,11 +222,11 @@ class ProjectManager:
         self.code_dict[projectConfigId] = {}
 
         for sectionId in dep_graph.all_sections_in_project_config:
-            section_type = get_section_type(self.project_state, sectionId)
+            section_type = get_section_type(projectState, sectionId)
 
             if section_type == C.CODE:
                 section_code = self.create_code_obj(
-                    project_temp_folder, self.project_state, projectConfigId, sectionId
+                    project_temp_folder, projectState, sectionId
                 )
 
                 if not section_code:
@@ -236,6 +237,7 @@ class ProjectManager:
                 self.code_dict[projectConfigId][sectionId] = section_code
 
         self.delete_unused_files(project_temp_folder)
+        self.project_state_backend = self.get_new_project_state_backend(projectState)
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
@@ -273,24 +275,25 @@ class ProjectManager:
         refetchParams: bool,
         messageId: str | None = None,
     ):
+        project_state = self.get_single_config_state(projectConfigId)
+
         await self.gen_code[projectConfigId].set_selected_item(
-            self.project_state,
-            projectConfigId,
+            project_state,
             sectionId,
             selectedItemName,
             refetchParams,
         )
-        await self.update(self.project_state, projectConfigId)
+        await self.update(project_state)
         if messageId:
             await self.websocket_msg_handler.return_to_requester(
-                self.project_state.model_dump(), messageId
+                self.project_state_backend.model_dump(), messageId
             )
         else:
-            await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+            await self.websocket_msg_handler.broadcast_project_state(
+                self.project_state_backend
+            )
 
-        return get_children_of_selected_item(
-            self.project_state, projectConfigId, sectionId
-        )
+        return get_children_of_selected_item(project_state, sectionId)
 
     @enqueue_method
     async def code_area_autocomplete(
@@ -318,22 +321,30 @@ class ProjectManager:
     @enqueue_method
     async def set_gen_code_prefix(self, projectConfigId: str, value: str):
         print("*************set_gen_code_prefix\n\n\n", flush=True)
-        projectConfig = self.project_state.projectConfigs[projectConfigId]
-        projectConfig.genCodePrefix = value
-        await self.update(self.project_state, projectConfigId)
-        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+        project_state = self.get_single_config_state(projectConfigId)
+        project_state.projectConfig.genCodePrefix = value
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(
+            self.project_state_backend
+        )
 
     @enqueue_method
     async def set_param_values(
         self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
     ):
         print("*************set_param_values\n\n\n", flush=True)
+        project_state = self.get_single_config_state(projectConfigId)
         for paramInfoId, value in paramIdsToValues.items():
             set_param_entered_value(
-                self.project_state, projectConfigId, sectionId, paramInfoId, value
+                project_state,
+                sectionId,
+                paramInfoId,
+                value,
             )
-        await self.update(self.project_state, projectConfigId)
-        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(
+            self.project_state_backend
+        )
 
     @enqueue_method
     async def get_gen_python_code_path(self, projectConfigId: str):
@@ -349,7 +360,8 @@ class ProjectManager:
 
     @enqueue_method
     async def get_top_level_sections(self, projectConfigId: str):
-        return get_top_level_sections(self.project_state, projectConfigId)
+        project_state = self.get_single_config_state(projectConfigId)
+        return get_top_level_sections(project_state)
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:
@@ -369,8 +381,7 @@ class ProjectManager:
     def create_code_obj(
         self,
         project_temp_folder: Path,
-        project_state: ProjectStateBackend,
-        projectConfigId: str,
+        project_state: ProjectStateSingleConfig,
         sectionId: str,
     ):
         codeLanguage = project_state.sections[sectionId].codeLanguage
@@ -380,13 +391,10 @@ class ProjectManager:
                 self.lsp_writers,
                 self.websocket_msg_handler,
                 project_state,
-                projectConfigId,
                 sectionId,
             )
         elif codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(
-                project_temp_folder, project_state, projectConfigId, sectionId
-            )
+            return ProjectBashCode(project_temp_folder, project_state, sectionId)
         return None
 
     async def maybe_do_rename_refactor(
@@ -428,8 +436,8 @@ class ProjectManager:
         shutil.rmtree(self.temp_folder)
 
     def get_project_metadata(self):
-        defaultProjectConfigId = self.project_state.defaultProjectConfigId
-        projectMetadata = list(self.project_state.projectConfigs.values())
+        defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
+        projectMetadata = list(self.project_state_backend.projectConfigs.values())
         return {
             "defaultProjectConfigId": defaultProjectConfigId,
             "projectMetadata": projectMetadata,
@@ -439,34 +447,57 @@ class ProjectManager:
     async def create_project_config(self, previewImgColor: str):
         new_project_config = ProjectConfig(previewImgColor=previewImgColor)
         project_config_id = new_project_config.id
-        self.project_state.projectConfigs[project_config_id] = new_project_config
-        self.project_state.ensure_default_project_id()
+        self.project_state_backend.projectConfigs[project_config_id] = (
+            new_project_config
+        )
+        self.project_state_backend.ensure_default_project_id()
         return new_project_config.name
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[str]):
         for id in project_config_ids:
-            del self.project_state.projectConfigs[id]
-        self.project_state.ensure_default_project_id()
+            del self.project_state_backend.projectConfigs[id]
+        self.project_state_backend.ensure_default_project_id()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: str):
-        self.project_state.defaultProjectConfigId = projectConfigId
+        self.project_state_backend.defaultProjectConfigId = projectConfigId
 
     @enqueue_method
     async def set_project_config_name(self, projectConfigId: str, newName: str):
-        set_project_config_name(self.project_state, projectConfigId, newName)
+        set_project_config_name(self.project_state_backend, projectConfigId, newName)
 
     @enqueue_method
     async def create_sections(
         self, projectConfigId: str, sections: list[SimplifiedSectionCreation]
     ):
-        create_sections(self.project_state, projectConfigId, sections)
-        await self.update(self.project_state, projectConfigId)
-        await self.websocket_msg_handler.broadcast_project_state(self.project_state)
+        project_state = self.get_single_config_state(projectConfigId)
+        create_sections(project_state, sections)
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(
+            self.project_state_backend
+        )
 
     def get_default_project_config_name(self):
-        if self.project_state.defaultProjectConfigId:
-            defaultId = self.project_state.defaultProjectConfigId
-            return self.project_state.projectConfigs[defaultId].name
+        if self.project_state_backend.defaultProjectConfigId:
+            defaultId = self.project_state_backend.defaultProjectConfigId
+            return self.project_state_backend.projectConfigs[defaultId].name
         return None
+
+    def get_single_config_state(self, projectConfigId: str):
+        return convert_backend_to_single_config(
+            self.project_state_backend, projectConfigId
+        )
+
+    def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
+        p = self.project_state_backend
+        return ProjectStateBackend(
+            sections={**p.sections, **x.sections},
+            variants={**p.variants, **x.variants},
+            codeInfo={**p.codeInfo, **x.codeInfo},
+            codeInfoCols={**p.codeInfoCols, **x.codeInfoCols},
+            uiTypes={**p.uiTypes, **x.uiTypes},
+            uiTypeCols={**p.uiTypeCols, **x.uiTypeCols},
+            projectConfigs={**p.projectConfigs, x.projectConfig.id: x.projectConfig},
+            defaultProjectConfigId=p.defaultProjectConfigId,
+        )

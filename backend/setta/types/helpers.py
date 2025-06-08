@@ -7,7 +7,7 @@ from setta.types.project_state import (
     EVEntry,
     ProjectConfigChild,
     ProjectStateBackend,
-    ProjectStateFrontend,
+    ProjectStateSingleConfig,
     Section,
     SectionConfig,
     SectionVariant,
@@ -25,8 +25,8 @@ class ProjectNameTaken(Exception):
     pass
 
 
-def convert_backend_to_frontend(p: ProjectStateBackend, projectConfigId: str):
-    return ProjectStateFrontend(
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
+    return ProjectStateSingleConfig(
         sections=p.sections,
         variants=p.variants,
         codeInfo=p.codeInfo,
@@ -37,44 +37,32 @@ def convert_backend_to_frontend(p: ProjectStateBackend, projectConfigId: str):
     )
 
 
-def get_current_section_config(
-    p: ProjectStateBackend, projectConfigId: str, sectionId: str
-):
-    return p.projectConfigs[projectConfigId].sectionConfigs[sectionId]
-
-
-def get_section_type(p: ProjectStateBackend, id: str):
+def get_section_type(p: ProjectStateSingleConfig, id: str):
     ui_type_id = p.sections[id].uiTypeId
     ui_type = p.uiTypes[ui_type_id]
     return ui_type.type
 
 
-def get_selected_section_variant(
-    p: ProjectStateBackend, projectConfigId: str, section_id: str
-):
-    variantId = get_current_section_config(p, projectConfigId, section_id).variantId
+def get_selected_section_variant(p: ProjectStateSingleConfig, section_id: str):
+    variantId = p.projectConfig.sectionConfigs[section_id].variantId
     return p.variants[variantId]
 
 
-def get_selected_item(p: ProjectStateBackend, projectConfigId: str, id: str):
-    variant = get_selected_section_variant(p, projectConfigId, id)
+def get_selected_item(p: ProjectStateSingleConfig, id: str):
+    variant = get_selected_section_variant(p, id)
     selected_item = variant.selectedItem
     if selected_item:
         return p.codeInfo[selected_item]
 
 
-def get_section_children(
-    p: ProjectStateBackend, projectConfigId: str, id: str
-) -> list[str]:
-    variant = get_selected_section_variant(p, projectConfigId, id)
+def get_section_children(p: ProjectStateSingleConfig, id: str) -> list[str]:
+    variant = get_selected_section_variant(p, id)
     return variant.children
 
 
-def get_top_level_param_ids(
-    p: ProjectStateBackend, projectConfigId: str, id: str
-) -> list[str]:
-    section_code_info_children = get_section_code_info_children(p, projectConfigId, id)
-    selected_item = get_selected_item(p, projectConfigId, id)
+def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
+    section_code_info_children = get_section_code_info_children(p, id)
+    selected_item = get_selected_item(p, id)
     sid = selected_item.id if selected_item else None
     if sid not in section_code_info_children:
         section_code_info_children[sid] = []
@@ -82,10 +70,8 @@ def get_top_level_param_ids(
     return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.parameter]
 
 
-def get_section_code_info_children(
-    p: ProjectStateBackend, projectConfigId: str, section_id: str
-):
-    variant = get_selected_section_variant(p, projectConfigId, section_id)
+def get_section_code_info_children(p: ProjectStateSingleConfig, section_id: str):
+    variant = get_selected_section_variant(p, section_id)
     codeInfoColId = variant.codeInfoColId
     if not codeInfoColId:
         newId = create_new_id()
@@ -97,7 +83,7 @@ def get_section_code_info_children(
     return codeInfoCol.children
 
 
-def get_param_ui_type(p: ProjectStateBackend, section_id: str, id: str):
+def get_param_ui_type(p: ProjectStateSingleConfig, section_id: str, id: str):
     ui_type_col_id = p.sections[section_id].uiTypeColId
     ui_type_col = p.uiTypeCols[ui_type_col_id] if ui_type_col_id else {}
     if id not in ui_type_col:
@@ -108,9 +94,7 @@ def get_param_ui_type(p: ProjectStateBackend, section_id: str, id: str):
     return ui_type.type
 
 
-def get_section_path_full_name(
-    p: ProjectStateBackend, projectConfigId: str, section_id: str
-):
+def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     parent_id = p.sections[section_id].parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -119,7 +103,7 @@ def get_section_path_full_name(
     output = ""
     while parent_id:
         if get_section_type(p, parent_id) == C.LIST_ROOT:
-            idx = get_section_children(p, projectConfigId, parent_id).index(section_id)
+            idx = get_section_children(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name
@@ -134,16 +118,16 @@ def get_section_path_full_name(
 
 
 def item_is_already_selected(
-    p: ProjectStateBackend, projectConfigId: str, sectionId: str, selectedItemName: str
+    p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
 ):
-    selected_item = get_selected_item(p, projectConfigId, sectionId)
+    selected_item = get_selected_item(p, sectionId)
     return selected_item and selected_item.name == selectedItemName
 
 
 def item_has_been_selected_before(
-    p: ProjectStateBackend, projectConfigId: str, sectionId: str, selectedItemName: str
+    p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
 ):
-    code_info_children = get_section_code_info_children(p, projectConfigId, sectionId)
+    code_info_children = get_section_code_info_children(p, sectionId)
     for c in code_info_children[None]:
         if p.codeInfo[c].name == selectedItemName:
             return c
@@ -151,17 +135,14 @@ def item_has_been_selected_before(
 
 
 def add_code_info(
-    state: ProjectStateBackend,
-    projectConfigId: str,
+    state: ProjectStateSingleConfig,
     section_id: str,
     info: CodeInfo,
     parent: str | None = None,
     insert_idx: int | None = None,
 ):
     state.codeInfo[info.id] = info
-    code_info_children = get_section_code_info_children(
-        state, projectConfigId, section_id
-    )
+    code_info_children = get_section_code_info_children(state, section_id)
 
     if parent not in code_info_children:
         code_info_children[parent] = []
@@ -175,16 +156,13 @@ def add_code_info(
 
 
 def create_children_code_info(
-    state: ProjectStateBackend,
-    projectConfigId: str,
+    state: ProjectStateSingleConfig,
     section_id: str,
     parent: str,
     params: list[CodeInfo],
 ):
     existing_children_name_to_id = {}
-    code_info_children = get_section_code_info_children(
-        state, projectConfigId, section_id
-    )
+    code_info_children = get_section_code_info_children(state, section_id)
     for c in code_info_children.get(parent, []):
         existing_children_name_to_id[state.codeInfo[c].name] = c
 
@@ -195,7 +173,7 @@ def create_children_code_info(
             p.id = existing_id
         param_ids_in_order.append(p.id)
         if not existing_id:
-            add_code_info(state, projectConfigId, section_id, p, parent)
+            add_code_info(state, section_id, p, parent)
         else:
             state.codeInfo[existing_id] = p
 
@@ -203,32 +181,27 @@ def create_children_code_info(
 
 
 def set_param_entered_value(
-    p: ProjectStateBackend,
-    projectConfigId: str,
+    p: ProjectStateSingleConfig,
     sectionId: str,
     paramInfoId: str,
     value: str,
 ):
-    variant = get_selected_section_variant(p, projectConfigId, sectionId)
+    variant = get_selected_section_variant(p, sectionId)
     if paramInfoId not in variant.values:
         variant.values[paramInfoId] = EVEntry()
     variant.values[paramInfoId].value = value
 
 
-def get_top_level_sections(
-    p: ProjectStateBackend, projectConfigId: str
-) -> dict[str, Section]:
+def get_top_level_sections(p: ProjectStateSingleConfig) -> dict[str, Section]:
     output = {}
-    projectConfig = p.projectConfigs[projectConfigId]
+    projectConfig = p.projectConfig
     for c in projectConfig.children.keys():
         output[c] = p.sections[c]
     return output
 
 
-def get_children_of_selected_item(
-    p: ProjectStateBackend, projectConfigId: str, sectionId: str
-):
-    param_ids = get_top_level_param_ids(p, projectConfigId, sectionId)
+def get_children_of_selected_item(p: ProjectStateSingleConfig, sectionId: str):
+    param_ids = get_top_level_param_ids(p, sectionId)
     return [p.codeInfo[x] for x in param_ids]
 
 
@@ -247,11 +220,9 @@ def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newNam
 
 
 def create_sections(
-    p: ProjectStateBackend,
-    projectConfigId: str,
+    p: ProjectStateSingleConfig,
     sections: list[SimplifiedSectionCreation],
 ):
-    projectConfig = p.projectConfigs[projectConfigId]
     for s in sections:
         new_section = Section(name=s.name, uiTypeId=BASE_UI_TYPE_IDS[s.type])
         new_section_config = SectionConfig(size=s.size)
@@ -259,7 +230,7 @@ def create_sections(
         p.variants[new_section_config.variantId] = SectionVariant()
         new_section.variantIds = [new_section_config.variantId]
         new_section.defaultVariantId = new_section_config.variantId
-        projectConfig.sectionConfigs[new_section.id] = new_section_config
-        projectConfig.children[new_section.id] = ProjectConfigChild(
+        p.projectConfig.sectionConfigs[new_section.id] = new_section_config
+        p.projectConfig.children[new_section.id] = ProjectConfigChild(
             x=s.position.x, y=s.position.y
         )

@@ -867,7 +867,7 @@ export function createProjectStateBackend(
   return ProjectStateBackendSchema.parse(options);
 }
 
-export const ProjectStateFrontendSchema = z.object({
+export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), SectionSchema).default({}),
   variants: z.record(z.string(), SectionVariantSchema).default({}),
   codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
@@ -879,12 +879,14 @@ export const ProjectStateFrontendSchema = z.object({
   projectConfig: ProjectConfigSchema,
 });
 
-export type ProjectStateFrontend = z.infer<typeof ProjectStateFrontendSchema>;
+export type ProjectStateSingleConfig = z.infer<
+  typeof ProjectStateSingleConfigSchema
+>;
 
-export function createProjectStateFrontend(
-  options: Partial<ProjectStateFrontend> = {},
-): ProjectStateFrontend {
-  return ProjectStateFrontendSchema.parse(options);
+export function createProjectStateSingleConfig(
+  options: Partial<ProjectStateSingleConfig> = {},
+): ProjectStateSingleConfig {
+  return ProjectStateSingleConfigSchema.parse(options);
 }
 
 export const PositionSchema = z.object({
@@ -964,20 +966,6 @@ export function createProjectStateCore(
   options: Partial<ProjectStateCore> = {},
 ): ProjectStateCore {
   return ProjectStateCoreSchema.parse(options);
-}
-
-export const ProjectUpdateStateSchema = z.object({
-  projectConfigId: z.string(),
-  projectState: ProjectStateBackendSchema,
-  requestRenameRefactor: z.boolean().default(false),
-});
-
-export type ProjectUpdateState = z.infer<typeof ProjectUpdateStateSchema>;
-
-export function createProjectUpdateState(
-  options: Partial<ProjectUpdateState> = {},
-): ProjectUpdateState {
-  return ProjectUpdateStateSchema.parse(options);
 }
 
 export const SettingsBackendSchema = z.object({
