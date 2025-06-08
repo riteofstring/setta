@@ -1,6 +1,6 @@
 import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
-import { useActiveSection, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { removeActiveSectionIds } from "../activeSections";
 import {
@@ -42,7 +42,7 @@ export function deleteChildrenFromSeries(isRoot, calledBy, numChildren = 1) {
 }
 
 export function deleteAllActiveSections() {
-  const sectionIds = useActiveSection.getState().ids;
+  const sectionIds = useProjectState.getState().activeIds;
   useProjectState.setState((state) => {
     deleteSections(sectionIds, state);
   });

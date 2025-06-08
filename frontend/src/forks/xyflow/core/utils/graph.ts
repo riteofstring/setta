@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Selection as D3Selection } from "d3";
 import {
-  useActiveSection,
   useLocalStorage,
   useProjectState,
   useSectionRefs,
@@ -74,7 +73,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 };
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = useActiveSection.getState().ids;
+  const activeSectionIds = useProjectState.getState().activeIds;
   const sections = activeSectionIds.map((sectionId) => {
     const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
     return { position: { x, y }, width, height };

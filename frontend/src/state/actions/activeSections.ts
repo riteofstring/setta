@@ -1,30 +1,28 @@
 import _ from "lodash";
-import {
-  useActiveSection,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids) {
-  useActiveSection.setState({ ids });
+  useProjectState.setState({ activeIds: ids });
 }
 
 export function addActiveSectionIds(ids) {
-  useActiveSection.setState((state) => ({
-    ids: [...new Set([...state.ids, ...ids])],
+  useProjectState.setState((state) => ({
+    activeIds: [...new Set([...state.activeIds, ...ids])],
   }));
 }
 
 export function removeActiveSectionIds(ids) {
-  useActiveSection.setState((state) => ({ ids: _.difference(state.ids, ids) }));
+  useProjectState.setState((state) => ({
+    activeIds: _.difference(state.activeIds, ids),
+  }));
 }
 
 export function clearActiveSectionIds() {
-  useActiveSection.setState({ ids: [] });
+  useProjectState.setState({ activeIds: [] });
 }
 
 export function setActiveSectionIdAndUpdateZIndex(id) {
@@ -34,7 +32,7 @@ export function setActiveSectionIdAndUpdateZIndex(id) {
 }
 
 export function selectAll() {
-  const currActiveSections = useActiveSection.getState().ids;
+  const currActiveSections = useProjectState.getState().activeIds;
 
   // select all params within single active section
   if (currActiveSections.length === 1) {

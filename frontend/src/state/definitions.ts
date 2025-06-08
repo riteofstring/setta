@@ -33,21 +33,6 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
-type ZustandActiveSection = { ids: Array<string> };
-
-export const useActiveSection = withProjectState(
-  createWithEqualityFn(
-    temporal(
-      withResetFn(() =>
-        withVersion<ZustandActiveSection>({
-          ids: [],
-        }),
-      ),
-      ZUNDO_TEMPORAL_OPTIONS,
-    ),
-  ),
-);
-
 export const useContextMenus = withProjectState(
   createWithEqualityFn(
     withResetFn(() => ({
@@ -67,6 +52,7 @@ export type ZustandProjectState = {
   uiTypes: ProjectState["uiTypes"];
   codeInfoCols: ProjectState["codeInfoCols"];
   codeInfo: ProjectState["codeInfo"];
+  activeIds: Array<string>;
 };
 
 export const useProjectState = withProjectState(
@@ -91,6 +77,7 @@ export const useProjectState = withProjectState(
                 temporaryTerminalGroup: null,
               },
               requestRenameRefactor: false,
+              activeIds: [],
             }),
           ),
         ),

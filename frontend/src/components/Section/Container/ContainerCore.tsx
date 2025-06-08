@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React from "react";
 
-import { useActiveSection, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { C } from "utils/c";
@@ -73,16 +73,14 @@ function ContainerGroup({
   children,
 }) {
   const hasNested = useHasTempNested(sectionId);
-  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
-  const { positionAndSizeLocked, isInOtherProjectConfigs } = useProjectState(
-    (x) => {
+  const { isActiveSection, positionAndSizeLocked, isInOtherProjectConfigs } =
+    useProjectState((x) => {
       return {
+        isActiveSection: x.activeIds.includes(sectionId),
         positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
         isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       };
-    },
-    _.isEqual,
-  );
+    }, _.isEqual);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
 

@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 
-import { useActiveSection } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import type { NodeDragItem, NodeInternals } from "../types";
 
 export function hasSelector(
@@ -26,7 +26,7 @@ export function getDragItems(
   mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
-  const { ids: activeSections } = useActiveSection.getState();
+  const { activeIds: activeSections } = useProjectState.getState();
   const draggedNodeIsActive = activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(

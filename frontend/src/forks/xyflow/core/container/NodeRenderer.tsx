@@ -6,7 +6,7 @@ import {
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "state/actions/nodeInternals";
-import { useActiveSection, useNodeInternals } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { computeReadyToBeVisible } from "../store/utils";
 import { containerStyle } from "../styles";
@@ -34,7 +34,7 @@ const NodeRenderer = ({}) => {
   const nodes = useNodeInternals(getNodes, shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
-  const activeSectionIds = useActiveSection((x) => x.ids);
+  const activeSectionIds = useProjectState((x) => x.activeIds);
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {

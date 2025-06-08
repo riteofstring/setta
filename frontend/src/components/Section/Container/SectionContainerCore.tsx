@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
-import { useActiveSection, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { C } from "utils/c";
 import "./dndline.css";
@@ -10,19 +10,20 @@ import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _SectionContainerCore({ sectionId, viewingEditingMode }) {
   const {
+    isActiveSection,
     sectionTypeName,
     jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
   } = useProjectState((x) => {
     return {
+      isActiveSection: x.activeIds.includes(sectionId),
       sectionTypeName: getSectionType(sectionId, x),
       jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
     };
   }, _.isEqual);
-  const isActiveSection = useActiveSection((x) => x.ids.includes(sectionId));
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
   const isGlobalVariables = sectionTypeName === C.GLOBAL_VARIABLES;
 

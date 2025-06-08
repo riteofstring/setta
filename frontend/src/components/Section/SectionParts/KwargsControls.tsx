@@ -9,11 +9,7 @@ import {
 } from "state/actions/kwargs";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import {
-  useActiveSection,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useProjectState, useSettings } from "state/definitions";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
@@ -90,11 +86,12 @@ export function KwargsControls({
 }
 
 function ParamFilter({ sectionId }) {
-  const paramFilterValue = useProjectState(
-    (x) => x.sections[sectionId].paramFilter,
-  );
-  const sectionIsActive = useActiveSection((x) =>
-    _.isEqual(x.ids, [sectionId]),
+  const { paramFilterValue, sectionIsActive } = useProjectState(
+    (x) => ({
+      paramFilterValue: x.sections[sectionId].paramFilter,
+      sectionIsActive: _.isEqual(x.activeIds, [sectionId]),
+    }),
+    _.isEqual,
   );
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),

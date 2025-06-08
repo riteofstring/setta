@@ -6,7 +6,7 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useActiveSection, useLocalStorage } from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
   INFO_CONFIG_TAB,
@@ -28,7 +28,7 @@ import { UIConfig } from "./UIConfig/UIConfig";
 const paneName = UI_EDITOR;
 
 export function UiEditor() {
-  const sectionIds = useActiveSection((x) => x.ids, _.isEqual);
+  const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
   const { tab, requiredTabs, uiTypeName, renderMarkdown } = useUIEditorTab(
     sectionIds[0],
   );

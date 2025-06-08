@@ -9,10 +9,10 @@ import {
 } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
-  useActiveSection,
   useLocalStorage,
   useMisc,
   useNodeInternals,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
@@ -137,7 +137,7 @@ function useDrag({
           !isSelectable &&
           !multiSelectionActive &&
           nodeId &&
-          !useActiveSection.getState().ids.includes(nodeId)
+          !useProjectState.getState().activeIds.includes(nodeId)
         ) {
           // TODO: determine if we need to do anything here
           // It used to call unselectNodesAndEdges

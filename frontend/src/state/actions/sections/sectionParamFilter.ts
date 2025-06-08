@@ -1,7 +1,7 @@
-import { useActiveSection, useProjectSearch } from "state/definitions";
+import { useProjectSearch, useProjectState } from "state/definitions";
 
 export function focusOnSearch() {
-  const sectionIds = useActiveSection.getState().ids;
+  const sectionIds = useProjectState.getState().activeIds;
   if (sectionIds.length === 1) {
     const element = document.getElementById(`${sectionIds[0]}-args-filter`);
     if (element) {

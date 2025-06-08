@@ -1,11 +1,11 @@
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { useActiveSection, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { findAll } from "utils/getDescendants";
 import { getAllSectionsForDeletionOrCopying } from "../sectionInfos";
 
 export async function copy() {
-  const activeSectionIds = useActiveSection.getState().ids;
+  const activeSectionIds = useProjectState.getState().activeIds;
   if (activeSectionIds.length > 0 && window.getSelection().toString() === "") {
     const data = copySections(activeSectionIds);
     await navigator.clipboard.writeText(

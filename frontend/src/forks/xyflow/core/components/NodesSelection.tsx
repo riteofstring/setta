@@ -5,7 +5,7 @@ import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
-import { useActiveSection } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import { arrowKeyDiffs } from "./wrapNode";
@@ -28,7 +28,7 @@ function _NodesSelection({ x, y, width, height }) {
   });
 
   const onContextMenu = (event) => {
-    const activeSectionIds = useActiveSection.getState().ids;
+    const activeSectionIds = useProjectState.getState().activeIds;
     const selectedNodeIds = getNodes()
       .filter((n) => activeSectionIds.includes(n.id))
       .map((n) => n.id);

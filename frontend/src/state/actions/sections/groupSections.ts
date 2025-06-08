@@ -1,11 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
-import {
-  useActiveSection,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
@@ -41,7 +37,7 @@ export function groupSections({ sectionIds, position, name }) {
 }
 
 export async function groupActiveSections() {
-  const activeSectionIds = useActiveSection.getState().ids;
+  const activeSectionIds = useProjectState.getState().activeIds;
   const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
     activeSectionIds.includes(x[0]),
   );
@@ -81,7 +77,7 @@ export function ungroupGroup(groupId, state) {
 
 export function ungroupActiveGroup() {
   useProjectState.setState((state) => {
-    const ids = useActiveSection.getState().ids;
+    const ids = useProjectState.getState().activeIds;
     // TODO: support multiple groups
     if (ids.length === 1) {
       ungroupGroup(ids[0], state);

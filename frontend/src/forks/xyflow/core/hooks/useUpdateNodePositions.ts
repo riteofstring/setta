@@ -1,7 +1,7 @@
 import { getNodes, updateNodePositions } from "state/actions/nodeInternals";
 import {
-  useActiveSection,
   useLocalStorage,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { useReactFlow } from "../store";
@@ -15,7 +15,7 @@ export const updatePositions = (params: {
     useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
-  const activeSectionIds = useActiveSection.getState().ids;
+  const activeSectionIds = useProjectState.getState().activeIds;
   const selectedNodes = getNodes().filter(
     (n) =>
       activeSectionIds.includes(n.id) &&
