@@ -53,12 +53,7 @@ function ProjectOverviewCore({ sectionList }) {
 export function useOverviewListing() {
   return useProjectState((x) => {
     const outputList = [];
-    const projectConfig = getCurrentProjectConfig(x);
-    if (!projectConfig) {
-      return [];
-    }
-    for (const sectionId of Object.keys(projectConfig.children)) {
-      const section = x.sections[sectionId];
+    for (const section of Object.values(x.sections)) {
       if (!section.parentId) {
         getDepthListingHelper(section.id, 0, x, outputList);
       }

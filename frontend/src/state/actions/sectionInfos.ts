@@ -176,7 +176,6 @@ export function getDisplayedSectionVariantId(
   sectionId: string,
   _state: ZustandProjectState | null,
 ) {
-  console.log("getDisplayedSectionVariantId", sectionId);
   const state = _state ?? useProjectState.getState();
   return (
     state.sections[sectionId].previewVariantId ??
@@ -200,14 +199,11 @@ function getDisplayedSectionIdToChildrenHelper(sectionId, state, output) {
 }
 
 export function getDisplayedSectionIdToChildren(
-  state: ZustandProjectState,
+  state,
   includeNullAsRoot = false,
 ) {
   const output = {};
   const s = state ?? useProjectState.getState();
-
-
-
   for (const section of Object.values(s.sections)) {
     if (!section.parentId) {
       getDisplayedSectionIdToChildrenHelper(section.id, s, output);
@@ -400,7 +396,6 @@ export function getCurrentProjectConfig(
   _state: ZustandProjectState | null = null,
 ) {
   const state = _state ?? useProjectState.getState();
-  console.log("state", state)
   return state.projectConfigs[state.projectConfigId];
 }
 
