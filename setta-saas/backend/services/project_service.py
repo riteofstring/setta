@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from database import Project
+from database import Project, SessionLocal
 from models.project import ProjectCreate, ProjectResponse
 from models.websocket import (
     DeploymentStep,
@@ -66,16 +66,24 @@ class ProjectService:
         )
 
         # Start deployment in background
-        asyncio.create_task(self._deploy_project_with_progress(project, app_name))
+        asyncio.create_task(self._deploy_project_with_progress(project.id, app_name))
 
         return self._to_response(project)
 
-    async def _deploy_project_with_progress(self, project: Project, app_name: str):
+    async def _deploy_project_with_progress(self, project_id: str, app_name: str):
         """Deploy project to Fly.io with real progress updates."""
+        # Get a fresh database session for this async task
+        db = SessionLocal()
         try:
+            # Get the project from the database
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if not project:
+                print(f"Project {project_id} not found")
+                return
+
             # Update status to deploying
             project.status = "deploying"
-            self.db.commit()
+            db.commit()
 
             await self._broadcast_project_event(
                 project, EventType.PROJECT_DEPLOYING, "Deploying to Fly.io..."
@@ -91,7 +99,7 @@ class ProjectService:
             project.url = deployment["url"]
             project.status = "running"
             project.last_checked = datetime.utcnow()
-            self.db.commit()
+            db.commit()
 
             # Send completion progress
             await self._broadcast_progress(project, DeploymentStep.COMPLETE.value, 100)
@@ -103,15 +111,18 @@ class ProjectService:
 
         except Exception as e:
             # Update status on failure
-            project.url = "Failed to create"
-            project.status = "error"
-            self.db.commit()
+            if project:
+                project.url = "Failed to create"
+                project.status = "error"
+                db.commit()
 
             # Broadcast error
             await self._broadcast_project_event(
                 project, EventType.PROJECT_ERROR, f"Deployment failed: {str(e)}"
             )
             print(f"Deployment error for {app_name}: {str(e)}")
+        finally:
+            db.close()
 
     async def delete_project(self, project_id: str) -> bool:
         """Delete a project and its Fly.io resources."""
