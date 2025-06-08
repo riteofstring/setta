@@ -24,7 +24,7 @@ function _ChartArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    ArtifactTypeSchema.enum.list,
+    ArtifactTypeSchema.enum.LIST,
   );
 
   return (

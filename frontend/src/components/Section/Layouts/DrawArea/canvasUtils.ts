@@ -211,7 +211,7 @@ function drawOneLayer(
     artifactTempCtx.globalCompositeOperation = "source-over";
 
     if (
-      artifact.type === ArtifactTypeSchema.enum.img &&
+      artifact.type === ArtifactTypeSchema.enum.IMG &&
       artifact.value instanceof Image &&
       artifact.value.complete
     ) {
@@ -225,7 +225,7 @@ function drawOneLayer(
         transformInfo.transform,
       );
     } else if (
-      artifact.type === ArtifactTypeSchema.enum.brush_strokes &&
+      artifact.type === ArtifactTypeSchema.enum.BRUSH_STROKES &&
       artifact.value.length > 0
     ) {
       const strokes = realTimeValues?.[id] ?? artifact.value;
@@ -417,7 +417,7 @@ function hexToRGBA(_hex, opacity) {
 
 function maybeGetImgSizeFromArtifact(artifact) {
   if (
-    artifact?.type === ArtifactTypeSchema.enum.img &&
+    artifact?.type === ArtifactTypeSchema.enum.IMG &&
     artifact?.value?.complete
   ) {
     const image = artifact.value;

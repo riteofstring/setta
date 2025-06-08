@@ -10,6 +10,7 @@ import requests
 import websockets
 
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
+from setta.types.base_ui_types import UITypeName
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
 
 DataWrapperDict = dict[str, "SettaDataWrapper"]
@@ -307,9 +308,9 @@ def get_wrapper_for_loading(type: ArtifactType):
 
 def default_section_type(data_type):
     if data_type == ArtifactType.LIST:
-        return C.CHART
+        return UITypeName.CHART
     if data_type == ArtifactType.IMG:
-        return C.IMAGE
+        return UITypeName.IMAGE
 
 
 def save_base64_to_png(base64_string, output_file):

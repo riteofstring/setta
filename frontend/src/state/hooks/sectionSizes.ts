@@ -8,7 +8,7 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -27,7 +27,7 @@ function getMinSectionHeight({
     return MINIMIZE_SECTION_HEIGHT;
   }
 
-  if (sectionType === C.SECTION) {
+  if (sectionType === UITypeNameSchema.enum.SECTION) {
     if (hideSearch) {
       return 78;
     } else if (hideParams) {
@@ -35,25 +35,31 @@ function getMinSectionHeight({
     } else {
       return 104;
     }
-  } else if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
+  } else if (
+    sectionType === UITypeNameSchema.enum.LIST_ROOT ||
+    sectionType === UITypeNameSchema.enum.DICT_ROOT
+  ) {
     return ROOT_SECTION_HEIGHT;
-  } else if (sectionType === C.GLOBAL_VARIABLES) {
+  } else if (sectionType === UITypeNameSchema.enum.GLOBAL_VARIABLES) {
     return 78;
-  } else if (sectionType === C.CODE) {
+  } else if (sectionType === UITypeNameSchema.enum.CODE) {
     return 58.2;
-  } else if (sectionType === C.TEXT_BLOCK) {
+  } else if (sectionType === UITypeNameSchema.enum.TEXT_BLOCK) {
     return 98;
-  } else if (sectionType === C.TERMINAL) {
+  } else if (sectionType === UITypeNameSchema.enum.TERMINAL) {
     return 100;
-  } else if (sectionType === C.DRAW || sectionType === C.IMAGE) {
+  } else if (
+    sectionType === UITypeNameSchema.enum.DRAW ||
+    sectionType === UITypeNameSchema.enum.IMAGE
+  ) {
     return 100;
-  } else if (sectionType === C.CHART) {
+  } else if (sectionType === UITypeNameSchema.enum.CHART) {
     return 300;
-  } else if (sectionType === C.SOCIAL) {
+  } else if (sectionType === UITypeNameSchema.enum.SOCIAL) {
     return 50;
-  } else if (sectionType === C.CHAT) {
+  } else if (sectionType === UITypeNameSchema.enum.CHAT) {
     return 200;
-  } else if (sectionType === C.BROWSER) {
+  } else if (sectionType === UITypeNameSchema.enum.BROWSER) {
     return 250;
   }
 }
@@ -62,7 +68,10 @@ function getMaxSectionHeight({ sectionType, isMinimized }) {
   if (isMinimized) {
     return MINIMIZE_SECTION_HEIGHT;
   }
-  if (sectionType === C.LIST_ROOT || sectionType === C.DICT_ROOT) {
+  if (
+    sectionType === UITypeNameSchema.enum.LIST_ROOT ||
+    sectionType === UITypeNameSchema.enum.DICT_ROOT
+  ) {
     return ROOT_SECTION_HEIGHT;
   }
   return INFINITE_MAX_HEIGHT;
@@ -72,11 +81,11 @@ function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
     return 370;
   }
-  if (sectionType === C.DRAW) {
+  if (sectionType === UITypeNameSchema.enum.DRAW) {
     return 402;
-  } else if (sectionType === C.CHART) {
+  } else if (sectionType === UITypeNameSchema.enum.CHART) {
     return 300;
-  } else if (sectionType === C.CHAT) {
+  } else if (sectionType === UITypeNameSchema.enum.CHAT) {
     return 400;
   }
 
@@ -91,11 +100,14 @@ function getMaxSectionWidth({ isTwitter }) {
 }
 
 function getSizeMode({ sectionType, hideParams, isTwitter }) {
-  if (sectionType === C.SECTION) {
+  if (sectionType === UITypeNameSchema.enum.SECTION) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
-  } else if (sectionType === C.TERMINAL || sectionType === C.CHART) {
+  } else if (
+    sectionType === UITypeNameSchema.enum.TERMINAL ||
+    sectionType === UITypeNameSchema.enum.CHART
+  ) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   }
   if (isTwitter) {
@@ -258,7 +270,7 @@ export function setDrawAreaSectionSize({
 
   if (imgSize) {
     if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
-      const sectionType = C.DRAW;
+      const sectionType = UITypeNameSchema.enum.DRAW;
       const minHeight = getMinSectionHeight({ sectionType });
       const minWidth = getMinSectionWidth({ sectionType });
       canvasSize = adjustSizeToBeAtLeastMin(

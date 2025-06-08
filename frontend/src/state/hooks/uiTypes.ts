@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useLocalStorage, useProjectState } from "state/definitions";
-import { C } from "utils/c";
 import {
   INFO_CONFIG_TAB,
   QUICKINFO_CONFIG_TAB,
@@ -8,7 +7,7 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
 } from "utils/constants";
-import { createUITypeColEntry } from "utils/generatedTypes";
+import { createUITypeColEntry, UITypeNameSchema } from "utils/generatedTypes";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -44,13 +43,17 @@ export function getIsSeriesElementHelper(
 
 export function useIsSeriesElement(sectionId) {
   return useProjectState((x) =>
-    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT, C.DICT_ROOT], x),
+    getIsSeriesElementHelper(
+      sectionId,
+      [UITypeNameSchema.enum.LIST_ROOT, UITypeNameSchema.enum.DICT_ROOT],
+      x,
+    ),
   );
 }
 
 export function useIsListElement(sectionId) {
   return useProjectState((x) =>
-    getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x),
+    getIsSeriesElementHelper(sectionId, [UITypeNameSchema.enum.LIST_ROOT], x),
   );
 }
 
@@ -77,29 +80,29 @@ export function useUIEditorTab(sectionId) {
 
 function getRequiredUIEditorTabs(uiTypeName) {
   switch (uiTypeName) {
-    case C.SECTION:
-    case C.GLOBAL_VARIABLES:
+    case UITypeNameSchema.enum.SECTION:
+    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
       return [
         // SECTION_CONFIG_TAB,
         UI_CONFIG_TAB,
         QUICKINFO_CONFIG_TAB,
         SECTION_VARIANTS_TAB,
       ];
-    case C.LIST_ROOT:
-    case C.DICT_ROOT:
-    case C.CODE:
+    case UITypeNameSchema.enum.LIST_ROOT:
+    case UITypeNameSchema.enum.DICT_ROOT:
+    case UITypeNameSchema.enum.CODE:
       return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case C.GEN_PYTHON_CODE:
+    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
       return [SECTION_CONFIG_TAB];
-    case C.TEXT_BLOCK:
+    case UITypeNameSchema.enum.TEXT_BLOCK:
       return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case C.SOCIAL:
+    case UITypeNameSchema.enum.SOCIAL:
       return [SECTION_CONFIG_TAB];
-    case C.GROUP:
-    case C.TERMINAL:
-    case C.DRAW:
-    case C.IMAGE:
-    case C.CHART:
+    case UITypeNameSchema.enum.GROUP:
+    case UITypeNameSchema.enum.TERMINAL:
+    case UITypeNameSchema.enum.DRAW:
+    case UITypeNameSchema.enum.IMAGE:
+    case UITypeNameSchema.enum.CHART:
       return [SECTION_CONFIG_TAB];
     default:
       return [

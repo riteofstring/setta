@@ -35,30 +35,6 @@ class C:
     PORT: int = DEFAULT_PORT
     DB_PATH: Path = DEFAULT_DB_PATH
 
-    # UI Component Types
-    TEXT = "TEXT"
-    SLIDER = "SLIDER"
-    SWITCH = "SWITCH"
-    COLOR_PICKER = "COLOR_PICKER"
-    DROPDOWN = "DROPDOWN"
-    PASSWORD = "PASSWORD"
-    SECTION = "SECTION"
-    LIST_ROOT = "LIST_ROOT"
-    DICT_ROOT = "DICT_ROOT"
-    GROUP = "GROUP"
-    GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
-    CODE = "CODE"
-    GEN_PYTHON_CODE = "GEN_PYTHON_CODE"
-    TEXT_BLOCK = "TEXT_BLOCK"
-    TERMINAL = "TERMINAL"
-    IMAGE = "IMAGE"
-    CHART = "CHART"
-    DRAW = "DRAW"
-    SOCIAL = "SOCIAL"
-    IFRAME = "IFRAME"
-    CHAT = "CHAT"
-    BROWSER = "BROWSER"
-
     # Non-section types list
     NON_SECTION_TYPES = [
         "TEXT",

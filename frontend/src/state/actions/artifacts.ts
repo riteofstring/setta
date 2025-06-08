@@ -5,8 +5,11 @@ import {
 import _ from "lodash";
 import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
-import { C } from "utils/c";
-import { ArtifactTypeSchema } from "utils/generatedTypes";
+import {
+  ArtifactType,
+  ArtifactTypeSchema,
+  UITypeNameSchema,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";
@@ -34,22 +37,22 @@ async function prepareArtifactsForRendering(artifactsFromBackend) {
   }
 }
 
-export async function prepareArtifactForRendering(type, value) {
+export async function prepareArtifactForRendering(type: ArtifactType, value) {
   switch (type) {
-    case ArtifactTypeSchema.enum.img:
+    case ArtifactTypeSchema.enum.IMG:
       return await base64ToImageObj(value);
-    case ArtifactTypeSchema.enum.list:
-    case ArtifactTypeSchema.enum.brush_strokes:
-    case ArtifactTypeSchema.enum.chat_history:
+    case ArtifactTypeSchema.enum.LIST:
+    case ArtifactTypeSchema.enum.BRUSH_STROKES:
+    case ArtifactTypeSchema.enum.CHAT_HISTORY:
       return value;
   }
 }
 
-export async function prepareDataURLForRendering(type, value) {
+export async function prepareDataURLForRendering(type: ArtifactType, value) {
   switch (type) {
-    case ArtifactTypeSchema.enum.img:
+    case ArtifactTypeSchema.enum.IMG:
       return await base64ToImageObj(value);
-    case ArtifactTypeSchema.enum.list:
+    case ArtifactTypeSchema.enum.LIST:
       const res = await dbReadCSVBase64(dataURLToBase64(value));
       if (res.status == 200) {
         return res.data;
@@ -66,7 +69,7 @@ export function getArtifactStateForSaving() {
     if (typeof artifact === "function") {
       continue;
     } else if (
-      artifact.type === ArtifactTypeSchema.enum.img &&
+      artifact.type === ArtifactTypeSchema.enum.IMG &&
       artifact.value instanceof Image
     ) {
       result[id] = { ...artifact, value: dataURLToBase64(artifact.value.src) };
@@ -107,8 +110,8 @@ function addArtifactUponSectionCreation({
 export function addDrawAreaLayer(sectionId, state) {
   const artifactGroupId = addArtifactUponSectionCreation({
     sectionId,
-    artifactType: ArtifactTypeSchema.enum.brush_strokes,
-    sectionTypeName: C.DRAW,
+    artifactType: ArtifactTypeSchema.enum.BRUSH_STROKES,
+    sectionTypeName: UITypeNameSchema.enum.DRAW,
     state,
   });
 
@@ -118,8 +121,8 @@ export function addDrawAreaLayer(sectionId, state) {
 export function addChatHistoryArtifact(sectionId, state) {
   addArtifactUponSectionCreation({
     sectionId,
-    artifactType: ArtifactTypeSchema.enum.chat_history,
-    sectionTypeName: C.CHAT,
+    artifactType: ArtifactTypeSchema.enum.CHAT_HISTORY,
+    sectionTypeName: UITypeNameSchema.enum.CHAT,
     state,
   });
 }
@@ -154,7 +157,10 @@ export function updateArtifactGroupAndSetArtifactId({
     );
 
     currArtifactGroup = state.artifactGroups[artifactGroupId];
-    if (sectionTypeName === C.DRAW || sectionTypeName === C.CHART) {
+    if (
+      sectionTypeName === UITypeNameSchema.enum.DRAW ||
+      sectionTypeName === UITypeNameSchema.enum.CHART
+    ) {
       currArtifactGroup.artifactTransforms.push(artifactTransform);
     } else {
       currArtifactGroup.artifactTransforms = [artifactTransform];
@@ -213,17 +219,17 @@ export async function addArtifactAndMaybeCreateNewArtifactGroup({
 
 function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
   switch (sectionTypeName) {
-    case C.DRAW:
+    case UITypeNameSchema.enum.DRAW:
       return state.sections[sectionId].canvasSettings.activeLayerId;
-    case C.IMAGE:
-    case C.CHART:
+    case UITypeNameSchema.enum.IMAGE:
+    case UITypeNameSchema.enum.CHART:
       return state.sections[sectionId].artifactGroupIds[0];
   }
 }
 
 function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
   const sectionTypeName = getSectionType(sectionId, state);
-  if (sectionTypeName === C.CHART) {
+  if (sectionTypeName === UITypeNameSchema.enum.CHART) {
     updateColumnNameSelections(artifactIds, sectionId, state);
   }
 }

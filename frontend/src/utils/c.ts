@@ -9,31 +9,17 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
-  static BROWSER = "BROWSER";
   static CALLABLE = "callable";
-  static CHART = "CHART";
-  static CHAT = "CHAT";
-  static CODE = "CODE";
   static CODE_AREA_GEN_CODE_NOT_INITIALIZED =
     "CODE_AREA_GEN_CODE_NOT_INITIALIZED";
   static COLLECTION = "collection";
-  static COLOR_PICKER = "COLOR_PICKER";
   static DEFAULT_BASH_SCRIPT_NAME = "setta_bash_script";
   static DEFAULT_DB_ALIAS = "default";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
   static DEFAULT_PYTHON_SCRIPT_NAME = "setta_python_script";
   static DEV_MODE_FRONTEND_PORT = 3000;
-  static DICT_ROOT = "DICT_ROOT";
-  static DRAW = "DRAW";
-  static DROPDOWN = "DROPDOWN";
-  static GEN_PYTHON_CODE = "GEN_PYTHON_CODE";
-  static GLOBAL_VARIABLES = "GLOBAL_VARIABLES";
-  static GROUP = "GROUP";
   static HOST = "127.0.0.1";
-  static IFRAME = "IFRAME";
-  static IMAGE = "IMAGE";
-  static LIST_ROOT = "LIST_ROOT";
   static LLM_API_KEY_NAMES = {
     Anthropic: "ANTHROPIC_API_KEY",
     OpenAI: "OPENAI_API_KEY",
@@ -69,7 +55,6 @@ export class C {
   ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PARAMETER = "parameter";
-  static PASSWORD = "PASSWORD";
   static PORT = 8000;
   static PRESET_UI_TYPE_BASE = "BASE";
   static PRESET_UI_TYPE_USER = "USER";
@@ -144,7 +129,6 @@ export class C {
   static ROUTE_WEBSOCKET_FRONTEND = "/frontend";
   static ROUTE_WEBSOCKET_PYTHON_LOGGER = "/pythonLogger";
   static ROUTE_WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}";
-  static SECTION = "SECTION";
   static SETTA_MCP_PARAM_NAMES = [
     "setta_chat_id",
     "setta_mcp_server",
@@ -152,12 +136,6 @@ export class C {
   ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
-  static SLIDER = "SLIDER";
-  static SOCIAL = "SOCIAL";
-  static SWITCH = "SWITCH";
-  static TERMINAL = "TERMINAL";
-  static TEXT = "TEXT";
-  static TEXT_BLOCK = "TEXT_BLOCK";
   static WS_ALL_CONNECTIONS = "allConnections";
   static WS_ALL_DEPENDENCIES = "allDependencies";
   static WS_ARTIFACT = "artifact";

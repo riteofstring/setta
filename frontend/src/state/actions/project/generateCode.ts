@@ -17,10 +17,10 @@ export async function getProjectDataToGenerateCode({
   //   const sections = {};
   //   for (const x of Object.values(sectionInfosState)) {
   //     const currSection = _.cloneDeep(x);
-  //     if (includeDrawings && getSectionType(x.id) === C.DRAW) {
+  //     if (includeDrawings && getSectionType(x.id) === UITypeNameSchema.enum.DRAW) {
   //       currSection.drawing = await requestBase64FromCanvas(x.id);
   //     }
-  //     if (includeLatestChatMessages && getSectionType(x.id) === C.CHAT) {
+  //     if (includeLatestChatMessages && getSectionType(x.id) === UITypeNameSchema.enum.CHAT) {
   //       // this property just needs to exist when the code is first imported
   //       currSection.latestChatMessage = null;
   //     }

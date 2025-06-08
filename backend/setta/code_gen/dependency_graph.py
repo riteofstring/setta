@@ -7,6 +7,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
+from setta.types.base_ui_types import UITypeName
 from setta.types.helpers import (
     get_param_ui_type,
     get_section_children,
@@ -65,12 +66,12 @@ class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = set(
             [
-                C.SECTION,
-                C.LIST_ROOT,
-                C.DICT_ROOT,
-                C.GROUP,
-                C.GLOBAL_VARIABLES,
-                C.TEXT_BLOCK,
+                UITypeName.SECTION,
+                UITypeName.LIST_ROOT,
+                UITypeName.DICT_ROOT,
+                UITypeName.GROUP,
+                UITypeName.GLOBAL_VARIABLES,
+                UITypeName.TEXT_BLOCK,
             ]
         )
         self.construct_graph(p)
@@ -116,7 +117,7 @@ class DependencyGraph:
             type = get_section_type(p, id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
-            if type == C.SECTION:
+            if type == UITypeName.SECTION:
                 value, potential_refs = self.export_section_value(p, id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
@@ -131,7 +132,7 @@ class DependencyGraph:
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif type in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
+            elif type in [UITypeName.LIST_ROOT, UITypeName.DICT_ROOT, UITypeName.GROUP]:
                 children = [
                     c
                     for c in get_section_children(p, id)
@@ -148,9 +149,9 @@ class DependencyGraph:
                 )
                 node.deps = self.export_sections(p, children, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif type == C.GLOBAL_VARIABLES:
+            elif type == UITypeName.GLOBAL_VARIABLES:
                 self.export_section_params(p, id, isTopLevel=True)
-            # elif type == C.TEXT_BLOCK:
+            # elif type == UITypeName.TEXT_BLOCK:
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
             #     info["dependencies"] = []
@@ -263,12 +264,12 @@ class DependencyGraph:
     ):
         if not parent_node:
             return sanitize_name(name)
-        if parent_node.type == C.LIST_ROOT:
+        if parent_node.type == UITypeName.LIST_ROOT:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
-            parent_node.type == C.SECTION
-            or parent_node.type == C.DICT_ROOT
-            or parent_node.type == C.GROUP
+            parent_node.type == UITypeName.SECTION
+            or parent_node.type == UITypeName.DICT_ROOT
+            or parent_node.type == UITypeName.GROUP
             or parent_node.type == C.NESTED_PARAM
         ):
             return create_unique_name(

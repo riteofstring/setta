@@ -1,4 +1,3 @@
-import { C } from "utils/c";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -12,6 +11,7 @@ import {
   ProjectStateSingleConfig,
   SettaNotification,
   SettingsState,
+  UITypeNameSchema,
 } from "utils/generatedTypes";
 import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
@@ -71,8 +71,8 @@ export const useProjectState = withProjectState(
               codeInfo: {},
               artifactGroups: {},
               singletonSections: {
-                [C.GLOBAL_VARIABLES]: null,
-                [C.GEN_PYTHON_CODE]: null,
+                [UITypeNameSchema.enum.GLOBAL_VARIABLES]: null,
+                [UITypeNameSchema.enum.GEN_PYTHON_CODE]: null,
                 temporaryTerminalGroup: null,
               },
               requestRenameRefactor: false,

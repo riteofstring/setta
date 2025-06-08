@@ -9,7 +9,7 @@ import {
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
@@ -262,19 +262,22 @@ function getOverId(over) {
 }
 
 function getSectionCanOnlyBeChildOfGroup(sectionId) {
-  return ![C.SECTION, C.LIST_ROOT, C.DICT_ROOT].includes(
-    getSectionType(sectionId),
-  );
+  return ![
+    UITypeNameSchema.enum.SECTION,
+    UITypeNameSchema.enum.LIST_ROOT,
+    UITypeNameSchema.enum.DICT_ROOT,
+  ].includes(getSectionType(sectionId));
 }
 
 function getSectionIsGroup(sectionId) {
-  return getSectionType(sectionId) === C.GROUP;
+  return getSectionType(sectionId) === UITypeNameSchema.enum.GROUP;
 }
 
 function getSectionIsGlobalVariables(sectionId) {
   return (
-    useProjectState.getState().singletonSections[C.GLOBAL_VARIABLES] ===
-    sectionId
+    useProjectState.getState().singletonSections[
+      UITypeNameSchema.enum.GLOBAL_VARIABLES
+    ] === sectionId
   );
 }
 

@@ -14,7 +14,7 @@ import {
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
@@ -38,7 +38,7 @@ export function subscribe() {
         state.singletonSections = x;
       });
       dbFileWatchGenPythonCode({
-        watch: Boolean(x[C.GEN_PYTHON_CODE]),
+        watch: Boolean(x[UITypeNameSchema.enum.GEN_PYTHON_CODE]),
         projectConfigId: useProjectState.getState().projectConfig.id,
       });
     },
@@ -161,26 +161,36 @@ export function subscribe() {
 
 function singletonSectionsSubscriptionFn(state) {
   const output = {
-    [C.GLOBAL_VARIABLES]: null,
-    [C.GEN_PYTHON_CODE]: null,
+    [UITypeNameSchema.enum.GLOBAL_VARIABLES]: null,
+    [UITypeNameSchema.enum.GEN_PYTHON_CODE]: null,
   };
   for (const s of Object.values(state.sections)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
-      output[C.GLOBAL_VARIABLES] &&
-      output[C.GEN_PYTHON_CODE] &&
+      output[UITypeNameSchema.enum.GLOBAL_VARIABLES] &&
+      output[UITypeNameSchema.enum.GEN_PYTHON_CODE] &&
       output.temporaryTerminalGroup
     ) {
       break;
     }
-    if (!output[C.GLOBAL_VARIABLES] && uiType === C.GLOBAL_VARIABLES) {
-      output[C.GLOBAL_VARIABLES] = s.id;
+    if (
+      !output[UITypeNameSchema.enum.GLOBAL_VARIABLES] &&
+      uiType === UITypeNameSchema.enum.GLOBAL_VARIABLES
+    ) {
+      output[UITypeNameSchema.enum.GLOBAL_VARIABLES] = s.id;
     }
-    if (!output[C.GEN_PYTHON_CODE] && uiType === C.GEN_PYTHON_CODE) {
-      output[C.GEN_PYTHON_CODE] = s.id;
+    if (
+      !output[UITypeNameSchema.enum.GEN_PYTHON_CODE] &&
+      uiType === UITypeNameSchema.enum.GEN_PYTHON_CODE
+    ) {
+      output[UITypeNameSchema.enum.GEN_PYTHON_CODE] = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
-    if (!output.temporaryTerminalGroup && uiType === C.GROUP && s.isTemporary) {
+    if (
+      !output.temporaryTerminalGroup &&
+      uiType === UITypeNameSchema.enum.GROUP &&
+      s.isTemporary
+    ) {
       output.temporaryTerminalGroup = s.id;
     }
   }
@@ -243,7 +253,7 @@ function topLevelSectionVisibilitySubscriptionFn(state) {
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
-    if (getSectionType(s.id) === C.CODE) {
+    if (getSectionType(s.id) === UITypeNameSchema.enum.CODE) {
       codeBlockIds.push(s.id);
     }
   }

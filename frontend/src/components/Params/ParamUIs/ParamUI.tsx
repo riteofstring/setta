@@ -4,12 +4,12 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { getParamUIType } from "state/hooks/uiTypes";
-import { C } from "utils/c";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
@@ -22,13 +22,13 @@ export function ParamUIConfig({ name, ...props }) {
   switch (name) {
     default:
       return <TextInputConfig {...props} />;
-    case C.SLIDER:
+    case UITypeNameSchema.enum.SLIDER:
       return <SliderInputConfig {...props} />;
-    case C.SWITCH:
+    case UITypeNameSchema.enum.SWITCH:
       return <SwitchInputConfig {...props} />;
-    case C.COLOR_PICKER:
+    case UITypeNameSchema.enum.COLOR_PICKER:
       return <ColorPickerInputConfig {...props} />;
-    case C.DROPDOWN:
+    case UITypeNameSchema.enum.DROPDOWN:
       return <DropdownInputConfig {...props} />;
   }
 }
@@ -64,7 +64,7 @@ export function ParamUI({
   // need to put the group/textinput in a higher div
 
   switch (uiType.type) {
-    case C.TEXT:
+    case UITypeNameSchema.enum.TEXT:
       return (
         <>
           <TextInputCodeMirror
@@ -92,7 +92,7 @@ export function ParamUI({
           />
         </>
       );
-    case C.SLIDER: {
+    case UITypeNameSchema.enum.SLIDER: {
       const { min, max, step } = uiType.config;
       return (
         <SliderInput
@@ -114,7 +114,7 @@ export function ParamUI({
         />
       );
     }
-    case C.SWITCH:
+    case UITypeNameSchema.enum.SWITCH:
       return (
         <SwitchInput
           value={value}
@@ -126,7 +126,7 @@ export function ParamUI({
           twRootClasses="nodrag"
         />
       );
-    case C.COLOR_PICKER:
+    case UITypeNameSchema.enum.COLOR_PICKER:
       const { colorChoices } = uiType.config;
       return (
         <ColorPickerInput
@@ -139,7 +139,7 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
-    case C.DROPDOWN:
+    case UITypeNameSchema.enum.DROPDOWN:
       const { choices } = uiType.config;
       return (
         <DropdownInput
@@ -150,7 +150,7 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
-    case C.PASSWORD:
+    case UITypeNameSchema.enum.PASSWORD:
       return (
         <>
           <PasswordInput

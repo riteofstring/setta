@@ -2,7 +2,7 @@ import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 
 export function maybeRequestDrawAreaUpdate(newVal, oldVal) {
   const idToModifiedBy = {};
@@ -20,7 +20,7 @@ export function maybeRequestDrawAreaUpdate(newVal, oldVal) {
   const sectionState = useProjectState.getState();
   const drawAreasToUpdate = [];
   for (const s of Object.values(sectionState.x)) {
-    if (getSectionType(s.id, sectionState) !== C.DRAW) {
+    if (getSectionType(s.id, sectionState) !== UITypeNameSchema.enum.DRAW) {
       continue;
     }
     const artifactIds = getAllSectionArtifactIds(s.id, sectionState);

@@ -11,6 +11,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
@@ -177,7 +178,7 @@ function createTemporaryTerminal(id, groupId, state) {
     sectionProps: {
       id,
       parentId: groupId,
-      uiTypeId: BASE_UI_TYPE_IDS[C.TERMINAL],
+      uiTypeId: BASE_UI_TYPE_IDS[UITypeNameSchema.enum.TERMINAL],
       isTemporary: true,
     },
     state,
@@ -189,7 +190,7 @@ function maybeCreateTemporaryTerminalGroup(state) {
   let groupId = state.singletonSections.temporaryTerminalGroup;
   if (!groupId) {
     groupId = addSectionInEmptySpace({
-      type: C.GROUP,
+      type: UITypeNameSchema.enum.GROUP,
       sectionProps: {
         name: getTemporaryTerminalsGroupName(),
         isTemporary: true,

@@ -15,7 +15,7 @@ function _ImageArea({ sectionId }) {
   const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
     sectionId,
     false,
-    ArtifactTypeSchema.enum.img,
+    ArtifactTypeSchema.enum.IMG,
   );
   return (
     <figure

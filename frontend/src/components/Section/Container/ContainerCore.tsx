@@ -4,8 +4,10 @@ import React from "react";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { C } from "utils/c";
-import { ViewingEditingModeSchema } from "utils/generatedTypes";
+import {
+  UITypeNameSchema,
+  ViewingEditingModeSchema,
+} from "utils/generatedTypes";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
@@ -116,7 +118,7 @@ function ContainerGroup({
       <div className="z-10 flex min-h-10 w-full items-center">
         <MenuButton
           sectionId={sectionId}
-          sectionTypeName={C.GROUP}
+          sectionTypeName={UITypeNameSchema.enum.GROUP}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
         />
         <div

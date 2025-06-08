@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
@@ -52,7 +52,7 @@ export function selectAll() {
 export function setTopLevelNonGroupSectionsAsActive() {
   const topLevelSections = Array.from(useNodeInternals.getState().x.values());
   const nonGroup = topLevelSections.filter(
-    (s) => getSectionType(s.id) !== C.GROUP,
+    (s) => getSectionType(s.id) !== UITypeNameSchema.enum.GROUP,
   );
   setActiveSectionIds(nonGroup.map((x) => x.id));
 }

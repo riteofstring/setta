@@ -12,12 +12,12 @@ import {
   useProjectState,
   useYamlValue,
 } from "state/definitions";
-import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
 import {
   CodeInfoTypeSchema,
   createCodeInfo,
   createEVEntry,
+  UITypeNameSchema,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
@@ -40,8 +40,8 @@ export function yamlToGUI(sectionId) {
   const sectionType = getSectionType(sectionId);
   const yamlValue = useYamlValue.getState()[variantId] ?? "";
   switch (sectionType) {
-    case C.GLOBAL_VARIABLES:
-    case C.SECTION:
+    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
+    case UITypeNameSchema.enum.SECTION:
       const originalObj = useOriginalYamlObj.getState()[variantId] ?? {};
       sectionYamlToGUI(sectionId, yamlValue, originalObj);
       break;

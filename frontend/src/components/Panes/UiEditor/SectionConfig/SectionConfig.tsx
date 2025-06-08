@@ -1,7 +1,7 @@
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
@@ -30,24 +30,24 @@ function SpecializedConfiguration({ sectionId }) {
     return getSectionType(sectionId, x);
   });
   switch (sectionType) {
-    // case C.SECTION:
-    // case C.GLOBAL_VARIABLES:
+    // case UITypeNameSchema.enum.SECTION:
+    // case UITypeNameSchema.enum.GLOBAL_VARIABLES:
     //   return <InputAreaSettings sectionId={sectionId} />;
-    case C.TEXT_BLOCK:
+    case UITypeNameSchema.enum.TEXT_BLOCK:
       return <TextBlockSettings sectionId={sectionId} />;
-    case C.DRAW:
+    case UITypeNameSchema.enum.DRAW:
       return <DrawAreaSettings sectionId={sectionId} />;
-    case C.IMAGE:
+    case UITypeNameSchema.enum.IMAGE:
       return <ImageAreaSettings sectionId={sectionId} />;
-    case C.CHART:
+    case UITypeNameSchema.enum.CHART:
       return <ChartAreaSettings sectionId={sectionId} />;
-    case C.SOCIAL:
+    case UITypeNameSchema.enum.SOCIAL:
       return <SocialAreaSettings sectionId={sectionId} />;
-    case C.IFRAME:
+    case UITypeNameSchema.enum.IFRAME:
       return <IframeSettings sectionId={sectionId} />;
-    case C.CHAT:
+    case UITypeNameSchema.enum.CHAT:
       return <ChatAreaSettings sectionId={sectionId} />;
-    case C.GEN_PYTHON_CODE:
+    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
       return <GenPythonCodeSettings />;
   }
 }

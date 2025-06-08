@@ -1,4 +1,4 @@
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 export function newLayer({ name, ...props }) {
@@ -25,14 +25,14 @@ export function newArtifactTransform(
 
 function specificArtifactTransformProps(sectionTypeName, artifactType) {
   switch (sectionTypeName) {
-    case C.DRAW:
+    case UITypeNameSchema.enum.DRAW:
       return {
         transform: [1, 0, 0, 1, 0, 0],
-        eraserStrokes: artifactType === ArtifactTypeSchema.enum.img ? [] : {},
+        eraserStrokes: artifactType === ArtifactTypeSchema.enum.IMG ? [] : {},
       };
-    case C.IMAGE:
-    case C.CHART:
-    case C.CHAT:
+    case UITypeNameSchema.enum.IMAGE:
+    case UITypeNameSchema.enum.CHART:
+    case UITypeNameSchema.enum.CHAT:
       return {};
     default:
       return {};

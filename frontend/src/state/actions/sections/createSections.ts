@@ -7,11 +7,11 @@ import {
   useSectionRefs,
 } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
-import { C } from "utils/c";
 import {
   createSection,
   createSectionConfig,
   createSectionVariant,
+  UITypeNameSchema,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
@@ -25,7 +25,10 @@ import {
 export function addRegularSectionInEmptySpace() {
   let newId;
   useProjectState.setState((state) => {
-    newId = addSectionInEmptySpace({ type: C.SECTION, state });
+    newId = addSectionInEmptySpace({
+      type: UITypeNameSchema.enum.SECTION,
+      state,
+    });
   });
   setActiveSectionIdAndUpdateZIndex(newId);
   const unsub = useSectionRefs.subscribe(
@@ -43,7 +46,10 @@ export function addRegularSectionInEmptySpace() {
 export function addGroupInEmptySpace() {
   let newId;
   useProjectState.setState((state) => {
-    newId = addSectionInEmptySpace({ type: C.GROUP, state });
+    newId = addSectionInEmptySpace({
+      type: UITypeNameSchema.enum.GROUP,
+      state,
+    });
   });
   setActiveSectionIdAndUpdateZIndex(newId);
   maybeIncrementProjectStateVersion(true);
@@ -51,7 +57,7 @@ export function addGroupInEmptySpace() {
 
 export function addTerminalInEmptySpace() {
   useProjectState.setState((state) => {
-    addSectionInEmptySpace({ type: C.TERMINAL, state });
+    addSectionInEmptySpace({ type: UITypeNameSchema.enum.TERMINAL, state });
   });
   maybeIncrementProjectStateVersion(true);
 }
@@ -155,10 +161,10 @@ export function createSectionInfo({
     state.variants[sConfig.variantId] =
       createSectionVariant(sectionVariantProps);
     switch (state.uiTypes[s.uiTypeId].type) {
-      case C.DRAW:
+      case UITypeNameSchema.enum.DRAW:
         addDrawAreaLayer(s.id, state);
         break;
-      case C.CHAT:
+      case UITypeNameSchema.enum.CHAT:
         addChatHistoryArtifact(s.id, state);
         break;
     }

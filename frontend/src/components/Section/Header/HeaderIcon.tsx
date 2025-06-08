@@ -14,7 +14,7 @@ import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 
 export function HeaderIcon({
   sectionId,
@@ -31,62 +31,62 @@ export function HeaderIcon({
   }
 
   switch (sectionTypeName) {
-    case C.CODE:
-    case C.GEN_PYTHON_CODE:
+    case UITypeNameSchema.enum.CODE:
+    case UITypeNameSchema.enum.GEN_PYTHON_CODE:
       return (
         <CodeLanguageIcon
           sectionId={sectionId}
           classes="text-setta-300  group-hover/card-section:text-blue-500 dark:group-hover/card-section:text-[#0084ff] dark:text-setta-500  transition-colors"
         />
       );
-    case C.TERMINAL:
+    case UITypeNameSchema.enum.TERMINAL:
       return <TerminalIcon sectionId={sectionId} />;
-    case C.GLOBAL_VARIABLES:
+    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
       return (
         <RiGlobalFill className="text-setta-300 transition-colors group-hover/card-section:text-green-500  dark:text-setta-500 " />
       );
-    case C.TEXT_BLOCK:
+    case UITypeNameSchema.enum.TEXT_BLOCK:
       return <TextBlockIcon sectionId={sectionId} />;
-    case C.IMAGE:
+    case UITypeNameSchema.enum.IMAGE:
       return (
         <div className="relative">
           <i className="gg-image absolute inset-0 !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]" />
         </div>
       );
-    case C.DRAW:
+    case UITypeNameSchema.enum.DRAW:
       return (
         <BiPaint className="p-0 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] " />
       );
-    case C.IFRAME:
+    case UITypeNameSchema.enum.IFRAME:
       return (
         <div className="relative flex w-2 justify-center">
           <i className="gg-code-slash !rotate-[14deg] !scale-50 text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]" />
         </div>
       );
-    case C.SOCIAL:
+    case UITypeNameSchema.enum.SOCIAL:
       return <SocialIcon sectionId={sectionId} />;
-    case C.GROUP:
+    case UITypeNameSchema.enum.GROUP:
       return (
         <FaLayerGroup
           className="[&_*]:!scale-120 text-setta-400 transition-colors group-hover/group-section:text-blue-600  dark:text-setta-500 dark:group-hover/group-section:text-[#0084ff]
           "
         />
       );
-    case C.CHART:
+    case UITypeNameSchema.enum.CHART:
       return (
         <FaChartPie
           className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
           "
         />
       );
-    case C.CHAT:
+    case UITypeNameSchema.enum.CHAT:
       return (
         <IoChatbox
           className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
           "
         />
       );
-    case C.BROWSER:
+    case UITypeNameSchema.enum.BROWSER:
       return (
         <TbFolderFilled
           className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]
@@ -102,7 +102,7 @@ export function HeaderIcon({
 
 function IsInOtherProjectConfigsIcon({ sectionId }) {
   const isGroup = useProjectState(
-    (x) => getSectionType(sectionId, x) === C.GROUP,
+    (x) => getSectionType(sectionId, x) === UITypeNameSchema.enum.GROUP,
   );
 
   return (

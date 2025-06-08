@@ -1,6 +1,6 @@
 import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { getSectionVariant, updateProjectState } from "./sectionInfos";
 
 export async function updateWithFileChanges(updatedFileInfo) {
@@ -76,7 +76,7 @@ async function updateApiKeyInfo(updatedFileInfo) {
 function updateGenPythonCode(updatedFileInfo) {
   const { fileContent } = updatedFileInfo;
   useProjectState.setState((state) => {
-    const id = state.singletonSections[C.GEN_PYTHON_CODE];
+    const id = state.singletonSections[UITypeNameSchema.enum.GEN_PYTHON_CODE];
     if (id) {
       getSectionVariant(id, state).code = fileContent;
     }

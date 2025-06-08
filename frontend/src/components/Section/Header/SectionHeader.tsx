@@ -4,7 +4,7 @@ import React from "react";
 import { TbSortDescending2 } from "react-icons/tb";
 import { useProjectState } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { Incrementer } from "../SectionParts/Incrementer";
 import { DeleteOrHideButton } from "./DeleteOrHideButton";
 import { LockPositionButton } from "./LockPositionButton";
@@ -57,7 +57,7 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {sectionTypeName === C.CODE && (
+        {sectionTypeName === UITypeNameSchema.enum.CODE && (
           <>
             <RunButton sectionId={sectionId} />{" "}
             <ToggleEntryCodeBlockButton sectionId={sectionId} />{" "}
@@ -84,7 +84,7 @@ function MaybeCardTitle({
   isInOtherProjectConfigs,
   sectionTypeName,
 }) {
-  return sectionTypeName === C.TEXT_BLOCK ? (
+  return sectionTypeName === UITypeNameSchema.enum.TEXT_BLOCK ? (
     <TextBlockCardTitle
       sectionId={sectionId}
       isActiveSection={isActiveSection}
@@ -142,8 +142,8 @@ function getTitleStyles({
   });
 
   if (
-    sectionTypeName === C.GLOBAL_VARIABLES ||
-    sectionTypeName === C.GEN_PYTHON_CODE
+    sectionTypeName === UITypeNameSchema.enum.GLOBAL_VARIABLES ||
+    sectionTypeName === UITypeNameSchema.enum.GEN_PYTHON_CODE
   ) {
     return { fixed: notEditing };
   }
@@ -166,15 +166,15 @@ function getNotEditingStyle({
   if (isActiveSection) {
     if (isInOtherProjectConfigs) {
       textColorClass = "text-purple-800 dark:text-purple-200";
-    } else if (sectionTypeName === C.GLOBAL_VARIABLES) {
+    } else if (sectionTypeName === UITypeNameSchema.enum.GLOBAL_VARIABLES) {
       textColorClass = "text-green-800 dark:text-green-200";
-    } else if (sectionTypeName === C.TERMINAL) {
+    } else if (sectionTypeName === UITypeNameSchema.enum.TERMINAL) {
       textColorClass = "text-blue-400";
     } else {
       textColorClass = "text-blue-600 dark:text-blue-400";
     }
   } else {
-    if (sectionTypeName === C.TERMINAL) {
+    if (sectionTypeName === UITypeNameSchema.enum.TERMINAL) {
       textColorClass = "text-setta-300";
     } else {
       textColorClass = "text-setta-700 dark:text-setta-300";
@@ -183,8 +183,8 @@ function getNotEditingStyle({
 
   // Handle text case for global variables
   if (
-    sectionTypeName === C.GLOBAL_VARIABLES ||
-    sectionTypeName === C.GEN_PYTHON_CODE
+    sectionTypeName === UITypeNameSchema.enum.GLOBAL_VARIABLES ||
+    sectionTypeName === UITypeNameSchema.enum.GEN_PYTHON_CODE
   ) {
     fontClass = "uppercase font-bold";
   }

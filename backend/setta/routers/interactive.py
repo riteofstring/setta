@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from setta.types.base_ui_types import UITypeName
 from setta.utils.constants import C
 from setta.utils.format_code import ruff_format
 
@@ -16,7 +17,7 @@ async def route_format_code(x: FormatCodeRequest):
     p = x.project
     formattedCode = {}
     for id, s in p["sections"].items():
-        if get_section_type(p, id) == C.CODE:
+        if get_section_type(p, id) == UITypeName.CODE:
             if s["codeLanguage"] == "python":
                 code = get_section_code(p, id)
                 formattedCode[id] = format_python_code(code)

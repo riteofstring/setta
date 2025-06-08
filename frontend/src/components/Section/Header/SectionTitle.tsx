@@ -5,7 +5,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -85,11 +85,16 @@ function setSectionName(sectionId, name) {
 
 function useTitleIsEditable(sectionId) {
   return useProjectState((x) => {
-    const isUneditableType = [C.GLOBAL_VARIABLES, C.GEN_PYTHON_CODE].includes(
-      getSectionType(sectionId, x),
-    );
+    const isUneditableType = [
+      UITypeNameSchema.enum.GLOBAL_VARIABLES,
+      UITypeNameSchema.enum.GEN_PYTHON_CODE,
+    ].includes(getSectionType(sectionId, x));
 
-    const isListElement = getIsSeriesElementHelper(sectionId, [C.LIST_ROOT], x);
+    const isListElement = getIsSeriesElementHelper(
+      sectionId,
+      [UITypeNameSchema.enum.LIST_ROOT],
+      x,
+    );
 
     return {
       sectionName: x.sections[sectionId].name,

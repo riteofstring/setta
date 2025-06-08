@@ -18,6 +18,7 @@ import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
 import {
   ProjectStateSingleConfig,
   SettaNotificationTypeSchema,
+  UITypeNameSchema,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
@@ -154,7 +155,11 @@ export async function getProjectDataForSaving() {
 
 async function updateSectionsWithRenderedValues(sections) {
   for (const sectionId of Object.keys(sections)) {
-    if ([C.DRAW, C.CHART].includes(getSectionType(sectionId))) {
+    if (
+      [UITypeNameSchema.enum.DRAW, UITypeNameSchema.enum.CHART].includes(
+        getSectionType(sectionId),
+      )
+    ) {
       sections[sectionId].renderedValue =
         await requestBase64FromCanvas(sectionId);
     }

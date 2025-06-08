@@ -1,8 +1,8 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { useIsListElement } from "state/hooks/uiTypes";
-import { C } from "utils/c";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
@@ -77,14 +77,14 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 
 function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
-    case C.TEXT_BLOCK:
+    case UITypeNameSchema.enum.TEXT_BLOCK:
       return [
         RenderTextBlock,
         ConvertFormat,
         CreateNewVersionButton,
         ResetToDefaultVersion,
       ];
-    case C.SECTION:
+    case UITypeNameSchema.enum.SECTION:
       return [
         CreateNewVersionButton,
         HideShowSearchButton,
@@ -94,7 +94,7 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case C.GLOBAL_VARIABLES:
+    case UITypeNameSchema.enum.GLOBAL_VARIABLES:
       return [
         CreateNewVersionButton,
         HideShowUnpinnedParamsButton,
@@ -102,17 +102,17 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case C.LIST_ROOT:
-    case C.DICT_ROOT:
-    case C.CODE:
+    case UITypeNameSchema.enum.LIST_ROOT:
+    case UITypeNameSchema.enum.DICT_ROOT:
+    case UITypeNameSchema.enum.CODE:
       return [CreateNewVersionButton, ResetToDefaultVersion];
-    case C.GROUP:
+    case UITypeNameSchema.enum.GROUP:
       return [UngroupButton];
-    case C.DRAW:
-    case C.IMAGE:
-    case C.CHART:
+    case UITypeNameSchema.enum.DRAW:
+    case UITypeNameSchema.enum.IMAGE:
+    case UITypeNameSchema.enum.CHART:
       return [AddArtifactByFilepath];
-    case C.BROWSER:
+    case UITypeNameSchema.enum.BROWSER:
       return [HideColumn];
     default:
       return [];

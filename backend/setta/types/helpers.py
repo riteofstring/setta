@@ -1,5 +1,5 @@
 from setta.database.utils import create_new_id
-from setta.types.base_ui_types import BASE_UI_TYPE_IDS
+from setta.types.base_ui_types import BASE_UI_TYPE_IDS, UITypeName
 from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
@@ -14,7 +14,6 @@ from setta.types.project_state import (
     UITypeColEntry,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
-from setta.utils.constants import C
 
 
 class ProjectNotFound(Exception):
@@ -182,7 +181,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     child_id = section_id
     output = ""
     while parent_id:
-        if get_section_type(p, parent_id) == C.LIST_ROOT:
+        if get_section_type(p, parent_id) == UITypeName.LIST_ROOT:
             idx = get_section_children(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:

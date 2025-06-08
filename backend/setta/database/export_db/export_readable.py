@@ -10,7 +10,7 @@ from setta.code_gen.yaml.section_dict import (
 from setta.database.db.artifacts.load import (
     load_artifact_metadata_and_maybe_value_from_disk,
 )
-from setta.utils.constants import C
+from setta.types.base_ui_types import UITypeName
 from setta.utils.section_contents import getParamIdsToShowInArea
 
 from .utils import get_configs_and_root_folder
@@ -168,19 +168,19 @@ def maybe_with_variant_in_filename(config, section_id, variant_id, with_variants
 
 def get_exporter_fn(config, section_id):
     stype = get_section_type(config, section_id)
-    if stype == C.CODE:
+    if stype == UITypeName.CODE:
         return export_code
-    elif stype in [C.SECTION, C.GLOBAL_VARIABLES]:
+    elif stype in [UITypeName.SECTION, UITypeName.GLOBAL_VARIABLES]:
         return export_regular_section
-    elif stype in [C.LIST_ROOT, C.DICT_ROOT, C.GROUP]:
+    elif stype in [UITypeName.LIST_ROOT, UITypeName.DICT_ROOT, UITypeName.GROUP]:
         return export_list_section
-    elif stype == C.TEXT_BLOCK:
+    elif stype == UITypeName.TEXT_BLOCK:
         return export_text_block_section
-    # elif stype == C.DRAW:
+    # elif stype == UITypeName.DRAW:
     #     return export_canvas_rendered_value
-    # elif stype == C.IMAGE:
+    # elif stype == UITypeName.IMAGE:
     #     return export_image_section
-    elif stype == C.SOCIAL:
+    elif stype == UITypeName.SOCIAL:
         return export_social_section
-    # elif stype == C.CHART:
+    # elif stype == UITypeName.CHART:
     #     return export_canvas_rendered_value

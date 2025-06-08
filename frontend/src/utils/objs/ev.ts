@@ -1,19 +1,19 @@
 import _ from "lodash";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 export function getValueForUIType({ uiType, currValue }) {
   switch (uiType.type) {
-    case C.TEXT:
-    case C.PASSWORD:
+    case UITypeNameSchema.enum.TEXT:
+    case UITypeNameSchema.enum.PASSWORD:
       return convertValueForText({ currValue });
-    case C.SLIDER:
+    case UITypeNameSchema.enum.SLIDER:
       return convertValueForSlider({ uiType, currValue });
-    case C.SWITCH:
+    case UITypeNameSchema.enum.SWITCH:
       return convertValueForSwitch({ currValue });
-    case C.COLOR_PICKER:
+    case UITypeNameSchema.enum.COLOR_PICKER:
       return convertValueForColorPicker({ currValue });
-    case C.DROPDOWN:
+    case UITypeNameSchema.enum.DROPDOWN:
       return convertValueForDropdown({ currValue });
     default:
       return "";

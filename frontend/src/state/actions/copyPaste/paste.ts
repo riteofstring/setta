@@ -2,7 +2,7 @@ import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { useMisc, useProjectState } from "state/definitions";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
 
@@ -64,7 +64,7 @@ function findTopLevelSections(sections, variants) {
 function removeSingletonSectionsIfAlreadyPresent(pasteData) {
   const { sections, uiTypes } = pasteData;
 
-  const { [C.GLOBAL_VARIABLES]: globalVariables } =
+  const { [UITypeNameSchema.enum.GLOBAL_VARIABLES]: globalVariables } =
     useProjectState.getState().singletonSections;
   if (!globalVariables) {
     return sections;
@@ -74,7 +74,10 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
 
   for (const s of Object.values(sections)) {
     const uiTypeName = uiTypes[s.uiTypeId].type;
-    if (globalVariables && uiTypeName === C.GLOBAL_VARIABLES) {
+    if (
+      globalVariables &&
+      uiTypeName === UITypeNameSchema.enum.GLOBAL_VARIABLES
+    ) {
       toRemove.push(s.id);
       addTemporaryNotification("Can't have more than 1 global section!");
     }

@@ -3,14 +3,17 @@ import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
-import { C } from "utils/c";
+import { UITypeNameSchema } from "utils/generatedTypes";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {
   return (
     <div className="flex-1 overflow-x-hidden overflow-y-scroll [&>*]:mr-[2px]">
       <ChartConfig sectionId={sectionId} />
-      <JustListOfArtifacts sectionId={sectionId} sectionTypeName={C.CHART} />
+      <JustListOfArtifacts
+        sectionId={sectionId}
+        sectionTypeName={UITypeNameSchema.enum.CHART}
+      />
     </div>
   );
 }
