@@ -56,11 +56,14 @@ async def lifespan(app: FastAPI):
     app.state.lsps = LSPServers(app.state.settings_file.settings.languageServer)
     app.state.lsp_writers = LSPWriters(app.state.lsps)
     app.state.lsp_readers = LSPReaders(app.state.lsps, app.state.websocket_manager)
-    app.state.project_manager = ProjectManager(
-        app.state.lsp_writers, app.state.websocket_manager, app.state.settings_file
-    )
     app.state.script_metadata = ScriptMetadata()
     app.state.dbe = DBE(C.DB_PATH)
+    app.state.project_manager = ProjectManager(
+        app.state.lsp_writers,
+        app.state.websocket_manager,
+        app.state.settings_file,
+        app.state.dbe,
+    )
 
     app.state.specific_file_watcher = create_specific_file_watcher(
         app.state.websocket_manager

@@ -6,6 +6,8 @@ from typing import Coroutine, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.database.db.projects.load import load_project_state
+from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
@@ -37,13 +39,15 @@ class ProjectManager:
         lsp_writers: LSPWriters,
         websocket_manager: WebsocketManager,
         settings_file: SettingsFile,
+        dbe: DBE,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = WMHProjectManager(websocket_manager)
         self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        self.project_state: ProjectState = ProjectState()
+        with dbe.session as db:
+            self.project_state = load_project_state(db)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
@@ -410,6 +414,10 @@ class ProjectManager:
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)
 
-    @property
-    def project_is_loaded(self):
-        return len(self.project_state.projectConfigs) > 0
+    def get_project_metadata(self):
+        defaultProjectConfigId = self.project_state.defaultProjectConfigId
+        projectMetadata = list(self.project_state.projectConfigs.values())
+        return {
+            "defaultProjectConfigId": defaultProjectConfigId,
+            "projectMetadata": projectMetadata,
+        }

@@ -13,16 +13,6 @@ def load_project_state(db: Session):
     return ProjectState.model_validate(p.state)
 
 
-def load_project_metadata(db: Session):
-    state = load_project_state(db)
-    defaultProjectConfigId = state.defaultProjectConfigId
-    projectMetadata = list(state.projectConfigs.values())
-    return {
-        "defaultProjectConfigId": defaultProjectConfigId,
-        "projectMetadata": projectMetadata,
-    }
-
-
 def load_default_project_config_name(db: Session):
     state = load_project_state(db)
     if state.defaultProjectConfigId:

@@ -11,8 +11,6 @@ from setta.database.db.notifications.load import (
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
     load_default_project_config_name,
-    load_project_metadata,
-    load_project_state,
 )
 from setta.database.db.projects.save import (
     ProjectNameTaken,
@@ -34,7 +32,6 @@ from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectLoadState,
     ProjectSaveState,
-    ProjectUpdateState,
 )
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
@@ -97,32 +94,23 @@ class DeleteNotificationRequest(BaseModel):
 
 
 @router.post(C.ROUTE_LOAD_ALL_PROJECT_METADATA)
-def route_load_all_project_metadata(dbe=Depends(get_dbe)):
-    with dbe.session as db:
-        return load_project_metadata(db)
+def route_load_all_project_metadata(
+    project_manager: ProjectManager = Depends(get_project_manager),
+):
+    return project_manager.get_project_metadata()
 
 
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest,
-    dbe: DBE = Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
-        with dbe.session as db:
-            if project_manager.project_is_loaded:
-                projectState = project_manager.project_state
-                projectConfigId = confirm_config_name(projectState, x.projectConfigName)
-            else:
-                projectState = load_project_state(db)
-                projectConfigId = confirm_config_name(projectState, x.projectConfigName)
-                projectUpdateState = ProjectUpdateState(
-                    projectConfigId=projectConfigId, projectState=projectState
-                )
-                await project_manager.update(projectUpdateState)
-            return ProjectLoadState(
-                projectConfigId=projectConfigId, projectState=projectState
-            )
+        projectState = project_manager.project_state
+        projectConfigId = confirm_config_name(projectState, x.projectConfigName)
+        return ProjectLoadState(
+            projectConfigId=projectConfigId, projectState=projectState
+        )
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
