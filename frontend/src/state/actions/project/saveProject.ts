@@ -15,7 +15,10 @@ import {
 } from "state/definitions";
 import { C } from "utils/c";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
-import { SettaNotificationTypeSchema } from "utils/generatedTypes";
+import {
+  ProjectStateFrontend,
+  SettaNotificationTypeSchema,
+} from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
@@ -59,7 +62,7 @@ export function getProjectData({
   const codeInfoCols = useProjectState.getState().codeInfoCols;
 
   const projectConfig = getProjectConfigMetadata();
-  const children = {};
+  const children: ProjectStateFrontend["projectConfig"]["children"] = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
@@ -74,7 +77,7 @@ export function getProjectData({
   }
   projectConfig.children = children;
 
-  const output = {
+  const output: ProjectStateFrontend = {
     projectConfig,
     variants,
     // artifacts,

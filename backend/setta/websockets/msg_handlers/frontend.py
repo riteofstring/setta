@@ -1,7 +1,6 @@
 from setta.lsp.managers import LSPWriters
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
-from setta.types.project_state import ProjectUpdateState
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.script_metadata import ScriptMetadata
@@ -44,9 +43,9 @@ class WMHFrontend(BaseWebsocketMsgHandler):
                 messageId=message["id"], **message["content"]
             )
         elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
-            await self.project_manager.update(
-                projectUpdateState=ProjectUpdateState(**message["content"]),
+            await self.project_manager.update_from_frontend(
                 messageId=message["id"],
+                **message["content"],
             )
         elif message.get("messageType") == C.WS_CODE_AREA_AUTOCOMPLETE:
             await self.project_manager.code_area_autocomplete(

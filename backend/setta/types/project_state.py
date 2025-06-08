@@ -250,9 +250,3 @@ class ProjectStateFrontend(ProjectStateCore, extra="forbid"):
 class ProjectSaveState(BaseModel, extra="forbid"):
     projectConfigId: str
     projectState: ProjectStateBackend
-
-
-class ProjectUpdateState(BaseModel, extra="forbid"):
-    projectConfigId: str
-    projectState: ProjectStateBackend
-    requestRenameRefactor: bool = False

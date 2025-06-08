@@ -29,7 +29,7 @@ from setta.types.project_state import (
     CodeLanguage,
     ProjectConfig,
     ProjectStateBackend,
-    ProjectUpdateState,
+    ProjectStateFrontend,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER, C
@@ -141,7 +141,7 @@ class ProjectManager:
             return await self._enqueue(func(self, *args, **kwargs))
 
         # Store the original function
-        wrapper.direct = func
+        # wrapper.direct = func
         return wrapper
 
     @enqueue_method
@@ -172,18 +172,27 @@ class ProjectManager:
         return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
+    async def update_from_frontend(
+        self,
+        messageId: str,
+        projectState: ProjectStateFrontend,
+        requestRenameRefactor: bool,
+    ):
+        print("\n\n\nupdate_from_frontend")
+
     async def update(
         self,
-        projectUpdateState: ProjectUpdateState,
+        projectState: ProjectStateBackend,
+        projectConfigId: str,
+        requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
         self.used_files = set()
-        self.project_state = projectUpdateState.projectState
-        projectConfigId = projectUpdateState.projectConfigId
+        self.project_state = projectState
         dep_graph = DependencyGraph(self.project_state, projectConfigId)
         if self.gen_code.get(projectConfigId):
             await self.maybe_do_rename_refactor(
-                messageId, projectUpdateState, dep_graph
+                messageId, requestRenameRefactor, projectConfigId, dep_graph
             )
             self.gen_code[projectConfigId].callback_cleanup()
 
@@ -271,12 +280,7 @@ class ProjectManager:
             selectedItemName,
             refetchParams,
         )
-        await self.update.direct(
-            self,
-            ProjectUpdateState(
-                projectConfigId=projectConfigId, projectState=self.project_state
-            ),
-        )
+        await self.update(self.project_state, projectConfigId)
         if messageId:
             await self.websocket_msg_handler.return_to_requester(
                 self.project_state.model_dump(), messageId
@@ -316,12 +320,7 @@ class ProjectManager:
         print("*************set_gen_code_prefix\n\n\n", flush=True)
         projectConfig = self.project_state.projectConfigs[projectConfigId]
         projectConfig.genCodePrefix = value
-        await self.update.direct(
-            self,
-            ProjectUpdateState(
-                projectConfigId=projectConfigId, projectState=self.project_state
-            ),
-        )
+        await self.update(self.project_state, projectConfigId)
         await self.websocket_msg_handler.broadcast_project_state(self.project_state)
 
     @enqueue_method
@@ -333,12 +332,7 @@ class ProjectManager:
             set_param_entered_value(
                 self.project_state, projectConfigId, sectionId, paramInfoId, value
             )
-        await self.update.direct(
-            self,
-            ProjectUpdateState(
-                projectConfigId=projectConfigId, projectState=self.project_state
-            ),
-        )
+        await self.update(self.project_state, projectConfigId)
         await self.websocket_msg_handler.broadcast_project_state(self.project_state)
 
     @enqueue_method
@@ -398,17 +392,17 @@ class ProjectManager:
     async def maybe_do_rename_refactor(
         self,
         messageId: str | None,
-        projectUpdateState: ProjectUpdateState,
+        requestRenameRefactor: bool,
+        projectConfigId: str,
         new_dep_graph: DependencyGraph,
     ):
-        if not projectUpdateState.requestRenameRefactor or not self.gen_code:
+        if not requestRenameRefactor or not self.gen_code:
             return
 
         renameRefactorMode = self.settings_file.settings.backend.renameRefactorMode
         if renameRefactorMode == C.RENAME_REFACTOR_NEVER_RENAME:
             return
 
-        projectConfigId = projectUpdateState.projectConfigId
         old_dep_graph = self.gen_code[projectConfigId].dep_graph
         if renameRefactorMode == C.RENAME_REFACTOR_ALWAYS_ASK:
             # we operate on a copy in this case, because we don't want to
@@ -468,12 +462,7 @@ class ProjectManager:
         self, projectConfigId: str, sections: list[SimplifiedSectionCreation]
     ):
         create_sections(self.project_state, projectConfigId, sections)
-        await self.update.direct(
-            self,
-            ProjectUpdateState(
-                projectConfigId=projectConfigId, projectState=self.project_state
-            ),
-        )
+        await self.update(self.project_state, projectConfigId)
         await self.websocket_msg_handler.broadcast_project_state(self.project_state)
 
     def get_default_project_config_name(self):

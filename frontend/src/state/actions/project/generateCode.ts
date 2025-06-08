@@ -35,14 +35,12 @@ export const updateBackendProjectState = asyncDebounce(async () => {
   if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
     return;
   }
-  const { projectConfigId, projectState } = await getProjectDataToGenerateCode(
-    {},
-  );
+  const projectState = await getProjectDataToGenerateCode({});
   const requestRenameRefactor =
     useProjectState.getState().requestRenameRefactor;
   sendMessage({
     id: createNewId(),
-    content: { projectConfigId, projectState, requestRenameRefactor },
+    content: { projectState, requestRenameRefactor },
     messageType: C.WS_UPDATE_PROJECT_STATE,
   });
   // have to reset requestRenameRefactor to false, in case it was set to true
