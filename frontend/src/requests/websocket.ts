@@ -42,6 +42,7 @@ export const openWebSocket = _.debounce(
           createWebsocketConnectionInfo({
             id: "main",
             connectionType: WebsocketConnectionTypeSchema.enum.SERVER,
+            location: null,
           }),
         );
         wasOpen = true;

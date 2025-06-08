@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import json
 import logging
 
@@ -105,7 +106,9 @@ class WebsocketManager:
                 location=None,
             )
         )
-        await self.broadcast(connections, C.WS_ALL_CONNECTIONS)
+        await self.broadcast(
+            [dataclasses.asdict(x) for x in connections], C.WS_ALL_CONNECTIONS
+        )
 
     def create_pending_request(self):
         id = create_new_id()
