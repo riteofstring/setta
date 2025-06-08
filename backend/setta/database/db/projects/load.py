@@ -6,25 +6,11 @@ from setta.types.project_state import (
 )
 
 
-class ProjectNotFound(Exception):
-    pass
-
-
 def load_project_state(db: Session):
     p = db.get(ProjectStateTable, 1)
     if not p or not p.state:
         return ProjectState()
     return ProjectState.model_validate(p.state)
-
-
-def load_project_state_and_confirm_config_name(db: Session, projectConfigName: str):
-    state = load_project_state(db)
-    print("state", state, flush=True)
-    for projectConfigId, p in state.projectConfigs.items():
-        if projectConfigName == p.name:
-            return projectConfigId, state
-
-    raise ProjectNotFound
 
 
 def load_project_metadata(db: Session):

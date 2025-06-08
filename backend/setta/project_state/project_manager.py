@@ -409,3 +409,7 @@ class ProjectManager:
 
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)
+
+    @property
+    def project_is_loaded(self):
+        return len(self.project_state.projectConfigs) > 0

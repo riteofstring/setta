@@ -10,10 +10,9 @@ from setta.database.db.notifications.load import (
 )
 from setta.database.db.projects.delete import delete_project_configs
 from setta.database.db.projects.load import (
-    ProjectNotFound,
     load_default_project_config_name,
     load_project_metadata,
-    load_project_state_and_confirm_config_name,
+    load_project_state,
 )
 from setta.database.db.projects.save import (
     ProjectNameTaken,
@@ -30,6 +29,7 @@ from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
+from setta.types.getters import ProjectNotFound, confirm_config_name
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectLoadState,
@@ -105,18 +105,21 @@ def route_load_all_project_metadata(dbe=Depends(get_dbe)):
 @router.post(C.ROUTE_LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest,
-    dbe=Depends(get_dbe),
+    dbe: DBE = Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
 ):
     try:
         with dbe.session as db:
-            projectConfigId, projectState = load_project_state_and_confirm_config_name(
-                db, x.projectConfigName
-            )
-            projectUpdateState = ProjectUpdateState(
-                projectConfigId=projectConfigId, projectState=projectState
-            )
-            await project_manager.update(projectUpdateState, projectConfigId)
+            if project_manager.project_is_loaded:
+                projectState = project_manager.project_state
+                projectConfigId = confirm_config_name(projectState, x.projectConfigName)
+            else:
+                projectState = load_project_state(db)
+                projectConfigId = confirm_config_name(projectState, x.projectConfigName)
+                projectUpdateState = ProjectUpdateState(
+                    projectConfigId=projectConfigId, projectState=projectState
+                )
+                await project_manager.update(projectUpdateState)
             return ProjectLoadState(
                 projectConfigId=projectConfigId, projectState=projectState
             )

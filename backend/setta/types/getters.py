@@ -11,6 +11,10 @@ from setta.types.project_state import (
 from setta.utils.constants import C
 
 
+class ProjectNotFound(Exception):
+    pass
+
+
 def get_section_type(p: ProjectState, id: str):
     ui_type_id = p.sections[id].uiTypeId
     ui_type = p.uiTypes[ui_type_id]
@@ -169,3 +173,10 @@ def get_top_level_sections(p: ProjectState, projectConfigId: str) -> dict[str, S
 def get_children_of_selected_item(p: ProjectState, sectionId: str):
     param_ids = get_top_level_param_ids(p, sectionId)
     return [p.codeInfo[x] for x in param_ids]
+
+
+def confirm_config_name(p: ProjectState, projectConfigName: str):
+    for projectConfigId, config in p.projectConfigs.items():
+        if projectConfigName == config.name:
+            return projectConfigId
+    raise ProjectNotFound
