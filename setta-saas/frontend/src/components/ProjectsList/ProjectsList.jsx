@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useClerk } from "@clerk/clerk-react";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { useWebSocket } from "../../hooks/useWebSocket";
+import { useAuthenticatedFetch } from "../../hooks/useAuthenticatedFetch";
 import Notifications from "./Notifications";
 import NewProjectForm from "./NewProjectForm";
 import ProjectCard from "./ProjectCard";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
 export default function ProjectsList() {
   const navigate = useNavigate();
+  const { signOut } = useClerk();
+  const authenticatedFetch = useAuthenticatedFetch();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
@@ -32,7 +34,7 @@ export default function ProjectsList() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/projects`);
+        const response = await authenticatedFetch("/api/projects");
         if (!response.ok) throw new Error("Failed to fetch");
         const data = await response.json();
         setProjects(data);
@@ -45,7 +47,7 @@ export default function ProjectsList() {
     };
 
     fetchProjects();
-  }, []);
+  }, [authenticatedFetch]);
 
   // WebSocket subscriptions
   useEffect(() => {
@@ -119,9 +121,8 @@ export default function ProjectsList() {
   }, [isConnected, subscribe, EventType]);
 
   const handleCreateProject = async (projectName) => {
-    const response = await fetch(`${API_URL}/api/projects`, {
+    const response = await authenticatedFetch("/api/projects", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: projectName }),
     });
 
@@ -138,7 +139,7 @@ export default function ProjectsList() {
     setDeletingProjects((prev) => new Set(prev).add(projectId));
 
     try {
-      const response = await fetch(`${API_URL}/api/projects/${projectId}`, {
+      const response = await authenticatedFetch(`/api/projects/${projectId}`, {
         method: "DELETE",
       });
 
@@ -156,8 +157,7 @@ export default function ProjectsList() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    navigate("/login");
+    signOut(() => navigate("/sign-in"));
   };
 
   if (loading) {

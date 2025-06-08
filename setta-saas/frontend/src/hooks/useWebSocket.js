@@ -28,7 +28,9 @@ export function useWebSocket() {
     if (import.meta.env.VITE_API_URL) {
       const apiUrl = import.meta.env.VITE_API_URL;
       // Replace http with ws and https with wss
-      return apiUrl.replace(/^http/, "ws") + "/ws";
+      const wsUrl = apiUrl.replace(/^http/, "ws") + "/ws";
+      console.log("Using WebSocket URL:", wsUrl);
+      return wsUrl;
     }
 
     // Default to localhost for development
@@ -38,7 +40,9 @@ export function useWebSocket() {
 
     // Production: use same host with wss
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    console.log("Using WebSocket URL (fallback):", wsUrl);
+    return wsUrl;
   };
 
   // Connect to WebSocket
@@ -73,9 +77,19 @@ export function useWebSocket() {
 
           setLastEvent(data);
 
-          // Call any registered handlers for this event type
-          const handlers = eventHandlers.current.get(data.type) || [];
-          handlers.forEach((handler) => handler(data));
+          // Call ALL registered handlers, not just for specific event type
+          // This ensures handlers are called regardless of how they were registered
+          eventHandlers.current.forEach((handlers, eventType) => {
+            if (eventType === data.type) {
+              handlers.forEach((handler) => {
+                try {
+                  handler(data);
+                } catch (error) {
+                  console.error(`Error in handler for ${eventType}:`, error);
+                }
+              });
+            }
+          });
         } catch (error) {
           console.error("Error parsing WebSocket message:", error);
         }
@@ -117,6 +131,8 @@ export function useWebSocket() {
 
   // Subscribe to specific event types
   const subscribe = useCallback((eventType, handler) => {
+    console.log(`Subscribing to event: ${eventType}`);
+
     if (!eventHandlers.current.has(eventType)) {
       eventHandlers.current.set(eventType, []);
     }
@@ -124,11 +140,19 @@ export function useWebSocket() {
     const handlers = eventHandlers.current.get(eventType);
     handlers.push(handler);
 
+    console.log(
+      `Handler registered for ${eventType}. Total handlers: ${handlers.length}`,
+    );
+
     // Return unsubscribe function
     return () => {
-      const index = handlers.indexOf(handler);
-      if (index > -1) {
-        handlers.splice(index, 1);
+      const handlers = eventHandlers.current.get(eventType);
+      if (handlers) {
+        const index = handlers.indexOf(handler);
+        if (index > -1) {
+          handlers.splice(index, 1);
+          console.log(`Handler unregistered for ${eventType}`);
+        }
       }
     };
   }, []);

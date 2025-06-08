@@ -1,11 +1,10 @@
-// Replace your frontend/src/App.jsx with this version
-
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./components/Login";
+import SignInPage from "./components/SignIn";
+import SignUpPage from "./components/SignUp";
 import ProjectsList from "./components/ProjectsList/ProjectsList";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Header from "./components/Header";
-import WebSocketDebug from "./components/WebSocketDebug"; // Add this import
+import WebSocketDebug from "./components/WebSocketDebug";
 
 function App() {
   // Only show debug in development or with ?debug=true in URL
@@ -20,7 +19,8 @@ function App() {
         <main className="flex-1">
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/sign-in" element={<SignInPage />} />
+            <Route path="/sign-up" element={<SignUpPage />} />
 
             {/* Protected routes */}
             <Route
@@ -32,8 +32,18 @@ function App() {
               }
             />
 
-            {/* Redirect to login if no route matches */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            {/* Root redirect */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Navigate to="/projects" replace />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Catch all redirect */}
+            <Route path="*" element={<Navigate to="/sign-in" replace />} />
           </Routes>
         </main>
 

@@ -1,5 +1,3 @@
-// Replace frontend/src/components/WebSocketDebug.jsx with this version
-
 import { useEffect, useState } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
 
