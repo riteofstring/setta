@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { dbGetExistingTerminals } from "requests/terminals";
-import { pseudoTemplatedStr } from "requests/utils";
+import { replaceAddressParams } from "requests/utils";
 import { setSectionVariantChildren } from "state/actions/sectionInfos";
 import {
   addSectionInEmptySpace,
@@ -93,7 +93,7 @@ function newTerminalWebsocket(sectionId) {
   const id = createNewId();
   const isTemporary =
     !!useProjectState.getState().sections[sectionId].isTemporary;
-  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${pseudoTemplatedStr(RouteEnum.TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
+  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {

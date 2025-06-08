@@ -1,13 +1,12 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import { RouteEnum } from "utils/generatedTypes";
-import { post, pseudoTemplatedStr } from "./utils";
+import { post } from "./utils";
 
 export async function dbGetExistingTerminals(projectConfigId) {
   return await post({
     body: {},
-    address: pseudoTemplatedStr(RouteEnum.GET_EXISTING_TERMINALS, {
-      projectConfigId,
-    }),
+    address: RouteEnum.GET_EXISTING_TERMINALS,
+    addressParams: { projectConfigId },
   });
 }
 
