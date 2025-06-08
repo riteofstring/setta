@@ -95,10 +95,9 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
     return True
 
 
-def delete_app_force(client: FlyClient, app_name: str) -> bool:
+def delete_app_force(client: FlyClient, app_name: str) -> dict:
     """Delete a Fly.io app using REST API with force (stops machines first)."""
-    result = client.delete_app_rest(app_name, force=True)
-    return result.get("success", False)
+    return client.delete_app_rest(app_name, force=True)
 
 
 def list_all_apps(client: FlyClient, org_slug: str = "personal") -> list[dict]:
@@ -146,7 +145,8 @@ def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dic
 def _try_delete_app(client: FlyClient, app_name: str) -> bool:
     """Try to delete a single app, return success status."""
     try:
-        return delete_app_force(client, app_name)
+        result = delete_app_force(client, app_name)
+        return result.get("success", False)
     except Exception as e:
         print(f"✗ Error deleting {app_name}: {str(e)}")
         return False

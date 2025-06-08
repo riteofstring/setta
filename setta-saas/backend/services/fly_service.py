@@ -82,7 +82,11 @@ class FlyService:
         """Clean up a failed app deployment."""
         try:
             print(f"Cleaning up failed app: {app_name}")
-            delete_app_force(self.client, app_name)
+            result = delete_app_force(self.client, app_name)
+            if result.get("success"):
+                print(f"✓ Cleanup successful for {app_name}")
+            else:
+                print(f"✗ Cleanup failed for {app_name}: {result.get('error')}")
         except Exception as e:
             print(f"Failed to cleanup app: {e}")
 
