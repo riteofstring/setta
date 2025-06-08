@@ -120,7 +120,9 @@ async def getAllSectionInfo(
 
 
 @setta_tool
-async def runCode(setta_mcp_server: SettaFastMCP, projectConfigId: str, sectionId: ID) -> ID:
+async def runCode(
+    setta_mcp_server: SettaFastMCP, projectConfigId: str, sectionId: ID
+) -> ID:
     """
     Runs the specified code block in a terminal. Returns the id of the terminal running the code.
     Args:

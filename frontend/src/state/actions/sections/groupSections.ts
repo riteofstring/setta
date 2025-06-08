@@ -13,14 +13,6 @@ import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 import { deleteSections } from "./deleteSections";
 
-/**
- * Set the values of multiple parameters in a particular section.
- * @SETTA_MCP_TOOL
- * @param {Array<ID>} sectionIds The ids of the sections to group together.
- * @param {SectionPosition} position The x,y position of the new group.
- * @param {string} [name] The name of the new group. If not specified, a random name will be created.
- * @return {ID} The id of the new group.
- */
 export function groupSections({ sectionIds, position, name }) {
   let groupId;
   useProjectState.setState((state) => {
@@ -96,15 +88,4 @@ export function ungroupActiveGroup() {
     }
   });
   maybeIncrementProjectStateVersion(true);
-}
-
-/**
- * Ungroup an existing group.
- * @SETTA_MCP_TOOL
- * @param {ID} sectionId The id of the group to ungroup.
- */
-export function ungroupGroupMcp({ sectionId }) {
-  useProjectState.setState((state) => {
-    ungroupGroup(sectionId, state);
-  });
 }

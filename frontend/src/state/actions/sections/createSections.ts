@@ -1,6 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
-import _ from "lodash";
 import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
@@ -75,31 +74,6 @@ export function addSectionInEmptySpace({
     position,
     state,
   });
-}
-
-/**
- * Adds a new section at a specific location.
- * @SETTA_MCP_TOOL
- * @param {Array<SimplifiedSectionConfig>} sections Details of the sections to be created.
- * @returns {Array<ID>} an array of the ids of the created sections.
- */
-export function addSectionsAtPositionMcp({ sections }) {
-  let ids = [];
-  useProjectState.setState((state) => {
-    for (const section of sections) {
-      ids.push(
-        addSectionAtPosition({
-          type: section.type,
-          sectionProps: _.omit(section, ["type", "position"]),
-          sectionVariantProps: {},
-          position: section.position,
-          state,
-        }),
-      );
-    }
-  });
-  maybeIncrementProjectStateVersion(true);
-  return ids;
 }
 
 export function addSectionAtPosition({
