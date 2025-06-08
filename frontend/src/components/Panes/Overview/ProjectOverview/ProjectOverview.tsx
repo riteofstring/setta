@@ -2,10 +2,7 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import {
-  getCurrentProjectConfig,
-  getCurrentSectionConfigs,
-} from "state/actions/sectionInfos";
+import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import { ProjectName } from "./ProjectName";
@@ -69,7 +66,7 @@ function getDepthListingHelper(
   outputList,
 ) {
   const section = x.sections[sectionId];
-  if (section.visibility[getCurrentProjectConfig(x).viewingEditingMode])
+  if (section.visibility[x.projectConfig.viewingEditingMode])
     outputList.push({
       id: sectionId,
       name: section.name,

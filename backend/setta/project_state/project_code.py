@@ -29,7 +29,7 @@ from setta.types.helpers import (
     item_has_been_selected_before,
     item_is_already_selected,
 )
-from setta.types.project_state import CodeInfo, CodeInfoType, ProjectState
+from setta.types.project_state import CodeInfo, CodeInfoType, ProjectStateBackend
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -92,7 +92,7 @@ class ProjectGenPythonCode(PythonCode):
 
     async def set_selected_item(
         self,
-        project_state: ProjectState,
+        project_state: ProjectStateBackend,
         projectConfigId: str,
         sectionId: str,
         selectedItemName: str,

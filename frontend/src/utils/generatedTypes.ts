@@ -667,6 +667,38 @@ export function createSectionSize(
   return SectionSizeSchema.parse(options);
 }
 
+export const SectionConfigSchema = z.object({
+  variantId: z.string().default(create_new_id),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isHorizontalOrientation: z.boolean().default(false),
+  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).default("auto"),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+});
+
+export type SectionConfig = z.infer<typeof SectionConfigSchema>;
+
+export function createSectionConfig(
+  options: Partial<SectionConfig> = {},
+): SectionConfig {
+  return SectionConfigSchema.parse(options);
+}
+
+export const ViewportSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zoom: z.number().default(1),
+});
+
+export type Viewport = z.infer<typeof ViewportSchema>;
+
+export function createViewport(options: Partial<Viewport> = {}): Viewport {
+  return ViewportSchema.parse(options);
+}
+
 export const ChartSettingsSchema = z.object({
   type: z.string().default("line"),
   xAxisColumn: z.string().default(""),
@@ -718,36 +750,25 @@ export function createVisibility(
   return VisibilitySchema.parse(options);
 }
 
-export const SectionConfigSchema = z.object({
-  variantId: z.string().default(create_new_id),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isHorizontalOrientation: z.boolean().default(false),
-  pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).default("auto"),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
+export const ProjectConfigSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
+  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
+  children: z.record(z.string(), ProjectConfigChildSchema).default({}),
+  viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
+  genCodePrefix: z.string().default(""),
+  genCodeSuffix: z.string().default(""),
+  entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
+  sectionConfigs: z.record(z.string(), SectionConfigSchema).default({}),
 });
 
-export type SectionConfig = z.infer<typeof SectionConfigSchema>;
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
-export function createSectionConfig(
-  options: Partial<SectionConfig> = {},
-): SectionConfig {
-  return SectionConfigSchema.parse(options);
-}
-
-export const ViewportSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zoom: z.number().default(1),
-});
-
-export type Viewport = z.infer<typeof ViewportSchema>;
-
-export function createViewport(options: Partial<Viewport> = {}): Viewport {
-  return ViewportSchema.parse(options);
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  return ProjectConfigSchema.parse(options);
 }
 
 export const UITypeColEntrySchema = z.object({
@@ -825,29 +846,7 @@ export function createSection(options: Partial<Section> = {}): Section {
   return SectionSchema.parse(options);
 }
 
-export const ProjectConfigSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
-  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
-  children: z.record(z.string(), ProjectConfigChildSchema).default({}),
-  viewingEditingMode: ViewingEditingModeSchema.default("DEV"),
-  genCodePrefix: z.string().default(""),
-  genCodeSuffix: z.string().default(""),
-  entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
-  sectionConfigs: z.record(z.string(), SectionConfigSchema).default({}),
-});
-
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
-
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return ProjectConfigSchema.parse(options);
-}
-
-export const ProjectStateSchema = z.object({
-  projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
+export const ProjectStateBackendSchema = z.object({
   sections: z.record(z.string(), SectionSchema).default({}),
   variants: z.record(z.string(), SectionVariantSchema).default({}),
   codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
@@ -856,15 +855,36 @@ export const ProjectStateSchema = z.object({
   uiTypeCols: z
     .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
     .default({}),
+  projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
 });
 
-export type ProjectState = z.infer<typeof ProjectStateSchema>;
+export type ProjectStateBackend = z.infer<typeof ProjectStateBackendSchema>;
 
-export function createProjectState(
-  options: Partial<ProjectState> = {},
-): ProjectState {
-  return ProjectStateSchema.parse(options);
+export function createProjectStateBackend(
+  options: Partial<ProjectStateBackend> = {},
+): ProjectStateBackend {
+  return ProjectStateBackendSchema.parse(options);
+}
+
+export const ProjectStateFrontendSchema = z.object({
+  sections: z.record(z.string(), SectionSchema).default({}),
+  variants: z.record(z.string(), SectionVariantSchema).default({}),
+  codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
+  codeInfoCols: z.record(z.string(), CodeInfoColSchema).default({}),
+  uiTypes: z.record(z.string(), UITypeSchema).default(ui_types_default_factory),
+  uiTypeCols: z
+    .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
+    .default({}),
+  projectConfig: ProjectConfigSchema,
+});
+
+export type ProjectStateFrontend = z.infer<typeof ProjectStateFrontendSchema>;
+
+export function createProjectStateFrontend(
+  options: Partial<ProjectStateFrontend> = {},
+): ProjectStateFrontend {
+  return ProjectStateFrontendSchema.parse(options);
 }
 
 export const PositionSchema = z.object({
@@ -914,22 +934,9 @@ export function createSettaNotification(
   return SettaNotificationSchema.parse(options);
 }
 
-export const ProjectLoadStateSchema = z.object({
-  projectConfigId: z.string(),
-  projectState: ProjectStateSchema,
-});
-
-export type ProjectLoadState = z.infer<typeof ProjectLoadStateSchema>;
-
-export function createProjectLoadState(
-  options: Partial<ProjectLoadState> = {},
-): ProjectLoadState {
-  return ProjectLoadStateSchema.parse(options);
-}
-
 export const ProjectSaveStateSchema = z.object({
   projectConfigId: z.string(),
-  projectState: ProjectStateSchema,
+  projectState: ProjectStateBackendSchema,
 });
 
 export type ProjectSaveState = z.infer<typeof ProjectSaveStateSchema>;
@@ -940,9 +947,28 @@ export function createProjectSaveState(
   return ProjectSaveStateSchema.parse(options);
 }
 
+export const ProjectStateCoreSchema = z.object({
+  sections: z.record(z.string(), SectionSchema).default({}),
+  variants: z.record(z.string(), SectionVariantSchema).default({}),
+  codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
+  codeInfoCols: z.record(z.string(), CodeInfoColSchema).default({}),
+  uiTypes: z.record(z.string(), UITypeSchema).default(ui_types_default_factory),
+  uiTypeCols: z
+    .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
+    .default({}),
+});
+
+export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;
+
+export function createProjectStateCore(
+  options: Partial<ProjectStateCore> = {},
+): ProjectStateCore {
+  return ProjectStateCoreSchema.parse(options);
+}
+
 export const ProjectUpdateStateSchema = z.object({
   projectConfigId: z.string(),
-  projectState: ProjectStateSchema,
+  projectState: ProjectStateBackendSchema,
   requestRenameRefactor: z.boolean().default(false),
 });
 

@@ -23,7 +23,6 @@ class FrameInspectionError(RuntimeError):
     pass
 
 
-
 class SettaListener:
     def __init__(self, host=C.DEFAULT_HOST, port=C.DEFAULT_PORT):
         self.logger = SettaLogger(host=host, port=port)
@@ -32,7 +31,9 @@ class SettaListener:
             raise FrameInspectionError("Failed to get current stack frame")
         self.caller_frame = curr_frame.f_back
         if not self.caller_frame:
-            raise FrameInspectionError("No caller frame available - cannot be called from module level")
+            raise FrameInspectionError(
+                "No caller frame available - cannot be called from module level"
+            )
         self.rel_path = Path(self.caller_frame.f_code.co_filename).relative_to(CWD)
         self.script_id = convert_path_to_module_path(self.rel_path)
         self.endpoint = f"{C.WEBSOCKET}{C.ROUTE_WEBSOCKET_PYTHON_SCRIPT}".format(

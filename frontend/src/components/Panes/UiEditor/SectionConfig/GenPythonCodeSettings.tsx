@@ -5,14 +5,11 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { wsGenCodePrefixCompletion } from "requests/sections";
-import { getCurrentProjectConfig } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 
 export function GenPythonCodeSettings() {
-  const value = useProjectState(
-    (x) => getCurrentProjectConfig(x).genCodePrefix,
-  );
+  const value = useProjectState((x) => x.projectConfig.genCodePrefix);
   const theme = useCodeMirrorStyle();
 
   const [localValue, setLocalValue] = useState(value);
@@ -70,7 +67,7 @@ function getGenCodePrefixCompletionsFn() {
 
 export function setGenCodePrefix({ value }) {
   useProjectState.setState((state) => {
-    getCurrentProjectConfig(state).genCodePrefix = value;
+    state.projectConfig.genCodePrefix = value;
   });
   maybeIncrementProjectStateVersion(true);
 }

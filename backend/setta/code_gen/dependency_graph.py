@@ -19,7 +19,7 @@ from setta.types.helpers import (
 from setta.types.project_state import (
     EVEntry,
     ParameterPassingStyle,
-    ProjectState,
+    ProjectStateBackend,
 )
 from setta.utils.utils import replace_at_positions
 
@@ -62,7 +62,7 @@ class ParamNode(Node):
 
 
 class DependencyGraph:
-    def __init__(self, p: ProjectState, projectConfigId: str):
+    def __init__(self, p: ProjectStateBackend, projectConfigId: str):
         self.section_types_to_process = set(
             [
                 C.SECTION,
@@ -81,7 +81,7 @@ class DependencyGraph:
         self.nodes_with_potential_refs: dict[GraphKeyType, dict[str, int]] = {}
         self.all_sections_in_project_config: set[str] = set()
 
-    def construct_graph(self, p: ProjectState, projectConfigId: str):
+    def construct_graph(self, p: ProjectStateBackend, projectConfigId: str):
         self.reset()
         ids = list(p.projectConfigs[projectConfigId].children.keys())
         self.export_sections(p, projectConfigId, ids, isTopLevel=True)
@@ -89,7 +89,7 @@ class DependencyGraph:
 
     def export_sections(
         self,
-        p: ProjectState,
+        p: ProjectStateBackend,
         projectConfigId: str,
         ids: list[str],
         isTopLevel=False,
@@ -107,7 +107,7 @@ class DependencyGraph:
 
     def export_section(
         self,
-        p: ProjectState,
+        p: ProjectStateBackend,
         projectConfigId: str,
         id: str,
         isTopLevel=False,
@@ -171,7 +171,7 @@ class DependencyGraph:
         return graph_key
 
     def export_section_value(
-        self, p: ProjectState, projectConfigId: str, sectionId: str
+        self, p: ProjectStateBackend, projectConfigId: str, sectionId: str
     ):
         selected_item = get_selected_item(p, projectConfigId, sectionId)
         if selected_item:
@@ -184,7 +184,7 @@ class DependencyGraph:
 
     def export_section_params(
         self,
-        p: ProjectState,
+        p: ProjectStateBackend,
         projectConfigId: str,
         sectionId: str,
         parent_node: Node | None = None,
@@ -202,7 +202,7 @@ class DependencyGraph:
 
     def export_params(
         self,
-        p: ProjectState,
+        p: ProjectStateBackend,
         projectConfigId: str,
         sectionId: str,
         paramIds: list[str],
@@ -247,7 +247,7 @@ class DependencyGraph:
         return output_deps
 
     def export_param_value(
-        self, p: ProjectState, projectConfigId: str, sectionId: str, paramId: str
+        self, p: ProjectStateBackend, projectConfigId: str, sectionId: str, paramId: str
     ):
         variant = get_selected_section_variant(p, projectConfigId, sectionId)
         if paramId in variant.values:

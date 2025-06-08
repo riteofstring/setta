@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { dbAddDefaultDataForJSONImport } from "requests/projects";
 import { loadProjectState } from "state/actions/project/loadProject";
-import { getCurrentProjectConfig } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { useExportProjectJson } from "state/hooks/project";
 import { resetProjectStores } from "state/utils";
 
@@ -36,7 +36,7 @@ export function ImportJSONModal({ modalType }) {
   async function onClick() {
     const project = JSON.parse(value);
     // replace id and name with current project config's id and name.
-    const { id, name } = getCurrentProjectConfig();
+    const { id, name } = useProjectState.getState().projectConfig;
     project["projectConfigs"] = {
       ...project["projectConfigs"],
       [id]: { id, name },
@@ -45,7 +45,7 @@ export function ImportJSONModal({ modalType }) {
     if (res.status === 200) {
       resetProjectStores();
       loadProjectState(res.data);
-      const { viewport } = getCurrentProjectConfig(res.data);
+      const { viewport } = useProjectState.getState().projectConfig;
       if (viewport) {
         // we have to set transform using the existing d3Zoom
         // because the page isn't reloading so the d3Zoom isn't getting re-initialized.

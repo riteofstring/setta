@@ -19,10 +19,14 @@ from setta.database.db_objs import DBE
 from setta.database.export_db.export_db import maybe_export_database
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.types.helpers import ProjectNameTaken, ProjectNotFound, confirm_config_name
+from setta.types.helpers import (
+    ProjectNameTaken,
+    ProjectNotFound,
+    confirm_config_name,
+    convert_backend_to_frontend,
+)
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
-    ProjectLoadState,
     ProjectSaveState,
 )
 from setta.utils.constants import C
@@ -101,9 +105,7 @@ async def route_load_project_config(
     try:
         projectState = project_manager.project_state
         projectConfigId = confirm_config_name(projectState, x.projectConfigName)
-        return ProjectLoadState(
-            projectConfigId=projectConfigId, projectState=projectState
-        )
+        return convert_backend_to_frontend(projectState, projectConfigId)
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))

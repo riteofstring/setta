@@ -1,13 +1,12 @@
 import { FiEdit3 } from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
 import { TbUser } from "react-icons/tb";
-import { getCurrentProjectConfig } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { ViewingEditingModeSchema } from "utils/generatedTypes";
 
 export function ViewingEditingMode() {
   const selectedMode = useProjectState(
-    (x) => getCurrentProjectConfig(x).viewingEditingMode,
+    (x) => x.projectConfig.viewingEditingMode,
   );
 
   const modes = [
@@ -30,7 +29,7 @@ export function ViewingEditingMode() {
 
   const handleModeChange = (modeId) => {
     useProjectState.setState((state) => {
-      getCurrentProjectConfig(state).viewingEditingMode = modeId;
+      state.projectConfig.viewingEditingMode = modeId;
     });
   };
 

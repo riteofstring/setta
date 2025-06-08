@@ -24,7 +24,6 @@ import {
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
-  getCurrentProjectConfig,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
   getSectionType,
@@ -68,10 +67,7 @@ export function subscribe() {
 
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {
-      const configState = getCurrentProjectConfig(state);
-      if (!configState) {
-        return;
-      }
+      const configState = state.projectConfig;
       if (codeBlockIds.length === 0) {
         configState.entryCodeBlockId = null;
       } else if (

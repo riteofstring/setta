@@ -21,7 +21,6 @@ import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
 import { getSectionType } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
-import { getCurrentProjectConfig } from "state/actions/sectionInfos"
 
 export function getProjectData({
   withArtifacts = false,
@@ -59,7 +58,7 @@ export function getProjectData({
   const codeInfo = useProjectState.getState().codeInfo;
   const codeInfoCols = useProjectState.getState().codeInfoCols;
 
-  const { projectConfigId, projectConfigs } = getProjectConfigMetadata();
+  const projectConfig = getProjectConfigMetadata();
   const children = {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
@@ -73,21 +72,18 @@ export function getProjectData({
       };
     }
   }
-  projectConfigs[projectConfigId].children = children;
+  projectConfig.children = children;
 
   const output = {
-    projectConfigId,
-    projectState: {
-      projectConfigs,
-      variants,
-      // artifacts,
-      // artifactGroups,
-      uiTypes,
-      uiTypeCols,
-      sections,
-      codeInfo,
-      codeInfoCols,
-    },
+    projectConfig,
+    variants,
+    // artifacts,
+    // artifactGroups,
+    uiTypes,
+    uiTypeCols,
+    sections,
+    codeInfo,
+    codeInfoCols,
   };
 
   return output;
@@ -96,7 +92,7 @@ export function getProjectData({
 export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeSchema.enum.save);
 
-  if (getCurrentProjectConfig().name === SETTINGS_PROJECT_NAME) {
+  if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
     const res = await dbSaveSettingsProject(getProjectData({}));
     if (res.status === 200) {
       useSettings.setState(res.data);
@@ -131,14 +127,13 @@ async function saveProjectAs({ fn, otherArgs }) {
 
 function getProjectConfigMetadata() {
   const s = useProjectState.getState();
-  const projectConfigs = _.cloneDeep(s.projectConfigs);
+  const projectConfig = _.cloneDeep(s.projectConfig);
 
-  projectConfigs[s.projectConfigId].viewport = useReactFlow.getState()
-    .fitViewOnInit
+  projectConfig.viewport = useReactFlow.getState().fitViewOnInit
     ? null
     : getViewport();
 
-  return { projectConfigId: s.projectConfigId, projectConfigs };
+  return projectConfig;
 }
 
 export async function getProjectDataForSaving() {

@@ -4,10 +4,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
-import {
-  getCurrentProjectConfig,
-  setAllPreviewVariantIdsToNull,
-} from "state/actions/sectionInfos";
+import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
   useProjectLoading,
@@ -18,8 +15,7 @@ import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 export const ProjectConfigs = React.forwardRef(() => {
   const { name: currProjectConfigName, allConfigNames } = useProjectState(
     (x) => {
-      const curr = getCurrentProjectConfig(x);
-      const name = curr?.name ?? "";
+      const name = x.projectConfig.name;
       const allConfigNames = _.map(x.projectConfigs, (p) => p.name);
       return { name, allConfigNames };
     },

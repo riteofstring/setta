@@ -7,8 +7,9 @@ import {
 import {
   APIKeys,
   ChatMetadata,
+  createProjectConfig,
   IDToUUIDForLLM,
-  ProjectState,
+  ProjectStateFrontend,
   SettaNotification,
   SettingsState,
 } from "utils/generatedTypes";
@@ -44,14 +45,13 @@ export const useContextMenus = withProjectState(
 );
 
 export type ZustandProjectState = {
-  projectConfigId: string;
-  projectConfigs: ProjectState["projectConfigs"];
-  sections: ProjectState["sections"];
-  variants: ProjectState["variants"];
-  uiTypeCols: ProjectState["uiTypeCols"];
-  uiTypes: ProjectState["uiTypes"];
-  codeInfoCols: ProjectState["codeInfoCols"];
-  codeInfo: ProjectState["codeInfo"];
+  projectConfig: ProjectStateFrontend["projectConfig"];
+  sections: ProjectStateFrontend["sections"];
+  variants: ProjectStateFrontend["variants"];
+  uiTypeCols: ProjectStateFrontend["uiTypeCols"];
+  uiTypes: ProjectStateFrontend["uiTypes"];
+  codeInfoCols: ProjectStateFrontend["codeInfoCols"];
+  codeInfo: ProjectStateFrontend["codeInfo"];
   activeIds: Array<string>;
 };
 
@@ -62,8 +62,7 @@ export const useProjectState = withProjectState(
         immer(
           withResetFn(() =>
             withVersion<ZustandProjectState>({
-              projectConfigId: "",
-              projectConfigs: {},
+              projectConfig: createProjectConfig(),
               sections: {},
               variants: {},
               uiTypeCols: {},

@@ -37,20 +37,15 @@ export async function loadSettingsProjectConfig() {
 }
 
 export async function loadProjectState({
-  projectConfigId,
-  projectState: {
-    projectConfigs,
-    codeInfo,
-    codeInfoCols,
-    sections,
-    variants,
-    // artifactGroups,
-    uiTypes,
-    uiTypeCols,
-  },
+  projectConfig,
+  codeInfo,
+  codeInfoCols,
+  sections,
+  variants,
+  // artifactGroups,
+  uiTypes,
+  uiTypeCols,
 }) {
-  const projectConfig = projectConfigs[projectConfigId];
-
   if (!projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -62,8 +57,7 @@ export async function loadProjectState({
     });
   }
   useProjectState.setState({
-    projectConfigId,
-    projectConfigs,
+    projectConfig,
     sections,
     variants,
     uiTypes,

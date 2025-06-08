@@ -11,7 +11,7 @@ from setta.types.project_state import (
     ConfigLanguage,
     ProjectConfig,
     ProjectConfigChild,
-    ProjectState,
+    ProjectStateBackend,
     Section,
     SectionConfig,
     SectionSize,
@@ -174,7 +174,7 @@ def create_settings_project_state(settings_path: str):
     )
     projectConfigId = projectConfig.id
 
-    return ProjectState(
+    return ProjectStateBackend(
         projectConfigs={projectConfigId: projectConfig},
         sections=sections,
         variants=variants,

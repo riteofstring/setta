@@ -206,24 +206,27 @@ def ui_types_default_factory():
     return copy.deepcopy(BASE_UI_TYPES)
 
 
-class ProjectState(BaseModel, extra="forbid"):
-    projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
+class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, Section] = Field(default_factory=dict)
     variants: dict[str, SectionVariant] = Field(default_factory=dict)
     codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: dict[str, UIType] = Field(default_factory=ui_types_default_factory)
     uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validator_ensure_base_ui_types(self):
+        self.uiTypes.update(BASE_UI_TYPES)
+        return self
+
+
+class ProjectStateBackend(ProjectStateCore, extra="forbid"):
+    projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
     defaultProjectConfigId: str | None = None
 
     @model_validator(mode="after")
     def validator_ensure_default_project_id(self):
         self.ensure_default_project_id()
-        return self
-
-    @model_validator(mode="after")
-    def validator_ensure_base_ui_types(self):
-        self.uiTypes.update(BASE_UI_TYPES)
         return self
 
     def ensure_default_project_id(self):
@@ -240,17 +243,16 @@ class ProjectState(BaseModel, extra="forbid"):
         return self
 
 
+class ProjectStateFrontend(ProjectStateCore, extra="forbid"):
+    projectConfig: ProjectConfig
+
+
 class ProjectSaveState(BaseModel, extra="forbid"):
     projectConfigId: str
-    projectState: ProjectState
-
-
-class ProjectLoadState(BaseModel, extra="forbid"):
-    projectConfigId: str
-    projectState: ProjectState
+    projectState: ProjectStateBackend
 
 
 class ProjectUpdateState(BaseModel, extra="forbid"):
     projectConfigId: str
-    projectState: ProjectState
+    projectState: ProjectStateBackend
     requestRenameRefactor: bool = False

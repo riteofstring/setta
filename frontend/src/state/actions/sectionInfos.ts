@@ -339,8 +339,11 @@ export function getSectionShouldRender(visibility, viewingEditingMode) {
   );
 }
 
-export function getSectionViewingEditingModeVisibility(sectionId, state) {
-  const { viewingEditingMode } = getCurrentProjectConfig(state);
+export function getSectionViewingEditingModeVisibility(
+  sectionId: string,
+  state: ZustandProjectState,
+) {
+  const { viewingEditingMode } = state.projectConfig;
   return {
     visibility:
       state.sections[sectionId].visibility[
@@ -372,8 +375,11 @@ export function getSectionVisibilityKeyForDisplay(
   }
 }
 
-export function getAncestorSameVisibility(sectionId, state) {
-  const { viewingEditingMode } = getCurrentProjectConfig(state);
+export function getAncestorSameVisibility(
+  sectionId,
+  state: ZustandProjectState,
+) {
+  const { viewingEditingMode } = state.projectConfig;
   let { parentId } = state.sections[sectionId];
   const key = getSectionVisibilityKey(viewingEditingMode);
   const targetVisibility = state.sections[sectionId].visibility[key];
@@ -392,16 +398,9 @@ export function getIsUserView(viewingEditingMode) {
   return viewingEditingMode === ViewingEditingModeSchema.enum.USER;
 }
 
-export function getCurrentProjectConfig(
-  _state: ZustandProjectState | null = null,
-) {
-  const state = _state ?? useProjectState.getState();
-  return state.projectConfigs[state.projectConfigId];
-}
-
 export function getCurrentSectionConfigs(
   _state: ZustandProjectState | null = null,
 ) {
   const state = _state ?? useProjectState.getState();
-  return getCurrentProjectConfig(state).sectionConfigs;
+  return state.projectConfig.sectionConfigs;
 }

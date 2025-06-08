@@ -10,7 +10,7 @@ from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
     EVEntry,
-    ProjectState,
+    ProjectStateBackend,
     Section,
     SectionVariant,
 )
@@ -33,7 +33,7 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 
 def load_json_sources_into_data_structures(
-    projectState: ProjectState | LoadJSONSourceObject,
+    projectState: ProjectStateBackend | LoadJSONSourceObject,
     variant_ids: list[str] | None = None,
 ):
     for variant_id, variant in projectState.variants.items():

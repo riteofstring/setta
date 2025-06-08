@@ -28,7 +28,7 @@ from setta.types.helpers import (
 from setta.types.project_state import (
     CodeLanguage,
     ProjectConfig,
-    ProjectState,
+    ProjectStateBackend,
     ProjectUpdateState,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
@@ -375,7 +375,7 @@ class ProjectManager:
     def create_code_obj(
         self,
         project_temp_folder: Path,
-        project_state: ProjectState,
+        project_state: ProjectStateBackend,
         projectConfigId: str,
         sectionId: str,
     ):

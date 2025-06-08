@@ -247,6 +247,9 @@ dependencies:
     version: 4.5.7(@types/react@18.3.12)(immer@10.1.1)(react@18.2.0)
 
 devDependencies:
+  '@types/lodash':
+    specifier: 4.17.17
+    version: 4.17.17
   '@types/react':
     specifier: 18.3.12
     version: 18.3.12
@@ -2864,6 +2867,10 @@ packages:
 
   /@types/linkify-it@5.0.0:
     resolution: {integrity: sha512-sVDA58zAw4eWAffKOaQH5/5j3XeayukzDk+ewSsnv3p4yJEZHCCzMDiZM8e0OUrRvmpGZ85jf4yDHkHsgBNr9Q==}
+    dev: true
+
+  /@types/lodash@4.17.17:
+    resolution: {integrity: sha512-RRVJ+J3J+WmyOTqnz3PiBLA501eKwXl2noseKOrNo/6+XEHjTAxO4xHvxQB6QuNm+s4WRbn6rSiap8+EA+ykFQ==}
     dev: true
 
   /@types/markdown-it@14.1.2:
