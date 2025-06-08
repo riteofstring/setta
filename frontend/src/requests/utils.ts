@@ -24,9 +24,11 @@ export function replaceAddressParams(
 
 export async function post({ address, addressParams, body }: PostFunctionType) {
   const finalAddress = replaceAddressParams(address, addressParams);
-  return axios.post(`${C_ADDRESSES.BACKEND}${finalAddress}`, body, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+  return axios
+    .post(`${C_ADDRESSES.BACKEND}${finalAddress}`, body, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    .catch((res) => res);
 }
