@@ -3,7 +3,7 @@ import logging
 from fastapi import WebSocket
 from websockets.exceptions import ConnectionClosedError
 
-from setta.types.websocket_manager import (
+from setta.types.websocket import (
     WebsocketConnectionInfo,
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,

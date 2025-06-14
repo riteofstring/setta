@@ -2,7 +2,7 @@ from setta.lsp.managers import LSPWriters
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.websocket_manager import (
+from setta.types.websocket import (
     WebsocketMsgAllDependencies,
 )
 from setta.utils.constants import C

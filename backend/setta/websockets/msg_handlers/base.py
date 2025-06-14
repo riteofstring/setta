@@ -1,5 +1,5 @@
 from setta.types.notifications import SettaNotification
-from setta.types.websocket_manager import (
+from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgNotification,
 )

@@ -26,7 +26,7 @@ import setta.types
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic_core import PydanticUndefined
-from setta.types.websocket_manager import WebsocketMsgTypeForFrontend
+from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code

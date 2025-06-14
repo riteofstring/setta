@@ -2,7 +2,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.websocket_manager import (
+from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgReturnRenameRefactorResults,

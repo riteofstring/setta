@@ -1,5 +1,5 @@
 from setta.types.artifact import Artifact
-from setta.types.websocket_manager import WebsocketConnectionType, WebsocketMsgArtifact
+from setta.types.websocket import WebsocketConnectionType, WebsocketMsgArtifact
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
 

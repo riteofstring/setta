@@ -1,5 +1,5 @@
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
-from setta.types.websocket_manager import (
+from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgLLMStreamingResponse,
 )
