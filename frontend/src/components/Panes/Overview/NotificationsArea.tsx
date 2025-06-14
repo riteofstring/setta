@@ -9,15 +9,16 @@ import {
 } from "react-icons/io5";
 import { VscSave } from "react-icons/vsc";
 import {
-  dbDeleteNotification,
-  dbGetNotifications,
-} from "requests/notifications";
-import {
   DEFAULT_TEMP_TIMEOUT,
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
 import { useNotifications, useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_delete_notification,
+  route_get_notifications,
+} from "utils/generatedEndpoints";
 import {
   SettaNotification,
   SettaNotificationTypeEnum,
@@ -36,8 +37,8 @@ export function NotificationsArea() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await dbGetNotifications(projectConfigId);
-        if (response.status === 200 && response.data) {
+        const response = await route_get_notifications({ projectConfigId });
+        if (res200(response)) {
           // Set the notifications in the store
           useNotifications.setState((state) => ({
             notifications: [
@@ -96,7 +97,7 @@ function NotificationItem({
       }, 300); // Match transition duration
     } else {
       removeNotification(id);
-      await dbDeleteNotification(id);
+      await route_delete_notification({ notificationId: id });
     }
   };
 

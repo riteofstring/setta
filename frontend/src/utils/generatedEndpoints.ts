@@ -75,7 +75,7 @@ export async function router_add_default_data_for_json_import(
 
 export async function route_get_notifications(
   x: gt.GetNotificationsRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<Array<gt.SettaNotification>>> {
   return await post("/getNotifications", x);
 }
 

@@ -5,8 +5,8 @@ import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
-import { dbRestartLanguageServer } from "requests/lsp";
 import { dbRequestTypeCheck } from "requests/sections";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
   addGroupInEmptySpace,
@@ -16,6 +16,7 @@ import { autoLayout } from "state/actions/sections/sectionPositions";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
+import { route_restart_language_server } from "utils/generatedEndpoints";
 import { shortcutPrettified } from "utils/utils";
 
 export function EditMenu() {
@@ -64,7 +65,10 @@ function Items() {
         Type Check
       </MenuItem>
       <MenuItem
-        onClick={dbRestartLanguageServer}
+        onClick={() => {
+          addTemporaryNotification("Restarting Language Server");
+          route_restart_language_server();
+        }}
         shortcut={shortcuts.restartLanguageServerShortcut}
       >
         Restart Language Server

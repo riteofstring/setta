@@ -255,7 +255,9 @@ def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
 
 
 @router.post(Route.GET_NOTIFICATIONS)
-def route_get_notifications(x: GetNotificationsRequest, dbe=Depends(get_dbe)):
+def route_get_notifications(
+    x: GetNotificationsRequest, dbe: DBE = Depends(get_dbe)
+) -> list[SettaNotification]:
     with dbe.session as db:
         notifications = load_project_notifications(db, x.projectConfigId)
         return notifications
