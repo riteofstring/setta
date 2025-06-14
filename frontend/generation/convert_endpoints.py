@@ -1,5 +1,6 @@
 import inspect
 import types
+from collections.abc import Sequence as ABCSequence
 from typing import (
     Annotated,
     Dict,
@@ -18,7 +19,6 @@ from fastapi.routing import APIRoute
 from setta.server import app
 from setta.types.routes import Route
 from setta.utils.utils import get_absolute_path
-from collections.abc import Sequence as ABCSequence
 
 from .utils import format_generated_code
 
@@ -81,19 +81,12 @@ def get_path_input_output_types():
     return output
 
 
-def maybe_get_basic_type_annotation(x):
-    type_annotation = basic_type_map.get(x)
-    if type_annotation:
-        return type_annotation
-    return f"{GENERATED_TYPE_ALIAS}.{x.__name__}"
-
-
 def create_args(inputs):
     args = []
     args_with_annotations = []
 
     for name, type in inputs.items():
-        type_annotation = maybe_get_basic_type_annotation(type)
+        type_annotation = python_type_to_ts(type, {}, set())
         args.append(name)
         args_with_annotations.append(f"{name}:{type_annotation}")
     return args, args_with_annotations
