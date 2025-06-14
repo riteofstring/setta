@@ -35,7 +35,10 @@ class WebsocketManager:
         while not id or id in self.sockets:
             id = generate_memorable_string()
         self.sockets[id] = WebsocketConnectionInfoWithSocket(
-            id=id, websocket=websocket, connectionType=connectionType, location=None
+            id=id,
+            websocket=websocket,
+            connectionType=connectionType,
+            currentAddress=None,
         )
         await self.broadcast_connections()
         return id
@@ -65,13 +68,13 @@ class WebsocketManager:
         self,
         message: WebsocketMsg,
         connectionType: WebsocketConnectionType | None = None,
-        location: str | None = None,
+        currentAddress: str | None = None,
     ):
         for k, v in self.sockets.items():
             if (
-                (not connectionType and not location)
+                (not connectionType and not currentAddress)
                 or (connectionType and v.connectionType == connectionType)
-                or (location and v.location == location)
+                or (currentAddress and v.currentAddress == currentAddress)
             ):
                 await self.send_message(message, k)
 
@@ -80,14 +83,16 @@ class WebsocketManager:
         for id, s in self.sockets.items():
             connections.append(
                 WebsocketConnectionInfo(
-                    id=id, connectionType=s.connectionType, location=s.location
+                    id=id,
+                    connectionType=s.connectionType,
+                    currentAddress=s.currentAddress,
                 )
             )
         connections.append(
             WebsocketConnectionInfo(
                 id=self.main_id,
                 connectionType=WebsocketConnectionType.SERVER,
-                location=None,
+                currentAddress=None,
             )
         )
         await self.broadcast(WebsocketMsgAllConnections(content=connections))

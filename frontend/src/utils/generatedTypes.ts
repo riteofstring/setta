@@ -786,6 +786,10 @@ export const WebsocketConnectionTypeEnum = {
   FRONTEND: "FRONTEND",
 } as const;
 
+export const WebsocketMsgTypeForBackendEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+} as const;
+
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   LSPDiagnostics: "LSPDiagnostics",
@@ -1454,10 +1458,42 @@ export function createSimplifiedSection(
   return SimplifiedSectionSchema.parse(options);
 }
 
+export const SettaGenCodeDiagnosticSchema = z.object({
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+  message: z.string(),
+});
+
+export type SettaGenCodeDiagnostic = z.infer<
+  typeof SettaGenCodeDiagnosticSchema
+>;
+
+export function createSettaGenCodeDiagnostic(
+  options: Partial<SettaGenCodeDiagnostic> = {},
+): SettaGenCodeDiagnostic {
+  return SettaGenCodeDiagnosticSchema.parse(options);
+}
+
+export const SettaProjectConfigDiagnosticsSchema = z.object({
+  projectConfigId: z.string(),
+  diagnostics: z.array(SettaGenCodeDiagnosticSchema),
+  isGenCode: z.boolean(),
+});
+
+export type SettaProjectConfigDiagnostics = z.infer<
+  typeof SettaProjectConfigDiagnosticsSchema
+>;
+
+export function createSettaProjectConfigDiagnostics(
+  options: Partial<SettaProjectConfigDiagnostics> = {},
+): SettaProjectConfigDiagnostics {
+  return SettaProjectConfigDiagnosticsSchema.parse(options);
+}
+
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
-  location: z.union([z.string(), z.null()]),
+  currentAddress: z.union([z.string(), z.null()]),
 });
 
 export type WebsocketConnectionInfo = z.infer<
@@ -1473,7 +1509,7 @@ export function createWebsocketConnectionInfo(
 export const WebsocketConnectionInfoWithSocketSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
-  location: z.union([z.string(), z.null()]),
+  currentAddress: z.union([z.string(), z.null()]),
   websocket: WebSocket,
 });
 
@@ -1553,6 +1589,24 @@ export function createWebsocketMsgArtifact(
   return WebsocketMsgArtifactSchema.parse(options);
 }
 
+export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.string(),
+  messageType: z
+    .literal("CurrentAddressUpdate")
+    .default(WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate),
+});
+
+export type WebsocketMsgCurrentAddressUpdate = z.infer<
+  typeof WebsocketMsgCurrentAddressUpdateSchema
+>;
+
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
+  return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
+}
+
 export const WebsocketMsgLLMStreamingResponseSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: LLMStreamingResponseSchema,
@@ -1573,7 +1627,7 @@ export function createWebsocketMsgLLMStreamingResponse(
 
 export const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
+  content: SettaProjectConfigDiagnosticsSchema,
   messageType: z
     .literal("LSPDiagnostics")
     .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),

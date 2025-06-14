@@ -31,6 +31,13 @@ WebsocketMsgTypeForFrontend = AsIsStrEnum(
     ],
 )
 
+WebsocketMsgTypeForBackend = AsIsStrEnum(
+    "WebsocketMsgTypeForBackend",
+    [
+        "CurrentAddressUpdate",
+    ],
+)
+
 
 WebsocketConnectionType = AsIsStrEnum(
     "WebsocketConnectionType",
@@ -41,7 +48,7 @@ WebsocketConnectionType = AsIsStrEnum(
 class WebsocketConnectionInfo(BaseModel):
     id: str
     connectionType: WebsocketConnectionType
-    location: str | None
+    currentAddress: str | None
 
 
 class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):
@@ -136,4 +143,11 @@ class WebsocketMsgNewTerminalCreated(WebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.NewTerminalCreated] = (
         WebsocketMsgTypeForFrontend.NewTerminalCreated
+    )
+
+
+class WebsocketMsgCurrentAddressUpdate(WebsocketMsg):
+    content: str
+    messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
+        WebsocketMsgTypeForBackend.CurrentAddressUpdate
     )

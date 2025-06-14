@@ -13,8 +13,10 @@ import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/termin
 import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createWebsocketConnectionInfo,
+  createWebsocketMsgCurrentAddressUpdate,
   RouteEnum,
   WebsocketConnectionTypeEnum,
+  WebsocketMsg,
   WebsocketMsgTypeForFrontendEnum,
   WebsocketMsgUnion,
   WebsocketMsgUnionSchema,
@@ -38,13 +40,13 @@ export const openWebSocket = _.debounce(
         `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
       );
       wss.addEventListener("open", () => {
-        sendLocation(pathname);
+        sendCurrentAddress(pathname);
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
           createWebsocketConnectionInfo({
             id: "main",
             connectionType: WebsocketConnectionTypeEnum.SERVER,
-            location: null,
+            currentAddress: pathname,
           }),
         );
         wasOpen = true;
@@ -121,21 +123,14 @@ function receiveMessage(message: string) {
   }
 }
 
-export function sendLocation(pathname) {
-  if (wssReady(wss)) {
-    wss.send(JSON.stringify({ location: pathname }));
-  }
+export function sendCurrentAddress(currentAddress: string) {
+  sendMessage(
+    createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
+  );
 }
 
-export async function sendMessage({ content, id, messageType }) {
+export function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
-    wss.send(
-      JSON.stringify({
-        id,
-        content,
-        toWebsocketId: "main",
-        messageType,
-      }),
-    );
+    wss.send(JSON.stringify(message));
   }
 }

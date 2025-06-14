@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { openWebSocket, sendLocation } from "state/actions/websocketReceive";
+import { openWebSocket } from "state/actions/websocketReceive";
 import { useProjectLoading, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
@@ -54,7 +54,6 @@ function useOpenCloseWebsocket() {
 
   useEffect(() => {
     openWebSocket(location.pathname);
-    sendLocation(location.pathname);
   }, [location.pathname]);
 }
 
