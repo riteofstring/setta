@@ -76,8 +76,16 @@ def create_fn_name(s):
 
 def create_args(inputs, generate_types_alias):
     args = []
+    type_map = {
+        str: "string",
+        int: "number",
+        bool: "boolean",
+    }
     for name, type in inputs.items():
-        args.append(f"{name}:{generate_types_alias}.{type.__name__}")
+        type_annotation = type_map.get(type)
+        if not type_annotation:
+            type_annotation = f"{generate_types_alias}.{type.__name__}"
+        args.append(f"{name}:{type_annotation}")
     return ", ".join(args)
 
 

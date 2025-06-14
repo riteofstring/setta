@@ -70,7 +70,7 @@ export function dbRouteFileWatchGenPythonCode(
 
 export function dbRouteTerminalDeleteTerminals(x: gt.DeleteTerminalsRequest) {}
 
-export function dbRouteTerminalGetExistingTerminals(projectConfigId: gt.str) {}
+export function dbRouteTerminalGetExistingTerminals(projectConfigId: string) {}
 
 export function dbRouteKillSubprocesses(x: gt.KillSubprocessesRequest) {}
 
