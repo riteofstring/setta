@@ -1,6 +1,6 @@
-import { dbDeleteTerminals } from "requests/terminals";
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
+import { route_delete_terminals } from "utils/generatedEndpoints";
 import { UITypeNameEnum } from "utils/generatedTypes";
 import { removeActiveSectionIds } from "../activeSections";
 import {
@@ -21,7 +21,7 @@ export function deleteSections(sectionIds, state) {
   );
   removeSectionInfos(idsToDelete, state);
   if (terminalIds) {
-    dbDeleteTerminals(terminalIds);
+    route_delete_terminals({ sectionIds: terminalIds });
   }
   removeActiveSectionIds(idsToDelete);
   deleteNodes(idsToDelete);

@@ -64,15 +64,15 @@ async def terminal_websocket_endpoint(
 
 
 @router.post(Route.DELETE_TERMINALS)
-async def route_terminal_delete_terminals(
+async def route_delete_terminals(
     x: DeleteTerminalsRequest, terminals=Depends(get_terminals)
 ):
     await terminals.delete_terminals(x.sectionIds)
 
 
 @router.get(Route.GET_EXISTING_TERMINALS)
-def route_terminal_get_existing_terminals(
-    projectConfigId: str, terminals=Depends(get_terminals)
+def route_get_existing_terminals(
+    projectConfigId: str, terminals: Terminals = Depends(get_terminals)
 ):
     return terminals.get_existing_terminals(projectConfigId)
 

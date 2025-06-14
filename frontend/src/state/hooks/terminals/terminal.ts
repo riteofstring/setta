@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
-import { dbGetExistingTerminals } from "requests/terminals";
 import { setSectionVariantChildren } from "state/actions/sectionInfos";
 import {
   addSectionInEmptySpace,
@@ -11,7 +10,8 @@ import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams } from "utils/endpointUtils";
+import { replaceAddressParams, res200 } from "utils/endpointUtils";
+import { route_get_existing_terminals } from "utils/generatedEndpoints";
 import { RouteEnum, UITypeNameEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -153,10 +153,10 @@ function removeWsFromArray(x, ws) {
 }
 
 export async function restoreTerminals() {
-  const res = await dbGetExistingTerminals(
+  const res = await route_get_existing_terminals(
     useProjectState.getState().projectConfig.id,
   );
-  if (res.status === 200) {
+  if (res200(res)) {
     const existingTerminalInfo = res.data;
     const terminalsWithoutSections = existingTerminalInfo.filter(
       (x) => !(x.id in useProjectState.getState().sections),

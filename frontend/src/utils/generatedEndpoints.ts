@@ -145,16 +145,16 @@ export async function route_file_watch_gen_python_code(
   return await post("/fileWatchGenPythonCode", x);
 }
 
-export async function route_terminal_delete_terminals(
+export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/terminal/deleteTerminals", x);
+  return await post("/deleteTerminals", x);
 }
 
-export async function route_terminal_get_existing_terminals(
+export async function route_get_existing_terminals(
   projectConfigId: string,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await get("/terminal/getExistingTerminals/{projectConfigId}", {
+  return await get("/getExistingTerminals/{projectConfigId}", {
     projectConfigId,
   });
 }
