@@ -13,7 +13,7 @@ class DocstringToMarkdownRequest(BaseModel):
 
 
 @router.post(Route.DOCSTRING_TO_MARKDOWN)
-def route_docstring_to_markdown(x: DocstringToMarkdownRequest):
+def route_docstring_to_markdown(x: DocstringToMarkdownRequest) -> str:
     try:
         return docstring_to_markdown.convert(x.docstring)
     except docstring_to_markdown.UnknownFormatError as e:

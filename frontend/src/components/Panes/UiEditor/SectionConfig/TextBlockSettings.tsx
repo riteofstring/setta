@@ -1,8 +1,9 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { dbDocstringToMarkdown } from "requests/codeInfo";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockDescriptionAndEditability } from "state/hooks/sectionVariants";
+import { res200 } from "utils/endpointUtils";
+import { route_docstring_to_markdown } from "utils/generatedEndpoints";
 
 export function TextBlockSettings({ sectionId }) {
   const { renderMarkdown, description, variantIsFrozen, headingAsSectionName } =
@@ -11,8 +12,8 @@ export function TextBlockSettings({ sectionId }) {
   async function onChangeRenderMarkdown(v) {
     let newDescription;
     if (v) {
-      const res = await dbDocstringToMarkdown(description);
-      newDescription = res.status === 200 ? res.data : description;
+      const res = await route_docstring_to_markdown({ docstring: description });
+      newDescription = res200(res) ? res.data : description;
     } else {
       newDescription = description;
     }

@@ -173,7 +173,7 @@ export async function route_run_code(
 
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<string>> {
   return await post("/docstringToMarkdown", x);
 }
 
