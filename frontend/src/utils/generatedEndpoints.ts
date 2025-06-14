@@ -308,3 +308,9 @@ export async function route_clear_text_field_completion(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/clearTextFieldCompletion", x);
 }
+
+export async function route_set_selected_item(
+  x: gt.SetSelectedItemRequest,
+): Promise<ResponseDataAndStatus<boolean>> {
+  return await post("/setSelectedItem", x);
+}

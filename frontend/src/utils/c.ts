@@ -73,7 +73,6 @@ export class C {
   static WS_RUN_CODE = "runCode";
   static WS_SCRIPT_DEPENDENCIES = "scriptDependencies";
   static WS_SCRIPT_READY = "scriptReady";
-  static WS_SET_SELECTED_ITEM = "WS_SET_SELECTED_ITEM";
   static WS_SPECIFIC_FILE_WATCHER_UPDATE = "specificFileWatcherUpdate";
   static WS_TERMINAL_METADATA = "terminalMetadata";
   static WS_TERMINAL_RESIZE = "terminalResize";

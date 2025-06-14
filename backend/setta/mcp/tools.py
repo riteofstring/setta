@@ -5,6 +5,7 @@ from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_setup import setta_tool
 from setta.terminals.run_code import run_code
 from setta.types.ai import ID
+from setta.types.helpers import get_children_of_selected_item
 from setta.types.simplified_states import (
     SimplifiedCodeInfo,
     SimplifiedSection,
@@ -60,10 +61,11 @@ async def setSelectedItem(
         selectedItemName: The selected item name, for example "math.sqrt"
         refetchParams: If True, then the parameter list will be recomputed. Only do this if something with the python environment or language server has changed.
     """
-    children = await setta_mcp_server.project_manager.set_selected_item(
+    project_state = await setta_mcp_server.project_manager.set_selected_item(
         projectConfigId, sectionId, selectedItemName, refetchParams
     )
     output: dict[ID, SimplifiedCodeInfo] = {}
+    children = get_children_of_selected_item(project_state, sectionId)
     for c in children:
         output[ID(c.id)] = SimplifiedCodeInfo(
             name=c.name,

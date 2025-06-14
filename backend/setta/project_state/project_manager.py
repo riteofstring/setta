@@ -21,7 +21,6 @@ from setta.types.base_ui_types import UITypeName
 from setta.types.helpers import (
     convert_backend_to_single_config,
     create_sections,
-    get_children_of_selected_item,
     get_section_type,
     get_top_level_sections,
     merge_single_config_into_backend,
@@ -281,7 +280,6 @@ class ProjectManager:
         sectionId: str,
         selectedItemName: str,
         refetchParams: bool,
-        messageId: str | None = None,
     ):
         project_state = self.get_single_config_state(projectConfigId)
 
@@ -292,16 +290,10 @@ class ProjectManager:
             refetchParams,
         )
         await self.update(project_state)
-        if messageId:
-            await self.websocket_msg_handler.return_to_requester(
-                self.project_state_backend.model_dump(), messageId
-            )
-        else:
-            await self.websocket_msg_handler.broadcast_project_state(
-                self.project_state_backend
-            )
-
-        return get_children_of_selected_item(project_state, sectionId)
+        await self.websocket_msg_handler.broadcast_project_state(
+            self.project_state_backend
+        )
+        return project_state
 
     @enqueue_method
     async def code_area_autocomplete(

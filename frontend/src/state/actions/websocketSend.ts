@@ -4,25 +4,6 @@ import { C } from "utils/c";
 import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
 
-export async function wsSetSelectedItem(
-  sectionId: string,
-  selectedItemName: string,
-  refetchParams: boolean = false,
-) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-
-  return await sendMessageAndWait({
-    id: createNewId(),
-    messageType: C.WS_SET_SELECTED_ITEM,
-    content: {
-      projectConfigId,
-      sectionId,
-      selectedItemName,
-      refetchParams,
-    },
-  });
-}
-
 export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
 

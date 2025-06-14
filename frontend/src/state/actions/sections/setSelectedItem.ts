@@ -1,7 +1,7 @@
-import { wsSetSelectedItem } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_set_selected_item } from "utils/generatedEndpoints";
 import { setParametersRequestWaitingForLSP } from "../lsp";
-import { updateProjectState } from "../sectionInfos";
 
 export async function setSelectedItem(
   sectionId,
@@ -9,16 +9,16 @@ export async function setSelectedItem(
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const newProjectState = await wsSetSelectedItem(
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  // res.data is true on success.
+  // state update occurs by websocket
+  const res = await route_set_selected_item({
+    projectConfigId,
     sectionId,
     selectedItemName,
     refetchParams,
-  );
-  if (newProjectState) {
-    console.log(newProjectState);
-    useProjectState.setState((state) => {
-      updateProjectState({ ...newProjectState, state });
-    });
+  });
+  if (res200(res) && res.data) {
+    setToNotWaiting();
   }
-  setToNotWaiting();
 }

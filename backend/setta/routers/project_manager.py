@@ -15,6 +15,13 @@ class ClearTextFieldCompletionRequest(BaseModel):
     paramInfoId: str | None
 
 
+class SetSelectedItemRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    selectedItemName: str
+    refetchParams: bool
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest,
@@ -24,11 +31,13 @@ async def route_clear_text_field_completion(
         x.projectConfigId, x.sectionId, x.paramInfoId
     )
 
+
 @router.post(Route.SET_SELECTED_ITEM)
 async def route_set_selected_item(
-    x: ClearTextFieldCompletionRequest,
+    x: SetSelectedItemRequest,
     project_manager: ProjectManager = Depends(get_project_manager),
-) -> None:
+) -> bool:
     await project_manager.set_selected_item(
         x.projectConfigId, x.sectionId, x.selectedItemName, x.refetchParams
     )
+    return True
