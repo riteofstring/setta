@@ -11,7 +11,7 @@ class WMHPythonLogger(BaseWebsocketMsgHandler):
 
     async def process_message(self, message, *_, **__):
         msg_type = message["messageType"]
-        if msg_type == WebsocketMsgTypeForFrontend.ARTIFACT:
+        if msg_type == WebsocketMsgTypeForFrontend.Artifact:
             await self.websocket_manager.broadcast(
                 message=message, connectionType=WebsocketConnectionType.FRONTEND
             )

@@ -26,6 +26,7 @@ import setta.types
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic_core import PydanticUndefined
+from setta.types.websocket_manager import WebsocketMsgTypeForFrontend
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
@@ -430,6 +431,14 @@ def dataclass_to_zod(model: type, processed_types: set):
     )
 
 
+def websocket_msg_discriminated_union():
+    return f"""
+export const WebsocketMsgUnionSchema = z.discriminatedUnion("messageType", [{",".join([f"WebsocketMsg{e.name}Schema" for e in WebsocketMsgTypeForFrontend])}])
+
+export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
+"""
+
+
 def main(output_file):
     all_aliases = {}
     all_enums = {}
@@ -475,6 +484,8 @@ export type ID = z.infer<typeof IDSchema>;
 
     for x in all_dataclasses.values():
         ts_code += dataclass_to_zod(x, processed_types)
+
+    ts_code += websocket_msg_discriminated_union()
 
     with open(output_file, "w") as f:
         f.write(ts_code)

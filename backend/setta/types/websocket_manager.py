@@ -13,18 +13,18 @@ from setta.types.utils import AsIsStrEnum
 WebsocketMsgTypeForFrontend = AsIsStrEnum(
     "WebsocketMsgTypeForFrontend",
     [
-        "ALL_CONNECTIONS",
-        "LSP_DIAGNOSTICS",
-        "TERMINAL_METADATA",
-        "ALL_DEPENDENCIES",
-        "SPECIFIC_FILE_WATCHER_UPDATE",
-        "NOTIFICATION",
-        "LLM_STREAMING_RESPONSE",
-        "UUID_MAPPING_FOR_LLM",
-        "ARTIFACT",
-        "RETURN_RENAME_REFACTOR_RESULTS",
-        "UPDATE_FRONTEND_PROJECT_STATE",
-        "NEW_TERMINAL_CREATED",
+        "AllConnections",
+        "LSPDiagnostics",
+        "TerminalMetadata",
+        "AllDependencies",
+        "SpecificFileWatcherUpdate",
+        "Notification",
+        "LLMStreamingResponse",
+        "UUIDMappingForLLM",
+        "Artifact",
+        "ReturnRenameRefactorResults",
+        "UpdateFrontendProjectState",
+        "NewTerminalCreated",
     ],
 )
 
@@ -54,83 +54,83 @@ class WebsocketMsg(BaseModel):
 
 class WebsocketMsgAllConnections(WebsocketMsg):
     content: list[WebsocketConnectionInfo]
-    messageType: Literal[WebsocketMsgTypeForFrontend.ALL_CONNECTIONS] = (
-        WebsocketMsgTypeForFrontend.ALL_CONNECTIONS
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
+        WebsocketMsgTypeForFrontend.AllConnections
     )
 
 
 class WebsocketMsgArtifact(WebsocketMsg):
     content: Artifact
-    messageType: Literal[WebsocketMsgTypeForFrontend.ARTIFACT] = (
-        WebsocketMsgTypeForFrontend.ARTIFACT
+    messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
+        WebsocketMsgTypeForFrontend.Artifact
     )
 
 
 class WebsocketMsgNotification(WebsocketMsg):
     content: SettaNotification
-    messageType: Literal[WebsocketMsgTypeForFrontend.NOTIFICATION] = (
-        WebsocketMsgTypeForFrontend.NOTIFICATION
+    messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
+        WebsocketMsgTypeForFrontend.Notification
     )
 
 
 class WebsocketMsgLLMStreamingResponse(WebsocketMsg):
     content: LLMStreamingResponse
-    messageType: Literal[WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE] = (
-        WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLMStreamingResponse] = (
+        WebsocketMsgTypeForFrontend.LLMStreamingResponse
     )
 
 
-class WebsocketMsgUUIDMapping(WebsocketMsg):
+class WebsocketMsgUUIDMappingForLLM(WebsocketMsg):
     content: IDToUUIDForLLM
-    messageType: Literal[WebsocketMsgTypeForFrontend.UUID_MAPPING_FOR_LLM] = (
-        WebsocketMsgTypeForFrontend.UUID_MAPPING_FOR_LLM
+    messageType: Literal[WebsocketMsgTypeForFrontend.UUIDMappingForLLM] = (
+        WebsocketMsgTypeForFrontend.UUIDMappingForLLM
     )
 
 
 class WebsocketMsgLSPDiagnostics(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.LSP_DIAGNOSTICS] = (
-        WebsocketMsgTypeForFrontend.LSP_DIAGNOSTICS
+    messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
+        WebsocketMsgTypeForFrontend.LSPDiagnostics
     )
 
 
-class WebsocketMsgRenameRefactorResults(WebsocketMsg):
+class WebsocketMsgReturnRenameRefactorResults(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.RETURN_RENAME_REFACTOR_RESULTS] = (
-        WebsocketMsgTypeForFrontend.RETURN_RENAME_REFACTOR_RESULTS
+    messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
+        WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults
     )
 
 
 class WebsocketMsgUpdateFrontendProjectState(WebsocketMsg):
     content: ProjectStateSingleConfig
-    messageType: Literal[WebsocketMsgTypeForFrontend.UPDATE_FRONTEND_PROJECT_STATE] = (
-        WebsocketMsgTypeForFrontend.UPDATE_FRONTEND_PROJECT_STATE
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
+        WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )
 
 
 class WebsocketMsgSpecificFileWatcherUpdate(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE] = (
-        WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE
+    messageType: Literal[WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate] = (
+        WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate
     )
 
 
 class WebsocketMsgAllDependencies(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES] = (
-        WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllDependencies] = (
+        WebsocketMsgTypeForFrontend.AllDependencies
     )
 
 
 class WebsocketMsgTerminalMetadata(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.TERMINAL_METADATA] = (
-        WebsocketMsgTypeForFrontend.TERMINAL_METADATA
+    messageType: Literal[WebsocketMsgTypeForFrontend.TerminalMetadata] = (
+        WebsocketMsgTypeForFrontend.TerminalMetadata
     )
 
 
 class WebsocketMsgNewTerminalCreated(WebsocketMsg):
     content: Any
-    messageType: Literal[WebsocketMsgTypeForFrontend.NEW_TERMINAL_CREATED] = (
-        WebsocketMsgTypeForFrontend.NEW_TERMINAL_CREATED
+    messageType: Literal[WebsocketMsgTypeForFrontend.NewTerminalCreated] = (
+        WebsocketMsgTypeForFrontend.NewTerminalCreated
     )

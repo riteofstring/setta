@@ -15,20 +15,9 @@ import {
   createWebsocketConnectionInfo,
   RouteEnum,
   WebsocketConnectionTypeEnum,
-  WebsocketMsgAllConnectionsSchema,
-  WebsocketMsgAllDependenciesSchema,
-  WebsocketMsgArtifactSchema,
-  WebsocketMsgLLMStreamingResponseSchema,
-  WebsocketMsgLSPDiagnosticsSchema,
-  WebsocketMsgNewTerminalCreatedSchema,
-  WebsocketMsgNotificationSchema,
-  WebsocketMsgRenameRefactorResultsSchema,
-  WebsocketMsgSpecificFileWatcherUpdateSchema,
-  WebsocketMsgTerminalMetadataSchema,
-  WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgUUIDMappingSchema,
+  WebsocketMsgUnion,
+  WebsocketMsgUnionSchema,
 } from "utils/generatedTypes";
-import { z } from "zod/v4";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
 import { updateWithFileChanges } from "./fileUpdates";
 import {
@@ -95,53 +84,36 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
   return wss !== null && wss.readyState === 1;
 }
 
-export const WebsocketMsgUnionSchema = z.discriminatedUnion("messageType", [
-  WebsocketMsgAllConnectionsSchema,
-  WebsocketMsgAllDependenciesSchema,
-  WebsocketMsgArtifactSchema,
-  WebsocketMsgLLMStreamingResponseSchema,
-  WebsocketMsgLSPDiagnosticsSchema,
-  WebsocketMsgNewTerminalCreatedSchema,
-  WebsocketMsgNotificationSchema,
-  WebsocketMsgRenameRefactorResultsSchema,
-  WebsocketMsgSpecificFileWatcherUpdateSchema,
-  WebsocketMsgTerminalMetadataSchema,
-  WebsocketMsgUUIDMappingSchema,
-  WebsocketMsgUpdateFrontendProjectStateSchema,
-]);
-
-export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
-
 function receiveMessage(message: string) {
   const m: WebsocketMsgUnion = WebsocketMsgUnionSchema.parse(
     JSON.parse(message),
   );
   console.log(m);
   switch (m.messageType) {
-    case "ALL_CONNECTIONS":
+    case "AllConnections":
       return setWebsocketConnections(m.content);
-    case "ALL_DEPENDENCIES":
+    case "AllDependencies":
       return updateInteractiveDependencies(m.content);
-    case "ARTIFACT":
+    case "Artifact":
       return updateInteractiveArtifacts(m.content);
-    case "LLM_STREAMING_RESPONSE":
+    case "LLMStreamingResponse":
       return receiveLLMResponseChunk(m.content);
-    case "LSP_DIAGNOSTICS":
+    case "LSPDiagnostics":
       return processTypeErrors(m.content);
-    case "NEW_TERMINAL_CREATED":
+    case "NewTerminalCreated":
       return createTemporaryTerminalFromBackend(m.content);
-    case "NOTIFICATION":
+    case "Notification":
       return addNotificationFromWebsocketMsg(m.content);
-    case "RETURN_RENAME_REFACTOR_RESULTS":
+    case "ReturnRenameRefactorResults":
       return processRenameRefactorResults(m.content);
-    case "SPECIFIC_FILE_WATCHER_UPDATE":
+    case "SpecificFileWatcherUpdate":
       return updateWithFileChanges(m.content);
-    case "TERMINAL_METADATA":
+    case "TerminalMetadata":
       // TODO
       return null;
-    case "UUID_MAPPING_FOR_LLM":
+    case "UUIDMappingForLLM":
       return updateUUIDMappingForLLM(m.content);
-    case "UPDATE_FRONTEND_PROJECT_STATE":
+    case "UpdateFrontendProjectState":
       return processProjectStateUpdateFromBackend(m.content);
     default:
       return m satisfies never;

@@ -23,7 +23,7 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
             self.script_metadata.add(fromWebsocketId, content)
             await self.broadcast_all_dependencies()
-        elif msg_type == WebsocketMsgTypeForFrontend.ARTIFACT:
+        elif msg_type == WebsocketMsgTypeForFrontend.Artifact:
             await self.websocket_manager.broadcast(
                 message=message, connectionType=WebsocketConnectionType.FRONTEND
             )
@@ -35,6 +35,6 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
     async def broadcast_all_dependencies(self):
         await self.websocket_manager.broadcast(
             self.script_metadata.dependencies,
-            WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES,
+            WebsocketMsgTypeForFrontend.AllDependencies,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

@@ -43,7 +43,7 @@ class WMHFrontend(BaseWebsocketMsgHandler):
 
     async def on_connect(self, websocket_id):
         content = self.script_metadata.dependencies
-        messageType = WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES
+        messageType = WebsocketMsgTypeForFrontend.AllDependencies
         await self.websocket_manager.send_message(
             {"content": content, "messageType": messageType}, websocket_id
         )

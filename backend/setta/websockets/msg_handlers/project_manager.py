@@ -2,7 +2,7 @@ from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket_manager import (
     WebsocketConnectionType,
     WebsocketMsgLSPDiagnostics,
-    WebsocketMsgRenameRefactorResults,
+    WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgUpdateFrontendProjectState,
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
@@ -21,7 +21,7 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
 
     async def return_rename_refactor_results(self, content, messageId):
         await self.websocket_manager.return_to_requester(
-            WebsocketMsgRenameRefactorResults(content=content),
+            WebsocketMsgReturnRenameRefactorResults(content=content),
             messageId,
         )
 

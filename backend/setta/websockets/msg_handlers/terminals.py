@@ -18,13 +18,13 @@ class WMHTerminals(BaseWebsocketMsgHandler):
     async def broadcast_terminal_metadata(self, terminal_metadata):
         await self.websocket_manager.broadcast(
             terminal_metadata,
-            WebsocketMsgTypeForFrontend.TERMINAL_METADATA,
+            WebsocketMsgTypeForFrontend.TerminalMetadata,
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
     async def send_new_terminal_id(self, projectConfigId, terminalId):
         await self.websocket_manager.broadcast(
             {"projectConfigId": projectConfigId, "terminalId": terminalId},
-            WebsocketMsgTypeForFrontend.NEW_TERMINAL_CREATED,
+            WebsocketMsgTypeForFrontend.NewTerminalCreated,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

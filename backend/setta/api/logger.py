@@ -42,8 +42,8 @@ class SettaLogger:
 
     async def send_async(self, obj: DataWrapperDict, messageType=None):
         if messageType is None:
-            messageType = WebsocketMsgTypeForFrontend.ARTIFACT
-        if messageType == WebsocketMsgTypeForFrontend.ARTIFACT:
+            messageType = WebsocketMsgTypeForFrontend.Artifact
+        if messageType == WebsocketMsgTypeForFrontend.Artifact:
             obj = self.prepare_data(obj)
         if not self.websocket:
             self.websocket = await websockets.connect(self.endpoint)
