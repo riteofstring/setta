@@ -310,11 +310,11 @@ class ProjectManager:
 
     @enqueue_method
     async def gen_code_prefix_autocomplete(
-        self, messageId: str, projectConfigId: str, fullText: str, position: int
+        self, projectConfigId: str, fullText: str, position: int
     ):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        await self.gen_code[projectConfigId].gen_code_prefix_autocomplete(
-            messageId, fullText, position
+        return await self.gen_code[projectConfigId].gen_code_prefix_autocomplete(
+            fullText, position
         )
 
     @enqueue_method

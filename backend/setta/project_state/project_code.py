@@ -158,21 +158,21 @@ class ProjectGenPythonCode(PythonCode):
         )
         variant.selectedItem = callable_code_info.id
 
-    async def gen_code_prefix_autocomplete(self, messageId, fullText, position):
+    async def gen_code_prefix_autocomplete(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)
         await self.update_file()
         line, col = position_to_line_col(self.code_generator.code, position)
+        request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
                 filepath=self.temp_file,
                 line=line,
                 character=col,
-                request_id=messageId,
+                request_id=request_id,
             ),
-            messageId,
+            request_id,
         )
-        result = process_completion_response(response, fullText)
-        await self.websocket_msg_handler.return_to_requester(result, messageId)
+        return process_completion_response(response, fullText)
 
     async def type_check(self):
         await self.send_document_open_request(self.code_generator.code)

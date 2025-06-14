@@ -5,8 +5,9 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { wsGenCodePrefixCompletion } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_gen_code_prefix_completion } from "utils/generatedEndpoints";
 
 export function GenPythonCodeSettings() {
   const value = useProjectState((x) => x.projectConfig.genCodePrefix);
@@ -57,9 +58,18 @@ const debouncedSetCode = _.debounce((value) => {
 }, 50);
 
 function getGenCodePrefixCompletionsFn() {
-  const fn = async (fullText, position) => {
-    const res = await wsGenCodePrefixCompletion({ fullText, position });
-    return res;
+  const fn = async (fullText: string, position: number) => {
+    const projectConfigId = useProjectState.getState().projectConfig.id;
+    const res = await route_gen_code_prefix_completion({
+      projectConfigId,
+      fullText,
+      position,
+    });
+
+    if (res200(res)) {
+      return res.data;
+    }
+    return [];
   };
 
   return wrappedCompletionsFn(fn);

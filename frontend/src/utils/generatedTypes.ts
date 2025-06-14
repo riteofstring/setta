@@ -409,6 +409,7 @@ export enum RouteEnum {
   "SET_SELECTED_ITEM" = "/setSelectedItem",
   "TEXT_FIELD_COMPLETION" = "/textFieldCompletion",
   "CODE_AREA_COMPLETION" = "/codeAreaCompletion",
+  "GEN_CODE_PREFIX_COMPLETION" = "/genCodePrefixCompletion",
 }
 
 export enum RenameRefactorModeEnum {
@@ -1457,6 +1458,22 @@ export function createCodeAreaCompletionRequest(
   options: Partial<CodeAreaCompletionRequest> = {},
 ): CodeAreaCompletionRequest {
   return CodeAreaCompletionRequestSchema.parse(options);
+}
+
+export const GenCodePrefixCompletionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  fullText: z.string(),
+  position: z.int(),
+});
+
+export type GenCodePrefixCompletionRequest = z.infer<
+  typeof GenCodePrefixCompletionRequestSchema
+>;
+
+export function createGenCodePrefixCompletionRequest(
+  options: Partial<GenCodePrefixCompletionRequest> = {},
+): GenCodePrefixCompletionRequest {
+  return GenCodePrefixCompletionRequestSchema.parse(options);
 }
 
 export const SetSelectedItemRequestSchema = z.object({

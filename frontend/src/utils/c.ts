@@ -59,7 +59,6 @@ export class C {
   static WS_ALL_DEPENDENCIES = "allDependencies";
   static WS_ARTIFACT = "artifact";
   static WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS";
-  static WS_GEN_CODE_PREFIX_AUTOCOMPLETE = "WS_GEN_CODE_PREFIX_AUTOCOMPLETE";
   static WS_LLM_STREAMING_RESPONSE = "WS_LLM_STREAMING_RESPONSE";
   static WS_LSP_DIAGNOSTICS = "lspDiagnostics";
   static WS_MCP_TOOL_USE = "mcpToolUse";

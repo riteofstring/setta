@@ -326,3 +326,9 @@ export async function route_code_area_completion(
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post("/codeAreaCompletion", x);
 }
+
+export async function route_gen_code_prefix_completion(
+  x: gt.GenCodePrefixCompletionRequest,
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
+  return await post("/genCodePrefixCompletion", x);
+}

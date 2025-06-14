@@ -38,6 +38,12 @@ class CodeAreaCompletionRequest(BaseModel):
     position: int
 
 
+class GenCodePrefixCompletionRequest(BaseModel):
+    projectConfigId: str
+    fullText: str
+    position: int
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest,
@@ -75,4 +81,14 @@ async def route_code_area_completion(
 ) -> list[CodeMirrorCompletion]:
     return await project_manager.code_area_autocomplete(
         x.projectConfigId, x.sectionId, x.fullText, x.position
+    )
+
+
+@router.post(Route.GEN_CODE_PREFIX_COMPLETION)
+async def route_gen_code_prefix_completion(
+    x: GenCodePrefixCompletionRequest,
+    project_manager: ProjectManager = Depends(get_project_manager),
+) -> list[CodeMirrorCompletion]:
+    return await project_manager.gen_code_prefix_autocomplete(
+        x.projectConfigId, x.fullText, x.position
     )
