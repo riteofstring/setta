@@ -55,24 +55,11 @@ export class C {
   ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
-  static WS_ALL_CONNECTIONS = "allConnections";
-  static WS_ALL_DEPENDENCIES = "allDependencies";
-  static WS_ARTIFACT = "artifact";
   static WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS";
-  static WS_LLM_STREAMING_RESPONSE = "WS_LLM_STREAMING_RESPONSE";
-  static WS_LSP_DIAGNOSTICS = "lspDiagnostics";
-  static WS_NEW_TERMINAL_CREATED = "WS_NEW_TERMINAL_CREATED";
-  static WS_NOTIFICATION = "notification";
   static WS_PROJECT_DATA = "projectData";
-  static WS_RETURN_RENAME_REFACTOR_RESULTS =
-    "WS_RETURN_RENAME_REFACTOR_RESULTS";
   static WS_RUN_CODE = "runCode";
   static WS_SCRIPT_DEPENDENCIES = "scriptDependencies";
   static WS_SCRIPT_READY = "scriptReady";
-  static WS_SPECIFIC_FILE_WATCHER_UPDATE = "specificFileWatcherUpdate";
-  static WS_TERMINAL_METADATA = "terminalMetadata";
   static WS_TERMINAL_RESIZE = "terminalResize";
-  static WS_UPDATE_FRONTEND_PROJECT_STATE = "WS_UPDATE_FRONTEND_PROJECT_STATE";
   static WS_UPDATE_PROJECT_STATE = "WS_UPDATE_PROJECT_STATE";
-  static WS_UUID_MAPPING_FOR_LLM = "WS_UUID_MAPPING_FOR_LLM";
 }

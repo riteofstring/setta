@@ -14,7 +14,6 @@ import {
 } from "state/actions/notifications";
 import { processRenameRefactorResults } from "state/actions/referenceRenaming";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
-import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
 import { processTypeErrors } from "state/actions/typeCheck";
 import {
   addWebsocketConnection,
@@ -22,12 +21,12 @@ import {
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
 import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
-import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createWebsocketConnectionInfo,
   RouteEnum,
   WebsocketConnectionTypeEnum,
+  WebsocketMsgForFrontendEnum,
 } from "utils/generatedTypes";
 
 let wss: WebSocket | null;
@@ -90,33 +89,52 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   console.log(m);
-  if (m.messageType === C.WS_ALL_CONNECTIONS) {
+  if (m.messageType === WebsocketMsgForFrontendEnum.WS_ALL_CONNECTIONS) {
     setWebsocketConnections(m.content);
-  } else if (m.messageType === C.WS_LSP_DIAGNOSTICS) {
+  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_LSP_DIAGNOSTICS) {
     processTypeErrors(m.content);
-  } else if (m.messageType === C.WS_NOTIFICATION) {
+  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_NOTIFICATION) {
     addNotificationFromWebsocketMsg(m.content);
-  } else if (m.messageType === C.WS_ARTIFACT) {
+  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_ARTIFACT) {
     updateInteractiveArtifacts(m.content);
-  } else if (m.messageType === C.WS_ALL_DEPENDENCIES) {
+  } else if (
+    m.messageType === WebsocketMsgForFrontendEnum.WS_ALL_DEPENDENCIES
+  ) {
     updateInteractiveDependencies(m.content);
-  } else if (m.messageType === C.WS_SPECIFIC_FILE_WATCHER_UPDATE) {
+  } else if (
+    m.messageType ===
+    WebsocketMsgForFrontendEnum.WS_SPECIFIC_FILE_WATCHER_UPDATE
+  ) {
     updateWithFileChanges(m.content);
-  } else if (m.messageType === C.WS_TERMINAL_METADATA) {
+  } else if (
+    m.messageType === WebsocketMsgForFrontendEnum.WS_TERMINAL_METADATA
+  ) {
     // TODO: implement
     // console.log(m.content);
-  } else if (m.messageType === C.WS_LLM_STREAMING_RESPONSE) {
+  } else if (
+    m.messageType === WebsocketMsgForFrontendEnum.WS_LLM_STREAMING_RESPONSE
+  ) {
     receiveLLMResponseChunk(m.content);
-  } else if (m.messageType === C.WS_UUID_MAPPING_FOR_LLM) {
+  } else if (
+    m.messageType === WebsocketMsgForFrontendEnum.WS_UUID_MAPPING_FOR_LLM
+  ) {
     updateUUIDMappingForLLM(m.content);
-  } else if (m.messageType === C.WS_RETURN_RENAME_REFACTOR_RESULTS) {
+  } else if (
+    m.messageType ===
+    WebsocketMsgForFrontendEnum.WS_RETURN_RENAME_REFACTOR_RESULTS
+  ) {
     processRenameRefactorResults(m.content);
-  } else if (m.messageType === C.WS_UPDATE_FRONTEND_PROJECT_STATE) {
+  } else if (
+    m.messageType ===
+    WebsocketMsgForFrontendEnum.WS_UPDATE_FRONTEND_PROJECT_STATE
+  ) {
     processProjectStateUpdateFromBackend(m.content);
-  } else if (m.messageType === C.WS_NEW_TERMINAL_CREATED) {
+  } else if (
+    m.messageType === WebsocketMsgForFrontendEnum.WS_NEW_TERMINAL_CREATED
+  ) {
     createTemporaryTerminalFromBackend(m.content);
-  } else if (m.id) {
-    setTemporaryMiscState(m.id, m.content);
+  } else {
+    throw Error("invalid websocket message type");
   }
 }
 

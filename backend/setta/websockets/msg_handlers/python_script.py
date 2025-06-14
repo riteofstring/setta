@@ -1,4 +1,5 @@
 from setta.types.websocket_manager import WebsocketConnectionType
+from setta.types.websocket_msgs import WebsocketMsgForFrontend
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
@@ -20,7 +21,7 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
             self.script_metadata.add(fromWebsocketId, content)
             await self.broadcast_all_dependencies()
-        elif msg_type == C.WS_ARTIFACT:
+        elif msg_type == WebsocketMsgForFrontend.WS_ARTIFACT:
             await self.websocket_manager.broadcast(
                 message=message, connectionType=WebsocketConnectionType.FRONTEND
             )
@@ -32,6 +33,6 @@ class WMHPythonScript(BaseWebsocketMsgHandler):
     async def broadcast_all_dependencies(self):
         await self.websocket_manager.broadcast(
             self.script_metadata.dependencies,
-            C.WS_ALL_DEPENDENCIES,
+            WebsocketMsgForFrontend.WS_ALL_DEPENDENCIES,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

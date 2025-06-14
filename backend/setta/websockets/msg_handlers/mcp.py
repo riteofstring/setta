@@ -1,6 +1,6 @@
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.websocket_manager import WebsocketConnectionType
-from setta.utils.constants import C
+from setta.types.websocket_msgs import WebsocketMsgForFrontend
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -12,6 +12,6 @@ class WMHMCP(BaseWebsocketMsgHandler):
     async def send_uuid_mapping(self, id_to_uuid: IDToUUIDForLLM):
         await self.websocket_manager.broadcast(
             id_to_uuid,
-            C.WS_UUID_MAPPING_FOR_LLM,
+            WebsocketMsgForFrontend.WS_UUID_MAPPING_FOR_LLM,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

@@ -1,5 +1,5 @@
 from setta.types.websocket_manager import WebsocketConnectionType
-from setta.utils.constants import C
+from setta.types.websocket_msgs import WebsocketMsgForFrontend
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 
@@ -9,5 +9,7 @@ class WMHArtifact(BaseWebsocketMsgHandler):
 
     async def broadcast_artifact(self, content):
         await self.websocket_manager.broadcast(
-            content, C.WS_ARTIFACT, connectionType=WebsocketConnectionType.FRONTEND
+            content,
+            WebsocketMsgForFrontend.WS_ARTIFACT,
+            connectionType=WebsocketConnectionType.FRONTEND,
         )
