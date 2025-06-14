@@ -61,6 +61,7 @@ def get_path_input_output_types():
 
 def create_args(inputs, generate_types_alias):
     args = []
+    args_with_annotations = []
     type_map = {
         str: "string",
         int: "number",
@@ -70,20 +71,31 @@ def create_args(inputs, generate_types_alias):
         type_annotation = type_map.get(type)
         if not type_annotation:
             type_annotation = f"{generate_types_alias}.{type.__name__}"
-        args.append(f"{name}:{type_annotation}")
-    return ", ".join(args)
+        args.append(name)
+        args_with_annotations.append(f"{name}:{type_annotation}")
+    return args, args_with_annotations
 
 
-def create_ts_fn_def(endpoint_path, method, fn_name, args):
+def create_ts_fn_def(endpoint_path, method, fn_name, args, args_with_annotations):
+    definition = (
+        f"\nexport async function {fn_name}({', '.join(args_with_annotations)})"
+    )
     endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
-    method_fn = {"POST": "post", "GET": "get"}[method]
-
-    return f"""
-export async function {fn_name}({args}){{
-    return await {method_fn}("{endpoint_path_without_prefix}", {{}})
-}}
-
-"""
+    if method == "POST":
+        assert len(args) <= 1
+        arg = args[0] if len(args) == 1 else ""
+        definition += f"""{{
+            return await post("{endpoint_path_without_prefix}", {arg})
+        }}
+    """
+    elif method == "GET":
+        definition += f"""{{
+            return await get("{endpoint_path_without_prefix}")
+        }}
+    """
+    else:
+        raise ValueError
+    return definition
 
 
 def create_imports(generate_types_alias):
@@ -99,8 +111,10 @@ def main(output_path):
     generate_types_alias = "gt"
     ts_code = create_imports(generate_types_alias)
     for endpoint_fn_name, s in specs.items():
-        args = create_args(s["inputs"], generate_types_alias)
-        ts_code += create_ts_fn_def(s["path"], s["method"], endpoint_fn_name, args)
+        args, args_with_annotations = create_args(s["inputs"], generate_types_alias)
+        ts_code += create_ts_fn_def(
+            s["path"], s["method"], endpoint_fn_name, args, args_with_annotations
+        )
 
     with open(output_path, "w") as f:
         f.write(ts_code)

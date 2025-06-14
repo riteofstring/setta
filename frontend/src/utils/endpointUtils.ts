@@ -9,14 +9,14 @@ export async function get(address: string) {
   }
 }
 
-export async function post(address: string, body: any) {
+export async function post(address: string, body: any = null) {
   try {
     const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: body === null ? null : JSON.stringify(body),
     });
     return response.json();
   } catch (error) {
