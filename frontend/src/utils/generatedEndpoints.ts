@@ -134,7 +134,9 @@ export async function route_terminal_delete_terminals(
 export async function route_terminal_get_existing_terminals(
   projectConfigId: string,
 ) {
-  return await get("/terminal/getExistingTerminals/{projectConfigId}");
+  return await get("/terminal/getExistingTerminals/{projectConfigId}", {
+    projectConfigId,
+  });
 }
 
 export async function route_kill_subprocesses(x: gt.KillSubprocessesRequest) {

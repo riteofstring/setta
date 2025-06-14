@@ -89,8 +89,9 @@ def create_ts_fn_def(endpoint_path, method, fn_name, args, args_with_annotations
         }}
     """
     elif method == "GET":
+        args = f"{{ {','.join(args)} }}" if len(args) > 0 else ""
         definition += f"""{{
-            return await get("{endpoint_path_without_prefix}")
+            return await get("{endpoint_path_without_prefix}", {args})
         }}
     """
     else:
