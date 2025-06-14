@@ -206,7 +206,9 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
     if origin in (list, List, ABCSequence):
         args = get_args(python_type)
         if args:
-            element_schema, dependent_type_defs = python_type_to_zod(args[0], processed_types)
+            element_schema, dependent_type_defs = python_type_to_zod(
+                args[0], processed_types
+            )
             type_definitions.update(dependent_type_defs)
             return f"z.array({element_schema})", type_definitions
         return "z.array(z.any())", type_definitions

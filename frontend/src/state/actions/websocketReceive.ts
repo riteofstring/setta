@@ -1,19 +1,8 @@
 import _ from "lodash";
 import {
-  receiveLLMResponseChunk,
-  updateUUIDMappingForLLM,
-} from "state/actions/ai";
-import { updateWithFileChanges } from "state/actions/fileUpdates";
-import {
-  updateInteractiveArtifacts,
-  updateInteractiveDependencies,
-} from "state/actions/interactive";
-import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
-import { processRenameRefactorResults } from "state/actions/referenceRenaming";
-import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { processTypeErrors } from "state/actions/typeCheck";
 import {
   addWebsocketConnection,
@@ -26,8 +15,28 @@ import {
   createWebsocketConnectionInfo,
   RouteEnum,
   WebsocketConnectionTypeEnum,
-  WebsocketMsgTypeForFrontendEnum,
+  WebsocketMsgAllConnectionsSchema,
+  WebsocketMsgAllDependenciesSchema,
+  WebsocketMsgArtifactSchema,
+  WebsocketMsgLLMStreamingResponseSchema,
+  WebsocketMsgLSPDiagnosticsSchema,
+  WebsocketMsgNewTerminalCreatedSchema,
+  WebsocketMsgNotificationSchema,
+  WebsocketMsgRenameRefactorResultsSchema,
+  WebsocketMsgSpecificFileWatcherUpdateSchema,
+  WebsocketMsgTerminalMetadataSchema,
+  WebsocketMsgUpdateFrontendProjectStateSchema,
+  WebsocketMsgUUIDMappingSchema,
 } from "utils/generatedTypes";
+import { z } from "zod/v4";
+import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
+import { updateWithFileChanges } from "./fileUpdates";
+import {
+  updateInteractiveArtifacts,
+  updateInteractiveDependencies,
+} from "./interactive";
+import { processRenameRefactorResults } from "./referenceRenaming";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -86,57 +95,56 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
   return wss !== null && wss.readyState === 1;
 }
 
-function receiveMessage(message) {
-  const m = JSON.parse(message);
+export const WebsocketMsgUnionSchema = z.discriminatedUnion("messageType", [
+  WebsocketMsgAllConnectionsSchema,
+  WebsocketMsgAllDependenciesSchema,
+  WebsocketMsgArtifactSchema,
+  WebsocketMsgLLMStreamingResponseSchema,
+  WebsocketMsgLSPDiagnosticsSchema,
+  WebsocketMsgNewTerminalCreatedSchema,
+  WebsocketMsgNotificationSchema,
+  WebsocketMsgRenameRefactorResultsSchema,
+  WebsocketMsgSpecificFileWatcherUpdateSchema,
+  WebsocketMsgTerminalMetadataSchema,
+  WebsocketMsgUUIDMappingSchema,
+  WebsocketMsgUpdateFrontendProjectStateSchema,
+]);
+
+export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
+
+function receiveMessage(message: string) {
+  const m: WebsocketMsgUnion = WebsocketMsgUnionSchema.parse(
+    JSON.parse(message),
+  );
   console.log(m);
-  if (m.messageType === WebsocketMsgTypeForFrontendEnum.ALL_CONNECTIONS) {
-    setWebsocketConnections(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.LSP_DIAGNOSTICS
-  ) {
-    processTypeErrors(m.content);
-  } else if (m.messageType === WebsocketMsgTypeForFrontendEnum.NOTIFICATION) {
-    addNotificationFromWebsocketMsg(m.content);
-  } else if (m.messageType === WebsocketMsgTypeForFrontendEnum.ARTIFACT) {
-    updateInteractiveArtifacts(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.ALL_DEPENDENCIES
-  ) {
-    updateInteractiveDependencies(m.content);
-  } else if (
-    m.messageType ===
-    WebsocketMsgTypeForFrontendEnum.SPECIFIC_FILE_WATCHER_UPDATE
-  ) {
-    updateWithFileChanges(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.TERMINAL_METADATA
-  ) {
-    // TODO: implement
-    // console.log(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.LLM_STREAMING_RESPONSE
-  ) {
-    receiveLLMResponseChunk(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.UUID_MAPPING_FOR_LLM
-  ) {
-    updateUUIDMappingForLLM(m.content);
-  } else if (
-    m.messageType ===
-    WebsocketMsgTypeForFrontendEnum.RETURN_RENAME_REFACTOR_RESULTS
-  ) {
-    processRenameRefactorResults(m.content);
-  } else if (
-    m.messageType ===
-    WebsocketMsgTypeForFrontendEnum.UPDATE_FRONTEND_PROJECT_STATE
-  ) {
-    processProjectStateUpdateFromBackend(m.content);
-  } else if (
-    m.messageType === WebsocketMsgTypeForFrontendEnum.NEW_TERMINAL_CREATED
-  ) {
-    createTemporaryTerminalFromBackend(m.content);
-  } else {
-    throw Error("invalid websocket message type");
+  switch (m.messageType) {
+    case "ALL_CONNECTIONS":
+      return setWebsocketConnections(m.content);
+    case "ALL_DEPENDENCIES":
+      return updateInteractiveDependencies(m.content);
+    case "ARTIFACT":
+      return updateInteractiveArtifacts(m.content);
+    case "LLM_STREAMING_RESPONSE":
+      return receiveLLMResponseChunk(m.content);
+    case "LSP_DIAGNOSTICS":
+      return processTypeErrors(m.content);
+    case "NEW_TERMINAL_CREATED":
+      return createTemporaryTerminalFromBackend(m.content);
+    case "NOTIFICATION":
+      return addNotificationFromWebsocketMsg(m.content);
+    case "RETURN_RENAME_REFACTOR_RESULTS":
+      return processRenameRefactorResults(m.content);
+    case "SPECIFIC_FILE_WATCHER_UPDATE":
+      return updateWithFileChanges(m.content);
+    case "TERMINAL_METADATA":
+      // TODO
+      return null;
+    case "UUID_MAPPING_FOR_LLM":
+      return updateUUIDMappingForLLM(m.content);
+    case "UPDATE_FRONTEND_PROJECT_STATE":
+      return processProjectStateUpdateFromBackend(m.content);
+    default:
+      return m satisfies never;
   }
 }
 

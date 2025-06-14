@@ -1501,7 +1501,7 @@ export function createWebsocketConnectionInfoWithSocket(
 export const WebsocketMsgSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
-  messageType: z.enum(WebsocketMsgTypeForFrontendEnum),
+  messageType: z.any(),
 });
 
 export type WebsocketMsg = z.infer<typeof WebsocketMsgSchema>;
@@ -1516,7 +1516,7 @@ export const WebsocketMsgAllConnectionsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.array(WebsocketConnectionInfoSchema),
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("ALL_CONNECTIONS")
     .default(WebsocketMsgTypeForFrontendEnum.ALL_CONNECTIONS),
 });
 
@@ -1530,11 +1530,29 @@ export function createWebsocketMsgAllConnections(
   return WebsocketMsgAllConnectionsSchema.parse(options);
 }
 
+export const WebsocketMsgAllDependenciesSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("ALL_DEPENDENCIES")
+    .default(WebsocketMsgTypeForFrontendEnum.ALL_DEPENDENCIES),
+});
+
+export type WebsocketMsgAllDependencies = z.infer<
+  typeof WebsocketMsgAllDependenciesSchema
+>;
+
+export function createWebsocketMsgAllDependencies(
+  options: Partial<WebsocketMsgAllDependencies> = {},
+): WebsocketMsgAllDependencies {
+  return WebsocketMsgAllDependenciesSchema.parse(options);
+}
+
 export const WebsocketMsgArtifactSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: ArtifactSchema,
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("ARTIFACT")
     .default(WebsocketMsgTypeForFrontendEnum.ARTIFACT),
 });
 
@@ -1550,7 +1568,7 @@ export const WebsocketMsgLLMStreamingResponseSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: LLMStreamingResponseSchema,
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("LLM_STREAMING_RESPONSE")
     .default(WebsocketMsgTypeForFrontendEnum.LLM_STREAMING_RESPONSE),
 });
 
@@ -1568,7 +1586,7 @@ export const WebsocketMsgLSPDiagnosticsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("LSP_DIAGNOSTICS")
     .default(WebsocketMsgTypeForFrontendEnum.LSP_DIAGNOSTICS),
 });
 
@@ -1582,11 +1600,29 @@ export function createWebsocketMsgLSPDiagnostics(
   return WebsocketMsgLSPDiagnosticsSchema.parse(options);
 }
 
+export const WebsocketMsgNewTerminalCreatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("NEW_TERMINAL_CREATED")
+    .default(WebsocketMsgTypeForFrontendEnum.NEW_TERMINAL_CREATED),
+});
+
+export type WebsocketMsgNewTerminalCreated = z.infer<
+  typeof WebsocketMsgNewTerminalCreatedSchema
+>;
+
+export function createWebsocketMsgNewTerminalCreated(
+  options: Partial<WebsocketMsgNewTerminalCreated> = {},
+): WebsocketMsgNewTerminalCreated {
+  return WebsocketMsgNewTerminalCreatedSchema.parse(options);
+}
+
 export const WebsocketMsgNotificationSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: SettaNotificationSchema,
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("NOTIFICATION")
     .default(WebsocketMsgTypeForFrontendEnum.NOTIFICATION),
 });
 
@@ -1604,7 +1640,7 @@ export const WebsocketMsgRenameRefactorResultsSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("RETURN_RENAME_REFACTOR_RESULTS")
     .default(WebsocketMsgTypeForFrontendEnum.RETURN_RENAME_REFACTOR_RESULTS),
 });
 
@@ -1622,7 +1658,7 @@ export const WebsocketMsgSpecificFileWatcherUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("SPECIFIC_FILE_WATCHER_UPDATE")
     .default(WebsocketMsgTypeForFrontendEnum.SPECIFIC_FILE_WATCHER_UPDATE),
 });
 
@@ -1636,11 +1672,29 @@ export function createWebsocketMsgSpecificFileWatcherUpdate(
   return WebsocketMsgSpecificFileWatcherUpdateSchema.parse(options);
 }
 
+export const WebsocketMsgTerminalMetadataSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("TERMINAL_METADATA")
+    .default(WebsocketMsgTypeForFrontendEnum.TERMINAL_METADATA),
+});
+
+export type WebsocketMsgTerminalMetadata = z.infer<
+  typeof WebsocketMsgTerminalMetadataSchema
+>;
+
+export function createWebsocketMsgTerminalMetadata(
+  options: Partial<WebsocketMsgTerminalMetadata> = {},
+): WebsocketMsgTerminalMetadata {
+  return WebsocketMsgTerminalMetadataSchema.parse(options);
+}
+
 export const WebsocketMsgUUIDMappingSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.record(IDSchema, z.string()),
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("UUID_MAPPING_FOR_LLM")
     .default(WebsocketMsgTypeForFrontendEnum.UUID_MAPPING_FOR_LLM),
 });
 
@@ -1658,7 +1712,7 @@ export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: ProjectStateSingleConfigSchema,
   messageType: z
-    .enum(WebsocketMsgTypeForFrontendEnum)
+    .literal("UPDATE_FRONTEND_PROJECT_STATE")
     .default(WebsocketMsgTypeForFrontendEnum.UPDATE_FRONTEND_PROJECT_STATE),
 });
 

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
@@ -49,63 +49,88 @@ class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):
 class WebsocketMsg(BaseModel):
     id: str | None = None
     content: Any
-    messageType: WebsocketMsgTypeForFrontend
+    messageType: Any
 
 
 class WebsocketMsgAllConnections(WebsocketMsg):
     content: list[WebsocketConnectionInfo]
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.ALL_CONNECTIONS] = (
         WebsocketMsgTypeForFrontend.ALL_CONNECTIONS
     )
 
 
 class WebsocketMsgArtifact(WebsocketMsg):
     content: Artifact
-    messageType: WebsocketMsgTypeForFrontend = WebsocketMsgTypeForFrontend.ARTIFACT
+    messageType: Literal[WebsocketMsgTypeForFrontend.ARTIFACT] = (
+        WebsocketMsgTypeForFrontend.ARTIFACT
+    )
 
 
 class WebsocketMsgNotification(WebsocketMsg):
     content: SettaNotification
-    messageType: WebsocketMsgTypeForFrontend = WebsocketMsgTypeForFrontend.NOTIFICATION
+    messageType: Literal[WebsocketMsgTypeForFrontend.NOTIFICATION] = (
+        WebsocketMsgTypeForFrontend.NOTIFICATION
+    )
 
 
 class WebsocketMsgLLMStreamingResponse(WebsocketMsg):
     content: LLMStreamingResponse
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE] = (
         WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE
     )
 
 
 class WebsocketMsgUUIDMapping(WebsocketMsg):
     content: IDToUUIDForLLM
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.UUID_MAPPING_FOR_LLM] = (
         WebsocketMsgTypeForFrontend.UUID_MAPPING_FOR_LLM
     )
 
 
 class WebsocketMsgLSPDiagnostics(WebsocketMsg):
     content: Any
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.LSP_DIAGNOSTICS] = (
         WebsocketMsgTypeForFrontend.LSP_DIAGNOSTICS
     )
 
 
 class WebsocketMsgRenameRefactorResults(WebsocketMsg):
     content: Any
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.RETURN_RENAME_REFACTOR_RESULTS] = (
         WebsocketMsgTypeForFrontend.RETURN_RENAME_REFACTOR_RESULTS
     )
 
 
 class WebsocketMsgUpdateFrontendProjectState(WebsocketMsg):
     content: ProjectStateSingleConfig
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.UPDATE_FRONTEND_PROJECT_STATE] = (
         WebsocketMsgTypeForFrontend.UPDATE_FRONTEND_PROJECT_STATE
     )
 
 
 class WebsocketMsgSpecificFileWatcherUpdate(WebsocketMsg):
     content: Any
-    messageType: WebsocketMsgTypeForFrontend = (
+    messageType: Literal[WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE] = (
         WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE
+    )
+
+
+class WebsocketMsgAllDependencies(WebsocketMsg):
+    content: Any
+    messageType: Literal[WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES] = (
+        WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES
+    )
+
+
+class WebsocketMsgTerminalMetadata(WebsocketMsg):
+    content: Any
+    messageType: Literal[WebsocketMsgTypeForFrontend.TERMINAL_METADATA] = (
+        WebsocketMsgTypeForFrontend.TERMINAL_METADATA
+    )
+
+
+class WebsocketMsgNewTerminalCreated(WebsocketMsg):
+    content: Any
+    messageType: Literal[WebsocketMsgTypeForFrontend.NEW_TERMINAL_CREATED] = (
+        WebsocketMsgTypeForFrontend.NEW_TERMINAL_CREATED
     )
