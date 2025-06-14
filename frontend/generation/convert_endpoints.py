@@ -4,6 +4,7 @@ from typing import get_type_hints
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from setta.server import app
+from setta.types.routes import Route
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
@@ -19,7 +20,12 @@ def get_path_input_output_types():
         # deal with multiple methods some other time!
         assert len(route.methods) == 1
 
-        route_info = {"method": list(route.methods)[0], "inputs": {}, "output": None}
+        route_info = {
+            "method": list(route.methods)[0],
+            "inputs": {},
+            "output": None,
+            "path": route.path,
+        }
 
         # Get function signature and type hints
         sig = inspect.signature(route.endpoint)
@@ -53,27 +59,6 @@ def get_path_input_output_types():
     return output
 
 
-def create_fn_name(s):
-    if not s:
-        return s
-
-    result = []
-    i = 0
-
-    while i < len(s):
-        if s[i] == "_":
-            # Skip the underscore and capitalize the next character if it exists
-            i += 1
-            if i < len(s):
-                result.append(s[i].upper())
-        else:
-            result.append(s[i])
-        i += 1
-
-    s = "".join(result)
-    return "db" + s[0].upper() + s[1:]
-
-
 def create_args(inputs, generate_types_alias):
     args = []
     type_map = {
@@ -89,10 +74,11 @@ def create_args(inputs, generate_types_alias):
     return ", ".join(args)
 
 
-def create_ts_fn_def(fn_name, args):
+def create_ts_fn_def(endpoint_path, fn_name, args):
+    endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
     return f"""
 export async function {fn_name}({args}){{
-    return await post()
+    return await post("{endpoint_path_without_prefix}", {{}})
 }}
 
 """
@@ -111,9 +97,8 @@ def main(output_path):
     generate_types_alias = "gt"
     ts_code = create_imports(generate_types_alias)
     for endpoint_fn_name, s in specs.items():
-        fn_name = create_fn_name(endpoint_fn_name)
         args = create_args(s["inputs"], generate_types_alias)
-        ts_code += create_ts_fn_def(fn_name, args)
+        ts_code += create_ts_fn_def(s["path"], endpoint_fn_name, args)
 
     with open(output_path, "w") as f:
         f.write(ts_code)

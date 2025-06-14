@@ -1,18 +1,15 @@
-export async function post() {
+import { C_ADDRESSES } from "./c_addresses";
+
+export async function post(address: string, body: any) {
   try {
-    const response = await fetch("https://api.example.com/data", {
+    const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        name: "John Doe",
-        email: "john@example.com",
-      }),
+      body: JSON.stringify(body),
     });
-
-    const data = await response.json();
-    console.log("Success:", data);
+    return response.json();
   } catch (error) {
     console.error("Error:", error);
   }
