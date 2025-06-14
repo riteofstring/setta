@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 
 from fastapi import WebSocket
@@ -9,7 +8,10 @@ from setta.types.websocket_manager import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
 )
-from setta.types.websocket_msgs import WebsocketMsg, WebsocketMsgTypeForFrontend
+from setta.types.websocket_manager import (
+    WebsocketMsg,
+    WebsocketMsgAllConnections,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 logger = logging.getLogger(__name__)
@@ -90,9 +92,4 @@ class WebsocketManager:
                 location=None,
             )
         )
-        await self.broadcast(
-            WebsocketMsg(
-                content=[dataclasses.asdict(x) for x in connections],
-                messageType=WebsocketMsgTypeForFrontend.ALL_CONNECTIONS,
-            )
-        )
+        await self.broadcast(WebsocketMsgAllConnections(content=connections))
