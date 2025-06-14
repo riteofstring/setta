@@ -4,7 +4,7 @@ import asyncio
 import inspect
 import logging
 from functools import wraps
-from typing import Any, Callable, cast, get_origin
+from typing import TYPE_CHECKING, Any, Callable, cast, get_origin
 
 import docstring_parser
 from fastapi import FastAPI, Request
@@ -29,11 +29,12 @@ from setta.mcp.utils import (
     replace_ids_with_uuids,
     replace_uuids_with_ids,
 )
-from setta.project_state.project_manager import ProjectManager
-from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.frontend import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+if TYPE_CHECKING:
+    from setta.server_state import SettaFastAPIState
 
 logger = logging.getLogger(__name__)
 
@@ -42,22 +43,18 @@ class SettaFastMCP(FastMCP):
     def __init__(
         self,
         app: FastAPI,
+        state: "SettaFastAPIState",
         mount_path: str,
         name: str,
         websocket_msg_handler: WMHFrontendSender,
         dbe: DBE,
-        terminals: Terminals,
-        project_manager: ProjectManager,
         instructions=None,
         **settings,
     ):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
-        self.websocket_msg_handler = websocket_msg_handler
-        self.dbe = dbe
-        self.terminals = terminals
-        self.project_manager = project_manager
-        with self.dbe.session as db:
+        self.state = state
+        with dbe.session as db:
             self.id_to_uuid, self.uuid_to_id = load_uuid_mapping_for_llm(db)
         self.fn_param_docstrings = {}
         msg_path = f"{mount_path}/messages/"
@@ -78,7 +75,7 @@ class SettaFastMCP(FastMCP):
 
         self.add_setta_tools()
         content = SettaNotification(message="MCP Server Ready", temporary=True)
-        asyncio.create_task(self.websocket_msg_handler.broadcast_notification(content))
+        asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):
         for fn in SETTA_MCP_TOOLS:
@@ -100,8 +97,8 @@ class SettaFastMCP(FastMCP):
                 for k, v in kwargs.items()
                 if k not in C.SETTA_MCP_PARAM_NAMES or k in setta_params
             }
-            if C.MCP_SERVER_ARG_NAME in setta_params:
-                kwargs[C.MCP_SERVER_ARG_NAME] = self
+            if C.MCP_SETTA_STATE_ARG_NAME in setta_params:
+                kwargs[C.MCP_SETTA_STATE_ARG_NAME] = self.state
             try:
                 kwargs = replace_ids_with_uuids(kwargs, self.id_to_uuid)
             except IDDoesNotExist as e:
@@ -115,9 +112,9 @@ class SettaFastMCP(FastMCP):
                 result = replace_uuids_with_ids(
                     result, self.uuid_to_id, self.id_to_uuid
                 )
-            with self.dbe.session as db:
+            with self.state.dbe.session as db:
                 save_uuid_mapping_for_llm(db, self.uuid_to_id)
-                await self.websocket_msg_handler.send_uuid_mapping(self.id_to_uuid)
+                await self.state.wmh_frontend_sender.send_uuid_mapping(self.id_to_uuid)
             return result
 
         return wrapper

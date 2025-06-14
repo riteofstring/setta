@@ -34,7 +34,7 @@ from setta.types.chat_messages import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
-from setta.websockets.msg_handlers.frontend import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
 class ChatManager:

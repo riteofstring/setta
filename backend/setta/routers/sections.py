@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from fastapi import Depends, HTTPException, status
+from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from setta.code_gen.yaml.section_dict import (
@@ -16,8 +16,7 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from setta.lsp.specific_file_watcher import SpecificFileWatcher
-from setta.project_state.project_manager import ProjectManager
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_content_processor
 from setta.types.routes import Route
@@ -157,30 +156,26 @@ def route_delete_file(x: DeleteFileRequest):
 
 
 @router.post(Route.FILE_WATCH_LIST)
-def route_file_watch_list(
-    x: FileWatchListRequest, specific_file_watcher=Depends(get_specific_file_watcher)
-):
+def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
-    specific_file_watcher.update_watch_list(
+    state.specific_file_watcher.update_watch_list(
         x.filepaths, x.fileWatchGroupName, get_content_processor(x.fileWatchGroupName)
     )
 
 
 @router.post(Route.FILE_WATCH_GEN_PYTHON_CODE)
 async def route_file_watch_gen_python_code(
-    x: FileWatchGenPythonCodeRequest,
-    specific_file_watcher: SpecificFileWatcher = Depends(get_specific_file_watcher),
-    project_manager: ProjectManager = Depends(get_project_manager),
+    x: FileWatchGenPythonCodeRequest, state: AppStateFromRequest
 ):
     filepaths = []
 
     if x.watch:
-        path = await project_manager.get_gen_python_code_path(x.projectConfigId)
+        path = await state.project_manager.get_gen_python_code_path(x.projectConfigId)
         if not path:
             raise HTTPException(status_code=404, detail="Path not found")
         filepaths = [str(path)]
 
-    specific_file_watcher.update_watch_list(
+    state.specific_file_watcher.update_watch_list(
         filepaths,
         "genPythonCode",
         get_content_processor("genPythonCode"),

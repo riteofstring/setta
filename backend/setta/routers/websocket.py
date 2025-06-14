@@ -3,7 +3,7 @@ import traceback
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import AppStateFromWebsocket
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketConnectionType, WebsocketMsg
@@ -50,7 +50,7 @@ async def websocket_route_loop(
 
 
 @router.websocket(Route.WEBSOCKET_FRONTEND)
-async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromRequest):
+async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromWebsocket):
     await websocket_route_loop(
         websocket,
         state.websocket_manager,
@@ -63,7 +63,7 @@ async def route_websocket_frontend(websocket: WebSocket, state: AppStateFromRequ
 @router.websocket(Route.WEBSOCKET_CLI_WITH_ID)
 async def route_websocket_cli(
     websocket: WebSocket,
-    state: AppStateFromRequest,
+    state: AppStateFromWebsocket,
     id: str | None = None,
 ):
     await websocket_route_loop(
@@ -78,7 +78,7 @@ async def route_websocket_cli(
 @router.websocket(Route.WEBSOCKET_PYTHON_SCRIPT)
 async def route_websocket_python_script(
     websocket: WebSocket,
-    state: AppStateFromRequest,
+    state: AppStateFromWebsocket,
     id: str,
 ):
     await websocket_route_loop(
@@ -92,7 +92,7 @@ async def route_websocket_python_script(
 
 @router.websocket(Route.WEBSOCKET_PYTHON_LOGGER)
 async def route_websocket_python_logger(
-    websocket: WebSocket, state: AppStateFromRequest
+    websocket: WebSocket, state: AppStateFromWebsocket
 ):
     await websocket_route_loop(
         websocket,

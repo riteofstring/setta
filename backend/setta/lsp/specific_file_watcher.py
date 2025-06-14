@@ -8,7 +8,7 @@ from typing import Any, Callable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from setta.websockets.msg_handlers.frontend import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 

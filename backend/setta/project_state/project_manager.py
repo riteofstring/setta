@@ -36,7 +36,7 @@ from setta.types.project_state import (
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER
-from setta.websockets.msg_handlers.frontend import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
 class ProjectManager:

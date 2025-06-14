@@ -4,7 +4,7 @@ import logging
 from fastapi import BackgroundTasks, WebSocket
 from pydantic import BaseModel
 
-from setta.routers.dependencies import AppStateFromRequest
+from setta.routers.dependencies import AppStateFromRequest, AppStateFromWebsocket
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.terminals.run_code import run_code
 from setta.types.notifications import SettaNotification
@@ -37,7 +37,7 @@ async def terminal_websocket_endpoint(
     sectionId: str,
     id: str,
     isTemporary: bool,
-    state: AppStateFromRequest,
+    state: AppStateFromWebsocket,
 ):
     # First check if terminal exists
     state.terminals.new_terminal(projectConfigId, sectionId, isTemporary)

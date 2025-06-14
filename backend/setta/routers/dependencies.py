@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request, WebSocket
 
-from setta.server import SettaFastAPIState
+from setta.server_state import SettaFastAPIState
 
 
 def get_app_state_from_request(request: Request) -> SettaFastAPIState:
@@ -14,3 +14,6 @@ def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
 
 
 AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]
+AppStateFromWebsocket = Annotated[
+    SettaFastAPIState, Depends(get_app_state_from_websocket)
+]

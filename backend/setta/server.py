@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,21 +10,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import setta.mcp.tools  # noqa: F401
-from setta.database.db_objs import DBE
-from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import (
-    LSPReaders,
-    LSPServers,
-    LSPWriters,
-    start_lsps,
     stop_file_watcher,
     stop_lsps,
 )
-from setta.lsp.specific_file_watcher import create_specific_file_watcher
-from setta.mcp.chat_manager import ChatManager
-from setta.mcp.client import MCPClient
-from setta.mcp.server import SettaFastMCP
-from setta.project_state.project_manager import ProjectManager
 from setta.routers import (
     ai_router,
     artifact_router,
@@ -39,84 +27,18 @@ from setta.routers import (
     terminals_router,
     websocket_router,
 )
-from setta.terminals.terminals import Terminals
+from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path, is_dev_mode
-from setta.websockets.msg_handlers.cli import WMHCLIReceiver, WMHCLISender
-from setta.websockets.msg_handlers.frontend import (
-    WMHFrontendReceiver,
-    WMHFrontendSender,
-)
-from setta.websockets.msg_handlers.python_logger import WMHPythonLoggerReceiver
-from setta.websockets.msg_handlers.python_script import WMHPythonScriptReceiver
-from setta.websockets.script_metadata import ScriptMetadata
-from setta.websockets.websocket_manager import WebsocketManager
 
 logger = logging.getLogger(__name__)
-
-
-class SettaFastAPIState:
-    def __init__(self):
-        self.settings_file = SettingsFile()
-        self.websocket_manager = WebsocketManager()
-        self.lsps = LSPServers(self.settings_file.settings.languageServer)
-        self.lsp_writers = LSPWriters(self.lsps)
-        self.script_metadata = ScriptMetadata()
-        self.dbe = DBE(C.DB_PATH)
-        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
-        self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
-        self.specific_file_watcher = create_specific_file_watcher(
-            self.wmh_frontend_sender
-        )
-        self.project_manager = ProjectManager(
-            self.lsp_writers,
-            self.wmh_frontend_sender,
-            self.settings_file,
-            self.dbe,
-        )
-        self.wmh_frontend_receiver = WMHFrontendReceiver(
-            self.websocket_manager,
-            self.project_manager,
-            self.script_metadata,
-            self.specific_file_watcher,
-        )
-        self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
-        self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager, self.script_metadata, self.project_manager
-        )
-        self.wmh_python_logger_receiver = WMHPythonLoggerReceiver(
-            self.websocket_manager
-        )
-
-        self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
-        self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
-
-        self.mcp_server = SettaFastMCP(
-            app,
-            "/mcp",
-            "Setta MCP Server",
-            self.wmh_frontend_sender,
-            self.dbe,
-            self.terminals,
-            self.project_manager,
-        )
-        self.mcp_client = MCPClient(
-            f"{C.BACKEND}/mcp",
-        )
-        self.chat_manager = ChatManager(
-            self.dbe, self.mcp_client, self.wmh_frontend_sender
-        )
-
-        asyncio.create_task(self.mcp_client.connect_to_server())
-        asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))
-        self.specific_file_watcher.start()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.setta = SettaFastAPIState()
+    app.state.setta = SettaFastAPIState(app)
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'

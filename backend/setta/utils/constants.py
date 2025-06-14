@@ -96,11 +96,11 @@ class C:
     SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR"
 
     MCP_CHAT_ID_ARG_NAME = "setta_chat_id"
-    MCP_SERVER_ARG_NAME = "setta_mcp_server"
+    MCP_SETTA_STATE_ARG_NAME = "setta_state"
     MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId"
     SETTA_MCP_PARAM_NAMES = [
         MCP_CHAT_ID_ARG_NAME,
-        MCP_SERVER_ARG_NAME,
+        MCP_SETTA_STATE_ARG_NAME,
         MCP_PROJECT_CONFIG_ID_ARG_NAME,
     ]
 

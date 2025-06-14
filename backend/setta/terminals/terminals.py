@@ -17,7 +17,7 @@ from websockets.exceptions import ConnectionClosedOK
 from setta.database.settings_file import SettingsFile
 from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.frontend import WMHFrontendSender
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
