@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { res200 } from "utils/endpointUtils";
 import {
   route_delete_llm_chat,
   route_get_all_llm_chat_metadata,
@@ -11,6 +12,7 @@ import {
 import {
   ChatRoleSchema,
   createTextBlock,
+  IDToUUIDForLLM,
   UITypeNameEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -28,7 +30,7 @@ export function getDefaultChatDetails() {
 export async function getLLMChat(chatId: string) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   const res = await route_get_llm_chat({ chatId, projectConfigId });
-  if (res.status == 200) {
+  if (res200(res)) {
     const { messages, toolResults, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
       chatDetails: {
@@ -57,7 +59,7 @@ export async function createNewLLMChat() {
 
 export async function getAllLLMChatMetadata() {
   const res = await route_get_all_llm_chat_metadata();
-  if (res.status == 200) {
+  if (res200(res)) {
     useAIStore.setState({ allChatMetadata: res.data });
   }
 }
@@ -83,26 +85,16 @@ export async function submitMessage(message: string, deepThink) {
 
   const state = useAIStore.getState();
 
-  try {
-    const res = await route_get_llm_response({
-      projectConfigId: useProjectState.getState().projectConfig.id,
-      model: state.userSelectedLLM,
-      message: userMessage,
-      deepThink,
-      chatId: state.currentChatId,
-    });
-    if (res.status == 200) {
-      const chatId = res.data;
-      await getLLMChat(chatId);
-    }
-  } catch (error) {
-    // Error handling
-    const errorMsg = {
-      role: C.LLM_ASSISTANT_ROLE,
-      content: `Sorry, there was a problem with the API: ${error.message || "Unknown error"}.`,
-    };
-    // TODO: show error message in chat area
-    console.error(errorMsg);
+  const res = await route_get_llm_response({
+    projectConfigId: useProjectState.getState().projectConfig.id,
+    model: state.userSelectedLLM,
+    message: userMessage,
+    deepThink,
+    chatId: state.currentChatId,
+  });
+  if (res200(res)) {
+    const chatId = res.data;
+    await getLLMChat(chatId);
   }
 }
 
@@ -592,13 +584,13 @@ function convertAndValidateLineNumbers(startLine, endLine, totalLines) {
   return [start, end];
 }
 
-export function updateUUIDMappingForLLM(idToUUIDForLLM) {
+export function updateUUIDMappingForLLM(idToUUIDForLLM: IDToUUIDForLLM) {
   useAIStore.setState({ idToUUIDForLLM });
 }
 
 export async function getUUIDMappingForLLM() {
   const res = await route_get_uuid_mapping_for_llm();
-  if (res.status === 200) {
+  if (res200(res)) {
     updateUUIDMappingForLLM(res.data);
   }
 }

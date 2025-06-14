@@ -13,7 +13,7 @@ from setta.routers.dependencies import (
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.types.ai import APIKeys, IDToUUIDForLLM
-from setta.types.chat_messages import ChatMessage, ChatMetadata
+from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
@@ -42,6 +42,12 @@ class DeleteLLMChatRequest(BaseModel):
 class GetLLMChatRequest(BaseModel):
     chatId: str
     projectConfigId: str | None
+
+
+class GetLLMChatRequestResponse(BaseModel):
+    messages: list[ChatMessage]
+    toolResults: dict[str, ToolResult]
+    waitingForResponse: bool
 
 
 class StopLLMChatRequest(BaseModel):
@@ -158,7 +164,7 @@ async def route_get_llm_chat(
     background_tasks: BackgroundTasks,
     chat_manager: ChatManager = Depends(get_chat_manager),
     websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
-):
+) -> GetLLMChatRequestResponse:
     chat = chat_manager.get_chat(x.chatId)
     if not chat:
         # it's possible for projectConfigId to be null
@@ -181,12 +187,11 @@ async def route_get_llm_chat(
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
     messages, tool_results = chat_manager.separate_tool_results(messages)
-
-    return {
-        "messages": messages,
-        "toolResults": tool_results,
-        "waitingForResponse": waiting_for_response,
-    }
+    return GetLLMChatRequestResponse(
+        messages=messages,
+        toolResults=tool_results,
+        waitingForResponse=waiting_for_response,
+    )
 
 
 def merge_db_messages_with_current_stream(

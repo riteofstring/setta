@@ -1,5 +1,17 @@
 import { C_ADDRESSES } from "./c_addresses";
 
+export type ResponseDataAndStatus<T> = {
+  data: T | undefined;
+  status: number | undefined;
+  hasResponse: boolean;
+};
+
+export function res200<T>(
+  res: ResponseDataAndStatus<T>,
+): res is ResponseDataAndStatus<T> & { data: T; status: number } {
+  return res.status === 200;
+}
+
 export function replaceAddressParams(
   address: string,
   addressParams?: Record<string, any>,
@@ -14,20 +26,28 @@ export function replaceAddressParams(
   return output;
 }
 
-export async function get(
+export async function get<T>(
   address: string,
   addressParams?: Record<string, any>,
-) {
+): Promise<ResponseDataAndStatus<T>> {
   const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const response = await fetch(`${C_ADDRESSES.BACKEND}${fullAddress}`);
-    return await response.json();
+    return {
+      data: await response.json(),
+      status: response.status,
+      hasResponse: true,
+    };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("GET error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
   }
 }
 
-export async function post(address: string, body: any = null) {
+export async function post<T>(
+  address: string,
+  body: any = null,
+): Promise<ResponseDataAndStatus<T>> {
   try {
     const response = await fetch(`${C_ADDRESSES.BACKEND}${address}`, {
       method: "POST",
@@ -36,8 +56,13 @@ export async function post(address: string, body: any = null) {
       },
       body: body === null ? null : JSON.stringify(body),
     });
-    return response.json();
+    return {
+      data: await response.json(),
+      status: response.status,
+      hasResponse: true,
+    };
   } catch (error) {
-    console.error("Error:", error);
+    console.error("POST error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
   }
 }

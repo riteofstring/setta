@@ -189,7 +189,7 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
 def create_ts_fn_def(
     endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
-    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<{output_annotation}>"
+    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
     if method == "POST":
         assert len(args) <= 1
@@ -212,7 +212,7 @@ def create_ts_fn_def(
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
-import {{ get, post }} from "./endpointUtils"
+import {{ get, post, ResponseDataAndStatus }} from "./endpointUtils"
 
 """
 

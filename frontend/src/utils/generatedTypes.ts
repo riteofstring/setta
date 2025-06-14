@@ -349,11 +349,11 @@ export enum RouteEnum {
   "REDOC_DOCS" = "/redoc",
   "LOAD_ALL_PROJECT_METADATA" = "/loadAllProjectMetadata",
   "LOAD_PROJECT_CONFIG" = "/loadProjectConfig",
-  "SAVE_PROJECT" = "/projects/save",
-  "CREATE_PROJECT_CONFIG" = "/projects/createProjectConfig",
+  "SAVE_PROJECT" = "/saveProject",
+  "CREATE_PROJECT_CONFIG" = "/createProjectConfig",
   "DELETE_PROJECT_CONFIGS" = "/deleteProjectConfigs",
-  "SAVE_AS_NEW_PROJECT_CONFIG" = "/projects/saveAsNewProjectConfig",
-  "SAVE_AS_EXISTING_PROJECT_CONFIG" = "/projects/saveAsExistingProjectConfig",
+  "SAVE_AS_NEW_PROJECT_CONFIG" = "/saveAsNewProjectConfig",
+  "SAVE_AS_EXISTING_PROJECT_CONFIG" = "/saveAsExistingProjectConfig",
   "SET_PROJECT_CONFIG_NAME" = "/setProjectConfigName",
   "SAVE_SETTINGS" = "/saveSettings",
   "LOAD_SETTINGS" = "/loadSettings",
@@ -1232,6 +1232,22 @@ export function createGetLLMChatRequest(
   options: Partial<GetLLMChatRequest> = {},
 ): GetLLMChatRequest {
   return GetLLMChatRequestSchema.parse(options);
+}
+
+export const GetLLMChatRequestResponseSchema = z.object({
+  messages: z.array(ChatMessageSchema),
+  toolResults: z.record(z.string(), ToolResultSchema),
+  waitingForResponse: z.boolean(),
+});
+
+export type GetLLMChatRequestResponse = z.infer<
+  typeof GetLLMChatRequestResponseSchema
+>;
+
+export function createGetLLMChatRequestResponse(
+  options: Partial<GetLLMChatRequestResponse> = {},
+): GetLLMChatRequestResponse {
+  return GetLLMChatRequestResponseSchema.parse(options);
 }
 
 export const GetLLMResponseRequestSchema = z.object({
