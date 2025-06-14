@@ -10,6 +10,7 @@ import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoin
 import {
   createCodeInfoCol,
   createEVEntry,
+  ProjectStateSingleConfig,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -86,12 +87,20 @@ export function setAllPreviewVariantIdsToNull() {
   });
 }
 
-export function processProjectStateUpdateFromBackend(content) {
-  useProjectState.setState(content);
+export function processProjectStateUpdateFromBackend(
+  projectState: ProjectStateSingleConfig,
+) {
+  if (
+    projectState.projectConfig.id !==
+    useProjectState.getState().projectConfig.id
+  ) {
+    return;
+  }
+  useProjectState.setState(projectState);
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(
-      content.projectConfigs[useProjectState.getState().projectConfig.id],
-      content.sections,
+      projectState.projectConfig,
+      projectState.sections,
     ),
   });
 }

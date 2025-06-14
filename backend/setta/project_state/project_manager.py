@@ -289,9 +289,7 @@ class ProjectManager:
             refetchParams,
         )
         await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(
-            self.project_state_backend
-        )
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
         return project_state
 
     @enqueue_method
@@ -323,9 +321,7 @@ class ProjectManager:
         project_state = self.get_single_config_state(projectConfigId)
         project_state.projectConfig.genCodePrefix = value
         await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(
-            self.project_state_backend
-        )
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_param_values(
@@ -341,9 +337,7 @@ class ProjectManager:
                 value,
             )
         await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(
-            self.project_state_backend
-        )
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
 
     @enqueue_method
     async def get_gen_python_code_path(self, projectConfigId: str):
@@ -473,9 +467,7 @@ class ProjectManager:
         project_state = self.get_single_config_state(projectConfigId)
         create_sections(project_state, sections)
         await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(
-            self.project_state_backend
-        )
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
