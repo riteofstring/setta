@@ -5,22 +5,16 @@ from fastapi.routing import APIRoute
 from setta.server import app
 
 
-def is_depends_param(param):
-    """Check if a parameter uses Depends"""
-    if param.default is param.empty:
-        return False
-
-    # Check if it's a Depends instance
-    return type(param.default).__name__ == "Depends"
-
-
 output = {}
 
 for route in app.routes:
     if not isinstance(route, APIRoute):
         continue
 
-    route_info = {"methods": list(route.methods), "inputs": {}, "output": None}
+    # deal with multiple methods some other time!
+    assert len(route.methods) == 1
+
+    route_info = {"method": list(route.methods)[0], "inputs": {}, "output": None}
 
     # Get function signature and type hints
     sig = inspect.signature(route.endpoint)
@@ -29,7 +23,7 @@ for route in app.routes:
     # Extract input parameters (excluding Depends)
     for param_name, param in sig.parameters.items():
         # Skip if it's a Depends parameter
-        if is_depends_param(param):
+        if type(param.default).__name__ == "Depends":
             continue
 
         # Get the raw type hint for this parameter
@@ -49,4 +43,4 @@ for route in app.routes:
     output[route.path] = route_info
 
 for o in output.values():
-    print(o["methods"])
+    print(o["method"])
