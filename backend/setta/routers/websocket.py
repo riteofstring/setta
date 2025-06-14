@@ -1,4 +1,3 @@
-import json
 import logging
 import traceback
 
@@ -7,6 +6,7 @@ from fastapi import Depends, WebSocket, WebSocketDisconnect
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.types.websocket_manager import WebsocketConnectionType
+from setta.types.websocket_msgs import WebsocketMsg
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.msg_handlers.cli import WMHCLI
 from setta.websockets.msg_handlers.python_logger import WMHPythonLogger
@@ -42,7 +42,7 @@ async def websocket_route_loop(
         while True:
             try:
                 data = await websocket.receive_text()
-                message = json.loads(data)
+                message = WebsocketMsg.model_validate_json(data)
                 websocket_manager.process_message(message, fromWebsocketId)
                 await websocket_msg_handler.process_message(message, fromWebsocketId)
             except WebSocketDisconnect:

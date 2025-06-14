@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 from typing import Any
+
+from pydantic import BaseModel
 
 from setta.types.utils import AsIsStrEnum
 
@@ -22,7 +23,12 @@ WebsocketMsgTypeForFrontend = AsIsStrEnum(
 )
 
 
-@dataclass
-class WebsocketMsgForFrontend:
+class WebsocketMsg(BaseModel):
+    id: str | None = None
+    content: Any
+    messageType: Any
+
+
+class WebsocketMsgForFrontend(WebsocketMsg):
     content: Any
     messageType: WebsocketMsgTypeForFrontend

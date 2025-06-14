@@ -9,9 +9,6 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
 
-    async def return_to_requester(self, content, messageId):
-        await self.websocket_manager.return_to_requester(content, messageId)
-
     async def broadcast_lsp_diagnostics(self, content):
         await self.websocket_manager.broadcast(
             content,

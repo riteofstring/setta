@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import logging
 
 from fastapi import WebSocket
@@ -10,7 +9,7 @@ from setta.types.websocket_manager import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
 )
-from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
+from setta.types.websocket_msgs import WebsocketMsg, WebsocketMsgTypeForFrontend
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 logger = logging.getLogger(__name__)
@@ -48,21 +47,15 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    def process_message(self, message, fromWebsocketId: str):
-        if "id" in message:
-            self.message_id_to_sender_id[message["id"]] = fromWebsocketId
+    def process_message(self, message: WebsocketMsg, fromWebsocketId: str):
+        if message.id:
+            self.message_id_to_sender_id[message.id] = fromWebsocketId
 
-        if "location" in message:
-            self.sockets[fromWebsocketId].location = message["location"]
-
-    async def send_message(self, message, toWebsocketId: str):
+    async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
         websocket = self.sockets[toWebsocketId].websocket
-        await websocket.send_text(json.dumps(message))
+        await websocket.send_text(message.model_dump_json())
 
-    async def return_to_requester(self, content, request_msg_id, messageType=None):
-        message = {"id": request_msg_id, "content": content}
-        if messageType:
-            message["messageType"] = messageType
+    async def return_to_requester(self, message: WebsocketMsg, request_msg_id: str):
         await self.send_message(
             message,
             self.message_id_to_sender_id[request_msg_id],
@@ -70,17 +63,10 @@ class WebsocketManager:
 
     async def broadcast(
         self,
-        content=None,
-        messageType=None,
-        id=None,
-        message=None,
-        connectionType=None,
-        location=None,
+        message: WebsocketMsg,
+        connectionType: WebsocketConnectionType | None = None,
+        location: str | None = None,
     ):
-        if message is None:
-            message = {"content": content, "messageType": messageType}
-            if id:
-                message["id"] = id
         for k, v in self.sockets.items():
             if (
                 (not connectionType and not location)
@@ -105,6 +91,8 @@ class WebsocketManager:
             )
         )
         await self.broadcast(
-            [dataclasses.asdict(x) for x in connections],
-            WebsocketMsgTypeForFrontend.ALL_CONNECTIONS,
+            WebsocketMsg(
+                content=[dataclasses.asdict(x) for x in connections],
+                messageType=WebsocketMsgTypeForFrontend.ALL_CONNECTIONS,
+            )
         )

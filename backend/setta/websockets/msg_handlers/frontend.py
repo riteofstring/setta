@@ -41,14 +41,6 @@ class WMHFrontend(BaseWebsocketMsgHandler):
                 requestRenameRefactor=message["content"]["requestRenameRefactor"],
             )
 
-        # else:
-        #     msg_id = message.get("id")
-        #     if not msg_id:
-        #         return
-        #     result = await self.code_tasks.process_message(message)
-        #     if result:
-        #         await self.websocket_manager.return_to_requester(result, msg_id)
-
     async def on_connect(self, websocket_id):
         content = self.script_metadata.dependencies
         messageType = WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES
