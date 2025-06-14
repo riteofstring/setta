@@ -1,22 +1,15 @@
 from dotenv import dotenv_values, load_dotenv
-from fastapi import BackgroundTasks, Depends, HTTPException
+from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
-from setta.database.db_objs import DBE
-from setta.mcp.chat_manager import ChatManager
-from setta.routers.dependencies import (
-    get_chat_manager,
-    get_dbe,
-    get_wmh_base,
-)
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
-from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 load_dotenv()
 router = SettaAPIRouter()
@@ -62,15 +55,15 @@ class GetLLMApiKeysRequest(BaseModel):
 async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
-    chat_manager: ChatManager = Depends(get_chat_manager),
+    state: AppStateFromRequest,
 ) -> str | None:
     # try:
     print(x, flush=True)
-    chat = chat_manager.get_or_create_chat(x.chatId, x.message)
+    chat = state.chat_manager.get_or_create_chat(x.chatId, x.message)
 
     if chat:
         background_tasks.add_task(
-            chat_manager.process_query,
+            state.chat_manager.process_query,
             x.projectConfigId,
             chat,
             x.model,
@@ -93,7 +86,7 @@ async def route_get_llm_response(
 @router.post(Route.SET_LLM_API_KEYS)
 async def route_set_llm_api_keys(
     x: SetLLMApiKeysRequest,
-    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
+    state: AppStateFromRequest,
 ) -> None:
     """
     This endpoint accepts a list of API keys with their associated model IDs
@@ -133,39 +126,39 @@ async def route_set_llm_api_keys(
             temporary=True,
         )
 
-    await websocket_msg_handler.broadcast_notification(notification)
+    await state.wmh_frontend_sender.broadcast_notification(notification)
 
 
 @router.post(Route.GET_ALL_LLM_CHAT_METADATA)
 def route_get_all_llm_chat_metadata(
-    chat_manager: ChatManager = Depends(get_chat_manager),
+    state: AppStateFromRequest,
 ) -> list[ChatMetadata]:
-    return chat_manager.get_all_chat_metadata()
+    return state.chat_manager.get_all_chat_metadata()
 
 
 @router.post(Route.DELETE_LLM_CHAT)
 def route_delete_llm_chat(
-    x: DeleteLLMChatRequest, chat_manager: ChatManager = Depends(get_chat_manager)
+    x: DeleteLLMChatRequest,
+    state: AppStateFromRequest,
 ) -> None:
-    return chat_manager.delete_chat(x.chatId)
+    return state.chat_manager.delete_chat(x.chatId)
 
 
 @router.post(Route.STOP_LLM_CHAT)
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
-    chat_manager: ChatManager = Depends(get_chat_manager),
+    state: AppStateFromRequest,
 ) -> None:
-    await chat_manager.request_stop_streaming(x.chatId)
+    await state.chat_manager.request_stop_streaming(x.chatId)
 
 
 @router.post(Route.GET_LLM_CHAT)
 async def route_get_llm_chat(
     x: GetLLMChatRequest,
     background_tasks: BackgroundTasks,
-    chat_manager: ChatManager = Depends(get_chat_manager),
-    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
+    state: AppStateFromRequest,
 ) -> GetLLMChatRequestResponse:
-    chat = chat_manager.get_chat(x.chatId)
+    chat = state.chat_manager.get_chat(x.chatId)
     if not chat:
         # it's possible for projectConfigId to be null
         # if the llm chats are requested before a project is loaded to the frontend
@@ -177,16 +170,16 @@ async def route_get_llm_chat(
                 temporary=True,
             )
             background_tasks.add_task(
-                websocket_msg_handler.broadcast_notification,
+                state.wmh_frontend_sender.broadcast_notification,
                 notification,
             )
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    waiting_for_response = chat_manager.is_waiting_for_response(x.chatId)
-    current_stream = chat_manager.get_current_stream(x.chatId)
+    waiting_for_response = state.chat_manager.is_waiting_for_response(x.chatId)
+    current_stream = state.chat_manager.get_current_stream(x.chatId)
     messages = chat.messages
     merge_db_messages_with_current_stream(messages, current_stream)
-    messages, tool_results = chat_manager.separate_tool_results(messages)
+    messages, tool_results = state.chat_manager.separate_tool_results(messages)
     return GetLLMChatRequestResponse(
         messages=messages,
         toolResults=tool_results,
@@ -210,8 +203,8 @@ def merge_db_messages_with_current_stream(
 
 @router.post(Route.GET_UUID_MAPPING_FOR_LLM)
 async def route_get_uuid_mapping_for_llm(
-    dbe: DBE = Depends(get_dbe),
+    state: AppStateFromRequest,
 ) -> IDToUUIDForLLM:
-    with dbe.session as db:
+    with state.dbe.session as db:
         id_to_uuid, _ = load_uuid_mapping_for_llm(db)
     return id_to_uuid

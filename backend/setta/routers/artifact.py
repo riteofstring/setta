@@ -1,6 +1,5 @@
 import os
 
-from fastapi import Depends
 from pydantic import BaseModel
 
 from setta.api.logger import load_from_csv_base64
@@ -13,11 +12,9 @@ from setta.database.db.artifacts.save import (
     fill_in_missing_artifact_ids,
     save_or_create_artifacts,
 )
-from setta.database.db_objs import DBE
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
-
-from .dependencies import get_dbe, get_wmh_artifact
 
 router = SettaAPIRouter()
 
@@ -54,26 +51,25 @@ class FillInMissingArtifactIdsRequest(BaseModel):
 @router.post(Route.SEND_ARTIFACT)
 async def route_send_artifact(
     x: SendArtifactRequest,
-    dbe=Depends(get_dbe),
-    websocket_msg_handler=Depends(get_wmh_artifact),
+    state: AppStateFromRequest,
 ):
-    with dbe.session as db:
+    with state.dbe.session as db:
         save_or_create_artifacts(db, x.data)
 
-    await websocket_msg_handler.broadcast_artifact(x.data)
+    await state.wmh_frontend_sender.broadcast_artifact(x.data)
 
 
 @router.post(Route.LOAD_ARTIFACTS)
-def route_load_artifacts(x: LoadArtifactsRequest, dbe: DBE = Depends(get_dbe)):
-    with dbe.session as db:
+def route_load_artifacts(x: LoadArtifactsRequest, state: AppStateFromRequest):
+    with state.dbe.session as db:
         return load_artifact_metadata_and_maybe_value_from_disk(db, x.artifactIds)
 
 
 @router.post(Route.LOAD_AVAILABLE_ARTIFACTS)
 def route_load_available_artifacts(
-    x: LoadAvailableArtifactsRequest, dbe=Depends(get_dbe)
+    x: LoadAvailableArtifactsRequest, state: AppStateFromRequest
 ):
-    with dbe.session as db:
+    with state.dbe.session as db:
         return load_available_artifacts(db, x.sectionType)
 
 
@@ -94,7 +90,8 @@ def route_read_csv_base64(x: ReadCSVBase64Request):
 
 @router.post(Route.FILL_IN_MISSING_ARTIFACT_IDS)
 def route_get_artifact_ids_from_name_path_type(
-    x: FillInMissingArtifactIdsRequest, dbe=Depends(get_dbe)
+    x: FillInMissingArtifactIdsRequest,
+    state: AppStateFromRequest,
 ):
-    with dbe.session as db:
+    with state.dbe.session as db:
         return fill_in_missing_artifact_ids(db, x.namesPathsTypes)

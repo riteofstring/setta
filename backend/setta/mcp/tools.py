@@ -141,6 +141,7 @@ async def runCode(
         None,
         setta_mcp_server.project_manager,
         setta_mcp_server.terminals,
+        setta_mcp_server.websocket_msg_handler,
     )
 
     if new_terminal_created:

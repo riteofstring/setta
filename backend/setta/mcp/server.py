@@ -33,8 +33,7 @@ from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.mcp import WMHMCP
-from setta.websockets.websocket_manager import WebsocketManager
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class SettaFastMCP(FastMCP):
         app: FastAPI,
         mount_path: str,
         name: str,
-        websocket_manager: WebsocketManager,
+        websocket_msg_handler: WMHFrontendSender,
         dbe: DBE,
         terminals: Terminals,
         project_manager: ProjectManager,
@@ -54,7 +53,7 @@ class SettaFastMCP(FastMCP):
     ):
         super().__init__(name=name, instructions=instructions, **settings)
         self._tool_manager = SettaToolManager()
-        self.websocket_msg_handler = WMHMCP(websocket_manager)
+        self.websocket_msg_handler = websocket_msg_handler
         self.dbe = dbe
         self.terminals = terminals
         self.project_manager = project_manager

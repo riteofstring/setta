@@ -5,7 +5,7 @@ from pathlib import Path
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
 from setta.utils.constants import CWD
-from setta.websockets.msg_handlers.project_manager import WMHProjectManager
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ class PythonCode(Code):
         self,
         temp_folder: Path,
         lsp_writers: LSPWriters,
-        websocket_msg_handler: WMHProjectManager,
+        websocket_msg_handler: WMHFrontendSender,
     ):
         super().__init__(temp_folder)
         self.lsp_writer = lsp_writers.full

@@ -2,7 +2,7 @@ import asyncio
 
 from setta.types.notifications import SettaNotification
 from setta.utils.constants import CWD
-from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 from .file_watcher import LSPFileWatcher
 from .reader import LanguageServerReader
@@ -37,9 +37,7 @@ class LSPWriters:
 
 
 class LSPReaders:
-    def __init__(self, servers, websocket_manager):
-        websocket_msg_handler = BaseWebsocketMsgHandler(websocket_manager)
-
+    def __init__(self, servers, websocket_msg_handler: WMHFrontendSender):
         def initialization_callback():
             content = SettaNotification(
                 message="Language Server Started", temporary=True

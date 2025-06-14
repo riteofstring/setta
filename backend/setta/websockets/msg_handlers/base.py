@@ -1,12 +1,7 @@
-from setta.types.notifications import SettaNotification
-from setta.types.websocket import (
-    WebsocketConnectionType,
-    WebsocketMsgNotification,
-)
 from setta.websockets.websocket_manager import WebsocketManager
 
 
-class BaseWebsocketMsgHandler:
+class BaseWebsocketMsgReceiver:
     def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
 
@@ -19,8 +14,7 @@ class BaseWebsocketMsgHandler:
     async def process_message(self, message, fromWebsocketId):
         pass
 
-    async def broadcast_notification(self, notification: SettaNotification):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgNotification(content=notification),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
+
+class BaseWebsocketMsgSender:
+    def __init__(self, websocket_manager: WebsocketManager):
+        self.websocket_manager = websocket_manager

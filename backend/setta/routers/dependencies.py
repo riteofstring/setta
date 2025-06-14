@@ -1,77 +1,16 @@
-from fastapi import Request, WebSocket
+from typing import Annotated
+
+from fastapi import Depends, Request, WebSocket
+
+from setta.server import SettaFastAPIState
 
 
-def get_dbe(request: Request):
-    return request.app.state.dbe
+def get_app_state_from_request(request: Request) -> SettaFastAPIState:
+    return request.app.state.setta
 
 
-def get_settings_file(request: Request):
-    return request.app.state.settings_file
+def get_app_state_from_websocket(websocket: WebSocket) -> SettaFastAPIState:
+    return websocket.app.state.setta
 
 
-def get_terminals(request: Request):
-    return request.app.state.terminals
-
-
-def get_terminals_from_websocket(websocket: WebSocket):
-    return websocket.app.state.terminals
-
-
-def get_websocket_manager_from_websocket(websocket: WebSocket):
-    return websocket.app.state.websocket_manager
-
-
-def get_wmh_artifact(request: Request):
-    return request.app.state.websocket_msg_handlers.artifact
-
-
-def get_wmh_frontend_from_websocket(websocket: WebSocket):
-    return websocket.app.state.websocket_msg_handlers.frontend
-
-
-def get_wmh_cli_from_websocket(websocket: WebSocket):
-    return websocket.app.state.websocket_msg_handlers.cli
-
-
-def get_wmh_python_script_from_websocket(websocket: WebSocket):
-    return websocket.app.state.websocket_msg_handlers.python_script
-
-
-def get_wmh_python_logger_from_websocket(websocket: WebSocket):
-    return websocket.app.state.websocket_msg_handlers.python_logger
-
-
-def get_wmh_base(request: Request):
-    return request.app.state.websocket_msg_handlers.base
-
-
-def get_lsps(request: Request):
-    return [
-        request.app.state.lsps,
-        request.app.state.lsp_readers,
-        request.app.state.lsp_writers,
-    ]
-
-
-def get_lsp_writers(request: Request):
-    return request.app.state.lsp_writers
-
-
-def get_lsp_writers_from_websocket(websocket: WebSocket):
-    return websocket.app.state.lsp_writers
-
-
-def get_project_manager(request: Request):
-    return request.app.state.project_manager
-
-
-def get_code_state_from_websocket(websocket: WebSocket):
-    return websocket.app.state.code_state
-
-
-def get_specific_file_watcher(request: Request):
-    return request.app.state.specific_file_watcher
-
-
-def get_chat_manager(request: Request):
-    return request.app.state.chat_manager
+AppStateFromRequest = Annotated[SettaFastAPIState, Depends(get_app_state_from_request)]

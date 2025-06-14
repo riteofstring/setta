@@ -2,13 +2,10 @@ from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgTypeForFrontend,
 )
-from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 
 
-class WMHPythonLogger(BaseWebsocketMsgHandler):
-    def __init__(self, websocket_manager):
-        self.websocket_manager = websocket_manager
-
+class WMHPythonLoggerReceiver(BaseWebsocketMsgReceiver):
     async def process_message(self, message, *_, **__):
         msg_type = message["messageType"]
         if msg_type == WebsocketMsgTypeForFrontend.Artifact:

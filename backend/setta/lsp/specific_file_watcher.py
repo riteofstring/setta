@@ -8,17 +8,15 @@ from typing import Any, Callable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from setta.websockets.msg_handlers.specific_file_watcher import WMHSpecificFileWatcher
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
 
-def create_specific_file_watcher(websocket_manager):
-    websocket_message_handler = WMHSpecificFileWatcher(websocket_manager)
-
+def create_specific_file_watcher(websocket_msg_handler: WMHFrontendSender):
     async def event_callback(event_info):
         logger.debug(f"event_callback {event_info}")
-        await websocket_message_handler.broadcast_file_updates(event_info)
+        await websocket_msg_handler.broadcast_file_updates(event_info)
 
     return SpecificFileWatcher(event_callback)
 

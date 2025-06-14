@@ -18,7 +18,6 @@ from setta.database.db.sections.copy import (
 )
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
-from setta.routers.dependencies import get_project_manager, get_specific_file_watcher
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_content_processor
 from setta.types.routes import Route

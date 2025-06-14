@@ -17,8 +17,7 @@ from websockets.exceptions import ConnectionClosedOK
 from setta.database.settings_file import SettingsFile
 from setta.terminals.utils import linux_get_child_process_details
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.terminals import WMHTerminals
-from setta.websockets.websocket_manager import WebsocketManager
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +50,12 @@ def get_terminal_shell(defaultTerminalShell: str | None):
 
 class Terminals:
     def __init__(
-        self, websocket_manager: WebsocketManager, settings_file: SettingsFile
+        self, websocket_msg_handler: WMHFrontendSender, settings_file: SettingsFile
     ):
         self.section_to_socket_ids = defaultdict(set)
         self.sockets = {}
         self.PTY_PIDS = {}
-        self.websocket_msg_handler = WMHTerminals(websocket_manager)
+        self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
         # asyncio.create_task(self.monitor_child_processes())
 

@@ -36,20 +36,19 @@ from setta.types.project_state import (
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER
-from setta.websockets.msg_handlers.project_manager import WMHProjectManager
-from setta.websockets.websocket_manager import WebsocketManager
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 
 class ProjectManager:
     def __init__(
         self,
         lsp_writers: LSPWriters,
-        websocket_manager: WebsocketManager,
+        websocket_msg_handler: WMHFrontendSender,
         settings_file: SettingsFile,
         dbe: DBE,
     ):
         self.lsp_writers = lsp_writers
-        self.websocket_msg_handler = WMHProjectManager(websocket_manager)
+        self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)

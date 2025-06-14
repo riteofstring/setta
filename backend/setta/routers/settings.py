@@ -1,18 +1,12 @@
-from fastapi import BackgroundTasks, Depends
+from fastapi import BackgroundTasks
 from pydantic import BaseModel
 
-from setta.database.settings_file import SettingsFile
+from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.settings_state import SettingsState
-from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
-
-from .dependencies import (
-    get_settings_file,
-    get_wmh_base,
-)
 
 router = SettaAPIRouter()
 
@@ -26,30 +20,25 @@ class SaveSettingsProjectRequest(BaseModel):
 
 
 @router.post(Route.SAVE_SETTINGS)
-def route_save_settings(
-    x: SaveSettingsRequest, settings_file: SettingsFile = Depends(get_settings_file)
-):
-    return settings_file.save_settings(x.settings)
+def route_save_settings(x: SaveSettingsRequest, state: AppStateFromRequest):
+    return state.settings_file.save_settings(x.settings)
 
 
 @router.post(Route.LOAD_SETTINGS)
-def route_load_settings(
-    settings_file: SettingsFile = Depends(get_settings_file),
-) -> SettingsState:
-    return settings_file.load_settings()
+def route_load_settings(state: AppStateFromRequest) -> SettingsState:
+    return state.settings_file.load_settings()
 
 
 @router.post(Route.SAVE_SETTINGS_PROJECT)
 async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
-    settings_file: SettingsFile = Depends(get_settings_file),
-    websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
+    state: AppStateFromRequest,
 ) -> SettingsState | None:
     notification = None
     output = None
     try:
-        output = settings_file.save_settings_project(x.settingsProject)
+        output = state.settings_file.save_settings_project(x.settingsProject)
         notification = SettaNotification(
             projectConfigId=x.settingsProject.projectConfig.id,
             message="Saved!",
@@ -64,7 +53,7 @@ async def route_save_settings_project(
         )
 
     background_tasks.add_task(
-        websocket_msg_handler.broadcast_notification,
+        state.wmh_frontend_sender.broadcast_notification,
         notification,
     )
 
@@ -73,7 +62,7 @@ async def route_save_settings_project(
 
 @router.post(Route.LOAD_SETTINGS_PROJECT)
 async def route_load_settings_project(
-    settings_file: SettingsFile = Depends(get_settings_file),
+    state: AppStateFromRequest,
 ) -> ProjectStateSingleConfig:
-    p = settings_file.load_settings_project()
+    p = state.settings_file.load_settings_project()
     return p

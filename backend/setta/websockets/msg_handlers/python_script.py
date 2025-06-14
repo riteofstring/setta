@@ -3,10 +3,10 @@ from setta.types.websocket import (
     WebsocketMsgTypeForFrontend,
 )
 from setta.utils.constants import C
-from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
+from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 
 
-class WMHPythonScript(BaseWebsocketMsgHandler):
+class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     def __init__(self, websocket_manager, script_metadata, project_manager):
         self.websocket_manager = websocket_manager
         self.script_metadata = script_metadata

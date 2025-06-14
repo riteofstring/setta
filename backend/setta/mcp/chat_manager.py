@@ -34,17 +34,16 @@ from setta.types.chat_messages import (
 )
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path
-from setta.websockets.msg_handlers.chat_manager import WMHChatManager
-from setta.websockets.websocket_manager import WebsocketManager
+from setta.websockets.msg_handlers.frontend import WMHFrontendSender
 
 
 class ChatManager:
     def __init__(
-        self, dbe: DBE, mcp_client: MCPClient, websocket_manager: WebsocketManager
+        self, dbe: DBE, mcp_client: MCPClient, websocket_msg_handler: WMHFrontendSender
     ):
         self.dbe = dbe
         self.mcp_client = mcp_client
-        self.websocket_msg_handler = WMHChatManager(websocket_manager)
+        self.websocket_msg_handler = websocket_msg_handler
         self.current_streams: dict[str, list[ChatMessage]] = {}
         self.stream_tasks = {}
         self.anthropic = AsyncAnthropic()

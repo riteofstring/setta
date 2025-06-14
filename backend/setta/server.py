@@ -43,65 +43,80 @@ from setta.terminals.terminals import Terminals
 from setta.types.routes import Route
 from setta.utils.constants import C
 from setta.utils.utils import get_absolute_path, is_dev_mode
-from setta.websockets.msg_handlers.wrapper import WebsocketMsgHandlers
+from setta.websockets.msg_handlers.cli import WMHCLIReceiver, WMHCLISender
+from setta.websockets.msg_handlers.frontend import (
+    WMHFrontendReceiver,
+    WMHFrontendSender,
+)
+from setta.websockets.msg_handlers.python_logger import WMHPythonLoggerReceiver
+from setta.websockets.msg_handlers.python_script import WMHPythonScriptReceiver
 from setta.websockets.script_metadata import ScriptMetadata
 from setta.websockets.websocket_manager import WebsocketManager
 
 logger = logging.getLogger(__name__)
 
 
+class SettaFastAPIState:
+    def __init__(self):
+        self.settings_file = SettingsFile()
+        self.websocket_manager = WebsocketManager()
+        self.lsps = LSPServers(self.settings_file.settings.languageServer)
+        self.lsp_writers = LSPWriters(self.lsps)
+        self.script_metadata = ScriptMetadata()
+        self.dbe = DBE(C.DB_PATH)
+        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
+        self.specific_file_watcher = create_specific_file_watcher(
+            self.wmh_frontend_sender
+        )
+        self.project_manager = ProjectManager(
+            self.lsp_writers,
+            self.wmh_frontend_sender,
+            self.settings_file,
+            self.dbe,
+        )
+        self.wmh_frontend_receiver = WMHFrontendReceiver(
+            self.websocket_manager,
+            self.project_manager,
+            self.script_metadata,
+            self.specific_file_watcher,
+        )
+        self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
+        self.wmh_python_script_receiver = WMHPythonScriptReceiver(
+            self.websocket_manager, self.script_metadata, self.project_manager
+        )
+        self.wmh_python_logger_receiver = WMHPythonLoggerReceiver(
+            self.websocket_manager
+        )
+
+        self.lsp_readers = LSPReaders(self.lsps, self.wmh_frontend_sender)
+        self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
+
+        self.mcp_server = SettaFastMCP(
+            app,
+            "/mcp",
+            "Setta MCP Server",
+            self.wmh_frontend_sender,
+            self.dbe,
+            self.terminals,
+            self.project_manager,
+        )
+        self.mcp_client = MCPClient(
+            f"{C.BACKEND}/mcp",
+        )
+        self.chat_manager = ChatManager(
+            self.dbe, self.mcp_client, self.wmh_frontend_sender
+        )
+
+        asyncio.create_task(self.mcp_client.connect_to_server())
+        asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))
+        self.specific_file_watcher.start()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # startup
-    app.state.settings_file = SettingsFile()
-    app.state.websocket_manager = WebsocketManager()
-    app.state.lsps = LSPServers(app.state.settings_file.settings.languageServer)
-    app.state.lsp_writers = LSPWriters(app.state.lsps)
-    app.state.lsp_readers = LSPReaders(app.state.lsps, app.state.websocket_manager)
-    app.state.script_metadata = ScriptMetadata()
-    app.state.dbe = DBE(C.DB_PATH)
-    app.state.project_manager = ProjectManager(
-        app.state.lsp_writers,
-        app.state.websocket_manager,
-        app.state.settings_file,
-        app.state.dbe,
-    )
-
-    app.state.specific_file_watcher = create_specific_file_watcher(
-        app.state.websocket_manager
-    )
-    app.state.websocket_msg_handlers = WebsocketMsgHandlers(
-        app.state.websocket_manager,
-        app.state.lsp_writers,
-        app.state.project_manager,
-        app.state.script_metadata,
-        app.state.specific_file_watcher,
-    )
-    app.state.terminals = Terminals(
-        app.state.websocket_manager, app.state.settings_file
-    )
-
-    app.state.mcp_server = SettaFastMCP(
-        app,
-        "/mcp",
-        "Setta MCP Server",
-        app.state.websocket_manager,
-        app.state.dbe,
-        app.state.terminals,
-        app.state.project_manager,
-    )
-    app.state.mcp_client = MCPClient(
-        f"{C.BACKEND}/mcp",
-    )
-    app.state.chat_manager = ChatManager(
-        app.state.dbe, app.state.mcp_client, app.state.websocket_manager
-    )
-
-    asyncio.create_task(app.state.mcp_client.connect_to_server())
-    asyncio.create_task(
-        start_lsps(app.state.lsps, app.state.lsp_readers, app.state.lsp_writers)
-    )
-    app.state.specific_file_watcher.start()
+    app.state.setta = SettaFastAPIState()
 
     if not is_dev_mode():
         # Mount the 'frontend/dist' directory at '/static'
@@ -124,11 +139,11 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        app.state.project_manager.delete_temp_folder()
-        app.state.specific_file_watcher.stop()
-        await app.state.mcp_client.stop()
-        await stop_lsps(app.state.lsps, app.state.lsp_readers)
-        stop_file_watcher(app.state.lsp_writers)
+        app.state.setta.project_manager.delete_temp_folder()
+        app.state.setta.specific_file_watcher.stop()
+        await app.state.setta.mcp_client.stop()
+        await stop_lsps(app.state.setta.lsps, app.state.setta.lsp_readers)
+        stop_file_watcher(app.state.setta.lsp_writers)
 
 
 app = FastAPI(

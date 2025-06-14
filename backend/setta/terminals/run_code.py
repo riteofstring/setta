@@ -3,6 +3,7 @@ import asyncio
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager import ProjectManager
 from setta.terminals.terminals import Terminals
+from setta.websockets.msg_handlers.cli import WMHCLISender
 
 
 async def run_code(
@@ -11,12 +12,13 @@ async def run_code(
     cliId: str | None,
     project_manager: ProjectManager,
     terminals: Terminals,
+    websocket_msg_handler: WMHCLISender,
 ):
     terminal_id, new_terminal_created = None, None
 
     command = await project_manager.create_run_command(projectConfigId, sectionId)
     if cliId:
-        await terminals.websocket_msg_handler.send_command(command, cliId)
+        await websocket_msg_handler.send_command(command, cliId)
     else:
         terminal_id = terminals.get_free_terminal(projectConfigId)
 
