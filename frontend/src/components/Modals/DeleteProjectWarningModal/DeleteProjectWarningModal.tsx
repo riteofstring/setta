@@ -1,8 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { BiErrorCircle } from "react-icons/bi";
-import { dbDeleteProjectConfigs } from "requests/projects";
 import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_delete_project_configs } from "utils/generatedEndpoints";
 
 export function DeleteProjectWarningModal() {
   const { selectedProjects, getAllProjectConfigMetadata, setSelectedProjects } =
@@ -13,8 +14,10 @@ export function DeleteProjectWarningModal() {
   };
 
   const handleConfirm = async () => {
-    const res = await dbDeleteProjectConfigs(selectedProjects.map((x) => x.id));
-    if (res.status === 200) {
+    const res = await route_delete_project_configs({
+      ids: selectedProjects.map((x) => x.id),
+    });
+    if (res200(res)) {
       getAllProjectConfigMetadata();
       setSelectedProjects([]);
     }

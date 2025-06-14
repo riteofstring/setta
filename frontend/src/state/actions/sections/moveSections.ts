@@ -1,6 +1,7 @@
-import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { UITypeNameEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
@@ -146,8 +147,8 @@ export async function maybeMakeCopyOfSection({
   }
 
   if (isInOtherVariants) {
-    const res = await dbCreateCopyOfSections(copySections([sectionId]));
-    if (res.status === 200) {
+    const res = await route_sections_make_copy(copySections([sectionId]));
+    if (res200(res)) {
       return res.data;
     }
   }

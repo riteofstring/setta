@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import {
-  dbFilterDataForJSONExport,
-  dbLoadAllProjectMetadata,
-} from "requests/projects";
-import {
   loadProjectConfig,
   loadSettingsProjectConfig,
 } from "state/actions/project/loadProject";
@@ -12,14 +8,19 @@ import { getProjectDataForSaving } from "state/actions/project/saveProject";
 import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_load_all_project_metadata,
+  router_filter_data_for_json_export,
+} from "utils/generatedEndpoints";
 import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
   const [projects, setProjects] = useState([]);
   const [defaultProjectConfigId, setDefaultProjectConfigId] = useState(null);
   async function getAllProjectConfigMetadata() {
-    const res = await dbLoadAllProjectMetadata();
-    if (res.status === 200) {
+    const res = await route_load_all_project_metadata();
+    if (res200(res)) {
       const { projectMetadata, defaultProjectConfigId } = res.data;
       setProjects(projectMetadata);
       setDefaultProjectConfigId(defaultProjectConfigId);
@@ -50,8 +51,8 @@ export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});
   async function exportProjectJson() {
     const project = await getProjectDataForSaving();
-    const res = await dbFilterDataForJSONExport(project);
-    if (res.status === 200) {
+    const res = await router_filter_data_for_json_export(project);
+    if (res200(res)) {
       setProjectJson(res.data);
     }
   }

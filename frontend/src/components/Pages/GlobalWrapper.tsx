@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { dbGetDefaultProjectConfigName } from "requests/projects";
 import { dbLoadSettings } from "requests/settings";
 import { openWebSocket, sendLocation } from "requests/websocket";
 import { useProjectLoading, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { router_get_default_project_config_name } from "utils/generatedEndpoints";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -74,12 +75,13 @@ function useLoadSettings() {
 }
 
 function useDefaultProjectConfigName() {
-  const [defaultProjectConfigName, setDefaultProjectConfigName] =
-    useState(undefined);
+  const [defaultProjectConfigName, setDefaultProjectConfigName] = useState<
+    string | null | undefined
+  >(undefined);
 
   async function fn() {
-    const res = await dbGetDefaultProjectConfigName();
-    if (res.status === 200) {
+    const res = await router_get_default_project_config_name();
+    if (res200(res)) {
       setDefaultProjectConfigName(res.data);
     }
   }

@@ -173,7 +173,7 @@ async def route_create_project_config(
     x: CreateProjectConfigRequest,
     dbe: DBE = Depends(get_dbe),
     project_manager: ProjectManager = Depends(get_project_manager),
-):
+) -> str:
     newProjectConfigName = await project_manager.create_project_config(
         x.previewImgColor
     )
@@ -227,7 +227,7 @@ async def route_set_project_config_name(
 @router.post(Route.GET_DEFAULT_PROJECT_CONFIG_NAME)
 def router_get_default_project_config_name(
     project_manager: ProjectManager = Depends(get_project_manager),
-):
+) -> str | None:
     return project_manager.get_default_project_config_name()
 
 

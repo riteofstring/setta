@@ -1,10 +1,11 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { useNavigate } from "react-router-dom";
-import { dbSetProjectConfigName } from "requests/projectName";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { route_set_project_config_name } from "utils/generatedEndpoints";
 
 const editing =
   "flex-1 box-border [border-width:0_0_1px_0] border-solid bg-transparent focus:border-blue-300 focus-visible:ring-0 focus-visible:outline-none w-full ";
@@ -46,11 +47,17 @@ function ProjectNameOnly() {
 }
 
 function useEditableProjectName() {
-  const name = useProjectState((x) => x.projectConfig.name);
+  const { projectConfigId, name } = useProjectState((x) => ({
+    projectConfigId: x.projectConfig.id,
+    name: x.projectConfig.name,
+  }));
   const navigate = useNavigate();
   async function condition(v: string) {
-    const res = await dbSetProjectConfigName(v);
-    return res.status === 200;
+    const res = await route_set_project_config_name({
+      projectConfigId,
+      newName: v,
+    });
+    return res200(res);
   }
   async function onSetName(v: string) {
     navigate(pathRelativeToProject(v), {

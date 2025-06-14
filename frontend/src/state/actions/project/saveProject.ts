@@ -1,11 +1,6 @@
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import {
-  dbSaveAsExistingProjectConfig,
-  dbSaveAsNewProjectConfig,
-  dbSaveProject,
-} from "requests/projects";
 import { dbSaveSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
@@ -14,6 +9,11 @@ import {
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import {
+  route_save_as_existing_project_config,
+  route_save_as_new_project_config,
+  route_save_project,
+} from "utils/generatedEndpoints";
 import {
   ProjectStateSingleConfig,
   SettaNotificationTypeEnum,
@@ -97,7 +97,7 @@ export async function saveProject() {
       useSettings.setState(res.data);
     }
   } else {
-    dbSaveProject({
+    route_save_project({
       project: await getProjectDataForSaving(),
     });
   }
@@ -105,14 +105,14 @@ export async function saveProject() {
 
 export async function saveAsNewProjectConfig({ newConfigName, withRefs }) {
   return await saveProjectAs({
-    fn: dbSaveAsNewProjectConfig,
+    fn: route_save_as_new_project_config,
     otherArgs: { newConfigName, withRefs },
   });
 }
 
 export async function saveAsExistingProjectConfig({ configName }) {
   return await saveProjectAs({
-    fn: dbSaveAsExistingProjectConfig,
+    fn: route_save_as_existing_project_config,
     otherArgs: { configName },
   });
 }

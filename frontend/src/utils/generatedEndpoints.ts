@@ -21,7 +21,7 @@ export async function route_save_project(
 
 export async function route_create_project_config(
   x: gt.CreateProjectConfigRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<string>> {
   return await post("/createProjectConfig", x);
 }
 
@@ -50,7 +50,7 @@ export async function route_set_project_config_name(
 }
 
 export async function router_get_default_project_config_name(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<string | null>
 > {
   return await post("/getDefaultConfigName");
 }

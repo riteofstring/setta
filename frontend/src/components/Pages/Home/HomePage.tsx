@@ -12,12 +12,12 @@ import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { LuPenLine } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
-import { dbSetAsDefaultProject } from "requests/projects";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import "./homepage.css";
 
@@ -72,7 +72,7 @@ function RightColumn({
 
   async function onClickMakeDefault() {
     const projectId = selectedProjects[0];
-    await dbSetAsDefaultProject(projectId);
+    await router_set_as_default_project({ projectId });
     getAllProjectConfigMetadata();
   }
 

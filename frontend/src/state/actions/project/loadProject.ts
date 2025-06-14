@@ -1,7 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
-import { dbCreateProjectConfig, dbLoadProjectConfig } from "requests/projects";
 import { dbLoadSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
@@ -13,13 +12,18 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_create_project_config,
+  route_load_project_config,
+} from "utils/generatedEndpoints";
 import { maybeRunGuiToYamlOnAllSections } from "../guiToYaml";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function loadProjectConfig({ projectConfigName }) {
-  const res = await dbLoadProjectConfig(projectConfigName);
-  if (res.status === 200) {
+  const res = await route_load_project_config({ projectConfigName });
+  if (res200(res)) {
     return await loadProjectState(res.data);
   } else {
     return false;
@@ -79,8 +83,8 @@ export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
     const previewImgColor = getRandomProjectConfigPreviewImgColor();
-    const res = await dbCreateProjectConfig({ previewImgColor });
-    if (res.status === 200) {
+    const res = await route_create_project_config({ previewImgColor });
+    if (res200(res)) {
       navigateToAnotherConfig(res.data);
     }
   };

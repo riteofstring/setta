@@ -1,7 +1,8 @@
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
-import { dbCreateCopyOfSections } from "requests/pasteSections";
 import { useMisc, useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { UITypeNameEnum } from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
@@ -23,8 +24,8 @@ async function pasteSections({ data, asRef = false }) {
   if (asRef) {
     dataToPaste = data;
   } else {
-    const res = await dbCreateCopyOfSections(data);
-    if (res.status === 200) {
+    const res = await route_sections_make_copy(data);
+    if (res200(res)) {
       dataToPaste = res.data;
     }
   }
