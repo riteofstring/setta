@@ -1,17 +1,19 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
-import { dbFormateCode } from "requests/interactive";
 import {
   useArtifacts,
   useInteractiveDependencies,
   useProjectState,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_format_code } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./artifacts";
+import { getProjectData } from "./project/saveProject";
 import { getSectionVariant } from "./sectionInfos";
 
 export async function formatCode() {
-  const res = await dbFormateCode();
-  if (res.status === 200) {
+  const res = await route_format_code({ project: getProjectData({}) });
+  if (res200(res)) {
     useProjectState.setState((state) => {
       for (const [sectionId, code] of Object.entries(res.data)) {
         if (code !== null) {
