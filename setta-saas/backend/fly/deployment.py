@@ -1,8 +1,11 @@
+# backend/fly/deployment.py
 """
-Deployment operations for Fly.io apps.
+Deployment operations for Fly.io apps with hibernation support.
 """
 
 import time
+
+import httpx
 
 from fly.client import FlyClient
 from fly.queries import (
@@ -166,7 +169,7 @@ def get_app_status(client: FlyClient, app_name: str) -> dict | None:
 def create_and_deploy_machine(
     client: FlyClient, app_name: str, image: str = "flyio/hellofly:latest", region: str = "ewr"
 ) -> str:
-    """Create and deploy a machine to the app."""
+    """Create and deploy a machine to the app with hibernation enabled."""
     config = {
         "image": image,
         "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
@@ -178,6 +181,10 @@ def create_and_deploy_machine(
                 ],
                 "protocol": "tcp",
                 "internal_port": 8080,
+                # HIBERNATION SETTINGS - THIS IS THE KEY CHANGE
+                "autostop": "stop",  # Stop machine when idle
+                "autostart": True,  # Start on incoming request
+                "min_machines_running": 0,  # Allow scaling to zero
             }
         ],
     }
@@ -200,3 +207,32 @@ def wait_for_app_ready(client: FlyClient, app_name: str, timeout: int = 60) -> b
         time.sleep(3)
 
     return False
+
+
+def stop_machine(client: FlyClient, app_name: str, machine_id: str) -> bool:
+    """Manually stop a machine (for testing hibernation)."""
+    url = f"{client.machines_url}/apps/{app_name}/machines/{machine_id}/stop"
+
+    with httpx.Client() as http:
+        response = http.post(url, headers=client.headers, timeout=30.0)
+        return response.status_code == 200
+
+
+def start_machine(client: FlyClient, app_name: str, machine_id: str) -> bool:
+    """Manually start a machine (for testing wake-up)."""
+    url = f"{client.machines_url}/apps/{app_name}/machines/{machine_id}/start"
+
+    with httpx.Client() as http:
+        response = http.post(url, headers=client.headers, timeout=30.0)
+        return response.status_code == 200
+
+
+def get_machine_status(client: FlyClient, app_name: str, machine_id: str) -> dict:
+    """Get current status of a machine."""
+    machine = client.get_machine(app_name, machine_id)
+    return {
+        "state": machine.get("state"),  # "started", "stopped", etc.
+        "created_at": machine.get("created_at"),
+        "updated_at": machine.get("updated_at"),
+        "config": machine.get("config", {}),
+    }
