@@ -80,7 +80,7 @@ export async function submitMessage(message: string, deepThink) {
   const userMessage = {
     id: createNewId(),
     role: ChatRoleSchema.parse("user"),
-    content: [createTextBlock({ text: message })],
+    content: [createTextBlock({ text: message, type: "text" })],
   };
 
   const state = useAIStore.getState();
