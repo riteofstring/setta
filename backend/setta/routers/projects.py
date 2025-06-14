@@ -100,7 +100,7 @@ def route_load_all_project_metadata(
 async def route_load_project_config(
     x: ProjectLoadRequest,
     project_manager: ProjectManager = Depends(get_project_manager),
-):
+) -> ProjectStateSingleConfig:
     try:
         projectState = project_manager.project_state_backend
         projectConfigId = confirm_config_name(projectState, x.projectConfigName)

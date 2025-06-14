@@ -1197,6 +1197,606 @@ export function createSimplifiedSection(
   return SimplifiedSectionSchema.parse(options);
 }
 
+export const DeleteLLMChatRequestSchema = z.object({
+  chatId: z.string(),
+});
+
+export type DeleteLLMChatRequest = z.infer<typeof DeleteLLMChatRequestSchema>;
+
+export function createDeleteLLMChatRequest(
+  options: Partial<DeleteLLMChatRequest> = {},
+): DeleteLLMChatRequest {
+  return DeleteLLMChatRequestSchema.parse(options);
+}
+
+export const GetLLMApiKeysRequestSchema = z.object({
+  apiKeysFilepath: z.string(),
+});
+
+export type GetLLMApiKeysRequest = z.infer<typeof GetLLMApiKeysRequestSchema>;
+
+export function createGetLLMApiKeysRequest(
+  options: Partial<GetLLMApiKeysRequest> = {},
+): GetLLMApiKeysRequest {
+  return GetLLMApiKeysRequestSchema.parse(options);
+}
+
+export const GetLLMChatRequestSchema = z.object({
+  chatId: z.string(),
+  projectConfigId: z.union([z.string(), z.null()]),
+});
+
+export type GetLLMChatRequest = z.infer<typeof GetLLMChatRequestSchema>;
+
+export function createGetLLMChatRequest(
+  options: Partial<GetLLMChatRequest> = {},
+): GetLLMChatRequest {
+  return GetLLMChatRequestSchema.parse(options);
+}
+
+export const GetLLMResponseRequestSchema = z.object({
+  projectConfigId: z.string(),
+  chatId: z.union([z.string(), z.null()]),
+  message: ChatMessageSchema,
+  model: z.string(),
+  deepThink: z.boolean(),
+});
+
+export type GetLLMResponseRequest = z.infer<typeof GetLLMResponseRequestSchema>;
+
+export function createGetLLMResponseRequest(
+  options: Partial<GetLLMResponseRequest> = {},
+): GetLLMResponseRequest {
+  return GetLLMResponseRequestSchema.parse(options);
+}
+
+export const SetLLMApiKeysRequestSchema = z.object({
+  apiKeys: z.record(z.string(), z.string()),
+  apiKeysFilepath: z.string(),
+});
+
+export type SetLLMApiKeysRequest = z.infer<typeof SetLLMApiKeysRequestSchema>;
+
+export function createSetLLMApiKeysRequest(
+  options: Partial<SetLLMApiKeysRequest> = {},
+): SetLLMApiKeysRequest {
+  return SetLLMApiKeysRequestSchema.parse(options);
+}
+
+export const StopLLMChatRequestSchema = z.object({
+  chatId: z.string(),
+});
+
+export type StopLLMChatRequest = z.infer<typeof StopLLMChatRequestSchema>;
+
+export function createStopLLMChatRequest(
+  options: Partial<StopLLMChatRequest> = {},
+): StopLLMChatRequest {
+  return StopLLMChatRequestSchema.parse(options);
+}
+
+export const CheckIfFileExistsRequestsSchema = z.object({
+  filepath: z.string(),
+});
+
+export type CheckIfFileExistsRequests = z.infer<
+  typeof CheckIfFileExistsRequestsSchema
+>;
+
+export function createCheckIfFileExistsRequests(
+  options: Partial<CheckIfFileExistsRequests> = {},
+): CheckIfFileExistsRequests {
+  return CheckIfFileExistsRequestsSchema.parse(options);
+}
+
+export const FillInMissingArtifactIdsRequestSchema = z.object({
+  namesPathsTypes: z.array(z.any()),
+});
+
+export type FillInMissingArtifactIdsRequest = z.infer<
+  typeof FillInMissingArtifactIdsRequestSchema
+>;
+
+export function createFillInMissingArtifactIdsRequest(
+  options: Partial<FillInMissingArtifactIdsRequest> = {},
+): FillInMissingArtifactIdsRequest {
+  return FillInMissingArtifactIdsRequestSchema.parse(options);
+}
+
+export const LoadArtifactFromDiskRequestSchema = z.object({
+  filepath: z.string(),
+  type: z.string(),
+});
+
+export type LoadArtifactFromDiskRequest = z.infer<
+  typeof LoadArtifactFromDiskRequestSchema
+>;
+
+export function createLoadArtifactFromDiskRequest(
+  options: Partial<LoadArtifactFromDiskRequest> = {},
+): LoadArtifactFromDiskRequest {
+  return LoadArtifactFromDiskRequestSchema.parse(options);
+}
+
+export const LoadArtifactsRequestSchema = z.object({
+  artifactIds: z.array(z.string()),
+});
+
+export type LoadArtifactsRequest = z.infer<typeof LoadArtifactsRequestSchema>;
+
+export function createLoadArtifactsRequest(
+  options: Partial<LoadArtifactsRequest> = {},
+): LoadArtifactsRequest {
+  return LoadArtifactsRequestSchema.parse(options);
+}
+
+export const LoadAvailableArtifactsRequestSchema = z.object({
+  sectionType: z.string(),
+});
+
+export type LoadAvailableArtifactsRequest = z.infer<
+  typeof LoadAvailableArtifactsRequestSchema
+>;
+
+export function createLoadAvailableArtifactsRequest(
+  options: Partial<LoadAvailableArtifactsRequest> = {},
+): LoadAvailableArtifactsRequest {
+  return LoadAvailableArtifactsRequestSchema.parse(options);
+}
+
+export const ReadCSVBase64RequestSchema = z.object({
+  base64Str: z.string(),
+});
+
+export type ReadCSVBase64Request = z.infer<typeof ReadCSVBase64RequestSchema>;
+
+export function createReadCSVBase64Request(
+  options: Partial<ReadCSVBase64Request> = {},
+): ReadCSVBase64Request {
+  return ReadCSVBase64RequestSchema.parse(options);
+}
+
+export const SendArtifactRequestSchema = z.object({
+  data: z.array(z.record(z.string(), z.any())),
+});
+
+export type SendArtifactRequest = z.infer<typeof SendArtifactRequestSchema>;
+
+export function createSendArtifactRequest(
+  options: Partial<SendArtifactRequest> = {},
+): SendArtifactRequest {
+  return SendArtifactRequestSchema.parse(options);
+}
+
+export const DocstringToMarkdownRequestSchema = z.object({
+  docstring: z.string(),
+});
+
+export type DocstringToMarkdownRequest = z.infer<
+  typeof DocstringToMarkdownRequestSchema
+>;
+
+export function createDocstringToMarkdownRequest(
+  options: Partial<DocstringToMarkdownRequest> = {},
+): DocstringToMarkdownRequest {
+  return DocstringToMarkdownRequestSchema.parse(options);
+}
+
+export const FormatCodeRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+});
+
+export type FormatCodeRequest = z.infer<typeof FormatCodeRequestSchema>;
+
+export function createFormatCodeRequest(
+  options: Partial<FormatCodeRequest> = {},
+): FormatCodeRequest {
+  return FormatCodeRequestSchema.parse(options);
+}
+
+export const TypeCheckRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type TypeCheckRequest = z.infer<typeof TypeCheckRequestSchema>;
+
+export function createTypeCheckRequest(
+  options: Partial<TypeCheckRequest> = {},
+): TypeCheckRequest {
+  return TypeCheckRequestSchema.parse(options);
+}
+
+export const AddDefaultDataForJSONImportRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+});
+
+export type AddDefaultDataForJSONImportRequest = z.infer<
+  typeof AddDefaultDataForJSONImportRequestSchema
+>;
+
+export function createAddDefaultDataForJSONImportRequest(
+  options: Partial<AddDefaultDataForJSONImportRequest> = {},
+): AddDefaultDataForJSONImportRequest {
+  return AddDefaultDataForJSONImportRequestSchema.parse(options);
+}
+
+export const CreateProjectConfigRequestSchema = z.object({
+  previewImgColor: z.string(),
+});
+
+export type CreateProjectConfigRequest = z.infer<
+  typeof CreateProjectConfigRequestSchema
+>;
+
+export function createCreateProjectConfigRequest(
+  options: Partial<CreateProjectConfigRequest> = {},
+): CreateProjectConfigRequest {
+  return CreateProjectConfigRequestSchema.parse(options);
+}
+
+export const DeleteNotificationRequestSchema = z.object({
+  notificationId: z.string(),
+});
+
+export type DeleteNotificationRequest = z.infer<
+  typeof DeleteNotificationRequestSchema
+>;
+
+export function createDeleteNotificationRequest(
+  options: Partial<DeleteNotificationRequest> = {},
+): DeleteNotificationRequest {
+  return DeleteNotificationRequestSchema.parse(options);
+}
+
+export const DeleteProjectConfigsRequestSchema = z.object({
+  ids: z.array(z.string()),
+});
+
+export type DeleteProjectConfigsRequest = z.infer<
+  typeof DeleteProjectConfigsRequestSchema
+>;
+
+export function createDeleteProjectConfigsRequest(
+  options: Partial<DeleteProjectConfigsRequest> = {},
+): DeleteProjectConfigsRequest {
+  return DeleteProjectConfigsRequestSchema.parse(options);
+}
+
+export const FilterDataForJSONExportRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+});
+
+export type FilterDataForJSONExportRequest = z.infer<
+  typeof FilterDataForJSONExportRequestSchema
+>;
+
+export function createFilterDataForJSONExportRequest(
+  options: Partial<FilterDataForJSONExportRequest> = {},
+): FilterDataForJSONExportRequest {
+  return FilterDataForJSONExportRequestSchema.parse(options);
+}
+
+export const GetNotificationsRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type GetNotificationsRequest = z.infer<
+  typeof GetNotificationsRequestSchema
+>;
+
+export function createGetNotificationsRequest(
+  options: Partial<GetNotificationsRequest> = {},
+): GetNotificationsRequest {
+  return GetNotificationsRequestSchema.parse(options);
+}
+
+export const ProjectLoadRequestSchema = z.object({
+  projectConfigName: z.string(),
+});
+
+export type ProjectLoadRequest = z.infer<typeof ProjectLoadRequestSchema>;
+
+export function createProjectLoadRequest(
+  options: Partial<ProjectLoadRequest> = {},
+): ProjectLoadRequest {
+  return ProjectLoadRequestSchema.parse(options);
+}
+
+export const ProjectSaveRequestSchema = z.object({
+  project: ProjectStateSingleConfigSchema,
+});
+
+export type ProjectSaveRequest = z.infer<typeof ProjectSaveRequestSchema>;
+
+export function createProjectSaveRequest(
+  options: Partial<ProjectSaveRequest> = {},
+): ProjectSaveRequest {
+  return ProjectSaveRequestSchema.parse(options);
+}
+
+export const SaveAsExistingProjectConfigRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+  configName: z.string(),
+});
+
+export type SaveAsExistingProjectConfigRequest = z.infer<
+  typeof SaveAsExistingProjectConfigRequestSchema
+>;
+
+export function createSaveAsExistingProjectConfigRequest(
+  options: Partial<SaveAsExistingProjectConfigRequest> = {},
+): SaveAsExistingProjectConfigRequest {
+  return SaveAsExistingProjectConfigRequestSchema.parse(options);
+}
+
+export const SaveAsNewProjectConfigRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+  newConfigName: z.string(),
+  withRefs: z.boolean(),
+});
+
+export type SaveAsNewProjectConfigRequest = z.infer<
+  typeof SaveAsNewProjectConfigRequestSchema
+>;
+
+export function createSaveAsNewProjectConfigRequest(
+  options: Partial<SaveAsNewProjectConfigRequest> = {},
+): SaveAsNewProjectConfigRequest {
+  return SaveAsNewProjectConfigRequestSchema.parse(options);
+}
+
+export const SetAsDefaultProjectRequestSchema = z.object({
+  projectId: z.string(),
+});
+
+export type SetAsDefaultProjectRequest = z.infer<
+  typeof SetAsDefaultProjectRequestSchema
+>;
+
+export function createSetAsDefaultProjectRequest(
+  options: Partial<SetAsDefaultProjectRequest> = {},
+): SetAsDefaultProjectRequest {
+  return SetAsDefaultProjectRequestSchema.parse(options);
+}
+
+export const SetProjectConfigNameRequestSchema = z.object({
+  projectConfigId: z.string(),
+  newName: z.string(),
+});
+
+export type SetProjectConfigNameRequest = z.infer<
+  typeof SetProjectConfigNameRequestSchema
+>;
+
+export function createSetProjectConfigNameRequest(
+  options: Partial<SetProjectConfigNameRequest> = {},
+): SetProjectConfigNameRequest {
+  return SetProjectConfigNameRequestSchema.parse(options);
+}
+
+export const CreateFileRequestSchema = z.object({
+  filepath: z.string(),
+});
+
+export type CreateFileRequest = z.infer<typeof CreateFileRequestSchema>;
+
+export function createCreateFileRequest(
+  options: Partial<CreateFileRequest> = {},
+): CreateFileRequest {
+  return CreateFileRequestSchema.parse(options);
+}
+
+export const DeleteFileRequestSchema = z.object({
+  filepath: z.string(),
+});
+
+export type DeleteFileRequest = z.infer<typeof DeleteFileRequestSchema>;
+
+export function createDeleteFileRequest(
+  options: Partial<DeleteFileRequest> = {},
+): DeleteFileRequest {
+  return DeleteFileRequestSchema.parse(options);
+}
+
+export const FileWatchGenPythonCodeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  watch: z.boolean(),
+});
+
+export type FileWatchGenPythonCodeRequest = z.infer<
+  typeof FileWatchGenPythonCodeRequestSchema
+>;
+
+export function createFileWatchGenPythonCodeRequest(
+  options: Partial<FileWatchGenPythonCodeRequest> = {},
+): FileWatchGenPythonCodeRequest {
+  return FileWatchGenPythonCodeRequestSchema.parse(options);
+}
+
+export const FileWatchListRequestSchema = z.object({
+  filepaths: z.array(z.string()),
+  fileWatchGroupName: z.string(),
+});
+
+export type FileWatchListRequest = z.infer<typeof FileWatchListRequestSchema>;
+
+export function createFileWatchListRequest(
+  options: Partial<FileWatchListRequest> = {},
+): FileWatchListRequest {
+  return FileWatchListRequestSchema.parse(options);
+}
+
+export const GetJSONSourcePathToBeDeletedSchema = z.object({
+  variantName: z.string(),
+});
+
+export type GetJSONSourcePathToBeDeleted = z.infer<
+  typeof GetJSONSourcePathToBeDeletedSchema
+>;
+
+export function createGetJSONSourcePathToBeDeleted(
+  options: Partial<GetJSONSourcePathToBeDeleted> = {},
+): GetJSONSourcePathToBeDeleted {
+  return GetJSONSourcePathToBeDeletedSchema.parse(options);
+}
+
+export const LoadJSONSourceObjectSchema = z.object({
+  sections: z.record(z.string(), SectionSchema),
+  variants: z.record(z.string(), SectionVariantSchema),
+  codeInfo: z.record(z.string(), CodeInfoSchema),
+  codeInfoCols: z.record(z.string(), CodeInfoColSchema),
+});
+
+export type LoadJSONSourceObject = z.infer<typeof LoadJSONSourceObjectSchema>;
+
+export function createLoadJSONSourceObject(
+  options: Partial<LoadJSONSourceObject> = {},
+): LoadJSONSourceObject {
+  return LoadJSONSourceObjectSchema.parse(options);
+}
+
+export const LoadSectionJSONSourceRequestSchema = z.object({
+  project: LoadJSONSourceObjectSchema,
+  variantIdsToLoad: z.array(z.string()),
+});
+
+export type LoadSectionJSONSourceRequest = z.infer<
+  typeof LoadSectionJSONSourceRequestSchema
+>;
+
+export function createLoadSectionJSONSourceRequest(
+  options: Partial<LoadSectionJSONSourceRequest> = {},
+): LoadSectionJSONSourceRequest {
+  return LoadSectionJSONSourceRequestSchema.parse(options);
+}
+
+export const NewJSONVersionNameRequestSchema = z.object({
+  filename: z.string(),
+});
+
+export type NewJSONVersionNameRequest = z.infer<
+  typeof NewJSONVersionNameRequestSchema
+>;
+
+export function createNewJSONVersionNameRequest(
+  options: Partial<NewJSONVersionNameRequest> = {},
+): NewJSONVersionNameRequest {
+  return NewJSONVersionNameRequestSchema.parse(options);
+}
+
+export const SaveSectionJSONSourceRequestSchema = z.object({
+  project: z.record(z.string(), z.any()),
+  variantId: z.string(),
+});
+
+export type SaveSectionJSONSourceRequest = z.infer<
+  typeof SaveSectionJSONSourceRequestSchema
+>;
+
+export function createSaveSectionJSONSourceRequest(
+  options: Partial<SaveSectionJSONSourceRequest> = {},
+): SaveSectionJSONSourceRequest {
+  return SaveSectionJSONSourceRequestSchema.parse(options);
+}
+
+export const SectionToYamlRequestSchema = z.object({
+  codeInfo: z.record(z.string(), z.any()),
+  codeInfoChildren: z.record(z.string(), z.any()),
+  sectionVariant: z.record(z.string(), z.any()),
+  pinnedIds: z.record(z.string(), z.array(z.string())),
+  unpinnedIds: z.record(z.string(), z.array(z.string())),
+});
+
+export type SectionToYamlRequest = z.infer<typeof SectionToYamlRequestSchema>;
+
+export function createSectionToYamlRequest(
+  options: Partial<SectionToYamlRequest> = {},
+): SectionToYamlRequest {
+  return SectionToYamlRequestSchema.parse(options);
+}
+
+export const SectionsMakeCopyRequestSchema = z.object({
+  sectionsAndOtherInfo: z.record(z.string(), z.any()),
+});
+
+export type SectionsMakeCopyRequest = z.infer<
+  typeof SectionsMakeCopyRequestSchema
+>;
+
+export function createSectionsMakeCopyRequest(
+  options: Partial<SectionsMakeCopyRequest> = {},
+): SectionsMakeCopyRequest {
+  return SectionsMakeCopyRequestSchema.parse(options);
+}
+
+export const SaveSettingsProjectRequestSchema = z.object({
+  settingsProject: ProjectStateSingleConfigSchema,
+});
+
+export type SaveSettingsProjectRequest = z.infer<
+  typeof SaveSettingsProjectRequestSchema
+>;
+
+export function createSaveSettingsProjectRequest(
+  options: Partial<SaveSettingsProjectRequest> = {},
+): SaveSettingsProjectRequest {
+  return SaveSettingsProjectRequestSchema.parse(options);
+}
+
+export const SaveSettingsRequestSchema = z.object({
+  settings: z.record(z.string(), z.any()),
+});
+
+export type SaveSettingsRequest = z.infer<typeof SaveSettingsRequestSchema>;
+
+export function createSaveSettingsRequest(
+  options: Partial<SaveSettingsRequest> = {},
+): SaveSettingsRequest {
+  return SaveSettingsRequestSchema.parse(options);
+}
+
+export const DeleteTerminalsRequestSchema = z.object({
+  sectionIds: z.array(z.string()),
+});
+
+export type DeleteTerminalsRequest = z.infer<
+  typeof DeleteTerminalsRequestSchema
+>;
+
+export function createDeleteTerminalsRequest(
+  options: Partial<DeleteTerminalsRequest> = {},
+): DeleteTerminalsRequest {
+  return DeleteTerminalsRequestSchema.parse(options);
+}
+
+export const KillSubprocessesRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type KillSubprocessesRequest = z.infer<
+  typeof KillSubprocessesRequestSchema
+>;
+
+export function createKillSubprocessesRequest(
+  options: Partial<KillSubprocessesRequest> = {},
+): KillSubprocessesRequest {
+  return KillSubprocessesRequestSchema.parse(options);
+}
+
+export const RunCodeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.union([z.string(), z.null()]),
+  cliId: z.union([z.string(), z.null()]).default(null),
+});
+
+export type RunCodeRequest = z.infer<typeof RunCodeRequestSchema>;
+
+export function createRunCodeRequest(
+  options: Partial<RunCodeRequest> = {},
+): RunCodeRequest {
+  return RunCodeRequestSchema.parse(options);
+}
+
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),

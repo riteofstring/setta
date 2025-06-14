@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import (
     Annotated,
     Any,
+    Callable,
     Dict,
     List,
     Literal,
@@ -20,6 +21,7 @@ from typing import (
     get_origin,
 )
 
+import setta.routers
 import setta.types
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
@@ -120,7 +122,8 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
 
 
 def alias_to_zod(name: str, alias_type, type_definitions: dict, processed_types: set):
-    if name in processed_types:
+    # Have to catch a case where Callable is an alias for some reason
+    if name in processed_types or name == "Callable":
         return ""
 
     processed_types.add(name)
@@ -273,6 +276,7 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
         Path: "z.string()",
         AnyUrl: "z.url()",
         WebSocket: "WebSocket",
+        Callable: "z.function()",
     }
 
     if python_type in type_map:
@@ -417,6 +421,7 @@ def main(output_file):
     all_pydantic_models = {}
     all_dataclasses = {}
     modules = get_modules_from_package(setta.types)
+    modules += get_modules_from_package(setta.routers)
     for module in modules:
         aliases = get_all_type_aliases(module)
         all_aliases.update({k: v for k, v in aliases})
