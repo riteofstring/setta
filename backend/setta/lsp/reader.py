@@ -2,6 +2,9 @@ import asyncio
 import json
 import logging
 
+from lsprotocol import converters as LSPConverters
+from lsprotocol import types as LSPTypes
+
 from .server import LanguageServer, LanguageServerInteractor
 
 logger = logging.getLogger(__name__)
@@ -14,6 +17,7 @@ class LanguageServerReader(LanguageServerInteractor):
         self.started = asyncio.Event()
         self.reader_task = None
         self.initialized_callback = initialized_callback
+        self.lsp_converter = LSPConverters.get_converter()
 
     async def start(self):
         logger.debug(f"Starting {self.server.name} language server reader")
@@ -116,4 +120,11 @@ class LanguageServerReader(LanguageServerInteractor):
             uri = response["params"]["uri"]
             callback = self.diagnostics_response_callbacks.get(uri)
             if callback:
-                asyncio.create_task(callback(response))
+                asyncio.create_task(
+                    callback(
+                        self.lsp_converter.structure(
+                            response,
+                            LSPTypes.TextDocumentPublishDiagnosticsNotification,
+                        )
+                    )
+                )
