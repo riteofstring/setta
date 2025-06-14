@@ -1,8 +1,11 @@
-import { dbNewVersionFilename } from "requests/sectionVariants";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { duplicateCodeInfoCol } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_save_section_json_source } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_new_json_version_name,
+  route_save_section_json_source,
+} from "utils/generatedEndpoints";
 import { createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
@@ -41,8 +44,8 @@ async function maybeSaveNewJSONVersion(
 
 async function createNewVersionName(currName, isJsonSource) {
   if (isJsonSource) {
-    const res = await dbNewVersionFilename(currName);
-    if (res.status === 200) {
+    const res = await route_new_json_version_name({ filename: currName });
+    if (res200(res)) {
       return res.data;
     }
   }

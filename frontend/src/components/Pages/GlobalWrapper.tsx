@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
-import { dbLoadSettings } from "requests/settings";
 import { openWebSocket, sendLocation } from "requests/websocket";
 import { useProjectLoading, useSettings } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { router_get_default_project_config_name } from "utils/generatedEndpoints";
+import {
+  route_load_settings,
+  router_get_default_project_config_name,
+} from "utils/generatedEndpoints";
 
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
@@ -60,8 +62,8 @@ function useLoadSettings() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   async function fn() {
-    const res = await dbLoadSettings();
-    if (res.status === 200) {
+    const res = await route_load_settings();
+    if (res200(res)) {
       useSettings.setState(res.data);
     }
     setSettingsLoaded(true);

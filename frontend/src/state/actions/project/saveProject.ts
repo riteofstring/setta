@@ -1,7 +1,6 @@
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { dbSaveSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
   useProjectState,
@@ -9,10 +8,12 @@ import {
   useSettings,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
 import {
   route_save_as_existing_project_config,
   route_save_as_new_project_config,
   route_save_project,
+  route_save_settings_project,
 } from "utils/generatedEndpoints";
 import {
   ProjectStateSingleConfig,
@@ -92,9 +93,13 @@ export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
 
   if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
-    const res = await dbSaveSettingsProject(getProjectData({}));
-    if (res.status === 200) {
-      useSettings.setState(res.data);
+    const res = await route_save_settings_project({
+      settingsProject: getProjectData({}),
+    });
+    if (res200(res)) {
+      if (res.data) {
+        useSettings.setState(res.data);
+      }
     }
   } else {
     route_save_project({

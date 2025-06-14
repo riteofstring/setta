@@ -1,10 +1,10 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import { VscReferences } from "react-icons/vsc";
-import { dbSaveSettings } from "requests/settings";
 import { setModalOpen } from "state/actions/modal";
 import { makeReplacements } from "state/actions/referenceRenaming";
 import { useModal, useSettings } from "state/definitions";
+import { route_save_settings } from "utils/generatedEndpoints";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
 
 export function RenameReferencesModal() {
@@ -22,7 +22,7 @@ export function RenameReferencesModal() {
         },
       }));
 
-      dbSaveSettings(useSettings.getState());
+      route_save_settings({ settings: useSettings.getState() });
     }
   };
 
@@ -35,7 +35,7 @@ export function RenameReferencesModal() {
         },
       }));
 
-      dbSaveSettings(useSettings.getState());
+      route_save_settings({ settings: useSettings.getState() });
     }
     await makeReplacements(modalData);
     setModalOpen(false);

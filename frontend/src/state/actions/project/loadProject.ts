@@ -1,7 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
-import { dbLoadSettingsProject } from "requests/settings";
 import {
   useNodeInternals,
   useProjectState,
@@ -16,6 +15,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
   route_load_project_config,
+  route_load_settings_project,
 } from "utils/generatedEndpoints";
 import { maybeRunGuiToYamlOnAllSections } from "../guiToYaml";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
@@ -31,8 +31,8 @@ export async function loadProjectConfig({ projectConfigName }) {
 }
 
 export async function loadSettingsProjectConfig() {
-  const res = await dbLoadSettingsProject();
-  if (res.status === 200) {
+  const res = await route_load_settings_project();
+  if (res200(res)) {
     console.log(res.data);
     return await loadProjectState(res.data);
   } else {

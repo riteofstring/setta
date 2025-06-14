@@ -6,6 +6,7 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
+from setta.types.settings_state import SettingsState
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 from .dependencies import (
@@ -32,7 +33,9 @@ def route_save_settings(
 
 
 @router.post(Route.LOAD_SETTINGS)
-def route_load_settings(settings_file: SettingsFile = Depends(get_settings_file)):
+def route_load_settings(
+    settings_file: SettingsFile = Depends(get_settings_file),
+) -> SettingsState:
     return settings_file.load_settings()
 
 
@@ -42,7 +45,7 @@ async def route_save_settings_project(
     background_tasks: BackgroundTasks,
     settings_file: SettingsFile = Depends(get_settings_file),
     websocket_msg_handler: BaseWebsocketMsgHandler = Depends(get_wmh_base),
-):
+) -> SettingsState | None:
     notification = None
     output = None
     try:
@@ -71,6 +74,6 @@ async def route_save_settings_project(
 @router.post(Route.LOAD_SETTINGS_PROJECT)
 async def route_load_settings_project(
     settings_file: SettingsFile = Depends(get_settings_file),
-):
+) -> ProjectStateSingleConfig:
     p = settings_file.load_settings_project()
     return p

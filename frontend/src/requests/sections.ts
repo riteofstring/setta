@@ -2,9 +2,8 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectState, useTypeErrors } from "state/definitions";
 import { C } from "utils/c";
-import { RouteEnum } from "utils/generatedTypes";
+import { route_type_check } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
-import { post } from "./utils";
 import { sendMessage } from "./websocket";
 
 export async function dbRequestTypeCheck(userRequested = false) {
@@ -13,10 +12,7 @@ export async function dbRequestTypeCheck(userRequested = false) {
     useTypeErrors.setState({ userRequested });
   }
   const projectConfigId = useProjectState.getState().projectConfig.id;
-  post({
-    body: { projectConfigId },
-    address: RouteEnum.TYPE_CHECK,
-  });
+  route_type_check({ projectConfigId });
 }
 
 export async function wsSetSelectedItem(

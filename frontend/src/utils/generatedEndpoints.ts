@@ -184,19 +184,19 @@ export async function route_save_settings(
 }
 
 export async function route_load_settings(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.SettingsState>
 > {
   return await post("/loadSettings");
 }
 
 export async function route_save_settings_project(
   x: gt.SaveSettingsProjectRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.SettingsState | null>> {
   return await post("/saveSettingsProject", x);
 }
 
 export async function route_load_settings_project(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.ProjectStateSingleConfig>
 > {
   return await post("/loadSettingsProject");
 }
