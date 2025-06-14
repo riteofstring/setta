@@ -32,6 +32,8 @@ class Project(Base):
     user_id = Column(String, nullable=False)  # Clerk user ID
     created_at = Column(DateTime, default=datetime.utcnow)
     last_checked = Column(DateTime, nullable=True)
+    machine_id = Column(String, nullable=True)  # Fly.io machine ID
+    machine_state = Column(String, default="started")  # Machine hibernation state
 
 
 # Create tables

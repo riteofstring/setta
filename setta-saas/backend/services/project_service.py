@@ -110,10 +110,12 @@ class ProjectService:
             # Actually deploy (this is synchronous so run in thread)
             deployment = await asyncio.to_thread(self.fly.create_and_deploy_app, app_name)
 
-            # Update project with deployment info
+            # Update project with deployment info INCLUDING machine data
             project.url = deployment["url"]
             project.status = "running"
             project.last_checked = datetime.utcnow()
+            project.machine_id = deployment["machine_id"]  # Store machine ID
+            project.machine_state = deployment["machine_state"]  # Store initial state
             db.commit()
 
             # Send completion progress
@@ -129,6 +131,7 @@ class ProjectService:
             if project:
                 project.url = "Failed to create"
                 project.status = "error"
+                project.machine_state = "error"  # Set machine state to error
                 db.commit()
 
             # Broadcast error
@@ -347,4 +350,6 @@ class ProjectService:
             url=project.url,
             status=project.status,
             created_at=project.created_at,
+            machine_id=project.machine_id,
+            machine_state=project.machine_state,
         )

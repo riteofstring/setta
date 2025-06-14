@@ -48,10 +48,15 @@ class FlyService:
             ipv4, ipv6 = allocate_ips(self.client, app_name)
             print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
-            # Deploy machine
-            print("Deploying machine...")
-            machine_id = create_and_deploy_machine(self.client, app_name)
+            # Deploy machine with 5 minute idle timeout for cost savings
+            print("Deploying machine with hibernation enabled...")
+            machine_id = create_and_deploy_machine(
+                self.client,
+                app_name,
+                idle_timeout_minutes=5,  # Hibernate after 5 minutes of inactivity
+            )
             print(f"✓ Machine created: {machine_id}")
+            print("✓ Hibernation enabled (5 minute idle timeout)")
 
             # Wait for app to be ready
             print("Waiting for DNS propagation...")
@@ -70,6 +75,7 @@ class FlyService:
                 "ipv4": ipv4,
                 "ipv6": ipv6,
                 "status": "deployed",
+                "machine_state": "started",  # Initial state
             }
 
         except Exception as e:

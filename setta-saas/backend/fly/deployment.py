@@ -1,4 +1,3 @@
-# backend/fly/deployment.py
 """
 Deployment operations for Fly.io apps with hibernation support.
 """
@@ -167,9 +166,33 @@ def get_app_status(client: FlyClient, app_name: str) -> dict | None:
 
 
 def create_and_deploy_machine(
-    client: FlyClient, app_name: str, image: str = "flyio/hellofly:latest", region: str = "ewr"
+    client: FlyClient,
+    app_name: str,
+    image: str = "flyio/hellofly:latest",
+    region: str = "ewr",
+    idle_timeout_minutes: int = 5,  # NEW: Configurable idle timeout
 ) -> str:
-    """Create and deploy a machine to the app with hibernation enabled."""
+    """Create and deploy a machine to the app with hibernation enabled.
+
+    Args:
+        client: Fly.io API client
+        app_name: Name of the app to deploy to
+        image: Docker image to deploy
+        region: Region to deploy in
+        idle_timeout_minutes: Minutes of inactivity before hibernation (default: 5)
+
+    Returns:
+        Machine ID
+    """
+    # Convert minutes to the format Fly.io expects
+    # Fly.io uses format like "5m" for 5 minutes, "1h" for 1 hour
+    if idle_timeout_minutes < 60:
+        idle_timeout = f"{idle_timeout_minutes}m"
+    else:
+        hours = idle_timeout_minutes // 60
+        minutes = idle_timeout_minutes % 60
+        idle_timeout = f"{hours}h{minutes}m" if minutes else f"{hours}h"
+
     config = {
         "image": image,
         "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 256},
@@ -181,12 +204,30 @@ def create_and_deploy_machine(
                 ],
                 "protocol": "tcp",
                 "internal_port": 8080,
-                # HIBERNATION SETTINGS - THIS IS THE KEY CHANGE
+                # HIBERNATION SETTINGS
                 "autostop": "stop",  # Stop machine when idle
                 "autostart": True,  # Start on incoming request
                 "min_machines_running": 0,  # Allow scaling to zero
+                # NEW: Add idle timeout configuration
+                "checks": [
+                    {
+                        "type": "http",
+                        "port": 8080,
+                        "path": "/health",  # Assuming your app has a health endpoint
+                        "interval": "15s",
+                        "timeout": "10s",
+                    }
+                ],
             }
         ],
+        # NEW: Machine-level auto stop configuration
+        "auto_destroy": False,  # Don't destroy, just stop
+        "restart": {"policy": "on-failure", "max_retries": 1},
+        # NEW: Stop configuration
+        "stop": {
+            "timeout": idle_timeout,  # e.g., "5m" for 5 minutes
+            "signal": "SIGTERM",
+        },
     }
 
     machine = client.create_machine(app_name, config, region)
@@ -235,4 +276,26 @@ def get_machine_status(client: FlyClient, app_name: str, machine_id: str) -> dic
         "created_at": machine.get("created_at"),
         "updated_at": machine.get("updated_at"),
         "config": machine.get("config", {}),
+        "checks": machine.get("checks", []),  # Health check status
     }
+
+
+def list_machines(client: FlyClient, app_name: str) -> list[dict]:
+    """List all machines for an app."""
+    url = f"{client.machines_url}/apps/{app_name}/machines"
+
+    with httpx.Client() as http:
+        response = http.get(url, headers=client.headers, timeout=30.0)
+        response.raise_for_status()
+        return response.json()
+
+
+def get_machine_events(client: FlyClient, app_name: str, machine_id: str) -> list[dict]:
+    """Get recent events for a machine (useful for debugging hibernation)."""
+    url = f"{client.machines_url}/apps/{app_name}/machines/{machine_id}/events"
+
+    with httpx.Client() as http:
+        response = http.get(url, headers=client.headers, timeout=30.0)
+        if response.status_code == 200:
+            return response.json()
+        return []
