@@ -408,6 +408,7 @@ export enum RouteEnum {
   "CLEAR_TEXT_FIELD_COMPLETION" = "/clearTextFieldCompletion",
   "SET_SELECTED_ITEM" = "/setSelectedItem",
   "TEXT_FIELD_COMPLETION" = "/textFieldCompletion",
+  "CODE_AREA_COMPLETION" = "/codeAreaCompletion",
 }
 
 export enum RenameRefactorModeEnum {
@@ -1439,6 +1440,23 @@ export function createClearTextFieldCompletionRequest(
   options: Partial<ClearTextFieldCompletionRequest> = {},
 ): ClearTextFieldCompletionRequest {
   return ClearTextFieldCompletionRequestSchema.parse(options);
+}
+
+export const CodeAreaCompletionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  fullText: z.string(),
+  position: z.int(),
+});
+
+export type CodeAreaCompletionRequest = z.infer<
+  typeof CodeAreaCompletionRequestSchema
+>;
+
+export function createCodeAreaCompletionRequest(
+  options: Partial<CodeAreaCompletionRequest> = {},
+): CodeAreaCompletionRequest {
+  return CodeAreaCompletionRequestSchema.parse(options);
 }
 
 export const SetSelectedItemRequestSchema = z.object({

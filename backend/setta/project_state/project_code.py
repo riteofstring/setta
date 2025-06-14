@@ -233,21 +233,21 @@ class ProjectPythonCode(PythonCode):
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)
 
-    async def code_area_autocomplete(self, messageId, fullText, position):
+    async def code_area_autocomplete(self, fullText, position):
         self.code = fullText
         await self.update_file()
         line, col = position_to_line_col(fullText, position)
+        request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
                 filepath=self.temp_file,
                 line=line,
                 character=col,
-                request_id=messageId,
+                request_id=request_id,
             ),
-            messageId,
+            request_id,
         )
-        result = process_completion_response(response, self.code)
-        await self.websocket_msg_handler.return_to_requester(result, messageId)
+        return process_completion_response(response, self.code)
 
     async def type_check(self):
         await self.send_document_open_request(self.code)

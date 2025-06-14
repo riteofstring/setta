@@ -12,12 +12,13 @@ import {
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { wsCodeAreaCompletion } from "state/actions/websocketSend";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { route_code_area_completion } from "utils/generatedEndpoints";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => x.sections[sectionId].codeLanguage);
@@ -298,9 +299,19 @@ const debouncedSetCode = _.debounce((sectionId, value) => {
 }, 50);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
-  const fn = async (fullText, position) => {
-    const res = await wsCodeAreaCompletion({ sectionId, fullText, position });
-    return res;
+  const fn = async (fullText: string, position: number) => {
+    const projectConfigId = useProjectState.getState().projectConfig.id;
+    const res = await route_code_area_completion({
+      projectConfigId,
+      sectionId,
+      fullText,
+      position,
+    });
+
+    if (res200(res)) {
+      return res.data;
+    }
+    return [];
   };
 
   return wrappedCompletionsFn(fn);

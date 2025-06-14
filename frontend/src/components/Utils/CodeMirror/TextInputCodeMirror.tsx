@@ -1,4 +1,3 @@
-import { Completion } from "@codemirror/autocomplete";
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
@@ -186,10 +185,7 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
-  const fn = async (
-    fullText: string,
-    position: number,
-  ): Promise<Completion[]> => {
+  const fn = async (fullText: string, position: number) => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
       paramInfoId,

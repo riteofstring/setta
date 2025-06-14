@@ -67,3 +67,4 @@ class Route(Enum):
     CLEAR_TEXT_FIELD_COMPLETION = "/clearTextFieldCompletion"
     SET_SELECTED_ITEM = "/setSelectedItem"
     TEXT_FIELD_COMPLETION = "/textFieldCompletion"
+    CODE_AREA_COMPLETION = "/codeAreaCompletion"

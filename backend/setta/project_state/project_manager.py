@@ -297,7 +297,6 @@ class ProjectManager:
     @enqueue_method
     async def code_area_autocomplete(
         self,
-        messageId: str,
         projectConfigId: str,
         sectionId: str,
         fullText: str,
@@ -306,7 +305,8 @@ class ProjectManager:
         print("*************code_area_autocomplete\n\n\n", flush=True)
         code = self.code_dict[projectConfigId][sectionId]
         if isinstance(code, ProjectPythonCode):
-            await code.code_area_autocomplete(messageId, fullText, position)
+            return await code.code_area_autocomplete(fullText, position)
+        return []
 
     @enqueue_method
     async def gen_code_prefix_autocomplete(

@@ -320,3 +320,9 @@ export async function route_text_field_completion(
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post("/textFieldCompletion", x);
 }
+
+export async function route_code_area_completion(
+  x: gt.CodeAreaCompletionRequest,
+): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
+  return await post("/codeAreaCompletion", x);
+}

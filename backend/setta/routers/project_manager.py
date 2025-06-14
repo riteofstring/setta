@@ -31,6 +31,13 @@ class TextFieldCompletionRequest(BaseModel):
     position: int
 
 
+class CodeAreaCompletionRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    fullText: str
+    position: int
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest,
@@ -58,4 +65,14 @@ async def route_text_field_completion(
 ) -> list[CodeMirrorCompletion]:
     return await project_manager.text_field_autocomplete(
         x.projectConfigId, x.sectionId, x.paramInfoId, x.fullText, x.position
+    )
+
+
+@router.post(Route.CODE_AREA_COMPLETION)
+async def route_code_area_completion(
+    x: CodeAreaCompletionRequest,
+    project_manager: ProjectManager = Depends(get_project_manager),
+) -> list[CodeMirrorCompletion]:
+    return await project_manager.code_area_autocomplete(
+        x.projectConfigId, x.sectionId, x.fullText, x.position
     )
