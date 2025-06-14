@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from lsprotocol import types as LSPTypes
+
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
@@ -177,12 +179,14 @@ class ProjectGenPythonCode(PythonCode):
     async def type_check(self):
         await self.send_document_open_request(self.code_generator.code)
 
-    async def process_diagnostics_response(self, lsp_response):
-        params = lsp_response["params"]
-        if self.lsp_writer.get_latest_version_number(self.uri) != params["version"]:
+    async def process_diagnostics_response(
+        self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
+    ):
+        params = lsp_response.params
+        if self.lsp_writer.get_latest_version_number(self.uri) != params.version:
             return
         diagnostics = process_gen_code_diagnostics(
-            params["diagnostics"],
+            params.diagnostics,
             self.code_generator,
             self.dep_graph,
         )

@@ -62,6 +62,12 @@ class ParamNode(Node):
         return bool(self.name) and self.value is not None and self.value != ""
 
 
+@dataclass
+class GraphKeySeparated:
+    sectionId: str
+    paramInfoId: str | None
+
+
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = set(
@@ -330,6 +336,5 @@ class DependencyGraph:
     def create_graph_key(self, section_id: str, param_info_id: str | None = None):
         return (section_id, param_info_id)
 
-    @staticmethod
-    def extract_ids_from_graph_key(graph_key):
-        return {"sectionId": graph_key[0], "paramInfoId": graph_key[1]}
+    def extract_ids_from_graph_key(self, graph_key: GraphKeyType) -> GraphKeySeparated:
+        return GraphKeySeparated(sectionId=graph_key[0], paramInfoId=graph_key[1])

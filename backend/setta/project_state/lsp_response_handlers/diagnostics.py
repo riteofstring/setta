@@ -1,47 +1,82 @@
 import re
+from dataclasses import dataclass
+from typing import Callable
 
-from setta.code_gen.dependency_graph import DependencyGraph, ParamNode
+from lsprotocol import types as LSPTypes
+from pydantic import BaseModel
+
+from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.types.project_state import ParameterPassingStyle
 
 
+class SettaGenCodeDiagnostic(BaseModel):
+    sectionId: str
+    paramInfoId: str | None
+    message: str
+
+
+@dataclass
+class LSPPosition:
+    start: int
+    end: int
+
+
 def process_gen_code_diagnostics(
-    diagnostics, code_generator: PythonCodeGenerator, dep_graph: DependencyGraph
+    diagnostics: list[LSPTypes.Diagnostic],
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
 ):
-    convert_diagnostic_line_cols_to_positions(code_generator.code, diagnostics)
-    output = []
-    for d in diagnostics:
-        # print(f"{d}\n", flush=True)
-        output.extend(process_gen_code_diagnostic(d, code_generator, dep_graph))
-    # print(output)
+    positions = convert_diagnostic_line_cols_to_positions(
+        code_generator.code, diagnostics
+    )
+    output: list[SettaGenCodeDiagnostic] = []
+    for i, d in enumerate(diagnostics):
+        output.extend(
+            process_gen_code_diagnostic(d, positions[i], code_generator, dep_graph)
+        )
     return output
 
 
 def process_gen_code_diagnostic(
-    d, code_generator: PythonCodeGenerator, dep_graph: DependencyGraph
+    d: LSPTypes.Diagnostic,
+    position: LSPPosition,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
 ):
-    start = d["range"]["start"]
-    end = d["range"]["end"]
-    message = d["message"]
-    if d.get("code") == "reportArgumentType":
+    message = d.message
+    if d.code == "reportArgumentType":
         return process_report_argument_type(
-            start, end, message, code_generator, dep_graph
+            position.start, position.end, message, code_generator, dep_graph
         )
-    elif d.get("code") == "reportCallIssue":
-        return process_report_call_issue(start, end, message, code_generator, dep_graph)
+    elif d.code == "reportCallIssue":
+        return process_report_call_issue(
+            position.start, message, code_generator, dep_graph
+        )
     return []
 
 
-def process_report_argument_type(start, end, message, code_generator, dep_graph):
-    problem_var = code_generator.code[start["position"] : end["position"]]
+def process_report_argument_type(
+    start: int,
+    end: int,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
+):
+    problem_var = code_generator.code[start:end]
     graph_key = code_generator.reverse_var_name_mapping.get(problem_var)
     if graph_key:
         return [get_message_with_ids(message, graph_key, dep_graph)]
     return []
 
 
-def process_report_call_issue(start, end, message, code_generator, dep_graph):
+def process_report_call_issue(
+    start: int,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
+):
     if "positional argument" in message:
         return process_positional_argument_issue(
             start, message, code_generator, dep_graph
@@ -51,7 +86,13 @@ def process_report_call_issue(start, end, message, code_generator, dep_graph):
     return []
 
 
-def _process_argument_issue(start, message, code_generator, dep_graph, param_filter):
+def _process_argument_issue(
+    start: int,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
+    param_filter: Callable[[ParamNode], bool],
+):
     """
     Helper function to process argument issues.
 
@@ -62,7 +103,7 @@ def _process_argument_issue(start, message, code_generator, dep_graph, param_fil
         dep_graph: DependencyGraph instance
         param_filter: Function that takes a param and returns True if it should be included
     """
-    graph_key = code_generator.value_pos_start_to_graph_key.get(start["position"])
+    graph_key = code_generator.value_pos_start_to_graph_key.get(start)
     if not graph_key:
         return []
     node = dep_graph.graph.get(graph_key)
@@ -81,7 +122,12 @@ def _process_argument_issue(start, message, code_generator, dep_graph, param_fil
     return missing_deps
 
 
-def process_positional_argument_issue(start, message, code_generator, dep_graph):
+def process_positional_argument_issue(
+    start: int,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
+):
     return _process_argument_issue(
         start,
         message,
@@ -91,7 +137,12 @@ def process_positional_argument_issue(start, message, code_generator, dep_graph)
     )
 
 
-def process_named_argument_issue(start, message, code_generator, dep_graph):
+def process_named_argument_issue(
+    start: int,
+    message: str,
+    code_generator: PythonCodeGenerator,
+    dep_graph: DependencyGraph,
+):
     missing_param_names = extract_parameters(message)
     return _process_argument_issue(
         start,
@@ -102,26 +153,34 @@ def process_named_argument_issue(start, message, code_generator, dep_graph):
     )
 
 
-def get_message_with_ids(message, graph_key, dep_graph):
-    return {**dep_graph.extract_ids_from_graph_key(graph_key), "message": message}
+def get_message_with_ids(
+    message: str, graph_key: GraphKeyType, dep_graph: DependencyGraph
+):
+    x = dep_graph.extract_ids_from_graph_key(graph_key)
+    return SettaGenCodeDiagnostic(
+        sectionId=x.sectionId, paramInfoId=x.paramInfoId, message=message
+    )
 
 
-def extract_parameters(error_string):
+def extract_parameters(error_string: str):
     pattern = r'"([^"]+)"'
     parameters = re.findall(pattern, error_string)
     return set(parameters)
 
 
-def convert_diagnostic_line_cols_to_positions(code, diagnostics):
+def convert_diagnostic_line_cols_to_positions(
+    code: str, diagnostics: list[LSPTypes.Diagnostic]
+):
     line_cols = []
     for d in diagnostics:
-        x = d["range"]["start"]
-        line_cols.append((x["line"], x["character"]))
-        x = d["range"]["end"]
-        line_cols.append((x["line"], x["character"]))
+        x = d.range.start
+        line_cols.append((x.line, x.character))
+        x = d.range.end
+        line_cols.append((x.line, x.character))
 
     positions = line_col_to_position_batch(code, line_cols)
 
-    for i, d in enumerate(diagnostics):
-        d["range"]["start"]["position"] = positions[i * 2]
-        d["range"]["end"]["position"] = positions[(i * 2) + 1]
+    output: list[LSPPosition] = []
+    for i in range(0, len(positions), 2):
+        output.append(LSPPosition(start=positions[i], end=positions[i + 1]))
+    return output
