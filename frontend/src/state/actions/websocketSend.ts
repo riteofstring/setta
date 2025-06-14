@@ -1,6 +1,7 @@
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
+import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
 
 export async function wsSetSelectedItem(
@@ -58,17 +59,12 @@ export async function wsTextFieldCompletion({
   });
 }
 
-export async function wsClearTextFieldCompletion({ sectionId, paramInfoId }) {
+export async function clearTextFieldCompletion({ sectionId, paramInfoId }) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
-
-  sendMessage({
-    id: createNewId(),
-    messageType: C.WS_CLEAR_TEXT_FIELD_COMPLETION,
-    content: {
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-    },
+  route_clear_text_field_completion({
+    projectConfigId,
+    sectionId,
+    paramInfoId,
   });
 }
 

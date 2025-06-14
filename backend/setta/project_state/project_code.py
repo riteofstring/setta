@@ -91,7 +91,9 @@ class ProjectGenPythonCode(PythonCode):
             result = process_completion_response(response, self.code_generator.code)
             await self.websocket_msg_handler.return_to_requester(result, messageId)
 
-    async def clear_text_field_completion(self, sectionId, paramInfoId):
+    async def clear_text_field_completion(
+        self, sectionId: str, paramInfoId: str | None
+    ):
         await self.insert_code_at_position(sectionId, paramInfoId, "", 0)
 
     async def set_selected_item(

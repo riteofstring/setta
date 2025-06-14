@@ -32,6 +32,7 @@ from setta.routers import (
     code_info_router,
     interactive_code_router,
     lsp_router,
+    project_manager_router,
     projects_router,
     sections_router,
     settings_router,
@@ -157,6 +158,7 @@ app.include_router(interactive_code_router, **kwargs)
 app.include_router(artifact_router, **kwargs)
 app.include_router(lsp_router, **kwargs)
 app.include_router(ai_router, **kwargs)
+app.include_router(project_manager_router, **kwargs)
 
 
 # https://github.com/tiangolo/fastapi/issues/3361#issuecomment-1002120988

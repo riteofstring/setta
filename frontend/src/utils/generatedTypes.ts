@@ -405,6 +405,7 @@ export enum RouteEnum {
   "GET_UUID_MAPPING_FOR_LLM" = "/getUUIDMappingForLLM",
   "RUN_CODE" = "/runCode",
   "TYPE_CHECK" = "/typeCheck",
+  "CLEAR_TEXT_FIELD_COMPLETION" = "/clearTextFieldCompletion",
 }
 
 export enum RenameRefactorModeEnum {
@@ -1420,6 +1421,22 @@ export function createTypeCheckRequest(
   options: Partial<TypeCheckRequest> = {},
 ): TypeCheckRequest {
   return TypeCheckRequestSchema.parse(options);
+}
+
+export const ClearTextFieldCompletionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+});
+
+export type ClearTextFieldCompletionRequest = z.infer<
+  typeof ClearTextFieldCompletionRequestSchema
+>;
+
+export function createClearTextFieldCompletionRequest(
+  options: Partial<ClearTextFieldCompletionRequest> = {},
+): ClearTextFieldCompletionRequest {
+  return ClearTextFieldCompletionRequestSchema.parse(options);
 }
 
 export const AddDefaultDataForJSONImportRequestSchema = z.object({

@@ -4,7 +4,7 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
-import { wsClearTextFieldCompletion } from "state/actions/websocketSend";
+import { clearTextFieldCompletion } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
@@ -87,7 +87,7 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
-      wsClearTextFieldCompletion({ sectionId, paramInfoId: null });
+      clearTextFieldCompletion({ sectionId, paramInfoId: null });
     }
     shouldResetValueOnBlur.current = false;
   }

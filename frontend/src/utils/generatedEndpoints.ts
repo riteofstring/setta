@@ -302,3 +302,9 @@ export async function route_get_uuid_mapping_for_llm(): Promise<
 > {
   return await post("/getUUIDMappingForLLM");
 }
+
+export async function route_clear_text_field_completion(
+  x: gt.ClearTextFieldCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/clearTextFieldCompletion", x);
+}
