@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { sendMessage } from "state/actions/websocketReceive";
 import { useTemporaryMiscState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
@@ -27,21 +26,6 @@ function callFnAndWait({ id, condition, fn }) {
 
     fn?.(actualId);
   });
-}
-
-export async function sendMessageAndWait({
-  id,
-  messageType,
-  content,
-  condition,
-}) {
-  const fn = (actualId) =>
-    sendMessage({
-      id: actualId,
-      messageType,
-      content,
-    });
-  return await callFnAndWait({ id, condition, fn });
 }
 
 export async function requestBase64FromCanvas(sectionId) {
