@@ -17,8 +17,14 @@ class SettaGenCodeDiagnostic(BaseModel):
     message: str
 
 
+class SettaProjectConfigDiagnostics(BaseModel):
+    projectConfigId: str
+    diagnostics: list[SettaGenCodeDiagnostic]
+    isGenCode: bool
+
+
 @dataclass
-class LSPPosition:
+class SettaLSPPosition:
     start: int
     end: int
 
@@ -41,7 +47,7 @@ def process_gen_code_diagnostics(
 
 def process_gen_code_diagnostic(
     d: LSPTypes.Diagnostic,
-    position: LSPPosition,
+    position: SettaLSPPosition,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
 ):
@@ -180,7 +186,7 @@ def convert_diagnostic_line_cols_to_positions(
 
     positions = line_col_to_position_batch(code, line_cols)
 
-    output: list[LSPPosition] = []
+    output: list[SettaLSPPosition] = []
     for i in range(0, len(positions), 2):
-        output.append(LSPPosition(start=positions[i], end=positions[i + 1]))
+        output.append(SettaLSPPosition(start=positions[i], end=positions[i + 1]))
     return output

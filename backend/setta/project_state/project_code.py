@@ -18,6 +18,7 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
+    SettaProjectConfigDiagnostics,
     process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
@@ -190,11 +191,12 @@ class ProjectGenPythonCode(PythonCode):
             self.code_generator,
             self.dep_graph,
         )
-        content = {
-            "projectConfigId": self.project_config_id,
-            "diagnostics": diagnostics,
-            "isGenCode": True,
-        }
+        content = SettaProjectConfigDiagnostics(
+            projectConfigId=self.project_config_id,
+            diagnostics=diagnostics,
+            isGenCode=True,
+        )
+
         await self.websocket_msg_handler.broadcast_lsp_diagnostics(content)
 
     def get_base_filename(self):

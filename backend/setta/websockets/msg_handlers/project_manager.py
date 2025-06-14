@@ -1,3 +1,6 @@
+from setta.project_state.lsp_response_handlers.diagnostics import (
+    SettaProjectConfigDiagnostics,
+)
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket_manager import (
     WebsocketConnectionType,
@@ -13,7 +16,7 @@ class WMHProjectManager(BaseWebsocketMsgHandler):
     def __init__(self, websocket_manager: WebsocketManager):
         self.websocket_manager = websocket_manager
 
-    async def broadcast_lsp_diagnostics(self, content):
+    async def broadcast_lsp_diagnostics(self, content: SettaProjectConfigDiagnostics):
         await self.websocket_manager.broadcast(
             WebsocketMsgLSPDiagnostics(content=content),
             connectionType=WebsocketConnectionType.FRONTEND,

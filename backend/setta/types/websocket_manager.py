@@ -3,6 +3,9 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
+from setta.project_state.lsp_response_handlers.diagnostics import (
+    SettaProjectConfigDiagnostics,
+)
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
@@ -88,7 +91,7 @@ class WebsocketMsgUUIDMappingForLLM(WebsocketMsg):
 
 
 class WebsocketMsgLSPDiagnostics(WebsocketMsg):
-    content: Any
+    content: SettaProjectConfigDiagnostics
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
     )
