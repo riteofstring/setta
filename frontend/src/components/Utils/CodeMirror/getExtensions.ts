@@ -1,6 +1,7 @@
 import {
   acceptCompletion,
   autocompletion,
+  CompletionSource,
   completionStatus,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
@@ -26,6 +27,8 @@ export function getExtensions({
   onEscape,
   keyComboActions,
   isDisabled,
+}: {
+  completionsFn?: CompletionSource;
 }) {
   const extensions = [EditorView.lineWrapping];
 

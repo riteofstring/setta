@@ -1,3 +1,4 @@
+import { Completion, CompletionSource } from "@codemirror/autocomplete";
 import { useReactFlow } from "forks/xyflow/core/store";
 
 function fixPlaceholderCursor(divId, value, defaultVal) {
@@ -40,7 +41,9 @@ function getFromTo(options, before, context) {
   return { from: before ? before.from : context.pos };
 }
 
-export function wrappedCompletionsFn(completionFn) {
+export function wrappedCompletionsFn(
+  completionFn: (fullText: string, position: number) => Promise<Completion[]>,
+): CompletionSource {
   return async (context) => {
     const fullText = context.state.doc.toString();
     if (!fullText.trim()) return null;
