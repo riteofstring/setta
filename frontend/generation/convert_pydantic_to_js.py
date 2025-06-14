@@ -144,9 +144,9 @@ def enum_to_ts(enum_class, processed_types: set):
         return ""
 
     processed_types.add(name)
-    values = [f'"{member.name}"="{member.value}"' for member in enum_class]
+    values = [f'"{member.name}":"{member.value}"' for member in enum_class]
     values_str = ", ".join(values)
-    return f"export enum {name}Enum {{{values_str}}};\n\n"
+    return f"export const {name}Enum = {{{values_str}}} as const;\n\n"
 
 
 def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:

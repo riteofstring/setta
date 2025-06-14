@@ -15,6 +15,7 @@ import {
   createWebsocketConnectionInfo,
   RouteEnum,
   WebsocketConnectionTypeEnum,
+  WebsocketMsgTypeForFrontendEnum,
   WebsocketMsgUnion,
   WebsocketMsgUnionSchema,
 } from "utils/generatedTypes";
@@ -90,30 +91,30 @@ function receiveMessage(message: string) {
   );
   console.log(m);
   switch (m.messageType) {
-    case "AllConnections":
+    case WebsocketMsgTypeForFrontendEnum.AllConnections:
       return setWebsocketConnections(m.content);
-    case "AllDependencies":
+    case WebsocketMsgTypeForFrontendEnum.AllDependencies:
       return updateInteractiveDependencies(m.content);
-    case "Artifact":
+    case WebsocketMsgTypeForFrontendEnum.Artifact:
       return updateInteractiveArtifacts(m.content);
-    case "LLMStreamingResponse":
+    case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
-    case "LSPDiagnostics":
+    case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
       return processTypeErrors(m.content);
-    case "NewTerminalCreated":
+    case WebsocketMsgTypeForFrontendEnum.NewTerminalCreated:
       return createTemporaryTerminalFromBackend(m.content);
-    case "Notification":
+    case WebsocketMsgTypeForFrontendEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
-    case "ReturnRenameRefactorResults":
+    case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
       return processRenameRefactorResults(m.content);
-    case "SpecificFileWatcherUpdate":
+    case WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate:
       return updateWithFileChanges(m.content);
-    case "TerminalMetadata":
+    case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;
-    case "UUIDMappingForLLM":
+    case WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM:
       return updateUUIDMappingForLLM(m.content);
-    case "UpdateFrontendProjectState":
+    case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
       return processProjectStateUpdateFromBackend(m.content);
     default:
       return m satisfies never;
