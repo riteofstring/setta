@@ -1,20 +1,32 @@
 import inspect
 import types
-from typing import Union, get_args, get_origin, get_type_hints
+from typing import (
+    Annotated,
+    Dict,
+    List,
+    Literal,
+    Set,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from setta.server import app
 from setta.types.routes import Route
 from setta.utils.utils import get_absolute_path
+from collections.abc import Sequence as ABCSequence
 
 from .utils import format_generated_code
 
 basic_type_map = {
     str: "string",
     int: "number",
+    float: "number",
     bool: "boolean",
-    type(None): "null",
 }
 
 GENERATED_TYPE_ALIAS = "gt"
@@ -87,18 +99,98 @@ def create_args(inputs):
     return args, args_with_annotations
 
 
-def create_output_annotation(output_type):
-    if output_type is type(None):
+def python_type_to_ts(python_type, type_definitions: dict, processed_types: set):
+    # Handle None type
+    if python_type is type(None):
         return "null"
-    origin = get_origin(output_type)
+
+    # Get the origin for generic types
+    origin = get_origin(python_type)
+
+    # Handle built-in types that aren't from typing module
+    if origin is None:
+        # Check if the type itself is a built-in collection type
+        if python_type in (list, dict, set, tuple):
+            origin = python_type
+
+    # Handle Annotated types - extract the actual type (first arg)
+    if origin is Annotated:
+        args = get_args(python_type)
+        if args:
+            # The first argument is the actual type, rest are annotations
+            return python_type_to_ts(args[0], type_definitions, processed_types)
+        return "any"
+
+    # Handle Literal types
+    if origin is Literal:
+        args = get_args(python_type)
+        # Convert each literal value to zod syntax
+        # Multiple literals - use union
+        literals = []
+        for arg in args:
+            if isinstance(arg, str):
+                literals.append(f'"{arg}"')
+            elif isinstance(arg, bool):
+                literals.append(f"{str(arg).lower()}")
+            else:
+                literals.append(f"{arg}")
+        return " | ".join(literals)
+
+    # Handle Optional/Union types
     if origin in (Union, types.UnionType):
-        args = get_args(output_type)
-        return " | ".join(maybe_get_basic_type_annotation(x) for x in args)
-    elif origin is None:
-        return f"{GENERATED_TYPE_ALIAS}.{output_type.__name__}"
-    else:
-        # support other stuff later
-        raise ValueError
+        args = get_args(python_type)
+        # Check if it's Optional (Union with None)
+        ts_types = [
+            python_type_to_ts(t, type_definitions, processed_types) for t in args
+        ]
+        return " | ".join(ts_types)
+
+    # Handle list/List types
+    if origin in (list, List, ABCSequence):
+        args = get_args(python_type)
+        if args:
+            element_ts_type = python_type_to_ts(
+                args[0], type_definitions, processed_types
+            )
+            return f"Array<{element_ts_type}>"
+        return "Array<any>"
+
+    # Handle dict/Dict types
+    if origin in (dict, Dict):
+        args = get_args(python_type)
+        if args and len(args) >= 2:
+            key_ts_type = python_type_to_ts(args[0], type_definitions, processed_types)
+            key_ts_type = key_ts_type.replace("null,", "").replace(", null", "")
+            value_ts_type = python_type_to_ts(
+                args[1], type_definitions, processed_types
+            )
+            return f"Record<{key_ts_type}, {value_ts_type}>"
+        return "Record<string, any>"
+
+    # Handle set/Set types
+    if origin in (set, Set):
+        args = get_args(python_type)
+        if args:
+            element_ts_type = python_type_to_ts(
+                args[0], type_definitions, processed_types
+            )
+            return f"Set<{element_ts_type}>"
+        return "Set<any>"
+
+    # Handle tuple/Tuple types
+    if origin in (tuple, Tuple):
+        args = get_args(python_type)
+        ts_types = [
+            python_type_to_ts(t, type_definitions, processed_types) for t in args
+        ]
+        return f"[{', '.join(ts_types)}]"
+
+    if python_type in basic_type_map:
+        return basic_type_map[python_type]
+
+    if hasattr(python_type, "__name__"):
+        return f"{GENERATED_TYPE_ALIAS}.{python_type.__name__}"
+    return "any"
 
 
 def create_ts_fn_def(
@@ -136,7 +228,7 @@ def main(output_path):
     specs = get_path_input_output_types()
     ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
-        output_annotation = create_output_annotation(s["output"])
+        output_annotation = python_type_to_ts(s["output"], {}, set())
         args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(
             s["path"],
