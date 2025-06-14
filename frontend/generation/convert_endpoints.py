@@ -1,5 +1,6 @@
 import inspect
-from typing import get_type_hints
+import types
+from typing import Union, get_args, get_origin, get_type_hints
 
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
@@ -8,6 +9,15 @@ from setta.types.routes import Route
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
+
+basic_type_map = {
+    str: "string",
+    int: "number",
+    bool: "boolean",
+    type(None): "null",
+}
+
+GENERATED_TYPE_ALIAS = "gt"
 
 
 def get_path_input_output_types():
@@ -59,27 +69,42 @@ def get_path_input_output_types():
     return output
 
 
-def create_args(inputs, generate_types_alias):
+def maybe_get_basic_type_annotation(x):
+    type_annotation = basic_type_map.get(x)
+    if type_annotation:
+        return type_annotation
+    return f"{GENERATED_TYPE_ALIAS}.{x.__name__}"
+
+
+def create_args(inputs):
     args = []
     args_with_annotations = []
-    type_map = {
-        str: "string",
-        int: "number",
-        bool: "boolean",
-    }
+
     for name, type in inputs.items():
-        type_annotation = type_map.get(type)
-        if not type_annotation:
-            type_annotation = f"{generate_types_alias}.{type.__name__}"
+        type_annotation = maybe_get_basic_type_annotation(type)
         args.append(name)
         args_with_annotations.append(f"{name}:{type_annotation}")
     return args, args_with_annotations
 
 
-def create_ts_fn_def(endpoint_path, method, fn_name, args, args_with_annotations):
-    definition = (
-        f"\nexport async function {fn_name}({', '.join(args_with_annotations)})"
-    )
+def create_output_annotation(output_type):
+    if output_type is type(None):
+        return "null"
+    origin = get_origin(output_type)
+    if origin in (Union, types.UnionType):
+        args = get_args(output_type)
+        return " | ".join(maybe_get_basic_type_annotation(x) for x in args)
+    elif origin is None:
+        return f"{GENERATED_TYPE_ALIAS}.{output_type.__name__}"
+    else:
+        # support other stuff later
+        raise ValueError
+
+
+def create_ts_fn_def(
+    endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
+):
+    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<{output_annotation}>"
     endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
     if method == "POST":
         assert len(args) <= 1
@@ -99,9 +124,9 @@ def create_ts_fn_def(endpoint_path, method, fn_name, args, args_with_annotations
     return definition
 
 
-def create_imports(generate_types_alias):
+def create_imports():
     return f"""
-import * as {generate_types_alias} from "./generatedTypes"
+import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
 import {{ get, post }} from "./endpointUtils"
 
 """
@@ -109,12 +134,17 @@ import {{ get, post }} from "./endpointUtils"
 
 def main(output_path):
     specs = get_path_input_output_types()
-    generate_types_alias = "gt"
-    ts_code = create_imports(generate_types_alias)
+    ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
-        args, args_with_annotations = create_args(s["inputs"], generate_types_alias)
+        output_annotation = create_output_annotation(s["output"])
+        args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(
-            s["path"], s["method"], endpoint_fn_name, args, args_with_annotations
+            s["path"],
+            s["method"],
+            endpoint_fn_name,
+            args,
+            args_with_annotations,
+            output_annotation,
         )
 
     with open(output_path, "w") as f:

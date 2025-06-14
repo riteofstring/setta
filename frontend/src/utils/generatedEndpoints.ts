@@ -1,248 +1,286 @@
 import { get, post } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
-export async function route_load_all_project_metadata() {
+export async function route_load_all_project_metadata(): Promise<null> {
   return await post("/loadAllProjectMetadata");
 }
 
-export async function route_load_project_config(x: gt.ProjectLoadRequest) {
+export async function route_load_project_config(
+  x: gt.ProjectLoadRequest,
+): Promise<gt.ProjectStateSingleConfig> {
   return await post("/loadProjectConfig", x);
 }
 
-export async function route_save_project(x: gt.ProjectSaveRequest) {
+export async function route_save_project(
+  x: gt.ProjectSaveRequest,
+): Promise<null> {
   return await post("/saveProject", x);
 }
 
 export async function route_create_project_config(
   x: gt.CreateProjectConfigRequest,
-) {
+): Promise<null> {
   return await post("/createProjectConfig", x);
 }
 
 export async function route_save_as_new_project_config(
   x: gt.SaveAsNewProjectConfigRequest,
-) {
+): Promise<null> {
   return await post("/saveAsNewProjectConfig", x);
 }
 
 export async function route_save_as_existing_project_config(
   x: gt.SaveAsExistingProjectConfigRequest,
-) {
+): Promise<null> {
   return await post("/saveAsExistingProjectConfig", x);
 }
 
 export async function route_delete_project_configs(
   x: gt.DeleteProjectConfigsRequest,
-) {
+): Promise<null> {
   return await post("/deleteProjectConfigs", x);
 }
 
 export async function route_set_project_config_name(
   x: gt.SetProjectConfigNameRequest,
-) {
+): Promise<null> {
   return await post("/setProjectConfigName", x);
 }
 
-export async function router_get_default_project_config_name() {
+export async function router_get_default_project_config_name(): Promise<null> {
   return await post("/getDefaultConfigName");
 }
 
 export async function router_set_as_default_project(
   x: gt.SetAsDefaultProjectRequest,
-) {
+): Promise<null> {
   return await post("/setAsDefaultProject", x);
 }
 
 export async function router_filter_data_for_json_export(
   x: gt.FilterDataForJSONExportRequest,
-) {
+): Promise<null> {
   return await post("/filterDataForJSONExport", x);
 }
 
 export async function router_add_default_data_for_json_import(
   x: gt.FilterDataForJSONExportRequest,
-) {
+): Promise<null> {
   return await post("/addDefaultDataForJSONImport", x);
 }
 
-export async function route_get_notifications(x: gt.GetNotificationsRequest) {
+export async function route_get_notifications(
+  x: gt.GetNotificationsRequest,
+): Promise<null> {
   return await post("/getNotifications", x);
 }
 
 export async function route_delete_notification(
   x: gt.DeleteNotificationRequest,
-) {
+): Promise<null> {
   return await post("/deleteNotification", x);
 }
 
-export async function route_sections_make_copy(x: gt.SectionsMakeCopyRequest) {
+export async function route_sections_make_copy(
+  x: gt.SectionsMakeCopyRequest,
+): Promise<null> {
   return await post("/copySections", x);
 }
 
-export async function route_section_to_yaml(x: gt.SectionToYamlRequest) {
+export async function route_section_to_yaml(
+  x: gt.SectionToYamlRequest,
+): Promise<null> {
   return await post("/sectionToYaml", x);
 }
 
 export async function route_load_section_json_source(
   x: gt.LoadSectionJSONSourceRequest,
-) {
+): Promise<null> {
   return await post("/loadSectionJSONSource", x);
 }
 
 export async function route_new_json_version_name(
   x: gt.NewJSONVersionNameRequest,
-) {
+): Promise<null> {
   return await post("/newJsonVersionName", x);
 }
 
-export async function route_create_file(x: gt.CreateFileRequest) {
+export async function route_create_file(
+  x: gt.CreateFileRequest,
+): Promise<null> {
   return await post("/createFile", x);
 }
 
 export async function route_save_section_json_source(
   x: gt.SaveSectionJSONSourceRequest,
-) {
+): Promise<null> {
   return await post("/saveSectionJsonSource", x);
 }
 
 export async function route_get_json_source_path_to_be_deleted(
   x: gt.GetJSONSourcePathToBeDeleted,
-) {
+): Promise<null> {
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
-export async function route_delete_file(x: gt.DeleteFileRequest) {
+export async function route_delete_file(
+  x: gt.DeleteFileRequest,
+): Promise<null> {
   return await post("/deleteFile", x);
 }
 
-export async function route_file_watch_list(x: gt.FileWatchListRequest) {
+export async function route_file_watch_list(
+  x: gt.FileWatchListRequest,
+): Promise<null> {
   return await post("/fileWatchList", x);
 }
 
 export async function route_file_watch_gen_python_code(
   x: gt.FileWatchGenPythonCodeRequest,
-) {
+): Promise<null> {
   return await post("/fileWatchGenPythonCode", x);
 }
 
 export async function route_terminal_delete_terminals(
   x: gt.DeleteTerminalsRequest,
-) {
+): Promise<null> {
   return await post("/terminal/deleteTerminals", x);
 }
 
 export async function route_terminal_get_existing_terminals(
   projectConfigId: string,
-) {
+): Promise<null> {
   return await get("/terminal/getExistingTerminals/{projectConfigId}", {
     projectConfigId,
   });
 }
 
-export async function route_kill_subprocesses(x: gt.KillSubprocessesRequest) {
+export async function route_kill_subprocesses(
+  x: gt.KillSubprocessesRequest,
+): Promise<null> {
   return await post("/killSubprocesses", x);
 }
 
-export async function route_run_code(x: gt.RunCodeRequest) {
+export async function route_run_code(x: gt.RunCodeRequest): Promise<null> {
   return await post("/runCode", x);
 }
 
 export async function route_docstring_to_markdown(
   x: gt.DocstringToMarkdownRequest,
-) {
+): Promise<null> {
   return await post("/docstringToMarkdown", x);
 }
 
-export async function route_save_settings(x: gt.SaveSettingsRequest) {
+export async function route_save_settings(
+  x: gt.SaveSettingsRequest,
+): Promise<null> {
   return await post("/saveSettings", x);
 }
 
-export async function route_load_settings() {
+export async function route_load_settings(): Promise<null> {
   return await post("/loadSettings");
 }
 
 export async function route_save_settings_project(
   x: gt.SaveSettingsProjectRequest,
-) {
+): Promise<null> {
   return await post("/saveSettingsProject", x);
 }
 
-export async function route_load_settings_project() {
+export async function route_load_settings_project(): Promise<null> {
   return await post("/loadSettingsProject");
 }
 
-export async function route_format_code(x: gt.FormatCodeRequest) {
+export async function route_format_code(
+  x: gt.FormatCodeRequest,
+): Promise<null> {
   return await post("/formatCode", x);
 }
 
-export async function route_send_artifact(x: gt.SendArtifactRequest) {
+export async function route_send_artifact(
+  x: gt.SendArtifactRequest,
+): Promise<null> {
   return await post("/sendArtfiact", x);
 }
 
-export async function route_load_artifacts(x: gt.LoadArtifactsRequest) {
+export async function route_load_artifacts(
+  x: gt.LoadArtifactsRequest,
+): Promise<null> {
   return await post("/loadArtifacts", x);
 }
 
 export async function route_load_available_artifacts(
   x: gt.LoadAvailableArtifactsRequest,
-) {
+): Promise<null> {
   return await post("/loadAvailableArtifacts", x);
 }
 
 export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequests,
-) {
+): Promise<null> {
   return await post("/checkIfFileExists", x);
 }
 
 export async function route_load_artifact_from_disk(
   x: gt.LoadArtifactFromDiskRequest,
-) {
+): Promise<null> {
   return await post("/loadArtifactFromDisk", x);
 }
 
-export async function route_read_csv_base64(x: gt.ReadCSVBase64Request) {
+export async function route_read_csv_base64(
+  x: gt.ReadCSVBase64Request,
+): Promise<null> {
   return await post("/readCSVBase64", x);
 }
 
 export async function route_get_artifact_ids_from_name_path_type(
   x: gt.FillInMissingArtifactIdsRequest,
-) {
+): Promise<null> {
   return await post("/getArtifactIdsFromNamePathType", x);
 }
 
-export async function route_restart_language_server() {
+export async function route_restart_language_server(): Promise<null> {
   return await post("/restartLanguageServer");
 }
 
-export async function route_type_check(x: gt.TypeCheckRequest) {
+export async function route_type_check(x: gt.TypeCheckRequest): Promise<null> {
   return await post("/typeCheck", x);
 }
 
-export async function route_get_llm_response(x: gt.GetLLMResponseRequest) {
+export async function route_get_llm_response(
+  x: gt.GetLLMResponseRequest,
+): Promise<string | null> {
   return await post("/getLLMResponse", x);
 }
 
-export async function route_set_llm_api_keys(x: gt.SetLLMApiKeysRequest) {
+export async function route_set_llm_api_keys(
+  x: gt.SetLLMApiKeysRequest,
+): Promise<null> {
   return await post("/setLLMApiKeys", x);
 }
 
-export async function route_get_all_llm_chat_metadata() {
+export async function route_get_all_llm_chat_metadata(): Promise<null> {
   return await post("/getAllLLMChatMetadata");
 }
 
-export async function route_delete_llm_chat(x: gt.DeleteLLMChatRequest) {
+export async function route_delete_llm_chat(
+  x: gt.DeleteLLMChatRequest,
+): Promise<null> {
   return await post("/deleteLLMChat", x);
 }
 
-export async function route_stop_llm_chat(x: gt.StopLLMChatRequest) {
+export async function route_stop_llm_chat(
+  x: gt.StopLLMChatRequest,
+): Promise<null> {
   return await post("/stopLLMChat", x);
 }
 
-export async function route_get_llm_chat(x: gt.GetLLMChatRequest) {
+export async function route_get_llm_chat(
+  x: gt.GetLLMChatRequest,
+): Promise<null> {
   return await post("/getLLMChat", x);
 }
 
-export async function route_get_uuid_mapping_for_llm() {
+export async function route_get_uuid_mapping_for_llm(): Promise<null> {
   return await post("/getUUIDMappingForLLM");
 }
