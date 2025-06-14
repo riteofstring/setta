@@ -3,8 +3,12 @@ import {
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { dbLoadArtifacts, dbReadCSVBase64 } from "requests/artifacts";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_load_artifacts,
+  route_read_csv_base64,
+} from "utils/generatedEndpoints";
 import { ArtifactTypeEnum, UITypeNameEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
@@ -12,8 +16,8 @@ import { getSectionType } from "./sectionInfos";
 import { maybeIncrementProjectStateVersion } from "./undo";
 
 export async function loadArtifacts(sectionId, artifactIds, signal) {
-  const res = await dbLoadArtifacts(artifactIds);
-  if (res.status === 200) {
+  const res = await route_load_artifacts(artifactIds);
+  if (res200(res)) {
     const artifactsFromBackend = _.cloneDeep(res.data);
     await prepareArtifactsForRendering(artifactsFromBackend);
     if (signal?.aborted) return;
@@ -55,8 +59,8 @@ export async function prepareDataURLForRendering(
     case ArtifactTypeEnum.IMG:
       return await base64ToImageObj(value);
     case ArtifactTypeEnum.LIST:
-      const res = await dbReadCSVBase64(dataURLToBase64(value));
-      if (res.status == 200) {
+      const res = await route_read_csv_base64(dataURLToBase64(value));
+      if (res200(res)) {
         return res.data;
       }
     default:

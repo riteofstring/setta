@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { BiPaint } from "react-icons/bi";
 import { FaObjectGroup } from "react-icons/fa6";
 import { FiChevronDown, FiTrash2 } from "react-icons/fi";
-import { dbLoadAvailableArtifacts } from "requests/artifacts";
 import { updateArtifactGroupAndSetArtifactId } from "state/actions/artifacts";
 import { useArtifacts, useProjectState } from "state/definitions";
 import {
@@ -14,6 +13,8 @@ import {
 } from "state/hooks/artifacts";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
+import { res200 } from "utils/endpointUtils";
+import { route_load_available_artifacts } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { newArtifactTransform } from "utils/objs/artifact";
 
@@ -424,8 +425,8 @@ function useArtifactsKnownByDbAndInMemory(sectionTypeName) {
 
   useEffect(() => {
     async function fn() {
-      const res = await dbLoadAvailableArtifacts(sectionTypeName);
-      if (res.status == 200) {
+      const res = await route_load_available_artifacts(sectionTypeName);
+      if (res200(res)) {
         setArtifactsKnownByDb(res.data);
       }
     }

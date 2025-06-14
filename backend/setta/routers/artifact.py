@@ -13,6 +13,7 @@ from setta.database.db.artifacts.save import (
     fill_in_missing_artifact_ids,
     save_or_create_artifacts,
 )
+from setta.database.db_objs import DBE
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 
@@ -63,7 +64,7 @@ async def route_send_artifact(
 
 
 @router.post(Route.LOAD_ARTIFACTS)
-def route_load_artifacts(x: LoadArtifactsRequest, dbe=Depends(get_dbe)):
+def route_load_artifacts(x: LoadArtifactsRequest, dbe: DBE = Depends(get_dbe)):
     with dbe.session as db:
         return load_artifact_metadata_and_maybe_value_from_disk(db, x.artifactIds)
 
@@ -77,7 +78,7 @@ def route_load_available_artifacts(
 
 
 @router.post(Route.CHECK_IF_FILE_EXISTS)
-def route_check_if_file_exists(x: CheckIfFileExistsRequests):
+def route_check_if_file_exists(x: CheckIfFileExistsRequests) -> bool:
     return os.path.exists(x.filepath)
 
 

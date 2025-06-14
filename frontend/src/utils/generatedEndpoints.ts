@@ -227,7 +227,7 @@ export async function route_load_available_artifacts(
 
 export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequests,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/checkIfFileExists", x);
 }
 

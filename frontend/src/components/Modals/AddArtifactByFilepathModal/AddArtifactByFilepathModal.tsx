@@ -1,6 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
-import { dbLoadArtifactFromDisk } from "requests/artifacts";
 import {
   addArtifactAndMaybeCreateNewArtifactGroup,
   prepareArtifactForRendering,
@@ -9,6 +8,8 @@ import { setModalOpen } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
+import { res200 } from "utils/endpointUtils";
+import { route_load_artifact_from_disk } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum, UITypeNameEnum } from "utils/generatedTypes";
 
 export function AddArtifactByFilepathModal() {
@@ -42,8 +43,11 @@ export function AddArtifactByFilepathModal() {
   const handleConfirm = async () => {
     if (filepath) {
       const artifactType = getArtifactType();
-      const res = await dbLoadArtifactFromDisk(filepath, artifactType);
-      if (res.status === 200) {
+      const res = await route_load_artifact_from_disk({
+        filepath,
+        type: artifactType,
+      });
+      if (res200(res)) {
         const value = await prepareArtifactForRendering(
           artifactType,
           res.data.value,

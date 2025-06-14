@@ -1,7 +1,8 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useCallback, useEffect, useState } from "react";
-import { dbCheckIfFileExists } from "requests/artifacts";
+import { res200 } from "utils/endpointUtils";
+import { route_check_if_file_exists } from "utils/generatedEndpoints";
 import { asyncDebounce } from "utils/utils";
 
 export function useMatchSorterFilter(completeList, keys, delay) {
@@ -58,8 +59,10 @@ export function useFileExists(delay) {
 
   const debouncedCheckIfFileExists = useCallback(
     asyncDebounce(async (f) => {
-      const res = await dbCheckIfFileExists(f);
-      setFileExists(res.data);
+      const res = await route_check_if_file_exists(f);
+      if (res200(res)) {
+        setFileExists(res.data);
+      }
     }, delay),
     [setFileExists],
   );
