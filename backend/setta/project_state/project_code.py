@@ -70,13 +70,13 @@ class ProjectGenPythonCode(PythonCode):
         return line, col
 
     async def text_field_autocomplete(
-        self, sectionId, paramInfoId, fullText, position
+        self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
     ):
         line_col = await self.insert_code_at_position(
             sectionId, paramInfoId, fullText, position
         )
         if line_col is None:
-            return None
+            return []
         else:
             line, col = line_col
             request_id = create_new_id()

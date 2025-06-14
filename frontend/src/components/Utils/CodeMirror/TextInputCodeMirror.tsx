@@ -186,7 +186,10 @@ function getTextFieldCompletionsFn(
   sectionId: string,
   paramInfoId: string | null,
 ) {
-  const fn: Promise<Completion[]> = async (fullText, position) => {
+  const fn = async (
+    fullText: string,
+    position: number,
+  ): Promise<Completion[]> => {
     const setToNotWaiting = setTextFieldWaitingForLSP({
       sectionId,
       paramInfoId,

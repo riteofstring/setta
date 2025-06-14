@@ -1899,3 +1899,16 @@ export function createWebsocketConnectionInfoWithSocket(
 ): WebsocketConnectionInfoWithSocket {
   return WebsocketConnectionInfoWithSocketSchema.parse(options);
 }
+
+export const CodeMirrorCompletionSchema = z.object({
+  label: z.string(),
+  type: z.string(),
+});
+
+export type CodeMirrorCompletion = z.infer<typeof CodeMirrorCompletionSchema>;
+
+export function createCodeMirrorCompletion(
+  options: Partial<CodeMirrorCompletion> = {},
+): CodeMirrorCompletion {
+  return CodeMirrorCompletionSchema.parse(options);
+}

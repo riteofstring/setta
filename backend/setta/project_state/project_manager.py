@@ -255,7 +255,7 @@ class ProjectManager:
         self,
         projectConfigId: str,
         sectionId: str,
-        paramInfoId: str,
+        paramInfoId: str | None,
         fullText: str,
         position: int,
     ):

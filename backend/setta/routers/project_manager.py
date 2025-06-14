@@ -1,6 +1,7 @@
 from fastapi import Depends
 from pydantic import BaseModel
 
+from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager import ProjectManager
 from setta.routers.dependencies import get_project_manager
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -54,7 +55,7 @@ async def route_set_selected_item(
 async def route_text_field_completion(
     x: TextFieldCompletionRequest,
     project_manager: ProjectManager = Depends(get_project_manager),
-) -> list:
+) -> list[CodeMirrorCompletion]:
     return await project_manager.text_field_autocomplete(
         x.projectConfigId, x.sectionId, x.paramInfoId, x.fullText, x.position
     )

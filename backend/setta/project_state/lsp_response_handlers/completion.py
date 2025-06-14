@@ -1,3 +1,12 @@
+from dataclasses import dataclass
+
+
+@dataclass
+class CodeMirrorCompletion:
+    label: str
+    type: str
+
+
 def process_completion_response(response, code):
     content = []
     if response["result"] and response["result"]["items"]:
@@ -12,11 +21,11 @@ def process_completion(
     code,
     items,
 ):
-    content = []
+    content: list[CodeMirrorCompletion] = []
     line_cols = []
     content_idx_with_text_edit = {}
     for x in items:
-        c = {"label": x["label"], "type": type_mapping[x["kind"]]}
+        c = CodeMirrorCompletion(label=x["label"], type=type_mapping[x["kind"]])
         # if "textEdit" in x:
         #     content_idx_with_text_edit[len(content)] = len(line_cols)
         #     r = x["textEdit"]["range"]
