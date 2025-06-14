@@ -1,4 +1,6 @@
 import { useWaitingForLSPResult } from "state/definitions";
+import { route_restart_language_server } from "utils/generatedEndpoints";
+import { addTemporaryNotification } from "./notifications";
 
 function setWaitingForLSP({ category, id, delay = 200 }) {
   const timeoutId = setTimeout(() => {
@@ -31,4 +33,9 @@ export function setParametersRequestWaitingForLSP(sectionId) {
 
 export function textFieldIdForLSPWaiting({ sectionId, paramInfoId }) {
   return `${sectionId}-${paramInfoId}`;
+}
+
+export function restartLanguageServer() {
+  addTemporaryNotification("Restarting Language Server");
+  route_restart_language_server();
 }

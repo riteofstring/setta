@@ -26,7 +26,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { onFitViewHandler } from "forks/xyflow/core/store/utils";
 import { zoomToMouseLocation } from "forks/xyflow/core/utils/mouseLocation";
 import _ from "lodash";
-import { dbRestartLanguageServer } from "requests/lsp";
 import {
   activateParamSelect,
   deactivateParamSelect,
@@ -43,6 +42,7 @@ import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode } from "./interactive";
 import { unselectAllParams } from "./kwargs";
+import { restartLanguageServer } from "./lsp";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
@@ -497,7 +497,7 @@ export function attachKeyEventListeners() {
     [shortcuts.showProjectOverviewTabShortcut, showProjectOverviewTab],
     [shortcuts.zoomInShortcut, zoomIn, null, true],
     [shortcuts.zoomOutShortcut, zoomOut, null, true],
-    [shortcuts.restartLanguageServerShortcut, dbRestartLanguageServer],
+    [shortcuts.restartLanguageServerShortcut, restartLanguageServer],
     [
       shortcuts.selectionKeyCode,
       activateSelectionKeyPressed,

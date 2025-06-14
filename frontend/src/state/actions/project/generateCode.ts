@@ -1,4 +1,4 @@
-import { sendMessage } from "requests/websocket";
+import { sendMessage } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { SETTINGS_PROJECT_NAME } from "utils/constants";

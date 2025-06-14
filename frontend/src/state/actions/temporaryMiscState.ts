@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { sendMessage } from "requests/websocket";
+import { sendMessage } from "state/actions/websocketReceive";
 import { useTemporaryMiscState } from "state/definitions";
 import { createNewId } from "utils/idNameCreation";
 
