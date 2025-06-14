@@ -4,11 +4,11 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
-import { clearTextFieldCompletion } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionSearch({ sectionId, selectedItem }) {
@@ -87,7 +87,12 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
-      clearTextFieldCompletion({ sectionId, paramInfoId: null });
+      const projectConfigId = useProjectState.getState().projectConfig.id;
+      route_clear_text_field_completion({
+        projectConfigId,
+        sectionId,
+        paramInfoId: null,
+      });
     }
     shouldResetValueOnBlur.current = false;
   }

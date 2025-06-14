@@ -3,7 +3,9 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { useCallback, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
-import { wsTextFieldCompletion } from "state/actions/websocketSend";
+import { useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
@@ -186,7 +188,10 @@ function getTextFieldCompletionsFn(sectionId, paramInfoId) {
       paramInfoId,
     });
 
-    const res = await wsTextFieldCompletion({
+    const projectConfigId = useProjectState.getState().projectConfig.id;
+
+    const res = await route_text_field_completion({
+      projectConfigId,
       sectionId,
       paramInfoId,
       fullText,
@@ -194,8 +199,10 @@ function getTextFieldCompletionsFn(sectionId, paramInfoId) {
     });
 
     setToNotWaiting();
-
-    return res;
+    if (res200(res)) {
+      return res.data;
+    }
+    return [];
   };
 
   return wrappedCompletionsFn(fn);

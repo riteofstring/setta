@@ -1,7 +1,6 @@
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
 
 export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
@@ -16,36 +15,6 @@ export async function wsCodeAreaCompletion({ sectionId, fullText, position }) {
       fullText,
       position,
     },
-  });
-}
-
-export async function wsTextFieldCompletion({
-  sectionId,
-  paramInfoId,
-  fullText,
-  position,
-}) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-
-  return await sendMessageAndWait({
-    id: createNewId(),
-    messageType: C.WS_TEXT_FIELD_AUTOCOMPLETE,
-    content: {
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      fullText,
-      position,
-    },
-  });
-}
-
-export async function clearTextFieldCompletion({ sectionId, paramInfoId }) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  route_clear_text_field_completion({
-    projectConfigId,
-    sectionId,
-    paramInfoId,
   });
 }
 

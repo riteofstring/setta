@@ -66,3 +66,4 @@ class Route(Enum):
     TYPE_CHECK = "/typeCheck"
     CLEAR_TEXT_FIELD_COMPLETION = "/clearTextFieldCompletion"
     SET_SELECTED_ITEM = "/setSelectedItem"
+    TEXT_FIELD_COMPLETION = "/textFieldCompletion"

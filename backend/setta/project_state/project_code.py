@@ -70,26 +70,26 @@ class ProjectGenPythonCode(PythonCode):
         return line, col
 
     async def text_field_autocomplete(
-        self, messageId, sectionId, paramInfoId, fullText, position
+        self, sectionId, paramInfoId, fullText, position
     ):
         line_col = await self.insert_code_at_position(
             sectionId, paramInfoId, fullText, position
         )
         if line_col is None:
-            await self.websocket_msg_handler.return_to_requester(None, messageId)
+            return None
         else:
             line, col = line_col
+            request_id = create_new_id()
             response = await self.lsp_writer.send_and_wait(
                 self.lsp_writer.send_autocomplete_request(
                     filepath=self.temp_file,
                     line=line,
                     character=col,
-                    request_id=messageId,
+                    request_id=request_id,
                 ),
-                messageId,
+                request_id,
             )
-            result = process_completion_response(response, self.code_generator.code)
-            await self.websocket_msg_handler.return_to_requester(result, messageId)
+            return process_completion_response(response, self.code_generator.code)
 
     async def clear_text_field_completion(
         self, sectionId: str, paramInfoId: str | None

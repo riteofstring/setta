@@ -253,7 +253,6 @@ class ProjectManager:
     @enqueue_method
     async def text_field_autocomplete(
         self,
-        messageId: str,
         projectConfigId: str,
         sectionId: str,
         paramInfoId: str,
@@ -261,8 +260,8 @@ class ProjectManager:
         position: int,
     ):
         print("*************text_field_autocomplete\n\n\n", flush=True)
-        await self.gen_code[projectConfigId].text_field_autocomplete(
-            messageId, sectionId, paramInfoId, fullText, position
+        return await self.gen_code[projectConfigId].text_field_autocomplete(
+            sectionId, paramInfoId, fullText, position
         )
 
     @enqueue_method

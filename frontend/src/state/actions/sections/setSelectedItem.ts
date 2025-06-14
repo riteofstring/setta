@@ -10,15 +10,14 @@ export async function setSelectedItem(
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   const projectConfigId = useProjectState.getState().projectConfig.id;
-  // res.data is true on success.
-  // state update occurs by websocket
   const res = await route_set_selected_item({
     projectConfigId,
     sectionId,
     selectedItemName,
     refetchParams,
   });
-  if (res200(res) && res.data) {
+  if (res200(res)) {
+    // state update occurs by websocket
     setToNotWaiting();
   }
 }

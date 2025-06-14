@@ -407,6 +407,7 @@ export enum RouteEnum {
   "TYPE_CHECK" = "/typeCheck",
   "CLEAR_TEXT_FIELD_COMPLETION" = "/clearTextFieldCompletion",
   "SET_SELECTED_ITEM" = "/setSelectedItem",
+  "TEXT_FIELD_COMPLETION" = "/textFieldCompletion",
 }
 
 export enum RenameRefactorModeEnum {
@@ -1455,6 +1456,24 @@ export function createSetSelectedItemRequest(
   options: Partial<SetSelectedItemRequest> = {},
 ): SetSelectedItemRequest {
   return SetSelectedItemRequestSchema.parse(options);
+}
+
+export const TextFieldCompletionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+  fullText: z.string(),
+  position: z.int(),
+});
+
+export type TextFieldCompletionRequest = z.infer<
+  typeof TextFieldCompletionRequestSchema
+>;
+
+export function createTextFieldCompletionRequest(
+  options: Partial<TextFieldCompletionRequest> = {},
+): TextFieldCompletionRequest {
+  return TextFieldCompletionRequestSchema.parse(options);
 }
 
 export const AddDefaultDataForJSONImportRequestSchema = z.object({

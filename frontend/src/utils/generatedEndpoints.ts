@@ -311,6 +311,12 @@ export async function route_clear_text_field_completion(
 
 export async function route_set_selected_item(
   x: gt.SetSelectedItemRequest,
-): Promise<ResponseDataAndStatus<boolean>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSelectedItem", x);
+}
+
+export async function route_text_field_completion(
+  x: gt.TextFieldCompletionRequest,
+): Promise<ResponseDataAndStatus<Array<any>>> {
+  return await post("/textFieldCompletion", x);
 }
