@@ -56,7 +56,7 @@ async def route_get_llm_response(
     x: GetLLMResponseRequest,
     background_tasks: BackgroundTasks,
     chat_manager: ChatManager = Depends(get_chat_manager),
-):
+) -> str | None:
     # try:
     print(x, flush=True)
     chat = chat_manager.get_or_create_chat(x.chatId, x.message)

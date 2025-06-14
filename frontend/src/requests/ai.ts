@@ -1,25 +1,6 @@
 import { RouteEnum } from "utils/generatedTypes";
 import { post } from "./utils";
 
-export async function dbGetLLMResponse(
-  projectConfigId,
-  model,
-  message,
-  deepThink,
-  chatId,
-) {
-  try {
-    const response = await post({
-      body: { projectConfigId, model, message, deepThink, chatId },
-      address: RouteEnum.GET_LLM_RESPONSE,
-    });
-    return response;
-  } catch (error) {
-    console.error("Error in dbGetLLMResponse:", error);
-    throw error;
-  }
-}
-
 export async function dbSetLLMApiKeys(apiKeys, apiKeysFilepath) {
   try {
     const response = await post({

@@ -3,12 +3,16 @@ import {
   dbDeleteLLMChat,
   dbGetAllLLMChatMetadata,
   dbGetLLMChat,
-  dbGetLLMResponse,
   dbGetUUIDMappingForLLM,
 } from "requests/ai";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { UITypeNameEnum } from "utils/generatedTypes";
+import { route_get_llm_response } from "utils/generatedEndpoints";
+import {
+  ChatRoleSchema,
+  createTextBlock,
+  UITypeNameEnum,
+} from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";
 
@@ -67,26 +71,26 @@ export function goToChat(id) {
   useAIStore.setState({ currentChatId: id, viewHistory: false });
 }
 
-export async function submitMessage(message, deepThink) {
+export async function submitMessage(message: string, deepThink) {
   if (!message.trim()) return;
 
   // Add user message immediately for responsive UI
   const userMessage = {
     id: createNewId(),
-    role: C.LLM_USER_ROLE,
-    content: [{ type: C.LLM_TEXT, text: message }],
+    role: ChatRoleSchema.parse("user"),
+    content: [createTextBlock({ text: message })],
   };
 
   const state = useAIStore.getState();
 
   try {
-    const res = await dbGetLLMResponse(
-      useProjectState.getState().projectConfig.id,
-      state.userSelectedLLM,
-      userMessage,
+    const res = await route_get_llm_response({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      model: state.userSelectedLLM,
+      message: userMessage,
       deepThink,
-      state.currentChatId,
-    );
+      chatId: state.currentChatId,
+    });
     if (res.status == 200) {
       const chatId = res.data;
       await getLLMChat(chatId);

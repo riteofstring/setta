@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { dbGetExistingTerminals } from "requests/terminals";
-import { replaceAddressParams } from "requests/utils";
 import { setSectionVariantChildren } from "state/actions/sectionInfos";
 import {
   addSectionInEmptySpace,
@@ -12,6 +11,7 @@ import { useProjectState } from "state/definitions";
 import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
+import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum, UITypeNameEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
