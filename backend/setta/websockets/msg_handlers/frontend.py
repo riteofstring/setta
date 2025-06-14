@@ -2,7 +2,7 @@ from setta.lsp.managers import LSPWriters
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.websocket_msgs import WebsocketMsgForFrontend
+from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.script_metadata import ScriptMetadata
@@ -51,7 +51,7 @@ class WMHFrontend(BaseWebsocketMsgHandler):
 
     async def on_connect(self, websocket_id):
         content = self.script_metadata.dependencies
-        messageType = WebsocketMsgForFrontend.WS_ALL_DEPENDENCIES
+        messageType = WebsocketMsgTypeForFrontend.ALL_DEPENDENCIES
         await self.websocket_manager.send_message(
             {"content": content, "messageType": messageType}, websocket_id
         )

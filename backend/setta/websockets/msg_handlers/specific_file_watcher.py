@@ -1,5 +1,5 @@
 from setta.types.websocket_manager import WebsocketConnectionType
-from setta.types.websocket_msgs import WebsocketMsgForFrontend
+from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 
 
@@ -10,6 +10,6 @@ class WMHSpecificFileWatcher(BaseWebsocketMsgHandler):
     async def broadcast_file_updates(self, content):
         await self.websocket_manager.broadcast(
             content,
-            WebsocketMsgForFrontend.WS_SPECIFIC_FILE_WATCHER_UPDATE,
+            WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

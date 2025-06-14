@@ -1,19 +1,28 @@
+from dataclasses import dataclass
+from typing import Any
+
 from setta.types.utils import AsIsStrEnum
 
-WebsocketMsgForFrontend = AsIsStrEnum(
-    "WebsocketMsgForFrontend",
+WebsocketMsgTypeForFrontend = AsIsStrEnum(
+    "WebsocketMsgTypeForFrontend",
     [
-        "WS_ALL_CONNECTIONS",
-        "WS_LSP_DIAGNOSTICS",
-        "WS_TERMINAL_METADATA",
-        "WS_ALL_DEPENDENCIES",
-        "WS_SPECIFIC_FILE_WATCHER_UPDATE",
-        "WS_NOTIFICATION",
-        "WS_LLM_STREAMING_RESPONSE",
-        "WS_UUID_MAPPING_FOR_LLM",
-        "WS_ARTIFACT",
-        "WS_RETURN_RENAME_REFACTOR_RESULTS",
-        "WS_UPDATE_FRONTEND_PROJECT_STATE",
-        "WS_NEW_TERMINAL_CREATED",
+        "ALL_CONNECTIONS",
+        "LSP_DIAGNOSTICS",
+        "TERMINAL_METADATA",
+        "ALL_DEPENDENCIES",
+        "SPECIFIC_FILE_WATCHER_UPDATE",
+        "NOTIFICATION",
+        "LLM_STREAMING_RESPONSE",
+        "UUID_MAPPING_FOR_LLM",
+        "ARTIFACT",
+        "RETURN_RENAME_REFACTOR_RESULTS",
+        "UPDATE_FRONTEND_PROJECT_STATE",
+        "NEW_TERMINAL_CREATED",
     ],
 )
+
+
+@dataclass
+class WebsocketMsgForFrontend:
+    content: Any
+    messageType: WebsocketMsgTypeForFrontend

@@ -1,5 +1,5 @@
 from setta.types.websocket_manager import WebsocketConnectionType
-from setta.types.websocket_msgs import WebsocketMsgForFrontend
+from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -15,6 +15,6 @@ class WMHChatManager(BaseWebsocketMsgHandler):
                 "assistantMessageId": assistant_message_id,
                 "chunk": chunk,
             },
-            WebsocketMsgForFrontend.WS_LLM_STREAMING_RESPONSE,
+            WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE,
             connectionType=WebsocketConnectionType.FRONTEND,
         )

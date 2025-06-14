@@ -26,7 +26,7 @@ import {
   createWebsocketConnectionInfo,
   RouteEnum,
   WebsocketConnectionTypeEnum,
-  WebsocketMsgForFrontendEnum,
+  WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 
 let wss: WebSocket | null;
@@ -89,48 +89,50 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 function receiveMessage(message) {
   const m = JSON.parse(message);
   console.log(m);
-  if (m.messageType === WebsocketMsgForFrontendEnum.WS_ALL_CONNECTIONS) {
+  if (m.messageType === WebsocketMsgTypeForFrontendEnum.ALL_CONNECTIONS) {
     setWebsocketConnections(m.content);
-  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_LSP_DIAGNOSTICS) {
+  } else if (
+    m.messageType === WebsocketMsgTypeForFrontendEnum.LSP_DIAGNOSTICS
+  ) {
     processTypeErrors(m.content);
-  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_NOTIFICATION) {
+  } else if (m.messageType === WebsocketMsgTypeForFrontendEnum.NOTIFICATION) {
     addNotificationFromWebsocketMsg(m.content);
-  } else if (m.messageType === WebsocketMsgForFrontendEnum.WS_ARTIFACT) {
+  } else if (m.messageType === WebsocketMsgTypeForFrontendEnum.ARTIFACT) {
     updateInteractiveArtifacts(m.content);
   } else if (
-    m.messageType === WebsocketMsgForFrontendEnum.WS_ALL_DEPENDENCIES
+    m.messageType === WebsocketMsgTypeForFrontendEnum.ALL_DEPENDENCIES
   ) {
     updateInteractiveDependencies(m.content);
   } else if (
     m.messageType ===
-    WebsocketMsgForFrontendEnum.WS_SPECIFIC_FILE_WATCHER_UPDATE
+    WebsocketMsgTypeForFrontendEnum.SPECIFIC_FILE_WATCHER_UPDATE
   ) {
     updateWithFileChanges(m.content);
   } else if (
-    m.messageType === WebsocketMsgForFrontendEnum.WS_TERMINAL_METADATA
+    m.messageType === WebsocketMsgTypeForFrontendEnum.TERMINAL_METADATA
   ) {
     // TODO: implement
     // console.log(m.content);
   } else if (
-    m.messageType === WebsocketMsgForFrontendEnum.WS_LLM_STREAMING_RESPONSE
+    m.messageType === WebsocketMsgTypeForFrontendEnum.LLM_STREAMING_RESPONSE
   ) {
     receiveLLMResponseChunk(m.content);
   } else if (
-    m.messageType === WebsocketMsgForFrontendEnum.WS_UUID_MAPPING_FOR_LLM
+    m.messageType === WebsocketMsgTypeForFrontendEnum.UUID_MAPPING_FOR_LLM
   ) {
     updateUUIDMappingForLLM(m.content);
   } else if (
     m.messageType ===
-    WebsocketMsgForFrontendEnum.WS_RETURN_RENAME_REFACTOR_RESULTS
+    WebsocketMsgTypeForFrontendEnum.RETURN_RENAME_REFACTOR_RESULTS
   ) {
     processRenameRefactorResults(m.content);
   } else if (
     m.messageType ===
-    WebsocketMsgForFrontendEnum.WS_UPDATE_FRONTEND_PROJECT_STATE
+    WebsocketMsgTypeForFrontendEnum.UPDATE_FRONTEND_PROJECT_STATE
   ) {
     processProjectStateUpdateFromBackend(m.content);
   } else if (
-    m.messageType === WebsocketMsgForFrontendEnum.WS_NEW_TERMINAL_CREATED
+    m.messageType === WebsocketMsgTypeForFrontendEnum.NEW_TERMINAL_CREATED
   ) {
     createTemporaryTerminalFromBackend(m.content);
   } else {

@@ -10,7 +10,7 @@ from setta.types.websocket_manager import (
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
 )
-from setta.types.websocket_msgs import WebsocketMsgForFrontend
+from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 logger = logging.getLogger(__name__)
@@ -106,5 +106,5 @@ class WebsocketManager:
         )
         await self.broadcast(
             [dataclasses.asdict(x) for x in connections],
-            WebsocketMsgForFrontend.WS_ALL_CONNECTIONS,
+            WebsocketMsgTypeForFrontend.ALL_CONNECTIONS,
         )

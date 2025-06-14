@@ -12,7 +12,7 @@ import websockets
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
 from setta.types.base_ui_types import UITypeName
 from setta.types.routes import Route
-from setta.types.websocket_msgs import WebsocketMsgForFrontend
+from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
 
 DataWrapperDict = dict[str, "SettaDataWrapper"]
@@ -42,8 +42,8 @@ class SettaLogger:
 
     async def send_async(self, obj: DataWrapperDict, messageType=None):
         if messageType is None:
-            messageType = WebsocketMsgForFrontend.WS_ARTIFACT
-        if messageType == WebsocketMsgForFrontend.WS_ARTIFACT:
+            messageType = WebsocketMsgTypeForFrontend.ARTIFACT
+        if messageType == WebsocketMsgTypeForFrontend.ARTIFACT:
             obj = self.prepare_data(obj)
         if not self.websocket:
             self.websocket = await websockets.connect(self.endpoint)
