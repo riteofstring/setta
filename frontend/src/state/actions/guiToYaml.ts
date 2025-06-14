@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { dbGuiToYaml } from "requests/guiToYaml";
 import {
   getCodeInfoCol,
   getDisplayedSectionVariantId,
@@ -13,6 +12,8 @@ import {
   useYamlValue,
 } from "state/definitions";
 import { SECTION_DISPLAY_MODES } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { route_section_to_yaml } from "utils/generatedEndpoints";
 import {
   CodeInfoTypeEnum,
   createCodeInfo,
@@ -23,10 +24,49 @@ import { createNewId } from "utils/idNameCreation";
 import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
+import { getParamIdsToShowInArea } from "./sections/sectionContents";
 
 export async function guiToYaml(sectionId, variantId) {
-  const res = await dbGuiToYaml(sectionId, variantId);
-  if (res.status === 200) {
+  const sectionType = getSectionType(sectionId);
+  if (
+    sectionType !== UITypeNameEnum.GLOBAL_VARIABLES &&
+    sectionType !== UITypeNameEnum.SECTION
+  ) {
+    return;
+  }
+
+  const state = useProjectState.getState();
+  const { codeInfoChildren, parentCodeInfoId } =
+    getCodeChildrenAndParentCodeInfoId(null, state, variantId);
+  const codeInfo = state.codeInfo;
+  const pinnedIds = getParamIdsToShowInArea(
+    true,
+    codeInfo,
+    codeInfoChildren,
+    parentCodeInfoId,
+  );
+  const unpinnedIds = getParamIdsToShowInArea(
+    false,
+    codeInfo,
+    codeInfoChildren,
+    parentCodeInfoId,
+  );
+  pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
+  unpinnedIds.requiredParamIds = Object.keys(
+    unpinnedIds.requiredParamIdsToPaths,
+  );
+  delete pinnedIds.requiredParamIdsToPaths;
+  delete unpinnedIds.requiredParamIdsToPaths;
+  const sectionVariant = state.variants[variantId];
+
+  const res = await route_section_to_yaml({
+    codeInfo,
+    codeInfoChildren,
+    sectionVariant,
+    pinnedIds,
+    unpinnedIds,
+  });
+  if (res200(res)) {
     const { originalObj, yamlValue } = res.data;
     useOriginalYamlObj.setState({
       [variantId]: originalObj,
