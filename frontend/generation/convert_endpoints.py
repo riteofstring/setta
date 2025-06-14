@@ -74,11 +74,13 @@ def create_args(inputs, generate_types_alias):
     return ", ".join(args)
 
 
-def create_ts_fn_def(endpoint_path, fn_name, args):
+def create_ts_fn_def(endpoint_path, method, fn_name, args):
     endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
+    method_fn = {"POST": "post", "GET": "get"}[method]
+
     return f"""
 export async function {fn_name}({args}){{
-    return await post("{endpoint_path_without_prefix}", {{}})
+    return await {method_fn}("{endpoint_path_without_prefix}", {{}})
 }}
 
 """
@@ -87,7 +89,7 @@ export async function {fn_name}({args}){{
 def create_imports(generate_types_alias):
     return f"""
 import * as {generate_types_alias} from "./generatedTypes"
-import {{ post }} from "./endpointUtils"
+import {{ get, post }} from "./endpointUtils"
 
 """
 
@@ -98,7 +100,7 @@ def main(output_path):
     ts_code = create_imports(generate_types_alias)
     for endpoint_fn_name, s in specs.items():
         args = create_args(s["inputs"], generate_types_alias)
-        ts_code += create_ts_fn_def(s["path"], endpoint_fn_name, args)
+        ts_code += create_ts_fn_def(s["path"], s["method"], endpoint_fn_name, args)
 
     with open(output_path, "w") as f:
         f.write(ts_code)

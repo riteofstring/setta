@@ -1,4 +1,4 @@
-import { post } from "./endpointUtils";
+import { get, post } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_load_all_project_metadata() {
@@ -10,25 +10,25 @@ export async function route_load_project_config(x: gt.ProjectLoadRequest) {
 }
 
 export async function route_save_project(x: gt.ProjectSaveRequest) {
-  return await post("/projects/save", {});
+  return await post("/saveProject", {});
 }
 
 export async function route_create_project_config(
   x: gt.CreateProjectConfigRequest,
 ) {
-  return await post("/projects/createProjectConfig", {});
+  return await post("/createProjectConfig", {});
 }
 
 export async function route_save_as_new_project_config(
   x: gt.SaveAsNewProjectConfigRequest,
 ) {
-  return await post("/projects/saveAsNewProjectConfig", {});
+  return await post("/saveAsNewProjectConfig", {});
 }
 
 export async function route_save_as_existing_project_config(
   x: gt.SaveAsExistingProjectConfigRequest,
 ) {
-  return await post("/projects/saveAsExistingProjectConfig", {});
+  return await post("/saveAsExistingProjectConfig", {});
 }
 
 export async function route_delete_project_configs(
@@ -134,7 +134,7 @@ export async function route_terminal_delete_terminals(
 export async function route_terminal_get_existing_terminals(
   projectConfigId: string,
 ) {
-  return await post("/terminal/getExistingTerminals/{projectConfigId}", {});
+  return await get("/terminal/getExistingTerminals/{projectConfigId}", {});
 }
 
 export async function route_kill_subprocesses(x: gt.KillSubprocessesRequest) {
