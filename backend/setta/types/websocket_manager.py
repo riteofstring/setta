@@ -1,7 +1,7 @@
 from typing import Any
 
 from fastapi import WebSocket
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact import Artifact
@@ -42,6 +42,7 @@ class WebsocketConnectionInfo(BaseModel):
 
 
 class WebsocketConnectionInfoWithSocket(WebsocketConnectionInfo):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     websocket: WebSocket
 
 
@@ -100,4 +101,11 @@ class WebsocketMsgUpdateFrontendProjectState(WebsocketMsg):
     content: ProjectStateSingleConfig
     messageType: WebsocketMsgTypeForFrontend = (
         WebsocketMsgTypeForFrontend.UPDATE_FRONTEND_PROJECT_STATE
+    )
+
+
+class WebsocketMsgSpecificFileWatcherUpdate(WebsocketMsg):
+    content: Any
+    messageType: WebsocketMsgTypeForFrontend = (
+        WebsocketMsgTypeForFrontend.SPECIFIC_FILE_WATCHER_UPDATE
     )

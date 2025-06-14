@@ -112,24 +112,20 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
             if dep_type == "enum":
                 dependency_ts += enum_to_ts(dep_obj, processed_types)
             elif dep_type == "pydantic":
-                dependency_ts += pydantic_model_to_zod(
-                    dep_obj, type_definitions, processed_types
-                )
+                dependency_ts += pydantic_model_to_zod(dep_obj, processed_types)
             elif dep_type == "dataclass":
-                dependency_ts += dataclass_to_zod(
-                    dep_obj, type_definitions, processed_types
-                )
+                dependency_ts += dataclass_to_zod(dep_obj, processed_types)
     return dependency_ts
 
 
-def alias_to_zod(name: str, alias_type, type_definitions: dict, processed_types: set):
+def alias_to_zod(name: str, alias_type, processed_types: set):
     # Have to catch a case where Callable is an alias for some reason
     if name in processed_types or name == "Callable":
         return ""
 
     processed_types.add(name)
 
-    zod_schema = python_type_to_zod(alias_type, type_definitions, processed_types)
+    zod_schema, type_definitions = python_type_to_zod(alias_type, processed_types)
 
     dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
 
@@ -152,12 +148,14 @@ def enum_to_ts(enum_class, processed_types: set):
     return f"export enum {name}Enum {{{values_str}}};\n\n"
 
 
-def python_type_to_zod(python_type, type_definitions: dict, processed_types: set):
+def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
     """Convert Python type to Zod schema string."""
+
+    type_definitions = {}
 
     # Handle None type
     if python_type is type(None):
-        return "z.null()"
+        return "z.null()", type_definitions
 
     # Get the origin for generic types
     origin = get_origin(python_type)
@@ -173,8 +171,8 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
         args = get_args(python_type)
         if args:
             # The first argument is the actual type, rest are annotations
-            return python_type_to_zod(args[0], type_definitions, processed_types)
-        return "z.any()"
+            return python_type_to_zod(args[0], processed_types)
+        return "z.any()", type_definitions
 
     # Handle Literal types
     if origin is Literal:
@@ -190,79 +188,87 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
             else:
                 literals.append(f"{arg}")
         if len(literals) == 1:
-            return f"z.literal({literals[0]})"
-        return f"z.literal([{', '.join(literals)}])"
+            return f"z.literal({literals[0]})", type_definitions
+        return f"z.literal([{', '.join(literals)}])", type_definitions
 
     # Handle Optional/Union types
     if origin in (Union, types.UnionType):
         args = get_args(python_type)
         # Check if it's Optional (Union with None)
-        schemas = [
-            python_type_to_zod(t, type_definitions, processed_types) for t in args
-        ]
-        return f"z.union([{', '.join(schemas)}])"
+        schemas = []
+        for t in args:
+            ts, dependent_type_defs = python_type_to_zod(t, processed_types)
+            type_definitions.update(dependent_type_defs)
+            schemas.append(ts)
+        return f"z.union([{', '.join(schemas)}])", type_definitions
 
     # Handle list/List types
     if origin in (list, List, ABCSequence):
         args = get_args(python_type)
         if args:
-            element_schema = python_type_to_zod(
-                args[0], type_definitions, processed_types
-            )
-            return f"z.array({element_schema})"
-        return "z.array(z.any())"
+            element_schema, dependent_type_defs = python_type_to_zod(args[0], processed_types)
+            type_definitions.update(dependent_type_defs)
+            return f"z.array({element_schema})", type_definitions
+        return "z.array(z.any())", type_definitions
 
     # Handle dict/Dict types
     if origin in (dict, Dict):
         args = get_args(python_type)
         if args and len(args) >= 2:
-            key_schema = python_type_to_zod(args[0], type_definitions, processed_types)
-            key_schema = key_schema.replace("z.null(),", "").replace(", z.null()", "")
-            value_schema = python_type_to_zod(
-                args[1], type_definitions, processed_types
+            key_schema, dependent_type_defs = python_type_to_zod(
+                args[0], processed_types
             )
-            return f"z.record({key_schema}, {value_schema})"
-        return "z.record(z.string(), z.any())"
+            type_definitions.update(dependent_type_defs)
+            key_schema = key_schema.replace("z.null(),", "").replace(", z.null()", "")
+            value_schema, dependent_type_defs = python_type_to_zod(
+                args[1], processed_types
+            )
+            type_definitions.update(dependent_type_defs)
+            return f"z.record({key_schema}, {value_schema})", type_definitions
+        return "z.record(z.string(), z.any())", type_definitions
 
     # Handle set/Set types
     if origin in (set, Set):
         args = get_args(python_type)
         if args:
-            element_schema = python_type_to_zod(
-                args[0], type_definitions, processed_types
+            element_schema, dependent_type_defs = python_type_to_zod(
+                args[0], processed_types
             )
-            return f"z.set({element_schema})"
-        return "z.set(z.any())"
+            type_definitions.update(dependent_type_defs)
+            return f"z.set({element_schema})", type_definitions
+        return "z.set(z.any())", type_definitions
 
     # Handle tuple/Tuple types
     if origin in (tuple, Tuple):
         args = get_args(python_type)
         if args:
-            schemas = [
-                python_type_to_zod(t, type_definitions, processed_types) for t in args
-            ]
-            return f"z.tuple([{', '.join(schemas)}])"
-        return "z.tuple()"
+            schemas = []
+            for t in args:
+                ts, dependent_type_defs = python_type_to_zod(t, processed_types)
+                schemas.append(ts)
+                type_definitions.update(dependent_type_defs)
+            return f"z.tuple([{', '.join(schemas)}])", type_definitions
+        return "z.tuple()", type_definitions
 
     # Check if it's an enum
     if inspect.isclass(python_type) and issubclass(python_type, enum.Enum):
         enum_name = python_type.__name__
         if enum_name not in processed_types:
             type_definitions[enum_name] = ("enum", python_type)
-        return f"z.enum({enum_name}Enum)"
+        return f"z.enum({enum_name}Enum)", type_definitions
 
     # Check if it's a Pydantic model
     if inspect.isclass(python_type) and issubclass(python_type, BaseModel):
         model_name = python_type.__name__
         if model_name not in processed_types:
             type_definitions[model_name] = ("pydantic", python_type)
-        return f"{model_name}Schema"
+        return f"{model_name}Schema", type_definitions
 
     if dataclasses.is_dataclass(python_type):
         dc_name = python_type.__name__
         if dc_name not in processed_types:
             type_definitions[dc_name] = ("dataclass", python_type)
-        return f"{dc_name}Schema"
+        return f"{dc_name}Schema", type_definitions
 
     # Basic type mappings
     type_map = {
@@ -281,31 +287,33 @@ def python_type_to_zod(python_type, type_definitions: dict, processed_types: set
     }
 
     if python_type in type_map:
-        return type_map[python_type]
+        return type_map[python_type], type_definitions
 
     # Try to get the name for other types
     if hasattr(python_type, "__name__"):
         # Default to using the Python type name
-        return f"{python_type.__name__}Schema"
+        return f"{python_type.__name__}Schema", type_definitions
     # Fallback
-    return "z.any()"
+    return "z.any()", type_definitions
 
 
-def pydantic_model_to_zod(
-    model: type[BaseModel], type_definitions: dict, processed_types: set
-):
+def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
     name = model.__name__
 
     if name in processed_types:
         return ""
 
+    type_definitions = {}
     processed_types.add(name)
 
     # Build the object schema
     fields = []
     for field_name, field_info in model.model_fields.items():
         field_type = field_info.annotation
-        zod_schema = python_type_to_zod(field_type, type_definitions, processed_types)
+        zod_schema, dependent_type_defs = python_type_to_zod(
+            field_type, processed_types
+        )
+        type_definitions.update(dependent_type_defs)
 
         # Handle default values
         if field_info.default is not PydanticUndefined:
@@ -356,12 +364,13 @@ def pydantic_model_to_zod(
 
 
 # Add this function after pydantic_model_to_zod
-def dataclass_to_zod(model: type, type_definitions: dict, processed_types: set):
+def dataclass_to_zod(model: type, processed_types: set):
     name = model.__name__
 
     if name in processed_types:
         return ""
 
+    type_definitions = {}
     processed_types.add(name)
 
     # Build the object schema
@@ -369,7 +378,10 @@ def dataclass_to_zod(model: type, type_definitions: dict, processed_types: set):
     for field in dataclasses.fields(model):
         field_name = field.name
         field_type = field.type
-        zod_schema = python_type_to_zod(field_type, type_definitions, processed_types)
+        zod_schema, dependent_type_defs = python_type_to_zod(
+            field_type, processed_types
+        )
+        type_definitions.update(dependent_type_defs)
 
         # Handle default values
         if field.default is not dataclasses.MISSING:
@@ -449,19 +461,18 @@ export type ID = z.infer<typeof IDSchema>;
 
 """
     processed_types = set()
-    type_definitions = {}
 
     for x_name, x in all_aliases.items():
-        ts_code += alias_to_zod(x_name, x, type_definitions, processed_types)
+        ts_code += alias_to_zod(x_name, x, processed_types)
 
     for x in all_enums.values():
         ts_code += enum_to_ts(x, processed_types)
 
     for x in all_pydantic_models.values():
-        ts_code += pydantic_model_to_zod(x, type_definitions, processed_types)
+        ts_code += pydantic_model_to_zod(x, processed_types)
 
     for x in all_dataclasses.values():
-        ts_code += dataclass_to_zod(x, type_definitions, processed_types)
+        ts_code += dataclass_to_zod(x, processed_types)
 
     with open(output_file, "w") as f:
         f.write(ts_code)

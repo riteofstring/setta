@@ -1,8 +1,7 @@
 import json
 import logging
-from dataclasses import dataclass, field
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.database.utils import create_new_id
@@ -18,11 +17,10 @@ from setta.types.project_state import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ProcessedJSONObject:
-    codeInfo: dict[str, CodeInfo] = field(default_factory=dict)
-    codeInfoColChildren: dict[str | None, list[str]] = field(default_factory=dict)
-    variantValues: dict[str, EVEntry] = field(default_factory=dict)
+class ProcessedJSONObject(BaseModel):
+    codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
+    codeInfoColChildren: dict[str | None, list[str]] = Field(default_factory=dict)
+    variantValues: dict[str, EVEntry] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
