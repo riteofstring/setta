@@ -1,8 +1,8 @@
-import { dbSaveSectionJSONSource } from "requests/jsonSource";
 import { dbNewVersionFilename } from "requests/sectionVariants";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { duplicateCodeInfoCol } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_save_section_json_source } from "utils/generatedEndpoints";
 import { createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 import { duplicateSectionVariant, getSectionVariant } from "./sectionInfos";
@@ -24,9 +24,17 @@ export function createNewVersion(sectionId, newVersionName, state) {
   return { newVariantId, oldVariantId: currVariantId };
 }
 
-async function maybeSaveNewJSONVersion(newVariantId, isJsonSource) {
+async function maybeSaveNewJSONVersion(
+  newVariantId: string,
+  isJsonSource: boolean,
+) {
   if (isJsonSource) {
-    await dbSaveSectionJSONSource(newVariantId);
+    const { sections, codeInfoCols, variants, codeInfo } =
+      useProjectState.getState();
+    await route_save_section_json_source({
+      project: { sections, codeInfoCols, variants, codeInfo },
+      variantId: newVariantId,
+    });
   }
   addTemporaryNotification("New Version Created");
 }

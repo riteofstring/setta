@@ -2,18 +2,18 @@ import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  dbFileWatchApiKeys,
-  dbFileWatchGenPythonCode,
-  dbFileWatchJsonSource,
-} from "requests/jsonSource";
-import {
   useAIStore,
   useArtifacts,
   useMisc,
   useNodeInternals,
   useProjectState,
+  ZustandAIStore,
   ZustandProjectState,
 } from "state/definitions";
+import {
+  route_file_watch_gen_python_code,
+  route_file_watch_list,
+} from "utils/generatedEndpoints";
 import { UITypeNameEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
@@ -37,7 +37,7 @@ export function subscribe() {
       useProjectState.setState((state) => {
         state.singletonSections = x;
       });
-      dbFileWatchGenPythonCode({
+      route_file_watch_gen_python_code({
         watch: Boolean(x[UITypeNameEnum.GEN_PYTHON_CODE]),
         projectConfigId: useProjectState.getState().projectConfig.id,
       });
@@ -53,9 +53,14 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useProjectState.subscribe(jsonFilenameSubscriptionFn, dbFileWatchJsonSource, {
-    equalityFn: _.isEqual,
-  });
+  useProjectState.subscribe(
+    jsonFilenameSubscriptionFn,
+    (filepaths) =>
+      route_file_watch_list({ filepaths, fileWatchGroupName: "jsonSource" }),
+    {
+      equalityFn: _.isEqual,
+    },
+  );
 
   useProjectState.subscribe(
     topLevelSectionVisibilitySubscriptionFn,
@@ -153,10 +158,15 @@ export function subscribe() {
     },
   );
 
-  useAIStore.subscribe(apiKeysFilepathSubscriptionFn, dbFileWatchApiKeys, {
-    equalityFn: _.isEqual,
-    fireImmediately: true,
-  });
+  useAIStore.subscribe(
+    apiKeysFilepathSubscriptionFn,
+    (filepaths) =>
+      route_file_watch_list({ filepaths, fileWatchGroupName: "apiKeys" }),
+    {
+      equalityFn: _.isEqual,
+      fireImmediately: true,
+    },
+  );
 }
 
 function singletonSectionsSubscriptionFn(state) {
@@ -227,8 +237,8 @@ function artifactWhoModifiedSubscriptionFn(state) {
   return output;
 }
 
-function jsonFilenameSubscriptionFn(state) {
-  const filenameSet = new Set();
+function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
+  const filenameSet: Set<string> = new Set();
   for (const v of Object.values(state.variants)) {
     if (v.isJsonSource) {
       filenameSet.add(v.name);
@@ -260,7 +270,7 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   return codeBlockIds;
 }
 
-function apiKeysFilepathSubscriptionFn(state) {
+function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
   return [state.apiKeysFilepath];
 }
 

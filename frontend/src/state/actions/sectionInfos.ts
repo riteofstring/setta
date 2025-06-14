@@ -1,11 +1,12 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
-import { dbGetJSONSourcePathToBeDeleted } from "requests/jsonSource";
 import {
   useNodeInternals,
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   createCodeInfoCol,
   createEVEntry,
@@ -305,8 +306,8 @@ export async function deleteSectionVariantAndMaybeJsonFile(
   const state = useProjectState.getState();
   const { name: variantName, isJsonSource } = state.variants[variantId];
   if (isJsonSource) {
-    const res = await dbGetJSONSourcePathToBeDeleted(variantName);
-    if (res.status == 200) {
+    const res = await route_get_json_source_path_to_be_deleted({ variantName });
+    if (res200(res)) {
       openDeleteJSONSourceFileModal(res.data);
       const wasDeleted = await waitForFileDeletion(res.data);
       if (wasDeleted) {

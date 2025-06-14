@@ -263,7 +263,7 @@ export const useResizerStore = withProjectState(
   ),
 );
 
-type ZustandAIStore = {
+export type ZustandAIStore = {
   apiKeys: APIKeys;
   apiKeysFilepath: string;
   apiKeysInitialLoadComplete: boolean;

@@ -134,7 +134,7 @@ def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
 
 
 @router.post(Route.GET_JSON_SOURCE_PATH_TO_BE_DELETED)
-def route_get_json_source_path_to_be_deleted(x: GetJSONSourcePathToBeDeleted):
+def route_get_json_source_path_to_be_deleted(x: GetJSONSourcePathToBeDeleted) -> str:
     return os.path.abspath(x.variantName)
 
 

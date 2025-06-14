@@ -1,5 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { dbDeleteFile } from "requests/jsonSource";
 import { setModalOpen } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -7,6 +6,8 @@ import {
   setTemporaryMiscState,
 } from "state/actions/temporaryMiscState";
 import { useModal } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_delete_file } from "utils/generatedEndpoints";
 
 export function DeleteFileModal() {
   const filepath = useModal((x) => x.modalData);
@@ -16,8 +17,8 @@ export function DeleteFileModal() {
   };
 
   const handleConfirm = async () => {
-    const res = await dbDeleteFile(filepath);
-    if (res.status == 200) {
+    const res = await route_delete_file({ filepath });
+    if (res200(res)) {
       // allows function that opened modal to find out if file was deleted
       setTemporaryMiscState(fileDeletionRequestId(filepath), true);
       addTemporaryNotification("Deleted file");

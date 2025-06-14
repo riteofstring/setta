@@ -1,5 +1,6 @@
-import { dbLoadSectionJSONSource } from "requests/jsonSource";
 import { useAIStore, useProjectState } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
+import { route_load_section_json_source } from "utils/generatedEndpoints";
 import { UITypeNameEnum } from "utils/generatedTypes";
 import { getSectionVariant, updateProjectState } from "./sectionInfos";
 
@@ -50,14 +51,19 @@ async function updateJSONSourceContents(updatedFileInfo) {
   });
 }
 
-export async function loadJsonContents(variantIdsToLoad) {
+export async function loadJsonContents(variantIdsToLoad: Array<string>) {
   let codeInfo = null,
     codeInfoCols = null,
     variants = null;
 
   if (variantIdsToLoad.length > 0) {
-    const res = await dbLoadSectionJSONSource(variantIdsToLoad);
-    if (res.status === 200) {
+    const { sections, codeInfoCols, variants, codeInfo } =
+      useProjectState.getState();
+    const res = await route_load_section_json_source({
+      project: { sections, codeInfoCols, variants, codeInfo },
+      variantIdsToLoad,
+    });
+    if (res200(res)) {
       ({ codeInfo, codeInfoCols, variants } = res.data.project);
     }
   }

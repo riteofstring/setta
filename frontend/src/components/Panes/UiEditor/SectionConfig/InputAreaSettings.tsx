@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { dbCreateFile } from "requests/jsonSource";
 import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateProjectState } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
+import { res200 } from "utils/endpointUtils";
+import { route_create_file } from "utils/generatedEndpoints";
 
 // TODO: enable this stuff again, but it should show jsonSourceGlob I guess
 export function InputAreaSettings({ sectionId }) {
@@ -40,8 +41,8 @@ export function InputAreaSettings({ sectionId }) {
 
   async function onClickCreateJSON() {
     if (value) {
-      const res = await dbCreateFile(value);
-      if (res.status === 200) {
+      const res = await route_create_file({ filepath: value });
+      if (res200(res)) {
         onBlur(value);
       }
     }

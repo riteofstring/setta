@@ -123,7 +123,7 @@ export async function route_save_section_json_source(
 
 export async function route_get_json_source_path_to_be_deleted(
   x: gt.GetJSONSourcePathToBeDeleted,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<string>> {
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
