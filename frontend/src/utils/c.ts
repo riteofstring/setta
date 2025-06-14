@@ -61,8 +61,6 @@ export class C {
   static WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS";
   static WS_LLM_STREAMING_RESPONSE = "WS_LLM_STREAMING_RESPONSE";
   static WS_LSP_DIAGNOSTICS = "lspDiagnostics";
-  static WS_MCP_TOOL_USE = "mcpToolUse";
-  static WS_MCP_TOOL_USE_RETURN = "WS_MCP_TOOL_USE_RETURN";
   static WS_NEW_TERMINAL_CREATED = "WS_NEW_TERMINAL_CREATED";
   static WS_NOTIFICATION = "notification";
   static WS_PROJECT_DATA = "projectData";

@@ -1,4 +1,3 @@
-import asyncio
 import dataclasses
 import json
 import logging
@@ -6,7 +5,6 @@ import logging
 from fastapi import WebSocket
 from websockets.exceptions import ConnectionClosedError
 
-from setta.database.utils import create_new_id
 from setta.types.websocket_manager import (
     WebsocketConnectionInfo,
     WebsocketConnectionInfoWithSocket,
@@ -109,32 +107,3 @@ class WebsocketManager:
         await self.broadcast(
             [dataclasses.asdict(x) for x in connections], C.WS_ALL_CONNECTIONS
         )
-
-    def create_pending_request(self):
-        id = create_new_id()
-        self.pending_requests[id] = asyncio.Future()
-        return id
-
-    def resolve_pending_request(self, request_id, result):
-        if request_id in self.pending_requests:
-            future = self.pending_requests[request_id]
-            if not future.done():
-                future.set_result(result)
-            return True
-        return False
-
-    async def wait_for_pending_request(self, request_id, timeout=30):
-        future = self.pending_requests.get(request_id)
-        if future:
-            try:
-                result = await asyncio.wait_for(future, timeout=timeout)
-                return result
-            except asyncio.TimeoutError:
-                logger.debug(f"Request {request_id} timed out")
-                return None
-            except Exception as e:
-                logger.debug(f"Error waiting for response to {request_id}: {e}")
-                return None
-            finally:
-                self.pending_requests.pop(request_id, None)
-        return None

@@ -31,10 +31,6 @@ class WMHFrontend(BaseWebsocketMsgHandler):
             )
             for wid in wids:
                 await self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_MCP_TOOL_USE_RETURN:
-            self.websocket_manager.resolve_pending_request(
-                message["id"], message["content"]
-            )
         elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
             await self.project_manager.update_from_frontend(
                 messageId=message["id"],
