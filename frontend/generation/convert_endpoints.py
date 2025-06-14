@@ -89,11 +89,19 @@ def create_args(inputs, generate_types_alias):
     return ", ".join(args)
 
 
-def get_ts_fn_def(fn_name, args):
+def create_ts_fn_def(fn_name, args):
     return f"""
-export function {fn_name}({args}){{
-
+export async function {fn_name}({args}){{
+    return await post()
 }}
+
+"""
+
+
+def create_imports(generate_types_alias):
+    return f"""
+import * as {generate_types_alias} from "./generatedTypes"
+import {{ post }} from "./endpointUtils"
 
 """
 
@@ -101,11 +109,11 @@ export function {fn_name}({args}){{
 def main(output_path):
     specs = get_path_input_output_types()
     generate_types_alias = "gt"
-    ts_code = f'import * as {generate_types_alias} from "./generatedTypes"\n'
+    ts_code = create_imports(generate_types_alias)
     for endpoint_fn_name, s in specs.items():
         fn_name = create_fn_name(endpoint_fn_name)
         args = create_args(s["inputs"], generate_types_alias)
-        ts_code += get_ts_fn_def(fn_name, args)
+        ts_code += create_ts_fn_def(fn_name, args)
 
     with open(output_path, "w") as f:
         f.write(ts_code)

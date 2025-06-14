@@ -1,127 +1,246 @@
+import { post } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
-export function dbRouteLoadAllProjectMetadata() {}
+export async function dbRouteLoadAllProjectMetadata() {
+  return await post();
+}
 
-export function dbRouteLoadProjectConfig(x: gt.ProjectLoadRequest) {}
+export async function dbRouteLoadProjectConfig(x: gt.ProjectLoadRequest) {
+  return await post();
+}
 
-export function dbRouteSaveProject(x: gt.ProjectSaveRequest) {}
+export async function dbRouteSaveProject(x: gt.ProjectSaveRequest) {
+  return await post();
+}
 
-export function dbRouteCreateProjectConfig(x: gt.CreateProjectConfigRequest) {}
+export async function dbRouteCreateProjectConfig(
+  x: gt.CreateProjectConfigRequest,
+) {
+  return await post();
+}
 
-export function dbRouteSaveAsNewProjectConfig(
+export async function dbRouteSaveAsNewProjectConfig(
   x: gt.SaveAsNewProjectConfigRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteSaveAsExistingProjectConfig(
+export async function dbRouteSaveAsExistingProjectConfig(
   x: gt.SaveAsExistingProjectConfigRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteDeleteProjectConfigs(
+export async function dbRouteDeleteProjectConfigs(
   x: gt.DeleteProjectConfigsRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteSetProjectConfigName(
+export async function dbRouteSetProjectConfigName(
   x: gt.SetProjectConfigNameRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouterGetDefaultProjectConfigName() {}
+export async function dbRouterGetDefaultProjectConfigName() {
+  return await post();
+}
 
-export function dbRouterSetAsDefaultProject(x: gt.SetAsDefaultProjectRequest) {}
+export async function dbRouterSetAsDefaultProject(
+  x: gt.SetAsDefaultProjectRequest,
+) {
+  return await post();
+}
 
-export function dbRouterFilterDataForJsonExport(
+export async function dbRouterFilterDataForJsonExport(
   x: gt.FilterDataForJSONExportRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouterAddDefaultDataForJsonImport(
+export async function dbRouterAddDefaultDataForJsonImport(
   x: gt.FilterDataForJSONExportRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteGetNotifications(x: gt.GetNotificationsRequest) {}
+export async function dbRouteGetNotifications(x: gt.GetNotificationsRequest) {
+  return await post();
+}
 
-export function dbRouteDeleteNotification(x: gt.DeleteNotificationRequest) {}
+export async function dbRouteDeleteNotification(
+  x: gt.DeleteNotificationRequest,
+) {
+  return await post();
+}
 
-export function dbRouteSectionsMakeCopy(x: gt.SectionsMakeCopyRequest) {}
+export async function dbRouteSectionsMakeCopy(x: gt.SectionsMakeCopyRequest) {
+  return await post();
+}
 
-export function dbRouteSectionToYaml(x: gt.SectionToYamlRequest) {}
+export async function dbRouteSectionToYaml(x: gt.SectionToYamlRequest) {
+  return await post();
+}
 
-export function dbRouteLoadSectionJsonSource(
+export async function dbRouteLoadSectionJsonSource(
   x: gt.LoadSectionJSONSourceRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteNewJsonVersionName(x: gt.NewJSONVersionNameRequest) {}
+export async function dbRouteNewJsonVersionName(
+  x: gt.NewJSONVersionNameRequest,
+) {
+  return await post();
+}
 
-export function dbRouteCreateFile(x: gt.CreateFileRequest) {}
+export async function dbRouteCreateFile(x: gt.CreateFileRequest) {
+  return await post();
+}
 
-export function dbRouteSaveSectionJsonSource(
+export async function dbRouteSaveSectionJsonSource(
   x: gt.SaveSectionJSONSourceRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteGetJsonSourcePathToBeDeleted(
+export async function dbRouteGetJsonSourcePathToBeDeleted(
   x: gt.GetJSONSourcePathToBeDeleted,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteDeleteFile(x: gt.DeleteFileRequest) {}
+export async function dbRouteDeleteFile(x: gt.DeleteFileRequest) {
+  return await post();
+}
 
-export function dbRouteFileWatchList(x: gt.FileWatchListRequest) {}
+export async function dbRouteFileWatchList(x: gt.FileWatchListRequest) {
+  return await post();
+}
 
-export function dbRouteFileWatchGenPythonCode(
+export async function dbRouteFileWatchGenPythonCode(
   x: gt.FileWatchGenPythonCodeRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteTerminalDeleteTerminals(x: gt.DeleteTerminalsRequest) {}
+export async function dbRouteTerminalDeleteTerminals(
+  x: gt.DeleteTerminalsRequest,
+) {
+  return await post();
+}
 
-export function dbRouteTerminalGetExistingTerminals(projectConfigId: string) {}
+export async function dbRouteTerminalGetExistingTerminals(
+  projectConfigId: string,
+) {
+  return await post();
+}
 
-export function dbRouteKillSubprocesses(x: gt.KillSubprocessesRequest) {}
+export async function dbRouteKillSubprocesses(x: gt.KillSubprocessesRequest) {
+  return await post();
+}
 
-export function dbRouteRunCode(x: gt.RunCodeRequest) {}
+export async function dbRouteRunCode(x: gt.RunCodeRequest) {
+  return await post();
+}
 
-export function dbRouteDocstringToMarkdown(x: gt.DocstringToMarkdownRequest) {}
+export async function dbRouteDocstringToMarkdown(
+  x: gt.DocstringToMarkdownRequest,
+) {
+  return await post();
+}
 
-export function dbRouteSaveSettings(x: gt.SaveSettingsRequest) {}
+export async function dbRouteSaveSettings(x: gt.SaveSettingsRequest) {
+  return await post();
+}
 
-export function dbRouteLoadSettings() {}
+export async function dbRouteLoadSettings() {
+  return await post();
+}
 
-export function dbRouteSaveSettingsProject(x: gt.SaveSettingsProjectRequest) {}
+export async function dbRouteSaveSettingsProject(
+  x: gt.SaveSettingsProjectRequest,
+) {
+  return await post();
+}
 
-export function dbRouteLoadSettingsProject() {}
+export async function dbRouteLoadSettingsProject() {
+  return await post();
+}
 
-export function dbRouteFormatCode(x: gt.FormatCodeRequest) {}
+export async function dbRouteFormatCode(x: gt.FormatCodeRequest) {
+  return await post();
+}
 
-export function dbRouteSendArtifact(x: gt.SendArtifactRequest) {}
+export async function dbRouteSendArtifact(x: gt.SendArtifactRequest) {
+  return await post();
+}
 
-export function dbRouteLoadArtifacts(x: gt.LoadArtifactsRequest) {}
+export async function dbRouteLoadArtifacts(x: gt.LoadArtifactsRequest) {
+  return await post();
+}
 
-export function dbRouteLoadAvailableArtifacts(
+export async function dbRouteLoadAvailableArtifacts(
   x: gt.LoadAvailableArtifactsRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteCheckIfFileExists(x: gt.CheckIfFileExistsRequests) {}
+export async function dbRouteCheckIfFileExists(
+  x: gt.CheckIfFileExistsRequests,
+) {
+  return await post();
+}
 
-export function dbRouteLoadArtifactFromDisk(
+export async function dbRouteLoadArtifactFromDisk(
   x: gt.LoadArtifactFromDiskRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteReadCsvBase64(x: gt.ReadCSVBase64Request) {}
+export async function dbRouteReadCsvBase64(x: gt.ReadCSVBase64Request) {
+  return await post();
+}
 
-export function dbRouteGetArtifactIdsFromNamePathType(
+export async function dbRouteGetArtifactIdsFromNamePathType(
   x: gt.FillInMissingArtifactIdsRequest,
-) {}
+) {
+  return await post();
+}
 
-export function dbRouteRestartLanguageServer() {}
+export async function dbRouteRestartLanguageServer() {
+  return await post();
+}
 
-export function dbRouteTypeCheck(x: gt.TypeCheckRequest) {}
+export async function dbRouteTypeCheck(x: gt.TypeCheckRequest) {
+  return await post();
+}
 
-export function dbRouteGetLlmResponse(x: gt.GetLLMResponseRequest) {}
+export async function dbRouteGetLlmResponse(x: gt.GetLLMResponseRequest) {
+  return await post();
+}
 
-export function dbRouteSetLlmApiKeys(x: gt.SetLLMApiKeysRequest) {}
+export async function dbRouteSetLlmApiKeys(x: gt.SetLLMApiKeysRequest) {
+  return await post();
+}
 
-export function dbRouteGetAllLlmChatMetadata() {}
+export async function dbRouteGetAllLlmChatMetadata() {
+  return await post();
+}
 
-export function dbRouteDeleteLlmChat(x: gt.DeleteLLMChatRequest) {}
+export async function dbRouteDeleteLlmChat(x: gt.DeleteLLMChatRequest) {
+  return await post();
+}
 
-export function dbRouteStopLlmChat(x: gt.StopLLMChatRequest) {}
+export async function dbRouteStopLlmChat(x: gt.StopLLMChatRequest) {
+  return await post();
+}
 
-export function dbRouteGetLlmChat(x: gt.GetLLMChatRequest) {}
+export async function dbRouteGetLlmChat(x: gt.GetLLMChatRequest) {
+  return await post();
+}
 
-export function dbRouteGetUuidMappingForLlm() {}
+export async function dbRouteGetUuidMappingForLlm() {
+  return await post();
+}
