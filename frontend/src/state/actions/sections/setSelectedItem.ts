@@ -1,4 +1,4 @@
-import { wsSetSelectedItem } from "requests/sections";
+import { wsSetSelectedItem } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
 import { setParametersRequestWaitingForLSP } from "../lsp";
 import { updateProjectState } from "../sectionInfos";

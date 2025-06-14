@@ -15,7 +15,7 @@ import {
 import { processRenameRefactorResults } from "state/actions/referenceRenaming";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import { setTemporaryMiscState } from "state/actions/temporaryMiscState";
-import { processTypeErrors } from "state/actions/typeErrors";
+import { processTypeErrors } from "state/actions/typeCheck";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,

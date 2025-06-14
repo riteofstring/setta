@@ -2,9 +2,9 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { wsClearTextFieldCompletion } from "requests/sections";
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
+import { wsClearTextFieldCompletion } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";

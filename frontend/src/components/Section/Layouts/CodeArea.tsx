@@ -6,13 +6,13 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { wsCodeAreaCompletion } from "requests/sections";
 import {
   getCurrentSectionConfigs,
   getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { wsCodeAreaCompletion } from "state/actions/websocketSend";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,

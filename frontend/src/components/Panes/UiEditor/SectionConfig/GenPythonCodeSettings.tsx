@@ -4,8 +4,8 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
-import { wsGenCodePrefixCompletion } from "requests/sections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { wsGenCodePrefixCompletion } from "state/actions/websocketSend";
 import { useProjectState } from "state/definitions";
 
 export function GenPythonCodeSettings() {

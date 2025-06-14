@@ -1,19 +1,7 @@
-import { addTemporaryNotification } from "state/actions/notifications";
 import { sendMessageAndWait } from "state/actions/temporaryMiscState";
-import { useProjectState, useTypeErrors } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { route_type_check } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
-import { sendMessage } from "./websocket";
-
-export async function dbRequestTypeCheck(userRequested = false) {
-  if (userRequested) {
-    addTemporaryNotification("Checking types...");
-    useTypeErrors.setState({ userRequested });
-  }
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  route_type_check({ projectConfigId });
-}
 
 export async function wsSetSelectedItem(
   sectionId: string,

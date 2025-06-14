@@ -1,6 +1,16 @@
 import _ from "lodash";
 import { useProjectState, useTypeErrors } from "state/definitions";
+import { route_type_check } from "utils/generatedEndpoints";
 import { addTemporaryNotification } from "./notifications";
+
+export async function requestTypeCheck(userRequested = false) {
+  if (userRequested) {
+    addTemporaryNotification("Checking types...");
+    useTypeErrors.setState({ userRequested });
+  }
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  route_type_check({ projectConfigId });
+}
 
 export function processTypeErrors(content) {
   const { projectConfigId, codeSectionId, diagnostics } = content;

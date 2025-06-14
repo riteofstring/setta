@@ -1,7 +1,7 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { removeTypeErrorsForParam } from "state/actions/typeErrors";
+import { removeTypeErrorsForParam } from "state/actions/typeCheck";
 import {
   useContextMenus,
   useProjectState,

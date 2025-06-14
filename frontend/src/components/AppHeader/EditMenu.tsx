@@ -5,7 +5,6 @@ import _ from "lodash";
 import { AiOutlineGroup } from "react-icons/ai";
 import { HiPlus } from "react-icons/hi";
 import { Link } from "react-router-dom";
-import { dbRequestTypeCheck } from "requests/sections";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
@@ -13,6 +12,7 @@ import {
   addRegularSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
+import { requestTypeCheck } from "state/actions/typeCheck";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import { SETTINGS_ROUTER_PATH } from "utils/constants";
@@ -59,7 +59,7 @@ function Items() {
       </MenuItem>
       <Menubar.Separator className="dark: m-[5px] h-[1px] bg-setta-100 dark:bg-setta-600" />
       <MenuItem
-        onClick={() => dbRequestTypeCheck(true)}
+        onClick={() => requestTypeCheck(true)}
         shortcut={shortcuts.typeCheckShortcut}
       >
         Type Check

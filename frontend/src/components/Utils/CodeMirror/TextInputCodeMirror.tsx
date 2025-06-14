@@ -1,9 +1,9 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useState } from "react";
-import { wsTextFieldCompletion } from "requests/sections";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
+import { wsTextFieldCompletion } from "state/actions/websocketSend";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
