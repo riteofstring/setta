@@ -3,6 +3,9 @@ from typing import Any
 from fastapi import WebSocket
 from pydantic import BaseModel
 
+from setta.types.artifact import Artifact
+from setta.types.chat_messages import LLMStreamingResponse
+from setta.types.notifications import SettaNotification
 from setta.types.utils import AsIsStrEnum
 
 WebsocketMsgTypeForFrontend = AsIsStrEnum(
@@ -50,4 +53,21 @@ class WebsocketMsgAllConnections(WebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: WebsocketMsgTypeForFrontend = (
         WebsocketMsgTypeForFrontend.ALL_CONNECTIONS
+    )
+
+
+class WebsocketMsgArtifact(WebsocketMsg):
+    content: Artifact
+    messageType: WebsocketMsgTypeForFrontend = WebsocketMsgTypeForFrontend.ARTIFACT
+
+
+class WebsocketMsgNotification(WebsocketMsg):
+    content: SettaNotification
+    messageType: WebsocketMsgTypeForFrontend = WebsocketMsgTypeForFrontend.NOTIFICATION
+
+
+class WebsocketMsgLLMStreamingResponse(WebsocketMsg):
+    content: LLMStreamingResponse
+    messageType: WebsocketMsgTypeForFrontend = (
+        WebsocketMsgTypeForFrontend.LLM_STREAMING_RESPONSE
     )

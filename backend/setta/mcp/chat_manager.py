@@ -20,7 +20,6 @@ from anthropic.types import (
     ToolUseBlock,
     ToolUseBlockParam,
 )
-from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_all_chat_metadata, load_chat
 from setta.database.db.chats.save import create_new_chat, delete_chat, save_messages
@@ -128,7 +127,9 @@ class ChatManager:
                 messages=messages,
                 toolResults=tool_results,
             )
-            await self.send_streaming_response(chatId, None, chunk)
+            await self.websocket_msg_handler.send_streaming_response(
+                chatId, None, chunk
+            )
 
     async def _process_query(
         self, projectConfigId: str, chat: Chat, model, deepThink: bool
@@ -210,7 +211,7 @@ class ChatManager:
                         content=result.content,
                         is_error=result.isError,
                     )
-                    await self.send_streaming_response(
+                    await self.websocket_msg_handler.send_streaming_response(
                         chatId, assistant_message_id, tool_result
                     )
                     newer_msgs.append(
@@ -275,16 +276,11 @@ class ChatManager:
                         curr_msg.input = ""
                     curr_msg.input += event.delta.partial_json
 
-            await self.send_streaming_response(chatId, assistant_message_id, event)
+            await self.websocket_msg_handler.send_streaming_response(
+                chatId, assistant_message_id, event
+            )
 
         return assistant_message_id, llm_msgs
-
-    async def send_streaming_response(
-        self, chatId: str, assistant_message_id: str | None, chunk: BaseModel
-    ):
-        await self.websocket_msg_handler.send_streaming_response(
-            chatId, assistant_message_id, chunk.model_dump()
-        )
 
     async def request_stop_streaming(self, chat_id: str):
         task = self.stream_tasks.get(chat_id)

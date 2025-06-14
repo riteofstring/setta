@@ -5,8 +5,7 @@ from fastapi import Depends, WebSocket, WebSocketDisconnect
 
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
-from setta.types.websocket_manager import WebsocketConnectionType
-from setta.types.websocket_msgs import WebsocketMsg
+from setta.types.websocket_manager import WebsocketConnectionType, WebsocketMsg
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.msg_handlers.cli import WMHCLI
 from setta.websockets.msg_handlers.python_logger import WMHPythonLogger

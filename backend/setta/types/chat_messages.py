@@ -3,6 +3,9 @@ from typing import Literal, Sequence
 
 from anthropic.types import (
     ContentBlock,
+    RawContentBlockDeltaEvent,
+    RawContentBlockStartEvent,
+    RawMessageStartEvent,
 )
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
@@ -46,3 +49,18 @@ class FullMessageStop(BaseModel):
     type: Literal["full_message_stop"]
     messages: list[ChatMessage]
     toolResults: dict[str, ToolResult]
+
+
+LLMStreamingResponseChunk = (
+    FullMessageStop
+    | ToolResult
+    | RawMessageStartEvent
+    | RawContentBlockStartEvent
+    | RawContentBlockDeltaEvent
+)
+
+
+class LLMStreamingResponse(BaseModel):
+    chatId: str
+    assistantMessageId: str | None
+    chunk: LLMStreamingResponseChunk

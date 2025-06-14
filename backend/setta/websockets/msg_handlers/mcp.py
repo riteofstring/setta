@@ -1,6 +1,8 @@
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.websocket_manager import WebsocketConnectionType
-from setta.types.websocket_msgs import WebsocketMsgTypeForFrontend
+from setta.types.websocket_manager import (
+    WebsocketConnectionType,
+    WebsocketMsgTypeForFrontend,
+)
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
 from setta.websockets.websocket_manager import WebsocketManager
 

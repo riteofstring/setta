@@ -7,8 +7,6 @@ from setta.types.websocket_manager import (
     WebsocketConnectionInfo,
     WebsocketConnectionInfoWithSocket,
     WebsocketConnectionType,
-)
-from setta.types.websocket_manager import (
     WebsocketMsg,
     WebsocketMsgAllConnections,
 )
