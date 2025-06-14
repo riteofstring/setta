@@ -26,6 +26,7 @@ import setta.types
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic_core import PydanticUndefined
+from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
@@ -469,4 +470,4 @@ export type ID = z.infer<typeof IDSchema>;
 
 
 if __name__ == "__main__":
-    main(Path("src/utils/generatedTypes.ts"))
+    main(get_absolute_path(__file__, Path("../src/utils/generatedTypes.ts")))

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from setta.utils.constants import C, classproperty
+from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
@@ -85,4 +86,7 @@ def main(f1, f2):
 
 
 if __name__ == "__main__":
-    main(Path("src/utils/c.ts"), Path("src/utils/c_addresses.ts"))
+    main(
+        get_absolute_path(__file__, Path("../src/utils/c.ts")),
+        get_absolute_path(__file__, Path("../src/utils/c_addresses.ts")),
+    )

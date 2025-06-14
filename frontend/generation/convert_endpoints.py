@@ -1,9 +1,12 @@
 import inspect
-from pathlib import Path
 from typing import get_type_hints
 
+from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from setta.server import app
+from setta.utils.utils import get_absolute_path
+
+from .utils import format_generated_code
 
 
 def get_path_input_output_types():
@@ -25,7 +28,10 @@ def get_path_input_output_types():
         # Extract input parameters (excluding Depends)
         for param_name, param in sig.parameters.items():
             # Skip if it's a Depends parameter
-            if type(param.default).__name__ == "Depends":
+            if (
+                type(param.default).__name__ == "Depends"
+                or param.annotation is BackgroundTasks
+            ):
                 continue
 
             # Get the raw type hint for this parameter
@@ -47,7 +53,7 @@ def get_path_input_output_types():
     return output
 
 
-def remove_underscores_and_capitalize(s):
+def create_fn_name(s):
     if not s:
         return s
 
@@ -68,9 +74,16 @@ def remove_underscores_and_capitalize(s):
     return "db" + s[0].upper() + s[1:]
 
 
-def get_ts_fn_def(fn_name):
+def create_args(inputs, generate_types_alias):
+    args = []
+    for name, type in inputs.items():
+        args.append(f"{name}:{generate_types_alias}.{type.__name__}")
+    return ", ".join(args)
+
+
+def get_ts_fn_def(fn_name, args):
     return f"""
-export function {fn_name}(){{
+export function {fn_name}({args}){{
 
 }}
 
@@ -79,14 +92,18 @@ export function {fn_name}(){{
 
 def main(output_path):
     specs = get_path_input_output_types()
-    ts_code = ""
+    generate_types_alias = "gt"
+    ts_code = f'import * as {generate_types_alias} from "./generatedTypes"\n'
     for endpoint_fn_name, s in specs.items():
-        fn_name = remove_underscores_and_capitalize(endpoint_fn_name)
-        ts_code += get_ts_fn_def(fn_name)
+        fn_name = create_fn_name(endpoint_fn_name)
+        args = create_args(s["inputs"], generate_types_alias)
+        ts_code += get_ts_fn_def(fn_name, args)
 
     with open(output_path, "w") as f:
         f.write(ts_code)
 
+    format_generated_code(output_path)
+
 
 if __name__ == "__main__":
-    main(Path("./generatedEndpoints.ts"))
+    main(get_absolute_path(__file__, "../src/utils/generatedEndpoints.ts"))

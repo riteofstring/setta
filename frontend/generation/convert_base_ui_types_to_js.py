@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from setta.types.base_ui_types import BASE_UI_TYPES_LIST
+from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
@@ -37,4 +38,6 @@ BASE_UI_TYPES_LIST.forEach(uiType => {{
 
 
 if __name__ == "__main__":
-    convert_base_ui_types_to_js(Path("src/utils/baseUITypes.ts"))
+    convert_base_ui_types_to_js(
+        get_absolute_path(__file__, Path("../src/utils/baseUITypes.ts"))
+    )

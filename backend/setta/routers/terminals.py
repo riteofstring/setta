@@ -72,7 +72,7 @@ async def route_terminal_delete_terminals(
 
 @router.post(Route.GET_EXISTING_TERMINALS)
 def route_terminal_get_existing_terminals(
-    projectConfigId, terminals=Depends(get_terminals)
+    projectConfigId: str, terminals=Depends(get_terminals)
 ):
     return terminals.get_existing_terminals(projectConfigId)
 
