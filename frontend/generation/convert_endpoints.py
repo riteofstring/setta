@@ -42,12 +42,51 @@ def get_path_input_output_types():
 
         route_info["output"] = return_type
 
-        output[route.path] = route_info
+        output[route.endpoint.__name__] = route_info
+
+    return output
+
+
+def remove_underscores_and_capitalize(s):
+    if not s:
+        return s
+
+    result = []
+    i = 0
+
+    while i < len(s):
+        if s[i] == "_":
+            # Skip the underscore and capitalize the next character if it exists
+            i += 1
+            if i < len(s):
+                result.append(s[i].upper())
+        else:
+            result.append(s[i])
+        i += 1
+
+    s = "".join(result)
+    return "db" + s[0].upper() + s[1:]
+
+
+def get_ts_fn_def(fn_name):
+    return f"""
+export function {fn_name}(){{
+
+}}
+
+"""
 
 
 def main(output_path):
     specs = get_path_input_output_types()
+    ts_code = ""
+    for endpoint_fn_name, s in specs.items():
+        fn_name = remove_underscores_and_capitalize(endpoint_fn_name)
+        ts_code += get_ts_fn_def(fn_name)
+
+    with open(output_path, "w") as f:
+        f.write(ts_code)
 
 
 if __name__ == "__main__":
-    main(Path("src/utils/endpointSpecs.ts"))
+    main(Path("./generatedEndpoints.ts"))
