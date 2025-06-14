@@ -1,6 +1,7 @@
 from setta.types.websocket_manager import (
     WebsocketConnectionType,
-    WebsocketMsgTypeForFrontend,
+    WebsocketMsgNewTerminalCreated,
+    WebsocketMsgTerminalMetadata,
 )
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgHandler
@@ -17,14 +18,14 @@ class WMHTerminals(BaseWebsocketMsgHandler):
 
     async def broadcast_terminal_metadata(self, terminal_metadata):
         await self.websocket_manager.broadcast(
-            terminal_metadata,
-            WebsocketMsgTypeForFrontend.TerminalMetadata,
+            WebsocketMsgTerminalMetadata(content=terminal_metadata),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
     async def send_new_terminal_id(self, projectConfigId, terminalId):
         await self.websocket_manager.broadcast(
-            {"projectConfigId": projectConfigId, "terminalId": terminalId},
-            WebsocketMsgTypeForFrontend.NewTerminalCreated,
+            WebsocketMsgNewTerminalCreated(
+                content={"projectConfigId": projectConfigId, "terminalId": terminalId}
+            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
