@@ -1,7 +1,7 @@
 import { memo, useState } from "react";
 import { IoSend, IoStop } from "react-icons/io5";
-import { dbStopLLMChat } from "requests/ai";
 import { submitMessage } from "state/actions/ai";
+import { route_stop_llm_chat } from "utils/generatedEndpoints";
 
 export const ChatInput = memo(function ChatInput({
   deepThink,
@@ -17,7 +17,7 @@ export const ChatInput = memo(function ChatInput({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (waitingForResponse) {
-      dbStopLLMChat(currentChatId);
+      route_stop_llm_chat({ chatId: currentChatId });
       return;
     }
 

@@ -1,9 +1,9 @@
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
-import { dbSetLLMApiKeys } from "requests/ai";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { MODEL_GROUPS } from "utils/constants";
+import { route_set_llm_api_keys } from "utils/generatedEndpoints";
 
 const IsolatedInput = ({ apiKeyName }) => {
   const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
@@ -14,7 +14,7 @@ const IsolatedInput = ({ apiKeyName }) => {
     }));
 
     const { apiKeys, apiKeysFilepath } = useAIStore.getState();
-    dbSetLLMApiKeys(apiKeys, apiKeysFilepath);
+    route_set_llm_api_keys({ apiKeys, apiKeysFilepath });
   };
 
   const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(

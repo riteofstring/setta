@@ -259,7 +259,9 @@ export async function route_set_llm_api_keys(
   return await post("/setLLMApiKeys", x);
 }
 
-export async function route_get_all_llm_chat_metadata(): Promise<null> {
+export async function route_get_all_llm_chat_metadata(): Promise<
+  Array<gt.ChatMetadata>
+> {
   return await post("/getAllLLMChatMetadata");
 }
 
@@ -281,6 +283,8 @@ export async function route_get_llm_chat(
   return await post("/getLLMChat", x);
 }
 
-export async function route_get_uuid_mapping_for_llm(): Promise<null> {
+export async function route_get_uuid_mapping_for_llm(): Promise<
+  Record<gt.ID, string>
+> {
   return await post("/getUUIDMappingForLLM");
 }

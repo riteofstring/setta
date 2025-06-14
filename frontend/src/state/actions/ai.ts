@@ -1,13 +1,13 @@
 import _ from "lodash";
-import {
-  dbDeleteLLMChat,
-  dbGetAllLLMChatMetadata,
-  dbGetLLMChat,
-  dbGetUUIDMappingForLLM,
-} from "requests/ai";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { route_get_llm_response } from "utils/generatedEndpoints";
+import {
+  route_delete_llm_chat,
+  route_get_all_llm_chat_metadata,
+  route_get_llm_chat,
+  route_get_llm_response,
+  route_get_uuid_mapping_for_llm,
+} from "utils/generatedEndpoints";
 import {
   ChatRoleSchema,
   createTextBlock,
@@ -25,9 +25,9 @@ export function getDefaultChatDetails() {
   };
 }
 
-export async function getLLMChat(chatId) {
+export async function getLLMChat(chatId: string) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
-  const res = await dbGetLLMChat(chatId, projectConfigId);
+  const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res.status == 200) {
     const { messages, toolResults, waitingForResponse } = res.data;
     useAIStore.setState((state) => ({
@@ -56,14 +56,14 @@ export async function createNewLLMChat() {
 }
 
 export async function getAllLLMChatMetadata() {
-  const res = await dbGetAllLLMChatMetadata();
+  const res = await route_get_all_llm_chat_metadata();
   if (res.status == 200) {
     useAIStore.setState({ allChatMetadata: res.data });
   }
 }
 
-export async function deleteLLMChat(chatId) {
-  await dbDeleteLLMChat(chatId);
+export async function deleteLLMChat(chatId: string) {
+  await route_delete_llm_chat({ chatId });
   await getAllLLMChatMetadata();
 }
 
@@ -597,7 +597,7 @@ export function updateUUIDMappingForLLM(idToUUIDForLLM) {
 }
 
 export async function getUUIDMappingForLLM() {
-  const res = await dbGetUUIDMappingForLLM();
+  const res = await route_get_uuid_mapping_for_llm();
   if (res.status === 200) {
     updateUUIDMappingForLLM(res.data);
   }
