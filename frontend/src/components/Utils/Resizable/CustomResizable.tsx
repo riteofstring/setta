@@ -19,6 +19,7 @@ import {
 } from "utils/constants";
 import { ResizableWithScale } from "./ResizableWithScale";
 import { getChangedSize, SIZE_MODE } from "./utils";
+import { SectionSize } from "utils/generatedTypes";
 
 export function CustomResizable({
   sectionId,
@@ -65,7 +66,7 @@ function CustomResizableCore({
   as,
 }) {
   useEffect(() => {
-    const changedSize = {};
+    const changedSize: Partial<SectionSize> = {};
     if (sizeMode.height === SIZE_MODE.auto_only) {
       changedSize.height = "auto";
     }
@@ -215,7 +216,7 @@ function CustomResizableSuperCore({
   );
 }
 
-function useAspectRatio(sectionId) {
+function useAspectRatio(sectionId: string) {
   return useProjectState((x) => {
     const s = getCurrentSectionConfigs(x)[sectionId];
     if (s.isMinimized) {

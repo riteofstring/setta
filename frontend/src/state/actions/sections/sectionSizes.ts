@@ -1,13 +1,16 @@
 import _ from "lodash";
 import {
+  getCurrentSectionConfigs,
   getHighestAncestor,
   getSectionDescendants,
 } from "state/actions/sectionInfos";
+import { ZustandProjectState } from "state/definitions";
+import { SectionSize } from "utils/generatedTypes";
 
 export function setSelfParentSiblingChildrenWidths(
-  sectionId,
-  changedSize,
-  state,
+  sectionId: string,
+  changedSize: Partial<SectionSize>,
+  state: ZustandProjectState,
 ) {
   // set own size
   setSectionSize(sectionId, changedSize, state);
@@ -109,9 +112,14 @@ export function adjustAspectRatio(height, width, imgHeight, imgWidth) {
   }
 }
 
-export function setSectionSize(sectionId, size, state) {
-  state.sections[sectionId].size = {
-    ...state.sections[sectionId].size,
+export function setSectionSize(
+  sectionId: string,
+  size: Partial<SectionSize>,
+  state: ZustandProjectState,
+) {
+  const sConfigs = getCurrentSectionConfigs(state);
+  sConfigs[sectionId].size = {
+    ...sConfigs[sectionId].size,
     ...size,
   };
 }
