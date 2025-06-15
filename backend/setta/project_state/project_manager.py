@@ -20,18 +20,18 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     convert_backend_to_single_config,
     create_sections,
-    get_section_type,
+    get_section_impl,
     get_top_level_sections,
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
 )
 from setta.types.project_state import (
-    CodeLanguage,
     ProjectConfig,
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.sections import CodeSectionImpl
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER
@@ -226,10 +226,9 @@ class ProjectManager:
                     c.callback_cleanup()
         self.code_dict[projectConfigId] = {}
 
-        for sectionId in dep_graph.all_sections_in_project_config:
-            section_type = get_section_type(projectState, sectionId)
-
-            if section_type == UITypeName.CODE:
+        for sectionId in projectState.sections.keys():
+            section_impl = get_section_impl(projectState, sectionId)
+            if isinstance(section_impl, CodeSectionImpl):
                 section_code = self.create_code_obj(
                     project_temp_folder, projectState, sectionId
                 )
