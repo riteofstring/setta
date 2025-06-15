@@ -153,8 +153,9 @@ def get_effective_section_impl(
 
 
 def get_section_impl(p: ProjectStateSingleConfig, id: str):
-    impl_id = p.projectConfig.sectionImplMap[id]
-    return p.sectionImpls[impl_id]
+    impl_layering_id = p.projectConfig.sectionImplLayeringMap[id]
+    impl_layering = p.sectionImplLayerings[impl_layering_id]
+    return get_effective_section_impl(p, impl_layering)
 
 
 def get_section_callable(p: ProjectStateSingleConfig, id: str):
