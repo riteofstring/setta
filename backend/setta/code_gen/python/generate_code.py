@@ -180,7 +180,7 @@ class PythonCodeGenerator:
             return "True" if node.value == "true" else "False"
         elif t == CodeObjType.COLOR_PICKER_PARAM:
             return f'"{node.value}"'
-        elif t == C.NESTED_PARAM:
+        elif t == CodeObjType.NESTED_PARAM:
             return self.construct_dict(node.deps)
         else:
             raise ValueError
