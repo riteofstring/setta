@@ -1,8 +1,8 @@
 from setta.database.utils import create_new_id
 from setta.types.project_state import (
     ProjectConfig,
-    ProjectConfigChild,
     ProjectStateSingleConfig,
+    TopLevelSectionLayout,
 )
 from setta.types.settings_state import (
     SettingsBackend,
@@ -153,10 +153,12 @@ def create_settings_project_state(settings_path: str):
             codeInfoCols[codeInfoColId].children[c[0].id] = []
 
     projectConfigChildren = {
-        k: ProjectConfigChild(x=idx * 600) for idx, k in enumerate(sections.keys())
+        k: TopLevelSectionLayout(x=idx * 600) for idx, k in enumerate(sections.keys())
     }
     projectConfig = ProjectConfig(
-        name="settings", children=projectConfigChildren, sectionConfigs=sectionConfigs
+        name="settings",
+        topLevelSections=projectConfigChildren,
+        sectionConfigs=sectionConfigs,
     )
 
     return ProjectStateSingleConfig(

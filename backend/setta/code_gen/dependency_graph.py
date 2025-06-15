@@ -7,6 +7,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
+from setta.types.code_objs import ParameterPassingStyle
 from setta.types.helpers import (
     get_param_ui_type,
     get_section_children,
@@ -16,7 +17,6 @@ from setta.types.helpers import (
     get_selected_section_variant,
     get_top_level_param_ids,
 )
-from setta.types.params import ParameterPassingStyle
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -96,7 +96,7 @@ class DependencyGraph:
 
     def construct_graph(self, p: ProjectStateSingleConfig):
         self.reset()
-        ids = list(p.projectConfig.children.keys())
+        ids = list(p.projectConfig.topLevelSections.keys())
         self.export_sections(p, ids, isTopLevel=True)
         self.resolve_references()
 

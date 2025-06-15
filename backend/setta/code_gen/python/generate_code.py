@@ -11,7 +11,7 @@ from setta.code_gen.utils import (
     CLASS_DEF,
     SELF_IDENTIFIER,
 )
-from setta.types.params import CodeObjType, ParameterPassingStyle
+from setta.types.code_objs import CodeObjType, ParameterPassingStyle
 from setta.types.sections import SectionType
 
 from ...utils.constants import C

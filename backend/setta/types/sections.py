@@ -98,6 +98,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
+    topLevelCodeObjs: list[str] = Field(default_factory=list)
     codeObjImplMap: dict[str, str] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False

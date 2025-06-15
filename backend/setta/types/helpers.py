@@ -1,8 +1,12 @@
 from setta.database.utils import create_new_id
 from setta.types.project_state import (
-    ProjectConfigChild,
     ProjectStateBackend,
     ProjectStateSingleConfig,
+    TopLevelSectionLayout,
+)
+from setta.types.sections import (
+    BaseParentSectionImpl,
+    BaseSectionWithParamsImpl,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -22,14 +26,13 @@ def convert_backend_to_single_config(
 
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
-    variant_ids: set[str] = set()
-    code_info_ids: set[str] = set()
-    code_info_col_ids: set[str] = set()
-    ui_type_ids: set[str] = set()
-    ui_type_col_ids: set[str] = set()
+    section_impl_ids: set[str] = set()
+    code_obj_ids: set[str] = set()
+    code_obj_impl_ids: set[str] = set()
 
     # Start with top-level sections from project config
-    sections_to_process = list(project_config.children.keys())
+    sections_to_process: set[str] = set(project_config.topLevelSections.keys())
+    code_objs_to_process: set[str] = set()
 
     # Process sections recursively
     while sections_to_process:
@@ -40,51 +43,40 @@ def convert_backend_to_single_config(
         section_ids.add(section_id)
         section = p.sections[section_id]
 
-        # Collect UI type references
-        ui_type_ids.add(section.uiTypeId)
-        ui_type_ids.update(section.nonPresetUITypeIds)
-
-        # Collect UI type column reference
-        if section.uiTypeColId:
-            ui_type_col_ids.add(section.uiTypeColId)
-
-        for variant_id in section.variantIds:
-            if variant_id in variant_ids:
+        for impl_id in section.impls:
+            if impl_id in section_impl_ids:
                 continue
-            variant_ids.add(variant_id)
-            variant = p.variants[variant_id]
+            section_impl_ids.add(impl_id)
+            impl = p.sectionImpls[impl_id]
 
-            # Add child sections to process list
-            sections_to_process.extend(variant.children)
+            if isinstance(impl, BaseParentSectionImpl):
+                # Add child sections to process list
+                sections_to_process.update(impl.children)
+            elif isinstance(impl, BaseSectionWithParamsImpl):
+                code_objs_to_process.update(impl.topLevelCodeObjs)
 
-            # Collect code info column reference
-            if variant.codeInfoColId:
-                code_info_col_ids.add(variant.codeInfoColId)
+    # Process code_objs recursively
+    while code_objs_to_process:
+        obj_id = code_objs_to_process.pop()
+        if obj_id in code_obj_ids:
+            continue
 
-    # Process code info columns to find code info IDs
-    for col_id in code_info_col_ids:
-        col = p.codeInfoCols[col_id]
-        # Collect all code info IDs from all children lists
-        for code_info_id, code_info_children in col.children.items():
-            if code_info_id:
-                code_info_ids.add(code_info_id)
-            code_info_ids.update(code_info_children)
+        code_obj_ids.add(obj_id)
+        obj = p.codeObjs[obj_id]
 
-    # Process UI type columns to find additional UI type references
-    for col_id in ui_type_col_ids:
-        col_entries = p.uiTypeCols[col_id]
-        for entry in col_entries.values():
-            ui_type_ids.add(entry.uiTypeId)
-            ui_type_ids.update(entry.nonPresetUITypeIds)
+        for impl_id in obj.impls:
+            if impl_id in section_impl_ids:
+                continue
+            code_obj_impl_ids.add(impl_id)
+            impl = p.codeObjImpls[impl_id]
+            code_objs_to_process.update(impl.children)
 
     # Build the sliced state
     return ProjectStateSingleConfig(
         sections={x: p.sections[x] for x in section_ids},
-        variants={x: p.variants[x] for x in variant_ids},
-        codeInfo={x: p.codeInfo[x] for x in code_info_ids},
-        codeInfoCols={x: p.codeInfoCols[x] for x in code_info_col_ids},
-        uiTypes={x: p.uiTypes[x] for x in ui_type_ids},
-        uiTypeCols={x: p.uiTypeCols[x] for x in ui_type_col_ids},
+        sectionImpls={x: p.sectionImpls[x] for x in section_impl_ids},
+        codeObjs={x: p.codeObjs[x] for x in code_obj_ids},
+        codeObjImpls={x: p.codeObjImpls[x] for x in code_obj_impl_ids},
         projectConfig=project_config,
     )
 
@@ -265,7 +257,7 @@ def set_param_entered_value(
 def get_top_level_sections(p: ProjectStateSingleConfig) -> dict[str, Section]:
     output = {}
     projectConfig = p.projectConfig
-    for c in projectConfig.children.keys():
+    for c in projectConfig.topLevelSections.keys():
         output[c] = p.sections[c]
     return output
 
@@ -301,6 +293,6 @@ def create_sections(
         new_section.variantIds = [new_section_config.variantId]
         new_section.defaultVariantId = new_section_config.variantId
         p.projectConfig.sectionConfigs[new_section.id] = new_section_config
-        p.projectConfig.children[new_section.id] = ProjectConfigChild(
+        p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
             x=s.position.x, y=s.position.y
         )

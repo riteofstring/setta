@@ -34,6 +34,8 @@ class ParamNameType(Enum):
 class CodeObjCore(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    impls: list[str] = Field(default_factory=list)
+    default_impl: str | None = None
 
 
 class BaseCodeObjImpl(BaseModel):

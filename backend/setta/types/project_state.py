@@ -7,7 +7,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.params import BaseCodeObjImpl, CodeObjCore
+from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
 from setta.types.sections import BaseSectionImpl, SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -24,7 +24,7 @@ class Viewport(BaseModel, extra="forbid"):
     zoom: float = 1
 
 
-class ProjectConfigChild(BaseModel, extra="forbid"):
+class TopLevelSectionLayout(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0
     zIndex: int = 0
@@ -37,11 +37,11 @@ class ProjectConfig(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
-    children: dict[str, ProjectConfigChild] = Field(default_factory=dict)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
     entryCodeBlockId: str | None = None
+    topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionImplMap: dict[str, str] = Field(default_factory=dict)
 
 
