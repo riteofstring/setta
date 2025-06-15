@@ -8,11 +8,9 @@ from setta.types.project_state import (
     ProjectConfigChild,
     ProjectStateBackend,
     ProjectStateSingleConfig,
-    Section,
-    SectionConfig,
-    SectionVariant,
     UITypeColEntry,
 )
+from setta.types.sections import Section, SectionConfig, SectionVariant
 from setta.types.simplified_states import SimplifiedSectionCreation
 
 

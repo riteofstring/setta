@@ -10,9 +10,8 @@ from setta.types.project_state import (
     CodeInfoCol,
     EVEntry,
     ProjectStateSingleConfig,
-    Section,
-    SectionVariant,
 )
+from setta.types.sections import Section, SectionVariant
 
 logger = logging.getLogger(__name__)
 

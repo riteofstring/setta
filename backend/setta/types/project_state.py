@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Literal, Union
+from typing import Literal, Union
 
 from pydantic import (
     BaseModel,
@@ -15,14 +15,11 @@ from setta.types.base_ui_types import (
     UIType,
     UITypeName,
 )
+from setta.types.section_configs import BaseSectionConfig
+from setta.types.section_variants import BaseSectionVariant
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-Size = AsIsStrEnum("Size", ["auto"])
-
-CodeLanguage = AsIsStrEnum("CodeLanguage", ["python", "bash"])
-
-ConfigLanguage = AsIsStrEnum("ConfigLanguage", ["python", "json"])
 
 ParameterPassingStyle = AsIsStrEnum(
     "ParameterPassingStyle",
@@ -45,98 +42,8 @@ class Viewport(BaseModel, extra="forbid"):
     zoom: float = 1
 
 
-class SectionSize(BaseModel, extra="forbid"):
-    width: Union[float, Literal[Size.auto]] = Size.auto
-    height: Union[float, Literal[Size.auto]] = Size.auto
-
-
-class Visibility(BaseModel, extra="forbid"):
-    DEV: bool = True
-    USER: bool = True
-
-
-class DrawAreaCanvasSettings(BaseModel, extra="forbid"):
-    activeLayerId: str | None = None
-    color: str = "#ff0000"
-    brushSize: int = 16
-    brushShape: str = "butt"
-    eraserBrushSize: int = 16
-    drawThrottleDelay: int = 0
-    canvasTransferQueueLength: int = 50
-    mode: str = "draw"
-
-
-class ChartSettings(BaseModel, extra="forbid"):
-    type: str = "line"
-    xAxisColumn: str = ""
-    secondYAxisColumns: list[str] = Field(default_factory=list)
-    xAxisLog: bool = False
-    y1AxisLog: bool = False
-    y2AxisLog: bool = False
-
-
-class Section(BaseModel, extra="forbid"):
-    id: str = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    parentId: str | None = None
-    uiTypeId: str = Field(default=BASE_UI_TYPE_IDS[UITypeName.SECTION])
-    uiTypeColId: str | None = None
-    social: str = ""
-    artifactGroupIds: list[str] = Field(default_factory=list)
-    defaultVariantId: str | None = None
-    previewVariantId: str | None = None
-    variantIds: list[str] = Field(default_factory=list)
-    nonPresetUITypeIds: list[str] = Field(default_factory=list)
-    codeLanguage: CodeLanguage = CodeLanguage.python
-    isFrozen: bool = False
-    hideParams: bool = False
-    hideSearch: bool = False
-    hideUnpinnedParams: bool = False
-    hideColumn: bool = False
-    displayMode: str = "GUI"
-    visibility: Visibility = Field(default_factory=Visibility)
-    canvasSettings: DrawAreaCanvasSettings = Field(
-        default_factory=DrawAreaCanvasSettings
-    )
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
-    isTemporary: bool = False
-    renderMarkdown: bool = False
-    paramFilter: str = ""
-    isInOtherProjectConfigs: bool = False
-    columnWidth: float | None = None
-    renderedValue: Any = None
-    headingAsSectionName: bool = False
-
-
-class SectionConfig(BaseModel, extra="forbid"):
-    variantId: str = Field(default_factory=create_new_id)
-    size: SectionSize = Field(default_factory=SectionSize)
-    aspectRatio: bool = False
-    aspectRatioExtraHeight: int = 0
-    aspectRatioExtraWidth: int = 0
-    isHorizontalOrientation: bool = False
-    pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
-    isMinimized: bool = False
-    positionAndSizeLocked: bool = False
-
-
 class EVEntry(BaseModel, extra="forbid"):
     value: str = ""
-
-
-class SectionVariant(BaseModel, extra="forbid"):
-    name: str = Field(default_factory=generate_memorable_string)
-    values: dict[str, EVEntry] = Field(default_factory=dict)
-    children: list[str] = Field(default_factory=list)
-    selectedItem: str | None = None
-    code: str = ""
-    codeInfoColId: str | None = None
-    description: str = ""
-    isFrozen: bool = False
-    configLanguage: ConfigLanguage = ConfigLanguage.python
-    isJsonSource: bool = False
-    jsonSourceKeys: list[str] = Field(default_factory=list)
-    jsonSourceMissing: bool = False
 
 
 class CodeInfo(BaseModel, extra="forbid"):
@@ -199,7 +106,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
     entryCodeBlockId: str | None = None
-    sectionConfigs: dict[str, SectionConfig] = Field(default_factory=dict)
+    sectionConfigs: dict[str, BaseSectionConfig] = Field(default_factory=dict)
 
 
 def ui_types_default_factory():
@@ -207,8 +114,8 @@ def ui_types_default_factory():
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, Section] = Field(default_factory=dict)
-    variants: dict[str, SectionVariant] = Field(default_factory=dict)
+    sections: dict[str, BaseSection] = Field(default_factory=dict)
+    variants: dict[str, BaseSectionVariant] = Field(default_factory=dict)
     codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: dict[str, UIType] = Field(default_factory=ui_types_default_factory)

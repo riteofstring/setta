@@ -12,12 +12,10 @@ from setta.types.project_state import (
     ProjectConfig,
     ProjectConfigChild,
     ProjectStateSingleConfig,
-    Section,
-    SectionConfig,
     SectionSize,
-    SectionVariant,
     UITypeColEntry,
 )
+from setta.types.sections import Section, SectionConfig, SectionVariant
 from setta.types.settings_state import (
     SettingsBackend,
     SettingsGUI,

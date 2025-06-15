@@ -4,8 +4,8 @@ from setta.types.project_state import (
     CodeInfo,
     CodeInfoCol,
     ProjectStateSingleConfig,
-    SectionVariant,
 )
+from setta.types.sections import SectionVariant
 from setta.utils.utils import save_json_to_file, try_json
 
 
