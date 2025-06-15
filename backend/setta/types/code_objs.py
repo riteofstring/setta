@@ -42,7 +42,8 @@ class CodeObjCore(BaseModel):
 
 class CodeObjImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
-    impls: list[str | CodeObjImplModifier]
+    impl: str
+    modifiers: list[CodeObjImplModifier] = Field(default_factory=list)
 
 
 class BaseCodeObjImpl(BaseModel):

@@ -269,7 +269,7 @@ def add_children_of_callable(
         param_impl = param_impl_map[param.id]
         if existing:
             param.id = existing.id
-            
+
         else:
             add_code_obj(p, section_id, param, param_impl)
 

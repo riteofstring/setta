@@ -84,7 +84,8 @@ class SectionCore(BaseModel, extra="forbid"):
 
 class SectionImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
-    impls: list[str | SectionImplModifier]
+    impl: str
+    modifiers: list[SectionImplModifier] = Field(default_factory=list)
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
