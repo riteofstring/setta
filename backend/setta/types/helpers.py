@@ -3,6 +3,7 @@ from setta.types.code_objs import (
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjCore,
+    CodeObjImplLayering,
 )
 from setta.types.impl_helpers import (
     get_effective_code_obj_impl,
@@ -240,8 +241,11 @@ def add_callable_code_obj(
     if not isinstance(section_impl, CallableSectionImpl):
         raise TypeError
 
+    code_obj_impl_layering = CodeObjImplLayering(impls=[code_obj_impl.id])
     p.codeObjs[code_obj.id] = code_obj
-    section_impl.codeObjImplLayeringMap[code_obj.id] = code_obj_impl.id
+    p.codeObjImpls[code_obj_impl.id] = code_obj_impl
+    p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
+    section_impl.codeObjImplLayeringMap[code_obj.id] = code_obj_impl_layering.id
 
 
 def add_children_of_callable(
