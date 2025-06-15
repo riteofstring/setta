@@ -44,6 +44,11 @@ class BaseCodeObjImpl(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
+    isPreset: bool = False
+
+
+class ListOfCodeObjImpl(BaseCodeObjImpl):
+    impls: list[BaseCodeObjImpl]
 
 
 class BaseParamCodeObjImpl(BaseCodeObjImpl):
@@ -87,6 +92,7 @@ class ColorPickerParamCodeObjImpl(BaseParamCodeObjImpl):
 
 class DropdownParamCodeObjImpl(BaseParamCodeObjImpl):
     type: Literal[CodeObjType.DROPDOWN_PARAM] = CodeObjType.DROPDOWN_PARAM
+    choices: list[str]
 
 
 class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
@@ -95,3 +101,7 @@ class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
     type: Literal[CodeObjType.NESTED_PARAM] = CodeObjType.NESTED_PARAM
+
+
+class ValueModifier(BaseModel):
+    value: str

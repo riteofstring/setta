@@ -1,5 +1,13 @@
 from setta.database.utils import create_new_id
-from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
+from setta.types.code_objs import (
+    BaseCodeObjImpl,
+    BaseParamCodeObjImpl,
+    CodeObjCore,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    ValueModifier,
+)
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
@@ -18,64 +26,40 @@ from setta.types.settings_state import (
 )
 
 
-def create_settings_code_info_with_ui_types(section_names):
-    grid_dropdown = UIType(
-        type=UITypeName.DROPDOWN,
-        name="Grid Patterns",
-        presetType=UITypePresetType.USER,
-        config={
-            "choices": [
-                {"id": '"Dots"', "name": '"Dots"'},
-                {"id": '"Lines"', "name": '"Lines"'},
-                {"id": '"Cross"', "name": '"Cross"'},
-            ]
-        },
+def create_settings_code_objs(section_names):
+    grid_dropdown = DropdownParamCodeObjImpl(
+        name="Grid Patterns", choices=['"Dots"', '"Lines"', '"Cross"'], isPreset=True
     )
 
-    selection_dropdown = UIType(
-        type=UITypeName.DROPDOWN,
-        name="Selection Modes",
-        presetType=UITypePresetType.USER,
-        config={
-            "choices": [
-                {"id": '"partial"', "name": '"partial"'},
-                {"id": '"full"', "name": '"full"'},
-            ]
-        },
+    selection_dropdown = DropdownParamCodeObjImpl(
+        name="Selection Modes", choices=['"partial"', '"full"'], isPreset=True
     )
 
-    pan_dropdown = UIType(
-        type=UITypeName.DROPDOWN,
+    pan_dropdown = DropdownParamCodeObjImpl(
         name="Pan-On-Scroll Modes",
-        presetType=UITypePresetType.USER,
-        config={
-            "choices": [
-                {"id": '"free"', "name": '"free"'},
-                {"id": '"vertical"', "name": '"vertical"'},
-                {"id": '"horizontal"', "name": '"horizontal"'},
-            ]
-        },
+        choices=['"free"', '"vertical"', '"horizontal"'],
+        isPreset=True,
     )
 
-    codeInfoWithUIType: dict[str, list[tuple[CodeInfo, str]]] = {
+    codeObjsAndImpls: dict[str, list[tuple[CodeObjCore, BaseParamCodeObjImpl]]] = {
         s: [] for s in section_names
     }
-    codeInfoWithUIType["gui"].append(
-        (CodeInfo(name="selectionMode"), selection_dropdown.id)
+    codeObjsAndImpls["gui"].append(
+        (CodeObjCore(name="selectionMode"), selection_dropdown)
     )
-    codeInfoWithUIType["gui"].append((CodeInfo(name="gridPattern"), grid_dropdown.id))
-    codeInfoWithUIType["gui"].append(
-        (CodeInfo(name="panOnScrollMode"), pan_dropdown.id)
+    codeObjsAndImpls["gui"].append((CodeObjCore(name="gridPattern"), grid_dropdown))
+    codeObjsAndImpls["gui"].append(
+        (CodeObjCore(name="panOnScrollMode"), pan_dropdown)
     )
-    codeInfoWithUIType["gui"].extend(
-        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.COLOR_PICKER])
+    codeObjsAndImpls["gui"].extend(
+        (CodeObjCore(name=n), ColorPickerParamCodeObjImpl())
         for n in [
             "gridColor",
             "gridColorDarkMode",
         ]
     )
-    codeInfoWithUIType["gui"].extend(
-        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
+    codeObjsAndImpls["gui"].extend(
+        (CodeObjCore(name=n), SwitchParamCodeObjImpl())
         for n in [
             "showGridLines",
             "leftSidePaneShiftsMap",
@@ -87,8 +71,8 @@ def create_settings_code_info_with_ui_types(section_names):
         ]
     )
 
-    codeInfoWithUIType["backend"].extend(
-        (CodeInfo(name=n), BASE_UI_TYPE_IDS[UITypeName.SWITCH])
+    codeObjsAndImpls["backend"].extend(
+        (CodeObjCore(name=n), SwitchParamCodeObjImpl())
         for n in [
             "showDefaultConfigOnLoad",
             "autosave",
@@ -107,20 +91,18 @@ def create_settings_code_info_with_ui_types(section_names):
     }
 
     for k, v in settings_fields.items():
-        diff = set(c[0].name for c in codeInfoWithUIType[k]) - v
+        diff = set(c[0].name for c in codeObjsAndImpls[k]) - v
         if len(diff) > 0:
             raise KeyError(
                 f"Settings project construction error: codeInfoPathToUITypeId key not valid: {diff}"
             )
 
-    uiTypes = {u.id: u for u in [grid_dropdown, selection_dropdown, pan_dropdown]}
-
-    return codeInfoWithUIType, uiTypes
+    return codeObjsAndImpls
 
 
 def create_settings_project_state(settings_path: str):
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
-    codeInfoWithUIType, uiTypes = create_settings_code_info_with_ui_types(section_names)
+    codeObjsAndImpls = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}
     sectionImpls: dict[str, BaseSectionImpl] = {}
@@ -140,10 +122,8 @@ def create_settings_project_state(settings_path: str):
         sectionImpls[sectionImpl.id] = sectionImpl
         sectionImplMap[section.id] = sectionImpl.id
 
-        uiTypeCols[uiTypeColId] = {}
-        codeInfoCols[codeInfoColId] = CodeInfoCol(children={None: []})
-        for c in codeInfoWithUIType[k]:
-            codeInfo[c[0].id] = c[0]
+        for c in codeObjsAndImpls[k]:
+            codeObjs[c[0].id] = c[0]
             uiTypeCols[uiTypeColId][c[0].id] = UITypeColEntry(uiTypeId=c[1])
             codeInfoCols[codeInfoColId].children[None].append(c[0].id)
             codeInfoCols[codeInfoColId].children[c[0].id] = []
