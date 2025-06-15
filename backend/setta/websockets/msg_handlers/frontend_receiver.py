@@ -5,8 +5,8 @@ from setta.types.generated_types import (
     WebsocketMsgForBackendUnion,
 )
 from setta.types.websocket import (
-    WebsocketMsg,
     WebsocketMsgAllDependencies,
+    WebsocketMsgCurrentAddressUpdate,
 )
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
@@ -28,12 +28,13 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         self.script_metadata = script_metadata
         self.specific_file_watcher = specific_file_watcher
 
-    async def process_message(self, message: WebsocketMsg, fromWebsocketId: str):
-        message: WebsocketMsgForBackendUnion = (
-            WebsocketMsgForBackendTypeAdapter.validate_python(message)
+    async def process_json_str(self, json_str: str, fromWebsocketId: str):
+        m: WebsocketMsgForBackendUnion = (
+            WebsocketMsgForBackendTypeAdapter.validate_json(json_str)
         )
 
-        # if isinstance(message, WebsocketMsgCurrentAddressUpdate):
+        if isinstance(m, WebsocketMsgCurrentAddressUpdate):
+            self.websocket_manager.update_current_address(m.content, fromWebsocketId)
 
         # if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
         #     print("WMHFrontend process_message", message, flush=True)

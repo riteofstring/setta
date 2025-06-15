@@ -50,9 +50,14 @@ class WebsocketManager:
         except ConnectionClosedError:
             pass
 
-    def process_message(self, message: WebsocketMsg, fromWebsocketId: str):
+    def process_json_str(self, json_str: str, fromWebsocketId: str):
+        message = WebsocketMsg.model_validate_json(json_str)
         if message.id:
             self.message_id_to_sender_id[message.id] = fromWebsocketId
+
+    def update_current_address(self, currentAddress: str, websocketId: str):
+        print("\n\n\nupdate_current_address", currentAddress, websocketId)
+        self.sockets[websocketId].currentAddress = currentAddress
 
     async def send_message(self, message: WebsocketMsg, toWebsocketId: str):
         websocket = self.sockets[toWebsocketId].websocket

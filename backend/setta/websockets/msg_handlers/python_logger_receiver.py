@@ -6,9 +6,9 @@ from setta.websockets.msg_handlers.base import BaseWebsocketMsgReceiver
 
 
 class WMHPythonLoggerReceiver(BaseWebsocketMsgReceiver):
-    async def process_message(self, message, *_, **__):
-        msg_type = message["messageType"]
+    async def process_json_str(self, json_str, *_, **__):
+        msg_type = json_str["messageType"]
         if msg_type == WebsocketMsgTypeForFrontend.Artifact:
             await self.websocket_manager.broadcast(
-                message=message, connectionType=WebsocketConnectionType.FRONTEND
+                message=json_str, connectionType=WebsocketConnectionType.FRONTEND
             )

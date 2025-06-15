@@ -12,20 +12,20 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         self.script_metadata = script_metadata
         self.project_manager = project_manager
 
-    async def process_message(self, message, fromWebsocketId):
-        print("WMHPythonScript process_message", message, fromWebsocketId, flush=True)
-        msg_type = message["messageType"]
-        content = message["content"]
+    async def process_json_str(self, json_str, fromWebsocketId):
+        print("WMHPythonScript process_message", json_str, fromWebsocketId, flush=True)
+        msg_type = json_str["messageType"]
+        content = json_str["content"]
         if msg_type == C.WS_SCRIPT_READY:
             project = self.project_manager.get_project_from_rel_path(content)
-            message = {"content": project, "messageType": C.WS_PROJECT_DATA}
-            await self.websocket_manager.send_message(message, fromWebsocketId)
+            json_str = {"content": project, "messageType": C.WS_PROJECT_DATA}
+            await self.websocket_manager.send_message(json_str, fromWebsocketId)
         elif msg_type == C.WS_SCRIPT_DEPENDENCIES:
             self.script_metadata.add(fromWebsocketId, content)
             await self.broadcast_all_dependencies()
         elif msg_type == WebsocketMsgTypeForFrontend.Artifact:
             await self.websocket_manager.broadcast(
-                message=message, connectionType=WebsocketConnectionType.FRONTEND
+                message=json_str, connectionType=WebsocketConnectionType.FRONTEND
             )
 
     async def on_disconnect(self, websocket_id):

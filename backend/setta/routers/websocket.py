@@ -6,7 +6,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 from setta.routers.dependencies import AppStateFromWebsocket
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
-from setta.types.websocket import WebsocketConnectionType, WebsocketMsg
+from setta.types.websocket import WebsocketConnectionType
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
@@ -32,10 +32,9 @@ async def websocket_route_loop(
         await websocket_msg_handler.on_connect(fromWebsocketId)
         while True:
             try:
-                data = await websocket.receive_text()
-                message = WebsocketMsg.model_validate_json(data)
-                websocket_manager.process_message(message, fromWebsocketId)
-                await websocket_msg_handler.process_message(message, fromWebsocketId)
+                json_str = await websocket.receive_text()
+                websocket_manager.process_json_str(json_str, fromWebsocketId)
+                await websocket_msg_handler.process_json_str(json_str, fromWebsocketId)
             except WebSocketDisconnect:
                 logger.debug("WebSocketDisconnect!")
                 break

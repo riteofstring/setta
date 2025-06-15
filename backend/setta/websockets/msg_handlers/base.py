@@ -11,7 +11,7 @@ class BaseWebsocketMsgReceiver:
     async def on_disconnect(self, websocket_id):
         pass
 
-    async def process_message(self, message, fromWebsocketId):
+    async def process_json_str(self, json_str, fromWebsocketId):
         pass
 
 
