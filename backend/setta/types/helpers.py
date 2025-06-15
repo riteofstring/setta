@@ -162,7 +162,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
     return []
 
 
-def get_code_obj_impl(
+def get_code_obj_impl_layering(
     p: ProjectStateSingleConfig,
     sectionId: str,
     id: str,
@@ -171,9 +171,21 @@ def get_code_obj_impl(
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[id]
         code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
+        return code_obj_impl_layering
+    raise TypeError
+
+
+def get_code_obj_impl(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    id: str,
+):
+    section_impl = get_section_impl(p, sectionId)
+    if isinstance(section_impl, BaseSectionWithParamsImpl):
+        code_obj_impl_layering = get_code_obj_impl_layering(p, sectionId, id)
         code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
         return code_obj_impl
-    return None
+    raise TypeError
 
 
 def get_code_obj_children_ids(
@@ -278,13 +290,14 @@ def add_children_of_callable(
 def set_param_entered_value(
     p: ProjectStateSingleConfig,
     sectionId: str,
-    paramInfoId: str,
+    paramId: str,
     value: str,
 ):
-    variant = get_selected_section_variant(p, sectionId)
-    if paramInfoId not in variant.values:
-        variant.values[paramInfoId] = EVEntry()
-    variant.values[paramInfoId].value = value
+    code_obj_impl_layering = get_code_obj_impl_layering(p, sectionId, paramId)
+    impl = p.codeObjImpls[code_obj_impl_layering.impl]
+    if isinstance(impl, BaseParamCodeObjImpl):
+        impl.value = value
+    raise TypeError
 
 
 def get_top_level_sections(p: ProjectStateSingleConfig) -> dict[str, Section]:

@@ -69,5 +69,5 @@ def update_impl_layerings(
         impl_layering = p.codeObjImplLayerings[impl_layering_id]
         impl = p.codeObjImpls[impl_layering.impl]
         p.codeObjImpls[impl_layering.impl] = impl.model_copy(
-            update=new_impl.model_dump(exclude={"id"})
+            update=new_impl.model_dump(exclude_unset=True)
         )
