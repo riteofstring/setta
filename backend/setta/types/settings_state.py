@@ -1,7 +1,5 @@
 from pydantic import BaseModel, Field
 
-from setta.types.base_ui_types import UITypeName
-from setta.types.project_state import SectionSize
 from setta.types.utils import AsIsStrEnum
 
 RenameRefactorMode = AsIsStrEnum(
@@ -102,35 +100,17 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool = False
 
 
-class SettingsSectionDefaults(BaseModel):
-    name: str | None = None
-    size: SectionSize = Field(default_factory=SectionSize)
-    displayMode: str | None = None
-
-
 class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
-    sections: dict[UITypeName, SettingsSectionDefaults] = Field(
-        default={
-            UITypeName.CODE: SettingsSectionDefaults(size=SectionSize(width=500)),
-            UITypeName.TERMINAL: SettingsSectionDefaults(
-                size=SectionSize(width=700, height=300)
-            ),
-            UITypeName.CHART: SettingsSectionDefaults(
-                size=SectionSize(width=400, height=400)
-            ),
-            UITypeName.GLOBAL_VARIABLES: SettingsSectionDefaults(
-                name="Global Variables"
-            ),
-            UITypeName.GEN_PYTHON_CODE: SettingsSectionDefaults(
-                name="Generated Python Code"
-            ),
-            UITypeName.TEXT_BLOCK: SettingsSectionDefaults(displayMode="RENDER"),
-            UITypeName.CHAT: SettingsSectionDefaults(
-                size=SectionSize(width=405, height=405)
-            ),
-        },
-    )
+    sections: dict = {  # TODO make a model for this?
+        "CODE": {"size": {"width": 500}},
+        "TERMINAL": {"size": {"width": 700, "height": 300}},
+        "CHART": {"size": {"width": 400, "height": 400}},
+        "GLOBAL_VARIABLES": {"name": "Global Variables"},
+        "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
+        "TEXT_BLOCK": {"displayMode": "RENDER"},
+        "CHAT": {"size": {"width": 405, "height": 405}},
+    }
