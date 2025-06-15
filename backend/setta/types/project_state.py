@@ -1,5 +1,4 @@
 import copy
-from typing import Literal, Union
 
 from pydantic import (
     BaseModel,
@@ -19,7 +18,6 @@ from setta.types.section_configs import BaseSectionConfig
 from setta.types.section_variants import BaseSectionVariant
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
-
 
 ParameterPassingStyle = AsIsStrEnum(
     "ParameterPassingStyle",
