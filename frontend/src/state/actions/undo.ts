@@ -77,15 +77,11 @@ function incrementStateVersion(states) {
   for (const s of states) {
     if (s.temporal) {
       s.setState({ version: version + 1 });
-      resumeThenPauseTemporal(s, () => s.setState({})); //trigger a zundo update without actually changing state
+      s.temporal.setState((state) => ({
+        pastStates: [...state.pastStates, s.getState()],
+      }));
     }
   }
-}
-
-function resumeThenPauseTemporal(statePointer, callback) {
-  statePointer.temporal.getState().resume();
-  callback();
-  statePointer.temporal.getState().pause();
 }
 
 export const maybeIncrementProjectStateVersion = _.throttle(
