@@ -6,12 +6,8 @@ from pydantic import BaseModel, Field
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.database.utils import create_new_id
 from setta.types.project_state import (
-    CodeInfo,
-    CodeInfoCol,
-    EVEntry,
     ProjectStateSingleConfig,
 )
-from setta.types.sections import Section, SectionVariant
 
 logger = logging.getLogger(__name__)
 

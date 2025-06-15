@@ -1,4 +1,5 @@
-from typing import Annotated, Union, Literal
+from typing import Annotated, Literal, Union
+
 from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
@@ -13,7 +14,6 @@ WebsocketMsgForBackendUnion = Annotated[
 
 WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnion)
 
-from setta.types.websocket import SectionType
 
 SectionTypeLiteral = Literal[
     CALLABLE,

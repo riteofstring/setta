@@ -1,28 +1,26 @@
 from collections import defaultdict
 
+from setta.types.code_objs import (
+    CodeObjCore,
+    NestedParamCodeObjImpl,
+)
 from setta.types.project_state import (
-    CodeInfo,
-    CodeInfoCol,
     ProjectStateSingleConfig,
 )
-from setta.types.sections import SectionVariant
+from setta.types.sections import DictSectionImpl
 from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p: ProjectStateSingleConfig, variant_ids=None):
+def save_json_source_data(p: ProjectStateSingleConfig, impl_ids=None):
     to_be_saved = defaultdict(dict)
 
-    for variant_id, variant in p.variants.items():
-        if not variant.isJsonSource:
+    for impl_id, impl in p.sectionImpls.items():
+        if not isinstance(impl, DictSectionImpl) or not impl.isJsonSource:
             continue
-        if variant_ids and variant_id not in variant_ids:
+        if impl_ids and impl_id not in impl_ids:
             continue
-        codeInfoColId = variant.codeInfoColId
-        if not codeInfoColId:
-            continue
-        codeInfoCol = p.codeInfoCols[codeInfoColId]
-        filename = variant.name
-        ancestor_paths = build_ancestor_paths(p.codeInfo, codeInfoCol.children)
+        ancestor_paths = build_ancestor_paths(p.codeObjs, impl)
+        filename = impl.name
         recursively_add_keys(
             variant,
             codeInfoCol,
@@ -34,7 +32,7 @@ def save_json_source_data(p: ProjectStateSingleConfig, variant_ids=None):
 
         # Make sure the jsonSourceKeys are present.
         # (They might not be because they are completely empty)
-        add_key_path_to_dict(to_be_saved[filename], variant.jsonSourceKeys)
+        add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
     # Save each file
     for filename, data in to_be_saved.items():
@@ -43,13 +41,14 @@ def save_json_source_data(p: ProjectStateSingleConfig, variant_ids=None):
     return to_be_saved
 
 
-def build_ancestor_paths(
-    codeInfo: dict[str, CodeInfo], codeInfoColChildren: dict[str | None, list[str]]
-):
+def build_ancestor_paths(codeObjs: dict[str, CodeObjCore], impl: DictSectionImpl):
     parent_map: dict[str, str | None] = {}
-    for parent_id, children in codeInfoColChildren.items():
-        for child_id in children:
-            parent_map[child_id] = parent_id
+    for paramId in impl.paramIds:
+        param = codeObjs[paramId]
+        if isinstance(param, NestedParamCodeObjImpl):
+            for childId in param.children:
+                parent_map[childId] = paramId
+        parent_map[paramId] = None
 
     ancestor_paths: dict[str, list[str]] = {}
     for id in parent_map.keys():
@@ -59,8 +58,8 @@ def build_ancestor_paths(
 
             # Traverse up to build the path
             while current_id is not None:
-                if current_id in codeInfo:  # Skip if not a valid codeInfo node
-                    name = codeInfo[current_id].name
+                if current_id in codeObjs:
+                    name = codeObjs[current_id].name
                     path.insert(0, name)
 
                     # Get parent using the map
