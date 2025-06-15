@@ -1,4 +1,5 @@
 from setta.types.code_objs import (
+    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -323,7 +324,7 @@ def set_param_entered_value(
 ):
     code_obj_impl_layering = get_code_obj_impl_layering(p, sectionId, paramId)
     impl = p.codeObjImpls[code_obj_impl_layering.impl]
-    if isinstance(impl, BaseParamCodeObjImpl):
+    if isinstance(impl, BaseChildlessCodeObjImpl):
         impl.value = value
     raise TypeError
 

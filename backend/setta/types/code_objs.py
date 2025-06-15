@@ -57,8 +57,11 @@ class BaseCodeObjImpl(BaseModel):
 class BaseParamCodeObjImpl(BaseCodeObjImpl):
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
-    defaultVal: str = ""
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
+
+
+class BaseChildlessCodeObjImpl(BaseParamCodeObjImpl):
+    defaultVal: str = ""
     value: str = ""
 
 
@@ -70,35 +73,35 @@ class CodeCallableCodeObjImpl(BaseParentCodeObjImpl):
     type: Literal[CodeObjType.CODE_CALLABLE] = CodeObjType.CODE_CALLABLE
 
 
-class CodeParamCodeObjImpl(BaseParamCodeObjImpl):
+class CodeParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.CODE_PARAM] = CodeObjType.CODE_PARAM
 
 
-class TextParamCodeObjImpl(BaseParamCodeObjImpl):
+class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TEXT_PARAM] = CodeObjType.TEXT_PARAM
 
 
-class SliderParamCodeObjImpl(BaseParamCodeObjImpl):
+class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SLIDER_PARAM] = CodeObjType.SLIDER_PARAM
     min: int = 0
     max: int = 100
     step: int = 1
 
 
-class SwitchParamCodeObjImpl(BaseParamCodeObjImpl):
+class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SWITCH_PARAM] = CodeObjType.SWITCH_PARAM
 
 
-class ColorPickerParamCodeObjImpl(BaseParamCodeObjImpl):
+class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.COLOR_PICKER_PARAM] = CodeObjType.COLOR_PICKER_PARAM
 
 
-class DropdownParamCodeObjImpl(BaseParamCodeObjImpl):
+class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DROPDOWN_PARAM] = CodeObjType.DROPDOWN_PARAM
     choices: list[str]
 
 
-class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
+class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.PASSWORD_PARAM] = CodeObjType.PASSWORD_PARAM
 
 

@@ -5,85 +5,133 @@ from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.database.utils import create_new_id
+from setta.types.code_objs import (
+    BaseChildlessCodeObjImpl,
+    BaseCodeObjImpl,
+    CodeObjCore,
+    CodeObjImplLayering,
+    NestedParamCodeObjImpl,
+    TextParamCodeObjImpl,
+)
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.sections import BaseSectionImpl, DictSectionImpl, SectionCore
 
 logger = logging.getLogger(__name__)
 
 
 class ProcessedJSONObject(BaseModel):
-    codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
-    codeInfoColChildren: dict[str | None, list[str]] = Field(default_factory=dict)
-    variantValues: dict[str, EVEntry] = Field(default_factory=dict)
+    sectionImpl: DictSectionImpl
+    codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
+    codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
-    sections: dict[str, Section]
-    variants: dict[str, SectionVariant]
-    codeInfo: dict[str, CodeInfo]
-    codeInfoCols: dict[str, CodeInfoCol]
+    sections: dict[str, SectionCore]
+    sectionImpls: dict[str, BaseSectionImpl]
+    codeObjs: dict[str, CodeObjCore]
+    codeObjImpls: dict[str, BaseCodeObjImpl]
+    codeObjImplLayerings: dict[str, CodeObjImplLayering]
 
 
 def load_json_sources_into_data_structures(
-    projectState: ProjectStateSingleConfig | LoadJSONSourceObject,
-    variant_ids: list[str] | None = None,
+    p: ProjectStateSingleConfig | LoadJSONSourceObject,
+    section_impl_ids: list[str] | None = None,
 ):
-    for variant_id, variant in projectState.variants.items():
-        if not variant.isJsonSource:
+    for section_impl_id, section_impl in p.sectionImpls.items():
+        if (
+            not isinstance(section_impl, DictSectionImpl)
+            or not section_impl.isJsonSource
+            or (section_impl_ids and section_impl_id not in section_impl_ids)
+        ):
             continue
-        if variant_ids and variant_id not in variant_ids:
-            continue
-        new_data, isMissing = load_json_source(variant.name, variant.jsonSourceKeys)
-        variant.jsonSourceMissing = isMissing
+        new_data, isMissing = load_json_source(
+            section_impl.name, section_impl.jsonSourceKeys
+        )
+        section_impl.jsonSourceMissing = isMissing
         if isMissing:
             continue
         if not variant.codeInfoColId:
             variant.codeInfoColId = create_new_id()
-            projectState.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
-        codeInfoCol = projectState.codeInfoCols[variant.codeInfoColId]
-        merge_into_existing(new_data, variant, projectState.codeInfo, codeInfoCol)
+            p.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
+        codeInfoCol = p.codeInfoCols[variant.codeInfoColId]
+        merge_into_existing(
+            new_data, section_impl, p.codeObjs, p.codeObjImpls, p.codeObjImplLayerings
+        )
 
 
 def merge_into_existing(
-    data: ProcessedJSONObject,
-    variant: SectionVariant,
-    codeInfo: dict[str, CodeInfo],
-    codeInfoCol: CodeInfoCol,
+    new_data: ProcessedJSONObject,
+    section_impl: DictSectionImpl,
+    codeObjs: dict[str, CodeObjCore],
+    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
 ):
-    filename = variant.name
+    filename = section_impl.name
+    ancestor_paths = build_ancestor_paths(
+        codeObjs,
+        codeObjImpls,
+        codeObjImplLayerings,
+        section_impl.codeObjImplLayeringMap,
+        section_impl.topLevelParamIds,
+    )
     jsonSourceMetadata_to_id: dict[str, str] = {}
-    ancestor_paths = build_ancestor_paths(codeInfo, codeInfoCol.children)
     for id in ancestor_paths:
         jsonSourceMetadata_to_id[
             createMetadataJsonString(filename, ancestor_paths[id])
         ] = id
 
-    replacements: dict[str, str] = {}
-    new_ancestor_paths = build_ancestor_paths(data.codeInfo, data.codeInfoColChildren)
-    for newId, newInfo in data.codeInfo.items():
-        existingId = jsonSourceMetadata_to_id.get(
+    new_ancestor_paths = build_ancestor_paths(
+        new_data.codeObjs,
+        new_data.codeObjImpls,
+        new_data.codeObjImplLayerings,
+        new_data.sectionImpl.codeObjImplLayeringMap,
+        new_data.sectionImpl.topLevelParamIds,
+    )
+    new_jsonSourceMetadata_to_id: dict[str, str] = {}
+    for id in new_ancestor_paths:
+        new_jsonSourceMetadata_to_id[
+            createMetadataJsonString(filename, new_ancestor_paths[id])
+        ] = id
+
+    for newId, newCodeObj in new_data.codeObjs.items():
+        existingCodeObjId = jsonSourceMetadata_to_id.get(
             createMetadataJsonString(filename, new_ancestor_paths[newId])
         )
-        if existingId:
-            replacements[newId] = existingId
+        newLayeringId = new_data.sectionImpl.codeObjImplLayeringMap[newId]
+        newLayering = new_data.codeObjImplLayerings[newLayeringId]
+        newImpl = new_data.codeObjImpls[newLayering.impl]
+        if not existingCodeObjId:
+            codeObjImplLayerings[newLayeringId] = newLayering
+            codeObjImpls[newImpl.id] = newImpl
+            codeObjs[newId] = newCodeObj
         else:
-            codeInfo[newId] = newInfo
+            layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
+            layering = codeObjImplLayerings[layeringId]
+            impl = codeObjImpls[layering.impl]
+            if isinstance(impl, NestedParamCodeObjImpl):
+                if isinstance(newImpl, NestedParamCodeObjImpl):
+                    impl.children = newImpl.children
+                else:
+                    raise TypeError
+            elif isinstance(impl, BaseChildlessCodeObjImpl):
+                if isinstance(newImpl, BaseChildlessCodeObjImpl):
+                    impl.value = newImpl.value
+                else:
+                    raise TypeError
 
-    for newId, existingId in replacements.items():
-        del data.codeInfo[newId]
-        data.codeInfoColChildren[existingId] = [
-            replacements.get(x, x) for x in data.codeInfoColChildren[newId]
-        ]
-        data.codeInfoColChildren[None] = [
-            replacements.get(x, x) for x in data.codeInfoColChildren[None]
-        ]
-        del data.codeInfoColChildren[newId]
-        data.variantValues[existingId] = data.variantValues[newId]
-        del data.variantValues[newId]
-
-    variant.values = data.variantValues
-    codeInfoCol.children = data.codeInfoColChildren
+    for metadataString, id in jsonSourceMetadata_to_id.items():
+        newId = new_jsonSourceMetadata_to_id.get(metadataString)
+        if not newId:
+            layeringId = section_impl.codeObjImplLayeringMap[id]
+            layering = codeObjImplLayerings[layeringId]
+            impl = codeObjImpls[layering.impl]
+            del section_impl.codeObjImplLayeringMap[id]
+            del codeObjs[id]
+            del codeObjImpls[impl.id]
+            del codeObjImplLayerings[layeringId]
 
 
 def load_json_source(filename: str, jsonSourceKeys: list[str]):
@@ -106,7 +154,9 @@ def load_json_source(filename: str, jsonSourceKeys: list[str]):
 
 
 def process_json_object(jsonSourceData: dict, jsonSourceKeys: list[str]):
-    new_data = ProcessedJSONObject()
+    new_data = ProcessedJSONObject(
+        sectionImpl=DictSectionImpl(isJsonSource=True, jsonSourceKeys=jsonSourceKeys)
+    )
 
     try:
         for k in jsonSourceKeys:
@@ -115,37 +165,43 @@ def process_json_object(jsonSourceData: dict, jsonSourceKeys: list[str]):
         # TODO print warning or something
         pass
 
-    process_json_object_helper(new_data, jsonSourceData, None)
+    topLevelParamIds = process_json_object_helper(new_data, jsonSourceData)
+    new_data.sectionImpl.topLevelParamIds = topLevelParamIds
 
     return new_data
 
 
-def process_json_object_helper(
-    output: ProcessedJSONObject, obj: dict, parent_id: str | None
-):
-    children_keys = []
+def process_json_object_helper(output: ProcessedJSONObject, obj: dict):
+    children_keys: list[str] = []
     for k, v in obj.items():
-        paramInfoId, is_dict = create_json_code_info(k, v, output)
-        children_keys.append(paramInfoId)
-        if is_dict:
-            process_json_object_helper(output, v, paramInfoId)
+        codeObj, codeObjImpl = add_to_processed_json_object(k, v, output)
+        children_keys.append(codeObj.id)
+        if isinstance(codeObjImpl, NestedParamCodeObjImpl):
+            codeObjImpl.children = process_json_object_helper(output, v)
 
-    output.codeInfoColChildren[parent_id] = children_keys
+    return children_keys
 
 
-def create_json_code_info(key: str, value, output: ProcessedJSONObject):
-    paramInfoId = create_new_id()
-    # Create code info entry
-    output.codeInfo[paramInfoId] = CodeInfo(
-        id=paramInfoId,
-        name=key,
-        editable=True,
-    )
-    output.codeInfoColChildren[paramInfoId] = []
+def add_to_processed_json_object(key: str, value, output: ProcessedJSONObject):
     is_dict = isinstance(value, dict)
-    value = json.dumps(value) if not is_dict else ""
-    output.variantValues[paramInfoId] = EVEntry(value=value)
-    return paramInfoId, is_dict
+    if is_dict:
+        codeObjImpl = NestedParamCodeObjImpl()
+    else:
+        codeObjImpl = TextParamCodeObjImpl(value=json.dumps(value))
+
+    codeObjImplLayering = CodeObjImplLayering(impl=codeObjImpl.id)
+    layeringId = codeObjImplLayering.id
+    codeObj = CodeObjCore(
+        name=key,
+        implLayerings=[layeringId],
+        defaultImplLayering=layeringId,
+    )
+
+    output.sectionImpl.codeObjImplLayeringMap[codeObj.id] = layeringId
+    output.codeObjs[codeObj.id] = codeObj
+    output.codeObjImpls[codeObjImpl.id] = codeObjImpl
+    output.codeObjImplLayerings[layeringId] = codeObjImplLayering
+    return codeObj, codeObjImpl
 
 
 def createMetadataJsonString(filename: str, path: list[str]):

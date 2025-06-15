@@ -1,8 +1,9 @@
 from collections import defaultdict
 
 from setta.types.code_objs import (
+    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
-    BaseParamCodeObjImpl,
+    BaseParentCodeObjImpl,
     CodeObjCore,
     CodeObjImplLayering,
     NestedParamCodeObjImpl,
@@ -124,10 +125,13 @@ def recursively_add_keys(
     output_dict: dict,
 ):
     codeObjImpl = get_code_obj_impl(p, paramId, section_impl=section_impl)
-    if not isinstance(codeObjImpl, BaseParamCodeObjImpl):
+    if isinstance(codeObjImpl, BaseChildlessCodeObjImpl):
+        value = try_json(codeObjImpl.value)
+    elif isinstance(codeObjImpl, BaseParentCodeObjImpl):
+        value = {}
+    else:
         raise TypeError
     key_path = [*jsonSourceKeys, *ancestor_paths[paramId]]
-    value = try_json(codeObjImpl.value)
     current_dict = add_key_path_to_dict(output_dict, key_path[:-1])
     if key_path:  # Only set if we have a path
         current_dict[key_path[-1]] = value
