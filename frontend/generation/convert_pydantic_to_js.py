@@ -62,7 +62,7 @@ def get_all_type_aliases(module):
     return [
         (name, obj)
         for name, obj in inspect.getmembers(module)
-        if is_type_alias(name, obj)
+        if is_type_alias(name, obj) and name not in ["Callable", "AppStateFromRequest", "AppStateFromWebsocket"]
     ]
 
 
@@ -81,7 +81,7 @@ def get_all_pydantic_models(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, BaseModel)
-        and obj is not BaseModel,
+        and obj is not BaseModel
     )
 
 
@@ -121,7 +121,7 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
 
 def alias_to_zod(name: str, alias_type, processed_types: set):
     # Have to catch a case where Callable is an alias for some reason
-    if name in processed_types or name == "Callable":
+    if name in processed_types:
         return ""
 
     processed_types.add(name)

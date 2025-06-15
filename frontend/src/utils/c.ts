@@ -36,7 +36,7 @@ export class C {
   static LLM_USER_ROLE = "user";
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
   static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
-  static MCP_SERVER_ARG_NAME = "setta_mcp_server";
+  static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NESTED_PARAM = "NESTED_PARAM";
   static NON_SECTION_TYPES = [
     "TEXT",
@@ -50,7 +50,7 @@ export class C {
   static PORT = 8000;
   static SETTA_MCP_PARAM_NAMES = [
     "setta_chat_id",
-    "setta_mcp_server",
+    "setta_state",
     "projectConfigId",
   ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
