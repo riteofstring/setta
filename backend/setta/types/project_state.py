@@ -6,11 +6,10 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.sections import BaseSectionCore, BaseSectionImpl
+from setta.types.params import BaseCodeObjImpl, CodeObjCore
+from setta.types.sections import BaseSectionImpl, SectionCore
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-CodeInfoType = AsIsStrEnum("CodeInfoType", ["PARAMETER", "CALLABLE", "COLLECTION"])
 
 ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
@@ -28,20 +27,6 @@ class Viewport(BaseModel, extra="forbid"):
 
 class EVEntry(BaseModel, extra="forbid"):
     value: str = ""
-
-
-class CodeInfo(BaseModel, extra="forbid"):
-    id: str = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    editable: bool = False
-    rcType: CodeInfoType = CodeInfoType.PARAMETER
-    defaultVal: str = ""
-    description: str = ""
-    passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
-    isPinned: bool = False
-    isFrozen: bool = False
-    isSelected: bool = False
-    ignoreTypeErrors: bool = False
 
 
 class CodeInfoCol(BaseModel, extra="forbid"):
@@ -94,11 +79,10 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSectionCore] = Field(default_factory=dict)
+    sections: dict[str, SectionCore] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImpl] = Field(default_factory=dict)
-    codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
-    codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
-    uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
+    codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
+    codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

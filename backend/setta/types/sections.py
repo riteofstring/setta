@@ -11,8 +11,8 @@ from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class SectionTypeName(Enum):
-    SECTION = "SECTION"
+class SectionType(Enum):
+    CALLABLE = "CALLABLE"
     LIST_ROOT = "LIST_ROOT"
     DICT_ROOT = "DICT_ROOT"
     GROUP = "GROUP"
@@ -67,9 +67,11 @@ class ChartSettings(BaseModel, extra="forbid"):
     y2AxisLog: bool = False
 
 
-class BaseSectionCore(BaseModel, extra="forbid"):
+class SectionCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    impls: list[str] = Field(default_factory=list)
+    default_impl: str | None = None
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -91,13 +93,16 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
-    values: dict[str, EVEntry] = Field(default_factory=dict)
+    codeObjImplMap: dict[str, str] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
+    pinnedParams: list[str] = Field(default_factory=list)
     pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
+    selectedParams: list[str] = Field(default_factory=list)
+    ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
@@ -119,43 +124,43 @@ class BaseParentSectionImpl(BaseSectionImpl):
     children: list[str] = Field(default_factory=list)
 
 
-class Section(BaseSectionWithParamsImpl):
-    type: Literal[SectionTypeName.SECTION] = SectionTypeName.SECTION
+class CallableSectionImpl(BaseSectionWithParamsImpl):
+    type: Literal[SectionType.CALLABLE] = SectionType.CALLABLE
     selectedItem: str | None = None
     hideSearch: bool = False
 
 
-class ListRootSection(BaseParentSectionImpl):
-    type: Literal[SectionTypeName.LIST_ROOT] = SectionTypeName.LIST_ROOT
+class ListRootSectionImpl(BaseParentSectionImpl):
+    type: Literal[SectionType.LIST_ROOT] = SectionType.LIST_ROOT
 
 
-class DictRootSection(BaseParentSectionImpl):
-    type: Literal[SectionTypeName.DICT_ROOT] = SectionTypeName.DICT_ROOT
+class DictRootSectionImpl(BaseParentSectionImpl):
+    type: Literal[SectionType.DICT_ROOT] = SectionType.DICT_ROOT
 
 
-class GroupSection(BaseParentSectionImpl):
-    type: Literal[SectionTypeName.GROUP] = SectionTypeName.GROUP
+class GroupSectionImpl(BaseParentSectionImpl):
+    type: Literal[SectionType.GROUP] = SectionType.GROUP
     isHorizontalOrientation: bool = False
 
 
-class ImageSection(BaseArtifactSectionImpl):
-    type: Literal[SectionTypeName.IMAGE] = SectionTypeName.IMAGE
+class ImageSectionImpl(BaseArtifactSectionImpl):
+    type: Literal[SectionType.IMAGE] = SectionType.IMAGE
 
 
-class ChartSection(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
-    type: Literal[SectionTypeName.CHART] = SectionTypeName.CHART
+class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+    type: Literal[SectionType.CHART] = SectionType.CHART
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
 
 
-class DrawSection(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
-    type: Literal[SectionTypeName.DRAW] = SectionTypeName.DRAW
+class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+    type: Literal[SectionType.DRAW] = SectionType.DRAW
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
     )
 
 
 class TextBlockSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.TEXT_BLOCK] = SectionTypeName.TEXT_BLOCK
+    type: Literal[SectionType.TEXT_BLOCK] = SectionType.TEXT_BLOCK
     renderMarkdown: bool = False
     headingAsSectionName: bool = False
     displayMode: str = "GUI"
@@ -163,37 +168,37 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 
 class SocialSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.SOCIAL] = SectionTypeName.SOCIAL
+    type: Literal[SectionType.SOCIAL] = SectionType.SOCIAL
     social = ""
 
 
-class GlobalVariablesSection(BaseSectionWithParamsImpl):
-    type: Literal[SectionTypeName.GLOBAL_VARIABLES] = SectionTypeName.GLOBAL_VARIABLES
+class GlobalVariablesSectionImpl(BaseSectionWithParamsImpl):
+    type: Literal[SectionType.GLOBAL_VARIABLES] = SectionType.GLOBAL_VARIABLES
     name: str = "Global Variables"
 
 
-class CodeSection(BaseCodeSectionImpl):
-    type: Literal[SectionTypeName.CODE] = SectionTypeName.CODE
+class CodeSectionImpl(BaseCodeSectionImpl):
+    type: Literal[SectionType.CODE] = SectionType.CODE
     codeLanguage: CodeLanguage = CodeLanguage.python
 
 
-class GenPythonCodeSection(BaseCodeSectionImpl):
-    type: Literal[SectionTypeName.GEN_PYTHON_CODE] = SectionTypeName.GEN_PYTHON_CODE
+class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
+    type: Literal[SectionType.GEN_PYTHON_CODE] = SectionType.GEN_PYTHON_CODE
     name: str = "Generated Python Code"
 
 
 class TerminalSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.TERMINAL] = SectionTypeName.TERMINAL
+    type: Literal[SectionType.TERMINAL] = SectionType.TERMINAL
 
 
 class IFrameSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.IFRAME] = SectionTypeName.IFRAME
+    type: Literal[SectionType.IFRAME] = SectionType.IFRAME
 
 
 class ChatSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.CHAT] = SectionTypeName.CHAT
+    type: Literal[SectionType.CHAT] = SectionType.CHAT
 
 
 class BrowserSectionImpl(BaseSectionImpl):
-    type: Literal[SectionTypeName.BROWSER] = SectionTypeName.BROWSER
+    type: Literal[SectionType.BROWSER] = SectionType.BROWSER
     hideColumn: bool = False

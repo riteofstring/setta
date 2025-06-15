@@ -7,72 +7,77 @@ from setta.database.utils import create_new_id
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-UITypePresetType = AsIsStrEnum("UITypePresetType", ["BASE", "USER"])
-
 ParameterPassingStyle = AsIsStrEnum(
     "ParameterPassingStyle",
     ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
 )
 
 
-class ParamTypeName(Enum):
+class CodeObjType(Enum):
+    CODE_CALLABLE = "CODE_CALLABLE"
+    CODE_PARAM = "CODE_PARAM"
+    TEXT_PARAM = "TEXT_PARAM"
+    SLIDER_PARAM = "SLIDER_PARAM"
+    SWITCH_PARAM = "SWITCH_PARAM"
+    COLOR_PICKER_PARAM = "COLOR_PICKER_PARAM"
+    DROPDOWN_PARAM = "DROPDOWN_PARAM"
+    PASSWORD_PARAM = "PASSWORD_PARAM"
+
+
+class ParamNameType(Enum):
+    CODE = "CODE"
     TEXT = "TEXT"
-    SLIDER = "SLIDER"
-    SWITCH = "SWITCH"
-    COLOR_PICKER = "COLOR_PICKER"
-    DROPDOWN = "DROPDOWN"
-    PASSWORD = "PASSWORD"
 
 
-class BaseParamCore(BaseModel):
+class CodeObjCore(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    editable: bool = False
-    defaultVal: str = ""
-    description: str = ""
-    passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
 
 
-class BaseParamValueImpl(BaseModel):
-    value: str
-
-
-class BaseParamUIImpl(BaseModel):
+class BaseCodeObjImpl(BaseModel):
     type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
+    description: str = ""
 
 
-class TextParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.TEXT] = ParamTypeName.TEXT
+class BaseParamCodeObjImpl(BaseCodeObjImpl):
+    coreNameType: ParamNameType = ParamNameType.TEXT
+    coreNameEditable: bool = False
+    defaultVal: str = ""
+    passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
 
 
-class SliderParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.SLIDER] = ParamTypeName.SLIDER
+class CodeCallableCodeObjImpl(BaseCodeObjImpl):
+    type: Literal[CodeObjType.CODE_CALLABLE] = CodeObjType.CODE_CALLABLE
+
+
+class CodeParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.CODE_PARAM] = CodeObjType.CODE_PARAM
+
+
+class TextParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.TEXT_PARAM] = CodeObjType.TEXT_PARAM
+
+
+class SliderParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.SLIDER_PARAM] = CodeObjType.SLIDER_PARAM
     min: int = 0
     max: int = 100
     step: int = 1
 
 
-class SwitchParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.SWITCH] = ParamTypeName.SWITCH
+class SwitchParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.SWITCH_PARAM] = CodeObjType.SWITCH_PARAM
 
 
-class ColorPickerParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.COLOR_PICKER] = ParamTypeName.COLOR_PICKER
+class ColorPickerParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.COLOR_PICKER_PARAM] = CodeObjType.COLOR_PICKER_PARAM
 
 
-class DropdownParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.DROPDOWN] = ParamTypeName.DROPDOWN
+class DropdownParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.DROPDOWN_PARAM] = CodeObjType.DROPDOWN_PARAM
 
 
-class PasswordParamUIImpl(BaseParamUIImpl):
-    type: Literal[ParamTypeName.PASSWORD] = ParamTypeName.PASSWORD
-
-
-# class CodeInfo(BaseModel, extra="forbid"):
-#     rcType: CodeInfoType = CodeInfoType.PARAMETER
-#     isPinned: bool = False
-#     isFrozen: bool = False
-#     isSelected: bool = False
-#     ignoreTypeErrors: bool = False
+class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
+    type: Literal[CodeObjType.PASSWORD_PARAM] = CodeObjType.PASSWORD_PARAM
