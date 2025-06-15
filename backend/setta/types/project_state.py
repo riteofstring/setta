@@ -1,5 +1,3 @@
-import copy
-
 from pydantic import (
     BaseModel,
     Field,
@@ -8,21 +6,9 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.base_ui_types import (
-    BASE_UI_TYPE_IDS,
-    BASE_UI_TYPES,
-    UIType,
-    UITypeName,
-)
-from setta.types.section_configs import BaseSectionConfig
 from setta.types.sections import BaseSectionCore, BaseSectionImpl
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-ParameterPassingStyle = AsIsStrEnum(
-    "ParameterPassingStyle",
-    ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
-)
 
 CodeInfoType = AsIsStrEnum("CodeInfoType", ["PARAMETER", "CALLABLE", "COLLECTION"])
 
@@ -107,22 +93,12 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionImplMap: dict[str, str] = Field(default_factory=dict)
 
 
-def ui_types_default_factory():
-    return copy.deepcopy(BASE_UI_TYPES)
-
-
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, BaseSectionCore] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImpl] = Field(default_factory=dict)
     codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
-    uiTypes: dict[str, UIType] = Field(default_factory=ui_types_default_factory)
     uiTypeCols: dict[str, dict[str, UITypeColEntry]] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def validator_ensure_base_ui_types(self):
-        self.uiTypes.update(BASE_UI_TYPES)
-        return self
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

@@ -90,7 +90,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     codeInfoColId: str | None = None
 
 
-class BaseSectionWithParams(BaseSectionImpl):
+class BaseSectionWithParamsImpl(BaseSectionImpl):
     values: dict[str, EVEntry] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False
@@ -103,58 +103,58 @@ class BaseSectionWithParams(BaseSectionImpl):
     jsonSourceMissing: bool = False
 
 
-class BaseArtifactSection(BaseSectionImpl):
+class BaseArtifactSectionImpl(BaseSectionImpl):
     artifactGroupIds: list[str] = Field(default_factory=list)
 
 
-class BaseCanvasSection(BaseSectionImpl):
+class BaseCanvasSectionImpl(BaseSectionImpl):
     renderedValue: Any = None
 
 
-class BaseCodeSection(BaseSectionImpl):
+class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
 
 
-class BaseParentSection(BaseSectionImpl):
+class BaseParentSectionImpl(BaseSectionImpl):
     children: list[str] = Field(default_factory=list)
 
 
-class Section(BaseSectionWithParams):
+class Section(BaseSectionWithParamsImpl):
     type: Literal[SectionTypeName.SECTION] = SectionTypeName.SECTION
     selectedItem: str | None = None
     hideSearch: bool = False
 
 
-class ListRootSection(BaseParentSection):
+class ListRootSection(BaseParentSectionImpl):
     type: Literal[SectionTypeName.LIST_ROOT] = SectionTypeName.LIST_ROOT
 
 
-class DictRootSection(BaseParentSection):
+class DictRootSection(BaseParentSectionImpl):
     type: Literal[SectionTypeName.DICT_ROOT] = SectionTypeName.DICT_ROOT
 
 
-class GroupSection(BaseParentSection):
+class GroupSection(BaseParentSectionImpl):
     type: Literal[SectionTypeName.GROUP] = SectionTypeName.GROUP
     isHorizontalOrientation: bool = False
 
 
-class ImageSection(BaseArtifactSection):
+class ImageSection(BaseArtifactSectionImpl):
     type: Literal[SectionTypeName.IMAGE] = SectionTypeName.IMAGE
 
 
-class ChartSection(BaseArtifactSection, BaseCanvasSection):
+class ChartSection(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionTypeName.CHART] = SectionTypeName.CHART
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
 
 
-class DrawSection(BaseArtifactSection, BaseCanvasSection):
+class DrawSection(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionTypeName.DRAW] = SectionTypeName.DRAW
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
     )
 
 
-class TextBlockSection(BaseSectionImpl):
+class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.TEXT_BLOCK] = SectionTypeName.TEXT_BLOCK
     renderMarkdown: bool = False
     headingAsSectionName: bool = False
@@ -162,38 +162,38 @@ class TextBlockSection(BaseSectionImpl):
     description: str = ""
 
 
-class SocialSection(BaseSectionImpl):
+class SocialSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.SOCIAL] = SectionTypeName.SOCIAL
     social = ""
 
 
-class GlobalVariablesSection(BaseSectionWithParams):
+class GlobalVariablesSection(BaseSectionWithParamsImpl):
     type: Literal[SectionTypeName.GLOBAL_VARIABLES] = SectionTypeName.GLOBAL_VARIABLES
     name: str = "Global Variables"
 
 
-class CodeSection(BaseCodeSection):
+class CodeSection(BaseCodeSectionImpl):
     type: Literal[SectionTypeName.CODE] = SectionTypeName.CODE
     codeLanguage: CodeLanguage = CodeLanguage.python
 
 
-class GenPythonCodeSection(BaseCodeSection):
+class GenPythonCodeSection(BaseCodeSectionImpl):
     type: Literal[SectionTypeName.GEN_PYTHON_CODE] = SectionTypeName.GEN_PYTHON_CODE
     name: str = "Generated Python Code"
 
 
-class TerminalSection(BaseSectionImpl):
+class TerminalSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.TERMINAL] = SectionTypeName.TERMINAL
 
 
-class IFrameSection(BaseSectionImpl):
+class IFrameSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.IFRAME] = SectionTypeName.IFRAME
 
 
-class ChatSection(BaseSectionImpl):
+class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.CHAT] = SectionTypeName.CHAT
 
 
-class BrowserSection(BaseSectionImpl):
+class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionTypeName.BROWSER] = SectionTypeName.BROWSER
     hideColumn: bool = False
