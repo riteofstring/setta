@@ -5,7 +5,7 @@ from setta.mcp.tool_setup import setta_tool
 from setta.server_state import SettaFastAPIState
 from setta.terminals.run_code import run_code
 from setta.types.ai import ID
-from setta.types.helpers import get_children_of_selected_item
+from setta.types.helpers import get_children_of_callable
 from setta.types.simplified_states import (
     SimplifiedCodeInfo,
     SimplifiedSection,
@@ -65,13 +65,12 @@ async def setSelectedItem(
         projectConfigId, sectionId, selectedItemName, refetchParams
     )
     output: dict[ID, SimplifiedCodeInfo] = {}
-    children = get_children_of_selected_item(project_state, sectionId)
-    for c in children:
-        output[ID(c.id)] = SimplifiedCodeInfo(
-            name=c.name,
-            editable=c.editable,
-            defaultVal=c.defaultVal,
-            description=c.description,
+    children = get_children_of_callable(project_state, sectionId)
+    for codeObj, codeObjImpl in children:
+        output[ID(codeObj.id)] = SimplifiedCodeInfo(
+            name=codeObj.name,
+            defaultVal=codeObjImpl.defaultVal,
+            description=codeObjImpl.description,
         )
     return output
 

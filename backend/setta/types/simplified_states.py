@@ -21,6 +21,5 @@ class SimplifiedSectionCreation(BaseModel):
 
 class SimplifiedCodeInfo(BaseModel):
     name: str
-    editable: bool
     defaultVal: str = ""
     description: str = ""

@@ -22,6 +22,7 @@ from setta.types.sections import (
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
+    SectionCore,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -300,17 +301,24 @@ def set_param_entered_value(
     raise TypeError
 
 
-def get_top_level_sections(p: ProjectStateSingleConfig) -> dict[str, Section]:
-    output = {}
+def get_top_level_sections(p: ProjectStateSingleConfig):
+    output: dict[str, SectionCore] = {}
     projectConfig = p.projectConfig
     for c in projectConfig.topLevelSections.keys():
         output[c] = p.sections[c]
     return output
 
 
-def get_children_of_selected_item(p: ProjectStateSingleConfig, sectionId: str):
+def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
     param_ids = get_top_level_param_ids(p, sectionId)
-    return [p.codeInfo[x] for x in param_ids]
+    output: list[tuple[CodeObjCore, BaseParamCodeObjImpl]] = []
+    for x in param_ids:
+        codeObj = p.codeObjs[x]
+        codeObjImpl = get_code_obj_impl(p, sectionId, x)
+        if not isinstance(codeObjImpl, BaseParamCodeObjImpl):
+            raise TypeError
+        output.append((codeObj, codeObjImpl))
+    return output
 
 
 def confirm_config_name(p: ProjectStateBackend, projectConfigName: str):
