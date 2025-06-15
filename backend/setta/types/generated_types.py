@@ -1,5 +1,4 @@
 from typing import Annotated, Union
-
 from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (

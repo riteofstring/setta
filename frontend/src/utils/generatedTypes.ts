@@ -794,12 +794,95 @@ export function createRawContentBlockDeltaEvent(
   return RawContentBlockDeltaEventSchema.parse(options);
 }
 
+export const RawContentBlockStopEventSchema = z.object({
+  index: z.int(),
+  type: z.literal("content_block_stop"),
+});
+
+export type RawContentBlockStopEvent = z.infer<
+  typeof RawContentBlockStopEventSchema
+>;
+
+export function createRawContentBlockStopEvent(
+  options: Partial<RawContentBlockStopEvent> = {},
+): RawContentBlockStopEvent {
+  return RawContentBlockStopEventSchema.parse(options);
+}
+
+export const DeltaSchema = z.object({
+  stop_reason: z
+    .union([
+      z.literal([
+        "end_turn",
+        "max_tokens",
+        "stop_sequence",
+        "tool_use",
+        "pause_turn",
+        "refusal",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  stop_sequence: z.union([z.string(), z.null()]).default(null),
+});
+
+export type Delta = z.infer<typeof DeltaSchema>;
+
+export function createDelta(options: Partial<Delta> = {}): Delta {
+  return DeltaSchema.parse(options);
+}
+
+export const MessageDeltaUsageSchema = z.object({
+  cache_creation_input_tokens: z.union([z.int(), z.null()]).default(null),
+  cache_read_input_tokens: z.union([z.int(), z.null()]).default(null),
+  input_tokens: z.union([z.int(), z.null()]).default(null),
+  output_tokens: z.int(),
+  server_tool_use: z.union([ServerToolUsageSchema, z.null()]).default(null),
+});
+
+export type MessageDeltaUsage = z.infer<typeof MessageDeltaUsageSchema>;
+
+export function createMessageDeltaUsage(
+  options: Partial<MessageDeltaUsage> = {},
+): MessageDeltaUsage {
+  return MessageDeltaUsageSchema.parse(options);
+}
+
+export const RawMessageDeltaEventSchema = z.object({
+  delta: DeltaSchema,
+  type: z.literal("message_delta"),
+  usage: MessageDeltaUsageSchema,
+});
+
+export type RawMessageDeltaEvent = z.infer<typeof RawMessageDeltaEventSchema>;
+
+export function createRawMessageDeltaEvent(
+  options: Partial<RawMessageDeltaEvent> = {},
+): RawMessageDeltaEvent {
+  return RawMessageDeltaEventSchema.parse(options);
+}
+
+export const RawMessageStopEventSchema = z.object({
+  type: z.literal("message_stop"),
+});
+
+export type RawMessageStopEvent = z.infer<typeof RawMessageStopEventSchema>;
+
+export function createRawMessageStopEvent(
+  options: Partial<RawMessageStopEvent> = {},
+): RawMessageStopEvent {
+  return RawMessageStopEventSchema.parse(options);
+}
+
 export const LLMStreamingResponseChunkSchema = z.union([
   FullMessageStopSchema,
   ToolResultSchema,
   RawMessageStartEventSchema,
   RawContentBlockStartEventSchema,
   RawContentBlockDeltaEventSchema,
+  RawContentBlockStopEventSchema,
+  RawMessageDeltaEventSchema,
+  RawMessageStopEventSchema,
 ]);
 
 export type LLMStreamingResponseChunk = z.infer<
@@ -1257,6 +1340,9 @@ export const LLMStreamingResponseSchema = z.object({
     RawMessageStartEventSchema,
     RawContentBlockStartEventSchema,
     RawContentBlockDeltaEventSchema,
+    RawContentBlockStopEventSchema,
+    RawMessageDeltaEventSchema,
+    RawMessageStopEventSchema,
   ]),
 });
 

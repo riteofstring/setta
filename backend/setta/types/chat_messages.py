@@ -5,7 +5,10 @@ from anthropic.types import (
     ContentBlock,
     RawContentBlockDeltaEvent,
     RawContentBlockStartEvent,
+    RawContentBlockStopEvent,
+    RawMessageDeltaEvent,
     RawMessageStartEvent,
+    RawMessageStopEvent,
 )
 from mcp.types import EmbeddedResource, ImageContent, TextContent
 from pydantic import BaseModel, Field, field_validator
@@ -57,6 +60,9 @@ LLMStreamingResponseChunk = (
     | RawMessageStartEvent
     | RawContentBlockStartEvent
     | RawContentBlockDeltaEvent
+    | RawContentBlockStopEvent
+    | RawMessageDeltaEvent
+    | RawMessageStopEvent
 )
 
 
