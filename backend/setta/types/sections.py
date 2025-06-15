@@ -134,7 +134,7 @@ class BaseParentSectionImpl(BaseSectionImpl):
 
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
-    paramIds: list[str] = Field(default_factory=list)
+    topLevelParamIds: list[str] = Field(default_factory=list)
 
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):

@@ -76,7 +76,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
                     if effective_impl.callable:
                         code_objs_to_process.add(effective_impl.callable)
                 elif isinstance(effective_impl, DictSectionImpl):
-                    code_objs_to_process.update(effective_impl.paramIds)
+                    code_objs_to_process.update(effective_impl.topLevelParamIds)
 
     # Process code_objs recursively
     while code_objs_to_process:
@@ -179,7 +179,7 @@ def get_top_level_param_ids(
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
-        return section_impl.paramIds
+        return section_impl.topLevelParamIds
     raise TypeError
 
 
