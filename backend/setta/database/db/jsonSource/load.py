@@ -96,6 +96,7 @@ def merge_into_existing(
             createMetadataJsonString(filename, new_ancestor_paths[id])
         ] = id
 
+    replacements: dict[str, tuple[str, BaseCodeObjImpl]] = {}
     for newId, newCodeObj in new_data.codeObjs.items():
         existingCodeObjId = jsonSourceMetadata_to_id.get(
             createMetadataJsonString(filename, new_ancestor_paths[newId])
@@ -104,23 +105,30 @@ def merge_into_existing(
         newLayering = new_data.codeObjImplLayerings[newLayeringId]
         newImpl = new_data.codeObjImpls[newLayering.impl]
         if not existingCodeObjId:
+            section_impl.codeObjImplLayeringMap[newId] = newLayeringId
             codeObjImplLayerings[newLayeringId] = newLayering
             codeObjImpls[newImpl.id] = newImpl
             codeObjs[newId] = newCodeObj
         else:
-            layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
-            layering = codeObjImplLayerings[layeringId]
-            impl = codeObjImpls[layering.impl]
-            if isinstance(impl, NestedParamCodeObjImpl):
-                if isinstance(newImpl, NestedParamCodeObjImpl):
-                    impl.children = newImpl.children
-                else:
-                    raise TypeError
-            elif isinstance(impl, BaseChildlessCodeObjImpl):
-                if isinstance(newImpl, BaseChildlessCodeObjImpl):
-                    impl.value = newImpl.value
-                else:
-                    raise TypeError
+            replacements[newId] = (existingCodeObjId, newImpl)
+
+    for newId, (existingCodeObjId, newImpl) in replacements.items():
+        layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
+        layering = codeObjImplLayerings[layeringId]
+        impl = codeObjImpls[layering.impl]
+        if isinstance(impl, NestedParamCodeObjImpl):
+            if isinstance(newImpl, NestedParamCodeObjImpl):
+                impl.children = [
+                    replacements[c][0] if c in replacements else c
+                    for c in newImpl.children
+                ]
+            else:
+                raise TypeError
+        elif isinstance(impl, BaseChildlessCodeObjImpl):
+            if isinstance(newImpl, BaseChildlessCodeObjImpl):
+                impl.value = newImpl.value
+            else:
+                raise TypeError
 
     for metadataString, id in jsonSourceMetadata_to_id.items():
         newId = new_jsonSourceMetadata_to_id.get(metadataString)
@@ -132,6 +140,11 @@ def merge_into_existing(
             del codeObjs[id]
             del codeObjImpls[impl.id]
             del codeObjImplLayerings[layeringId]
+
+    section_impl.topLevelParamIds = [
+        replacements[c][0] if c in replacements else c
+        for c in new_data.sectionImpl.topLevelParamIds
+    ]
 
 
 def load_json_source(filename: str, jsonSourceKeys: list[str]):
