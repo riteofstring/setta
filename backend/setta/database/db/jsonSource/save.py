@@ -12,16 +12,17 @@ from setta.types.sections import DictSectionImpl
 from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p: ProjectStateSingleConfig, section_impl_ids=None):
+def save_json_source_data(
+    p: ProjectStateSingleConfig, section_impl_ids: list[str] | None = None
+):
     to_be_saved = defaultdict(dict)
 
     for section_impl_id, section_impl in p.sectionImpls.items():
         if (
             not isinstance(section_impl, DictSectionImpl)
             or not section_impl.isJsonSource
+            or (section_impl_ids and section_impl_id not in section_impl_ids)
         ):
-            continue
-        if section_impl_ids and section_impl_id not in section_impl_ids:
             continue
         ancestor_paths = build_ancestor_paths(p, section_impl)
         filename = section_impl.name
@@ -42,8 +43,6 @@ def save_json_source_data(p: ProjectStateSingleConfig, section_impl_ids=None):
     # Save each file
     for filename, data in to_be_saved.items():
         save_json_to_file(filename, data)
-
-    return to_be_saved
 
 
 def add_children_to_parent_map(
