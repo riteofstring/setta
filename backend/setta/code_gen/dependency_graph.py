@@ -20,7 +20,14 @@ from setta.types.params import ParameterPassingStyle
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import SectionType
+from setta.types.sections import (
+    CallableSectionImpl,
+    DictRootSectionImpl,
+    GlobalVariablesSectionImpl,
+    GroupSectionImpl,
+    ListRootSectionImpl,
+    SectionType,
+)
 from setta.utils.utils import replace_at_positions
 
 from ..utils.constants import C
@@ -119,10 +126,10 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
-            type = get_section_type(p, id)
+            sectionImpl = p.sectionImpls[id]
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
-            if type == SectionType.CALLABLE:
+            if isinstance(sectionImpl, CallableSectionImpl):
                 value, potential_refs = self.export_section_value(p, id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
@@ -130,18 +137,21 @@ class DependencyGraph:
                     id=id,
                     name=name,
                     full_path_name=full_path_name,
-                    type=type,
+                    type=sectionImpl.type,
                     isTopLevel=isTopLevel,
                     value=value,
                     deps={},
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif type in [
-                SectionType.LIST_ROOT,
-                SectionType.DICT_ROOT,
-                SectionType.GROUP,
-            ]:
+            elif isinstance(
+                sectionImpl,
+                (
+                    ListRootSectionImpl,
+                    DictRootSectionImpl,
+                    GroupSectionImpl,
+                ),
+            ):
                 children = [
                     c
                     for c in get_section_children(p, id)
@@ -151,14 +161,14 @@ class DependencyGraph:
                     id=id,
                     name=name,
                     full_path_name=full_path_name,
-                    type=type,
+                    type=sectionImpl.type,
                     isTopLevel=isTopLevel,
                     value=None,
                     deps={},
                 )
                 node.deps = self.export_sections(p, children, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif type == SectionType.GLOBAL_VARIABLES:
+            elif isinstance(sectionImpl, GlobalVariablesSectionImpl):
                 self.export_section_params(p, id, isTopLevel=True)
             # elif type == UITypeName.TEXT_BLOCK:
             #     variant = get_selected_section_variant(p, id)
