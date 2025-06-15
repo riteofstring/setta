@@ -76,7 +76,7 @@ def convert_backend_to_single_config(
         code_obj_ids.add(obj_id)
         obj = p.codeObjs[obj_id]
 
-        for impl_id in obj.impls:
+        for impl_id in obj.implLayerings:
             if impl_id in section_impl_ids:
                 continue
             code_obj_impl_ids.add(impl_id)

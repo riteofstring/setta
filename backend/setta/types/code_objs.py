@@ -36,11 +36,11 @@ class ParamNameType(Enum):
 class CodeObjCore(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    impls: list[str] = Field(default_factory=list)
-    default_impl: str | None = None
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str | None = None
 
 
-class AppliedCodeObjImpls(BaseModel):
+class CodeObjImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
     impls: list[str | CodeObjImplModifier]
 

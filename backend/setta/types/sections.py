@@ -77,11 +77,11 @@ class ChartSettings(BaseModel, extra="forbid"):
 class SectionCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    appliedImpls: list[str] = Field(default_factory=list)
-    defaultAppliedImpl: str | None = None
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str | None = None
 
 
-class AppliedSectionImpls(BaseModel):
+class SectionImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
     impls: list[str]
 

@@ -7,8 +7,8 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import AppliedCodeObjImpls, BaseCodeObjImpl, CodeObjCore
-from setta.types.sections import AppliedSectionImpls, BaseSectionImpl, SectionCore
+from setta.types.code_objs import CodeObjImplLayering, BaseCodeObjImpl, CodeObjCore
+from setta.types.sections import SectionImplLayering, BaseSectionImpl, SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -42,16 +42,16 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodeSuffix: str = ""
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
-    appliedSectionImplMap: dict[str, str] = Field(default_factory=dict)
+    sectionImplLayeringMap: dict[str, str] = Field(default_factory=dict)
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImpl] = Field(default_factory=dict)
-    appliedSectionImpls: dict[str, AppliedSectionImpls] = Field(default_factory=dict)
+    sectionImplLayerings: dict[str, SectionImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
-    appliedCodeObjImpls: dict[str, AppliedCodeObjImpls] = Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):
