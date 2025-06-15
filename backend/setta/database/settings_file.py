@@ -6,12 +6,11 @@ from pathlib import Path
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
-from setta.types.helpers import (
-    get_selected_section_variant,
-)
+from setta.types.helpers import get_section_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.sections import DictSectionImpl
 from setta.types.settings_state import SettingsState
 from setta.utils.constants import SETTA_FILES_FOLDER
 from setta.utils.utils import save_json_to_file
@@ -79,9 +78,12 @@ class MetaSettingsFile:
 
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            variant = get_selected_section_variant(p, sectionId)
-            if variant.jsonSourceKeys == [slice]:
-                return Path(variant.name)
+            impl = get_section_impl(p, sectionId)
+            if isinstance(impl, DictSectionImpl):
+                if impl.jsonSourceKeys == [slice]:
+                    return Path(impl.name)
+            else:
+                raise TypeError
         return None
 
     def seed_settings(self, path: Path):
