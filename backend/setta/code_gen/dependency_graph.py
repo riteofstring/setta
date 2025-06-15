@@ -7,20 +7,19 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
-from setta.types.code_objs import ParameterPassingStyle
+from setta.types.code_objs import BaseParamCodeObjImpl, ParameterPassingStyle
 from setta.types.helpers import (
-    get_param_ui_type,
-    get_section_children_ids,
-    get_section_code_info_children,
+    get_code_obj_children_ids,
+    get_code_obj_impl,
+    get_section_callable,
     get_section_impl,
-    get_selected_item,
-    get_selected_section_variant,
     get_top_level_param_ids,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.sections import (
+    BaseParentSectionImpl,
     CallableSectionImpl,
     DictRootSectionImpl,
     DictSectionImpl,
@@ -79,14 +78,13 @@ class GraphKeySeparated:
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
         self.section_types_to_process = (
-                CallableSectionImpl,
-                DictSectionImpl,
-                ListRootSectionImpl,
-                DictRootSectionImpl,
-                GroupSectionImpl,
-                GlobalVariablesSectionImpl,
-                TextBlockSectionImpl,
-            
+            CallableSectionImpl,
+            DictSectionImpl,
+            ListRootSectionImpl,
+            DictRootSectionImpl,
+            GroupSectionImpl,
+            GlobalVariablesSectionImpl,
+            TextBlockSectionImpl,
         )
         self.construct_graph(p)
 
@@ -126,13 +124,13 @@ class DependencyGraph:
         idx: int | None = None,
     ):
         graph_key = self.create_graph_key(id)
-        section = self.get_node(graph_key)
-        if not section:
-            sectionImpl = get_section_impl(p,id)
+        section_node = self.get_node(graph_key)
+        if not section_node:
+            sectionImpl = get_section_impl(p, id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
-                value, potential_refs = self.export_section_value(p, id)
+                value, potential_refs = self.export_section_callable(p, id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 node = SectionNode(
@@ -146,17 +144,10 @@ class DependencyGraph:
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif isinstance(
-                sectionImpl,
-                (
-                    ListRootSectionImpl,
-                    DictRootSectionImpl,
-                    GroupSectionImpl,
-                ),
-            ):
+            elif isinstance(sectionImpl, BaseParentSectionImpl):
                 children = [
                     c
-                    for c in get_section_children_ids(p, id)
+                    for c in sectionImpl.children
                     if isinstance(get_section_impl(p, c), self.section_types_to_process)
                 ]
                 node = SectionNode(
@@ -182,14 +173,13 @@ class DependencyGraph:
         self.all_sections_in_project_config.add(id)
         return graph_key
 
-    def export_section_value(self, p: ProjectStateSingleConfig, sectionId: str):
-        selected_item = get_selected_item(p, sectionId)
-        if selected_item:
-            selected_item_name = selected_item.name
+    def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
+        callable = get_section_callable(p, sectionId)
+        if callable:
             potential_refs = find_undefined_special_var_expressions(
-                selected_item_name, SELF_IDENTIFIER, keep_attr_only=True
+                callable.name, SELF_IDENTIFIER, keep_attr_only=True
             )
-            return selected_item_name, potential_refs
+            return callable.name, potential_refs
         return None, None
 
     def export_section_params(
@@ -219,36 +209,32 @@ class DependencyGraph:
         output_deps = {}
         for idx, pid in enumerate(paramIds):
             graph_key = self.create_graph_key(sectionId, pid)
-            param = self.get_node(graph_key)
-            if not param:
-                codeInfo = p.codeInfo[pid]
-                param_children = get_section_code_info_children(p, sectionId).get(
-                    pid, []
-                )
-                if len(param_children) > 0:
-                    type = C.NESTED_PARAM
-                else:
-                    type = get_param_ui_type(p, sectionId, pid)
-                name = codeInfo.name
+            param_node = self.get_node(graph_key)
+            if not param_node:
+                code_obj_impl = get_code_obj_impl(p, sectionId, pid)
+                if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
+                    continue
+                param_children = get_code_obj_children_ids(p, sectionId, pid)
+                name = p.codeObjs[pid].name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 value, potential_refs = self.export_param_value(p, sectionId, pid)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
-                param = ParamNode(
+                param_node = ParamNode(
                     id=pid,
                     name=name,
                     full_path_name=full_path_name,
-                    type=type,
+                    type=code_obj_impl.type,
                     isTopLevel=isTopLevel,
                     value=value,
-                    passing_style=codeInfo.passingStyle,
+                    passing_style=code_obj_impl.passingStyle,
                     deps={},
                 )
-                param.deps = self.export_params(
-                    p, sectionId, param_children, parent_node=param
+                param_node.deps = self.export_params(
+                    p, sectionId, param_children, parent_node=param_node
                 )
-                self.add_to_graph(graph_key, param)
-            output_deps[graph_key] = param.has_name_and_value
+                self.add_to_graph(graph_key, param_node)
+            output_deps[graph_key] = param_node.has_name_and_value
         return output_deps
 
     def export_param_value(

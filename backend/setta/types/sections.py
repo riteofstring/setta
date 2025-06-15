@@ -128,13 +128,14 @@ class BaseCodeSectionImpl(BaseSectionImpl):
 class BaseParentSectionImpl(BaseSectionImpl):
     children: list[str] = Field(default_factory=list)
 
+
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
     paramIds: list[str] = Field(default_factory=list)
 
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
     type: Literal[SectionType.CALLABLE] = SectionType.CALLABLE
-    selectedItem: str | None = None
+    callable: str | None = None
 
 
 class DictSectionImpl(BaseDictSectionImpl):

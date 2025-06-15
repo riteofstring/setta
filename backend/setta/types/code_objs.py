@@ -24,6 +24,7 @@ class CodeObjType(Enum):
     COLOR_PICKER_PARAM = "COLOR_PICKER_PARAM"
     DROPDOWN_PARAM = "DROPDOWN_PARAM"
     PASSWORD_PARAM = "PASSWORD_PARAM"
+    NESTED_PARAM = "NESTED_PARAM"
 
 
 class ParamNameType(Enum):
@@ -43,7 +44,6 @@ class BaseCodeObjImpl(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
-    children: list[str] = Field(default_factory=list)
 
 
 class BaseParamCodeObjImpl(BaseCodeObjImpl):
@@ -53,7 +53,11 @@ class BaseParamCodeObjImpl(BaseCodeObjImpl):
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
 
 
-class CodeCallableCodeObjImpl(BaseCodeObjImpl):
+class BaseParentCodeObjImpl(BaseCodeObjImpl):
+    children: list[str] = Field(default_factory=list)
+
+
+class CodeCallableCodeObjImpl(BaseParentCodeObjImpl):
     type: Literal[CodeObjType.CODE_CALLABLE] = CodeObjType.CODE_CALLABLE
 
 
@@ -86,3 +90,7 @@ class DropdownParamCodeObjImpl(BaseParamCodeObjImpl):
 
 class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
     type: Literal[CodeObjType.PASSWORD_PARAM] = CodeObjType.PASSWORD_PARAM
+
+
+class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
+    type: Literal[CodeObjType.NESTED_PARAM] = CodeObjType.NESTED_PARAM

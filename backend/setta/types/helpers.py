@@ -1,5 +1,7 @@
-from setta.database.utils import create_new_id
-from setta.types.code_objs import BaseParamCodeObjImpl
+from setta.types.code_objs import (
+    BaseParentCodeObjImpl,
+    CodeCallableCodeObjImpl,
+)
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -57,8 +59,8 @@ def convert_backend_to_single_config(
                 sections_to_process.update(impl.children)
             elif isinstance(impl, BaseSectionWithParamsImpl):
                 if isinstance(impl, CallableSectionImpl):
-                    if impl.selectedItem:
-                        code_objs_to_process.add(impl.selectedItem)
+                    if impl.callable:
+                        code_objs_to_process.add(impl.callable)
                 elif isinstance(impl, DictSectionImpl):
                     code_objs_to_process.update(impl.paramIds)
 
@@ -76,7 +78,8 @@ def convert_backend_to_single_config(
                 continue
             code_obj_impl_ids.add(impl_id)
             impl = p.codeObjImpls[impl_id]
-            code_objs_to_process.update(impl.children)
+            if isinstance(impl, BaseParentCodeObjImpl):
+                code_objs_to_process.update(impl.children)
 
     # Build the sliced state
     return ProjectStateSingleConfig(
@@ -109,12 +112,11 @@ def get_section_impl(p: ProjectStateSingleConfig, id: str):
     return p.sectionImpls[impl_id]
 
 
-def get_selected_item(p: ProjectStateSingleConfig, id: str):
+def get_section_callable(p: ProjectStateSingleConfig, id: str):
     impl = get_section_impl(p, id)
     if isinstance(impl, CallableSectionImpl):
-        selected_item = impl.selectedItem
-        if selected_item:
-            return p.codeObjs[selected_item]
+        if impl.callable:
+            return p.codeObjs[impl.callable]
     return None
 
 
@@ -128,15 +130,33 @@ def get_section_children_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
 def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
     section_impl = get_section_impl(p, id)
     if isinstance(section_impl, CallableSectionImpl):
-        selected_item = get_selected_item(p, id)
-        if not selected_item:
+        callable = get_section_callable(p, id)
+        if not callable:
             return []
-        code_obj_impl_id = section_impl.codeObjImplMap[selected_item.id]
-        return p.codeObjImpls[code_obj_impl_id].children
+        code_obj_impl_id = section_impl.codeObjImplMap[callable.id]
+        code_obj_impl = p.codeObjImpls[code_obj_impl_id]
+        if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
+            return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
         return section_impl.paramIds
     return []
 
+
+def get_code_obj_impl(p: ProjectStateSingleConfig, sectionId: str, id: str):
+    section_impl = get_section_impl(p, sectionId)
+    if isinstance(section_impl, BaseSectionWithParamsImpl):
+        code_obj_impl_id = section_impl.codeObjImplMap[id]
+        return p.codeObjImpls[code_obj_impl_id]
+    return None
+
+
+def get_code_obj_children_ids(
+    p: ProjectStateSingleConfig, sectionId: str, id: str
+) -> list[str]:
+    code_obj_impl = get_code_obj_impl(p, sectionId, id)
+    if isinstance(code_obj_impl, BaseParentCodeObjImpl):
+        return code_obj_impl.children
+    return []
 
 
 def get_param_ui_type(p: ProjectStateSingleConfig, section_id: str, id: str):
@@ -176,7 +196,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
 def item_is_already_selected(
     p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
 ):
-    selected_item = get_selected_item(p, sectionId)
+    selected_item = get_section_callable(p, sectionId)
     return selected_item and selected_item.name == selectedItemName
 
 

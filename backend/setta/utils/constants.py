@@ -46,9 +46,6 @@ class C:
         "PASSWORD",
     ]
 
-    # Nested parameter
-    NESTED_PARAM = "NESTED_PARAM"
-
     # WebSocket message types
     WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"
