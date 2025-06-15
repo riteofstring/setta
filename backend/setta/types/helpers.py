@@ -1,4 +1,5 @@
 from setta.database.utils import create_new_id
+from setta.types.code_objs import BaseParamCodeObjImpl
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -7,6 +8,8 @@ from setta.types.project_state import (
 from setta.types.sections import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
+    CallableSectionImpl,
+    DictSectionImpl,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -53,7 +56,11 @@ def convert_backend_to_single_config(
                 # Add child sections to process list
                 sections_to_process.update(impl.children)
             elif isinstance(impl, BaseSectionWithParamsImpl):
-                code_objs_to_process.update(impl.topLevelCodeObjs)
+                if isinstance(impl, CallableSectionImpl):
+                    if impl.selectedItem:
+                        code_objs_to_process.add(impl.selectedItem)
+                elif isinstance(impl, DictSectionImpl):
+                    code_objs_to_process.update(impl.paramIds)
 
     # Process code_objs recursively
     while code_objs_to_process:
@@ -102,44 +109,34 @@ def get_section_impl(p: ProjectStateSingleConfig, id: str):
     return p.sectionImpls[impl_id]
 
 
-def get_selected_section_variant(p: ProjectStateSingleConfig, section_id: str):
-    variantId = p.projectConfig.sectionConfigs[section_id].variantId
-    return p.variants[variantId]
-
-
 def get_selected_item(p: ProjectStateSingleConfig, id: str):
-    variant = get_selected_section_variant(p, id)
-    selected_item = variant.selectedItem
-    if selected_item:
-        return p.codeInfo[selected_item]
+    impl = get_section_impl(p, id)
+    if isinstance(impl, CallableSectionImpl):
+        selected_item = impl.selectedItem
+        if selected_item:
+            return p.codeObjs[selected_item]
+    return None
 
 
-def get_section_children(p: ProjectStateSingleConfig, id: str) -> list[str]:
-    variant = get_selected_section_variant(p, id)
-    return variant.children
+def get_section_children_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
+    impl = get_section_impl(p, id)
+    if isinstance(impl, BaseParentSectionImpl):
+        return impl.children
+    return []
 
 
 def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
-    section_code_info_children = get_section_code_info_children(p, id)
-    selected_item = get_selected_item(p, id)
-    sid = selected_item.id if selected_item else None
-    if sid not in section_code_info_children:
-        section_code_info_children[sid] = []
-    children = section_code_info_children[sid]
-    return [c for c in children if p.codeInfo[c].rcType == CodeInfoType.PARAMETER]
+    section_impl = get_section_impl(p, id)
+    if isinstance(section_impl, CallableSectionImpl):
+        selected_item = get_selected_item(p, id)
+        if not selected_item:
+            return []
+        code_obj_impl_id = section_impl.codeObjImplMap[selected_item.id]
+        return p.codeObjImpls[code_obj_impl_id].children
+    elif isinstance(section_impl, DictSectionImpl):
+        return section_impl.paramIds
+    return []
 
-
-def get_section_code_info_children(p: ProjectStateSingleConfig, section_id: str):
-    variant = get_selected_section_variant(p, section_id)
-    codeInfoColId = variant.codeInfoColId
-    if not codeInfoColId:
-        newId = create_new_id()
-        codeInfoCol = CodeInfoCol()
-        p.codeInfoCols[newId] = codeInfoCol
-        variant.codeInfoColId = newId
-    else:
-        codeInfoCol = p.codeInfoCols[codeInfoColId]
-    return codeInfoCol.children
 
 
 def get_param_ui_type(p: ProjectStateSingleConfig, section_id: str, id: str):
@@ -162,7 +159,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     output = ""
     while parent_id:
         if get_section_type(p, parent_id) == UITypeName.LIST_ROOT:
-            idx = get_section_children(p, parent_id).index(section_id)
+            idx = get_section_children_ids(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name

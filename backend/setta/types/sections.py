@@ -12,6 +12,7 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 class SectionType(Enum):
     CALLABLE = "CALLABLE"
+    DICT = "DICT"
     LIST_ROOT = "LIST_ROOT"
     DICT_ROOT = "DICT_ROOT"
     GROUP = "GROUP"
@@ -94,11 +95,9 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     aspectRatioExtraWidth: int = 0
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
-    children: list[str] = Field(default_factory=list)
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
-    topLevelCodeObjs: list[str] = Field(default_factory=list)
     codeObjImplMap: dict[str, str] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False
@@ -129,11 +128,17 @@ class BaseCodeSectionImpl(BaseSectionImpl):
 class BaseParentSectionImpl(BaseSectionImpl):
     children: list[str] = Field(default_factory=list)
 
+class BaseDictSectionImpl(BaseSectionWithParamsImpl):
+    paramIds: list[str] = Field(default_factory=list)
+
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
     type: Literal[SectionType.CALLABLE] = SectionType.CALLABLE
     selectedItem: str | None = None
-    hideSearch: bool = False
+
+
+class DictSectionImpl(BaseDictSectionImpl):
+    type: Literal[SectionType.DICT] = SectionType.DICT
 
 
 class ListRootSectionImpl(BaseParentSectionImpl):
@@ -178,7 +183,7 @@ class SocialSectionImpl(BaseSectionImpl):
     social: str = ""
 
 
-class GlobalVariablesSectionImpl(BaseSectionWithParamsImpl):
+class GlobalVariablesSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.GLOBAL_VARIABLES] = SectionType.GLOBAL_VARIABLES
     name: str = "Global Variables"
 

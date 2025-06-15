@@ -10,7 +10,7 @@ from setta.code_gen.utils import (
 from setta.types.code_objs import ParameterPassingStyle
 from setta.types.helpers import (
     get_param_ui_type,
-    get_section_children,
+    get_section_children_ids,
     get_section_code_info_children,
     get_section_impl,
     get_selected_item,
@@ -23,10 +23,12 @@ from setta.types.project_state import (
 from setta.types.sections import (
     CallableSectionImpl,
     DictRootSectionImpl,
+    DictSectionImpl,
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
     SectionType,
+    TextBlockSectionImpl,
 )
 from setta.utils.utils import replace_at_positions
 
@@ -76,15 +78,15 @@ class GraphKeySeparated:
 
 class DependencyGraph:
     def __init__(self, p: ProjectStateSingleConfig):
-        self.section_types_to_process = set(
-            [
-                SectionType.CALLABLE,
-                SectionType.LIST_ROOT,
-                SectionType.DICT_ROOT,
-                SectionType.GROUP,
-                SectionType.GLOBAL_VARIABLES,
-                SectionType.TEXT_BLOCK,
-            ]
+        self.section_types_to_process = (
+                CallableSectionImpl,
+                DictSectionImpl,
+                ListRootSectionImpl,
+                DictRootSectionImpl,
+                GroupSectionImpl,
+                GlobalVariablesSectionImpl,
+                TextBlockSectionImpl,
+            
         )
         self.construct_graph(p)
 
@@ -154,8 +156,8 @@ class DependencyGraph:
             ):
                 children = [
                     c
-                    for c in get_section_children(p, id)
-                    if get_section_impl(p, c).type in self.section_types_to_process
+                    for c in get_section_children_ids(p, id)
+                    if isinstance(get_section_impl(p, c), self.section_types_to_process)
                 ]
                 node = SectionNode(
                     id=id,
