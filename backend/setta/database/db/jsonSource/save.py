@@ -1,10 +1,14 @@
 from collections import defaultdict
 
 from setta.types.code_objs import (
+    BaseCodeObjImpl,
     BaseParamCodeObjImpl,
+    CodeObjCore,
+    CodeObjImplLayering,
     NestedParamCodeObjImpl,
 )
 from setta.types.helpers import get_code_obj_impl
+from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -24,7 +28,13 @@ def save_json_source_data(
             or (section_impl_ids and section_impl_id not in section_impl_ids)
         ):
             continue
-        ancestor_paths = build_ancestor_paths(p, section_impl)
+        ancestor_paths = build_ancestor_paths(
+            p.codeObjs,
+            p.codeObjImpls,
+            p.codeObjImplLayerings,
+            section_impl.codeObjImplLayeringMap,
+            section_impl.topLevelParamIds,
+        )
         filename = section_impl.name
         for paramId in section_impl.topLevelParamIds:
             recursively_add_keys(
@@ -46,28 +56,56 @@ def save_json_source_data(
 
 
 def add_children_to_parent_map(
-    p: ProjectStateSingleConfig,
-    section_impl: DictSectionImpl,
+    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayeringMap: dict[str, str],
     paramId: str,
     parent_map: dict[str, str | None],
 ):
-    codeObjImpl = get_code_obj_impl(p, paramId, section_impl=section_impl)
+    codeObjImplLayeringId = codeObjImplLayeringMap[paramId]
+    codeObjImplLayering = codeObjImplLayerings[codeObjImplLayeringId]
+    codeObjImpl = get_effective_impl(codeObjImplLayering, codeObjImpls)
     if isinstance(codeObjImpl, NestedParamCodeObjImpl):
         for childId in codeObjImpl.children:
             parent_map[childId] = paramId
-            add_children_to_parent_map(p, section_impl, childId, parent_map)
+            add_children_to_parent_map(
+                codeObjImpls,
+                codeObjImplLayerings,
+                codeObjImplLayeringMap,
+                childId,
+                parent_map,
+            )
 
 
-def build_parent_map(p: ProjectStateSingleConfig, section_impl: DictSectionImpl):
+def build_parent_map(
+    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayeringMap: dict[str, str],
+    paramIds: list[str],
+):
     parent_map: dict[str, str | None] = {}
-    for paramId in section_impl.topLevelParamIds:
+    for paramId in paramIds:
         parent_map[paramId] = None
-        add_children_to_parent_map(p, section_impl, paramId, parent_map)
+        add_children_to_parent_map(
+            codeObjImpls,
+            codeObjImplLayerings,
+            codeObjImplLayeringMap,
+            paramId,
+            parent_map,
+        )
     return parent_map
 
 
-def build_ancestor_paths(p: ProjectStateSingleConfig, section_impl: DictSectionImpl):
-    parent_map = build_parent_map(p, section_impl)
+def build_ancestor_paths(
+    codeObjs: dict[str, CodeObjCore],
+    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayeringMap: dict[str, str],
+    paramIds: list[str],
+):
+    parent_map = build_parent_map(
+        codeObjImpls, codeObjImplLayerings, codeObjImplLayeringMap, paramIds
+    )
     ancestor_paths: dict[str, list[str]] = {}
     for id in parent_map.keys():
         if id not in ancestor_paths:
@@ -76,8 +114,8 @@ def build_ancestor_paths(p: ProjectStateSingleConfig, section_impl: DictSectionI
 
             # Traverse up to build the path
             while current_id is not None:
-                if current_id in p.codeObjs:
-                    name = p.codeObjs[current_id].name
+                if current_id in codeObjs:
+                    name = codeObjs[current_id].name
                     path.insert(0, name)
 
                     # Get parent using the map

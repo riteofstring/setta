@@ -1,4 +1,4 @@
-from typing import Callable, Generic, Protocol, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -26,13 +26,9 @@ TImpl = TypeVar("TImpl", bound=BaseModel)
 
 
 def get_effective_impl(
-    p: ProjectStateSingleConfig | ProjectStateBackend,
     impl_layering: LayeringProtocol[TModifier],
-    impl_dict_getter: Callable[
-        [ProjectStateSingleConfig | ProjectStateBackend], dict[str, TImpl]
-    ],
+    impl_dict: dict[str, TImpl],
 ) -> TImpl:
-    impl_dict = impl_dict_getter(p)
     effective = impl_dict[impl_layering.impl].model_copy(deep=True)
 
     for x in impl_layering.modifiers:
@@ -45,9 +41,8 @@ def get_effective_section_impl(
     impl_layering: SectionImplLayering,
 ):
     return get_effective_impl(
-        p=p,
         impl_layering=impl_layering,
-        impl_dict_getter=lambda p: p.sectionImpls,
+        impl_dict=p.sectionImpls,
     )
 
 
@@ -56,9 +51,8 @@ def get_effective_code_obj_impl(
     impl_layering: CodeObjImplLayering,
 ):
     return get_effective_impl(
-        p=p,
         impl_layering=impl_layering,
-        impl_dict_getter=lambda p: p.codeObjImpls,
+        impl_dict=p.codeObjImpls,
     )
 
 
