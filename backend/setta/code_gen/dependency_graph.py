@@ -7,26 +7,20 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
-from setta.types.code_objs import BaseParamCodeObjImpl, ParameterPassingStyle
+from setta.types.code_objs import ParameterPassingStyle
 from setta.types.helpers import (
-    CodeObjAndImpl,
-    SectionAndImpl,
-    get_code_obj_impl,
     get_param_ui_type,
-    get_section_and_impl,
-    get_section_callable,
+    get_section_children_ids,
     get_section_code_info_children,
     get_section_impl,
     get_selected_item,
     get_selected_section_variant,
     get_top_level_param_ids,
-    get_top_level_params,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.sections import (
-    BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictRootSectionImpl,
     DictSectionImpl,
@@ -105,20 +99,19 @@ class DependencyGraph:
     def construct_graph(self, p: ProjectStateSingleConfig):
         self.reset()
         ids = list(p.projectConfig.topLevelSections.keys())
-        sections = [get_section_and_impl(p, x) for x in ids]
-        self.export_sections(p, sections, isTopLevel=True)
+        self.export_sections(p, ids, isTopLevel=True)
         self.resolve_references()
 
     def export_sections(
         self,
         p: ProjectStateSingleConfig,
-        sections: list[SectionAndImpl],
+        ids: list[str],
         isTopLevel=False,
         parent_node=None,
     ):
         deps = {}
-        for idx, s in enumerate(sections):
-            graph_key = self.export_section(p, s, isTopLevel, parent_node, idx)
+        for idx, x in enumerate(ids):
+            graph_key = self.export_section(p, x, isTopLevel, parent_node, idx)
             node = self.get_node(graph_key)
             if node:
                 deps[graph_key] = node.has_name_and_value
@@ -127,63 +120,58 @@ class DependencyGraph:
     def export_section(
         self,
         p: ProjectStateSingleConfig,
-        section: SectionAndImpl,
+        id: str,
         isTopLevel=False,
         parent_node: Node | None = None,
         idx: int | None = None,
     ):
-        graph_key = self.create_graph_key(section.core.id)
-        section_node = self.get_node(graph_key)
-        if not section_node:
-            name = section.core.name
+        graph_key = self.create_graph_key(id)
+        section = self.get_node(graph_key)
+        if not section:
+            sectionImpl = get_section_impl(p,id)
+            name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
-            if isinstance(section.impl, CallableSectionImpl):
-                value, potential_refs = self.export_section_callable(p, section.impl)
+            if isinstance(sectionImpl, CallableSectionImpl):
+                value, potential_refs = self.export_section_value(p, id)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 node = SectionNode(
-                    id=section.core.id,
+                    id=id,
                     name=name,
                     full_path_name=full_path_name,
-                    type=section.impl.type,
+                    type=sectionImpl.type,
                     isTopLevel=isTopLevel,
                     value=value,
                     deps={},
                 )
-                node.deps = self.export_section_params(
-                    p, section.impl, parent_node=node
-                )
+                node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
             elif isinstance(
-                section.impl,
+                sectionImpl,
                 (
                     ListRootSectionImpl,
                     DictRootSectionImpl,
                     GroupSectionImpl,
                 ),
             ):
-                children: list[SectionAndImpl] = []
-                for c in section.impl.children:
-                    child_section = p.sections[c]
-                    child_impl = get_section_impl(p, c)
-                    if isinstance(child_impl, self.section_types_to_process):
-                        children.append(
-                            SectionAndImpl(core=child_section, impl=child_impl)
-                        )
-
+                children = [
+                    c
+                    for c in get_section_children_ids(p, id)
+                    if isinstance(get_section_impl(p, c), self.section_types_to_process)
+                ]
                 node = SectionNode(
-                    id=section.core.id,
+                    id=id,
                     name=name,
                     full_path_name=full_path_name,
-                    type=section.impl.type,
+                    type=sectionImpl.type,
                     isTopLevel=isTopLevel,
                     value=None,
                     deps={},
                 )
                 node.deps = self.export_sections(p, children, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            elif isinstance(section.impl, GlobalVariablesSectionImpl):
-                self.export_section_params(p, section.impl, isTopLevel=True)
+            elif isinstance(sectionImpl, GlobalVariablesSectionImpl):
+                self.export_section_params(p, id, isTopLevel=True)
             # elif type == UITypeName.TEXT_BLOCK:
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
@@ -191,34 +179,31 @@ class DependencyGraph:
             #     self.output[output_key] = info
             # else:
             #     raise ValueError
-        self.all_sections_in_project_config.add(section.core.id)
+        self.all_sections_in_project_config.add(id)
         return graph_key
 
-    def export_section_callable(
-        self, p: ProjectStateSingleConfig, sectionImpl: CallableSectionImpl
-    ):
-        callable = get_section_callable(p, sectionImpl)
-        if callable:
+    def export_section_value(self, p: ProjectStateSingleConfig, sectionId: str):
+        selected_item = get_selected_item(p, sectionId)
+        if selected_item:
+            selected_item_name = selected_item.name
             potential_refs = find_undefined_special_var_expressions(
-                callable.core.name, SELF_IDENTIFIER, keep_attr_only=True
+                selected_item_name, SELF_IDENTIFIER, keep_attr_only=True
             )
-            return callable.core.name, potential_refs
+            return selected_item_name, potential_refs
         return None, None
 
     def export_section_params(
         self,
         p: ProjectStateSingleConfig,
-        section: SectionAndImpl,
+        sectionId: str,
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
-        if not isinstance(section.impl, BaseSectionWithParamsImpl):
-            return []
-        params = get_top_level_params(p, section.impl)
+        paramIds = get_top_level_param_ids(p, sectionId)
         return self.export_params(
             p,
-            section.core.id,
-            params,
+            sectionId,
+            paramIds,
             parent_node=parent_node,
             isTopLevel=isTopLevel,
         )
@@ -227,39 +212,40 @@ class DependencyGraph:
         self,
         p: ProjectStateSingleConfig,
         sectionId: str,
-        params: list[CodeObjAndImpl],
+        paramIds: list[str],
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
         output_deps = {}
-        for idx, param in enumerate(params):
-            if not isinstance(param.impl, BaseParamCodeObjImpl):
-                continue
-            graph_key = self.create_graph_key(sectionId, param.core.id)
-            param_node = self.get_node(graph_key)
-            if not param_node:
-                param_children = param.impl.children
+        for idx, pid in enumerate(paramIds):
+            graph_key = self.create_graph_key(sectionId, pid)
+            param = self.get_node(graph_key)
+            if not param:
+                codeInfo = p.codeInfo[pid]
+                param_children = get_section_code_info_children(p, sectionId).get(
+                    pid, []
+                )
                 if len(param_children) > 0:
                     type = C.NESTED_PARAM
                 else:
-                    type = param.impl.type
-                name = param.core.name
+                    type = get_param_ui_type(p, sectionId, pid)
+                name = codeInfo.name
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 value, potential_refs = self.export_param_value(p, sectionId, pid)
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 param = ParamNode(
-                    id=param.core.id,
+                    id=pid,
                     name=name,
                     full_path_name=full_path_name,
                     type=type,
                     isTopLevel=isTopLevel,
                     value=value,
-                    passing_style=param.impl.passingStyle,
+                    passing_style=codeInfo.passingStyle,
                     deps={},
                 )
                 param.deps = self.export_params(
-                    p, sectionId, , parent_node=param
+                    p, sectionId, param_children, parent_node=param
                 )
                 self.add_to_graph(graph_key, param)
             output_deps[graph_key] = param.has_name_and_value
