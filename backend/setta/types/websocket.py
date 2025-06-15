@@ -33,9 +33,7 @@ WebsocketMsgTypeForFrontend = AsIsStrEnum(
 
 WebsocketMsgTypeForBackend = AsIsStrEnum(
     "WebsocketMsgTypeForBackend",
-    [
-        "CurrentAddressUpdate",
-    ],
+    ["CurrentAddressUpdate", "UpdateBackendProjectState"],
 )
 
 
@@ -150,4 +148,16 @@ class WebsocketMsgCurrentAddressUpdate(WebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
+    )
+
+
+class WebsocketMsgUpdateBackendProjectStateContent(BaseModel):
+    projectState: ProjectStateSingleConfig
+    requestRenameRefactor: bool
+
+
+class WebsocketMsgUpdateBackendProjectState(WebsocketMsg):
+    content: WebsocketMsgUpdateBackendProjectStateContent
+    messageType: Literal[WebsocketMsgTypeForBackend.UpdateBackendProjectState] = (
+        WebsocketMsgTypeForBackend.UpdateBackendProjectState
     )

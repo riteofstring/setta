@@ -170,6 +170,7 @@ export const WebsocketConnectionTypeEnum = {
 
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
+  UpdateBackendProjectState: "UpdateBackendProjectState",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -823,197 +824,6 @@ export function createWebsocketMsgCurrentAddressUpdate(
   return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
-export const WebsocketMsgForBackendUnionSchema =
-  WebsocketMsgCurrentAddressUpdateSchema;
-
-export type WebsocketMsgForBackendUnion = z.infer<
-  typeof WebsocketMsgForBackendUnionSchema
->;
-
-export const ArtifactSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-  value: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type Artifact = z.infer<typeof ArtifactSchema>;
-
-export function createArtifact(options: Partial<Artifact> = {}): Artifact {
-  return ArtifactSchema.parse(options);
-}
-
-export const ArtifactWithIdSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-  value: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-  id: z.union([z.string(), z.null()]),
-});
-
-export type ArtifactWithId = z.infer<typeof ArtifactWithIdSchema>;
-
-export function createArtifactWithId(
-  options: Partial<ArtifactWithId> = {},
-): ArtifactWithId {
-  return ArtifactWithIdSchema.parse(options);
-}
-
-export const ArtifactWithoutValueSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-});
-
-export type ArtifactWithoutValue = z.infer<typeof ArtifactWithoutValueSchema>;
-
-export function createArtifactWithoutValue(
-  options: Partial<ArtifactWithoutValue> = {},
-): ArtifactWithoutValue {
-  return ArtifactWithoutValueSchema.parse(options);
-}
-
-export const UITypeSchema = z.object({
-  id: z.string().default(create_new_id),
-  type: z.enum(UITypeNameEnum).default(UITypeNameEnum.TEXT),
-  name: z.string().default(generate_memorable_string),
-  presetType: z.union([z.enum(UITypePresetTypeEnum), z.null()]).default(null),
-  config: z.record(z.string(), z.any()).default({}),
-});
-
-export type UIType = z.infer<typeof UITypeSchema>;
-
-export function createUIType(options: Partial<UIType> = {}): UIType {
-  return UITypeSchema.parse(options);
-}
-
-export const ChatSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  lastUpdated: z.iso.datetime().default(get_now_timestamp),
-  messages: z.array(ChatMessageSchema),
-});
-
-export type Chat = z.infer<typeof ChatSchema>;
-
-export function createChat(options: Partial<Chat> = {}): Chat {
-  return ChatSchema.parse(options);
-}
-
-export const ChatMetadataSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  lastUpdated: z.iso.datetime().default(get_now_timestamp),
-});
-
-export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
-
-export function createChatMetadata(
-  options: Partial<ChatMetadata> = {},
-): ChatMetadata {
-  return ChatMetadataSchema.parse(options);
-}
-
-export const LLMStreamingResponseSchema = z.object({
-  chatId: z.string(),
-  assistantMessageId: z.union([z.string(), z.null()]),
-  chunk: z.union([
-    FullMessageStopSchema,
-    ToolResultSchema,
-    RawMessageStartEventSchema,
-    RawContentBlockStartEventSchema,
-    RawContentBlockDeltaEventSchema,
-  ]),
-});
-
-export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
-
-export function createLLMStreamingResponse(
-  options: Partial<LLMStreamingResponse> = {},
-): LLMStreamingResponse {
-  return LLMStreamingResponseSchema.parse(options);
-}
-
-export const CodeInfoSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  editable: z.boolean().default(false),
-  rcType: z.enum(CodeInfoTypeEnum).default(CodeInfoTypeEnum.PARAMETER),
-  defaultVal: z.string().default(""),
-  description: z.string().default(""),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
-  isPinned: z.boolean().default(false),
-  isFrozen: z.boolean().default(false),
-  isSelected: z.boolean().default(false),
-  ignoreTypeErrors: z.boolean().default(false),
-});
-
-export type CodeInfo = z.infer<typeof CodeInfoSchema>;
-
-export function createCodeInfo(options: Partial<CodeInfo> = {}): CodeInfo {
-  return CodeInfoSchema.parse(options);
-}
-
-export const CodeInfoColSchema = z.object({
-  children: z.record(z.union([z.string()]), z.array(z.string())).default({}),
-});
-
-export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
-
-export function createCodeInfoCol(
-  options: Partial<CodeInfoCol> = {},
-): CodeInfoCol {
-  return CodeInfoColSchema.parse(options);
-}
-
-export const EVEntrySchema = z.object({
-  value: z.string().default(""),
-});
-
-export type EVEntry = z.infer<typeof EVEntrySchema>;
-
-export function createEVEntry(options: Partial<EVEntry> = {}): EVEntry {
-  return EVEntrySchema.parse(options);
-}
-
-export const ProjectConfigChildSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zIndex: z.int().default(0),
-  w: z.number().default(1),
-  h: z.number().default(1),
-});
-
-export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
-
-export function createProjectConfigChild(
-  options: Partial<ProjectConfigChild> = {},
-): ProjectConfigChild {
-  return ProjectConfigChildSchema.parse(options);
-}
-
 export const VisibilitySchema = z.object({
   DEV: z.boolean().default(true),
   USER: z.boolean().default(true),
@@ -1104,6 +914,16 @@ export function createSection(options: Partial<Section> = {}): Section {
   return SectionSchema.parse(options);
 }
 
+export const EVEntrySchema = z.object({
+  value: z.string().default(""),
+});
+
+export type EVEntry = z.infer<typeof EVEntrySchema>;
+
+export function createEVEntry(options: Partial<EVEntry> = {}): EVEntry {
+  return EVEntrySchema.parse(options);
+}
+
 export const SectionVariantSchema = z.object({
   name: z.string().default(generate_memorable_string),
   values: z.record(z.string(), EVEntrySchema).default({}),
@@ -1125,6 +945,54 @@ export function createSectionVariant(
   options: Partial<SectionVariant> = {},
 ): SectionVariant {
   return SectionVariantSchema.parse(options);
+}
+
+export const CodeInfoSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  editable: z.boolean().default(false),
+  rcType: z.enum(CodeInfoTypeEnum).default(CodeInfoTypeEnum.PARAMETER),
+  defaultVal: z.string().default(""),
+  description: z.string().default(""),
+  passingStyle: z
+    .enum(ParameterPassingStyleEnum)
+    .default(ParameterPassingStyleEnum.DEFAULT),
+  isPinned: z.boolean().default(false),
+  isFrozen: z.boolean().default(false),
+  isSelected: z.boolean().default(false),
+  ignoreTypeErrors: z.boolean().default(false),
+});
+
+export type CodeInfo = z.infer<typeof CodeInfoSchema>;
+
+export function createCodeInfo(options: Partial<CodeInfo> = {}): CodeInfo {
+  return CodeInfoSchema.parse(options);
+}
+
+export const CodeInfoColSchema = z.object({
+  children: z.record(z.union([z.string()]), z.array(z.string())).default({}),
+});
+
+export type CodeInfoCol = z.infer<typeof CodeInfoColSchema>;
+
+export function createCodeInfoCol(
+  options: Partial<CodeInfoCol> = {},
+): CodeInfoCol {
+  return CodeInfoColSchema.parse(options);
+}
+
+export const UITypeSchema = z.object({
+  id: z.string().default(create_new_id),
+  type: z.enum(UITypeNameEnum).default(UITypeNameEnum.TEXT),
+  name: z.string().default(generate_memorable_string),
+  presetType: z.union([z.enum(UITypePresetTypeEnum), z.null()]).default(null),
+  config: z.record(z.string(), z.any()).default({}),
+});
+
+export type UIType = z.infer<typeof UITypeSchema>;
+
+export function createUIType(options: Partial<UIType> = {}): UIType {
+  return UITypeSchema.parse(options);
 }
 
 export const UITypeColEntrySchema = z.object({
@@ -1150,6 +1018,22 @@ export type Viewport = z.infer<typeof ViewportSchema>;
 
 export function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
+}
+
+export const ProjectConfigChildSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zIndex: z.int().default(0),
+  w: z.number().default(1),
+  h: z.number().default(1),
+});
+
+export type ProjectConfigChild = z.infer<typeof ProjectConfigChildSchema>;
+
+export function createProjectConfigChild(
+  options: Partial<ProjectConfigChild> = {},
+): ProjectConfigChild {
+  return ProjectConfigChildSchema.parse(options);
 }
 
 export const SectionSizeSchema = z.object({
@@ -1210,27 +1094,6 @@ export function createProjectConfig(
   return ProjectConfigSchema.parse(options);
 }
 
-export const ProjectStateBackendSchema = z.object({
-  sections: z.record(z.string(), SectionSchema).default({}),
-  variants: z.record(z.string(), SectionVariantSchema).default({}),
-  codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
-  codeInfoCols: z.record(z.string(), CodeInfoColSchema).default({}),
-  uiTypes: z.record(z.string(), UITypeSchema).default(ui_types_default_factory),
-  uiTypeCols: z
-    .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
-    .default({}),
-  projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
-  defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
-});
-
-export type ProjectStateBackend = z.infer<typeof ProjectStateBackendSchema>;
-
-export function createProjectStateBackend(
-  options: Partial<ProjectStateBackend> = {},
-): ProjectStateBackend {
-  return ProjectStateBackendSchema.parse(options);
-}
-
 export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), SectionSchema).default({}),
   variants: z.record(z.string(), SectionVariantSchema).default({}),
@@ -1251,6 +1114,179 @@ export function createProjectStateSingleConfig(
   options: Partial<ProjectStateSingleConfig> = {},
 ): ProjectStateSingleConfig {
   return ProjectStateSingleConfigSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateBackendProjectStateContentSchema = z.object({
+  projectState: ProjectStateSingleConfigSchema,
+  requestRenameRefactor: z.boolean(),
+});
+
+export type WebsocketMsgUpdateBackendProjectStateContent = z.infer<
+  typeof WebsocketMsgUpdateBackendProjectStateContentSchema
+>;
+
+export function createWebsocketMsgUpdateBackendProjectStateContent(
+  options: Partial<WebsocketMsgUpdateBackendProjectStateContent> = {},
+): WebsocketMsgUpdateBackendProjectStateContent {
+  return WebsocketMsgUpdateBackendProjectStateContentSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateBackendProjectStateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: WebsocketMsgUpdateBackendProjectStateContentSchema,
+  messageType: z
+    .literal("UpdateBackendProjectState")
+    .default(WebsocketMsgTypeForBackendEnum.UpdateBackendProjectState),
+});
+
+export type WebsocketMsgUpdateBackendProjectState = z.infer<
+  typeof WebsocketMsgUpdateBackendProjectStateSchema
+>;
+
+export function createWebsocketMsgUpdateBackendProjectState(
+  options: Partial<WebsocketMsgUpdateBackendProjectState> = {},
+): WebsocketMsgUpdateBackendProjectState {
+  return WebsocketMsgUpdateBackendProjectStateSchema.parse(options);
+}
+
+export const WebsocketMsgForBackendUnionSchema = z.union([
+  WebsocketMsgCurrentAddressUpdateSchema,
+  WebsocketMsgUpdateBackendProjectStateSchema,
+]);
+
+export type WebsocketMsgForBackendUnion = z.infer<
+  typeof WebsocketMsgForBackendUnionSchema
+>;
+
+export const ArtifactSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+  value: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+});
+
+export type Artifact = z.infer<typeof ArtifactSchema>;
+
+export function createArtifact(options: Partial<Artifact> = {}): Artifact {
+  return ArtifactSchema.parse(options);
+}
+
+export const ArtifactWithIdSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+  value: z
+    .union([
+      z.record(z.string(), z.any()),
+      z.array(z.any()),
+      z.string(),
+      z.int(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+    ])
+    .default(null),
+  id: z.union([z.string(), z.null()]),
+});
+
+export type ArtifactWithId = z.infer<typeof ArtifactWithIdSchema>;
+
+export function createArtifactWithId(
+  options: Partial<ArtifactWithId> = {},
+): ArtifactWithId {
+  return ArtifactWithIdSchema.parse(options);
+}
+
+export const ArtifactWithoutValueSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+});
+
+export type ArtifactWithoutValue = z.infer<typeof ArtifactWithoutValueSchema>;
+
+export function createArtifactWithoutValue(
+  options: Partial<ArtifactWithoutValue> = {},
+): ArtifactWithoutValue {
+  return ArtifactWithoutValueSchema.parse(options);
+}
+
+export const ChatSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  lastUpdated: z.iso.datetime().default(get_now_timestamp),
+  messages: z.array(ChatMessageSchema),
+});
+
+export type Chat = z.infer<typeof ChatSchema>;
+
+export function createChat(options: Partial<Chat> = {}): Chat {
+  return ChatSchema.parse(options);
+}
+
+export const ChatMetadataSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  lastUpdated: z.iso.datetime().default(get_now_timestamp),
+});
+
+export type ChatMetadata = z.infer<typeof ChatMetadataSchema>;
+
+export function createChatMetadata(
+  options: Partial<ChatMetadata> = {},
+): ChatMetadata {
+  return ChatMetadataSchema.parse(options);
+}
+
+export const LLMStreamingResponseSchema = z.object({
+  chatId: z.string(),
+  assistantMessageId: z.union([z.string(), z.null()]),
+  chunk: z.union([
+    FullMessageStopSchema,
+    ToolResultSchema,
+    RawMessageStartEventSchema,
+    RawContentBlockStartEventSchema,
+    RawContentBlockDeltaEventSchema,
+  ]),
+});
+
+export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
+
+export function createLLMStreamingResponse(
+  options: Partial<LLMStreamingResponse> = {},
+): LLMStreamingResponse {
+  return LLMStreamingResponseSchema.parse(options);
+}
+
+export const ProjectStateBackendSchema = z.object({
+  sections: z.record(z.string(), SectionSchema).default({}),
+  variants: z.record(z.string(), SectionVariantSchema).default({}),
+  codeInfo: z.record(z.string(), CodeInfoSchema).default({}),
+  codeInfoCols: z.record(z.string(), CodeInfoColSchema).default({}),
+  uiTypes: z.record(z.string(), UITypeSchema).default(ui_types_default_factory),
+  uiTypeCols: z
+    .record(z.string(), z.record(z.string(), UITypeColEntrySchema))
+    .default({}),
+  projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
+  defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ProjectStateBackend = z.infer<typeof ProjectStateBackendSchema>;
+
+export function createProjectStateBackend(
+  options: Partial<ProjectStateBackend> = {},
+): ProjectStateBackend {
+  return ProjectStateBackendSchema.parse(options);
 }
 
 export const PositionSchema = z.object({

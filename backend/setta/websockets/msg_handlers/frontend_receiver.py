@@ -7,6 +7,7 @@ from setta.types.generated_types import (
 from setta.types.websocket import (
     WebsocketMsgAllDependencies,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgUpdateBackendProjectState,
 )
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
@@ -35,6 +36,12 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)
+        elif isinstance(m, WebsocketMsgUpdateBackendProjectState):
+            await self.project_manager.update_from_frontend(
+                messageId=m.id,
+                projectState=m.content.projectState,
+                requestRenameRefactor=m.content.requestRenameRefactor,
+            )
 
         # if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
         #     print("WMHFrontend process_message", message, flush=True)
@@ -43,14 +50,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         #     )
         #     for wid in wids:
         #         await self.websocket_manager.send_message(message, wid)
-        # elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
-        #     await self.project_manager.update_from_frontend(
-        #         messageId=message["id"],
-        #         projectState=ProjectStateSingleConfig.model_validate(
-        #             message["content"]["projectState"]
-        #         ),
-        #         requestRenameRefactor=message["content"]["requestRenameRefactor"],
-        #     )
 
     async def on_connect(self, websocket_id: str):
         await self.websocket_manager.send_message(
