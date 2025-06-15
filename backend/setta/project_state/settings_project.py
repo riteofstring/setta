@@ -1,8 +1,16 @@
 from setta.database.utils import create_new_id
+from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
+)
+from setta.types.sections import (
+    BaseSectionImpl,
+    ConfigLanguage,
+    DictSectionImpl,
+    SectionCore,
+    SectionSize,
 )
 from setta.types.settings_state import (
     SettingsBackend,
@@ -114,35 +122,23 @@ def create_settings_project_state(settings_path: str):
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
     codeInfoWithUIType, uiTypes = create_settings_code_info_with_ui_types(section_names)
 
-    sections: dict[str, Section] = {}
-    sectionConfigs: dict[str, SectionConfig] = {}
-    variants: dict[str, SectionVariant] = {}
-    codeInfo: dict[str, CodeInfo] = {}
-    codeInfoCols: dict[str, CodeInfoCol] = {}
-    uiTypeCols: dict[str, dict[str, UITypeColEntry]] = {}
+    sections: dict[str, SectionCore] = {}
+    sectionImpls: dict[str, BaseSectionImpl] = {}
+    sectionImplMap: dict[str, str] = {}
+    codeObjs: dict[str, CodeObjCore] = {}
+    codeObjImpls: dict[str, BaseCodeObjImpl] = {}
     for k in section_names:
-        uiTypeColId = create_new_id()
-        codeInfoColId = create_new_id()
-        variantId = create_new_id()
-
-        section = Section(
-            name=k,
-            uiTypeColId=uiTypeColId,
-        )
+        section = SectionCore(name=k)
         sections[section.id] = section
-        sectionConfig = SectionConfig(
-            size=SectionSize(width=550),
-            variantId=variantId,
-        )
-        sectionConfigs[section.id] = sectionConfig
-        variant = SectionVariant(
+        sectionImpl = DictSectionImpl(
             name=settings_path,
-            codeInfoColId=codeInfoColId,
+            size=SectionSize(width=550),
             isJsonSource=True,
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
         )
-        variants[variantId] = variant
+        sectionImpls[sectionImpl.id] = sectionImpl
+        sectionImplMap[section.id] = sectionImpl.id
 
         uiTypeCols[uiTypeColId] = {}
         codeInfoCols[codeInfoColId] = CodeInfoCol(children={None: []})
@@ -158,15 +154,13 @@ def create_settings_project_state(settings_path: str):
     projectConfig = ProjectConfig(
         name="settings",
         topLevelSections=projectConfigChildren,
-        sectionConfigs=sectionConfigs,
+        sectionImplMap=sectionImplMap,
     )
 
     return ProjectStateSingleConfig(
         projectConfig=projectConfig,
         sections=sections,
-        variants=variants,
-        uiTypes=uiTypes,
-        uiTypeCols=uiTypeCols,
-        codeInfo=codeInfo,
-        codeInfoCols=codeInfoCols,
+        sectionImpls=sectionImpls,
+        codeObjs=codeInfo,
+        codeObjImpls=codeInfoCols,
     )

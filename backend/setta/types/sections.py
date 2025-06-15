@@ -108,9 +108,6 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
-    isJsonSource: bool = False
-    jsonSourceKeys: list[str] = Field(default_factory=list)
-    jsonSourceMissing: bool = False
 
 
 class BaseArtifactSectionImpl(BaseSectionImpl):
@@ -140,6 +137,9 @@ class CallableSectionImpl(BaseSectionWithParamsImpl):
 
 class DictSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.DICT] = SectionType.DICT
+    isJsonSource: bool = False
+    jsonSourceKeys: list[str] = Field(default_factory=list)
+    jsonSourceMissing: bool = False
 
 
 class ListRootSectionImpl(BaseParentSectionImpl):
