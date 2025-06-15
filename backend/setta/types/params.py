@@ -4,13 +4,15 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
-from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-ParameterPassingStyle = AsIsStrEnum(
-    "ParameterPassingStyle",
-    ["DEFAULT", "ARGS", "KWARGS", "POSITIONAL_ONLY", "KEYWORD_ONLY"],
-)
+
+class ParameterPassingStyle(Enum):
+    DEFAULT = "DEFAULT"
+    ARGS = "ARGS"
+    KWARGS = "KWARGS"
+    POSITIONAL_ONLY = "POSITIONAL_ONLY"
+    KEYWORD_ONLY = "KEYWORD_ONLY"
 
 
 class CodeObjType(Enum):

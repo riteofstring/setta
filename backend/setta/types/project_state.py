@@ -1,3 +1,5 @@
+from enum import Enum
+
 from pydantic import (
     BaseModel,
     Field,
@@ -7,10 +9,13 @@ from pydantic import (
 from setta.database.utils import create_new_id
 from setta.types.params import BaseCodeObjImpl, CodeObjCore
 from setta.types.sections import BaseSectionImpl, SectionCore
-from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
-ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
+
+class ViewingEditingMode(Enum):
+    DEV = "DEV"
+    USER = "USER"
+    USER_EDIT = "USER_EDIT"
 
 
 class Viewport(BaseModel, extra="forbid"):

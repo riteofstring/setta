@@ -11,8 +11,8 @@ from setta.code_gen.utils import (
     CLASS_DEF,
     SELF_IDENTIFIER,
 )
-from setta.types.base_ui_types import UITypeName
-from setta.types.project_state import ParameterPassingStyle
+from setta.types.params import CodeObjType, ParameterPassingStyle
+from setta.types.sections import SectionType
 
 from ...utils.constants import C
 
@@ -152,14 +152,14 @@ class PythonCodeGenerator:
 
     def get_section_value(self, node: SectionNode):
         t = node.type
-        if t == UITypeName.SECTION:
+        if t == SectionType.CALLABLE:
             if node.value:
                 return self.construct_callable(node.value, node.deps)
             else:
                 return self.construct_dict(node.deps)
-        elif t == UITypeName.LIST_ROOT:
+        elif t == SectionType.LIST_ROOT:
             return self.construct_list(node.deps)
-        elif t in [UITypeName.DICT_ROOT, UITypeName.GROUP]:
+        elif t in [SectionType.DICT_ROOT, SectionType.GROUP]:
             return self.construct_dict(node.deps)
         else:
             raise ValueError
@@ -170,11 +170,15 @@ class PythonCodeGenerator:
 
     def get_param_value(self, node: ParamNode):
         t = node.type
-        if t == UITypeName.TEXT or t == UITypeName.SLIDER or t == UITypeName.DROPDOWN:
+        if (
+            t == CodeObjType.TEXT_PARAM
+            or t == CodeObjType.SLIDER_PARAM
+            or t == CodeObjType.DROPDOWN_PARAM
+        ):
             return node.value
-        elif t == UITypeName.SWITCH:
+        elif t == CodeObjType.SWITCH_PARAM:
             return "True" if node.value == "true" else "False"
-        elif t == UITypeName.COLOR_PICKER:
+        elif t == CodeObjType.COLOR_PICKER_PARAM:
             return f'"{node.value}"'
         elif t == C.NESTED_PARAM:
             return self.construct_dict(node.deps)

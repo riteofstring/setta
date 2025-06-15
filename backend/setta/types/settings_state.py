@@ -1,10 +1,12 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field
 
-from setta.types.utils import AsIsStrEnum
 
-RenameRefactorMode = AsIsStrEnum(
-    "RenameRefactorMode", ["ALWAYS_ASK", "ALWAYS_RENAME", "NEVER_RENAME"]
-)
+class RenameRefactorMode(Enum):
+    ALWAYS_ASK = "ALWAYS_ASK"
+    ALWAYS_RENAME = "ALWAYS_RENAME"
+    NEVER_RENAME = "NEVER_RENAME"
 
 
 class SettingsShortcuts(BaseModel):

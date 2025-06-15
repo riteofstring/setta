@@ -7,7 +7,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -30,11 +29,18 @@ class SectionType(Enum):
     BROWSER = "BROWSER"
 
 
-Size = AsIsStrEnum("Size", ["auto"])
+class Size(Enum):
+    auto = "auto"
 
-CodeLanguage = AsIsStrEnum("CodeLanguage", ["python", "bash"])
 
-ConfigLanguage = AsIsStrEnum("ConfigLanguage", ["python", "json"])
+class CodeLanguage(Enum):
+    python = "python"
+    bash = "bash"
+
+
+class ConfigLanguage(Enum):
+    python = "python"
+    json = "json"
 
 
 class SectionSize(BaseModel, extra="forbid"):
@@ -89,7 +95,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
     children: list[str] = Field(default_factory=list)
-    codeInfoColId: str | None = None
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):

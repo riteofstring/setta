@@ -1,15 +1,16 @@
+from enum import Enum
 from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.types.utils import AsIsStrEnum
-
 JSONValueType = dict | list | str | int | float | bool | None
 
 
-ArtifactType = AsIsStrEnum(
-    "ArtifactType", ["IMG", "BRUSH_STROKES", "LIST", "CHAT_HISTORY"]
-)
+class ArtifactType(Enum):
+    IMG = "IMG"
+    BRUSH_STROKES = "BRUSH_STROKES"
+    LIST = "LIST"
+    CHAT_HISTORY = "CHAT_HISTORY"
 
 
 class ArtifactWithoutValue(BaseModel, extra="forbid"):

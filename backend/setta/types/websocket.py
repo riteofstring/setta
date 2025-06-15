@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
@@ -11,36 +12,34 @@ from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.utils import AsIsStrEnum
-
-WebsocketMsgTypeForFrontend = AsIsStrEnum(
-    "WebsocketMsgTypeForFrontend",
-    [
-        "AllConnections",
-        "LSPDiagnostics",
-        "TerminalMetadata",
-        "AllDependencies",
-        "SpecificFileWatcherUpdate",
-        "Notification",
-        "LLMStreamingResponse",
-        "UUIDMappingForLLM",
-        "Artifact",
-        "ReturnRenameRefactorResults",
-        "UpdateFrontendProjectState",
-        "NewTerminalCreated",
-    ],
-)
-
-WebsocketMsgTypeForBackend = AsIsStrEnum(
-    "WebsocketMsgTypeForBackend",
-    ["CurrentAddressUpdate", "UpdateBackendProjectState"],
-)
 
 
-WebsocketConnectionType = AsIsStrEnum(
-    "WebsocketConnectionType",
-    ["CLI", "SERVER", "PYTHON_SCRIPT", "PYTHON_LOGGER", "FRONTEND"],
-)
+class WebsocketMsgTypeForFrontend(Enum):
+    AllConnections = ("AllConnections",)
+    LSPDiagnostics = ("LSPDiagnostics",)
+    TerminalMetadata = ("TerminalMetadata",)
+    AllDependencies = ("AllDependencies",)
+    SpecificFileWatcherUpdate = ("SpecificFileWatcherUpdate",)
+    Notification = ("Notification",)
+    LLMStreamingResponse = ("LLMStreamingResponse",)
+    UUIDMappingForLLM = ("UUIDMappingForLLM",)
+    Artifact = ("Artifact",)
+    ReturnRenameRefactorResults = ("ReturnRenameRefactorResults",)
+    UpdateFrontendProjectState = ("UpdateFrontendProjectState",)
+    NewTerminalCreated = ("NewTerminalCreated",)
+
+
+class WebsocketMsgTypeForBackend(Enum):
+    CurrentAddressUpdate = "CurrentAddressUpdate"
+    UpdateBackendProjectState = "UpdateBackendProjectState"
+
+
+class WebsocketConnectionType(Enum):
+    CLI = "CLI"
+    SERVER = "SERVER"
+    PYTHON_SCRIPT = "PYTHON_SCRIPT"
+    PYTHON_LOGGER = "PYTHON_LOGGER"
+    FRONTEND = "FRONTEND"
 
 
 class WebsocketConnectionInfo(BaseModel):

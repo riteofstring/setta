@@ -72,8 +72,7 @@ def get_all_enums(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, enum.Enum)
-        and obj is not enum.Enum
-        and obj is not enum.StrEnum,
+        and obj is not enum.Enum,
     )
 
 
