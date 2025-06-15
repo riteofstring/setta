@@ -9,12 +9,15 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
+from setta.types.section_impl_modifiers import SectionImplModifier
 from setta.types.sections import (
     BaseParentSectionImpl,
+    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
+    SectionImplLayering,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -35,8 +38,10 @@ def convert_backend_to_single_config(
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
     section_impl_ids: set[str] = set()
+    section_impl_layering_ids: set[str] = set()
     code_obj_ids: set[str] = set()
     code_obj_impl_ids: set[str] = set()
+    code_obj_impl_layering_ids: set[str] = set()
 
     # Start with top-level sections from project config
     sections_to_process: set[str] = set(project_config.topLevelSections.keys())
@@ -51,21 +56,26 @@ def convert_backend_to_single_config(
         section_ids.add(section_id)
         section = p.sections[section_id]
 
-        for impl_id in section.appliedImpls:
-            if impl_id in section_impl_ids:
+        for impl_layering_id in section.implLayerings:
+            if impl_layering_id in section_impl_layering_ids:
                 continue
-            section_impl_ids.add(impl_id)
-            impl = p.sectionImpls[impl_id]
+            section_impl_layering_ids.add(impl_layering_id)
+            impl_layering = p.sectionImplLayerings[impl_layering_id]
+            section_impl_ids.update(
+                x for x in impl_layering.impls if isinstance(x, str)
+            )
 
-            if isinstance(impl, BaseParentSectionImpl):
+            effective_impl = get_effective_section_impl(p, impl_layering)
+
+            if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
-                sections_to_process.update(impl.children)
-            elif isinstance(impl, BaseSectionWithParamsImpl):
-                if isinstance(impl, CallableSectionImpl):
-                    if impl.callable:
-                        code_objs_to_process.add(impl.callable)
-                elif isinstance(impl, DictSectionImpl):
-                    code_objs_to_process.update(impl.paramIds)
+                sections_to_process.update(effective_impl.children)
+            elif isinstance(effective_impl, BaseSectionWithParamsImpl):
+                if isinstance(effective_impl, CallableSectionImpl):
+                    if effective_impl.callable:
+                        code_objs_to_process.add(effective_impl.callable)
+                elif isinstance(effective_impl, DictSectionImpl):
+                    code_objs_to_process.update(effective_impl.paramIds)
 
     # Process code_objs recursively
     while code_objs_to_process:
@@ -88,8 +98,14 @@ def convert_backend_to_single_config(
     return ProjectStateSingleConfig(
         sections={x: p.sections[x] for x in section_ids},
         sectionImpls={x: p.sectionImpls[x] for x in section_impl_ids},
+        sectionImplLayerings={
+            x: p.sectionImplLayerings[x] for x in section_impl_layering_ids
+        },
         codeObjs={x: p.codeObjs[x] for x in code_obj_ids},
         codeObjImpls={x: p.codeObjImpls[x] for x in code_obj_impl_ids},
+        codeObjImplLayerings={
+            x: p.codeObjImplLayerings[x] for x in code_obj_impl_layering_ids
+        },
         projectConfig=project_config,
     )
 
@@ -108,6 +124,32 @@ def merge_single_config_into_backend(
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
     )
+
+
+def get_effective_section_impl(
+    p: ProjectStateSingleConfig | ProjectStateBackend,
+    impl_layering: SectionImplLayering,
+) -> BaseSectionImpl:
+    effective = None
+    for x in impl_layering.impls:
+        if isinstance(x, str):
+            impl = p.sectionImpls[x]
+            if not effective:
+                effective = impl.model_copy(deep=True)
+            else:
+                effective = effective.model_copy(
+                    update=impl.model_dump(exclude_unset=True)
+                )
+        elif isinstance(x, SectionImplModifier):
+            if not isinstance(effective, BaseSectionImpl):
+                raise TypeError
+            effective = effective.model_copy(update=x.model_dump(exclude_unset=True))
+        else:
+            raise TypeError
+
+    if effective is None:
+        raise ValueError
+    return effective
 
 
 def get_section_impl(p: ProjectStateSingleConfig, id: str):
@@ -136,7 +178,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
         callable = get_section_callable(p, id)
         if not callable:
             return []
-        code_obj_impl_id = section_impl.codeObjImplMap[callable.id]
+        code_obj_impl_id = section_impl.codeObjImplLayeringMap[callable.id]
         code_obj_impl = p.codeObjImpls[code_obj_impl_id]
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
@@ -148,7 +190,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
 def get_code_obj_impl(p: ProjectStateSingleConfig, sectionId: str, id: str):
     section_impl = get_section_impl(p, sectionId)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_id = section_impl.codeObjImplMap[id]
+        code_obj_impl_id = section_impl.codeObjImplLayeringMap[id]
         return p.codeObjImpls[code_obj_impl_id]
     return None
 
@@ -198,7 +240,7 @@ def callable_has_been_selected_before(
 ):
     section_impl = get_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
-        for c in section_impl.codeObjImplMap.keys():
+        for c in section_impl.codeObjImplLayeringMap.keys():
             if p.codeObjs[c].name == selectedItemName:
                 return c
     return None
@@ -215,7 +257,7 @@ def add_callable_code_obj(
         raise TypeError
 
     p.codeObjs[code_obj.id] = code_obj
-    section_impl.codeObjImplMap[code_obj.id] = code_obj_impl.id
+    section_impl.codeObjImplLayeringMap[code_obj.id] = code_obj_impl.id
 
 
 def add_children_of_callable(
@@ -246,7 +288,7 @@ def add_children_of_callable(
             p.codeObjs[param.id] = param
             param_impl = param_impl_map[param.id]
             p.codeObjImpls[param_impl.id] = param_impl
-            section_impl.codeObjImplMap[param.id] = param_impl.id
+            section_impl.codeObjImplLayeringMap[param.id] = param_impl.id
 
         param_ids_in_order.append(param.id)
 

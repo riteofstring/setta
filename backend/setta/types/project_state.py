@@ -7,8 +7,8 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import CodeObjImplLayering, BaseCodeObjImpl, CodeObjCore
-from setta.types.sections import SectionImplLayering, BaseSectionImpl, SectionCore
+from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
+from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 

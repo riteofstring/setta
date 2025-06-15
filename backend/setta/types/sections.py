@@ -7,6 +7,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
+from setta.types.section_impl_modifiers import SectionImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -83,7 +84,7 @@ class SectionCore(BaseModel, extra="forbid"):
 
 class SectionImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
-    impls: list[str]
+    impls: list[str | SectionImplModifier]
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -103,7 +104,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
-    codeObjImplMap: dict[str, str] = Field(default_factory=dict)
+    codeObjImplLayeringMap: dict[str, str] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False
     paramFilter: str = ""

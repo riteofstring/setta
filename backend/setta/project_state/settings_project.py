@@ -1,8 +1,8 @@
 from setta.types.code_obj_impl_modifiers import ParamCodeObjModifier
 from setta.types.code_objs import (
-    CodeObjImplLayering,
     BaseCodeObjImpl,
     CodeObjCore,
+    CodeObjImplLayering,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
@@ -13,11 +13,11 @@ from setta.types.project_state import (
     TopLevelSectionLayout,
 )
 from setta.types.sections import (
-    SectionImplLayering,
     BaseSectionImpl,
     ConfigLanguage,
     DictSectionImpl,
     SectionCore,
+    SectionImplLayering,
     SectionSize,
 )
 from setta.types.settings_state import (
