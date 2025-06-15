@@ -1,16 +1,9 @@
 from setta.database.utils import create_new_id
-from setta.types.base_ui_types import BASE_UI_TYPE_IDS, UITypeName
 from setta.types.project_state import (
-    CodeInfo,
-    CodeInfoCol,
-    CodeInfoType,
-    EVEntry,
     ProjectConfigChild,
     ProjectStateBackend,
     ProjectStateSingleConfig,
-    UITypeColEntry,
 )
-from setta.types.sections import Section, SectionConfig, SectionVariant
 from setta.types.simplified_states import SimplifiedSectionCreation
 
 

@@ -174,7 +174,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 class SocialSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.SOCIAL] = SectionType.SOCIAL
-    social = ""
+    social: str = ""
 
 
 class GlobalVariablesSectionImpl(BaseSectionWithParamsImpl):

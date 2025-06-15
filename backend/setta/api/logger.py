@@ -10,7 +10,6 @@ import requests
 import websockets
 
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
-from setta.types.base_ui_types import UITypeName
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C

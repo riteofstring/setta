@@ -1,7 +1,11 @@
 from pydantic import BaseModel, Field
 
-from setta.types.base_ui_types import UITypeName
-from setta.types.project_state import Position, SectionSize
+from setta.types.sections import SectionSize, SectionType
+
+
+class Position(BaseModel):
+    x: float = 0
+    y: float = 0
 
 
 class SimplifiedSection(BaseModel):
@@ -12,7 +16,7 @@ class SimplifiedSectionCreation(BaseModel):
     name: str
     position: Position = Field(default_factory=Position)
     size: SectionSize = Field(default_factory=SectionSize)
-    type: UITypeName = Field(default=UITypeName.SECTION)
+    type: SectionType = Field(default=SectionType.CALLABLE)
 
 
 class SimplifiedCodeInfo(BaseModel):

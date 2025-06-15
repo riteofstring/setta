@@ -1,21 +1,9 @@
 from setta.database.utils import create_new_id
-from setta.types.base_ui_types import (
-    BASE_UI_TYPE_IDS,
-    UIType,
-    UITypeName,
-    UITypePresetType,
-)
 from setta.types.project_state import (
-    CodeInfo,
-    CodeInfoCol,
-    ConfigLanguage,
     ProjectConfig,
     ProjectConfigChild,
     ProjectStateSingleConfig,
-    SectionSize,
-    UITypeColEntry,
 )
-from setta.types.sections import Section, SectionConfig, SectionVariant
 from setta.types.settings_state import (
     SettingsBackend,
     SettingsGUI,

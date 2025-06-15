@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.base_ui_types import UITypeName
 from setta.types.routes import Route
 from setta.utils.format_code import ruff_format
 

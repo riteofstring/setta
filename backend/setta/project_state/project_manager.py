@@ -17,7 +17,6 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.types.base_ui_types import UITypeName
 from setta.types.helpers import (
     convert_backend_to_single_config,
     create_sections,
