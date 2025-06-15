@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
+from setta.types.code_obj_impl_modifiers import CodeObjImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -39,16 +40,17 @@ class CodeObjCore(BaseModel):
     default_impl: str | None = None
 
 
+class AppliedCodeObjImpls(BaseModel):
+    id: str = Field(default_factory=create_new_id)
+    impls: list[str | CodeObjImplModifier]
+
+
 class BaseCodeObjImpl(BaseModel):
     type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
     isPreset: bool = False
-
-
-class ListOfCodeObjImpl(BaseCodeObjImpl):
-    impls: list[BaseCodeObjImpl]
 
 
 class BaseParamCodeObjImpl(BaseCodeObjImpl):
@@ -101,7 +103,3 @@ class PasswordParamCodeObjImpl(BaseParamCodeObjImpl):
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
     type: Literal[CodeObjType.NESTED_PARAM] = CodeObjType.NESTED_PARAM
-
-
-class ValueModifier(BaseModel):
-    value: str

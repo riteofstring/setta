@@ -77,8 +77,13 @@ class ChartSettings(BaseModel, extra="forbid"):
 class SectionCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    impls: list[str] = Field(default_factory=list)
-    default_impl: str | None = None
+    appliedImpls: list[str] = Field(default_factory=list)
+    defaultAppliedImpl: str | None = None
+
+
+class AppliedSectionImpls(BaseModel):
+    id: str = Field(default_factory=create_new_id)
+    impls: list[str]
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):

@@ -1,12 +1,11 @@
-from setta.database.utils import create_new_id
+from setta.types.code_obj_impl_modifiers import ParamCodeObjModifier
 from setta.types.code_objs import (
+    AppliedCodeObjImpls,
     BaseCodeObjImpl,
-    BaseParamCodeObjImpl,
     CodeObjCore,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
-    ValueModifier,
 )
 from setta.types.project_state import (
     ProjectConfig,
@@ -14,6 +13,7 @@ from setta.types.project_state import (
     TopLevelSectionLayout,
 )
 from setta.types.sections import (
+    AppliedSectionImpls,
     BaseSectionImpl,
     ConfigLanguage,
     DictSectionImpl,
@@ -41,25 +41,46 @@ def create_settings_code_objs(section_names):
         isPreset=True,
     )
 
-    codeObjsAndImpls: dict[str, list[tuple[CodeObjCore, BaseParamCodeObjImpl]]] = {
+    color_picker = ColorPickerParamCodeObjImpl()
+
+    switch = SwitchParamCodeObjImpl()
+
+    codeObjsAndImpls: dict[str, list[tuple[CodeObjCore, AppliedCodeObjImpls]]] = {
         s: [] for s in section_names
     }
     codeObjsAndImpls["gui"].append(
-        (CodeObjCore(name="selectionMode"), selection_dropdown)
+        (
+            CodeObjCore(name="selectionMode"),
+            AppliedCodeObjImpls(impls=[selection_dropdown.id, ParamCodeObjModifier()]),
+        )
     )
-    codeObjsAndImpls["gui"].append((CodeObjCore(name="gridPattern"), grid_dropdown))
     codeObjsAndImpls["gui"].append(
-        (CodeObjCore(name="panOnScrollMode"), pan_dropdown)
+        (
+            CodeObjCore(name="gridPattern"),
+            AppliedCodeObjImpls(impls=[grid_dropdown.id, ParamCodeObjModifier()]),
+        )
+    )
+    codeObjsAndImpls["gui"].append(
+        (
+            CodeObjCore(name="panOnScrollMode"),
+            AppliedCodeObjImpls(impls=[pan_dropdown.id, ParamCodeObjModifier()]),
+        )
     )
     codeObjsAndImpls["gui"].extend(
-        (CodeObjCore(name=n), ColorPickerParamCodeObjImpl())
+        (
+            CodeObjCore(name=n),
+            AppliedCodeObjImpls(impls=[color_picker.id, ParamCodeObjModifier()]),
+        )
         for n in [
             "gridColor",
             "gridColorDarkMode",
         ]
     )
     codeObjsAndImpls["gui"].extend(
-        (CodeObjCore(name=n), SwitchParamCodeObjImpl())
+        (
+            CodeObjCore(name=n),
+            AppliedCodeObjImpls(impls=[switch.id, ParamCodeObjModifier()]),
+        )
         for n in [
             "showGridLines",
             "leftSidePaneShiftsMap",
@@ -72,7 +93,10 @@ def create_settings_code_objs(section_names):
     )
 
     codeObjsAndImpls["backend"].extend(
-        (CodeObjCore(name=n), SwitchParamCodeObjImpl())
+        (
+            CodeObjCore(name=n),
+            AppliedCodeObjImpls(impls=[switch.id, ParamCodeObjModifier()]),
+        )
         for n in [
             "showDefaultConfigOnLoad",
             "autosave",
@@ -106,12 +130,12 @@ def create_settings_project_state(settings_path: str):
 
     sections: dict[str, SectionCore] = {}
     sectionImpls: dict[str, BaseSectionImpl] = {}
-    sectionImplMap: dict[str, str] = {}
+    appliedSectionImpls: dict[str, AppliedSectionImpls] = {}
+    appliedSectionImplMap: dict[str, str] = {}
     codeObjs: dict[str, CodeObjCore] = {}
     codeObjImpls: dict[str, BaseCodeObjImpl] = {}
+    appliedCodeObjImpls: dict[str, AppliedCodeObjImpls] = {}
     for k in section_names:
-        section = SectionCore(name=k)
-        sections[section.id] = section
         sectionImpl = DictSectionImpl(
             name=settings_path,
             size=SectionSize(width=550),
@@ -119,14 +143,24 @@ def create_settings_project_state(settings_path: str):
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
         )
-        sectionImpls[sectionImpl.id] = sectionImpl
-        sectionImplMap[section.id] = sectionImpl.id
+        appliedSectionImpl = AppliedSectionImpls(impls=[sectionImpl.id])
+        section = SectionCore(
+            name=k,
+            appliedImpls=[appliedSectionImpl.id],
+            defaultAppliedImpl=appliedSectionImpl.id,
+        )
 
-        for c in codeObjsAndImpls[k]:
-            codeObjs[c[0].id] = c[0]
-            uiTypeCols[uiTypeColId][c[0].id] = UITypeColEntry(uiTypeId=c[1])
-            codeInfoCols[codeInfoColId].children[None].append(c[0].id)
-            codeInfoCols[codeInfoColId].children[c[0].id] = []
+        sectionImpls[sectionImpl.id] = sectionImpl
+        appliedSectionImpls[appliedSectionImpl.id] = appliedSectionImpl
+        appliedSectionImplMap[section.id] = appliedSectionImpl.id
+        sections[section.id] = section
+
+        for codeObj, appliedImpls in codeObjsAndImpls[k]:
+            codeObjs[codeObj.id] = codeObj
+            for impl in appliedImpls.impls:
+                if isinstance(impl, BaseCodeObjImpl):
+                    codeObjImpls[impl.id] = impl
+            appliedCodeObjImpls[appliedImpls.id] = appliedImpls
 
     projectConfigChildren = {
         k: TopLevelSectionLayout(x=idx * 600) for idx, k in enumerate(sections.keys())
@@ -134,13 +168,15 @@ def create_settings_project_state(settings_path: str):
     projectConfig = ProjectConfig(
         name="settings",
         topLevelSections=projectConfigChildren,
-        sectionImplMap=sectionImplMap,
+        appliedSectionImplMap=appliedSectionImplMap,
     )
 
     return ProjectStateSingleConfig(
         projectConfig=projectConfig,
         sections=sections,
         sectionImpls=sectionImpls,
-        codeObjs=codeInfo,
-        codeObjImpls=codeInfoCols,
+        appliedSectionImpls=appliedSectionImpls,
+        codeObjs=codeObjs,
+        codeObjImpls=codeObjImpls,
+        appliedCodeObjImpls=appliedCodeObjImpls,
     )

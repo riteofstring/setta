@@ -51,7 +51,7 @@ def convert_backend_to_single_config(
         section_ids.add(section_id)
         section = p.sections[section_id]
 
-        for impl_id in section.impls:
+        for impl_id in section.appliedImpls:
             if impl_id in section_impl_ids:
                 continue
             section_impl_ids.add(impl_id)
