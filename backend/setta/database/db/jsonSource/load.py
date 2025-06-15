@@ -4,7 +4,6 @@ import logging
 from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.database.utils import create_new_id
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -53,10 +52,6 @@ def load_json_sources_into_data_structures(
         section_impl.jsonSourceMissing = isMissing
         if isMissing:
             continue
-        if not variant.codeInfoColId:
-            variant.codeInfoColId = create_new_id()
-            p.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
-        codeInfoCol = p.codeInfoCols[variant.codeInfoColId]
         merge_into_existing(
             new_data, section_impl, p.codeObjs, p.codeObjImpls, p.codeObjImplLayerings
         )
