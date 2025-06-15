@@ -26,8 +26,8 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore
 from setta.types.helpers import (
-    add_callable_code_obj,
     add_children_of_callable,
+    add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
     get_code_obj_impl,
@@ -151,7 +151,7 @@ class ProjectGenPythonCode(PythonCode):
         if not prev_selected:
             callable_code_obj = CodeObjCore(name=callableName)
             callable_code_obj_impl = CodeCallableCodeObjImpl()
-            add_callable_code_obj(
+            add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_code_obj_impl
             )
         else:

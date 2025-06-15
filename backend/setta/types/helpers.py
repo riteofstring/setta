@@ -1,4 +1,5 @@
 from setta.types.code_objs import (
+    BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
@@ -16,7 +17,6 @@ from setta.types.project_state import (
 )
 from setta.types.sections import (
     BaseParentSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
@@ -156,7 +156,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
         callable = get_section_callable(p, id)
         if not callable:
             return []
-        code_obj_impl = get_code_obj_impl(p, id, callable.id, section_impl)
+        code_obj_impl = get_code_obj_impl(p, id, callable.id)
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
@@ -168,10 +168,8 @@ def get_code_obj_impl(
     p: ProjectStateSingleConfig,
     sectionId: str,
     id: str,
-    section_impl: BaseSectionImpl | None = None,
 ):
-    if not section_impl:
-        section_impl = get_section_impl(p, sectionId)
+    section_impl = get_section_impl(p, sectionId)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[id]
         code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
@@ -231,16 +229,15 @@ def callable_has_been_selected_before(
     return None
 
 
-def add_callable_code_obj(
+def add_code_obj(
     p: ProjectStateSingleConfig,
     section_id: str,
     code_obj: CodeObjCore,
-    code_obj_impl: CodeCallableCodeObjImpl,
+    code_obj_impl: BaseCodeObjImpl,
 ):
     section_impl = get_section_impl(p, section_id)
-    if not isinstance(section_impl, CallableSectionImpl):
+    if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
-
     code_obj_impl_layering = CodeObjImplLayering(impls=[code_obj_impl.id])
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
@@ -255,10 +252,10 @@ def add_children_of_callable(
     params: list[CodeObjCore],
     param_impl_map: dict[str, BaseParamCodeObjImpl],
 ):
-    existing_matching_params: dict[str, CodeObjCore] = {}
     callable_code_obj_impl = get_code_obj_impl(p, section_id, callable_id)
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
+    existing_matching_params: dict[str, CodeObjCore] = {}
     for c in callable_code_obj_impl.children:
         match = p.codeObjs[c]
         existing_matching_params[match.name] = match
@@ -269,14 +266,12 @@ def add_children_of_callable(
         raise TypeError
     for param in params:
         existing = existing_matching_params.get(param.name)
+        param_impl = param_impl_map[param.id]
         if existing:
             param.id = existing.id
-            # TODO: update impls
+            
         else:
-            p.codeObjs[param.id] = param
-            param_impl = param_impl_map[param.id]
-            p.codeObjImpls[param_impl.id] = param_impl
-            section_impl.codeObjImplLayeringMap[param.id] = param_impl.id
+            add_code_obj(p, section_id, param, param_impl)
 
         param_ids_in_order.append(param.id)
 
