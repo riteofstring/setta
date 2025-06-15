@@ -14,8 +14,6 @@ from setta.code_gen.utils import (
 from setta.types.code_objs import CodeObjType, ParameterPassingStyle
 from setta.types.sections import SectionType
 
-from ...utils.constants import C
-
 
 @dataclass
 class PythonCodeLine:

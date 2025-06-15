@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
@@ -35,7 +34,6 @@ from setta.types.sections import (
     TextBlockSectionImpl,
 )
 from setta.utils.utils import replace_at_positions
-
 
 GraphKeyType = tuple[str, str | None]
 

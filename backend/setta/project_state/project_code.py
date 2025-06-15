@@ -24,17 +24,16 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
+from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore
 from setta.types.helpers import (
-    add_code_info,
+    add_callable_code_obj,
+    callable_has_been_selected_before,
+    callable_is_already_selected,
     create_children_code_info,
     get_section_path_full_name,
     get_selected_section_variant,
-    item_has_been_selected_before,
-    item_is_already_selected,
 )
 from setta.types.project_state import (
-    CodeInfo,
-    CodeInfoType,
     ProjectStateSingleConfig,
 )
 
@@ -106,7 +105,7 @@ class ProjectGenPythonCode(PythonCode):
         selectedItemName: str,
         refetchParams: bool,
     ):
-        if not refetchParams and item_is_already_selected(
+        if not refetchParams and callable_is_already_selected(
             project_state, sectionId, selectedItemName
         ):
             return
@@ -116,7 +115,7 @@ class ProjectGenPythonCode(PythonCode):
         if selectedItemName == "":
             variant.selectedItem = None
 
-        prev_selected = item_has_been_selected_before(
+        prev_selected = callable_has_been_selected_before(
             project_state, sectionId, selectedItemName
         )
 
@@ -142,15 +141,17 @@ class ProjectGenPythonCode(PythonCode):
             ),
             request_id,
         )
-        result = process_signature_help_response(response)
+
         if not prev_selected:
-            callable_code_info = CodeInfo(
-                name=selectedItemName, editable=False, rcType=CodeInfoType.CALLABLE
+            callable_code_obj = CodeObjCore(name=selectedItemName)
+            callable_code_obj_impl = CodeCallableCodeObjImpl()
+            add_callable_code_obj(
+                project_state, sectionId, callable_code_obj, callable_code_obj_impl
             )
-            add_code_info(project_state, sectionId, callable_code_info)
         else:
             callable_code_info = project_state.codeInfo[prev_selected]
 
+        result = process_signature_help_response(response)
         if result is None:
             return
 

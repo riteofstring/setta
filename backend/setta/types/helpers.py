@@ -1,6 +1,7 @@
 from setta.types.code_objs import (
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
+    CodeObjCore,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -12,6 +13,7 @@ from setta.types.sections import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
+    ListRootSectionImpl,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -160,14 +162,15 @@ def get_code_obj_children_ids(
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    parent_id = p.sections[section_id].parentId
+    section_impl = get_section_impl(p, section_id)
+    parent_id = section_impl.parentId
     if not parent_id:
         return p.sections[section_id].name
 
     child_id = section_id
     output = ""
     while parent_id:
-        if get_section_type(p, parent_id) == UITypeName.LIST_ROOT:
+        if isinstance(section_impl, ListRootSectionImpl):
             idx = get_section_children_ids(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
@@ -175,49 +178,43 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = p.sections[parent_id].parentId
+        parent_id = get_section_impl(p, parent_id).parentId
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
     return f"{child_name}{output}"
 
 
-def item_is_already_selected(
-    p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
+def callable_is_already_selected(
+    p: ProjectStateSingleConfig, sectionId: str, callableName: str
 ):
     selected_item = get_section_callable(p, sectionId)
-    return selected_item and selected_item.name == selectedItemName
+    return selected_item and selected_item.name == callableName
 
 
-def item_has_been_selected_before(
+def callable_has_been_selected_before(
     p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
 ):
-    code_info_children = get_section_code_info_children(p, sectionId)
-    for c in code_info_children[None]:
-        if p.codeInfo[c].name == selectedItemName:
-            return c
+    section_impl = get_section_impl(p, sectionId)
+    if isinstance(section_impl, CallableSectionImpl):
+        for c in section_impl.codeObjImplMap.keys():
+            if p.codeObjs[c].name == selectedItemName:
+                return c
     return None
 
 
-def add_code_info(
-    state: ProjectStateSingleConfig,
+def add_callable_code_obj(
+    p: ProjectStateSingleConfig,
     section_id: str,
-    info: CodeInfo,
-    parent: str | None = None,
-    insert_idx: int | None = None,
+    code_obj: CodeObjCore,
+    code_obj_impl: CodeCallableCodeObjImpl,
 ):
-    state.codeInfo[info.id] = info
-    code_info_children = get_section_code_info_children(state, section_id)
+    section_impl = get_section_impl(p, section_id)
+    if not isinstance(section_impl, CallableSectionImpl):
+        raise TypeError
 
-    if parent not in code_info_children:
-        code_info_children[parent] = []
-
-    if insert_idx is None:
-        code_info_children[parent].append(info.id)
-    else:
-        code_info_children[parent].insert(insert_idx, info.id)
-
-    code_info_children[info.id] = []
+    p.codeObjs[code_obj.id] = code_obj
+    section_impl.codeObjImplMap[code_obj.id] = code_obj_impl.id
 
 
 def create_children_code_info(
@@ -238,7 +235,7 @@ def create_children_code_info(
             p.id = existing_id
         param_ids_in_order.append(p.id)
         if not existing_id:
-            add_code_info(state, section_id, p, parent)
+            add_code_obj(state, section_id, p, parent)
         else:
             state.codeInfo[existing_id] = p
 
