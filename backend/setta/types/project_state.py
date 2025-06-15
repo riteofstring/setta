@@ -1,7 +1,6 @@
 from pydantic import (
     BaseModel,
     Field,
-    model_serializer,
     model_validator,
 )
 
@@ -14,47 +13,10 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 ViewingEditingMode = AsIsStrEnum("ViewingEditingMode", ["DEV", "USER", "USER_EDIT"])
 
 
-class Position(BaseModel, extra="forbid"):
-    x: float = 0
-    y: float = 0
-
-
 class Viewport(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0
     zoom: float = 1
-
-
-class EVEntry(BaseModel, extra="forbid"):
-    value: str = ""
-
-
-class CodeInfoCol(BaseModel, extra="forbid"):
-    children: dict[str | None, list[str]] = Field(default_factory=dict)
-
-    @model_validator(mode="after")
-    def convert_null_key(self):
-        if "null" in self.children:
-            c = self.children.pop("null")
-            self.children[None] = c
-        else:
-            self.children[None] = []
-        return self
-
-    @model_serializer
-    def convert_none_key(self):
-        new_dict = {}
-        for key, value in self.children.items():
-            if key is None:
-                new_dict["null"] = value
-            else:
-                new_dict[key] = value
-        return {"children": new_dict}
-
-
-class UITypeColEntry(BaseModel, extra="forbid"):
-    uiTypeId: str = BASE_UI_TYPE_IDS[UITypeName.TEXT]
-    nonPresetUITypeIds: list[str] = Field(default_factory=list)
 
 
 class ProjectConfigChild(BaseModel, extra="forbid"):
