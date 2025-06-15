@@ -13,9 +13,9 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
-from setta.types.section_enums import ConfigLanguage
 from setta.types.sections import (
     BaseSectionImpl,
+    ConfigLanguage,
     DictSectionImpl,
     SectionCore,
     SectionImplLayering,

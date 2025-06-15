@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Literal, Union
 
 from pydantic import (
@@ -6,10 +7,42 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.generated_types import SectionTypeLiteral
-from setta.types.section_enums import CodeLanguage, ConfigLanguage, SectionType, Size
 from setta.types.section_impl_modifiers import SectionImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
+
+
+class SectionType(Enum):
+    CALLABLE = "CALLABLE"
+    DICT = "DICT"
+    LIST_ROOT = "LIST_ROOT"
+    DICT_ROOT = "DICT_ROOT"
+    GROUP = "GROUP"
+    IMAGE = "IMAGE"
+    CHART = "CHART"
+    DRAW = "DRAW"
+    TEXT_BLOCK = "TEXT_BLOCK"
+    SOCIAL = "SOCIAL"
+    GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
+    CODE = "CODE"
+    GEN_PYTHON_CODE = "GEN_PYTHON_CODE"
+    TERMINAL = "TERMINAL"
+    IFRAME = "IFRAME"
+    CHAT = "CHAT"
+    BROWSER = "BROWSER"
+
+
+class Size(Enum):
+    auto = "auto"
+
+
+class CodeLanguage(Enum):
+    python = "python"
+    bash = "bash"
+
+
+class ConfigLanguage(Enum):
+    python = "python"
+    json = "json"
 
 
 class SectionSize(BaseModel, extra="forbid"):
@@ -56,7 +89,7 @@ class SectionImplLayering(BaseModel):
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
-    type: SectionTypeLiteral
+    type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     parentId: str | None = None
@@ -105,7 +138,7 @@ class BaseDictSectionImpl(BaseSectionWithParamsImpl):
 
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
-    type = SectionType.CALLABLE
+    type: Literal[SectionType.CALLABLE] = SectionType.CALLABLE
     callable: str | None = None
 
 
