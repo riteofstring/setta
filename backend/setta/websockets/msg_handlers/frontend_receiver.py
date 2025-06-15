@@ -1,10 +1,13 @@
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.generated_types import (
+    WebsocketMsgForBackendTypeAdapter,
+    WebsocketMsgForBackendUnion,
+)
 from setta.types.websocket import (
+    WebsocketMsg,
     WebsocketMsgAllDependencies,
 )
-from setta.utils.constants import C
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
 )
@@ -25,22 +28,28 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         self.script_metadata = script_metadata
         self.specific_file_watcher = specific_file_watcher
 
-    async def process_message(self, message, fromWebsocketId):
-        if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
-            print("WMHFrontend process_message", message, flush=True)
-            wids = self.script_metadata.get_websocket_ids_listening_to_data(
-                message["content"]
-            )
-            for wid in wids:
-                await self.websocket_manager.send_message(message, wid)
-        elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
-            await self.project_manager.update_from_frontend(
-                messageId=message["id"],
-                projectState=ProjectStateSingleConfig.model_validate(
-                    message["content"]["projectState"]
-                ),
-                requestRenameRefactor=message["content"]["requestRenameRefactor"],
-            )
+    async def process_message(self, message: WebsocketMsg, fromWebsocketId: str):
+        message: WebsocketMsgForBackendUnion = (
+            WebsocketMsgForBackendTypeAdapter.validate_python(message)
+        )
+
+        # if isinstance(message, WebsocketMsgCurrentAddressUpdate):
+
+        # if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
+        #     print("WMHFrontend process_message", message, flush=True)
+        #     wids = self.script_metadata.get_websocket_ids_listening_to_data(
+        #         message["content"]
+        #     )
+        #     for wid in wids:
+        #         await self.websocket_manager.send_message(message, wid)
+        # elif message.get("messageType") == C.WS_UPDATE_PROJECT_STATE:
+        #     await self.project_manager.update_from_frontend(
+        #         messageId=message["id"],
+        #         projectState=ProjectStateSingleConfig.model_validate(
+        #             message["content"]["projectState"]
+        #         ),
+        #         requestRenameRefactor=message["content"]["requestRenameRefactor"],
+        #     )
 
     async def on_connect(self, websocket_id: str):
         await self.websocket_manager.send_message(

@@ -14,6 +14,179 @@ function ui_types_default_factory() {
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
+export const ArtifactTypeEnum = {
+  IMG: "IMG",
+  BRUSH_STROKES: "BRUSH_STROKES",
+  LIST: "LIST",
+  CHAT_HISTORY: "CHAT_HISTORY",
+} as const;
+
+export const AsIsStrEnumEnum = {} as const;
+
+export const UITypeNameEnum = {
+  TEXT: "TEXT",
+  SLIDER: "SLIDER",
+  SWITCH: "SWITCH",
+  COLOR_PICKER: "COLOR_PICKER",
+  DROPDOWN: "DROPDOWN",
+  PASSWORD: "PASSWORD",
+  SECTION: "SECTION",
+  LIST_ROOT: "LIST_ROOT",
+  DICT_ROOT: "DICT_ROOT",
+  GROUP: "GROUP",
+  IMAGE: "IMAGE",
+  CHART: "CHART",
+  DRAW: "DRAW",
+  TEXT_BLOCK: "TEXT_BLOCK",
+  SOCIAL: "SOCIAL",
+  GLOBAL_VARIABLES: "GLOBAL_VARIABLES",
+  CODE: "CODE",
+  GEN_PYTHON_CODE: "GEN_PYTHON_CODE",
+  TERMINAL: "TERMINAL",
+  IFRAME: "IFRAME",
+  CHAT: "CHAT",
+  BROWSER: "BROWSER",
+} as const;
+
+export const UITypePresetTypeEnum = { BASE: "BASE", USER: "USER" } as const;
+
+export const CodeInfoTypeEnum = {
+  PARAMETER: "PARAMETER",
+  CALLABLE: "CALLABLE",
+  COLLECTION: "COLLECTION",
+} as const;
+
+export const SettaNotificationTypeEnum = {
+  success: "success",
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+
+export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
+
+export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+export const ParameterPassingStyleEnum = {
+  DEFAULT: "DEFAULT",
+  ARGS: "ARGS",
+  KWARGS: "KWARGS",
+  POSITIONAL_ONLY: "POSITIONAL_ONLY",
+  KEYWORD_ONLY: "KEYWORD_ONLY",
+} as const;
+
+export const SizeEnum = { auto: "auto" } as const;
+
+export const ViewingEditingModeEnum = {
+  DEV: "DEV",
+  USER: "USER",
+  USER_EDIT: "USER_EDIT",
+} as const;
+
+export const RouteEnum = {
+  PREFIX: "/api",
+  SWAGGER_DOCS: "/docs",
+  OPENAPI_DOCS: "/openapi.json",
+  REDOC_DOCS: "/redoc",
+  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
+  LOAD_PROJECT_CONFIG: "/loadProjectConfig",
+  SAVE_PROJECT: "/saveProject",
+  CREATE_PROJECT_CONFIG: "/createProjectConfig",
+  DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
+  SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
+  SAVE_AS_EXISTING_PROJECT_CONFIG: "/saveAsExistingProjectConfig",
+  SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
+  SAVE_SETTINGS: "/saveSettings",
+  LOAD_SETTINGS: "/loadSettings",
+  SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
+  LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
+  TERMINAL: "/{projectConfigId}/{sectionId}/{id}/{isTemporary}",
+  DELETE_TERMINALS: "/deleteTerminals",
+  WEBSOCKET_FRONTEND: "/frontend",
+  WEBSOCKET_CLI: "/cli",
+  WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
+  WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
+  WEBSOCKET_PYTHON_LOGGER: "/pythonLogger",
+  GET_EXISTING_TERMINALS: "/getExistingTerminals/{projectConfigId}",
+  SAVE_CODE_INFO: "/codeInfo/save",
+  COPY_SECTIONS: "/copySections",
+  SEND_PROJECT_TO_INTERACTIVE_CODE: "/sendProjectTointeractiveCode",
+  KILL_SUBPROCESSES: "/killSubprocesses",
+  FORMAT_CODE: "/formatCode",
+  SEND_ARTIFACT: "/sendArtfiact",
+  LOAD_ARTIFACTS: "/loadArtifacts",
+  LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
+  READ_CSV_BASE64: "/readCSVBase64",
+  FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
+  GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
+  SECTION_TO_YAML: "/sectionToYaml",
+  LOAD_SECTION_JSON_SOURCE: "/loadSectionJSONSource",
+  DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
+  NEW_JSON_VERSION_NAME: "/newJsonVersionName",
+  SAVE_SECTION_JSON_SOURCE: "/saveSectionJsonSource",
+  SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
+  FILTER_DATA_FOR_JSON_EXPORT: "/filterDataForJSONExport",
+  ADD_DEFAULT_DATA_FOR_JSON_IMPORT: "/addDefaultDataForJSONImport",
+  GET_JSON_SOURCE_PATH_TO_BE_DELETED: "/getJsonSourcePathToBeDeleted",
+  CREATE_FILE: "/createFile",
+  DELETE_FILE: "/deleteFile",
+  CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
+  LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
+  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
+  FILE_WATCH_LIST: "/fileWatchList",
+  FILE_WATCH_GEN_PYTHON_CODE: "/fileWatchGenPythonCode",
+  GET_NOTIFICATIONS: "/getNotifications",
+  DELETE_NOTIFICATION: "/deleteNotification",
+  GET_LLM_RESPONSE: "/getLLMResponse",
+  SET_LLM_API_KEYS: "/setLLMApiKeys",
+  GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
+  DELETE_LLM_CHAT: "/deleteLLMChat",
+  STOP_LLM_CHAT: "/stopLLMChat",
+  GET_LLM_CHAT: "/getLLMChat",
+  GET_UUID_MAPPING_FOR_LLM: "/getUUIDMappingForLLM",
+  RUN_CODE: "/runCode",
+  TYPE_CHECK: "/typeCheck",
+  CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
+  SET_SELECTED_ITEM: "/setSelectedItem",
+  TEXT_FIELD_COMPLETION: "/textFieldCompletion",
+  CODE_AREA_COMPLETION: "/codeAreaCompletion",
+  GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
+} as const;
+
+export const RenameRefactorModeEnum = {
+  ALWAYS_ASK: "ALWAYS_ASK",
+  ALWAYS_RENAME: "ALWAYS_RENAME",
+  NEVER_RENAME: "NEVER_RENAME",
+} as const;
+
+export const WebsocketConnectionTypeEnum = {
+  CLI: "CLI",
+  SERVER: "SERVER",
+  PYTHON_SCRIPT: "PYTHON_SCRIPT",
+  PYTHON_LOGGER: "PYTHON_LOGGER",
+  FRONTEND: "FRONTEND",
+} as const;
+
+export const WebsocketMsgTypeForBackendEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+} as const;
+
+export const WebsocketMsgTypeForFrontendEnum = {
+  AllConnections: "AllConnections",
+  LSPDiagnostics: "LSPDiagnostics",
+  TerminalMetadata: "TerminalMetadata",
+  AllDependencies: "AllDependencies",
+  SpecificFileWatcherUpdate: "SpecificFileWatcherUpdate",
+  Notification: "Notification",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  UUIDMappingForLLM: "UUIDMappingForLLM",
+  Artifact: "Artifact",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  NewTerminalCreated: "NewTerminalCreated",
+} as const;
+
 export const APIKeysSchema = z.record(z.string(), z.string());
 
 export type APIKeys = z.infer<typeof APIKeysSchema>;
@@ -632,178 +805,30 @@ export type LLMStreamingResponseChunk = z.infer<
   typeof LLMStreamingResponseChunkSchema
 >;
 
-export const ArtifactTypeEnum = {
-  IMG: "IMG",
-  BRUSH_STROKES: "BRUSH_STROKES",
-  LIST: "LIST",
-  CHAT_HISTORY: "CHAT_HISTORY",
-} as const;
+export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.string(),
+  messageType: z
+    .literal("CurrentAddressUpdate")
+    .default(WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate),
+});
 
-export const AsIsStrEnumEnum = {} as const;
+export type WebsocketMsgCurrentAddressUpdate = z.infer<
+  typeof WebsocketMsgCurrentAddressUpdateSchema
+>;
 
-export const UITypeNameEnum = {
-  TEXT: "TEXT",
-  SLIDER: "SLIDER",
-  SWITCH: "SWITCH",
-  COLOR_PICKER: "COLOR_PICKER",
-  DROPDOWN: "DROPDOWN",
-  PASSWORD: "PASSWORD",
-  SECTION: "SECTION",
-  LIST_ROOT: "LIST_ROOT",
-  DICT_ROOT: "DICT_ROOT",
-  GROUP: "GROUP",
-  IMAGE: "IMAGE",
-  CHART: "CHART",
-  DRAW: "DRAW",
-  TEXT_BLOCK: "TEXT_BLOCK",
-  SOCIAL: "SOCIAL",
-  GLOBAL_VARIABLES: "GLOBAL_VARIABLES",
-  CODE: "CODE",
-  GEN_PYTHON_CODE: "GEN_PYTHON_CODE",
-  TERMINAL: "TERMINAL",
-  IFRAME: "IFRAME",
-  CHAT: "CHAT",
-  BROWSER: "BROWSER",
-} as const;
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
+  return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
+}
 
-export const UITypePresetTypeEnum = { BASE: "BASE", USER: "USER" } as const;
+export const WebsocketMsgForBackendUnionSchema =
+  WebsocketMsgCurrentAddressUpdateSchema;
 
-export const CodeInfoTypeEnum = {
-  PARAMETER: "PARAMETER",
-  CALLABLE: "CALLABLE",
-  COLLECTION: "COLLECTION",
-} as const;
-
-export const SettaNotificationTypeEnum = {
-  success: "success",
-  error: "error",
-  warning: "warning",
-  info: "info",
-  save: "save",
-} as const;
-
-export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
-
-export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
-
-export const ParameterPassingStyleEnum = {
-  DEFAULT: "DEFAULT",
-  ARGS: "ARGS",
-  KWARGS: "KWARGS",
-  POSITIONAL_ONLY: "POSITIONAL_ONLY",
-  KEYWORD_ONLY: "KEYWORD_ONLY",
-} as const;
-
-export const SizeEnum = { auto: "auto" } as const;
-
-export const ViewingEditingModeEnum = {
-  DEV: "DEV",
-  USER: "USER",
-  USER_EDIT: "USER_EDIT",
-} as const;
-
-export const RouteEnum = {
-  PREFIX: "/api",
-  SWAGGER_DOCS: "/docs",
-  OPENAPI_DOCS: "/openapi.json",
-  REDOC_DOCS: "/redoc",
-  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
-  LOAD_PROJECT_CONFIG: "/loadProjectConfig",
-  SAVE_PROJECT: "/saveProject",
-  CREATE_PROJECT_CONFIG: "/createProjectConfig",
-  DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
-  SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
-  SAVE_AS_EXISTING_PROJECT_CONFIG: "/saveAsExistingProjectConfig",
-  SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
-  SAVE_SETTINGS: "/saveSettings",
-  LOAD_SETTINGS: "/loadSettings",
-  SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
-  LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
-  TERMINAL: "/{projectConfigId}/{sectionId}/{id}/{isTemporary}",
-  DELETE_TERMINALS: "/deleteTerminals",
-  WEBSOCKET_FRONTEND: "/frontend",
-  WEBSOCKET_CLI: "/cli",
-  WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
-  WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
-  WEBSOCKET_PYTHON_LOGGER: "/pythonLogger",
-  GET_EXISTING_TERMINALS: "/getExistingTerminals/{projectConfigId}",
-  SAVE_CODE_INFO: "/codeInfo/save",
-  COPY_SECTIONS: "/copySections",
-  SEND_PROJECT_TO_INTERACTIVE_CODE: "/sendProjectTointeractiveCode",
-  KILL_SUBPROCESSES: "/killSubprocesses",
-  FORMAT_CODE: "/formatCode",
-  SEND_ARTIFACT: "/sendArtfiact",
-  LOAD_ARTIFACTS: "/loadArtifacts",
-  LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
-  READ_CSV_BASE64: "/readCSVBase64",
-  FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
-  GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
-  SECTION_TO_YAML: "/sectionToYaml",
-  LOAD_SECTION_JSON_SOURCE: "/loadSectionJSONSource",
-  DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
-  NEW_JSON_VERSION_NAME: "/newJsonVersionName",
-  SAVE_SECTION_JSON_SOURCE: "/saveSectionJsonSource",
-  SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
-  FILTER_DATA_FOR_JSON_EXPORT: "/filterDataForJSONExport",
-  ADD_DEFAULT_DATA_FOR_JSON_IMPORT: "/addDefaultDataForJSONImport",
-  GET_JSON_SOURCE_PATH_TO_BE_DELETED: "/getJsonSourcePathToBeDeleted",
-  CREATE_FILE: "/createFile",
-  DELETE_FILE: "/deleteFile",
-  CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
-  LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
-  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
-  FILE_WATCH_LIST: "/fileWatchList",
-  FILE_WATCH_GEN_PYTHON_CODE: "/fileWatchGenPythonCode",
-  GET_NOTIFICATIONS: "/getNotifications",
-  DELETE_NOTIFICATION: "/deleteNotification",
-  GET_LLM_RESPONSE: "/getLLMResponse",
-  SET_LLM_API_KEYS: "/setLLMApiKeys",
-  GET_ALL_LLM_CHAT_METADATA: "/getAllLLMChatMetadata",
-  DELETE_LLM_CHAT: "/deleteLLMChat",
-  STOP_LLM_CHAT: "/stopLLMChat",
-  GET_LLM_CHAT: "/getLLMChat",
-  GET_UUID_MAPPING_FOR_LLM: "/getUUIDMappingForLLM",
-  RUN_CODE: "/runCode",
-  TYPE_CHECK: "/typeCheck",
-  CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
-  SET_SELECTED_ITEM: "/setSelectedItem",
-  TEXT_FIELD_COMPLETION: "/textFieldCompletion",
-  CODE_AREA_COMPLETION: "/codeAreaCompletion",
-  GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
-} as const;
-
-export const RenameRefactorModeEnum = {
-  ALWAYS_ASK: "ALWAYS_ASK",
-  ALWAYS_RENAME: "ALWAYS_RENAME",
-  NEVER_RENAME: "NEVER_RENAME",
-} as const;
-
-export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
-  SERVER: "SERVER",
-  PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
-  FRONTEND: "FRONTEND",
-} as const;
-
-export const WebsocketMsgTypeForBackendEnum = {
-  CurrentAddressUpdate: "CurrentAddressUpdate",
-} as const;
-
-export const WebsocketMsgTypeForFrontendEnum = {
-  AllConnections: "AllConnections",
-  LSPDiagnostics: "LSPDiagnostics",
-  TerminalMetadata: "TerminalMetadata",
-  AllDependencies: "AllDependencies",
-  SpecificFileWatcherUpdate: "SpecificFileWatcherUpdate",
-  Notification: "Notification",
-  LLMStreamingResponse: "LLMStreamingResponse",
-  UUIDMappingForLLM: "UUIDMappingForLLM",
-  Artifact: "Artifact",
-  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
-  UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  NewTerminalCreated: "NewTerminalCreated",
-} as const;
+export type WebsocketMsgForBackendUnion = z.infer<
+  typeof WebsocketMsgForBackendUnionSchema
+>;
 
 export const ArtifactSchema = z.object({
   name: z.string(),
@@ -1587,24 +1612,6 @@ export function createWebsocketMsgArtifact(
   options: Partial<WebsocketMsgArtifact> = {},
 ): WebsocketMsgArtifact {
   return WebsocketMsgArtifactSchema.parse(options);
-}
-
-export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.string(),
-  messageType: z
-    .literal("CurrentAddressUpdate")
-    .default(WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate),
-});
-
-export type WebsocketMsgCurrentAddressUpdate = z.infer<
-  typeof WebsocketMsgCurrentAddressUpdateSchema
->;
-
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
 export const WebsocketMsgLLMStreamingResponseSchema = z.object({
@@ -2482,19 +2489,24 @@ export function createCodeMirrorCompletion(
   return CodeMirrorCompletionSchema.parse(options);
 }
 
-export const WebsocketMsgUnionSchema = z.discriminatedUnion("messageType", [
-  WebsocketMsgAllConnectionsSchema,
-  WebsocketMsgLSPDiagnosticsSchema,
-  WebsocketMsgTerminalMetadataSchema,
-  WebsocketMsgAllDependenciesSchema,
-  WebsocketMsgSpecificFileWatcherUpdateSchema,
-  WebsocketMsgNotificationSchema,
-  WebsocketMsgLLMStreamingResponseSchema,
-  WebsocketMsgUUIDMappingForLLMSchema,
-  WebsocketMsgArtifactSchema,
-  WebsocketMsgReturnRenameRefactorResultsSchema,
-  WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgNewTerminalCreatedSchema,
-]);
+export const WebsocketMsgForFrontendUnionSchema = z.discriminatedUnion(
+  "messageType",
+  [
+    WebsocketMsgAllConnectionsSchema,
+    WebsocketMsgLSPDiagnosticsSchema,
+    WebsocketMsgTerminalMetadataSchema,
+    WebsocketMsgAllDependenciesSchema,
+    WebsocketMsgSpecificFileWatcherUpdateSchema,
+    WebsocketMsgNotificationSchema,
+    WebsocketMsgLLMStreamingResponseSchema,
+    WebsocketMsgUUIDMappingForLLMSchema,
+    WebsocketMsgArtifactSchema,
+    WebsocketMsgReturnRenameRefactorResultsSchema,
+    WebsocketMsgUpdateFrontendProjectStateSchema,
+    WebsocketMsgNewTerminalCreatedSchema,
+  ],
+);
 
-export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
+export type WebsocketMsgForFrontendUnion = z.infer<
+  typeof WebsocketMsgForFrontendUnionSchema
+>;

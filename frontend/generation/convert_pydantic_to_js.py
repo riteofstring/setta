@@ -434,9 +434,9 @@ def dataclass_to_zod(model: type, processed_types: set):
 
 def websocket_msg_discriminated_union():
     return f"""
-export const WebsocketMsgUnionSchema = z.discriminatedUnion("messageType", [{",".join([f"WebsocketMsg{e.name}Schema" for e in WebsocketMsgTypeForFrontend])}])
+export const WebsocketMsgForFrontendUnionSchema = z.discriminatedUnion("messageType", [{",".join([f"WebsocketMsg{e.name}Schema" for e in WebsocketMsgTypeForFrontend])}])
 
-export type WebsocketMsgUnion = z.infer<typeof WebsocketMsgUnionSchema>;
+export type WebsocketMsgForFrontendUnion = z.infer<typeof WebsocketMsgForFrontendUnionSchema>;
 """
 
 
@@ -448,10 +448,10 @@ def main(output_file):
     modules = get_modules_from_package(setta.types)
     modules += get_modules_from_package(setta.routers)
     for module in modules:
-        aliases = get_all_type_aliases(module)
-        all_aliases.update({k: v for k, v in aliases})
         enums = get_all_enums(module)
         all_enums.update({k: v for k, v in enums})
+        aliases = get_all_type_aliases(module)
+        all_aliases.update({k: v for k, v in aliases})
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
         dataclasses_list = get_all_dataclasses(module)
@@ -474,11 +474,11 @@ export type ID = z.infer<typeof IDSchema>;
 """
     processed_types = set()
 
-    for x_name, x in all_aliases.items():
-        ts_code += alias_to_zod(x_name, x, processed_types)
-
     for x in all_enums.values():
         ts_code += enum_to_ts(x, processed_types)
+
+    for x_name, x in all_aliases.items():
+        ts_code += alias_to_zod(x_name, x, processed_types)
 
     for x in all_pydantic_models.values():
         ts_code += pydantic_model_to_zod(x, processed_types)
