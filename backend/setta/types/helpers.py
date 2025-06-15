@@ -189,6 +189,17 @@ def get_code_obj_impl(
     raise TypeError
 
 
+def get_code_obj_impl_from_section_impl(
+    p: ProjectStateSingleConfig, section_impl: BaseSectionWithParamsImpl, paramId
+):
+    if isinstance(section_impl, BaseSectionWithParamsImpl):
+        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[paramId]
+        code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
+        code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
+        return code_obj_impl
+    raise TypeError
+
+
 def get_code_obj_children_ids(
     p: ProjectStateSingleConfig, sectionId: str, id: str
 ) -> list[str]:

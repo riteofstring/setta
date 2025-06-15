@@ -1,9 +1,9 @@
 from collections import defaultdict
 
 from setta.types.code_objs import (
-    CodeObjCore,
     NestedParamCodeObjImpl,
 )
+from setta.types.helpers import get_code_obj_impl_from_section_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -11,19 +11,21 @@ from setta.types.sections import DictSectionImpl
 from setta.utils.utils import save_json_to_file, try_json
 
 
-def save_json_source_data(p: ProjectStateSingleConfig, impl_ids=None):
+def save_json_source_data(p: ProjectStateSingleConfig, section_impl_ids=None):
     to_be_saved = defaultdict(dict)
 
-    for impl_id, impl in p.sectionImpls.items():
-        if not isinstance(impl, DictSectionImpl) or not impl.isJsonSource:
+    for section_impl_id, section_impl in p.sectionImpls.items():
+        if (
+            not isinstance(section_impl, DictSectionImpl)
+            or not section_impl.isJsonSource
+        ):
             continue
-        if impl_ids and impl_id not in impl_ids:
+        if section_impl_ids and section_impl_id not in section_impl_ids:
             continue
-        ancestor_paths = build_ancestor_paths(p.codeObjs, impl)
-        filename = impl.name
+        ancestor_paths = build_ancestor_paths(p, section_impl)
+        filename = section_impl.name
         recursively_add_keys(
-            variant,
-            codeInfoCol,
+            section_impl,
             to_be_saved[filename],
             None,
             variant.jsonSourceKeys,
@@ -41,12 +43,12 @@ def save_json_source_data(p: ProjectStateSingleConfig, impl_ids=None):
     return to_be_saved
 
 
-def build_ancestor_paths(codeObjs: dict[str, CodeObjCore], impl: DictSectionImpl):
+def build_ancestor_paths(p: ProjectStateSingleConfig, section_impl: DictSectionImpl):
     parent_map: dict[str, str | None] = {}
-    for paramId in impl.paramIds:
-        param = codeObjs[paramId]
-        if isinstance(param, NestedParamCodeObjImpl):
-            for childId in param.children:
+    for paramId in section_impl.paramIds:
+        codeObjImpl = get_code_obj_impl_from_section_impl(p, section_impl, paramId)
+        if isinstance(codeObjImpl, NestedParamCodeObjImpl):
+            for childId in codeObjImpl.children:
                 parent_map[childId] = paramId
         parent_map[paramId] = None
 
@@ -58,8 +60,8 @@ def build_ancestor_paths(codeObjs: dict[str, CodeObjCore], impl: DictSectionImpl
 
             # Traverse up to build the path
             while current_id is not None:
-                if current_id in codeObjs:
-                    name = codeObjs[current_id].name
+                if current_id in p.codeObjs:
+                    name = p.codeObjs[current_id].name
                     path.insert(0, name)
 
                     # Get parent using the map
@@ -74,15 +76,14 @@ def build_ancestor_paths(codeObjs: dict[str, CodeObjCore], impl: DictSectionImpl
 
 
 def recursively_add_keys(
-    variant: SectionVariant,
-    codeInfoCol: CodeInfoCol,
+    p: ProjectStateSingleConfig,
+    section_impl: DictSectionImpl,
     output_dict: dict,
-    codeInfoId: str | None,
     jsonSourceKeys: list[str],
     ancestor_paths: dict[str, list[str]],
 ):
-    for k in codeInfoCol.children[codeInfoId]:
-        children = codeInfoCol.children[k]
+    for k in section_impl.paramIds:
+        codeObjImpl = get_code_obj_impl_from_section_impl(p, section_impl, k)
 
         # Get pre-computed key path
         key_path = [*jsonSourceKeys, *ancestor_paths[k]]
@@ -94,7 +95,7 @@ def recursively_add_keys(
             current_dict[key_path[-1]] = value
 
         recursively_add_keys(
-            variant, codeInfoCol, output_dict, k, jsonSourceKeys, ancestor_paths
+            p, section_impl, output_dict, jsonSourceKeys, ancestor_paths
         )
 
 
