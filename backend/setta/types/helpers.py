@@ -64,10 +64,7 @@ def convert_backend_to_single_config(
                 continue
             section_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.sectionImplLayerings[impl_layering_id]
-            section_impl_ids.update(
-                x for x in impl_layering.impls if isinstance(x, str)
-            )
-
+            section_impl_ids.add(impl_layering.impl)
             effective_impl = get_effective_section_impl(p, impl_layering)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
@@ -238,7 +235,7 @@ def add_code_obj(
     section_impl = get_section_impl(p, section_id)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
-    code_obj_impl_layering = CodeObjImplLayering(impls=[code_obj_impl.id])
+    code_obj_impl_layering = CodeObjImplLayering(impl=code_obj_impl.id)
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
