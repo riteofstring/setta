@@ -4,9 +4,6 @@ import logging
 from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.database.db.jsonSource.utils import (
-    should_be_processed,
-)
 from setta.database.utils import create_new_id
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -29,22 +26,23 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 
 def load_json_sources_into_data_structures(
-    p: ProjectStateSingleConfig | LoadJSONSourceObject,
-    section_impl_ids: list[str] | None = None,
+    projectState: ProjectStateSingleConfig | LoadJSONSourceObject,
+    variant_ids: list[str] | None = None,
 ):
-    for section_impl_id, section_impl in p.sectionImpls.items():
-        if should_be_processed(section_impl, section_impl_ids):
-            new_data, isMissing = load_json_source(
-                section_impl.name, section_impl.jsonSourceKeys
-            )
-            section_impl.jsonSourceMissing = isMissing
-            if isMissing:
-                continue
-            if not variant.codeInfoColId:
-                variant.codeInfoColId = create_new_id()
-                projectState.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
-            codeInfoCol = projectState.codeInfoCols[variant.codeInfoColId]
-            merge_into_existing(new_data, variant, projectState.codeInfo, codeInfoCol)
+    for variant_id, variant in projectState.variants.items():
+        if not variant.isJsonSource:
+            continue
+        if variant_ids and variant_id not in variant_ids:
+            continue
+        new_data, isMissing = load_json_source(variant.name, variant.jsonSourceKeys)
+        variant.jsonSourceMissing = isMissing
+        if isMissing:
+            continue
+        if not variant.codeInfoColId:
+            variant.codeInfoColId = create_new_id()
+            projectState.codeInfoCols[variant.codeInfoColId] = CodeInfoCol()
+        codeInfoCol = projectState.codeInfoCols[variant.codeInfoColId]
+        merge_into_existing(new_data, variant, projectState.codeInfo, codeInfoCol)
 
 
 def merge_into_existing(

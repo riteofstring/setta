@@ -1,8 +1,5 @@
 from collections import defaultdict
 
-from setta.database.db.jsonSource.utils import (
-    should_be_processed,
-)
 from setta.types.code_objs import (
     BaseParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -21,22 +18,27 @@ def save_json_source_data(
     to_be_saved = defaultdict(dict)
 
     for section_impl_id, section_impl in p.sectionImpls.items():
-        if should_be_processed(section_impl, section_impl_ids):
-            ancestor_paths = build_ancestor_paths(p, section_impl)
-            filename = section_impl.name
-            for paramId in section_impl.topLevelParamIds:
-                recursively_add_keys(
-                    p,
-                    section_impl,
-                    paramId,
-                    section_impl.jsonSourceKeys,
-                    ancestor_paths,
-                    to_be_saved[filename],
-                )
+        if (
+            not isinstance(section_impl, DictSectionImpl)
+            or not section_impl.isJsonSource
+            or (section_impl_ids and section_impl_id not in section_impl_ids)
+        ):
+            continue
+        ancestor_paths = build_ancestor_paths(p, section_impl)
+        filename = section_impl.name
+        for paramId in section_impl.topLevelParamIds:
+            recursively_add_keys(
+                p,
+                section_impl,
+                paramId,
+                section_impl.jsonSourceKeys,
+                ancestor_paths,
+                to_be_saved[filename],
+            )
 
-            # Make sure the jsonSourceKeys are present.
-            # (They might not be because they are completely empty)
-            add_key_path_to_dict(to_be_saved[filename], section_impl.jsonSourceKeys)
+        # Make sure the jsonSourceKeys are present.
+        # (They might not be because they are completely empty)
+        add_key_path_to_dict(to_be_saved[filename], section_impl.jsonSourceKeys)
 
     # Save each file
     for filename, data in to_be_saved.items():
