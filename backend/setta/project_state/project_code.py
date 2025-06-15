@@ -33,12 +33,14 @@ from setta.types.helpers import (
     get_code_obj_impl,
     get_section_impl,
     get_section_path_full_name,
-    get_selected_section_variant,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import CallableSectionImpl
+from setta.types.sections import (
+    CallableSectionImpl,
+    CodeSectionImpl,
+)
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -243,7 +245,10 @@ class ProjectPythonCode(PythonCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId).code
+        section_impl = get_section_impl(project_state, sectionId)
+        if not isinstance(section_impl, CodeSectionImpl):
+            raise TypeError
+        self.code = section_impl.code
         self.diagnostics_callback = self.process_diagnostics_response
 
     async def update_file(self):
@@ -286,7 +291,10 @@ class ProjectBashCode(BashCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        self.code = get_selected_section_variant(project_state, self.sectionId).code
+        section_impl = get_section_impl(project_state, sectionId)
+        if not isinstance(section_impl, CodeSectionImpl):
+            raise TypeError
+        self.code = section_impl.code
 
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)
