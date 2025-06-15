@@ -2,7 +2,7 @@ import re
 
 import docstring_parser
 
-from setta.types.project_state import CodeInfo, CodeInfoType, ParameterPassingStyle
+from setta.types.code_objs import ParameterPassingStyle
 
 
 def process_signature_help_response(response):

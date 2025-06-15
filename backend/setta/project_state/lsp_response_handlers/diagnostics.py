@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
-from setta.types.project_state import ParameterPassingStyle
+from setta.types.code_objs import ParameterPassingStyle
 
 
 class SettaGenCodeDiagnostic(BaseModel):

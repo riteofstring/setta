@@ -339,11 +339,12 @@ def create_sections(
     p: ProjectStateSingleConfig,
     sections: list[SimplifiedSectionCreation],
 ):
+    # TODO!
     for s in sections:
-        new_section = Section(name=s.name, uiTypeId=BASE_UI_TYPE_IDS[s.type])
-        new_section_config = SectionConfig(size=s.size)
-        p.sections[new_section.id] = new_section
-        p.variants[new_section_config.variantId] = SectionVariant()
+        # sectionImpl =
+        sectionCore = SectionCore(name=s.name)
+        p.sections[sectionCore.id] = sectionCore
+        p.sectionImpls[sectionImpl.id] = sectionImpl
         new_section.variantIds = [new_section_config.variantId]
         new_section.defaultVariantId = new_section_config.variantId
         p.projectConfig.sectionConfigs[new_section.id] = new_section_config
