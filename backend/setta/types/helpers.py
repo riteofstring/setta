@@ -86,11 +86,9 @@ def merge_single_config_into_backend(
 ):
     return ProjectStateBackend(
         sections={**x.sections, **config.sections},
-        variants={**x.variants, **config.variants},
-        codeInfo={**x.codeInfo, **config.codeInfo},
-        codeInfoCols={**x.codeInfoCols, **config.codeInfoCols},
-        uiTypes={**x.uiTypes, **config.uiTypes},
-        uiTypeCols={**x.uiTypeCols, **config.uiTypeCols},
+        sectionImpls={**x.sectionImpls, **config.sectionImpls},
+        codeObjs={**x.codeObjs, **config.codeObjs},
+        codeObjImpls={**x.codeObjImpls, **config.codeObjImpls},
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,
@@ -99,10 +97,9 @@ def merge_single_config_into_backend(
     )
 
 
-def get_section_type(p: ProjectStateSingleConfig, id: str):
-    ui_type_id = p.sections[id].uiTypeId
-    ui_type = p.uiTypes[ui_type_id]
-    return ui_type.type
+def get_section_impl(p: ProjectStateSingleConfig, id: str):
+    impl_id = p.projectConfig.sectionImplMap[id]
+    return p.sectionImpls[impl_id]
 
 
 def get_selected_section_variant(p: ProjectStateSingleConfig, section_id: str):

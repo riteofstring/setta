@@ -12,7 +12,7 @@ from setta.types.helpers import (
     get_param_ui_type,
     get_section_children,
     get_section_code_info_children,
-    get_section_type,
+    get_section_impl,
     get_selected_item,
     get_selected_section_variant,
     get_top_level_param_ids,
@@ -126,7 +126,7 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section = self.get_node(graph_key)
         if not section:
-            sectionImpl = p.sectionImpls[id]
+            sectionImpl = get_section_impl(p,id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
@@ -155,7 +155,7 @@ class DependencyGraph:
                 children = [
                     c
                     for c in get_section_children(p, id)
-                    if get_section_type(p, c) in self.section_types_to_process
+                    if get_section_impl(p, c).type in self.section_types_to_process
                 ]
                 node = SectionNode(
                     id=id,
