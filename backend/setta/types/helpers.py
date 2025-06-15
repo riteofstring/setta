@@ -4,12 +4,15 @@ from setta.types.code_objs import (
     CodeCallableCodeObjImpl,
     CodeObjCore,
 )
+from setta.types.impl_helpers import (
+    get_effective_code_obj_impl,
+    get_effective_section_impl,
+)
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
-from setta.types.section_impl_modifiers import SectionImplModifier
 from setta.types.sections import (
     BaseParentSectionImpl,
     BaseSectionImpl,
@@ -17,7 +20,6 @@ from setta.types.sections import (
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
-    SectionImplLayering,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
@@ -126,32 +128,6 @@ def merge_single_config_into_backend(
     )
 
 
-def get_effective_section_impl(
-    p: ProjectStateSingleConfig | ProjectStateBackend,
-    impl_layering: SectionImplLayering,
-) -> BaseSectionImpl:
-    effective = None
-    for x in impl_layering.impls:
-        if isinstance(x, str):
-            impl = p.sectionImpls[x]
-            if not effective:
-                effective = impl.model_copy(deep=True)
-            else:
-                effective = effective.model_copy(
-                    update=impl.model_dump(exclude_unset=True)
-                )
-        elif isinstance(x, SectionImplModifier):
-            if not isinstance(effective, BaseSectionImpl):
-                raise TypeError
-            effective = effective.model_copy(update=x.model_dump(exclude_unset=True))
-        else:
-            raise TypeError
-
-    if effective is None:
-        raise ValueError
-    return effective
-
-
 def get_section_impl(p: ProjectStateSingleConfig, id: str):
     impl_layering_id = p.projectConfig.sectionImplLayeringMap[id]
     impl_layering = p.sectionImplLayerings[impl_layering_id]
@@ -179,8 +155,7 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
         callable = get_section_callable(p, id)
         if not callable:
             return []
-        code_obj_impl_id = section_impl.codeObjImplLayeringMap[callable.id]
-        code_obj_impl = p.codeObjImpls[code_obj_impl_id]
+        code_obj_impl = get_code_obj_impl(p, id, callable.id, section_impl)
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
@@ -188,11 +163,19 @@ def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
     return []
 
 
-def get_code_obj_impl(p: ProjectStateSingleConfig, sectionId: str, id: str):
-    section_impl = get_section_impl(p, sectionId)
+def get_code_obj_impl(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    id: str,
+    section_impl: BaseSectionImpl | None = None,
+):
+    if not section_impl:
+        section_impl = get_section_impl(p, sectionId)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_id = section_impl.codeObjImplLayeringMap[id]
-        return p.codeObjImpls[code_obj_impl_id]
+        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[id]
+        code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
+        code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
+        return code_obj_impl
     return None
 
 
