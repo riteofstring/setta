@@ -7,9 +7,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.base_ui_types import (
-    UITypeName,
-)
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -75,8 +72,8 @@ class BaseSectionCore(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
 
 
-class BaseSectionDetails(BaseModel, extra="forbid"):
-    type: str
+class BaseSectionImpl(BaseModel, extra="forbid"):
+    type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     parentId: str | None = None
@@ -93,7 +90,7 @@ class BaseSectionDetails(BaseModel, extra="forbid"):
     codeInfoColId: str | None = None
 
 
-class BaseSectionWithParams(BaseSectionDetails):
+class BaseSectionWithParams(BaseSectionImpl):
     values: dict[str, EVEntry] = Field(default_factory=dict)
     hideParams: bool = False
     hideUnpinnedParams: bool = False
@@ -106,97 +103,97 @@ class BaseSectionWithParams(BaseSectionDetails):
     jsonSourceMissing: bool = False
 
 
-class BaseArtifactSection(BaseSectionDetails):
+class BaseArtifactSection(BaseSectionImpl):
     artifactGroupIds: list[str] = Field(default_factory=list)
 
 
-class BaseCanvasSection(BaseSectionDetails):
+class BaseCanvasSection(BaseSectionImpl):
     renderedValue: Any = None
 
 
-class BaseCodeSection(BaseSectionDetails):
+class BaseCodeSection(BaseSectionImpl):
     code: str = ""
 
 
-class BaseParentSection(BaseSectionDetails):
+class BaseParentSection(BaseSectionImpl):
     children: list[str] = Field(default_factory=list)
 
 
 class Section(BaseSectionWithParams):
-    type: Literal[UITypeName.SECTION] = UITypeName.SECTION
+    type: Literal[SectionTypeName.SECTION] = SectionTypeName.SECTION
     selectedItem: str | None = None
     hideSearch: bool = False
 
 
 class ListRootSection(BaseParentSection):
-    type: Literal[UITypeName.LIST_ROOT] = UITypeName.LIST_ROOT
+    type: Literal[SectionTypeName.LIST_ROOT] = SectionTypeName.LIST_ROOT
 
 
 class DictRootSection(BaseParentSection):
-    type: Literal[UITypeName.DICT_ROOT] = UITypeName.DICT_ROOT
+    type: Literal[SectionTypeName.DICT_ROOT] = SectionTypeName.DICT_ROOT
 
 
 class GroupSection(BaseParentSection):
-    type: Literal[UITypeName.GROUP] = UITypeName.GROUP
+    type: Literal[SectionTypeName.GROUP] = SectionTypeName.GROUP
     isHorizontalOrientation: bool = False
 
 
 class ImageSection(BaseArtifactSection):
-    type: Literal[UITypeName.IMAGE] = UITypeName.IMAGE
+    type: Literal[SectionTypeName.IMAGE] = SectionTypeName.IMAGE
 
 
 class ChartSection(BaseArtifactSection, BaseCanvasSection):
-    type: Literal[UITypeName.CHART] = UITypeName.CHART
+    type: Literal[SectionTypeName.CHART] = SectionTypeName.CHART
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
 
 
 class DrawSection(BaseArtifactSection, BaseCanvasSection):
-    type: Literal[UITypeName.DRAW] = UITypeName.DRAW
+    type: Literal[SectionTypeName.DRAW] = SectionTypeName.DRAW
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
     )
 
 
-class TextBlockSection(BaseSectionDetails):
-    type: Literal[UITypeName.TEXT_BLOCK] = UITypeName.TEXT_BLOCK
+class TextBlockSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.TEXT_BLOCK] = SectionTypeName.TEXT_BLOCK
     renderMarkdown: bool = False
     headingAsSectionName: bool = False
     displayMode: str = "GUI"
     description: str = ""
 
 
-class SocialSection(BaseSectionDetails):
-    type: Literal[UITypeName.SOCIAL] = UITypeName.SOCIAL
+class SocialSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.SOCIAL] = SectionTypeName.SOCIAL
     social = ""
 
 
 class GlobalVariablesSection(BaseSectionWithParams):
-    type: Literal[UITypeName.GLOBAL_VARIABLES] = UITypeName.GLOBAL_VARIABLES
+    type: Literal[SectionTypeName.GLOBAL_VARIABLES] = SectionTypeName.GLOBAL_VARIABLES
     name: str = "Global Variables"
 
 
 class CodeSection(BaseCodeSection):
-    type: Literal[UITypeName.CODE] = UITypeName.CODE
+    type: Literal[SectionTypeName.CODE] = SectionTypeName.CODE
     codeLanguage: CodeLanguage = CodeLanguage.python
 
 
 class GenPythonCodeSection(BaseCodeSection):
-    type: Literal[UITypeName.GEN_PYTHON_CODE] = UITypeName.GEN_PYTHON_CODE
+    type: Literal[SectionTypeName.GEN_PYTHON_CODE] = SectionTypeName.GEN_PYTHON_CODE
     name: str = "Generated Python Code"
 
 
-class TerminalSection(BaseSectionDetails):
-    type: Literal[UITypeName.TERMINAL] = UITypeName.TERMINAL
+class TerminalSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.TERMINAL] = SectionTypeName.TERMINAL
 
 
-class IFrameSection(BaseSectionDetails):
-    type: Literal[UITypeName.IFRAME] = UITypeName.IFRAME
+class IFrameSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.IFRAME] = SectionTypeName.IFRAME
 
 
-class ChatSection(BaseSectionDetails):
-    type: Literal[UITypeName.CHAT] = UITypeName.CHAT
+class ChatSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.CHAT] = SectionTypeName.CHAT
 
 
-class BrowserSection(BaseSectionDetails):
-    type: Literal[UITypeName.BROWSER] = UITypeName.BROWSER
+class BrowserSection(BaseSectionImpl):
+    type: Literal[SectionTypeName.BROWSER] = SectionTypeName.BROWSER
     hideColumn: bool = False

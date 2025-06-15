@@ -15,7 +15,7 @@ from setta.types.base_ui_types import (
     UITypeName,
 )
 from setta.types.section_configs import BaseSectionConfig
-from setta.types.section_variants import BaseSectionVariant
+from setta.types.sections import BaseSectionCore, BaseSectionImpl
 from setta.types.utils import AsIsStrEnum
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -104,7 +104,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodePrefix: str = ""
     genCodeSuffix: str = ""
     entryCodeBlockId: str | None = None
-    sectionConfigs: dict[str, BaseSectionConfig] = Field(default_factory=dict)
+    sectionImplMap: dict[str, str] = Field(default_factory=dict)
 
 
 def ui_types_default_factory():
@@ -112,8 +112,8 @@ def ui_types_default_factory():
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSection] = Field(default_factory=dict)
-    variants: dict[str, BaseSectionVariant] = Field(default_factory=dict)
+    sections: dict[str, BaseSectionCore] = Field(default_factory=dict)
+    sectionImpls: dict[str, BaseSectionImpl] = Field(default_factory=dict)
     codeInfo: dict[str, CodeInfo] = Field(default_factory=dict)
     codeInfoCols: dict[str, CodeInfoCol] = Field(default_factory=dict)
     uiTypes: dict[str, UIType] = Field(default_factory=ui_types_default_factory)
