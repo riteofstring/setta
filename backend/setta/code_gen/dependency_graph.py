@@ -260,12 +260,12 @@ class DependencyGraph:
     ):
         if not parent_node:
             return sanitize_name(name)
-        if parent_node.type == SectionType.LIST_ROOT:
+        if parent_node.type == SectionType.ListRoot:
             return f"{parent_node.full_path_name}__{idx}"
         elif (
-            parent_node.type == SectionType.CALLABLE
-            or parent_node.type == SectionType.DICT_ROOT
-            or parent_node.type == SectionType.GROUP
+            parent_node.type == SectionType.Callable
+            or parent_node.type == SectionType.DictRoot
+            or parent_node.type == SectionType.Group
             or parent_node.type == CodeObjType.NESTED_PARAM
         ):
             return create_unique_name(

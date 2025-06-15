@@ -16,7 +16,7 @@ class SimplifiedSectionCreation(BaseModel):
     name: str
     position: Position = Field(default_factory=Position)
     size: SectionSize = Field(default_factory=SectionSize)
-    type: SectionType = Field(default=SectionType.CALLABLE)
+    type: SectionType = Field(default=SectionType.Callable)
 
 
 class SimplifiedCodeInfo(BaseModel):

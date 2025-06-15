@@ -18,21 +18,25 @@ WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnion)
 """
 
 
-def section_type_literals():
-    return f"""
-from setta.types.websocket import SectionType
+def section_impl_union():
+    classes = ",".join([f"{e.name}SectionImpl" for e in SectionType])
 
-SectionTypeLiteral = Literal[{",".join([f"{e.name}" for e in SectionType])}]
+    return f"""
+from setta.types.sections import {classes}
+
+SectionImplUnion = Annotated[Union[{classes}], Field(discriminator="type")]
+
+SectionImplTypeAdapter = TypeAdapter(SectionImplUnion)
 """
 
 
 def main(output_path):
     py_code = """
-from typing import Annotated,Union,Literal
+from typing import Annotated,Union
 from pydantic import Field, TypeAdapter
 """
     py_code += websocket_msg_union()
-    py_code += section_type_literals()
+    py_code += section_impl_union()
 
     py_code = ruff_format(py_code)
     with open(output_path, "w") as f:

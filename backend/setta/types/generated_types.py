@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Union
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
@@ -14,23 +14,47 @@ WebsocketMsgForBackendUnion = Annotated[
 
 WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnion)
 
+from setta.types.sections import (
+    BrowserSectionImpl,
+    CallableSectionImpl,
+    ChartSectionImpl,
+    ChatSectionImpl,
+    CodeSectionImpl,
+    DictRootSectionImpl,
+    DictSectionImpl,
+    DrawSectionImpl,
+    GenPythonCodeSectionImpl,
+    GlobalVariablesSectionImpl,
+    GroupSectionImpl,
+    IFrameSectionImpl,
+    ImageSectionImpl,
+    ListRootSectionImpl,
+    SocialSectionImpl,
+    TerminalSectionImpl,
+    TextBlockSectionImpl,
+)
 
-SectionTypeLiteral = Literal[
-    CALLABLE,
-    DICT,
-    LIST_ROOT,
-    DICT_ROOT,
-    GROUP,
-    IMAGE,
-    CHART,
-    DRAW,
-    TEXT_BLOCK,
-    SOCIAL,
-    GLOBAL_VARIABLES,
-    CODE,
-    GEN_PYTHON_CODE,
-    TERMINAL,
-    IFRAME,
-    CHAT,
-    BROWSER,
+SectionImplUnion = Annotated[
+    Union[
+        CallableSectionImpl,
+        DictSectionImpl,
+        ListRootSectionImpl,
+        DictRootSectionImpl,
+        GroupSectionImpl,
+        ImageSectionImpl,
+        ChartSectionImpl,
+        DrawSectionImpl,
+        TextBlockSectionImpl,
+        SocialSectionImpl,
+        GlobalVariablesSectionImpl,
+        CodeSectionImpl,
+        GenPythonCodeSectionImpl,
+        TerminalSectionImpl,
+        IFrameSectionImpl,
+        ChatSectionImpl,
+        BrowserSectionImpl,
+    ],
+    Field(discriminator="type"),
 ]
+
+SectionImplTypeAdapter = TypeAdapter(SectionImplUnion)

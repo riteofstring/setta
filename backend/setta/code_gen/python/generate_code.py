@@ -150,14 +150,14 @@ class PythonCodeGenerator:
 
     def get_section_value(self, node: SectionNode):
         t = node.type
-        if t == SectionType.CALLABLE:
+        if t == SectionType.Callable:
             if node.value:
                 return self.construct_callable(node.value, node.deps)
             else:
                 return self.construct_dict(node.deps)
-        elif t == SectionType.LIST_ROOT:
+        elif t == SectionType.ListRoot:
             return self.construct_list(node.deps)
-        elif t in [SectionType.DICT_ROOT, SectionType.GROUP]:
+        elif t in [SectionType.DictRoot, SectionType.Group]:
             return self.construct_dict(node.deps)
         else:
             raise ValueError

@@ -12,23 +12,23 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 
 
 class SectionType(Enum):
-    CALLABLE = "CALLABLE"
-    DICT = "DICT"
-    LIST_ROOT = "LIST_ROOT"
-    DICT_ROOT = "DICT_ROOT"
-    GROUP = "GROUP"
-    IMAGE = "IMAGE"
-    CHART = "CHART"
-    DRAW = "DRAW"
-    TEXT_BLOCK = "TEXT_BLOCK"
-    SOCIAL = "SOCIAL"
-    GLOBAL_VARIABLES = "GLOBAL_VARIABLES"
-    CODE = "CODE"
-    GEN_PYTHON_CODE = "GEN_PYTHON_CODE"
-    TERMINAL = "TERMINAL"
-    IFRAME = "IFRAME"
-    CHAT = "CHAT"
-    BROWSER = "BROWSER"
+    Callable = "Callable"
+    Dict = "Dict"
+    ListRoot = "ListRoot"
+    DictRoot = "DictRoot"
+    Group = "Group"
+    Image = "Image"
+    Chart = "Chart"
+    Draw = "Draw"
+    TextBlock = "TextBlock"
+    Social = "Social"
+    GlobalVariables = "GlobalVariables"
+    Code = "Code"
+    GenPythonCode = "GenPythonCode"
+    Terminal = "Terminal"
+    IFrame = "IFrame"
+    Chat = "Chat"
+    Browser = "Browser"
 
 
 class Size(Enum):
@@ -138,48 +138,48 @@ class BaseDictSectionImpl(BaseSectionWithParamsImpl):
 
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
-    type: Literal[SectionType.CALLABLE] = SectionType.CALLABLE
+    type: Literal[SectionType.Callable] = SectionType.Callable
     callable: str | None = None
 
 
 class DictSectionImpl(BaseDictSectionImpl):
-    type: Literal[SectionType.DICT] = SectionType.DICT
+    type: Literal[SectionType.Dict] = SectionType.Dict
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False
 
 
 class ListRootSectionImpl(BaseParentSectionImpl):
-    type: Literal[SectionType.LIST_ROOT] = SectionType.LIST_ROOT
+    type: Literal[SectionType.ListRoot] = SectionType.ListRoot
 
 
 class DictRootSectionImpl(BaseParentSectionImpl):
-    type: Literal[SectionType.DICT_ROOT] = SectionType.DICT_ROOT
+    type: Literal[SectionType.DictRoot] = SectionType.DictRoot
 
 
 class GroupSectionImpl(BaseParentSectionImpl):
-    type: Literal[SectionType.GROUP] = SectionType.GROUP
+    type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
 
 
 class ImageSectionImpl(BaseArtifactSectionImpl):
-    type: Literal[SectionType.IMAGE] = SectionType.IMAGE
+    type: Literal[SectionType.Image] = SectionType.Image
 
 
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
-    type: Literal[SectionType.CHART] = SectionType.CHART
+    type: Literal[SectionType.Chart] = SectionType.Chart
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
 
 
 class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
-    type: Literal[SectionType.DRAW] = SectionType.DRAW
+    type: Literal[SectionType.Draw] = SectionType.Draw
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
     )
 
 
 class TextBlockSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.TEXT_BLOCK] = SectionType.TEXT_BLOCK
+    type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     renderMarkdown: bool = False
     headingAsSectionName: bool = False
     displayMode: str = "GUI"
@@ -187,37 +187,37 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 
 class SocialSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.SOCIAL] = SectionType.SOCIAL
+    type: Literal[SectionType.Social] = SectionType.Social
     social: str = ""
 
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
-    type: Literal[SectionType.GLOBAL_VARIABLES] = SectionType.GLOBAL_VARIABLES
+    type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
     name: str = "Global Variables"
 
 
 class CodeSectionImpl(BaseCodeSectionImpl):
-    type: Literal[SectionType.CODE] = SectionType.CODE
+    type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
-    type: Literal[SectionType.GEN_PYTHON_CODE] = SectionType.GEN_PYTHON_CODE
+    type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
     name: str = "Generated Python Code"
 
 
 class TerminalSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.TERMINAL] = SectionType.TERMINAL
+    type: Literal[SectionType.Terminal] = SectionType.Terminal
 
 
 class IFrameSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.IFRAME] = SectionType.IFRAME
+    type: Literal[SectionType.IFrame] = SectionType.IFrame
 
 
 class ChatSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.CHAT] = SectionType.CHAT
+    type: Literal[SectionType.Chat] = SectionType.Chat
 
 
 class BrowserSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.BROWSER] = SectionType.BROWSER
+    type: Literal[SectionType.Browser] = SectionType.Browser
     hideColumn: bool = False
