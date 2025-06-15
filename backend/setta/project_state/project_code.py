@@ -27,9 +27,9 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore
 from setta.types.helpers import (
     add_callable_code_obj,
+    add_children_of_callable,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    create_children_code_info,
     get_code_obj_impl,
     get_section_impl,
     get_section_path_full_name,
@@ -167,10 +167,10 @@ class ProjectGenPythonCode(PythonCode):
         if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
             raise TypeError
 
-        [documentation, params] = result
+        [documentation, params, param_impl_map] = result
         callable_code_obj_impl.description = documentation
-        create_children_code_info(
-            project_state, sectionId, callable_code_obj.id, params
+        add_children_of_callable(
+            project_state, sectionId, callable_code_obj.id, params, param_impl_map
         )
         section_impl.callable = callable_code_obj.id
 

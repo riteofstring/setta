@@ -1,4 +1,5 @@
 from setta.types.code_objs import (
+    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjCore,
@@ -217,29 +218,39 @@ def add_callable_code_obj(
     section_impl.codeObjImplMap[code_obj.id] = code_obj_impl.id
 
 
-def create_children_code_info(
-    state: ProjectStateSingleConfig,
+def add_children_of_callable(
+    p: ProjectStateSingleConfig,
     section_id: str,
-    parent: str,
-    params: list[CodeInfo],
+    callable_id: str,
+    params: list[CodeObjCore],
+    param_impl_map: dict[str, BaseParamCodeObjImpl],
 ):
-    existing_children_name_to_id = {}
-    code_info_children = get_section_code_info_children(state, section_id)
-    for c in code_info_children.get(parent, []):
-        existing_children_name_to_id[state.codeInfo[c].name] = c
+    existing_matching_params: dict[str, CodeObjCore] = {}
+    callable_code_obj_impl = get_code_obj_impl(p, section_id, callable_id)
+    if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
+        raise TypeError
+    for c in callable_code_obj_impl.children:
+        match = p.codeObjs[c]
+        existing_matching_params[match.name] = match
 
     param_ids_in_order = []
-    for p in params:
-        existing_id = existing_children_name_to_id.get(p.name)
-        if existing_id:
-            p.id = existing_id
-        param_ids_in_order.append(p.id)
-        if not existing_id:
-            add_code_obj(state, section_id, p, parent)
+    section_impl = get_section_impl(p, section_id)
+    if not isinstance(section_impl, CallableSectionImpl):
+        raise TypeError
+    for param in params:
+        existing = existing_matching_params.get(param.name)
+        if existing:
+            param.id = existing.id
+            # TODO: update impls
         else:
-            state.codeInfo[existing_id] = p
+            p.codeObjs[param.id] = param
+            param_impl = param_impl_map[param.id]
+            p.codeObjImpls[param_impl.id] = param_impl
+            section_impl.codeObjImplMap[param.id] = param_impl.id
 
-    code_info_children[parent] = param_ids_in_order
+        param_ids_in_order.append(param.id)
+
+    callable_code_obj_impl.children = param_ids_in_order
 
 
 def set_param_entered_value(
