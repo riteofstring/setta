@@ -46,30 +46,30 @@ def create_settings_code_objs(section_names):
 
     switch = SwitchParamCodeObjImpl()
 
-    codeObjsAndImpls: dict[str, list[tuple[CodeObjCore, BaseParamCodeObjImpl]]] = {
+    codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImpl]]] = {
         s: [] for s in section_names
     }
     codeObjsAndImpls["gui"].append(
         (
-            CodeObjCore(name="selectionMode"),
+            "selectionMode",
             selection_dropdown,
         )
     )
     codeObjsAndImpls["gui"].append(
         (
-            CodeObjCore(name="gridPattern"),
+            "gridPattern",
             grid_dropdown,
         )
     )
     codeObjsAndImpls["gui"].append(
         (
-            CodeObjCore(name="panOnScrollMode"),
+            "panOnScrollMode",
             pan_dropdown,
         )
     )
     codeObjsAndImpls["gui"].extend(
         (
-            CodeObjCore(name=n),
+            n,
             color_picker,
         )
         for n in [
@@ -79,7 +79,7 @@ def create_settings_code_objs(section_names):
     )
     codeObjsAndImpls["gui"].extend(
         (
-            CodeObjCore(name=n),
+            n,
             switch,
         )
         for n in [
@@ -95,7 +95,7 @@ def create_settings_code_objs(section_names):
 
     codeObjsAndImpls["backend"].extend(
         (
-            CodeObjCore(name=n),
+            n,
             switch,
         )
         for n in [
@@ -116,7 +116,7 @@ def create_settings_code_objs(section_names):
     }
 
     for k, v in settings_fields.items():
-        diff = set(c[0].name for c in codeObjsAndImpls[k]) - v
+        diff = set(c[0] for c in codeObjsAndImpls[k]) - v
         if len(diff) > 0:
             raise KeyError(
                 f"Settings project construction error: codeObjsAndImpls key not valid: {diff}"
@@ -156,13 +156,19 @@ def create_settings_project_state(settings_path: str):
         sectionImplLayeringMap[section.id] = sectionImplLayering.id
         sections[section.id] = section
 
-        for codeObj, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjs[codeObj.id] = codeObj
-            codeObjImpls[codeObjImpl.id] = codeObjImpl
+        for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
             codeObjImplLayering = CodeObjImplLayering(
                 impl=codeObjImpl.id, modifiers=[ParamCodeObjModifier()]
             )
             codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
+            codeObjImpls[codeObjImpl.id] = codeObjImpl
+
+            codeObj = CodeObjCore(
+                name=codeObjName,
+                implLayerings=[codeObjImplLayering.id],
+                defaultImplLayering=codeObjImplLayering.id,
+            )
+            codeObjs[codeObj.id] = codeObj
 
     projectConfigChildren = {
         k: TopLevelSectionLayout(x=idx * 600) for idx, k in enumerate(sections.keys())

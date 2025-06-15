@@ -9,6 +9,7 @@ from setta.types.code_objs import (
 from setta.types.impl_helpers import (
     get_effective_code_obj_impl,
     get_effective_section_impl,
+    update_impl_layerings,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -246,31 +247,30 @@ def add_children_of_callable(
     p: ProjectStateSingleConfig,
     section_id: str,
     callable_id: str,
-    params: list[CodeObjCore],
-    param_impl_map: dict[str, BaseParamCodeObjImpl],
+    new_params: list[CodeObjCore],
+    new_param_impl_map: dict[str, BaseParamCodeObjImpl],
 ):
     callable_code_obj_impl = get_code_obj_impl(p, section_id, callable_id)
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
-    existing_matching_params: dict[str, CodeObjCore] = {}
+    existing_param_core: dict[str, CodeObjCore] = {}
     for c in callable_code_obj_impl.children:
         match = p.codeObjs[c]
-        existing_matching_params[match.name] = match
+        existing_param_core[match.name] = match
 
     param_ids_in_order = []
     section_impl = get_section_impl(p, section_id)
     if not isinstance(section_impl, CallableSectionImpl):
         raise TypeError
-    for param in params:
-        existing = existing_matching_params.get(param.name)
-        param_impl = param_impl_map[param.id]
+    for new_param in new_params:
+        existing = existing_param_core.get(new_param.name)
+        new_param_impl = new_param_impl_map[new_param.id]
         if existing:
-            param.id = existing.id
-
+            update_impl_layerings(p, existing.implLayerings, new_param_impl)
+            param_ids_in_order.append(existing.id)
         else:
-            add_code_obj(p, section_id, param, param_impl)
-
-        param_ids_in_order.append(param.id)
+            add_code_obj(p, section_id, new_param, new_param_impl)
+            param_ids_in_order.append(new_param.id)
 
     callable_code_obj_impl.children = param_ids_in_order
 

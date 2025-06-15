@@ -3,6 +3,7 @@ from typing import Callable, Generic, Protocol, TypeVar
 from pydantic import BaseModel
 
 from setta.types.code_objs import (
+    BaseCodeObjImpl,
     CodeObjImplLayering,
 )
 from setta.types.project_state import (
@@ -59,3 +60,14 @@ def get_effective_code_obj_impl(
         impl_layering=impl_layering,
         impl_dict_getter=lambda p: p.codeObjImpls,
     )
+
+
+def update_impl_layerings(
+    p: ProjectStateSingleConfig, implLayerings: list[str], new_impl: BaseCodeObjImpl
+):
+    for impl_layering_id in implLayerings:
+        impl_layering = p.codeObjImplLayerings[impl_layering_id]
+        impl = p.codeObjImpls[impl_layering.impl]
+        p.codeObjImpls[impl_layering.impl] = impl.model_copy(
+            update=new_impl.model_dump(exclude={"id"})
+        )
