@@ -1,6 +1,15 @@
 from enum import Enum
 
 from pydantic import BaseModel, Field
+from setta.types.sections import (
+    ChartSectionImpl,
+    CodeSectionImpl,
+    GenPythonCodeSectionImpl,
+    GlobalVariablesSectionImpl,
+    SectionSize,
+    SectionType,
+    TerminalSectionImpl,
+)
 
 
 class RenameRefactorMode(Enum):
@@ -107,12 +116,12 @@ class SettingsState(BaseModel, extra="forbid"):
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
-    sections: dict = {  # TODO make a model for this?
-        "CODE": {"size": {"width": 500}},
-        "TERMINAL": {"size": {"width": 700, "height": 300}},
-        "CHART": {"size": {"width": 400, "height": 400}},
-        "GLOBAL_VARIABLES": {"name": "Global Variables"},
-        "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
-        "TEXT_BLOCK": {"displayMode": "RENDER"},
+    sections: dict = {
+        SectionType.CODE: CodeSectionImpl(size=SectionSize(width=500)),
+        SectionType.TERMINAL: TerminalSectionImpl(
+            size=SectionSize(width=700, height=300)
+        ),
+        SectionType.CHART: ChartSectionImpl(size=SectionSize(width=400, height=400)),
+        # SectionType.TEXT_BLOCK: {"displayMode": "RENDER"},
         "CHAT": {"size": {"width": 405, "height": 405}},
     }
