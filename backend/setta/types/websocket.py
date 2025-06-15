@@ -15,18 +15,18 @@ from setta.types.project_state import ProjectStateSingleConfig
 
 
 class WebsocketMsgTypeForFrontend(Enum):
-    AllConnections = ("AllConnections",)
-    LSPDiagnostics = ("LSPDiagnostics",)
-    TerminalMetadata = ("TerminalMetadata",)
-    AllDependencies = ("AllDependencies",)
-    SpecificFileWatcherUpdate = ("SpecificFileWatcherUpdate",)
-    Notification = ("Notification",)
-    LLMStreamingResponse = ("LLMStreamingResponse",)
-    UUIDMappingForLLM = ("UUIDMappingForLLM",)
-    Artifact = ("Artifact",)
-    ReturnRenameRefactorResults = ("ReturnRenameRefactorResults",)
-    UpdateFrontendProjectState = ("UpdateFrontendProjectState",)
-    NewTerminalCreated = ("NewTerminalCreated",)
+    AllConnections = "AllConnections"
+    LSPDiagnostics = "LSPDiagnostics"
+    TerminalMetadata = "TerminalMetadata"
+    AllDependencies = "AllDependencies"
+    SpecificFileWatcherUpdate = "SpecificFileWatcherUpdate"
+    Notification = "Notification"
+    LLMStreamingResponse = "LLMStreamingResponse"
+    UUIDMappingForLLM = "UUIDMappingForLLM"
+    Artifact = "Artifact"
+    ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
+    UpdateFrontendProjectState = "UpdateFrontendProjectState"
+    NewTerminalCreated = "NewTerminalCreated"
 
 
 class WebsocketMsgTypeForBackend(Enum):
