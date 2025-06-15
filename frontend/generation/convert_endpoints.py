@@ -17,6 +17,7 @@ from typing import (
 from fastapi import BackgroundTasks
 from fastapi.routing import APIRoute
 from setta.server import app
+from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
 from setta.utils.utils import get_absolute_path
 
@@ -86,6 +87,8 @@ def create_args(inputs):
     args_with_annotations = []
 
     for name, type in inputs.items():
+        if type is SettaFastAPIState:
+            continue
         type_annotation = python_type_to_ts(type, {}, set())
         args.append(name)
         args_with_annotations.append(f"{name}:{type_annotation}")

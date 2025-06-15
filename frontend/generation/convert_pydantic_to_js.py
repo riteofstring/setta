@@ -62,7 +62,8 @@ def get_all_type_aliases(module):
     return [
         (name, obj)
         for name, obj in inspect.getmembers(module)
-        if is_type_alias(name, obj) and name not in ["Callable", "AppStateFromRequest", "AppStateFromWebsocket"]
+        if is_type_alias(name, obj)
+        and name not in ["Callable", "AppStateFromRequest", "AppStateFromWebsocket"]
     ]
 
 
@@ -81,7 +82,7 @@ def get_all_pydantic_models(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, BaseModel)
-        and obj is not BaseModel
+        and obj is not BaseModel,
     )
 
 
