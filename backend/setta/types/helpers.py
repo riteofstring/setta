@@ -18,6 +18,7 @@ from setta.types.project_state import (
 )
 from setta.types.sections import (
     BaseParentSectionImpl,
+    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
@@ -35,9 +36,7 @@ class ProjectNameTaken(Exception):
     pass
 
 
-def convert_backend_to_single_config(
-    p: ProjectStateBackend, projectConfigId: str
-) -> ProjectStateSingleConfig:
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
     project_config = p.projectConfigs[projectConfigId]
 
     # Collectors for all the IDs we need
@@ -128,49 +127,71 @@ def merge_single_config_into_backend(
     )
 
 
-def get_section_impl(p: ProjectStateSingleConfig, id: str):
-    impl_layering_id = p.projectConfig.sectionImplLayeringMap[id]
-    impl_layering = p.sectionImplLayerings[impl_layering_id]
-    return get_effective_section_impl(p, impl_layering)
+def get_section_impl(
+    p: ProjectStateSingleConfig,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
+):
+    if section_impl is None:
+        if section_id is None:
+            raise ValueError("Either section_id or section_impl must be provided")
+        impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
+        impl_layering = p.sectionImplLayerings[impl_layering_id]
+        return get_effective_section_impl(p, impl_layering)
+    return section_impl
 
 
-def get_section_callable(p: ProjectStateSingleConfig, id: str):
-    impl = get_section_impl(p, id)
-    if isinstance(impl, CallableSectionImpl):
-        if impl.callable:
-            return p.codeObjs[impl.callable]
-    return None
-
-
-def get_section_children_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
-    impl = get_section_impl(p, id)
-    if isinstance(impl, BaseParentSectionImpl):
-        return impl.children
-    return []
-
-
-def get_top_level_param_ids(p: ProjectStateSingleConfig, id: str) -> list[str]:
-    section_impl = get_section_impl(p, id)
+def get_section_callable(
+    p: ProjectStateSingleConfig,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
+):
+    section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
-        callable = get_section_callable(p, id)
+        if section_impl.callable:
+            return p.codeObjs[section_impl.callable]
+        return None
+    raise TypeError
+
+
+def get_section_children_ids(
+    p: ProjectStateSingleConfig,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
+):
+    section_impl = get_section_impl(p, section_id, section_impl)
+    if isinstance(section_impl, BaseParentSectionImpl):
+        return section_impl.children
+    raise TypeError
+
+
+def get_top_level_param_ids(
+    p: ProjectStateSingleConfig,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
+) -> list[str]:
+    section_impl = get_section_impl(p, section_id, section_impl)
+    if isinstance(section_impl, CallableSectionImpl):
+        callable = get_section_callable(p, section_impl=section_impl)
         if not callable:
             return []
-        code_obj_impl = get_code_obj_impl(p, id, callable.id)
+        code_obj_impl = get_code_obj_impl(p, callable.id, section_impl=section_impl)
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
         return section_impl.paramIds
-    return []
+    raise TypeError
 
 
 def get_code_obj_impl_layering(
     p: ProjectStateSingleConfig,
-    sectionId: str,
-    id: str,
+    paramId: str,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, sectionId)
+    section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[id]
+        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[paramId]
         code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
         return code_obj_impl_layering
     raise TypeError
@@ -178,35 +199,30 @@ def get_code_obj_impl_layering(
 
 def get_code_obj_impl(
     p: ProjectStateSingleConfig,
-    sectionId: str,
-    id: str,
+    paramId: str,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, sectionId)
+    section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering = get_code_obj_impl_layering(p, sectionId, id)
-        code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
-        return code_obj_impl
-    raise TypeError
-
-
-def get_code_obj_impl_from_section_impl(
-    p: ProjectStateSingleConfig, section_impl: BaseSectionWithParamsImpl, paramId
-):
-    if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[paramId]
-        code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
+        code_obj_impl_layering = get_code_obj_impl_layering(
+            p, paramId, section_impl=section_impl
+        )
         code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
         return code_obj_impl
     raise TypeError
 
 
 def get_code_obj_children_ids(
-    p: ProjectStateSingleConfig, sectionId: str, id: str
-) -> list[str]:
-    code_obj_impl = get_code_obj_impl(p, sectionId, id)
+    p: ProjectStateSingleConfig,
+    paramId: str,
+    section_id: str | None = None,
+    section_impl: BaseSectionImpl | None = None,
+):
+    code_obj_impl = get_code_obj_impl(p, paramId, section_id, section_impl)
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):
         return code_obj_impl.children
-    return []
+    raise TypeError
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):

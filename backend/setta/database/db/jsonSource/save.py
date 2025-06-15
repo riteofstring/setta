@@ -3,7 +3,7 @@ from collections import defaultdict
 from setta.types.code_objs import (
     NestedParamCodeObjImpl,
 )
-from setta.types.helpers import get_code_obj_impl_from_section_impl
+from setta.types.helpers import get_code_obj_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -46,7 +46,7 @@ def save_json_source_data(p: ProjectStateSingleConfig, section_impl_ids=None):
 def build_ancestor_paths(p: ProjectStateSingleConfig, section_impl: DictSectionImpl):
     parent_map: dict[str, str | None] = {}
     for paramId in section_impl.paramIds:
-        codeObjImpl = get_code_obj_impl_from_section_impl(p, section_impl, paramId)
+        codeObjImpl = get_code_obj_impl(p, paramId, section_impl=section_impl)
         if isinstance(codeObjImpl, NestedParamCodeObjImpl):
             for childId in codeObjImpl.children:
                 parent_map[childId] = paramId
@@ -83,7 +83,7 @@ def recursively_add_keys(
     ancestor_paths: dict[str, list[str]],
 ):
     for k in section_impl.paramIds:
-        codeObjImpl = get_code_obj_impl_from_section_impl(p, section_impl, k)
+        codeObjImpl = get_code_obj_impl(p, k, section_impl=section_impl)
 
         # Get pre-computed key path
         key_path = [*jsonSourceKeys, *ancestor_paths[k]]
