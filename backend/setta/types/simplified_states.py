@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
-from setta.types.sections import SectionSize, SectionType
+from setta.types.section_enums import SectionType
+from setta.types.sections import SectionSize
 
 
 class Position(BaseModel):

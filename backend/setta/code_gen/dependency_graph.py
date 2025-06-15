@@ -22,6 +22,7 @@ from setta.types.helpers import (
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.section_enums import SectionType
 from setta.types.sections import (
     BaseParentSectionImpl,
     CallableSectionImpl,
@@ -30,7 +31,6 @@ from setta.types.sections import (
     GlobalVariablesSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
-    SectionType,
     TextBlockSectionImpl,
 )
 from setta.utils.utils import replace_at_positions

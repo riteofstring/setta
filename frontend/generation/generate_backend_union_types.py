@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from setta.types.sections import SectionType
+from setta.types.section_enums import SectionType
 from setta.types.websocket import WebsocketMsgTypeForBackend
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
