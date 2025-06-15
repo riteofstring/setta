@@ -1,13 +1,18 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
+
 from setta.code_gen.python.ast_utils import find_undefined_special_var_expressions
 from setta.code_gen.utils import (
     SELF_IDENTIFIER,
     create_unique_name,
     sanitize_name,
 )
-from setta.types.code_objs import BaseParamCodeObjImpl, ParameterPassingStyle
+from setta.types.code_objs import (
+    BaseParamCodeObjImpl,
+    CodeObjType,
+    ParameterPassingStyle,
+)
 from setta.types.helpers import (
     get_code_obj_children_ids,
     get_code_obj_impl,
@@ -31,7 +36,6 @@ from setta.types.sections import (
 )
 from setta.utils.utils import replace_at_positions
 
-from ..utils.constants import C
 
 GraphKeyType = tuple[str, str | None]
 
@@ -216,8 +220,11 @@ class DependencyGraph:
                     continue
                 param_children = get_code_obj_children_ids(p, sectionId, pid)
                 name = p.codeObjs[pid].name
+                value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
-                value, potential_refs = self.export_param_value(p, sectionId, pid)
+                potential_refs = find_undefined_special_var_expressions(
+                    value, SELF_IDENTIFIER, keep_attr_only=True
+                )
                 if potential_refs:
                     self.nodes_with_potential_refs[graph_key] = potential_refs
                 param_node = ParamNode(
@@ -236,20 +243,6 @@ class DependencyGraph:
                 self.add_to_graph(graph_key, param_node)
             output_deps[graph_key] = param_node.has_name_and_value
         return output_deps
-
-    def export_param_value(
-        self, p: ProjectStateSingleConfig, sectionId: str, paramId: str
-    ):
-        variant = get_selected_section_variant(p, sectionId)
-        if paramId in variant.values:
-            value = variant.values[paramId].value
-            potential_refs = find_undefined_special_var_expressions(
-                value, SELF_IDENTIFIER, keep_attr_only=True
-            )
-            return value, potential_refs
-        else:
-            value = EVEntry().value
-            return value, None
 
     def add_to_graph(self, graph_key, node: Node):
         self.graph[graph_key] = node
@@ -277,7 +270,7 @@ class DependencyGraph:
             parent_node.type == SectionType.CALLABLE
             or parent_node.type == SectionType.DICT_ROOT
             or parent_node.type == SectionType.GROUP
-            or parent_node.type == C.NESTED_PARAM
+            or parent_node.type == CodeObjType.NESTED_PARAM
         ):
             return create_unique_name(
                 f"{parent_node.full_path_name}__{sanitize_name(name)}",

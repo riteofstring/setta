@@ -51,6 +51,7 @@ class BaseParamCodeObjImpl(BaseCodeObjImpl):
     coreNameEditable: bool = False
     defaultVal: str = ""
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
+    value: str = ""
 
 
 class BaseParentCodeObjImpl(BaseCodeObjImpl):

@@ -159,17 +159,6 @@ def get_code_obj_children_ids(
     return []
 
 
-def get_param_ui_type(p: ProjectStateSingleConfig, section_id: str, id: str):
-    ui_type_col_id = p.sections[section_id].uiTypeColId
-    ui_type_col = p.uiTypeCols[ui_type_col_id] if ui_type_col_id else {}
-    if id not in ui_type_col:
-        ui_type_col[id] = UITypeColEntry()
-    ui_type_col_entry = ui_type_col[id]
-    ui_type_id = ui_type_col_entry.uiTypeId
-    ui_type = p.uiTypes[ui_type_id]
-    return ui_type.type
-
-
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     parent_id = p.sections[section_id].parentId
     if not parent_id:
