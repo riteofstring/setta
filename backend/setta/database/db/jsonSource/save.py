@@ -55,44 +55,28 @@ def save_json_source_data(
         save_json_to_file(filename, data)
 
 
-def add_children_to_parent_map(
-    codeObjImpls: dict[str, BaseCodeObjImpl],
-    codeObjImplLayerings: dict[str, CodeObjImplLayering],
-    codeObjImplLayeringMap: dict[str, str],
-    paramId: str,
-    parent_map: dict[str, str | None],
-):
-    codeObjImplLayeringId = codeObjImplLayeringMap[paramId]
-    codeObjImplLayering = codeObjImplLayerings[codeObjImplLayeringId]
-    codeObjImpl = get_effective_impl(codeObjImplLayering, codeObjImpls)
-    if isinstance(codeObjImpl, NestedParamCodeObjImpl):
-        for childId in codeObjImpl.children:
-            parent_map[childId] = paramId
-            add_children_to_parent_map(
-                codeObjImpls,
-                codeObjImplLayerings,
-                codeObjImplLayeringMap,
-                childId,
-                parent_map,
-            )
-
-
 def build_parent_map(
     codeObjImpls: dict[str, BaseCodeObjImpl],
     codeObjImplLayerings: dict[str, CodeObjImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],
-):
-    parent_map: dict[str, str | None] = {}
-    for paramId in paramIds:
-        parent_map[paramId] = None
-        add_children_to_parent_map(
-            codeObjImpls,
-            codeObjImplLayerings,
-            codeObjImplLayeringMap,
-            paramId,
-            parent_map,
-        )
+) -> dict[str, str | None]:
+    """Build a map of child -> parent relationships."""
+    parent_map: dict[str, str | None] = {pid: None for pid in paramIds}
+
+    def add_children(param_id: str):
+        layering_id = codeObjImplLayeringMap[param_id]
+        layering = codeObjImplLayerings[layering_id]
+        impl = get_effective_impl(layering, codeObjImpls)
+
+        if isinstance(impl, NestedParamCodeObjImpl):
+            for child_id in impl.children:
+                parent_map[child_id] = param_id
+                add_children(child_id)
+
+    for param_id in paramIds:
+        add_children(param_id)
+
     return parent_map
 
 
@@ -102,10 +86,12 @@ def build_ancestor_paths(
     codeObjImplLayerings: dict[str, CodeObjImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],
-):
+) -> dict[str, list[str]]:
+    """Build ancestor paths for all nodes in the hierarchy."""
     parent_map = build_parent_map(
         codeObjImpls, codeObjImplLayerings, codeObjImplLayeringMap, paramIds
     )
+
     ancestor_paths: dict[str, list[str]] = {}
     for id in parent_map.keys():
         if id not in ancestor_paths:
