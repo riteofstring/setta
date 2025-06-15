@@ -61,7 +61,7 @@ async def setSelectedItem(
         selectedItemName: The selected item name, for example "math.sqrt"
         refetchParams: If True, then the parameter list will be recomputed. Only do this if something with the python environment or language server has changed.
     """
-    project_state = await setta_state.project_manager.set_selected_item(
+    project_state = await setta_state.project_manager.set_callable(
         projectConfigId, sectionId, selectedItemName, refetchParams
     )
     output: dict[ID, SimplifiedCodeInfo] = {}

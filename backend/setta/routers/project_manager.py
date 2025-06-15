@@ -55,7 +55,7 @@ async def route_clear_text_field_completion(
 async def route_set_selected_item(
     x: SetSelectedItemRequest, state: AppStateFromRequest
 ) -> None:
-    await state.project_manager.set_selected_item(
+    await state.project_manager.set_callable(
         x.projectConfigId, x.sectionId, x.selectedItemName, x.refetchParams
     )
 

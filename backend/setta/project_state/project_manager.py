@@ -271,7 +271,7 @@ class ProjectManager:
         )
 
     @enqueue_method
-    async def set_selected_item(
+    async def set_callable(
         self,
         projectConfigId: str,
         sectionId: str,
@@ -280,7 +280,7 @@ class ProjectManager:
     ):
         project_state = self.get_single_config_state(projectConfigId)
 
-        await self.gen_code[projectConfigId].set_selected_item(
+        await self.gen_code[projectConfigId].set_callable(
             project_state,
             sectionId,
             selectedItemName,

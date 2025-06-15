@@ -30,12 +30,15 @@ from setta.types.helpers import (
     callable_has_been_selected_before,
     callable_is_already_selected,
     create_children_code_info,
+    get_code_obj_impl,
+    get_section_impl,
     get_section_path_full_name,
     get_selected_section_variant,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.sections import CallableSectionImpl
 
 
 class ProjectGenPythonCode(PythonCode):
@@ -98,33 +101,36 @@ class ProjectGenPythonCode(PythonCode):
     ):
         await self.insert_code_at_position(sectionId, paramInfoId, "", 0)
 
-    async def set_selected_item(
+    async def set_callable(
         self,
         project_state: ProjectStateSingleConfig,
         sectionId: str,
-        selectedItemName: str,
+        callableName: str,
         refetchParams: bool,
     ):
         if not refetchParams and callable_is_already_selected(
-            project_state, sectionId, selectedItemName
+            project_state, sectionId, callableName
         ):
             return
 
-        variant = get_selected_section_variant(project_state, sectionId)
+        section_impl = get_section_impl(project_state, sectionId)
 
-        if selectedItemName == "":
-            variant.selectedItem = None
+        if not isinstance(section_impl, CallableSectionImpl):
+            raise TypeError
+
+        if callableName == "":
+            section_impl.callable = None
 
         prev_selected = callable_has_been_selected_before(
-            project_state, sectionId, selectedItemName
+            project_state, sectionId, callableName
         )
 
         if prev_selected and not refetchParams:
-            variant.selectedItem = prev_selected
+            section_impl.callable = prev_selected
             return
 
         line_col = await self.insert_code_at_position(
-            sectionId, None, selectedItemName, len(selectedItemName)
+            sectionId, None, callableName, len(callableName)
         )
         if line_col is None:
             return
@@ -143,24 +149,30 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if not prev_selected:
-            callable_code_obj = CodeObjCore(name=selectedItemName)
+            callable_code_obj = CodeObjCore(name=callableName)
             callable_code_obj_impl = CodeCallableCodeObjImpl()
             add_callable_code_obj(
                 project_state, sectionId, callable_code_obj, callable_code_obj_impl
             )
         else:
-            callable_code_info = project_state.codeInfo[prev_selected]
+            callable_code_obj = project_state.codeObjs[prev_selected]
+            callable_code_obj_impl = get_code_obj_impl(
+                project_state, sectionId, prev_selected
+            )
 
         result = process_signature_help_response(response)
         if result is None:
             return
 
+        if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
+            raise TypeError
+
         [documentation, params] = result
-        callable_code_info.description = documentation
+        callable_code_obj_impl.description = documentation
         create_children_code_info(
-            project_state, sectionId, callable_code_info.id, params
+            project_state, sectionId, callable_code_obj.id, params
         )
-        variant.selectedItem = callable_code_info.id
+        section_impl.callable = callable_code_obj.id
 
     async def gen_code_prefix_autocomplete(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)
