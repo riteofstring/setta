@@ -1,10 +1,11 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Type, TypeVar
 
 from pydantic import (
     BaseModel,
     Field,
     SerializeAsAny,
+    TypeAdapter,
     field_validator,
     model_validator,
 )
@@ -54,6 +55,25 @@ class ProjectConfig(BaseModel, extra="forbid"):
     sectionImplLayeringMap: dict[str, str] = Field(default_factory=dict)
 
 
+T = TypeVar("T")
+
+
+def dict_validator(base_type: Type[T], type_adapter: TypeAdapter[T], field_name: str):
+    def validator(v: Any) -> dict[str, T]:
+        if not isinstance(v, dict):
+            raise ValueError(f"{field_name} must be a dictionary")
+
+        validated: dict[str, T] = {}
+        for key, value in v.items():
+            if isinstance(value, base_type):
+                validated[key] = value
+            else:
+                validated[key] = type_adapter.validate_python(value)
+        return validated
+
+    return validator
+
+
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore] = Field(default_factory=dict)
     sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]] = Field(
@@ -66,35 +86,13 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     )
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
-    @field_validator("sectionImpls", mode="before")
-    @classmethod
-    def validate_section_impls(cls, v: Any):
-        if not isinstance(v, dict):
-            raise ValueError("sectionImpls must be a dictionary")
+    _validate_section_impls = field_validator("sectionImpls", mode="before")(
+        dict_validator(BaseSectionImpl, SectionImplTypeAdapter, "sectionImpls")
+    )
 
-        validated: dict[str, BaseSectionImpl] = {}
-        for key, value in v.items():
-            if isinstance(value, BaseSectionImpl):
-                validated[key] = value
-            else:
-                validated[key] = SectionImplTypeAdapter.validate_python(value)
-
-        return validated
-
-    @field_validator("codeObjImpls", mode="before")
-    @classmethod
-    def validate_code_obj_impls(cls, v: Any):
-        if not isinstance(v, dict):
-            raise ValueError("codeObjImpls must be a dictionary")
-
-        validated: dict[str, BaseCodeObjImpl] = {}
-        for key, value in v.items():
-            if isinstance(value, BaseCodeObjImpl):
-                validated[key] = value
-            else:
-                validated[key] = CodeObjImplTypeAdapter.validate_python(value)
-
-        return validated
+    _validate_code_obj_impls = field_validator("codeObjImpls", mode="before")(
+        dict_validator(BaseCodeObjImpl, CodeObjImplTypeAdapter, "codeObjImpls")
+    )
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):
