@@ -58,6 +58,12 @@ def get_modules_from_package(package):
     return modules
 
 
+def get_all_sets(module):
+    return inspect.getmembers(
+        module, lambda obj: isinstance(obj, set) and not inspect.isclass(obj)
+    )
+
+
 def get_all_type_aliases(module):
     def is_type_alias(name, obj):
         if inspect.isclass(obj) or inspect.ismodule(obj):
@@ -73,6 +79,28 @@ def get_all_type_aliases(module):
         for name, obj in inspect.getmembers(module)
         if is_type_alias(name, obj)
     ]
+
+
+def set_to_ts(name: str, set_obj: set, processed_types: set):
+    if name in processed_types:
+        return ""
+
+    processed_types.add(name)
+
+    # Convert set elements to TypeScript array literals
+    elements = []
+    for elem in sorted(set_obj):  # Sort for consistent output
+        if isinstance(elem, str):
+            elements.append(f'"{elem}"')
+        elif isinstance(elem, (int, float)):
+            elements.append(str(elem))
+        elif isinstance(elem, bool):
+            elements.append(str(elem).lower())
+        else:
+            elements.append(str(elem))
+
+    elements_str = ", ".join(elements)
+    return f"export const {name} = new Set([{elements_str}]);\n\n"
 
 
 def get_all_enums(module):
@@ -461,6 +489,7 @@ def dataclass_to_zod(model: type, processed_types: set):
 
 
 def main(output_file):
+    all_sets = {}
     all_aliases = {}
     all_enums = {}
     all_pydantic_models = {}
@@ -468,6 +497,8 @@ def main(output_file):
     modules = get_modules_from_package(setta.types)
     modules += get_modules_from_package(setta.routers)
     for module in modules:
+        sets = get_all_sets(module)
+        all_sets.update({k: v for k, v in sets})
         enums = get_all_enums(module)
         all_enums.update({k: v for k, v in enums})
         aliases = get_all_type_aliases(module)
@@ -488,6 +519,9 @@ export type ID = z.infer<typeof IDSchema>;
 export type ObjectValues<T> = T[keyof T]
 """
     processed_types = set()
+
+    for x_name, x in all_sets.items():
+        ts_code += set_to_ts(x_name, x, processed_types)
 
     for x in all_enums.values():
         ts_code += enum_to_ts(x, processed_types)
