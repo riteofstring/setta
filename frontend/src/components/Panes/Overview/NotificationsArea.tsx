@@ -21,6 +21,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   SettaNotification,
+  SettaNotificationType,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 
@@ -175,7 +176,7 @@ function NotificationItem({
 }
 
 export function getNotificationIcon(
-  type: SettaNotificationTypeEnum,
+  type: SettaNotificationType,
   className = "",
 ) {
   switch (type) {

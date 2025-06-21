@@ -8,6 +8,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   IDToUUIDForLLM,
+  ObjectValues,
   ProjectStateSingleConfig,
   SectionImplUnionWithDiscriminator,
   SectionTypeEnum,
@@ -154,14 +155,24 @@ export const useInteractiveDependencies = withProjectState(
   createWithEqualityFn(withResetFn(() => ({ dependencies: new Set() }))),
 );
 
+export const ProjectSearchMode = {
+  find: "find",
+  advanced: "advanced",
+  commandPalette: "commandPalette",
+} as const;
+
+export type ZustandProjectSearch = {
+  mode: ObjectValues<typeof ProjectSearchMode>;
+};
+
 export const useProjectSearch = withProjectState(
   createWithEqualityFn(
-    withResetFn(() => ({
+    withResetFn<ZustandProjectSearch>(() => ({
       sections: [],
       codeInfo: [],
       focused: {},
       lookup: new Set(),
-      mode: "find",
+      mode: ProjectSearchMode.find,
     })),
   ),
 );

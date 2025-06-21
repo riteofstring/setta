@@ -8,12 +8,16 @@ import { z } from "zod/v4";
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
+export type ObjectValues<T> = T[keyof T];
+
 export const ArtifactTypeEnum = {
   IMG: "IMG",
   BRUSH_STROKES: "BRUSH_STROKES",
   LIST: "LIST",
   CHAT_HISTORY: "CHAT_HISTORY",
 } as const;
+
+export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
@@ -27,7 +31,11 @@ export const CodeObjTypeEnum = {
   NestedParam: "NestedParam",
 } as const;
 
+export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
 export const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
+
+export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -37,6 +45,10 @@ export const ParameterPassingStyleEnum = {
   KEYWORD_ONLY: "KEYWORD_ONLY",
 } as const;
 
+export type ParameterPassingStyle = ObjectValues<
+  typeof ParameterPassingStyleEnum
+>;
+
 export const SettaNotificationTypeEnum = {
   success: "success",
   error: "error",
@@ -45,11 +57,17 @@ export const SettaNotificationTypeEnum = {
   save: "save",
 } as const;
 
+export type SettaNotificationType = ObjectValues<
+  typeof SettaNotificationTypeEnum
+>;
+
 export const ViewingEditingModeEnum = {
   DEV: "DEV",
   USER: "USER",
   USER_EDIT: "USER_EDIT",
 } as const;
+
+export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
 export const RouteEnum = {
   PREFIX: "/api",
@@ -121,9 +139,15 @@ export const RouteEnum = {
   GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
 } as const;
 
+export type Route = ObjectValues<typeof RouteEnum>;
+
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
+export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
 export const SectionTypeEnum = {
   Callable: "Callable",
@@ -145,13 +169,19 @@ export const SectionTypeEnum = {
   Browser: "Browser",
 } as const;
 
+export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
 export const SizeEnum = { auto: "auto" } as const;
+
+export type Size = ObjectValues<typeof SizeEnum>;
 
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
   ALWAYS_RENAME: "ALWAYS_RENAME",
   NEVER_RENAME: "NEVER_RENAME",
 } as const;
+
+export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
@@ -161,10 +191,18 @@ export const WebsocketConnectionTypeEnum = {
   FRONTEND: "FRONTEND",
 } as const;
 
+export type WebsocketConnectionType = ObjectValues<
+  typeof WebsocketConnectionTypeEnum
+>;
+
 export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   UpdateBackendProjectState: "UpdateBackendProjectState",
 } as const;
+
+export type WebsocketMsgTypeForBackend = ObjectValues<
+  typeof WebsocketMsgTypeForBackendEnum
+>;
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -180,6 +218,10 @@ export const WebsocketMsgTypeForFrontendEnum = {
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   NewTerminalCreated: "NewTerminalCreated",
 } as const;
+
+export type WebsocketMsgTypeForFrontend = ObjectValues<
+  typeof WebsocketMsgTypeForFrontendEnum
+>;
 
 export const APIKeysSchema = z.record(z.string(), z.string());
 

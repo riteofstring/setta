@@ -13,6 +13,7 @@ import { useCreateSectionsList } from "state/actions/sections/createSectionsHelp
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
+  ProjectSearchMode,
   useProjectSearch,
   useProjectState,
   useSettings,
@@ -33,11 +34,11 @@ function ProjectPageSearchBarWrapper({ children }) {
   const mode = useProjectSearch((x) => x.mode);
 
   switch (mode) {
-    case "find":
+    case ProjectSearchMode.find:
       return <ProjectPageFind>{children}</ProjectPageFind>;
-    case "advanced":
+    case ProjectSearchMode.advanced:
       return <ProjectPageAdvanced>{children}</ProjectPageAdvanced>;
-    case "commandPalette":
+    case ProjectSearchMode.commandPalette:
       return <ProjectPageCommandPalette>{children}</ProjectPageCommandPalette>;
     default:
       return null;

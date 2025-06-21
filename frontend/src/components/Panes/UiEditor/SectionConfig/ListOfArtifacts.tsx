@@ -15,7 +15,7 @@ import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
 import { route_load_available_artifacts } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
+import { ArtifactType, ArtifactTypeEnum } from "utils/generatedTypes";
 import { newArtifactTransform } from "utils/objs/artifact";
 
 const LayersList = ({
@@ -56,7 +56,7 @@ const LayersList = ({
     return "border-blue-500 dark:border-blue-600 bg-blue-50 dark:bg-blue-800 dark:[&_*]:text-white/50";
   };
 
-  function getArtifactTypeIcon(type) {
+  function getArtifactTypeIcon(type: ArtifactType) {
     switch (type) {
       case ArtifactTypeEnum.IMG:
         return <i className="gg-image text-setta-300 dark:text-setta-600" />;
