@@ -1,4 +1,5 @@
 import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import {
   useLocalStorage,
@@ -9,26 +10,39 @@ import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   CLOSED_PANE_WIDTH,
   OVERVIEW,
-  SECTION_VARIANTS_TAB,
-  UI_CONFIG_TAB,
   UI_EDITOR,
   UIEditorTabName,
 } from "utils/constants";
 import { SectionType } from "utils/generatedTypes";
 
+type TabButtonComponentType = {
+  id?: string;
+  vis: boolean;
+  selectedTabName: UIEditorTabName | null;
+  tabName: UIEditorTabName;
+  onTabClick: (x: UIEditorTabName) => void;
+  children: React.ReactElement;
+  className: string;
+  requiredTabs: Set<UIEditorTabName>;
+};
+
 export function TabButton({
   id,
   vis,
-  tab,
+  selectedTabName,
   tabName,
   onTabClick,
   children,
   className,
   requiredTabs,
   ...props
-}) {
+}: TabButtonComponentType) {
   const disabled = requiredTabs && !requiredTabs.has(tabName);
-  const color = getColor({ vis, isCurrSelected: tab === tabName, disabled });
+  const color = getColor({
+    vis,
+    isCurrSelected: selectedTabName === tabName,
+    disabled,
+  });
   return (
     <button
       id={id}

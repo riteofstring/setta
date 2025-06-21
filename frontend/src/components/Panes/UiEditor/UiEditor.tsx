@@ -27,7 +27,7 @@ const paneName = UI_EDITOR;
 
 export function UiEditor() {
   const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
-  const { tab, requiredTabs, sectionType } = useUIEditorTab(
+  const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
     sectionIds[0] ?? null,
   );
   const { vis, width } = useLocalStorage(
@@ -39,7 +39,7 @@ export function UiEditor() {
 
   const commonProps = {
     vis,
-    tab,
+    selectedTabName,
     onTabClick: getOnUIEditorTabClick(sectionType),
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
@@ -54,28 +54,28 @@ export function UiEditor() {
     >
       <div className="absolute right-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
         <TabButton
-          tabName={SECTION_CONFIG_TAB}
+          tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Config" })}
         >
           <MdOutlineSettingsApplications />
         </TabButton>
         <TabButton
-          tabName={UI_CONFIG_TAB}
+          tabName={UIEditorTabNameEnum.UIConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
         >
           <BsCardChecklist />
         </TabButton>
         <TabButton
-          tabName={QUICKINFO_CONFIG_TAB}
+          tabName={UIEditorTabNameEnum.QuickInfoConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
         >
           <TbEdit />
         </TabButton>
         <TabButton
-          tabName={INFO_CONFIG_TAB}
+          tabName={UIEditorTabNameEnum.InfoConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: infoTabTooltip })}
         >
@@ -83,7 +83,7 @@ export function UiEditor() {
           <PiCursorTextFill />
         </TabButton>
         <TabButton
-          tabName={SECTION_VARIANTS_TAB}
+          tabName={UIEditorTabNameEnum.SectionVariantsConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
         >

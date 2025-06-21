@@ -61,16 +61,19 @@ export function useUIEditorTab(sectionId: string | null) {
   return useProjectState((x) => {
     if (!sectionId) {
       return {
-        tab: null,
+        selectedTabName: null,
         requiredTabs: new Set(),
         sectionType: null,
       };
     }
     const sectionImpl = getSectionImpl(x, sectionId);
-    const { tab, requiredTabs } = getUIEditorTab(sectionImpl.type, _storedTab);
+    const { selectedTabName, requiredTabs } = getUIEditorTab(
+      sectionImpl.type,
+      _storedTab,
+    );
 
     return {
-      tab,
+      selectedTabName,
       requiredTabs,
       sectionType: sectionImpl.type,
     };
@@ -85,12 +88,12 @@ export function getUIEditorTab(
   const storedTab =
     _storedTab?.[sectionType] ?? UIEditorTabNameEnum.SectionConfig;
   // when sectionId changes, the requiredTabs might not include the previously active tab
-  let tab: string | null;
+  let selectedTabName: string | null;
   if (requiredTabs.length > 0) {
     // @ts-ignore
-    tab = requiredTabs.includes(storedTab) ? storedTab : null;
+    selectedTabName = requiredTabs.includes(storedTab) ? storedTab : null;
   } else {
-    tab = null;
+    selectedTabName = null;
   }
-  return { tab, requiredTabs: new Set(requiredTabs) };
+  return { selectedTabName, requiredTabs: new Set(requiredTabs) };
 }
