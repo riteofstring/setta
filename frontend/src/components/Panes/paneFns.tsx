@@ -133,6 +133,10 @@ export function getOnUIEditorTabClick(sectionType: SectionType) {
   };
 }
 
+export function getOnUIEditorTabClickNoSectionSelected() {
+  visToggle(PaneNameEnum.uiEditor);
+}
+
 function changeUIEditorTab(tabName) {
   const activeId = useProjectState.getState().activeIds[0];
   if (!activeId) {

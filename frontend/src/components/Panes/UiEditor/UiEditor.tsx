@@ -16,7 +16,11 @@ import {
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
 import { shallow } from "zustand/shallow";
-import { getOnUIEditorTabClick, TabButton } from "../paneFns";
+import {
+  getOnUIEditorTabClick,
+  getOnUIEditorTabClickNoSectionSelected,
+  TabButton,
+} from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
@@ -39,7 +43,9 @@ export function UiEditor() {
   const commonProps = {
     vis,
     selectedTabName,
-    onTabClick: sectionType ? getOnUIEditorTabClick(sectionType) : () => {},
+    onTabClick: sectionType
+      ? getOnUIEditorTabClick(sectionType)
+      : getOnUIEditorTabClickNoSectionSelected,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
