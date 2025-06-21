@@ -1,13 +1,14 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { getSectionType } from "state/actions/sectionInfos";
+import { getSectionImpl, getSectionType } from "state/actions/sectionInfos";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -26,7 +27,7 @@ function getMinSectionHeight({
     return MINIMIZE_SECTION_HEIGHT;
   }
 
-  if (sectionType === UITypeNameEnum.SECTION) {
+  if (sectionType === SectionTypeEnum.Callable) {
     if (hideSearch) {
       return 78;
     } else if (hideParams) {
@@ -35,30 +36,30 @@ function getMinSectionHeight({
       return 104;
     }
   } else if (
-    sectionType === UITypeNameEnum.LIST_ROOT ||
-    sectionType === UITypeNameEnum.DICT_ROOT
+    sectionType === SectionTypeEnum.ListRoot ||
+    sectionType === SectionTypeEnum.DictRoot
   ) {
     return ROOT_SECTION_HEIGHT;
-  } else if (sectionType === UITypeNameEnum.GLOBAL_VARIABLES) {
+  } else if (sectionType === SectionTypeEnum.GlobalVariables) {
     return 78;
-  } else if (sectionType === UITypeNameEnum.CODE) {
+  } else if (sectionType === SectionTypeEnum.Code) {
     return 58.2;
-  } else if (sectionType === UITypeNameEnum.TEXT_BLOCK) {
+  } else if (sectionType === SectionTypeEnum.TextBlock) {
     return 98;
-  } else if (sectionType === UITypeNameEnum.TERMINAL) {
+  } else if (sectionType === SectionTypeEnum.Terminal) {
     return 100;
   } else if (
-    sectionType === UITypeNameEnum.DRAW ||
-    sectionType === UITypeNameEnum.IMAGE
+    sectionType === SectionTypeEnum.Draw ||
+    sectionType === SectionTypeEnum.Image
   ) {
     return 100;
-  } else if (sectionType === UITypeNameEnum.CHART) {
+  } else if (sectionType === SectionTypeEnum.Chart) {
     return 300;
-  } else if (sectionType === UITypeNameEnum.SOCIAL) {
+  } else if (sectionType === SectionTypeEnum.Social) {
     return 50;
-  } else if (sectionType === UITypeNameEnum.CHAT) {
+  } else if (sectionType === SectionTypeEnum.Chat) {
     return 200;
-  } else if (sectionType === UITypeNameEnum.BROWSER) {
+  } else if (sectionType === SectionTypeEnum.Browser) {
     return 250;
   }
 }
@@ -68,8 +69,8 @@ function getMaxSectionHeight({ sectionType, isMinimized }) {
     return MINIMIZE_SECTION_HEIGHT;
   }
   if (
-    sectionType === UITypeNameEnum.LIST_ROOT ||
-    sectionType === UITypeNameEnum.DICT_ROOT
+    sectionType === SectionTypeEnum.ListRoot ||
+    sectionType === SectionTypeEnum.DictRoot
   ) {
     return ROOT_SECTION_HEIGHT;
   }
@@ -80,11 +81,11 @@ function getMinSectionWidth({ sectionType, isTwitter }) {
   if (isTwitter) {
     return 370;
   }
-  if (sectionType === UITypeNameEnum.DRAW) {
+  if (sectionType === SectionTypeEnum.Draw) {
     return 402;
-  } else if (sectionType === UITypeNameEnum.CHART) {
+  } else if (sectionType === SectionTypeEnum.Chart) {
     return 300;
-  } else if (sectionType === UITypeNameEnum.CHAT) {
+  } else if (sectionType === SectionTypeEnum.Chat) {
     return 400;
   }
 
@@ -99,13 +100,13 @@ function getMaxSectionWidth({ isTwitter }) {
 }
 
 function getSizeMode({ sectionType, hideParams, isTwitter }) {
-  if (sectionType === UITypeNameEnum.SECTION) {
+  if (sectionType === SectionTypeEnum.Callable) {
     if (hideParams) {
       return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
     }
   } else if (
-    sectionType === UITypeNameEnum.TERMINAL ||
-    sectionType === UITypeNameEnum.CHART
+    sectionType === SectionTypeEnum.Terminal ||
+    sectionType === SectionTypeEnum.Chart
   ) {
     return { height: SIZE_MODE.manual_only, width: SIZE_MODE.manual_only };
   }
@@ -118,10 +119,11 @@ function getSizeMode({ sectionType, hideParams, isTwitter }) {
 export function useSectionMinMaxDims(sectionId) {
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
-    const sectionType = getSectionType(sectionId, x);
-    const hideSearch = x.sections[sectionId].hideSearch;
-    const hideParams = x.sections[sectionId].hideParams;
-    const isMinimized = x.sections[sectionId].isMinimized;
+    const impl = getSectionImpl(x, sectionId);
+    const sectionType = impl.type;
+    const hideSearch = impl.hideSearch;
+    const hideParams = impl.hideParams;
+    const isMinimized = impl.isMinimized;
 
     const minHeight = getMinSectionHeight({
       sectionType,
@@ -269,7 +271,7 @@ export function setDrawAreaSectionSize({
 
   if (imgSize) {
     if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
-      const sectionType = UITypeNameEnum.DRAW;
+      const sectionType = SectionTypeEnum.Draw;
       const minHeight = getMinSectionHeight({ sectionType });
       const minWidth = getMinSectionWidth({ sectionType });
       canvasSize = adjustSizeToBeAtLeastMin(

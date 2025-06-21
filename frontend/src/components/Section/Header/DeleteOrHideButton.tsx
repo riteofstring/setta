@@ -1,6 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { BiHide, BiShow } from "react-icons/bi";
-import { getSectionVisibilityKey } from "state/actions/sectionInfos";
+import {
+  getSectionImpl,
+  getSectionVisibilityKey,
+} from "state/actions/sectionInfos";
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
@@ -13,9 +16,8 @@ export function DeleteOrHideButton({
   ...props
 }) {
   const visibility = useProjectState((x) => {
-    return x.sections[sectionId].visibility[
-      getSectionVisibilityKey(viewingEditingMode)
-    ];
+    const impl = getSectionImpl(x, sectionId);
+    return impl.visibility[getSectionVisibilityKey(viewingEditingMode)];
   });
 
   const onClick = () => {

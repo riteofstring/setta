@@ -1,9 +1,9 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getIsUserView } from "state/actions/sectionInfos";
+import { getIsUserView, getSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { getIsYouTubeSection } from "state/hooks/social";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
@@ -30,9 +30,11 @@ export function SectionContainerCoreResizable({
   positionAndSizeLocked,
 }) {
   const { isMinimized, isYouTube } = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
     return {
-      isMinimized: x.sections[sectionId].isMinimized,
-      isYouTube: getIsYouTubeSection(sectionId, x),
+      isMinimized: impl.isMinimized,
+      isYouTube: false,
+      // isYouTube: getIsYouTubeSection(sectionId, x),
     };
   }, _.isEqual);
 
@@ -72,7 +74,7 @@ export function SectionContainerCoreResizable({
 
 function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
   switch (sectionTypeName) {
-    case UITypeNameEnum.SECTION:
+    case SectionTypeEnum.Callable:
       return (
         <InputArea
           sectionId={sectionId}
@@ -80,17 +82,17 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
           isUserView={isUserView}
         />
       );
-    case UITypeNameEnum.IMAGE:
+    case SectionTypeEnum.Image:
       return <ImageArea sectionId={sectionId} />;
-    case UITypeNameEnum.CHART:
+    case SectionTypeEnum.Chart:
       return <ChartArea sectionId={sectionId} />;
-    case UITypeNameEnum.DRAW:
+    case SectionTypeEnum.Draw:
       return <DrawArea sectionId={sectionId} />;
-    case UITypeNameEnum.SOCIAL:
+    case SectionTypeEnum.Social:
       return <SocialArea sectionId={sectionId} />;
-    case UITypeNameEnum.TEXT_BLOCK:
+    case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
-    case UITypeNameEnum.GLOBAL_VARIABLES:
+    case SectionTypeEnum.GlobalVariables:
       return (
         <GlobalVariablesArea
           sectionId={sectionId}
@@ -98,17 +100,17 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
           isUserView={isUserView}
         />
       );
-    case UITypeNameEnum.CODE:
+    case SectionTypeEnum.Code:
       return <CodeArea sectionId={sectionId} />;
-    case UITypeNameEnum.GEN_PYTHON_CODE:
+    case SectionTypeEnum.GenPythonCode:
       return <GenPythonCodeArea sectionId={sectionId} />;
-    case UITypeNameEnum.TERMINAL:
+    case SectionTypeEnum.Terminal:
       return <TerminalArea sectionId={sectionId} />;
-    case UITypeNameEnum.IFRAME:
+    case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
-    case UITypeNameEnum.CHAT:
+    case SectionTypeEnum.Chat:
       return <ChatArea sectionId={sectionId} />;
-    case UITypeNameEnum.BROWSER:
+    case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     default:
       return null;

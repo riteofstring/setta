@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
@@ -218,20 +218,20 @@ function CustomResizableSuperCore({
 
 function useAspectRatio(sectionId: string) {
   return useProjectState((x) => {
-    const s = getCurrentSectionConfigs(x)[sectionId];
-    if (s.isMinimized) {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.isMinimized) {
       return {
-        size: s.size,
+        size: impl.size,
         aspectRatio: false,
         aspectRatioExtraHeight: 0,
         aspectRatioExtraWidth: 0,
       };
     }
     return {
-      size: s.size,
-      aspectRatio: s.aspectRatio ?? false,
-      aspectRatioExtraHeight: s.aspectRatioExtraHeight ?? 0,
-      aspectRatioExtraWidth: s.aspectRatioExtraWidth ?? 0,
+      size: impl.size,
+      aspectRatio: impl.aspectRatio ?? false,
+      aspectRatioExtraHeight: impl.aspectRatioExtraHeight ?? 0,
+      aspectRatioExtraWidth: impl.aspectRatioExtraWidth ?? 0,
     };
   }, _.isEqual);
 }

@@ -1,8 +1,10 @@
+import { SectionTypeEnum } from "utils/generatedTypes";
+
 export function getIsRoot(sectionTypeName) {
   return [
-    UITypeNameEnum.LIST_ROOT,
-    UITypeNameEnum.DICT_ROOT,
-    UITypeNameEnum.GROUP,
+    SectionTypeEnum.ListRoot,
+    SectionTypeEnum.DictRoot,
+    SectionTypeEnum.Group,
   ].includes(sectionTypeName);
 }
 

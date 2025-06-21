@@ -1,15 +1,18 @@
-import { getSectionType } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function getIsTwitterSection(sectionId, state) {
+  const impl = getSectionImpl(state, sectionId);
   return (
-    getSectionType(sectionId) === UITypeNameEnum.SOCIAL &&
+    impl.type === SectionTypeEnum.Social &&
     linkIsTwitter(state.sections[sectionId].social)
   );
 }
 
 export function getIsYouTubeSection(sectionId, state) {
+  const impl = getSectionImpl(state, sectionId);
   return (
-    getSectionType(sectionId) === UITypeNameEnum.SOCIAL &&
+    impl.type === SectionTypeEnum.Social &&
     linkIsYouTube(state.sections[sectionId].social)
   );
 }

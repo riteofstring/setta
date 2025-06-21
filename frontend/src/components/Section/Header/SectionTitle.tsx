@@ -1,10 +1,11 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { getSectionType, getSectionVariant } from "state/actions/sectionInfos";
+import { getSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -84,14 +85,15 @@ function setSectionName(sectionId, name) {
 
 function useTitleIsEditable(sectionId) {
   return useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
     const isUneditableType = [
-      UITypeNameEnum.GLOBAL_VARIABLES,
-      UITypeNameEnum.GEN_PYTHON_CODE,
-    ].includes(getSectionType(sectionId, x));
+      SectionTypeEnum.GlobalVariables,
+      SectionTypeEnum.GenPythonCode,
+    ].includes(impl.type);
 
     const isListElement = getIsSeriesElementHelper(
       sectionId,
-      [UITypeNameEnum.LIST_ROOT],
+      [SectionTypeEnum.ListRoot],
       x,
     );
 

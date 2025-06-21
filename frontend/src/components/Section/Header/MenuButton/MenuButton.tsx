@@ -2,6 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
@@ -76,14 +77,14 @@ function CardHeaderMenuButton({ children, trigger, triggerClassName }) {
 
 function getMenuItems(uiTypeName) {
   switch (uiTypeName) {
-    case UITypeNameEnum.TEXT_BLOCK:
+    case SectionTypeEnum.TextBlock:
       return [
         RenderTextBlock,
         ConvertFormat,
         CreateNewVersionButton,
         ResetToDefaultVersion,
       ];
-    case UITypeNameEnum.SECTION:
+    case SectionTypeEnum.Callable:
       return [
         CreateNewVersionButton,
         HideShowSearchButton,
@@ -93,7 +94,7 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case UITypeNameEnum.GLOBAL_VARIABLES:
+    case SectionTypeEnum.GlobalVariables:
       return [
         CreateNewVersionButton,
         HideShowUnpinnedParamsButton,
@@ -101,17 +102,17 @@ function getMenuItems(uiTypeName) {
         ClearValues,
         ResetToDefaultVersion,
       ];
-    case UITypeNameEnum.LIST_ROOT:
-    case UITypeNameEnum.DICT_ROOT:
-    case UITypeNameEnum.CODE:
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.DictRoot:
+    case SectionTypeEnum.Code:
       return [CreateNewVersionButton, ResetToDefaultVersion];
-    case UITypeNameEnum.GROUP:
+    case SectionTypeEnum.Group:
       return [UngroupButton];
-    case UITypeNameEnum.DRAW:
-    case UITypeNameEnum.IMAGE:
-    case UITypeNameEnum.CHART:
+    case SectionTypeEnum.Draw:
+    case SectionTypeEnum.Image:
+    case SectionTypeEnum.Chart:
       return [AddArtifactByFilepath];
-    case UITypeNameEnum.BROWSER:
+    case SectionTypeEnum.Browser:
       return [HideColumn];
     default:
       return [];

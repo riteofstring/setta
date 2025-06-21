@@ -1,8 +1,9 @@
 import _ from "lodash";
 import React from "react";
-import { getSectionType } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";
@@ -11,20 +12,21 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
   const {
     isActiveSection,
     sectionTypeName,
-    jsonSourceMissing,
+    // jsonSourceMissing,
     isInOtherProjectConfigs,
     positionAndSizeLocked,
   } = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
     return {
       isActiveSection: x.activeIds.includes(sectionId),
-      sectionTypeName: getSectionType(sectionId, x),
-      jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
-      isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
-      positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
+      sectionTypeName: impl.type,
+      // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
     };
   }, _.isEqual);
   const refForPosition = useSectionRefAndInit(sectionId, "selfOnly");
-  const isGlobalVariables = sectionTypeName === UITypeNameEnum.GLOBAL_VARIABLES;
+  const isGlobalVariables = sectionTypeName === SectionTypeEnum.GlobalVariables;
 
   // const boxShadow = !positionAndSizeLocked
   //   ? isActiveSection
@@ -40,7 +42,7 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
-    jsonSourceMissing,
+    // jsonSourceMissing,
   });
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
