@@ -7,8 +7,8 @@ import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getCurrentSectionConfigs,
   getDisplayedSectionVariant,
+  getSectionImpl,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
@@ -164,7 +164,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
 export function useCodeAreaHeight({ sectionId }) {
   const height = useProjectState((x) => {
-    return getCurrentSectionConfigs(x)[sectionId].size.height;
+    const impl = getSectionImpl(x, sectionId);
+    return impl.size.height;
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
 

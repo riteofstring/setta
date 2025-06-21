@@ -1,9 +1,11 @@
 import _ from "lodash";
 import {
   getDisplayedSectionVariant,
+  getSectionImpl,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
   return useProjectState((x) => {
@@ -28,17 +30,22 @@ export function useSectionVariantIsFrozen(sectionId) {
 
 export function useTextBlockDescriptionAndEditability(sectionId) {
   return useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
     return {
       ...getTextBlockDescription(sectionId, x),
-      variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
+      isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
 }
 
-export function getTextBlockDescription(sectionId, state) {
+export function getTextBlockDescription(sectionId, state, _impl = null) {
+  const impl = getSectionImpl(state, sectionId, _impl);
+  if (impl.type !== SectionTypeEnum.TextBlock) {
+    throw new Error();
+  }
   return {
-    renderMarkdown: state.sections[sectionId].renderMarkdown,
-    headingAsSectionName: state.sections[sectionId].headingAsSectionName,
-    description: getDisplayedSectionVariant(sectionId, state).description,
+    renderMarkdown: impl.renderMarkdown,
+    headingAsSectionName: impl.headingAsSectionName,
+    description: impl.description,
   };
 }
