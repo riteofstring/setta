@@ -1,5 +1,5 @@
 import { deleteNodes } from "state/actions/nodeInternals";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import { route_delete_terminals } from "utils/generatedEndpoints";
 import { removeActiveSectionIds } from "../activeSections";
 import {
@@ -9,7 +9,10 @@ import {
 } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
-export function deleteSections(sectionIds, state) {
+export function deleteSections(
+  sectionIds: Array<string>,
+  state: ZustandProjectState,
+) {
   const idsToDelete = [
     ...new Set(getAllSectionsForDeletionOrCopying(sectionIds, state)),
   ];
