@@ -38,9 +38,7 @@ function useZoomReached() {
   );
 }
 
-const Controls: FC<PropsWithChildren<ControlProps>> = ({
-  position = "bottom-left",
-}) => {
+const Controls: FC<PropsWithChildren<ControlProps>> = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } = useZoomReached();
   const isInteractive = useReactFlow(
