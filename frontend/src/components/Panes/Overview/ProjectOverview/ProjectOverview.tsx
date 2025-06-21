@@ -5,7 +5,7 @@ import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
-  BaseSectionImpl,
+  BaseSectionImplUnion,
   isBaseParentSectionImpl,
   SectionCore,
 } from "utils/generatedTypes";
@@ -70,7 +70,7 @@ export function useOverviewListing() {
 
 function getDepthListingHelper(
   section: SectionCore,
-  sectionImpl: BaseSectionImpl,
+  sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
   outputList: Array<OverviewListingType>,

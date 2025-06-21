@@ -10,11 +10,11 @@ import {
 } from "utils/constants";
 import {
   APIKeys,
-  BaseSectionImpl,
   ChatMetadata,
   createProjectConfig,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
+  SectionImplUnion,
   SectionTypeEnum,
   SettaNotification,
   SettingsState,
@@ -80,7 +80,7 @@ export type ZustandSingletonSections = {
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
-  sectionImpls: Record<string, BaseSectionImpl>;
+  sectionImpls: Record<string, SectionImplUnion>;
   sectionImplLayerings: ProjectStateSingleConfig["sectionImplLayerings"];
   codeObjs: ProjectStateSingleConfig["codeObjs"];
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
