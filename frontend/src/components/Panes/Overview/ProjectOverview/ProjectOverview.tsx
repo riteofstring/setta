@@ -1,4 +1,3 @@
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
@@ -28,20 +27,20 @@ function ProjectOverviewCore({
   return (
     <>
       <ProjectName />
-      <StandardSearch
-        inputStyles="flex-grow outline-0 min-w-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800  focus-visible:!border-blue-300 pl-5 py-1 truncate placeholder-setta-400 dark:placeholder-setta-700 text-sm"
-        outerClasses="pb-4"
-        leftElementStyles="pl-1"
-        placeholder="Filter"
-        leftElement={
+      <search className="nodrag relative mx-[2px] flex min-w-0 items-center pb-4 dark:text-setta-200">
+        <div className="absolute left-0 grid select-none place-items-center pl-1">
           <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
-        }
-        onChange={(e) => setFilter(e.target.value)}
-        {...getFloatingBoxHandlers({
-          content: "Search through your project's cards.",
-        })}
-      />
-
+        </div>
+        <input
+          className="min-w-0 flex-grow cursor-auto truncate border-solid border-setta-200 bg-transparent py-1 pl-5  text-sm placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:!border-blue-300 dark:border-setta-800 dark:placeholder-setta-700"
+          placeholder="Filter"
+          {...getFloatingBoxHandlers({
+            content: "Search through your project's cards.",
+          })}
+          tabIndex={0}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+      </search>
       <div className="min-h-0 flex-grow overflow-y-scroll">
         <ul
           className="min-h-0 flex-grow"
