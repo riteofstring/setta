@@ -1984,10 +1984,6 @@ export type WebsocketMsgForBackendUnionWithDiscriminator = z.infer<
   typeof WebsocketMsgForBackendUnionWithDiscriminatorSchema
 >;
 
-export const TypeSchema = TypeSchema;
-
-export type Type = z.infer<typeof TypeSchema>;
-
 export const ArtifactSchema = z.object({
   name: z.string(),
   path: z.string(),

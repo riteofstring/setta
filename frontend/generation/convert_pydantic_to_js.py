@@ -31,6 +31,15 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
 
+TYPE_ALIAS_EXCLUSIONS = [
+    "CoreSchema",
+    "Sequence",
+    "Callable",
+    "AppStateFromRequest",
+    "AppStateFromWebsocket",
+    "Type",
+]
+
 
 def get_modules_from_package(package):
     modules = []
@@ -48,13 +57,11 @@ def get_modules_from_package(package):
 
 
 def get_all_type_aliases(module):
-    exclusions = set(["CoreSchema", "Sequence"])
-
     def is_type_alias(name, obj):
         if inspect.isclass(obj) or inspect.ismodule(obj):
             return False
 
-        if name in exclusions:
+        if name in TYPE_ALIAS_EXCLUSIONS:
             return False
 
         return hasattr(obj, "__origin__") or hasattr(obj, "__args__")
@@ -63,7 +70,6 @@ def get_all_type_aliases(module):
         (name, obj)
         for name, obj in inspect.getmembers(module)
         if is_type_alias(name, obj)
-        and name not in ["Callable", "AppStateFromRequest", "AppStateFromWebsocket"]
     ]
 
 
