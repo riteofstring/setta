@@ -9,6 +9,7 @@ import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
 import { CodeArea, GenPythonCodeArea } from "../Layouts/CodeArea";
+import { DictArea } from "../Layouts/DictArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
@@ -82,6 +83,8 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
           isUserView={isUserView}
         />
       );
+    case SectionTypeEnum.Dict:
+      return <DictArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Image:
       return <ImageArea sectionId={sectionId} />;
     case SectionTypeEnum.Chart:

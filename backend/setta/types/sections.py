@@ -108,7 +108,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
     codeObjImplLayeringMap: dict[str, str] = Field(default_factory=dict)
-    hideParams: bool = False
     hideUnpinnedParams: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
@@ -142,6 +141,7 @@ class BaseDictSectionImpl(BaseSectionWithParamsImpl):
 class CallableSectionImpl(BaseSectionWithParamsImpl):
     type: Literal[SectionType.Callable] = SectionType.Callable
     callable: str | None = None
+    hideParams: bool = False
 
 
 class DictSectionImpl(BaseDictSectionImpl):
