@@ -2,9 +2,14 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
+import {
+  SectionCore,
+  SectionImplUnion,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
@@ -60,24 +65,25 @@ export function useOverviewListing() {
 }
 
 function getDepthListingHelper(
-  sectionId: string,
+  section: SectionCore,
+  sectionImpl: SectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  outputList,
+  outputList: Array<OverviewListingType>,
 ) {
-  const section = x.sections[sectionId];
-  if (section.visibility[x.projectConfig.viewingEditingMode])
+  if (sectionImpl.visibility[x.projectConfig.viewingEditingMode])
     outputList.push({
-      id: sectionId,
+      id: section.id,
       name: section.name,
       depth: depth,
     });
 
-  const { variantId } = getCurrentSectionConfigs(x)[section.id];
-  const children = x.variants[variantId].children;
-  if (children) {
-    for (const childId of children) {
-      getDepthListingHelper(childId, depth + 1, x, outputList);
+  if (sectionImpl.type === SectionTypeEnum.ListRoot) {
+    const children = sectionImpl.children;
+    if (children) {
+      for (const childId of children) {
+        getDepthListingHelper(childId, depth + 1, x, outputList);
+      }
     }
   }
 }

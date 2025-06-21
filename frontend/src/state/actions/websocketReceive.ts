@@ -18,7 +18,6 @@ import {
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgForFrontendUnionWithDiscriminator,
-  WebsocketMsgForFrontendUnionWithDiscriminatorSchema,
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
@@ -88,10 +87,7 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 }
 
 function receiveMessage(message: string) {
-  const m: WebsocketMsgForFrontendUnionWithDiscriminator =
-    WebsocketMsgForFrontendUnionWithDiscriminatorSchema.parse(
-      JSON.parse(message),
-    );
+  const m: WebsocketMsgForFrontendUnionWithDiscriminator = JSON.parse(message);
   console.log(m);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
