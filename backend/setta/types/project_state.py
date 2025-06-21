@@ -4,21 +4,20 @@ from typing import Any
 from pydantic import (
     BaseModel,
     Field,
+    SerializeAsAny,
     field_validator,
     model_validator,
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import CodeObjCore, CodeObjImplLayering
+from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
 from setta.types.generated_code_obj_type_unions import (
     CodeObjImplTypeAdapter,
-    CodeObjImplUnion,
 )
 from setta.types.generated_section_type_unions import (
     SectionImplTypeAdapter,
-    SectionImplUnion,
 )
-from setta.types.sections import SectionCore, SectionImplLayering
+from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -57,10 +56,14 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore] = Field(default_factory=dict)
-    sectionImpls: dict[str, SectionImplUnion] = Field(default_factory=dict)
+    sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]] = Field(
+        default_factory=dict
+    )
     sectionImplLayerings: dict[str, SectionImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
-    codeObjImpls: dict[str, CodeObjImplUnion] = Field(default_factory=dict)
+    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
+        default_factory=dict
+    )
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
     @field_validator("sectionImpls", mode="before")
@@ -69,9 +72,9 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         if not isinstance(v, dict):
             raise ValueError("sectionImpls must be a dictionary")
 
-        validated: dict[str, SectionImplUnion] = {}
+        validated: dict[str, BaseSectionImpl] = {}
         for key, value in v.items():
-            if isinstance(value, SectionImplUnion):
+            if isinstance(value, BaseSectionImpl):
                 validated[key] = value
             else:
                 validated[key] = SectionImplTypeAdapter.validate_python(value)
@@ -84,9 +87,9 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         if not isinstance(v, dict):
             raise ValueError("codeObjImpls must be a dictionary")
 
-        validated: dict[str, CodeObjImplUnion] = {}
+        validated: dict[str, BaseCodeObjImpl] = {}
         for key, value in v.items():
-            if isinstance(value, CodeObjImplUnion):
+            if isinstance(value, BaseCodeObjImpl):
                 validated[key] = value
             else:
                 validated[key] = CodeObjImplTypeAdapter.validate_python(value)
