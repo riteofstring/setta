@@ -2,6 +2,8 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
+  OverviewTabName,
+  OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
   UIEditorTabLocalStorage,
@@ -346,7 +348,7 @@ type ZustandLocalStorage = {
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
-  overviewTab: string;
+  overviewTab: OverviewTabName;
   uiEditorVis: boolean;
   uiEditorWidth: number;
   uiEditorTrueWidth: number;
@@ -365,7 +367,7 @@ export const useLocalStorage = createWithEqualityFn(
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
-      overviewTab: "tab1",
+      overviewTab: OverviewTabNameEnum.Overview,
       uiEditorVis: false,
       uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
       uiEditorTrueWidth: CLOSED_PANE_WIDTH,

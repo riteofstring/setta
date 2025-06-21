@@ -142,6 +142,8 @@ function TabContent({
       return <MarkdownEditorInPane sectionId={sectionId} />;
     case UIEditorTabNameEnum.SectionVariantsConfig:
       return <VersionList sectionId={sectionId} />;
+    default:
+      return selectedTabName satisfies never;
   }
 }
 

@@ -6,7 +6,12 @@ import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
 import { useLocalStorage } from "state/definitions";
-import { PaneNameEnum } from "utils/constants";
+import {
+  OverviewTabName,
+  OverviewTabNameEnum,
+  OverviewTabNamePrettified,
+  PaneNameEnum,
+} from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import {
   onOverviewResizeStop,
@@ -103,22 +108,18 @@ export function Overview() {
         width={width}
         minimumWidth={250}
       >
-        {vis && <TabsVisible tab={tab} />}
+        {vis && <TabsVisible selectedTabName={selectedTabName} />}
       </PaneContainer>
     </div>
   );
 }
 
-function TabsVisible({ tab }) {
-  // const title = tabNameToPretty[tab];
-  const title = {
-    tab1: "Overview",
-    tab2: "Project Configs",
-    tab3: "View Modes",
-    tab4: "Notifications",
-    tab5: "Project AI Chat",
-    tab6: "Project AI Settings",
-  }[tab];
+function TabsVisible({
+  selectedTabName,
+}: {
+  selectedTabName: OverviewTabName;
+}) {
+  const title = OverviewTabNamePrettified[selectedTabName];
   return (
     <div
       className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
@@ -127,24 +128,26 @@ function TabsVisible({ tab }) {
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
-      <TabContent tab={tab} />
+      <TabContent selectedTabName={selectedTabName} />
     </div>
   );
 }
 
-function TabContent({ tab }) {
-  switch (tab) {
-    case "tab1":
+function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
+  switch (selectedTabName) {
+    case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
-    case "tab2":
+    case OverviewTabNameEnum.ProjectConfigs:
       return <ProjectConfigs />;
-    case "tab3":
+    case OverviewTabNameEnum.ViewModes:
       return <ViewingEditingMode />;
-    case "tab4":
+    case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
-    case "tab5":
+    case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case "tab6":
+    case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectLLMSettings />;
+    default:
+      return selectedTabName satisfies never;
   }
 }
