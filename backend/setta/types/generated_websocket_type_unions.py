@@ -3,8 +3,20 @@ from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 from setta.types.websocket import (
+    WebsocketMsgAllConnections,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgArtifact,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgNewTerminalCreated,
+    WebsocketMsgNotification,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateBackendProjectState,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgUUIDMappingForLLM,
 )
 
 WebsocketMsgForBackendUnion = Union[
@@ -17,4 +29,27 @@ WebsocketMsgForBackendUnionWithDiscriminator = Annotated[
 
 WebsocketMsgForBackendTypeAdapter = TypeAdapter(
     WebsocketMsgForBackendUnionWithDiscriminator
+)
+
+WebsocketMsgForFrontendUnion = Union[
+    WebsocketMsgAllConnections,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgNotification,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgUUIDMappingForLLM,
+    WebsocketMsgArtifact,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgNewTerminalCreated,
+]
+
+WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[
+    WebsocketMsgForFrontendUnion, Field(discriminator="messageType")
+]
+
+WebsocketMsgForFrontendTypeAdapter = TypeAdapter(
+    WebsocketMsgForFrontendUnionWithDiscriminator
 )

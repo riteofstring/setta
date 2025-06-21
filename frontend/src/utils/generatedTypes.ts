@@ -1991,6 +1991,242 @@ export type WebsocketMsgForBackendUnionWithDiscriminator = z.infer<
   typeof WebsocketMsgForBackendUnionWithDiscriminatorSchema
 >;
 
+export const WebsocketConnectionInfoSchema = z.object({
+  id: z.string(),
+  connectionType: z.enum(WebsocketConnectionTypeEnum),
+  currentAddress: z.union([z.string(), z.null()]),
+});
+
+export type WebsocketConnectionInfo = z.infer<
+  typeof WebsocketConnectionInfoSchema
+>;
+
+export function createWebsocketConnectionInfo(
+  options: Partial<WebsocketConnectionInfo> = {},
+): WebsocketConnectionInfo {
+  return WebsocketConnectionInfoSchema.parse(options);
+}
+
+export const WebsocketMsgAllConnectionsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.array(WebsocketConnectionInfoSchema),
+  messageType: z
+    .literal("AllConnections")
+    .default(WebsocketMsgTypeForFrontendEnum.AllConnections),
+});
+
+export type WebsocketMsgAllConnections = z.infer<
+  typeof WebsocketMsgAllConnectionsSchema
+>;
+
+export function createWebsocketMsgAllConnections(
+  options: Partial<WebsocketMsgAllConnections> = {},
+): WebsocketMsgAllConnections {
+  return WebsocketMsgAllConnectionsSchema.parse(options);
+}
+
+export const SettaGenCodeDiagnosticSchema = z.object({
+  sectionId: z.string(),
+  paramInfoId: z.union([z.string(), z.null()]),
+  message: z.string(),
+});
+
+export type SettaGenCodeDiagnostic = z.infer<
+  typeof SettaGenCodeDiagnosticSchema
+>;
+
+export function createSettaGenCodeDiagnostic(
+  options: Partial<SettaGenCodeDiagnostic> = {},
+): SettaGenCodeDiagnostic {
+  return SettaGenCodeDiagnosticSchema.parse(options);
+}
+
+export const SettaProjectConfigDiagnosticsSchema = z.object({
+  projectConfigId: z.string(),
+  diagnostics: z.array(SettaGenCodeDiagnosticSchema),
+  isGenCode: z.boolean(),
+});
+
+export type SettaProjectConfigDiagnostics = z.infer<
+  typeof SettaProjectConfigDiagnosticsSchema
+>;
+
+export function createSettaProjectConfigDiagnostics(
+  options: Partial<SettaProjectConfigDiagnostics> = {},
+): SettaProjectConfigDiagnostics {
+  return SettaProjectConfigDiagnosticsSchema.parse(options);
+}
+
+export const WebsocketMsgLSPDiagnosticsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettaProjectConfigDiagnosticsSchema,
+  messageType: z
+    .literal("LSPDiagnostics")
+    .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
+});
+
+export type WebsocketMsgLSPDiagnostics = z.infer<
+  typeof WebsocketMsgLSPDiagnosticsSchema
+>;
+
+export function createWebsocketMsgLSPDiagnostics(
+  options: Partial<WebsocketMsgLSPDiagnostics> = {},
+): WebsocketMsgLSPDiagnostics {
+  return WebsocketMsgLSPDiagnosticsSchema.parse(options);
+}
+
+export const WebsocketMsgTerminalMetadataSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("TerminalMetadata")
+    .default(WebsocketMsgTypeForFrontendEnum.TerminalMetadata),
+});
+
+export type WebsocketMsgTerminalMetadata = z.infer<
+  typeof WebsocketMsgTerminalMetadataSchema
+>;
+
+export function createWebsocketMsgTerminalMetadata(
+  options: Partial<WebsocketMsgTerminalMetadata> = {},
+): WebsocketMsgTerminalMetadata {
+  return WebsocketMsgTerminalMetadataSchema.parse(options);
+}
+
+export const WebsocketMsgAllDependenciesSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("AllDependencies")
+    .default(WebsocketMsgTypeForFrontendEnum.AllDependencies),
+});
+
+export type WebsocketMsgAllDependencies = z.infer<
+  typeof WebsocketMsgAllDependenciesSchema
+>;
+
+export function createWebsocketMsgAllDependencies(
+  options: Partial<WebsocketMsgAllDependencies> = {},
+): WebsocketMsgAllDependencies {
+  return WebsocketMsgAllDependenciesSchema.parse(options);
+}
+
+export const WebsocketMsgSpecificFileWatcherUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("SpecificFileWatcherUpdate")
+    .default(WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate),
+});
+
+export type WebsocketMsgSpecificFileWatcherUpdate = z.infer<
+  typeof WebsocketMsgSpecificFileWatcherUpdateSchema
+>;
+
+export function createWebsocketMsgSpecificFileWatcherUpdate(
+  options: Partial<WebsocketMsgSpecificFileWatcherUpdate> = {},
+): WebsocketMsgSpecificFileWatcherUpdate {
+  return WebsocketMsgSpecificFileWatcherUpdateSchema.parse(options);
+}
+
+export const SettaNotificationSchema = z.object({
+  id: z.string().default(create_new_id),
+  projectConfigId: z.string().default("NOTIFICATION_IS_FOR_ALL_PROJECTS"),
+  type: z
+    .enum(SettaNotificationTypeEnum)
+    .default(SettaNotificationTypeEnum.info),
+  message: z.string(),
+  temporary: z.boolean().default(false),
+  timestamp: z.iso.datetime().default(get_now_timestamp),
+  metadata: z.record(z.string(), z.any()).default({}),
+  read_status: z.boolean().default(false),
+});
+
+export type SettaNotification = z.infer<typeof SettaNotificationSchema>;
+
+export function createSettaNotification(
+  options: Partial<SettaNotification> = {},
+): SettaNotification {
+  return SettaNotificationSchema.parse(options);
+}
+
+export const WebsocketMsgNotificationSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettaNotificationSchema,
+  messageType: z
+    .literal("Notification")
+    .default(WebsocketMsgTypeForFrontendEnum.Notification),
+});
+
+export type WebsocketMsgNotification = z.infer<
+  typeof WebsocketMsgNotificationSchema
+>;
+
+export function createWebsocketMsgNotification(
+  options: Partial<WebsocketMsgNotification> = {},
+): WebsocketMsgNotification {
+  return WebsocketMsgNotificationSchema.parse(options);
+}
+
+export const LLMStreamingResponseSchema = z.object({
+  chatId: z.string(),
+  assistantMessageId: z.union([z.string(), z.null()]),
+  chunk: z.union([
+    FullMessageStopSchema,
+    ToolResultSchema,
+    RawMessageStartEventSchema,
+    RawContentBlockStartEventSchema,
+    RawContentBlockDeltaEventSchema,
+    RawContentBlockStopEventSchema,
+    RawMessageDeltaEventSchema,
+    RawMessageStopEventSchema,
+  ]),
+});
+
+export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
+
+export function createLLMStreamingResponse(
+  options: Partial<LLMStreamingResponse> = {},
+): LLMStreamingResponse {
+  return LLMStreamingResponseSchema.parse(options);
+}
+
+export const WebsocketMsgLLMStreamingResponseSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: LLMStreamingResponseSchema,
+  messageType: z
+    .literal("LLMStreamingResponse")
+    .default(WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse),
+});
+
+export type WebsocketMsgLLMStreamingResponse = z.infer<
+  typeof WebsocketMsgLLMStreamingResponseSchema
+>;
+
+export function createWebsocketMsgLLMStreamingResponse(
+  options: Partial<WebsocketMsgLLMStreamingResponse> = {},
+): WebsocketMsgLLMStreamingResponse {
+  return WebsocketMsgLLMStreamingResponseSchema.parse(options);
+}
+
+export const WebsocketMsgUUIDMappingForLLMSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.record(IDSchema, z.string()),
+  messageType: z
+    .literal("UUIDMappingForLLM")
+    .default(WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM),
+});
+
+export type WebsocketMsgUUIDMappingForLLM = z.infer<
+  typeof WebsocketMsgUUIDMappingForLLMSchema
+>;
+
+export function createWebsocketMsgUUIDMappingForLLM(
+  options: Partial<WebsocketMsgUUIDMappingForLLM> = {},
+): WebsocketMsgUUIDMappingForLLM {
+  return WebsocketMsgUUIDMappingForLLMSchema.parse(options);
+}
+
 export const ArtifactSchema = z.object({
   name: z.string(),
   path: z.string(),
@@ -2013,6 +2249,115 @@ export type Artifact = z.infer<typeof ArtifactSchema>;
 export function createArtifact(options: Partial<Artifact> = {}): Artifact {
   return ArtifactSchema.parse(options);
 }
+
+export const WebsocketMsgArtifactSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ArtifactSchema,
+  messageType: z
+    .literal("Artifact")
+    .default(WebsocketMsgTypeForFrontendEnum.Artifact),
+});
+
+export type WebsocketMsgArtifact = z.infer<typeof WebsocketMsgArtifactSchema>;
+
+export function createWebsocketMsgArtifact(
+  options: Partial<WebsocketMsgArtifact> = {},
+): WebsocketMsgArtifact {
+  return WebsocketMsgArtifactSchema.parse(options);
+}
+
+export const WebsocketMsgReturnRenameRefactorResultsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("ReturnRenameRefactorResults")
+    .default(WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults),
+});
+
+export type WebsocketMsgReturnRenameRefactorResults = z.infer<
+  typeof WebsocketMsgReturnRenameRefactorResultsSchema
+>;
+
+export function createWebsocketMsgReturnRenameRefactorResults(
+  options: Partial<WebsocketMsgReturnRenameRefactorResults> = {},
+): WebsocketMsgReturnRenameRefactorResults {
+  return WebsocketMsgReturnRenameRefactorResultsSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: ProjectStateSingleConfigSchema,
+  messageType: z
+    .literal("UpdateFrontendProjectState")
+    .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
+});
+
+export type WebsocketMsgUpdateFrontendProjectState = z.infer<
+  typeof WebsocketMsgUpdateFrontendProjectStateSchema
+>;
+
+export function createWebsocketMsgUpdateFrontendProjectState(
+  options: Partial<WebsocketMsgUpdateFrontendProjectState> = {},
+): WebsocketMsgUpdateFrontendProjectState {
+  return WebsocketMsgUpdateFrontendProjectStateSchema.parse(options);
+}
+
+export const WebsocketMsgNewTerminalCreatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.any(),
+  messageType: z
+    .literal("NewTerminalCreated")
+    .default(WebsocketMsgTypeForFrontendEnum.NewTerminalCreated),
+});
+
+export type WebsocketMsgNewTerminalCreated = z.infer<
+  typeof WebsocketMsgNewTerminalCreatedSchema
+>;
+
+export function createWebsocketMsgNewTerminalCreated(
+  options: Partial<WebsocketMsgNewTerminalCreated> = {},
+): WebsocketMsgNewTerminalCreated {
+  return WebsocketMsgNewTerminalCreatedSchema.parse(options);
+}
+
+export const WebsocketMsgForFrontendUnionSchema = z.union([
+  WebsocketMsgAllConnectionsSchema,
+  WebsocketMsgLSPDiagnosticsSchema,
+  WebsocketMsgTerminalMetadataSchema,
+  WebsocketMsgAllDependenciesSchema,
+  WebsocketMsgSpecificFileWatcherUpdateSchema,
+  WebsocketMsgNotificationSchema,
+  WebsocketMsgLLMStreamingResponseSchema,
+  WebsocketMsgUUIDMappingForLLMSchema,
+  WebsocketMsgArtifactSchema,
+  WebsocketMsgReturnRenameRefactorResultsSchema,
+  WebsocketMsgUpdateFrontendProjectStateSchema,
+  WebsocketMsgNewTerminalCreatedSchema,
+]);
+
+export type WebsocketMsgForFrontendUnion = z.infer<
+  typeof WebsocketMsgForFrontendUnionSchema
+>;
+
+export const WebsocketMsgForFrontendUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgAllConnectionsSchema,
+    WebsocketMsgLSPDiagnosticsSchema,
+    WebsocketMsgTerminalMetadataSchema,
+    WebsocketMsgAllDependenciesSchema,
+    WebsocketMsgSpecificFileWatcherUpdateSchema,
+    WebsocketMsgNotificationSchema,
+    WebsocketMsgLLMStreamingResponseSchema,
+    WebsocketMsgUUIDMappingForLLMSchema,
+    WebsocketMsgArtifactSchema,
+    WebsocketMsgReturnRenameRefactorResultsSchema,
+    WebsocketMsgUpdateFrontendProjectStateSchema,
+    WebsocketMsgNewTerminalCreatedSchema,
+  ]);
+
+export type WebsocketMsgForFrontendUnionWithDiscriminator = z.infer<
+  typeof WebsocketMsgForFrontendUnionWithDiscriminatorSchema
+>;
 
 export const ArtifactWithIdSchema = z.object({
   name: z.string(),
@@ -2079,29 +2424,6 @@ export function createChatMetadata(
   options: Partial<ChatMetadata> = {},
 ): ChatMetadata {
   return ChatMetadataSchema.parse(options);
-}
-
-export const LLMStreamingResponseSchema = z.object({
-  chatId: z.string(),
-  assistantMessageId: z.union([z.string(), z.null()]),
-  chunk: z.union([
-    FullMessageStopSchema,
-    ToolResultSchema,
-    RawMessageStartEventSchema,
-    RawContentBlockStartEventSchema,
-    RawContentBlockDeltaEventSchema,
-    RawContentBlockStopEventSchema,
-    RawMessageDeltaEventSchema,
-    RawMessageStopEventSchema,
-  ]),
-});
-
-export type LLMStreamingResponse = z.infer<typeof LLMStreamingResponseSchema>;
-
-export function createLLMStreamingResponse(
-  options: Partial<LLMStreamingResponse> = {},
-): LLMStreamingResponse {
-  return LLMStreamingResponseSchema.parse(options);
 }
 
 export const ParamCodeObjModifierSchema = z.object({
@@ -2291,59 +2613,6 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
-}
-
-export const SettaGenCodeDiagnosticSchema = z.object({
-  sectionId: z.string(),
-  paramInfoId: z.union([z.string(), z.null()]),
-  message: z.string(),
-});
-
-export type SettaGenCodeDiagnostic = z.infer<
-  typeof SettaGenCodeDiagnosticSchema
->;
-
-export function createSettaGenCodeDiagnostic(
-  options: Partial<SettaGenCodeDiagnostic> = {},
-): SettaGenCodeDiagnostic {
-  return SettaGenCodeDiagnosticSchema.parse(options);
-}
-
-export const SettaProjectConfigDiagnosticsSchema = z.object({
-  projectConfigId: z.string(),
-  diagnostics: z.array(SettaGenCodeDiagnosticSchema),
-  isGenCode: z.boolean(),
-});
-
-export type SettaProjectConfigDiagnostics = z.infer<
-  typeof SettaProjectConfigDiagnosticsSchema
->;
-
-export function createSettaProjectConfigDiagnostics(
-  options: Partial<SettaProjectConfigDiagnostics> = {},
-): SettaProjectConfigDiagnostics {
-  return SettaProjectConfigDiagnosticsSchema.parse(options);
-}
-
-export const SettaNotificationSchema = z.object({
-  id: z.string().default(create_new_id),
-  projectConfigId: z.string().default("NOTIFICATION_IS_FOR_ALL_PROJECTS"),
-  type: z
-    .enum(SettaNotificationTypeEnum)
-    .default(SettaNotificationTypeEnum.info),
-  message: z.string(),
-  temporary: z.boolean().default(false),
-  timestamp: z.iso.datetime().default(get_now_timestamp),
-  metadata: z.record(z.string(), z.any()).default({}),
-  read_status: z.boolean().default(false),
-});
-
-export type SettaNotification = z.infer<typeof SettaNotificationSchema>;
-
-export function createSettaNotification(
-  options: Partial<SettaNotification> = {},
-): SettaNotification {
-  return SettaNotificationSchema.parse(options);
 }
 
 export const ProjectStateCoreSchema = z.object({
@@ -2656,22 +2925,6 @@ export function createSimplifiedSection(
   return SimplifiedSectionSchema.parse(options);
 }
 
-export const WebsocketConnectionInfoSchema = z.object({
-  id: z.string(),
-  connectionType: z.enum(WebsocketConnectionTypeEnum),
-  currentAddress: z.union([z.string(), z.null()]),
-});
-
-export type WebsocketConnectionInfo = z.infer<
-  typeof WebsocketConnectionInfoSchema
->;
-
-export function createWebsocketConnectionInfo(
-  options: Partial<WebsocketConnectionInfo> = {},
-): WebsocketConnectionInfo {
-  return WebsocketConnectionInfoSchema.parse(options);
-}
-
 export const WebsocketConnectionInfoWithSocketSchema = z.object({
   id: z.string(),
   connectionType: z.enum(WebsocketConnectionTypeEnum),
@@ -2701,220 +2954,6 @@ export function createWebsocketMsg(
   options: Partial<WebsocketMsg> = {},
 ): WebsocketMsg {
   return WebsocketMsgSchema.parse(options);
-}
-
-export const WebsocketMsgAllConnectionsSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.array(WebsocketConnectionInfoSchema),
-  messageType: z
-    .literal("AllConnections")
-    .default(WebsocketMsgTypeForFrontendEnum.AllConnections),
-});
-
-export type WebsocketMsgAllConnections = z.infer<
-  typeof WebsocketMsgAllConnectionsSchema
->;
-
-export function createWebsocketMsgAllConnections(
-  options: Partial<WebsocketMsgAllConnections> = {},
-): WebsocketMsgAllConnections {
-  return WebsocketMsgAllConnectionsSchema.parse(options);
-}
-
-export const WebsocketMsgAllDependenciesSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("AllDependencies")
-    .default(WebsocketMsgTypeForFrontendEnum.AllDependencies),
-});
-
-export type WebsocketMsgAllDependencies = z.infer<
-  typeof WebsocketMsgAllDependenciesSchema
->;
-
-export function createWebsocketMsgAllDependencies(
-  options: Partial<WebsocketMsgAllDependencies> = {},
-): WebsocketMsgAllDependencies {
-  return WebsocketMsgAllDependenciesSchema.parse(options);
-}
-
-export const WebsocketMsgArtifactSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ArtifactSchema,
-  messageType: z
-    .literal("Artifact")
-    .default(WebsocketMsgTypeForFrontendEnum.Artifact),
-});
-
-export type WebsocketMsgArtifact = z.infer<typeof WebsocketMsgArtifactSchema>;
-
-export function createWebsocketMsgArtifact(
-  options: Partial<WebsocketMsgArtifact> = {},
-): WebsocketMsgArtifact {
-  return WebsocketMsgArtifactSchema.parse(options);
-}
-
-export const WebsocketMsgLLMStreamingResponseSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: LLMStreamingResponseSchema,
-  messageType: z
-    .literal("LLMStreamingResponse")
-    .default(WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse),
-});
-
-export type WebsocketMsgLLMStreamingResponse = z.infer<
-  typeof WebsocketMsgLLMStreamingResponseSchema
->;
-
-export function createWebsocketMsgLLMStreamingResponse(
-  options: Partial<WebsocketMsgLLMStreamingResponse> = {},
-): WebsocketMsgLLMStreamingResponse {
-  return WebsocketMsgLLMStreamingResponseSchema.parse(options);
-}
-
-export const WebsocketMsgLSPDiagnosticsSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: SettaProjectConfigDiagnosticsSchema,
-  messageType: z
-    .literal("LSPDiagnostics")
-    .default(WebsocketMsgTypeForFrontendEnum.LSPDiagnostics),
-});
-
-export type WebsocketMsgLSPDiagnostics = z.infer<
-  typeof WebsocketMsgLSPDiagnosticsSchema
->;
-
-export function createWebsocketMsgLSPDiagnostics(
-  options: Partial<WebsocketMsgLSPDiagnostics> = {},
-): WebsocketMsgLSPDiagnostics {
-  return WebsocketMsgLSPDiagnosticsSchema.parse(options);
-}
-
-export const WebsocketMsgNewTerminalCreatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("NewTerminalCreated")
-    .default(WebsocketMsgTypeForFrontendEnum.NewTerminalCreated),
-});
-
-export type WebsocketMsgNewTerminalCreated = z.infer<
-  typeof WebsocketMsgNewTerminalCreatedSchema
->;
-
-export function createWebsocketMsgNewTerminalCreated(
-  options: Partial<WebsocketMsgNewTerminalCreated> = {},
-): WebsocketMsgNewTerminalCreated {
-  return WebsocketMsgNewTerminalCreatedSchema.parse(options);
-}
-
-export const WebsocketMsgNotificationSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: SettaNotificationSchema,
-  messageType: z
-    .literal("Notification")
-    .default(WebsocketMsgTypeForFrontendEnum.Notification),
-});
-
-export type WebsocketMsgNotification = z.infer<
-  typeof WebsocketMsgNotificationSchema
->;
-
-export function createWebsocketMsgNotification(
-  options: Partial<WebsocketMsgNotification> = {},
-): WebsocketMsgNotification {
-  return WebsocketMsgNotificationSchema.parse(options);
-}
-
-export const WebsocketMsgReturnRenameRefactorResultsSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("ReturnRenameRefactorResults")
-    .default(WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults),
-});
-
-export type WebsocketMsgReturnRenameRefactorResults = z.infer<
-  typeof WebsocketMsgReturnRenameRefactorResultsSchema
->;
-
-export function createWebsocketMsgReturnRenameRefactorResults(
-  options: Partial<WebsocketMsgReturnRenameRefactorResults> = {},
-): WebsocketMsgReturnRenameRefactorResults {
-  return WebsocketMsgReturnRenameRefactorResultsSchema.parse(options);
-}
-
-export const WebsocketMsgSpecificFileWatcherUpdateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("SpecificFileWatcherUpdate")
-    .default(WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate),
-});
-
-export type WebsocketMsgSpecificFileWatcherUpdate = z.infer<
-  typeof WebsocketMsgSpecificFileWatcherUpdateSchema
->;
-
-export function createWebsocketMsgSpecificFileWatcherUpdate(
-  options: Partial<WebsocketMsgSpecificFileWatcherUpdate> = {},
-): WebsocketMsgSpecificFileWatcherUpdate {
-  return WebsocketMsgSpecificFileWatcherUpdateSchema.parse(options);
-}
-
-export const WebsocketMsgTerminalMetadataSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
-  messageType: z
-    .literal("TerminalMetadata")
-    .default(WebsocketMsgTypeForFrontendEnum.TerminalMetadata),
-});
-
-export type WebsocketMsgTerminalMetadata = z.infer<
-  typeof WebsocketMsgTerminalMetadataSchema
->;
-
-export function createWebsocketMsgTerminalMetadata(
-  options: Partial<WebsocketMsgTerminalMetadata> = {},
-): WebsocketMsgTerminalMetadata {
-  return WebsocketMsgTerminalMetadataSchema.parse(options);
-}
-
-export const WebsocketMsgUUIDMappingForLLMSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.record(IDSchema, z.string()),
-  messageType: z
-    .literal("UUIDMappingForLLM")
-    .default(WebsocketMsgTypeForFrontendEnum.UUIDMappingForLLM),
-});
-
-export type WebsocketMsgUUIDMappingForLLM = z.infer<
-  typeof WebsocketMsgUUIDMappingForLLMSchema
->;
-
-export function createWebsocketMsgUUIDMappingForLLM(
-  options: Partial<WebsocketMsgUUIDMappingForLLM> = {},
-): WebsocketMsgUUIDMappingForLLM {
-  return WebsocketMsgUUIDMappingForLLMSchema.parse(options);
-}
-
-export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigSchema,
-  messageType: z
-    .literal("UpdateFrontendProjectState")
-    .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
-});
-
-export type WebsocketMsgUpdateFrontendProjectState = z.infer<
-  typeof WebsocketMsgUpdateFrontendProjectStateSchema
->;
-
-export function createWebsocketMsgUpdateFrontendProjectState(
-  options: Partial<WebsocketMsgUpdateFrontendProjectState> = {},
-): WebsocketMsgUpdateFrontendProjectState {
-  return WebsocketMsgUpdateFrontendProjectStateSchema.parse(options);
 }
 
 export const DeleteLLMChatRequestSchema = z.object({
@@ -3643,25 +3682,3 @@ export function createCodeMirrorCompletion(
 ): CodeMirrorCompletion {
   return CodeMirrorCompletionSchema.parse(options);
 }
-
-export const WebsocketMsgForFrontendUnionSchema = z.discriminatedUnion(
-  "messageType",
-  [
-    WebsocketMsgAllConnectionsSchema,
-    WebsocketMsgLSPDiagnosticsSchema,
-    WebsocketMsgTerminalMetadataSchema,
-    WebsocketMsgAllDependenciesSchema,
-    WebsocketMsgSpecificFileWatcherUpdateSchema,
-    WebsocketMsgNotificationSchema,
-    WebsocketMsgLLMStreamingResponseSchema,
-    WebsocketMsgUUIDMappingForLLMSchema,
-    WebsocketMsgArtifactSchema,
-    WebsocketMsgReturnRenameRefactorResultsSchema,
-    WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgNewTerminalCreatedSchema,
-  ],
-);
-
-export type WebsocketMsgForFrontendUnion = z.infer<
-  typeof WebsocketMsgForFrontendUnionSchema
->;

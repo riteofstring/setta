@@ -5,20 +5,35 @@ from setta.utils.utils import get_absolute_path
 
 
 def websocket_msg_union():
-    from setta.types.websocket import WebsocketMsgTypeForBackend
+    from setta.types.websocket import (
+        WebsocketMsgTypeForBackend,
+        WebsocketMsgTypeForFrontend,
+    )
 
-    classes = ",".join([f"WebsocketMsg{e.name}" for e in WebsocketMsgTypeForBackend])
+    backend_classes = ",".join(
+        [f"WebsocketMsg{e.name}" for e in WebsocketMsgTypeForBackend]
+    )
+    frontend_classes = ",".join(
+        [f"WebsocketMsg{e.name}" for e in WebsocketMsgTypeForFrontend]
+    )
 
     return f"""
 from typing import Annotated,Union
 from pydantic import Field, TypeAdapter
-from setta.types.websocket import {classes}
+from setta.types.websocket import {backend_classes}
+from setta.types.websocket import {frontend_classes}
 
-WebsocketMsgForBackendUnion = Union[{classes}]
+WebsocketMsgForBackendUnion = Union[{backend_classes}]
 
 WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
 
 WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
+
+WebsocketMsgForFrontendUnion = Union[{frontend_classes}]
+
+WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
+
+WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
 """
 
 
@@ -75,7 +90,8 @@ def main(output_folder):
         code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py"
     )
     gen_write_format(
-        websocket_msg_union, output_folder / "generated_websocket_type_unions.py"
+        websocket_msg_union,
+        output_folder / "generated_websocket_type_unions.py",
     )
 
 
