@@ -11,7 +11,15 @@ import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
 
-function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
+function _SectionContainer({
+  sectionId,
+  isTopLevel,
+  dragListeners,
+}: {
+  sectionId: string;
+  isTopLevel: boolean;
+  dragListeners?: any;
+}) {
   const { visibility, viewingEditingMode, isGroup } = useProjectState((x) => {
     const { visibility, viewingEditingMode } =
       getSectionViewingEditingModeVisibility(sectionId, x);

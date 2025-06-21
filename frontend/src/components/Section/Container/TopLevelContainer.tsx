@@ -1,6 +1,7 @@
 import { useDraggable, useDroppable } from "forks/dnd-kit/CustomCore";
 import { useDndState } from "forks/dnd-kit/dndState";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
+import { ViewingEditingMode } from "utils/generatedTypes";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 
 export function TopLevelContainer({
@@ -9,6 +10,12 @@ export function TopLevelContainer({
   visibility,
   viewingEditingMode,
   children,
+}: {
+  isGroup: boolean;
+  sectionId: string;
+  children: React.ReactNode;
+  visibility: boolean;
+  viewingEditingMode: ViewingEditingMode;
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const dndProps = useDndProps({ sectionId, isTopLevel: true });

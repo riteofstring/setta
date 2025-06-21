@@ -1,3 +1,4 @@
+import { ViewingEditingMode } from "utils/generatedTypes";
 import { DndSlotAndDndWatcher } from "./ContainerWrappers";
 import { TopLevelContainer } from "./TopLevelContainer";
 
@@ -9,6 +10,14 @@ export function ContainerSwitch({
   isTopLevel,
   visibility,
   viewingEditingMode,
+}: {
+  isGroup: boolean;
+  sectionId: string;
+  dragListeners: any;
+  children: React.ReactNode;
+  isTopLevel: boolean;
+  visibility: boolean;
+  viewingEditingMode: ViewingEditingMode;
 }) {
   return isTopLevel ? (
     <TopLevelContainer
