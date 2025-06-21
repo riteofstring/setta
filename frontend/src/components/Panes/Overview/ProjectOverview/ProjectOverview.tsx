@@ -2,9 +2,14 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
+import {
+  isBaseParentSectionImpl,
+  SectionCore,
+  SectionImplUnion,
+} from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
 import { SectionListItems } from "./SectionListItems";
 
@@ -13,7 +18,11 @@ export const ProjectOverview = React.forwardRef(() => {
   return <ProjectOverviewCore sectionList={sectionList} />;
 });
 
-function ProjectOverviewCore({ sectionList }) {
+function ProjectOverviewCore({
+  sectionList,
+}: {
+  sectionList: Array<OverviewListingType>;
+}) {
   const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
 
   return (
@@ -47,12 +56,15 @@ function ProjectOverviewCore({ sectionList }) {
   );
 }
 
+type OverviewListingType = { id: string; name: string; depth: number };
+
 export function useOverviewListing() {
   return useProjectState((x) => {
-    const outputList = [];
+    const outputList: Array<OverviewListingType> = [];
     for (const section of Object.values(x.sections)) {
-      if (!section.parentId) {
-        getDepthListingHelper(section.id, 0, x, outputList);
+      const sectionImpl = getSectionImpl(x, section.id);
+      if (!sectionImpl.parentId) {
+        getDepthListingHelper(section, sectionImpl, 0, x, outputList);
       }
     }
     return outputList;
@@ -60,24 +72,32 @@ export function useOverviewListing() {
 }
 
 function getDepthListingHelper(
-  sectionId: string,
+  section: SectionCore,
+  sectionImpl: SectionImplUnion,
   depth: number,
   x: ZustandProjectState,
-  outputList,
+  outputList: Array<OverviewListingType>,
 ) {
-  const section = x.sections[sectionId];
-  if (section.visibility[x.projectConfig.viewingEditingMode])
+  if (sectionImpl.visibility[x.projectConfig.viewingEditingMode])
     outputList.push({
-      id: sectionId,
+      id: section.id,
       name: section.name,
       depth: depth,
     });
 
-  const { variantId } = getCurrentSectionConfigs(x)[section.id];
-  const children = x.variants[variantId].children;
-  if (children) {
-    for (const childId of children) {
-      getDepthListingHelper(childId, depth + 1, x, outputList);
+  if (isBaseParentSectionImpl(sectionImpl)) {
+    for (const childId of sectionImpl.children) {
+      const childSection = x.sections[childId];
+      const childSectionImpl = getSectionImpl(x, childId);
+      if (childSection) {
+        getDepthListingHelper(
+          childSection,
+          childSectionImpl,
+          depth + 1,
+          x,
+          outputList,
+        );
+      }
     }
   }
 }

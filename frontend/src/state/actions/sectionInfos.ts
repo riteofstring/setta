@@ -63,7 +63,7 @@ export function getSectionImpl(
   p: ZustandProjectState,
   sectionId: string | null = null,
   sectionImpl: SectionImplUnion | null = null,
-) {
+): SectionImplUnion {
   if (sectionImpl === null) {
     if (sectionId === null) {
       throw new Error("Either section_id or section_impl must be provided");

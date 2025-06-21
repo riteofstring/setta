@@ -3,7 +3,7 @@ import _ from "lodash";
 import React from "react";
 import { useProjectState } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
-import { useMatchSorterFilter } from "state/hooks/utils";
+import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
@@ -15,7 +15,7 @@ function _QuickInfoConfig({ sectionId }) {
 export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
 function QuickInfoConfigCore({ sectionId, paramInfos }) {
-  const [filteredList, setFilter] = useMatchSorterFilter(
+  const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
     ["name"],
     50,

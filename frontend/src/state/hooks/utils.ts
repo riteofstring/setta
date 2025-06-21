@@ -1,26 +1,34 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { res200 } from "utils/endpointUtils";
 import { route_check_if_file_exists } from "utils/generatedEndpoints";
 import { asyncDebounce } from "utils/utils";
 
-export function useMatchSorterFilter(completeList, keys, delay) {
+export function useMatchSorterFilter<T>(
+  completeList: Array<T>,
+  keys: Array<string>,
+) {
   const [filter, setFilter] = useState("");
-
-  const setFilterWithDelay = useCallback(
-    _.debounce((x) => setFilter(x), delay),
-    [delay],
-  );
 
   const filteredList = filter
     ? matchSorter(completeList, filter, { keys })
     : completeList;
 
-  if (delay) {
-    return [filteredList, setFilterWithDelay];
-  }
-  return [filteredList, setFilter];
+  return [filteredList, setFilter] as const;
+}
+
+export function useMatchSorterFilterWithDelay<T>(
+  completeList: Array<T>,
+  keys: Array<string>,
+  delay: number,
+) {
+  const [filteredList, setFilter] = useMatchSorterFilter(completeList, keys);
+  const setFilterWithDelay = useMemo(
+    () => _.debounce((x) => setFilter(x), delay),
+    [delay],
+  );
+  return [filteredList, setFilterWithDelay] as const;
 }
 
 export function useWindowSize() {

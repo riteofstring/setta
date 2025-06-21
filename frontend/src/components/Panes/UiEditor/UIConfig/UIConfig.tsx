@@ -6,7 +6,7 @@ import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useProjectState } from "state/definitions";
 import { useParamInfosForSidePane } from "state/hooks/sectionContents";
 import { getParamUIType } from "state/hooks/uiTypes";
-import { useMatchSorterFilter } from "state/hooks/utils";
+import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -20,7 +20,7 @@ function _UIConfig({ sectionId }) {
 export const UIConfig = React.memo(_UIConfig);
 
 function UIConfigCore({ sectionId, paramInfos }) {
-  const [filteredList, setFilter] = useMatchSorterFilter(
+  const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
     ["name"],
     50,
