@@ -6,7 +6,13 @@ import { useReactFlow } from "../store";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
 
-const FlowRenderer = ({ children, wrapperDimensions }) => {
+const FlowRenderer = ({
+  children,
+  wrapperDimensions,
+}: {
+  children: React.ReactNode;
+  wrapperDimensions: { width: number; height: number };
+}) => {
   const {
     panActivationKeyPressed,
     zoomActivationKeyPressed,

@@ -14,7 +14,7 @@ import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
-import { InputArea } from "../Layouts/InputArea";
+import { CallableArea } from "../Layouts/InputArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -66,23 +66,16 @@ export function SectionContainerCoreResizable({
           sectionId={sectionId}
           sectionTypeName={sectionTypeName}
           bgColor={bgColor}
-          isUserView={isUserView}
         />
       )}
     </CustomResizable>
   );
 }
 
-function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
+function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
   switch (sectionTypeName) {
     case SectionTypeEnum.Callable:
-      return (
-        <InputArea
-          sectionId={sectionId}
-          bgColor={bgColor}
-          isUserView={isUserView}
-        />
-      );
+      return <CallableArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Dict:
       return <DictArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Image:
@@ -96,13 +89,7 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor, isUserView }) {
     case SectionTypeEnum.TextBlock:
       return <TextBlock sectionId={sectionId} />;
     case SectionTypeEnum.GlobalVariables:
-      return (
-        <GlobalVariablesArea
-          sectionId={sectionId}
-          bgColor={bgColor}
-          isUserView={isUserView}
-        />
-      );
+      return <GlobalVariablesArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Code:
       return <CodeArea sectionId={sectionId} />;
     case SectionTypeEnum.GenPythonCode:

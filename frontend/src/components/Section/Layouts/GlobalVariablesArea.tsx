@@ -4,7 +4,7 @@ import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
-function _GlobalVariablesArea({ sectionId, bgColor, isUserView }) {
+function _GlobalVariablesArea({ sectionId, bgColor }) {
   const showYaml = useShowYaml(sectionId);
 
   return !showYaml ? (

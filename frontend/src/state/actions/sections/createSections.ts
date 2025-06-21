@@ -6,6 +6,14 @@ import {
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
+import {
+  BaseSectionImplUnion,
+  createBaseSectionImplUnionWithDiscriminator,
+  createSectionCore,
+  createSectionImplLayering,
+  createTopLevelSectionLayout,
+  Position,
+} from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
@@ -178,4 +186,39 @@ export function createSectionInfo({
   }
 
   return newIds;
+}
+
+export function createSection(
+  sectionProps: Partial<BaseSectionImplUnion>,
+  position: Position,
+) {
+  const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
+    ...sectionProps,
+  });
+  const sectionImplLayering = createSectionImplLayering({
+    impl: sectionImpl.id,
+  });
+  const section = createSectionCore({
+    implLayerings: [sectionImplLayering.id],
+    defaultImplLayering: sectionImplLayering.id,
+  });
+  const topLevelSectionLayout = createTopLevelSectionLayout(position);
+
+  useProjectState.setState((state) => {
+    state.projectConfig.sectionImplLayeringMap[section.id] =
+      sectionImplLayering.id;
+    state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
+    state.sections[section.id] = section;
+    state.sectionImpls[sectionImpl.id] = sectionImpl;
+    state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
+  });
+  addNodes([
+    {
+      id: section.id,
+      position,
+      zIndex: 0,
+      tempZIndex: 0,
+      visibility: true,
+    },
+  ]);
 }

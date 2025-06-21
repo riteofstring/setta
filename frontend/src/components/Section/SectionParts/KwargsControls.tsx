@@ -10,7 +10,6 @@ import {
 import { getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState, useSettings } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
@@ -19,7 +18,8 @@ export function KwargsControls({
   objInfoId,
   bgColor = "bg-transparent",
 }) {
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = false;
 
   const onClickAddKwarg = onClickAddKwargFn(sectionId, objInfoId);
   const onClickDeleteKwarg = onClickDeleteKwargFn(sectionId, objInfoId);

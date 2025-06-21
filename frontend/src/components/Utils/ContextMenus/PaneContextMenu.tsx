@@ -2,18 +2,12 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { addNodes } from "state/actions/nodeInternals";
+import { createSection } from "state/actions/sections/createSections";
 import {
   CreateSectionsContextMenuInfo,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
-import { useContextMenus, useProjectState } from "state/definitions";
-import {
-  createBaseSectionImplUnionWithDiscriminator,
-  createSectionCore,
-  createSectionImplLayering,
-  createTopLevelSectionLayout,
-} from "utils/generatedTypes";
+import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -22,35 +16,7 @@ export function PaneContextMenu() {
   function onClick(
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
-    const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
-      ...specificProps,
-    });
-    const sectionImplLayering = createSectionImplLayering({
-      impl: sectionImpl.id,
-    });
-    const section = createSectionCore({
-      implLayerings: [sectionImplLayering.id],
-      defaultImplLayering: sectionImplLayering.id,
-    });
-    const topLevelSectionLayout = createTopLevelSectionLayout({ x, y });
-
-    useProjectState.setState((state) => {
-      state.projectConfig.sectionImplLayeringMap[section.id] =
-        sectionImplLayering.id;
-      state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
-      state.sections[section.id] = section;
-      state.sectionImpls[sectionImpl.id] = sectionImpl;
-      state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
-    });
-    addNodes([
-      {
-        id: section.id,
-        position: { x, y },
-        zIndex: 0,
-        tempZIndex: 0,
-        visibility: true,
-      },
-    ]);
+    createSection(specificProps, { x, y });
     // maybeIncrementProjectStateVersion(true);
     closeAllContextMenus();
   }

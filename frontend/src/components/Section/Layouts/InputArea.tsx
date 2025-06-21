@@ -1,47 +1,43 @@
-import { SectionYamlView } from "components/Params/YamlView";
 import _ from "lodash";
 import React from "react";
-import { getDisplayedSectionVariant } from "state/actions/sectionInfos";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useShowYaml } from "../../../state/hooks/toYaml";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
-import { SectionSearch } from "../SectionParts/Search";
 
-function _InputArea({ sectionId, bgColor, isUserView }) {
-  const { selectedItem, hideSearch, hideParams, isJsonSource } =
-    useProjectState((x) => {
-      const { selectedItem, isJsonSource } = getDisplayedSectionVariant(
-        sectionId,
-        x,
-      );
-      return {
-        selectedItem,
-        hideSearch: x.sections[sectionId].hideSearch,
-        hideParams: x.sections[sectionId].hideParams,
-        isJsonSource,
-      };
-    }, _.isEqual);
-  const showYaml = useShowYaml(sectionId);
+function _CallableArea({ sectionId, bgColor }) {
+  const { callable, hideParams } = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.Callable) {
+      throw new Error();
+    }
+    const { callable, hideParams } = impl;
+    return {
+      callable,
+      hideParams,
+    };
+  }, _.isEqual);
+  // const showYaml = useShowYaml(sectionId);
 
   return (
     <>
-      {!showYaml && !hideSearch && !isJsonSource && (
+      {/* {!showYaml && (
         <SectionSearch sectionId={sectionId} selectedItem={selectedItem} />
-      )}
-      {!showYaml && !hideParams && (
+      )} */}
+      {!hideParams && (
         <>
           <KwargsControls
             sectionId={sectionId}
-            objInfoId={selectedItem}
+            objInfoId={callable}
             bgColor={bgColor}
           />
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {!!showYaml && <SectionYamlView sectionId={sectionId} />}
+      {/* {!!showYaml && <SectionYamlView sectionId={sectionId} />} */}
     </>
   );
 }
 
-export const InputArea = React.memo(_InputArea);
+export const CallableArea = React.memo(_CallableArea);
