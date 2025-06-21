@@ -35,6 +35,7 @@ WebsocketMsgForBackendTypeSet = set(
     ["CurrentAddressUpdate", "UpdateBackendProjectState"]
 )
 
+
 WebsocketMsgForFrontendUnion = Union[
     WebsocketMsgAllConnections,
     WebsocketMsgLSPDiagnostics,

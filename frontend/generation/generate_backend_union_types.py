@@ -86,51 +86,56 @@ def code_obj_impl_union():
 
 # This function differs from the section_impl and code_obj_impl functions above
 # because all websocket msgs extend WebsocketMsg, so we differentiate based on enum alone
+def generate_websocket_union_code(
+    enum_type, direction_name, discriminator="messageType"
+):
+    enum_names = []
+    for e in enum_type:
+        # assert enum name and value are the same for simplicity
+        assert e.name == e.value
+        enum_names.append(e.name)
+
+    class_names = [f"WebsocketMsg{e}" for e in enum_names]
+    classes_str = ",".join(class_names)
+
+    imports = f"from setta.types.websocket import {classes_str}"
+
+    enum_names_quoted = [f'"{e}"' for e in enum_names]
+
+    union_code = f"""
+WebsocketMsg{direction_name}Union = Union[{classes_str}]
+
+WebsocketMsg{direction_name}UnionWithDiscriminator = Annotated[WebsocketMsg{direction_name}Union, Field(discriminator="{discriminator}")]
+
+WebsocketMsg{direction_name}TypeAdapter = TypeAdapter(WebsocketMsg{direction_name}UnionWithDiscriminator)
+
+WebsocketMsg{direction_name}TypeSet = set([{",".join(enum_names_quoted)}])
+"""
+
+    return imports, union_code, enum_names
+
+
 def websocket_msg_union():
     from setta.types.websocket import (
         WebsocketMsgTypeForBackend,
         WebsocketMsgTypeForFrontend,
     )
 
-    backend_enum_names = []
-    for e in WebsocketMsgTypeForBackend:
-        # assert enum name and value are the same for simplicity
-        assert e.name == e.value
-        backend_enum_names.append(e.name)
-
-    frontend_enum_names = []
-    for e in WebsocketMsgTypeForFrontend:
-        # assert enum name and value are the same for simplicity
-        assert e.name == e.value
-        frontend_enum_names.append(e.name)
-
-    backend_classes = ",".join([f"WebsocketMsg{e}" for e in backend_enum_names])
-    frontend_classes = ",".join([f"WebsocketMsg{e}" for e in frontend_enum_names])
-
-    backend_enum_names = [f'"{e}"' for e in backend_enum_names]
-    frontend_enum_names = [f'"{e}"' for e in frontend_enum_names]
+    # Generate code for both directions
+    backend_imports, backend_code, _ = generate_websocket_union_code(
+        WebsocketMsgTypeForBackend, "ForBackend"
+    )
+    frontend_imports, frontend_code, _ = generate_websocket_union_code(
+        WebsocketMsgTypeForFrontend, "ForFrontend"
+    )
 
     return f"""
 from typing import Annotated,Union
 from pydantic import Field, TypeAdapter
-from setta.types.websocket import {backend_classes}
-from setta.types.websocket import {frontend_classes}
-
-WebsocketMsgForBackendUnion = Union[{backend_classes}]
-
-WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
-
-WebsocketMsgForBackendTypeSet = set([{",".join(backend_enum_names)}])
-
-WebsocketMsgForFrontendUnion = Union[{frontend_classes}]
-
-WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
-
-WebsocketMsgForFrontendTypeSet = set([{",".join(frontend_enum_names)}])
+{backend_imports}
+{frontend_imports}
+{backend_code}
+{frontend_code}
 """
 
 
