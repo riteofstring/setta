@@ -12,12 +12,12 @@ import { useCreateSectionsList } from "state/actions/sections/createSectionsHelp
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
-  ProjectSearchMode,
   useProjectSearch,
   useProjectState,
   useSettings,
 } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
+import { ProjectSearchMode } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 

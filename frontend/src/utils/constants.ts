@@ -144,3 +144,9 @@ export const MODEL_GROUPS = [
     ],
   },
 ];
+
+export const ProjectSearchMode = {
+  find: "find",
+  advanced: "advanced",
+  commandPalette: "commandPalette",
+} as const;

@@ -2,6 +2,7 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
+  ProjectSearchMode,
 } from "utils/constants";
 import {
   APIKeys,
@@ -154,12 +155,6 @@ export const useArtifacts = withProjectState(
 export const useInteractiveDependencies = withProjectState(
   createWithEqualityFn(withResetFn(() => ({ dependencies: new Set() }))),
 );
-
-export const ProjectSearchMode = {
-  find: "find",
-  advanced: "advanced",
-  commandPalette: "commandPalette",
-} as const;
 
 export type ZustandProjectSearch = {
   mode: ObjectValues<typeof ProjectSearchMode>;
