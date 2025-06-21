@@ -6,12 +6,12 @@ import { getSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
+  BaseSectionImplUnion,
   isBaseParentSectionImpl,
   SectionCore,
-  SectionImplUnion,
 } from "utils/generatedTypes";
 import { ProjectName } from "./ProjectName";
-import { SectionListItems } from "./SectionListItems";
+import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
 export const ProjectOverview = React.forwardRef(() => {
   const sectionList = useOverviewListing();
@@ -56,8 +56,6 @@ function ProjectOverviewCore({
   );
 }
 
-type OverviewListingType = { id: string; name: string; depth: number };
-
 export function useOverviewListing() {
   return useProjectState((x) => {
     const outputList: Array<OverviewListingType> = [];
@@ -73,7 +71,7 @@ export function useOverviewListing() {
 
 function getDepthListingHelper(
   section: SectionCore,
-  sectionImpl: SectionImplUnion,
+  sectionImpl: BaseSectionImplUnion,
   depth: number,
   x: ZustandProjectState,
   outputList: Array<OverviewListingType>,

@@ -2,9 +2,14 @@ import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { focusOnSection } from "utils/tabbingLogic";
 
+export type OverviewListingType = { id: string; name: string; depth: number };
+
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
   checkbox = false,
+}: {
+  listOfSectionIdsAndNames: Array<OverviewListingType>;
+  checkbox?: boolean;
 }) {
   return listOfSectionIdsAndNames.map((e, idx) => (
     <SectionItem
@@ -17,7 +22,17 @@ export function SectionListItems({
   ));
 }
 
-function _SectionItem({ sectionId, sectionHeading, checkbox, depth }) {
+function _SectionItem({
+  sectionId,
+  sectionHeading,
+  checkbox,
+  depth,
+}: {
+  sectionId: string;
+  sectionHeading: string;
+  checkbox: boolean;
+  depth: number;
+}) {
   const onClick = (e) => {
     goToSection(sectionId);
     focusOnSection(e, sectionId);
