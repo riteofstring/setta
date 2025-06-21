@@ -4,17 +4,16 @@ import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
 import { GoDotFill } from "react-icons/go";
-import { IoLogoJavascript } from "react-icons/io";
 import { IoChatbox } from "react-icons/io5";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbFolderFilled } from "react-icons/tb";
-import { getSectionType } from "state/actions/sectionInfos";
+import { getSectionImpl, getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 export function HeaderIcon({
   sectionId,
@@ -136,18 +135,23 @@ function SocialIcon({ sectionId }) {
 }
 
 function CodeLanguageIcon({ sectionId, classes }) {
-  const codeLanguage = useProjectState(
-    (x) => x.sections[sectionId].codeLanguage,
-  );
-  switch (codeLanguage) {
+  const language = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.type === SectionTypeEnum.Code) {
+      return impl.codeLanguage;
+    } else if (impl.type === SectionTypeEnum.GenPythonCode) {
+      return CodeLanguageEnum.python;
+    } else {
+      throw new Error();
+    }
+  });
+  switch (language) {
     case "python":
       return <SiPython className={classes} />;
-    case "javascript":
-      return <IoLogoJavascript className={classes} />;
     case "bash":
       return <SiGnubash className={classes} />;
     default:
-      return null;
+      return language satisfies never;
   }
 }
 
