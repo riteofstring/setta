@@ -66,7 +66,7 @@ class SettingsShortcuts(BaseModel):
 
 
 class SettingsGUI(BaseModel):
-    snapGrid: list[int] = [15, 15]
+    snapGrid: tuple[int, int] = (15, 15)
     showGridLines: bool = True
     gridPattern: str = "Dots"
     gridPatternSize: int = 2

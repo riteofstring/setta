@@ -3,7 +3,12 @@ import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
-import { BackgroundVariant } from "./types";
+
+enum BackgroundVariant {
+  Lines = "lines",
+  Dots = "dots",
+  Cross = "cross",
+}
 
 function Background() {
   const offset = 2;

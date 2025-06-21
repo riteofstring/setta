@@ -3217,7 +3217,7 @@ export function createSettingsBackend(
 }
 
 export const SettingsGUISchema = z.object({
-  snapGrid: z.array(z.int()),
+  snapGrid: z.tuple([z.int(), z.int()]),
   showGridLines: z.boolean().default(true),
   gridPattern: z.string().default("Dots"),
   gridPatternSize: z.int().default(2),
