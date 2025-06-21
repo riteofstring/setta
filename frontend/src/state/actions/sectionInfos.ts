@@ -8,12 +8,11 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
+  BaseSectionImplUnion,
   CodeObjImplLayering,
   ImplLayering,
-  isBaseSectionImpl,
   ProjectStateSingleConfig,
   SectionImplLayering,
-  SectionImplUnion,
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
@@ -63,8 +62,8 @@ function getEffectiveCodeObjImpl(
 export function getSectionImpl(
   p: ZustandProjectState,
   sectionId: string | null = null,
-  sectionImpl: SectionImplUnion | null = null,
-): SectionImplUnion {
+  sectionImpl: BaseSectionImplUnion | null = null,
+) {
   if (sectionImpl === null) {
     if (sectionId === null) {
       throw new Error("Either section_id or section_impl must be provided");
@@ -204,15 +203,13 @@ export function createNodesMapFromProjectConfigChildren(
 
   for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
     const impl = getSectionImpl(p, k);
-    if (isBaseSectionImpl(impl)) {
-      nodesMap.set(k, {
-        id: k,
-        position: { x: v.x, y: v.y },
-        zIndex: v.zIndex,
-        tempZIndex: v.zIndex,
-        visibility: impl.visibility[visibilityKey],
-      });
-    }
+    nodesMap.set(k, {
+      id: k,
+      position: { x: v.x, y: v.y },
+      zIndex: v.zIndex,
+      tempZIndex: v.zIndex,
+      visibility: impl.visibility[visibilityKey],
+    });
   }
 
   return nodesMap;

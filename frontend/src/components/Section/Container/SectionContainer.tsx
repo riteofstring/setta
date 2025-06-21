@@ -1,11 +1,12 @@
 import _ from "lodash";
 import React from "react";
 import {
+  getSectionImpl,
   getSectionShouldRender,
-  getSectionType,
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
@@ -14,10 +15,11 @@ function _SectionContainer({ sectionId, isTopLevel, dragListeners }) {
   const { visibility, viewingEditingMode, isGroup } = useProjectState((x) => {
     const { visibility, viewingEditingMode } =
       getSectionViewingEditingModeVisibility(sectionId, x);
+    const impl = getSectionImpl(x, sectionId);
     return {
       visibility,
       viewingEditingMode,
-      isGroup: getSectionType(sectionId, x) === UITypeNameEnum.GROUP,
+      isGroup: impl.type === SectionTypeEnum.Group,
     };
   });
 
