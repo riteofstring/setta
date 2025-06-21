@@ -11,7 +11,7 @@ from setta.types.section_impl_modifiers import SectionImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class SectionType(Enum):
+class SectionType(str, Enum):
     Callable = "Callable"
     Dict = "Dict"
     ListRoot = "ListRoot"

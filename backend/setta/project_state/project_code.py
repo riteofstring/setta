@@ -18,7 +18,6 @@ from setta.project_state.lsp_response_handlers.completion import (
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
-    SettaProjectConfigDiagnostics,
     process_gen_code_diagnostics,
 )
 from setta.project_state.lsp_response_handlers.signatureHelp import (
@@ -34,6 +33,7 @@ from setta.types.helpers import (
     get_section_impl,
     get_section_path_full_name,
 )
+from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )

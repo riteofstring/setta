@@ -1,6 +1,6 @@
 from setta.lsp.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
-from setta.types.generated_types import (
+from setta.types.generated_websocket_type_unions import (
     WebsocketMsgForBackendTypeAdapter,
     WebsocketMsgForBackendUnion,
 )

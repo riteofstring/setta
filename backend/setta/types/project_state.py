@@ -1,14 +1,20 @@
 from enum import Enum
+from typing import Any
 
 from pydantic import (
     BaseModel,
     Field,
+    field_validator,
     model_validator,
 )
 
 from setta.database.utils import create_new_id
 from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
-from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayering
+from setta.types.generated_section_type_unions import (
+    SectionImplTypeAdapter,
+    SectionImplUnion,
+)
+from setta.types.sections import SectionCore, SectionImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -47,11 +53,26 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore] = Field(default_factory=dict)
-    sectionImpls: dict[str, BaseSectionImpl] = Field(default_factory=dict)
+    sectionImpls: dict[str, SectionImplUnion] = Field(default_factory=dict)
     sectionImplLayerings: dict[str, SectionImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
+
+    @field_validator("sectionImpls", mode="before")
+    @classmethod
+    def validate_section_impls(cls, v: Any) -> dict[str, SectionImplUnion]:
+        if not isinstance(v, dict):
+            raise ValueError("sectionImpls must be a dictionary")
+
+        validated = {}
+        for key, value in v.items():
+            if isinstance(value, SectionImplUnion):
+                validated[key] = value
+            else:
+                validated[key] = SectionImplTypeAdapter.validate_python(value)
+
+        return validated
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

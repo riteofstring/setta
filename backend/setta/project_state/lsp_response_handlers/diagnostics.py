@@ -1,32 +1,13 @@
 import re
-from dataclasses import dataclass
 from typing import Callable
 
 from lsprotocol import types as LSPTypes
-from pydantic import BaseModel
 
 from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
 from setta.types.code_objs import ParameterPassingStyle
-
-
-class SettaGenCodeDiagnostic(BaseModel):
-    sectionId: str
-    paramInfoId: str | None
-    message: str
-
-
-class SettaProjectConfigDiagnostics(BaseModel):
-    projectConfigId: str
-    diagnostics: list[SettaGenCodeDiagnostic]
-    isGenCode: bool
-
-
-@dataclass
-class SettaLSPPosition:
-    start: int
-    end: int
+from setta.types.lsp import SettaGenCodeDiagnostic, SettaLSPPosition
 
 
 def process_gen_code_diagnostics(
