@@ -6,11 +6,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getDisplayedSectionVariant,
-  getSectionImpl,
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
@@ -19,17 +15,22 @@ import {
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_code_area_completion } from "utils/generatedEndpoints";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
-  const language = useProjectState((x) => x.sections[sectionId].codeLanguage);
+  const language = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.Code) {
+      throw new Error();
+    }
+    return impl.codeLanguage;
+  });
 
   switch (language) {
     case "python":
       return <PythonCodeArea sectionId={sectionId} language={language} />;
     case "bash":
       return <BashCodeArea sectionId={sectionId} language={language} />;
-    case "javascript":
-      return <JavascriptCodeArea sectionId={sectionId} language={language} />;
   }
 }
 
@@ -50,10 +51,6 @@ function PythonCodeArea({ sectionId, language }) {
 }
 
 function BashCodeArea({ sectionId, language }) {
-  return <CoreCodeArea sectionId={sectionId} language={language} />;
-}
-
-function JavascriptCodeArea({ sectionId, language }) {
   return <CoreCodeArea sectionId={sectionId} language={language} />;
 }
 
@@ -103,9 +100,13 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.Code) {
+      throw new Error();
+    }
     return {
-      value: getDisplayedSectionVariant(sectionId, x).code,
-      variantIsFrozen: getSectionVariant(sectionId).isFrozen,
+      value: impl.code,
+      variantIsFrozen: false,
     };
   }, _.isEqual);
 
