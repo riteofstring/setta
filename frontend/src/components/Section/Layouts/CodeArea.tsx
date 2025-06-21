@@ -55,7 +55,13 @@ function BashCodeArea({ sectionId, language }) {
 }
 
 function _GenPythonCodeArea({ sectionId }) {
-  const code = useProjectState((x) => getSectionVariant(sectionId, x).code);
+  const code = useProjectState((x) => {
+    const impl = getSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.GenPythonCode) {
+      throw new Error();
+    }
+    return impl.code;
+  });
 
   return (
     <ReadOnlyCoreCodeArea sectionId={sectionId} language="python" code={code} />
