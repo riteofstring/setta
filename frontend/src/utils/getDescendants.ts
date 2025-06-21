@@ -1,5 +1,5 @@
 function _findAllDescendants(
-  allCodeObjs,
+  allCodeInfo,
   codeInfoChildren,
   codeInfoIds,
   outputCondition,
