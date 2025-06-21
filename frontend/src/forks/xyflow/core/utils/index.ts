@@ -6,26 +6,11 @@ import type {
 
 import { useLocalStorage } from "state/definitions";
 import { clamp } from "utils/utils";
-import type {
-  Box,
-  CoordinateExtent,
-  Dimensions,
-  Node,
-  Rect,
-  XYPosition,
-} from "../types";
+import type { Box, Dimensions, Node, Rect, XYPosition } from "../types";
 
 export const getDimensions = (node: HTMLDivElement): Dimensions => ({
   width: node.offsetWidth,
   height: node.offsetHeight,
-});
-
-export const clampPosition = (
-  position: XYPosition = { x: 0, y: 0 },
-  extent: CoordinateExtent,
-) => ({
-  x: clamp(position.x, extent[0][0], extent[1][0]),
-  y: clamp(position.y, extent[0][1], extent[1][1]),
 });
 
 // returns a number between 0 and 1 that represents the velocity of the movement
@@ -101,27 +86,6 @@ export const getOverlappingArea = (rectA: Rect, rectB: Rect): number => {
   );
 
   return Math.ceil(xOverlap * yOverlap);
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const isRectObject = (obj: any): obj is Rect =>
-  isNumeric(obj.width) &&
-  isNumeric(obj.height) &&
-  isNumeric(obj.x) &&
-  isNumeric(obj.y);
-
-/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-export const isNumeric = (n: any): n is number => !isNaN(n) && isFinite(n);
-
-// used for a11y key board controls for nodes and edges
-export const elementSelectionKeys = ["Enter", " ", "Escape"];
-
-export const devWarn = (id: string, message: string) => {
-  if (process.env.NODE_ENV === "development") {
-    console.warn(
-      `[React Flow]: ${message} Help: https://reactflow.dev/error#${id}`,
-    );
-  }
 };
 
 const isReactKeyboardEvent = (

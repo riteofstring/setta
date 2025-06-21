@@ -20,14 +20,15 @@ import { useMisc, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
-import type { ReactFlowProps, ReactFlowState } from "../types";
+import type { ReactFlowState } from "../types";
 import { SelectionMode } from "../types";
 import { getEventPosition } from "../utils";
 
 type PaneProps = {
   isSelecting: boolean;
   children: ReactNode;
-} & Partial<Pick<ReactFlowProps, "panOnDrag">>;
+  panOnDrag: boolean;
+};
 
 const wrapHandler = (
   handler: React.MouseEventHandler | undefined,
