@@ -37,7 +37,6 @@ export class C {
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
   static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
-  static NESTED_PARAM = "NESTED_PARAM";
   static NON_SECTION_TYPES = [
     "TEXT",
     "SLIDER",
