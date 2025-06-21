@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Literal, Sequence
 
 from anthropic.types import (
@@ -15,7 +16,10 @@ from pydantic import BaseModel, Field, field_validator
 
 from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
-ChatRole = Literal["user", "assistant"]
+
+class ChatRole(str, Enum):
+    user = "user"
+    assistant = "assistant"
 
 
 class ToolResult(BaseModel):

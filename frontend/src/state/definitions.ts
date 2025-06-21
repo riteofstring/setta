@@ -14,7 +14,7 @@ import {
   createProjectConfig,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
-  SectionImplUnionWithDiscriminator,
+  SectionImplUnion,
   SectionTypeEnum,
   SettaNotification,
   SettingsState,
@@ -80,7 +80,7 @@ export type ZustandSingletonSections = {
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
-  sectionImpls: Record<string, SectionImplUnionWithDiscriminator>;
+  sectionImpls: Record<string, SectionImplUnion>;
   sectionImplLayerings: ProjectStateSingleConfig["sectionImplLayerings"];
   codeObjs: ProjectStateSingleConfig["codeObjs"];
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];

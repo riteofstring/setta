@@ -12,7 +12,7 @@ import {
   ImplLayering,
   ProjectStateSingleConfig,
   SectionImplLayering,
-  SectionImplUnionWithDiscriminator,
+  SectionImplUnion,
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
@@ -62,7 +62,7 @@ function getEffectiveCodeObjImpl(
 export function getSectionImpl(
   p: ZustandProjectState,
   sectionId: string | null = null,
-  sectionImpl: SectionImplUnionWithDiscriminator | null = null,
+  sectionImpl: SectionImplUnion | null = null,
 ) {
   if (sectionImpl === null) {
     if (sectionId === null) {

@@ -19,6 +19,10 @@ export const ArtifactTypeEnum = {
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
+export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
+
+export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
+
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
@@ -246,10 +250,6 @@ export const JSONValueTypeSchema = z.union([
 ]);
 
 export type JSONValueType = z.infer<typeof JSONValueTypeSchema>;
-
-export const ChatRoleSchema = z.literal(["user", "assistant"]);
-
-export type ChatRole = z.infer<typeof ChatRoleSchema>;
 
 export const CitationCharLocationSchema = z.object({
   cited_text: z.string(),
@@ -575,7 +575,7 @@ export function createToolResult(
 
 export const ChatMessageSchema = z.object({
   id: z.string(),
-  role: z.literal(["user", "assistant"]),
+  role: z.enum(ChatRoleEnum),
   content: z.array(
     z.union([
       z.union([

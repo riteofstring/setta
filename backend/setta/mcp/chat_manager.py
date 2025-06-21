@@ -29,6 +29,7 @@ from setta.mcp.client import MCPClient
 from setta.types.chat_messages import (
     Chat,
     ChatMessage,
+    ChatRole,
     FullMessageStop,
     ToolResult,
 )
@@ -216,7 +217,7 @@ class ChatManager:
                     newer_msgs.append(
                         ChatMessage(
                             id=create_new_id(),
-                            role=C.LLM_USER_ROLE,
+                            role=ChatRole.user,
                             content=[tool_result],
                         )
                     )
@@ -241,7 +242,7 @@ class ChatManager:
                 self.current_streams[chatId].append(
                     ChatMessage(
                         id=event.message.id,
-                        role=event.message.role,
+                        role=ChatRole(event.message.role),
                         content=event.message.content,
                     )
                 )
@@ -352,7 +353,9 @@ class ChatManager:
                     c["cache_control"] = CacheControlEphemeralParam(type="ephemeral")
                     did_set_cache_control = True
                 content.append(c)
-            output_messages.append(MessageParam(role=m.role, content=reversed(content)))
+            output_messages.append(
+                MessageParam(role=m.role.value, content=reversed(content))
+            )
         output_messages.reverse()
 
         if deepThink:

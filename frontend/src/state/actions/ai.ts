@@ -10,7 +10,7 @@ import {
   route_get_uuid_mapping_for_llm,
 } from "utils/generatedEndpoints";
 import {
-  ChatRoleSchema,
+  ChatRoleEnum,
   createTextBlock,
   IDToUUIDForLLM,
 } from "utils/generatedTypes";
@@ -78,7 +78,7 @@ export async function submitMessage(message: string, deepThink) {
   // Add user message immediately for responsive UI
   const userMessage = {
     id: createNewId(),
-    role: ChatRoleSchema.parse("user"),
+    role: ChatRoleEnum.user,
     content: [createTextBlock({ text: message, type: "text" })],
   };
 
