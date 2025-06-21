@@ -9,6 +9,12 @@ class RenameRefactorMode(str, Enum):
     NEVER_RENAME = "NEVER_RENAME"
 
 
+class BackgroundVariant(str, Enum):
+    lines = "lines"
+    dots = "dots"
+    cross = "cross"
+
+
 class SettingsShortcuts(BaseModel):
     newCardShortcut: str = "N"
     newGroupShortcut: str = "G"
@@ -68,7 +74,7 @@ class SettingsShortcuts(BaseModel):
 class SettingsGUI(BaseModel):
     snapGrid: tuple[int, int] = (15, 15)
     showGridLines: bool = True
-    gridPattern: str = "Dots"
+    gridPattern: BackgroundVariant = BackgroundVariant.dots
     gridPatternSize: int = 2
     gridColor: str = "#afbacf"
     gridColorDarkMode: str = "#2b364a"

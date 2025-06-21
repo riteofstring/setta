@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, HTMLAttributes } from "react";
+import type { HTMLAttributes } from "react";
 import { FitViewOptions, PanelPosition } from "../core/types";
 
 export type ControlProps = HTMLAttributes<HTMLDivElement> & {
@@ -12,5 +12,3 @@ export type ControlProps = HTMLAttributes<HTMLDivElement> & {
   onInteractiveChange?: (interactiveStatus: boolean) => void;
   position?: PanelPosition;
 };
-
-export type ControlButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;

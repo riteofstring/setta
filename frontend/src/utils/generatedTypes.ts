@@ -280,6 +280,14 @@ export const SizeEnum = { auto: "auto" } as const;
 
 export type Size = ObjectValues<typeof SizeEnum>;
 
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+
+export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
+
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
   ALWAYS_RENAME: "ALWAYS_RENAME",
@@ -3219,7 +3227,9 @@ export function createSettingsBackend(
 export const SettingsGUISchema = z.object({
   snapGrid: z.tuple([z.int(), z.int()]),
   showGridLines: z.boolean().default(true),
-  gridPattern: z.string().default("Dots"),
+  gridPattern: z
+    .enum(BackgroundVariantEnum)
+    .default(BackgroundVariantEnum.dots),
   gridPatternSize: z.int().default(2),
   gridColor: z.string().default("#afbacf"),
   gridColorDarkMode: z.string().default("#2b364a"),

@@ -60,11 +60,11 @@ const Controls: FC<PropsWithChildren<ControlProps>> = () => {
   }
 
   const onZoomInHandler = () => {
-    zoomIn();
+    zoomIn({});
   };
 
   const onZoomOutHandler = () => {
-    zoomOut();
+    zoomOut({});
   };
 
   return (

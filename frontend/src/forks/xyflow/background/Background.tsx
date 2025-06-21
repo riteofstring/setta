@@ -1,14 +1,9 @@
 import { memo, useRef } from "react";
 import { useLocalStorage, useSettings } from "state/definitions";
+import { BackgroundVariantEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { useReactFlow } from "../core/store";
 import { DotPattern, LinePattern } from "./Patterns";
-
-enum BackgroundVariant {
-  Lines = "lines",
-  Dots = "dots",
-  Cross = "cross",
-}
 
 function Background() {
   const offset = 2;
@@ -18,11 +13,11 @@ function Background() {
   );
   const patternSize = useSettings((x) => x.gui.gridPatternSize);
   const gapXY: [number, number] = useSettings((x) => x.gui.snapGrid);
-  const variant = useSettings((x) => BackgroundVariant[x.gui.gridPattern]);
+  const variant = useSettings((x) => x.gui.gridPattern);
   const ref = useRef<SVGSVGElement>(null);
 
-  const isDots = variant === BackgroundVariant.Dots;
-  const isCross = variant === BackgroundVariant.Cross;
+  const isDots = variant === BackgroundVariantEnum.dots;
+  const isCross = variant === BackgroundVariantEnum.cross;
 
   return (
     <svg
@@ -61,7 +56,21 @@ Background.displayName = "Background";
 export default memo(Background);
 
 const BackgroundCore = memo(
-  ({ offset, gapXY, patternColor, patternSize, isCross, isDots }) => {
+  ({
+    offset,
+    gapXY,
+    patternColor,
+    patternSize,
+    isCross,
+    isDots,
+  }: {
+    offset: number;
+    gapXY: [number, number];
+    patternColor: string;
+    patternSize: number;
+    isCross: boolean;
+    isDots: boolean;
+  }) => {
     const transform = useReactFlow((x) => x.transform, shallow);
     const scaledGap: [number, number] = [
       gapXY[0] * transform[2] || 1,
@@ -73,7 +82,7 @@ const BackgroundCore = memo(
       ? [scaledSize, scaledSize]
       : scaledGap;
 
-    const patternOffset = isDots
+    const patternOffset: [number, number] = isDots
       ? [scaledSize / offset, scaledSize / offset]
       : [patternDimensions[0] / offset, patternDimensions[1] / offset];
 
