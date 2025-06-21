@@ -12,10 +12,10 @@ import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
-const _UIConfig = React.forwardRef(({ sectionId }, ref) => {
+function _UIConfig({ sectionId }) {
   const paramInfos = useParamInfosForSidePane(sectionId);
   return <UIConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
-});
+}
 
 export const UIConfig = React.memo(_UIConfig);
 

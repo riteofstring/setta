@@ -1,12 +1,11 @@
 import _ from "lodash";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
-  INFO_CONFIG_TAB,
-  QUICKINFO_CONFIG_TAB,
-  SECTION_CONFIG_TAB,
-  SECTION_VARIANTS_TAB,
-  UI_CONFIG_TAB,
+  REQUIRED_UI_EDITOR_TABS,
+  UIEditorTabLocalStorage,
+  UIEditorTabNameEnum,
 } from "utils/constants";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -44,7 +43,7 @@ export function useIsSeriesElement(sectionId) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(
       sectionId,
-      [UITypeNameEnum.LIST_ROOT, UITypeNameEnum.DICT_ROOT],
+      [SectionTypeEnum.LIST_ROOT, SectionTypeEnum.DICT_ROOT],
       x,
     ),
   );
@@ -52,11 +51,11 @@ export function useIsSeriesElement(sectionId) {
 
 export function useIsListElement(sectionId) {
   return useProjectState((x) =>
-    getIsSeriesElementHelper(sectionId, [UITypeNameEnum.LIST_ROOT], x),
+    getIsSeriesElementHelper(sectionId, [SectionTypeEnum.LIST_ROOT], x),
   );
 }
 
-export function useUIEditorTab(sectionId) {
+export function useUIEditorTab(sectionId: string | null) {
   const _storedTab = useLocalStorage((x) => x.uiEditorTab);
   return useProjectState((x) => {
     let uiTypeName, renderMarkdown;
@@ -69,55 +68,31 @@ export function useUIEditorTab(sectionId) {
       renderMarkdown = false;
     }
 
+    const { tab, requiredTabs } = getUIEditorTab(uiTypeName, _storedTab);
+
     return {
-      ...getUIEditorTab(uiTypeName, _storedTab),
+      tab,
+      requiredTabs,
       uiTypeName,
       renderMarkdown,
     };
   }, _.isEqual);
 }
 
-function getRequiredUIEditorTabs(uiTypeName) {
-  switch (uiTypeName) {
-    case UITypeNameEnum.SECTION:
-    case UITypeNameEnum.GLOBAL_VARIABLES:
-      return [
-        // SECTION_CONFIG_TAB,
-        UI_CONFIG_TAB,
-        QUICKINFO_CONFIG_TAB,
-        SECTION_VARIANTS_TAB,
-      ];
-    case UITypeNameEnum.LIST_ROOT:
-    case UITypeNameEnum.DICT_ROOT:
-    case UITypeNameEnum.CODE:
-      return [SECTION_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case UITypeNameEnum.GEN_PYTHON_CODE:
-      return [SECTION_CONFIG_TAB];
-    case UITypeNameEnum.TEXT_BLOCK:
-      return [SECTION_CONFIG_TAB, INFO_CONFIG_TAB, SECTION_VARIANTS_TAB];
-    case UITypeNameEnum.SOCIAL:
-      return [SECTION_CONFIG_TAB];
-    case UITypeNameEnum.GROUP:
-    case UITypeNameEnum.TERMINAL:
-    case UITypeNameEnum.DRAW:
-    case UITypeNameEnum.IMAGE:
-    case UITypeNameEnum.CHART:
-      return [SECTION_CONFIG_TAB];
-    default:
-      return [
-        SECTION_CONFIG_TAB,
-        UI_CONFIG_TAB,
-        QUICKINFO_CONFIG_TAB,
-        INFO_CONFIG_TAB,
-        SECTION_VARIANTS_TAB,
-      ];
-  }
-}
-
-export function getUIEditorTab(uiTypeName, _storedTab) {
-  const requiredTabs = getRequiredUIEditorTabs(uiTypeName);
-  const storedTab = _storedTab?.[uiTypeName] ?? SECTION_CONFIG_TAB;
+export function getUIEditorTab(
+  sectionType: SectionType,
+  _storedTab: UIEditorTabLocalStorage,
+) {
+  const requiredTabs = REQUIRED_UI_EDITOR_TABS[sectionType];
+  const storedTab =
+    _storedTab?.[sectionType] ?? UIEditorTabNameEnum.SectionConfig;
   // when sectionId changes, the requiredTabs might not include the previously active tab
-  const tab = requiredTabs.includes(storedTab) ? storedTab : requiredTabs[0];
+  let tab: string | null;
+  if (requiredTabs.length > 0) {
+    // @ts-ignore
+    tab = requiredTabs.includes(storedTab) ? storedTab : null;
+  } else {
+    tab = null;
+  }
   return { tab, requiredTabs: new Set(requiredTabs) };
 }

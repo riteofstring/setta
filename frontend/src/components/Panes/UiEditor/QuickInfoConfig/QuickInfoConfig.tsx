@@ -7,10 +7,12 @@ import { useMatchSorterFilter } from "state/hooks/utils";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
-const _QuickInfoConfig = React.forwardRef(({ sectionId }, ref) => {
+function _QuickInfoConfig({ sectionId }) {
   const paramInfos = useParamInfosForSidePane(sectionId);
   return <QuickInfoConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
-});
+}
+
+export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
 function QuickInfoConfigCore({ sectionId, paramInfos }) {
   const [filteredList, setFilter] = useMatchSorterFilter(
@@ -46,8 +48,6 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
     </div>
   );
 }
-
-export const QuickInfoConfig = React.memo(_QuickInfoConfig);
 
 function _UIElement({ paramInfo }) {
   const { id, name } = paramInfo;

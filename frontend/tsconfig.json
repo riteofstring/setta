@@ -21,6 +21,7 @@
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitAny": false,
+    "noUncheckedIndexedAccess": true,
   },
   "exclude": ["node_modules", "**/node_modules/*"],
   "include": ["src"],

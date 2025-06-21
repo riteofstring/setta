@@ -3,13 +3,14 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
   ProjectSearchMode,
+  ProjectSearchModeEnum,
+  UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
   APIKeys,
   ChatMetadata,
   createProjectConfig,
   IDToUUIDForLLM,
-  ObjectValues,
   ProjectStateSingleConfig,
   SectionImplUnionWithDiscriminator,
   SectionTypeEnum,
@@ -157,7 +158,7 @@ export const useInteractiveDependencies = withProjectState(
 );
 
 export type ZustandProjectSearch = {
-  mode: ObjectValues<typeof ProjectSearchMode>;
+  mode: ProjectSearchMode;
 };
 
 export const useProjectSearch = withProjectState(
@@ -167,7 +168,7 @@ export const useProjectSearch = withProjectState(
       codeInfo: [],
       focused: {},
       lookup: new Set(),
-      mode: ProjectSearchMode.find,
+      mode: ProjectSearchModeEnum.find,
     })),
   ),
 );
@@ -310,8 +311,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
   ),
 );
 
+type ZustandLocalStorage = {
+  uiEditorTab: UIEditorTabLocalStorage;
+};
+
 export const useLocalStorage = createWithEqualityFn(
-  persist(
+  persist<ZustandLocalStorage>(
     () => ({
       snapToGrid: true,
       darkMode: true,

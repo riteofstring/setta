@@ -17,7 +17,7 @@ import {
   useSettings,
 } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
-import { ProjectSearchMode } from "utils/constants";
+import { ProjectSearchModeEnum } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
@@ -25,11 +25,11 @@ export function ProjectPageSearchBar() {
   const mode = useProjectSearch((x) => x.mode);
 
   switch (mode) {
-    case ProjectSearchMode.find:
+    case ProjectSearchModeEnum.find:
       return <ProjectPageFind />;
-    case ProjectSearchMode.advanced:
+    case ProjectSearchModeEnum.advanced:
       return <ProjectPageAdvanced />;
-    case ProjectSearchMode.commandPalette:
+    case ProjectSearchModeEnum.commandPalette:
       return <ProjectPageCommandPalette />;
     default:
       return mode satisfies never;

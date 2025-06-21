@@ -1,3 +1,5 @@
+import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
+
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
 export const OVERVIEW = "overview";
 export const UI_EDITOR = "uiEditor";
@@ -7,19 +9,70 @@ export const INITIAL_UI_EDITOR_WIDTH = 500;
 export const CLOSED_PANE_WIDTH = 50;
 export const NAVBAR_HEIGHT = 48;
 
-export const SECTION_CONFIG_TAB = "SectionConfig";
-export const QUICKINFO_CONFIG_TAB = "QuickInfoConfig";
-export const UI_CONFIG_TAB = "UIConfig";
-export const INFO_CONFIG_TAB = "InfoConfig";
-export const SECTION_VARIANTS_TAB = "SectionVariantsConfig";
+export const UIEditorTabNameEnum = {
+  SectionConfig: "SectionConfig",
+  QuickInfoConfig: "QuickInfoConfig",
+  UIConfig: "UIConfig",
+  InfoConfig: "InfoConfig",
+  SectionVariantsConfig: "SectionVariantsConfig",
+} as const;
 
-export const tabNameToPretty = {
-  [UI_CONFIG_TAB]: "Params",
-  [SECTION_CONFIG_TAB]: "Section",
-  [QUICKINFO_CONFIG_TAB]: "Quick Info",
-  [INFO_CONFIG_TAB]: "Text Editor",
-  [SECTION_VARIANTS_TAB]: "Version",
-};
+export type UIEditorTabName = ObjectValues<typeof UIEditorTabNameEnum>;
+
+export const UIEditorTabNamePrettified = {
+  [UIEditorTabNameEnum.UIConfig]: "Params",
+  [UIEditorTabNameEnum.SectionConfig]: "Section",
+  [UIEditorTabNameEnum.QuickInfoConfig]: "Quick Info",
+  [UIEditorTabNameEnum.InfoConfig]: "Text Editor",
+  [UIEditorTabNameEnum.SectionVariantsConfig]: "Version",
+} as const satisfies Record<UIEditorTabName, string>;
+
+export const REQUIRED_UI_EDITOR_TABS = {
+  [SectionTypeEnum.Callable]: [
+    UIEditorTabNameEnum.UIConfig,
+    UIEditorTabNameEnum.QuickInfoConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.Dict]: [
+    UIEditorTabNameEnum.UIConfig,
+    UIEditorTabNameEnum.QuickInfoConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.GlobalVariables]: [
+    UIEditorTabNameEnum.UIConfig,
+    UIEditorTabNameEnum.QuickInfoConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.ListRoot]: [
+    UIEditorTabNameEnum.SectionConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.DictRoot]: [
+    UIEditorTabNameEnum.SectionConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.Code]: [
+    UIEditorTabNameEnum.SectionConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.GenPythonCode]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.TextBlock]: [
+    UIEditorTabNameEnum.SectionConfig,
+    UIEditorTabNameEnum.InfoConfig,
+    UIEditorTabNameEnum.SectionVariantsConfig,
+  ],
+  [SectionTypeEnum.Social]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Group]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Terminal]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Draw]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Image]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Chart]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.IFrame]: [],
+  [SectionTypeEnum.Chat]: [],
+  [SectionTypeEnum.Browser]: [],
+} as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
+
+export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
   "bg-red-500/60 dark:bg-red-600/30",
@@ -145,8 +198,10 @@ export const MODEL_GROUPS = [
   },
 ];
 
-export const ProjectSearchMode = {
+export const ProjectSearchModeEnum = {
   find: "find",
   advanced: "advanced",
   commandPalette: "commandPalette",
 } as const;
+
+export type ProjectSearchMode = ObjectValues<typeof ProjectSearchModeEnum>;

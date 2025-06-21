@@ -13,11 +13,14 @@ import {
   QUICKINFO_CONFIG_TAB,
   SECTION_CONFIG_TAB,
   SECTION_VARIANTS_TAB,
-  tabNameToPretty,
   UI_CONFIG_TAB,
   UI_EDITOR,
+  UIEditorTabName,
+  UIEditorTabNameEnum,
+  UIEditorTabNamePrettified,
 } from "utils/constants";
 import { uiEditorPaneOnKeyDown } from "utils/tabbingLogic";
+import { shallow } from "zustand/shallow";
 import { getOnUIEditorTabClick, TabButton } from "../paneFns";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
@@ -30,10 +33,12 @@ const paneName = UI_EDITOR;
 export function UiEditor() {
   const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
   const { tab, requiredTabs, uiTypeName, renderMarkdown } = useUIEditorTab(
-    sectionIds[0],
+    sectionIds[0] ?? null,
   );
-  const vis = useLocalStorage((x) => x.uiEditorVis);
-  const width = useLocalStorage((x) => x.uiEditorWidth);
+  const { vis, width } = useLocalStorage(
+    (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
+    shallow,
+  );
   const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
   const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
 
@@ -111,8 +116,16 @@ export function UiEditor() {
   );
 }
 
-function TabsVisible({ sectionId, tab, inputTitle }) {
-  const title = inputTitle ?? tabNameToPretty[tab];
+function TabsVisible({
+  sectionId,
+  tab,
+  inputTitle,
+}: {
+  sectionId: string;
+  tab: UIEditorTabName;
+  inputTitle?: string;
+}) {
+  const title = inputTitle ?? UIEditorTabNamePrettified[tab];
   return (
     <div className="flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
@@ -123,17 +136,23 @@ function TabsVisible({ sectionId, tab, inputTitle }) {
   );
 }
 
-function TabContent({ sectionId, tab }) {
+function TabContent({
+  sectionId,
+  tab,
+}: {
+  sectionId: string;
+  tab: UIEditorTabName;
+}) {
   switch (tab) {
-    case SECTION_CONFIG_TAB:
+    case UIEditorTabNameEnum.SectionConfig:
       return <SectionConfig sectionId={sectionId} />;
-    case UI_CONFIG_TAB:
+    case UIEditorTabNameEnum.UIConfig:
       return <UIConfig sectionId={sectionId} />;
-    case QUICKINFO_CONFIG_TAB:
+    case UIEditorTabNameEnum.QuickInfoConfig:
       return <QuickInfoConfig sectionId={sectionId} />;
-    case INFO_CONFIG_TAB:
+    case UIEditorTabNameEnum.InfoConfig:
       return <MarkdownEditorInPane sectionId={sectionId} />;
-    case SECTION_VARIANTS_TAB:
+    case UIEditorTabNameEnum.SectionVariantsConfig:
       return <VersionList sectionId={sectionId} />;
   }
 }

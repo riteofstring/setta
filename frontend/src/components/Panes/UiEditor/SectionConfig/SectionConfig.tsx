@@ -10,19 +10,15 @@ import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
-const _SectionConfig = React.forwardRef(({ sectionId }, ref) => {
-  return <SectionConfigCore sectionId={sectionId} />;
-});
-
-export const SectionConfig = React.memo(_SectionConfig);
-
-function SectionConfigCore({ sectionId }) {
+function _SectionConfig({ sectionId }) {
   return (
     <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
       <SpecializedConfiguration sectionId={sectionId} />
     </div>
   );
 }
+
+export const SectionConfig = React.memo(_SectionConfig);
 
 function SpecializedConfiguration({ sectionId }) {
   const sectionType = useProjectState((x) => {
