@@ -3611,16 +3611,6 @@ export function createRunCodeRequest(
   return RunCodeRequestSchema.parse(options);
 }
 
-export const SerializeAsAnySchema = z.object({});
-
-export type SerializeAsAny = z.infer<typeof SerializeAsAnySchema>;
-
-export function createSerializeAsAny(
-  options: Partial<SerializeAsAny> = {},
-): SerializeAsAny {
-  return SerializeAsAnySchema.parse(options);
-}
-
 export const SettaLSPPositionSchema = z.object({
   start: z.int(),
   end: z.int(),

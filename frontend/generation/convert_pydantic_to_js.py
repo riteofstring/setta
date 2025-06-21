@@ -40,6 +40,8 @@ TYPE_ALIAS_EXCLUSIONS = [
     "Type",
 ]
 
+DATACLASS_EXCLUSIONS = ["SerializeAsAny"]
+
 
 def get_modules_from_package(package):
     modules = []
@@ -95,7 +97,9 @@ def get_all_pydantic_models(module):
 def get_all_dataclasses(module):
     return inspect.getmembers(
         module,
-        lambda obj: inspect.isclass(obj) and dataclasses.is_dataclass(obj),
+        lambda obj: inspect.isclass(obj)
+        and dataclasses.is_dataclass(obj)
+        and obj.__name__ not in DATACLASS_EXCLUSIONS,
     )
 
 
