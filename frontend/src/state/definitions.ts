@@ -9,6 +9,7 @@ import {
   createProjectConfig,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
+  SectionImplUnionWithDiscriminator,
   SectionTypeEnum,
   SettaNotification,
   SettingsState,
@@ -48,7 +49,7 @@ export const useContextMenus = withProjectState(
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
-  sectionImpls: ProjectStateSingleConfig["sectionImpls"];
+  sectionImpls: Record<string, SectionImplUnionWithDiscriminator>;
   sectionImplLayerings: ProjectStateSingleConfig["sectionImplLayerings"];
   codeObjs: ProjectStateSingleConfig["codeObjs"];
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];

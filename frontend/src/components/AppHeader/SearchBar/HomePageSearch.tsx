@@ -1,16 +1,17 @@
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import { useHomePageSearch } from "state/definitions";
 
 export function HomePageSearchBar() {
   const value = useHomePageSearch((x) => x.value);
+
   return (
-    <StandardSearch
-      outerClasses="self-center w-[clamp(10rem,_30vw,_15rem)]  ml-4"
-      inputStyles="flex-grow cursor-auto overflow-hidden bg-setta-100 dark:bg-setta-950 border-setta-500 hover:bg-white outline-offset-2 focus:bg-white rounded-full text-xs text-setta-900 dark:text-setta-200 focus-visible:outline outline-blue-500 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-700"
-      leftElementStyles="pl-1"
-      placeholder="Filter Project Configs"
-      value={value}
-      onChange={(e) => useHomePageSearch.setState({ value: e.target.value })}
-    />
+    <search className="nodrag relative mx-[2px] ml-4 flex w-[clamp(10rem,_30vw,_15rem)] min-w-0 items-center self-center  dark:text-setta-200">
+      <input
+        className="flex-grow cursor-auto overflow-hidden rounded-full border-setta-500 bg-setta-100 py-1 pl-7 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-white focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-700"
+        placeholder="Filter Project Configs"
+        tabIndex={0}
+        value={value}
+        onChange={(e) => useHomePageSearch.setState({ value: e.target.value })}
+      />
+    </search>
   );
 }

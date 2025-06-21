@@ -14,6 +14,7 @@ import {
   route_file_watch_gen_python_code,
   route_file_watch_list,
 } from "utils/generatedEndpoints";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
@@ -37,7 +38,7 @@ export function subscribe() {
         state.singletonSections = x;
       });
       route_file_watch_gen_python_code({
-        watch: Boolean(x[UITypeNameEnum.GEN_PYTHON_CODE]),
+        watch: Boolean(x[SectionTypeEnum.GenPythonCode]),
         projectConfigId: useProjectState.getState().projectConfig.id,
       });
     },
@@ -170,34 +171,34 @@ export function subscribe() {
 
 function singletonSectionsSubscriptionFn(state) {
   const output = {
-    [UITypeNameEnum.GLOBAL_VARIABLES]: null,
-    [UITypeNameEnum.GEN_PYTHON_CODE]: null,
+    [SectionTypeEnum.GlobalVariables]: null,
+    [SectionTypeEnum.GenPythonCode]: null,
   };
   for (const s of Object.values(state.sections)) {
     const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
-      output[UITypeNameEnum.GLOBAL_VARIABLES] &&
-      output[UITypeNameEnum.GEN_PYTHON_CODE] &&
+      output[SectionTypeEnum.GlobalVariables] &&
+      output[SectionTypeEnum.GenPythonCode] &&
       output.temporaryTerminalGroup
     ) {
       break;
     }
     if (
-      !output[UITypeNameEnum.GLOBAL_VARIABLES] &&
-      uiType === UITypeNameEnum.GLOBAL_VARIABLES
+      !output[SectionTypeEnum.GlobalVariables] &&
+      uiType === SectionTypeEnum.GlobalVariables
     ) {
-      output[UITypeNameEnum.GLOBAL_VARIABLES] = s.id;
+      output[SectionTypeEnum.GlobalVariables] = s.id;
     }
     if (
-      !output[UITypeNameEnum.GEN_PYTHON_CODE] &&
-      uiType === UITypeNameEnum.GEN_PYTHON_CODE
+      !output[SectionTypeEnum.GenPythonCode] &&
+      uiType === SectionTypeEnum.GenPythonCode
     ) {
-      output[UITypeNameEnum.GEN_PYTHON_CODE] = s.id;
+      output[SectionTypeEnum.GenPythonCode] = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (
       !output.temporaryTerminalGroup &&
-      uiType === UITypeNameEnum.GROUP &&
+      uiType === SectionTypeEnum.Group &&
       s.isTemporary
     ) {
       output.temporaryTerminalGroup = s.id;
@@ -238,9 +239,11 @@ function artifactWhoModifiedSubscriptionFn(state) {
 
 function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   const filenameSet: Set<string> = new Set();
-  for (const v of Object.values(state.variants)) {
-    if (v.isJsonSource) {
-      filenameSet.add(v.name);
+  for (const v of Object.values(state.sectionImpls)) {
+    if (v.type === SectionTypeEnum.Dict) {
+      if (v.isJsonSource) {
+        filenameSet.add(v.name);
+      }
     }
   }
   return Array.from(filenameSet);
