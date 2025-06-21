@@ -182,7 +182,9 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         # Multiple literals - use union
         literals = []
         for arg in args:
-            if isinstance(arg, str):
+            if isinstance(arg, enum.Enum):
+                literals.append(f'"{arg.value}"')
+            elif isinstance(arg, str):
                 literals.append(f'"{arg}"')
             elif isinstance(arg, bool):
                 literals.append(f"{str(arg).lower()}")
@@ -460,12 +462,6 @@ def main(output_file):
 import { createNewId as create_new_id, createRandomName as generate_memorable_string } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
 import _ from "lodash"
-import { BASE_UI_TYPES } from "utils/baseUITypes"
-
-function ui_types_default_factory(){
-    return _.cloneDeep(BASE_UI_TYPES)
-}
-
 
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;

@@ -1,5 +1,3 @@
-from setta.types.project_state import CodeInfoType
-
 # js->python conversion done by claude
 
 
