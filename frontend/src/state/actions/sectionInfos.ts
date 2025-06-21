@@ -462,19 +462,22 @@ export function getSectionVisibilityKeyForDisplay(
 }
 
 export function getAncestorSameVisibility(
-  sectionId,
+  sectionId: string,
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
-  let { parentId } = state.sections[sectionId];
+  let impl = getSectionImpl(state, sectionId);
+  let { parentId } = impl;
   const key = getSectionVisibilityKey(viewingEditingMode);
-  const targetVisibility = state.sections[sectionId].visibility[key];
+  const targetVisibility = impl.visibility[key];
 
   while (parentId) {
-    if (state.sections[parentId].visibility[key] === targetVisibility)
+    impl = getSectionImpl(state, parentId);
+    if (impl.visibility[key] === targetVisibility) {
       return true;
+    }
 
-    ({ parentId } = state.sections[parentId]);
+    ({ parentId } = impl);
   }
 
   return false;
