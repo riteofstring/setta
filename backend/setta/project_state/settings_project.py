@@ -1,6 +1,5 @@
 from setta.types.code_obj_impl_modifiers import ParamCodeObjModifier
 from setta.types.code_objs import (
-    BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     CodeObjCore,
     CodeObjImplLayering,
@@ -8,13 +7,14 @@ from setta.types.code_objs import (
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
+from setta.types.generated_code_obj_type_unions import CodeObjImplUnion
+from setta.types.generated_section_type_unions import SectionImplUnion
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
 from setta.types.sections import (
-    BaseSectionImpl,
     ConfigLanguage,
     DictSectionImpl,
     SectionCore,
@@ -130,11 +130,11 @@ def create_settings_project_state(settings_path: str):
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}
-    sectionImpls: dict[str, BaseSectionImpl] = {}
+    sectionImpls: dict[str, SectionImplUnion] = {}
     sectionImplLayerings: dict[str, SectionImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
     codeObjs: dict[str, CodeObjCore] = {}
-    codeObjImpls: dict[str, BaseCodeObjImpl] = {}
+    codeObjImpls: dict[str, CodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(

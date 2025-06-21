@@ -26,6 +26,7 @@ def section_impl_union():
     from setta.types.sections import SectionType
 
     classes = ",".join([f"{e.name}SectionImpl" for e in SectionType])
+    classes = ",".join([f"{e.name}SectionImpl" for e in SectionType])
 
     return f"""
 from typing import Annotated,Union

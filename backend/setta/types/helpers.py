@@ -7,6 +7,7 @@ from setta.types.code_objs import (
     CodeObjCore,
     CodeObjImplLayering,
 )
+from setta.types.generated_section_type_unions import SectionImplUnion
 from setta.types.impl_helpers import (
     get_effective_code_obj_impl,
     get_effective_section_impl,
@@ -131,7 +132,7 @@ def merge_single_config_into_backend(
 def get_section_impl(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     if section_impl is None:
         if section_id is None:
@@ -145,7 +146,7 @@ def get_section_impl(
 def get_section_callable(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
@@ -158,7 +159,7 @@ def get_section_callable(
 def get_section_children_ids(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseParentSectionImpl):
@@ -169,7 +170,7 @@ def get_section_children_ids(
 def get_top_level_param_ids(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ) -> list[str]:
     section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
@@ -188,7 +189,7 @@ def get_code_obj_impl_layering(
     p: ProjectStateSingleConfig,
     paramId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
@@ -202,7 +203,7 @@ def get_code_obj_impl(
     p: ProjectStateSingleConfig,
     paramId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     section_impl = get_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
@@ -218,7 +219,7 @@ def get_code_obj_children_ids(
     p: ProjectStateSingleConfig,
     paramId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: SectionImplUnion | None = None,
 ):
     code_obj_impl = get_code_obj_impl(p, paramId, section_id, section_impl)
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):

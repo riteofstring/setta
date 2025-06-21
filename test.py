@@ -25,10 +25,7 @@
 # asyncio.run(main())
 
 
-import json
-from pprint import pprint
-
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.settings_state import SettingsState
 
 # sectionImpls = SectionImplTypeAdapter.validate_python({"type": SectionType.TextBlock})
 # p = ProjectStateSingleConfig.model_validate(
@@ -60,3 +57,6 @@ pprint(p.model_dump())
 #     print(result.model_dump())
 # except Exception as e:
 #     print(f"Error: {e}")
+
+
+SettingsState()

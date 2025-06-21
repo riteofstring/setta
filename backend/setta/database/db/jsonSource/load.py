@@ -12,10 +12,12 @@ from setta.types.code_objs import (
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
+from setta.types.generated_code_obj_type_unions import CodeObjImplUnion
+from setta.types.generated_section_type_unions import SectionImplUnion
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import BaseSectionImpl, DictSectionImpl, SectionCore
+from setta.types.sections import DictSectionImpl, SectionCore
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ class ProcessedJSONObject(BaseModel):
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
-    sectionImpls: dict[str, BaseSectionImpl]
+    sectionImpls: dict[str, SectionImplUnion]
     codeObjs: dict[str, CodeObjCore]
     codeObjImpls: dict[str, BaseCodeObjImpl]
     codeObjImplLayerings: dict[str, CodeObjImplLayering]
@@ -61,7 +63,7 @@ def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: DictSectionImpl,
     codeObjs: dict[str, CodeObjCore],
-    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImpls: dict[str, CodeObjImplUnion],
     codeObjImplLayerings: dict[str, CodeObjImplLayering],
 ):
     filename = section_impl.name
