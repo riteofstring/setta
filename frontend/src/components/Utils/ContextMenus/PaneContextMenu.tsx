@@ -1,26 +1,31 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Item } from "components/Utils/atoms/dropdown/item";
-import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { addSectionAtPosition } from "state/actions/sections/createSections";
-import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useContextMenus, useProjectState } from "state/definitions";
+import {
+  CreateSectionsContextMenuInfo,
+  useCreateSectionsList,
+} from "state/actions/sections/createSectionsHelper";
+import { useContextMenus } from "state/definitions";
+import { createBaseSectionImplUnionWithDiscriminator } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
-  function onClick(specificProps) {
-    useProjectState.setState((state) => {
-      addSectionAtPosition({
-        position: screenToFlowPosition({ x, y }),
-        state,
-        ...specificProps,
-      });
-    });
-    maybeIncrementProjectStateVersion(true);
+  function onClick(
+    specificProps: CreateSectionsContextMenuInfo["specificProps"],
+  ) {
+    const section = createBaseSectionImplUnionWithDiscriminator(specificProps);
+    console.log(section);
+    // useProjectState.setState((state) => {
+    //   addSectionAtPosition({
+    //     position: screenToFlowPosition({ x, y }),
+    //     state,
+    //     ...specificProps,
+    //   });
+    // });
+    // maybeIncrementProjectStateVersion(true);
     closeAllContextMenus();
   }
 
@@ -45,7 +50,15 @@ export function PaneContextMenu() {
   );
 }
 
-function DropdownGroup({ name, items = [], onClick }) {
+function DropdownGroup({
+  name,
+  items = [],
+  onClick,
+}: {
+  name: string;
+  items: Array<CreateSectionsContextMenuInfo>;
+  onClick: (x: CreateSectionsContextMenuInfo["specificProps"]) => void;
+}) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
       <DropdownMenu.Label className="menulabel mx-2 mb-1  min-w-[100px] border-b border-setta-100 py-1 text-xs font-bold uppercase text-setta-300 dark:border-setta-700 dark:text-setta-500">

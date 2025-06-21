@@ -6,7 +6,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-type CreateSectionsContextMenuInfo = {
+export type CreateSectionsContextMenuInfo = {
   name: string;
   specificProps: Partial<BaseSectionImplUnion>;
 };
@@ -17,7 +17,7 @@ export function useCreateSectionsList() {
     _.isEqual,
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    { name: "Section", specificProps: { type: SectionTypeEnum.Callable } },
+    { name: "Callable", specificProps: { type: SectionTypeEnum.Callable } },
     { name: "List", specificProps: { type: SectionTypeEnum.ListRoot } },
     { name: "Dict", specificProps: { type: SectionTypeEnum.DictRoot } },
     { name: "Group", specificProps: { type: SectionTypeEnum.Group } },
