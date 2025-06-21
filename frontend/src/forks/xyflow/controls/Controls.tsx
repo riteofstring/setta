@@ -5,13 +5,7 @@ import {
   zoomOut,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import {
-  memo,
-  useEffect,
-  useState,
-  type FC,
-  type PropsWithChildren,
-} from "react";
+import { memo, useEffect, useState } from "react";
 import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
 import { TbArrowAutofitWidth, TbGridDots, TbZoomReset } from "react-icons/tb";
@@ -19,7 +13,6 @@ import { toggleMiniMap, toggleSnapToGrid } from "state/actions/localStorage";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
-import type { ControlProps } from "./types";
 
 function useZoomReached() {
   const { minZoom, maxZoom } = useSettings(
@@ -38,7 +31,7 @@ function useZoomReached() {
   );
 }
 
-const Controls: FC<PropsWithChildren<ControlProps>> = () => {
+const Controls = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } = useZoomReached();
   const isInteractive = useReactFlow(
