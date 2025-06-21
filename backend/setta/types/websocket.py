@@ -14,7 +14,7 @@ from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
 
 
-class WebsocketMsgTypeForFrontend(Enum):
+class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
@@ -29,12 +29,12 @@ class WebsocketMsgTypeForFrontend(Enum):
     NewTerminalCreated = "NewTerminalCreated"
 
 
-class WebsocketMsgTypeForBackend(Enum):
+class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     UpdateBackendProjectState = "UpdateBackendProjectState"
 
 
-class WebsocketConnectionType(Enum):
+class WebsocketConnectionType(str, Enum):
     CLI = "CLI"
     SERVER = "SERVER"
     PYTHON_SCRIPT = "PYTHON_SCRIPT"

@@ -8,7 +8,7 @@ from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class ParameterPassingStyle(Enum):
+class ParameterPassingStyle(str, Enum):
     DEFAULT = "DEFAULT"
     ARGS = "ARGS"
     KWARGS = "KWARGS"
@@ -28,7 +28,7 @@ class CodeObjType(str, Enum):
     NestedParam = "NestedParam"
 
 
-class ParamNameType(Enum):
+class ParamNameType(str, Enum):
     CODE = "CODE"
     TEXT = "TEXT"
 

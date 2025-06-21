@@ -22,7 +22,7 @@ from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayeri
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class ViewingEditingMode(Enum):
+class ViewingEditingMode(str, Enum):
     DEV = "DEV"
     USER = "USER"
     USER_EDIT = "USER_EDIT"

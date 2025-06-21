@@ -6,7 +6,7 @@ from pydantic import BaseModel
 JSONValueType = dict | list | str | int | float | bool | None
 
 
-class ArtifactType(Enum):
+class ArtifactType(str, Enum):
     IMG = "IMG"
     BRUSH_STROKES = "BRUSH_STROKES"
     LIST = "LIST"

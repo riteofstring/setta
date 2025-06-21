@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Route(Enum):
+class Route(str, Enum):
     PREFIX = "/api"
     SWAGGER_DOCS = "/docs"
     OPENAPI_DOCS = "/openapi.json"

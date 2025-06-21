@@ -8,7 +8,7 @@ from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
 
 
-class SettaNotificationType(Enum):
+class SettaNotificationType(str, Enum):
     success = "success"
     error = "error"
     warning = "warning"

@@ -32,16 +32,16 @@ class SectionType(str, Enum):
     Browser = "Browser"
 
 
-class Size(Enum):
+class Size(str, Enum):
     auto = "auto"
 
 
-class CodeLanguage(Enum):
+class CodeLanguage(str, Enum):
     python = "python"
     bash = "bash"
 
 
-class ConfigLanguage(Enum):
+class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
 
