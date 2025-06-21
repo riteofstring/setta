@@ -1,23 +1,33 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { removeTypeErrorsForParam } from "state/actions/typeCheck";
 import {
   useContextMenus,
   useProjectState,
   useTypeErrors,
 } from "state/definitions";
+import { BaseSectionWithParamsImplSchema } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function TypeErrorContextMenu() {
-  const { isOpen, x, y, paramInfoId } = useContextMenus(
+  const { isOpen, x, y, sectionId, paramInfoId } = useContextMenus(
     (x) => x.typeError,
     _.isEqual,
   );
 
-  const currIgnoreTypeErrors = useProjectState((x) =>
-    Boolean(x.codeInfo[paramInfoId]?.ignoreTypeErrors),
-  );
+  const currIgnoreTypeErrors = useProjectState((x) => {
+    if (!sectionId || !paramInfoId) {
+      return false;
+    }
+    const sectionImpl = getSectionImpl(x, sectionId);
+    const res = BaseSectionWithParamsImplSchema.safeParse(sectionImpl);
+    if (res.success) {
+      return Boolean(res.data.ignoreTypeErrors[paramInfoId]);
+    }
+    return false;
+  });
 
   function onClick() {
     let ignoreTypeErrors;

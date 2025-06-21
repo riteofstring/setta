@@ -39,15 +39,35 @@ export const useResizeEvent = withProjectState(
   ),
 );
 
+type ZustandContextMenu = {
+  pane: { isOpen: boolean; x: number; y: number };
+  selection: { isOpen: boolean; x: number; y: number; nodeIds: Array<string> };
+  typeError: {
+    isOpen: boolean;
+    x: number;
+    y: number;
+    sectionId: string | null;
+    paramInfoId: string | null;
+  };
+};
+
 export const useContextMenus = withProjectState(
   createWithEqualityFn(
-    withResetFn(() => ({
+    withResetFn<ZustandContextMenu>(() => ({
       pane: { isOpen: false, x: 0, y: 0 },
       selection: { isOpen: false, x: 0, y: 0, nodeIds: [] },
-      typeError: { isOpen: false, x: 0, y: 0, paramInfoId: null },
+      typeError: {
+        isOpen: false,
+        x: 0,
+        y: 0,
+        sectionId: null,
+        paramInfoId: null,
+      },
     })),
   ),
 );
+
+// useContextMenus.getState().
 
 export type ZustandSingletonSections = {
   [SectionTypeEnum.GlobalVariables]: string | null;
