@@ -26,7 +26,6 @@ import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
   getSectionImpl,
   getSectionShouldRender,
-  getSectionType,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
 
@@ -79,7 +78,7 @@ export function subscribe() {
         !configState.entryCodeBlockId ||
         !codeBlockIds.includes(configState.entryCodeBlockId)
       ) {
-        configState.entryCodeBlockId = codeBlockIds[0];
+        configState.entryCodeBlockId = codeBlockIds[0] ?? null;
       }
     });
   });
@@ -265,7 +264,7 @@ function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
-    if (getSectionType(s.id) === UITypeNameEnum.CODE) {
+    if (getSectionImpl(state, s.id).type === SectionTypeEnum.Code) {
       codeBlockIds.push(s.id);
     }
   }
