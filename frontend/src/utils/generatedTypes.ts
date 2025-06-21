@@ -1114,17 +1114,20 @@ export const CodeObjImplUnionSchema = z.union([
 
 export type CodeObjImplUnion = z.infer<typeof CodeObjImplUnionSchema>;
 
-export const CodeObjImplUnionWithDiscriminatorSchema = z.union([
-  CodeCallableCodeObjImplSchema,
-  CodeParamCodeObjImplSchema,
-  TextParamCodeObjImplSchema,
-  SliderParamCodeObjImplSchema,
-  SwitchParamCodeObjImplSchema,
-  ColorPickerParamCodeObjImplSchema,
-  DropdownParamCodeObjImplSchema,
-  PasswordParamCodeObjImplSchema,
-  NestedParamCodeObjImplSchema,
-]);
+export const CodeObjImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    CodeCallableCodeObjImplSchema,
+    CodeParamCodeObjImplSchema,
+    TextParamCodeObjImplSchema,
+    SliderParamCodeObjImplSchema,
+    SwitchParamCodeObjImplSchema,
+    ColorPickerParamCodeObjImplSchema,
+    DropdownParamCodeObjImplSchema,
+    PasswordParamCodeObjImplSchema,
+    NestedParamCodeObjImplSchema,
+  ],
+);
 
 export type CodeObjImplUnionWithDiscriminator = z.infer<
   typeof CodeObjImplUnionWithDiscriminatorSchema
@@ -1692,25 +1695,28 @@ export const SectionImplUnionSchema = z.union([
 
 export type SectionImplUnion = z.infer<typeof SectionImplUnionSchema>;
 
-export const SectionImplUnionWithDiscriminatorSchema = z.union([
-  CallableSectionImplSchema,
-  DictSectionImplSchema,
-  ListRootSectionImplSchema,
-  DictRootSectionImplSchema,
-  GroupSectionImplSchema,
-  ImageSectionImplSchema,
-  ChartSectionImplSchema,
-  DrawSectionImplSchema,
-  TextBlockSectionImplSchema,
-  SocialSectionImplSchema,
-  GlobalVariablesSectionImplSchema,
-  CodeSectionImplSchema,
-  GenPythonCodeSectionImplSchema,
-  TerminalSectionImplSchema,
-  IFrameSectionImplSchema,
-  ChatSectionImplSchema,
-  BrowserSectionImplSchema,
-]);
+export const SectionImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    CallableSectionImplSchema,
+    DictSectionImplSchema,
+    ListRootSectionImplSchema,
+    DictRootSectionImplSchema,
+    GroupSectionImplSchema,
+    ImageSectionImplSchema,
+    ChartSectionImplSchema,
+    DrawSectionImplSchema,
+    TextBlockSectionImplSchema,
+    SocialSectionImplSchema,
+    GlobalVariablesSectionImplSchema,
+    CodeSectionImplSchema,
+    GenPythonCodeSectionImplSchema,
+    TerminalSectionImplSchema,
+    IFrameSectionImplSchema,
+    ChatSectionImplSchema,
+    BrowserSectionImplSchema,
+  ],
+);
 
 export type SectionImplUnionWithDiscriminator = z.infer<
   typeof SectionImplUnionWithDiscriminatorSchema
@@ -1975,10 +1981,11 @@ export type WebsocketMsgForBackendUnion = z.infer<
   typeof WebsocketMsgForBackendUnionSchema
 >;
 
-export const WebsocketMsgForBackendUnionWithDiscriminatorSchema = z.union([
-  WebsocketMsgCurrentAddressUpdateSchema,
-  WebsocketMsgUpdateBackendProjectStateSchema,
-]);
+export const WebsocketMsgForBackendUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgCurrentAddressUpdateSchema,
+    WebsocketMsgUpdateBackendProjectStateSchema,
+  ]);
 
 export type WebsocketMsgForBackendUnionWithDiscriminator = z.infer<
   typeof WebsocketMsgForBackendUnionWithDiscriminatorSchema

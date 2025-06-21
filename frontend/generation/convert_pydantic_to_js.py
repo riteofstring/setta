@@ -25,6 +25,7 @@ import setta.routers
 import setta.types
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
+from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.utils import get_absolute_path
@@ -181,8 +182,20 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
     if origin is Annotated:
         args = get_args(python_type)
         if args:
-            # The first argument is the actual type, rest are annotations
-            return python_type_to_zod(args[0], processed_types)
+            actual_type, annotation = args
+            ts, dependent_type_defs = python_type_to_zod(actual_type, processed_types)
+            type_definitions.update(dependent_type_defs)
+            if (
+                get_origin(actual_type) is Union
+                and type(annotation) is FieldInfo
+                and annotation.discriminator
+            ):
+                ts = ts.replace("z.union(", "").replace(")", "")
+                return (
+                    f'z.discriminatedUnion("{annotation.discriminator}", {ts})',
+                    type_definitions,
+                )
+            return ts, type_definitions
         return "z.any()", type_definitions
 
     # Handle Literal types
