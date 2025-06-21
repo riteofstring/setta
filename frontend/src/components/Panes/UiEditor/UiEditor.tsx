@@ -52,31 +52,31 @@ export function UiEditor() {
       onKeyDown={uiEditorPaneOnKeyDown}
     >
       <div className="absolute right-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton
+        <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Config" })}
           icon={<MdOutlineSettingsApplications />}
         />
-        <TabButton
+        <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.UIConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
           icon={<BsCardChecklist />}
         />
-        <TabButton
+        <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.QuickInfoConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
           icon={<TbEdit />}
         />
-        <TabButton
+        <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.InfoConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Info Editing" })}
           icon={<PiCursorTextFill />}
         />
-        <TabButton
+        <TabButton<UIEditorTabName>
           tabName={UIEditorTabNameEnum.SectionVariantsConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Variants" })}

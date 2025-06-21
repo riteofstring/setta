@@ -37,6 +37,7 @@ export function Overview() {
     onTabClick: onOverviewTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
+    requiredTabs: null,
   };
 
   // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
@@ -47,49 +48,42 @@ export function Overview() {
       onKeyDown={overviewPaneOnKeyDown}
     >
       <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
-        <TabButton
-          tabName="tab1"
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
-        >
-          <i className="gg-list  !scale-100" />
-        </TabButton>
-        <TabButton
-          tabName="tab2"
+          icon={<i className="gg-list  !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectConfigs}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Config Preview" })}
-        >
-          <i className="gg-git-branch !scale-100" />
-        </TabButton>
-        <TabButton
-          tabName="tab3"
+          icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
-        >
-          <HiOutlineEye size={20} />
-        </TabButton>
-
-        <TabButton
-          tabName="tab4"
+          icon={<HiOutlineEye size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.Notifications}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Notifications" })}
-        >
-          <MdNotificationsNone size={20} />
-        </TabButton>
-        <TabButton
-          tabName="tab5"
+          icon={<MdNotificationsNone size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectAIChat}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-        >
-          <IoChatbox size={20} />
-        </TabButton>
-        <TabButton
-          tabName="tab6"
+          icon={<IoChatbox size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectAISettings}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-        >
-          <MdOutlineSmartToy size={20} />
-        </TabButton>
+          icon={<MdOutlineSmartToy size={20} />}
+        />
         <Controls />
         <a
           href="https://docs.setta.dev"

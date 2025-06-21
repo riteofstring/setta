@@ -15,18 +15,18 @@ import {
 } from "utils/constants";
 import { SectionType } from "utils/generatedTypes";
 
-type TabButtonComponentType = {
+type TabButtonComponentType<T> = {
   id?: string;
   vis: boolean;
-  selectedTabName: UIEditorTabName | null;
-  tabName: UIEditorTabName;
-  onTabClick: (x: UIEditorTabName) => void;
+  selectedTabName: T | null;
+  tabName: T;
+  onTabClick: (x: T) => void;
   className: string;
-  requiredTabs: Set<UIEditorTabName> | null;
+  requiredTabs: Set<T> | null;
   icon: React.ReactElement;
 };
 
-export function TabButton({
+export function TabButton<T>({
   id,
   vis,
   selectedTabName,
@@ -36,7 +36,7 @@ export function TabButton({
   requiredTabs,
   icon,
   ...props
-}: TabButtonComponentType) {
+}: TabButtonComponentType<T>) {
   const disabled = requiredTabs !== null && !requiredTabs.has(tabName);
   const color = getColor({
     vis,
