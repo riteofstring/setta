@@ -40,6 +40,24 @@ SectionImplTypeAdapter = TypeAdapter(SectionImplUnionWithDiscriminator)
 """
 
 
+def code_obj_impl_union():
+    from setta.types.code_objs import CodeObjType
+
+    classes = ",".join([f"{e.name}CodeObjImpl" for e in CodeObjType])
+
+    return f"""
+from typing import Annotated,Union
+from pydantic import Field, TypeAdapter
+from setta.types.code_objs import {classes}
+
+CodeObjImplUnion = Union[{classes}]
+
+CodeObjImplUnionWithDiscriminator = Annotated[CodeObjImplUnion, Field(discriminator="type")]
+
+CodeObjImplTypeAdapter = TypeAdapter(CodeObjImplUnionWithDiscriminator)
+"""
+
+
 def gen_write_format(fn, output_path):
     code = fn()
     code = ruff_format(code)
@@ -52,6 +70,9 @@ def main(output_folder):
     # order matters! (because of imports)
     gen_write_format(
         section_impl_union, output_folder / "generated_section_type_unions.py"
+    )
+    gen_write_format(
+        code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py"
     )
     gen_write_format(
         websocket_msg_union, output_folder / "generated_websocket_type_unions.py"

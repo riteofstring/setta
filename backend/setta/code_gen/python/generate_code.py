@@ -169,16 +169,16 @@ class PythonCodeGenerator:
     def get_param_value(self, node: ParamNode):
         t = node.type
         if (
-            t == CodeObjType.TEXT_PARAM
-            or t == CodeObjType.SLIDER_PARAM
-            or t == CodeObjType.DROPDOWN_PARAM
+            t == CodeObjType.TextParam
+            or t == CodeObjType.SliderParam
+            or t == CodeObjType.DropdownParam
         ):
             return node.value
-        elif t == CodeObjType.SWITCH_PARAM:
+        elif t == CodeObjType.SwitchParam:
             return "True" if node.value == "true" else "False"
-        elif t == CodeObjType.COLOR_PICKER_PARAM:
+        elif t == CodeObjType.ColorPickerParam:
             return f'"{node.value}"'
-        elif t == CodeObjType.NESTED_PARAM:
+        elif t == CodeObjType.NestedParam:
             return self.construct_dict(node.deps)
         else:
             raise ValueError

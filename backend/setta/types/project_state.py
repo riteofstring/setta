@@ -9,7 +9,11 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
+from setta.types.code_objs import CodeObjCore, CodeObjImplLayering
+from setta.types.generated_code_obj_type_unions import (
+    CodeObjImplTypeAdapter,
+    CodeObjImplUnion,
+)
 from setta.types.generated_section_type_unions import (
     SectionImplTypeAdapter,
     SectionImplUnion,
@@ -56,21 +60,36 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     sectionImpls: dict[str, SectionImplUnion] = Field(default_factory=dict)
     sectionImplLayerings: dict[str, SectionImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
-    codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
+    codeObjImpls: dict[str, CodeObjImplUnion] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
     @field_validator("sectionImpls", mode="before")
     @classmethod
-    def validate_section_impls(cls, v: Any) -> dict[str, SectionImplUnion]:
+    def validate_section_impls(cls, v: Any):
         if not isinstance(v, dict):
             raise ValueError("sectionImpls must be a dictionary")
 
-        validated = {}
+        validated: dict[str, SectionImplUnion] = {}
         for key, value in v.items():
             if isinstance(value, SectionImplUnion):
                 validated[key] = value
             else:
                 validated[key] = SectionImplTypeAdapter.validate_python(value)
+
+        return validated
+
+    @field_validator("codeObjImpls", mode="before")
+    @classmethod
+    def validate_code_obj_impls(cls, v: Any):
+        if not isinstance(v, dict):
+            raise ValueError("codeObjImpls must be a dictionary")
+
+        validated: dict[str, CodeObjImplUnion] = {}
+        for key, value in v.items():
+            if isinstance(value, CodeObjImplUnion):
+                validated[key] = value
+            else:
+                validated[key] = CodeObjImplTypeAdapter.validate_python(value)
 
         return validated
 

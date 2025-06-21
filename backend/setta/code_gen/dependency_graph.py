@@ -266,7 +266,7 @@ class DependencyGraph:
             parent_node.type == SectionType.Callable
             or parent_node.type == SectionType.DictRoot
             or parent_node.type == SectionType.Group
-            or parent_node.type == CodeObjType.NESTED_PARAM
+            or parent_node.type == CodeObjType.NestedParam
         ):
             return create_unique_name(
                 f"{parent_node.full_path_name}__{sanitize_name(name)}",

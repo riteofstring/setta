@@ -16,16 +16,16 @@ class ParameterPassingStyle(Enum):
     KEYWORD_ONLY = "KEYWORD_ONLY"
 
 
-class CodeObjType(Enum):
-    CODE_CALLABLE = "CODE_CALLABLE"
-    CODE_PARAM = "CODE_PARAM"
-    TEXT_PARAM = "TEXT_PARAM"
-    SLIDER_PARAM = "SLIDER_PARAM"
-    SWITCH_PARAM = "SWITCH_PARAM"
-    COLOR_PICKER_PARAM = "COLOR_PICKER_PARAM"
-    DROPDOWN_PARAM = "DROPDOWN_PARAM"
-    PASSWORD_PARAM = "PASSWORD_PARAM"
-    NESTED_PARAM = "NESTED_PARAM"
+class CodeObjType(str, Enum):
+    CodeCallable = "CodeCallable"
+    CodeParam = "CodeParam"
+    TextParam = "TextParam"
+    SliderParam = "SliderParam"
+    SwitchParam = "SwitchParam"
+    ColorPickerParam = "ColorPickerParam"
+    DropdownParam = "DropdownParam"
+    PasswordParam = "PasswordParam"
+    NestedParam = "NestedParam"
 
 
 class ParamNameType(Enum):
@@ -70,40 +70,40 @@ class BaseParentCodeObjImpl(BaseCodeObjImpl):
 
 
 class CodeCallableCodeObjImpl(BaseParentCodeObjImpl):
-    type: Literal[CodeObjType.CODE_CALLABLE] = CodeObjType.CODE_CALLABLE
+    type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
 
 
 class CodeParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.CODE_PARAM] = CodeObjType.CODE_PARAM
+    type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
 
 
 class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.TEXT_PARAM] = CodeObjType.TEXT_PARAM
+    type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
 
 
 class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.SLIDER_PARAM] = CodeObjType.SLIDER_PARAM
+    type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     min: int = 0
     max: int = 100
     step: int = 1
 
 
 class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.SWITCH_PARAM] = CodeObjType.SWITCH_PARAM
+    type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
 
 
 class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.COLOR_PICKER_PARAM] = CodeObjType.COLOR_PICKER_PARAM
+    type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
 
 
 class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.DROPDOWN_PARAM] = CodeObjType.DROPDOWN_PARAM
+    type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
     choices: list[str]
 
 
 class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.PASSWORD_PARAM] = CodeObjType.PASSWORD_PARAM
+    type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
 
 
 class NestedParamCodeObjImpl(BaseParamCodeObjImpl, BaseParentCodeObjImpl):
-    type: Literal[CodeObjType.NESTED_PARAM] = CodeObjType.NESTED_PARAM
+    type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam

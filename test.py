@@ -40,7 +40,10 @@ from setta.types.project_state import ProjectStateSingleConfig
 
 
 sectionImpls = {"123": {"type": "TextBlock"}}
-model_json_str = json.dumps({"projectConfig": {}, "sectionImpls": sectionImpls})
+codeObjImpls = {"456": {"type": "DropdownParam", "choices": ["dog", "cat"]}}
+model_json_str = json.dumps(
+    {"projectConfig": {}, "sectionImpls": sectionImpls, "codeObjImpls": codeObjImpls}
+)
 p = ProjectStateSingleConfig.model_validate_json(model_json_str)
 pprint(p.model_dump())
 
