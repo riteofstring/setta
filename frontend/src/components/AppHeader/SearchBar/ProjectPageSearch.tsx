@@ -1,5 +1,4 @@
 import { useOverviewListing } from "components/Panes/Overview/ProjectOverview/ProjectOverview";
-import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import {
   ComboboxItems,
   ComboboxList,
@@ -23,25 +22,17 @@ import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
 export function ProjectPageSearchBar() {
-  return (
-    <ProjectPageSearchBarWrapper>
-      <ProjectPageSearchInput />
-    </ProjectPageSearchBarWrapper>
-  );
-}
-
-function ProjectPageSearchBarWrapper({ children }) {
   const mode = useProjectSearch((x) => x.mode);
 
   switch (mode) {
     case ProjectSearchMode.find:
-      return <ProjectPageFind>{children}</ProjectPageFind>;
+      return <ProjectPageFind />;
     case ProjectSearchMode.advanced:
-      return <ProjectPageAdvanced>{children}</ProjectPageAdvanced>;
+      return <ProjectPageAdvanced />;
     case ProjectSearchMode.commandPalette:
-      return <ProjectPageCommandPalette>{children}</ProjectPageCommandPalette>;
+      return <ProjectPageCommandPalette />;
     default:
-      return null;
+      return mode satisfies never;
   }
 }
 
@@ -54,38 +45,41 @@ function ProjectPageSearchInputComponent(props, ref) {
   }, _.isEqual);
 
   return (
-    <StandardSearch
-      outerClasses="self-center w-[clamp(1rem,_30vw,_30rem)] ml-4"
-      inputStyles="flex-grow w-full cursor-auto overflow-hidden bg-setta-100 dark:bg-setta-950  hover:bg-setta-50 dark:hover:bg-setta-800/50 outline-offset-2 focus:bg-white rounded-full text-xs text-setta-900 dark:text-setta-200 focus-visible:outline outline-blue-500 pl-7 py-1 placeholder-setta-300 dark:placeholder-setta-600"
-      leftElementStyles="pl-1"
-      placeholder={`Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
-      {...props}
-      ref={ref}
-      {...getFloatingBoxHandlers({
-        content: "Search your entire project from one location.",
-      })}
-      id="ProjectPageSearchBar"
-    />
+    <search className="nodrag relative mx-[2px] ml-4 flex w-[clamp(1rem,_30vw,_30rem)] min-w-0 items-center self-center dark:text-setta-200">
+      <input
+        id="ProjectPageSearchBar"
+        className="w-full flex-grow cursor-auto overflow-hidden rounded-full bg-setta-100  py-1 pl-7 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-setta-50 focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-600 dark:hover:bg-setta-800/50"
+        placeholder={`Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
+        tabIndex={0}
+        {...getFloatingBoxHandlers({
+          content: "Search your entire project from one location.",
+        })}
+        {...props}
+        ref={ref}
+      />
+    </search>
   );
 }
 const ProjectPageSearchInput = React.forwardRef(
   ProjectPageSearchInputComponent,
 );
 
-function ProjectPageFind({ children }) {
+function ProjectPageFind() {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
     useUpdateProjectSearch();
 
-  return React.cloneElement(children, {
-    value,
-    onChange,
-    onBlur,
-    onFocus,
-    onKeyDown,
-  });
+  return (
+    <ProjectPageSearchInput
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      onFocus={onFocus}
+      onKeyDown={onKeyDown}
+    />
+  );
 }
 
-function ProjectPageAdvanced({ children }) {
+function ProjectPageAdvanced() {
   const allSections = useOverviewListing();
   const allItems = [{ group: "Sections", items: allSections }];
   function onSelectedItemChange(id) {
@@ -97,13 +91,11 @@ function ProjectPageAdvanced({ children }) {
     <ProjectPageAdvancedCore
       allItems={allItems}
       onSelectedItemChange={onSelectedItemChange}
-    >
-      {children}
-    </ProjectPageAdvancedCore>
+    />
   );
 }
 
-function ProjectPageCommandPalette({ children }) {
+function ProjectPageCommandPalette() {
   const allItems = useCreateSectionsList();
   // adds id to each item
   // TODO: make this less bad
@@ -144,13 +136,11 @@ function ProjectPageCommandPalette({ children }) {
     <ProjectPageAdvancedCore
       allItems={allItems}
       onSelectedItemChange={onSelectedItemChange}
-    >
-      {children}
-    </ProjectPageAdvancedCore>
+    />
   );
 }
 
-function ProjectPageAdvancedCore({ allItems, onSelectedItemChange, children }) {
+function ProjectPageAdvancedCore({ allItems, onSelectedItemChange }) {
   const {
     isOpen,
     filteredItems,
@@ -167,17 +157,15 @@ function ProjectPageAdvancedCore({ allItems, onSelectedItemChange, children }) {
     clearInputAfterSelection: true,
   });
 
-  const inputRef = useRef();
+  const inputRef = useRef(null);
+  const inputProps = getInputProps({
+    onKeyDown,
+    ref: inputRef,
+  });
 
   return (
     <>
-      {React.cloneElement(children, {
-        ...getInputProps({
-          onKeyDown,
-          ref: inputRef,
-        }),
-      })}
-
+      <ProjectPageSearchInputComponent {...inputProps} />
       <ComboboxList
         isOpen={isOpen}
         getMenuProps={getMenuProps}
