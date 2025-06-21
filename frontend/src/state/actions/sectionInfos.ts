@@ -77,6 +77,15 @@ export function getEffectiveSectionImpl(
   return sectionImpl;
 }
 
+export function getSectionImpl(p: ZustandProjectState, sectionId: string) {
+  const implLayering = getSectionImplLayering(p, sectionId);
+  const baseImpl = p.sectionImpls[implLayering.impl];
+  if (!baseImpl) {
+    throw new Error();
+  }
+  return baseImpl;
+}
+
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }
@@ -125,13 +134,6 @@ export function toggleSectionOrientation(sectionId) {
   useProjectState.setState((state) => {
     state.sections[sectionId].isHorizontalOrientation =
       !state.sections[sectionId].isHorizontalOrientation;
-  });
-}
-
-export function toggleSectionLock(sectionId) {
-  useProjectState.setState((state) => {
-    state.sections[sectionId].positionAndSizeLocked =
-      !state.sections[sectionId].positionAndSizeLocked;
   });
 }
 

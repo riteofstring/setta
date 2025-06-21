@@ -1,6 +1,9 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getIsUserView, getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getIsUserView,
+} from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";

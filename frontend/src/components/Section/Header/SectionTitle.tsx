@@ -1,6 +1,9 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { getEffectiveSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";

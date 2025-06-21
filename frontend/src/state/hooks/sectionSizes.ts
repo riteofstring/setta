@@ -1,7 +1,10 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { getEffectiveSectionImpl, getSectionType } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionType,
+} from "state/actions/sectionInfos";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,

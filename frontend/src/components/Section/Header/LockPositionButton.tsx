@@ -1,6 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
-import { getEffectiveSectionImpl, toggleSectionLock } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionImpl,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -9,7 +12,7 @@ export function LockPositionButton({ sectionId }) {
     const impl = getEffectiveSectionImpl(x, sectionId);
     return {
       isGroup: impl.type === SectionTypeEnum.Group,
-      positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
     };
   }, _.isEqual);
 
@@ -22,7 +25,10 @@ export function LockPositionButton({ sectionId }) {
     : "[&>i]:!scale-[.4]"; // when !isGroup
 
   function onClick() {
-    toggleSectionLock(sectionId);
+    useProjectState.setState((state) => {
+      getSectionImpl(state, sectionId).positionAndSizeLocked =
+        !positionAndSizeLocked;
+    });
   }
 
   return (

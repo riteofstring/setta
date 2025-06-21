@@ -1,7 +1,7 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  getSectionImpl,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
@@ -12,11 +12,7 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
   });
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      const baseImpl = state.sectionImpls[implLayering.impl];
-      if (baseImpl) {
-        baseImpl.isMinimized = !isMinimized;
-      }
+      getSectionImpl(state, sectionId).isMinimized = !isMinimized;
     });
   }
 

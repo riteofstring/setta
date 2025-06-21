@@ -6,7 +6,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getEffectiveSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionVariant,
+} from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {

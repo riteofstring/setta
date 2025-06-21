@@ -9,7 +9,10 @@ import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import { SiGnubash, SiPython } from "react-icons/si";
 import { TbFolderFilled } from "react-icons/tb";
-import { getEffectiveSectionImpl, getSectionType } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionType,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
