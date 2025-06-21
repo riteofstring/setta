@@ -31,6 +31,10 @@ WebsocketMsgForBackendTypeAdapter = TypeAdapter(
     WebsocketMsgForBackendUnionWithDiscriminator
 )
 
+WebsocketMsgForBackendTypeSet = set(
+    ["CurrentAddressUpdate", "UpdateBackendProjectState"]
+)
+
 WebsocketMsgForFrontendUnion = Union[
     WebsocketMsgAllConnections,
     WebsocketMsgLSPDiagnostics,
@@ -52,4 +56,21 @@ WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[
 
 WebsocketMsgForFrontendTypeAdapter = TypeAdapter(
     WebsocketMsgForFrontendUnionWithDiscriminator
+)
+
+WebsocketMsgForFrontendTypeSet = set(
+    [
+        "AllConnections",
+        "LSPDiagnostics",
+        "TerminalMetadata",
+        "AllDependencies",
+        "SpecificFileWatcherUpdate",
+        "Notification",
+        "LLMStreamingResponse",
+        "UUIDMappingForLLM",
+        "Artifact",
+        "ReturnRenameRefactorResults",
+        "UpdateFrontendProjectState",
+        "NewTerminalCreated",
+    ]
 )

@@ -56,46 +56,16 @@ from pydantic import Field, TypeAdapter
         code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
         code += f"{base_class.__name__}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
 
-        defaults = [
-            f'"{c.model_fields[discriminator].default.value}"' for c in child_classes
-        ]
+        defaults = []
+        for c in child_classes:
+            d = c.model_fields[discriminator].default
+            # assert enum name and value are the same for simplicity
+            assert d.name == d.value
+            defaults.append(f'"{d.name}"')
         defaults = ", ".join(defaults)
         code += f"{base_class.__name__}TypeSet = set([{defaults}])\n\n"
 
     return ruff_format(code)
-
-
-# def websocket_msg_union():
-#     from setta.types.websocket import (
-#         WebsocketMsgTypeForBackend,
-#         WebsocketMsgTypeForFrontend,
-#     )
-
-#     backend_classes = ",".join(
-#         [f"WebsocketMsg{e.name}" for e in WebsocketMsgTypeForBackend]
-#     )
-#     frontend_classes = ",".join(
-#         [f"WebsocketMsg{e.name}" for e in WebsocketMsgTypeForFrontend]
-#     )
-
-#     return f"""
-# from typing import Annotated,Union
-# from pydantic import Field, TypeAdapter
-# from setta.types.websocket import {backend_classes}
-# from setta.types.websocket import {frontend_classes}
-
-# WebsocketMsgForBackendUnion = Union[{backend_classes}]
-
-# WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
-
-# WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
-
-# WebsocketMsgForFrontendUnion = Union[{frontend_classes}]
-
-# WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
-
-# WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
-# """
 
 
 def section_impl_union():
@@ -114,6 +84,56 @@ def code_obj_impl_union():
     )
 
 
+# This function differs from the section_impl and code_obj_impl functions above
+# because all websocket msgs extend WebsocketMsg, so we differentiate based on enum alone
+def websocket_msg_union():
+    from setta.types.websocket import (
+        WebsocketMsgTypeForBackend,
+        WebsocketMsgTypeForFrontend,
+    )
+
+    backend_enum_names = []
+    for e in WebsocketMsgTypeForBackend:
+        # assert enum name and value are the same for simplicity
+        assert e.name == e.value
+        backend_enum_names.append(e.name)
+
+    frontend_enum_names = []
+    for e in WebsocketMsgTypeForFrontend:
+        # assert enum name and value are the same for simplicity
+        assert e.name == e.value
+        frontend_enum_names.append(e.name)
+
+    backend_classes = ",".join([f"WebsocketMsg{e}" for e in backend_enum_names])
+    frontend_classes = ",".join([f"WebsocketMsg{e}" for e in frontend_enum_names])
+
+    backend_enum_names = [f'"{e}"' for e in backend_enum_names]
+    frontend_enum_names = [f'"{e}"' for e in frontend_enum_names]
+
+    return f"""
+from typing import Annotated,Union
+from pydantic import Field, TypeAdapter
+from setta.types.websocket import {backend_classes}
+from setta.types.websocket import {frontend_classes}
+
+WebsocketMsgForBackendUnion = Union[{backend_classes}]
+
+WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
+
+WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
+
+WebsocketMsgForBackendTypeSet = set([{",".join(backend_enum_names)}])
+
+WebsocketMsgForFrontendUnion = Union[{frontend_classes}]
+
+WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
+
+WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
+
+WebsocketMsgForFrontendTypeSet = set([{",".join(frontend_enum_names)}])
+"""
+
+
 def gen_write(fn, output_path):
     code = fn()
     with open(output_path, "w") as f:
@@ -125,10 +145,10 @@ def main(output_folder):
     # order matters! (because of imports)
     gen_write(section_impl_union, output_folder / "generated_section_type_unions.py")
     gen_write(code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py")
-    # gen_write_format(
-    #     websocket_msg_union,
-    #     output_folder / "generated_websocket_type_unions.py",
-    # )
+    gen_write(
+        websocket_msg_union,
+        output_folder / "generated_websocket_type_unions.py",
+    )
 
 
 if __name__ == "__main__":

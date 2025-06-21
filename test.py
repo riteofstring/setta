@@ -99,9 +99,7 @@ def find_sub_classes(
 
 
 def construct_unions(module, base_class, discriminator):
-    base_classes = find_sub_classes(
-        module, base_class, discriminator, True
-    )
+    base_classes = find_sub_classes(module, base_class, discriminator, True)
 
     base_class_to_children = {}
     code = """
@@ -110,17 +108,16 @@ from pydantic import Field, TypeAdapter
 """
     for base_class in base_classes:
         code += f"from {module.__name__} import {base_class.__name__}\n"
-        child_classes = find_sub_classes(
-            module, base_class, discriminator, False
-        )
+        child_classes = find_sub_classes(module, base_class, discriminator, False)
         base_class_to_children[base_class] = child_classes
         for child_class in child_classes:
             code += f"from {module.__name__} import {child_class.__name__}\n"
 
-
     for base_class, child_classes in base_class_to_children.items():
         union_name = f"{base_class.__name__}Union"
-        code += f"{union_name} = Union[{', '.join(c.__name__ for c in child_classes)}]\n"
+        code += (
+            f"{union_name} = Union[{', '.join(c.__name__ for c in child_classes)}]\n"
+        )
         code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n'
         code += f"{base_class.__name__}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n"
 
@@ -134,8 +131,6 @@ from pydantic import Field, TypeAdapter
     print(code)
 
 
-
 import setta.types.sections
 
 construct_unions(setta.types.sections, setta.types.sections.BaseSectionImpl, "type")
-

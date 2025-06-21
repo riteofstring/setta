@@ -13,10 +13,10 @@ from pydantic import (
 from setta.database.utils import create_new_id
 from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
 from setta.types.generated_code_obj_type_unions import (
-    CodeObjImplTypeAdapter,
+    BaseCodeObjImplTypeAdapter,
 )
 from setta.types.generated_section_type_unions import (
-    SectionImplTypeAdapter,
+    BaseSectionImplTypeAdapter,
 )
 from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -87,11 +87,11 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
     _validate_section_impls = field_validator("sectionImpls", mode="before")(
-        dict_validator(BaseSectionImpl, SectionImplTypeAdapter, "sectionImpls")
+        dict_validator(BaseSectionImpl, BaseSectionImplTypeAdapter, "sectionImpls")
     )
 
     _validate_code_obj_impls = field_validator("codeObjImpls", mode="before")(
-        dict_validator(BaseCodeObjImpl, CodeObjImplTypeAdapter, "codeObjImpls")
+        dict_validator(BaseCodeObjImpl, BaseCodeObjImplTypeAdapter, "codeObjImpls")
     )
 
 
