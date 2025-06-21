@@ -17,7 +17,7 @@ import {
   route_load_project_config,
   route_load_settings_project,
 } from "utils/generatedEndpoints";
-import { maybeRunGuiToYamlOnAllSections } from "../guiToYaml";
+import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
@@ -40,41 +40,23 @@ export async function loadSettingsProjectConfig() {
   }
 }
 
-export async function loadProjectState({
-  projectConfig,
-  codeInfo,
-  codeInfoCols,
-  sections,
-  variants,
-  // artifactGroups,
-  uiTypes,
-  uiTypeCols,
-}) {
-  if (!projectConfig.viewport) {
+export async function loadProjectState(p: ProjectStateSingleConfig) {
+  if (!p.projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
-    const { x, y, zoom } = projectConfig.viewport;
+    const { x, y, zoom } = p.projectConfig.viewport;
     useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState({
-    projectConfig,
-    sections,
-    variants,
-    uiTypes,
-    uiTypeCols,
-    codeInfo,
-    codeInfoCols,
-    // artifactGroups,
-  });
-  useSectionColumnWidth.setState(_.mapValues(sections, (x) => x.columnWidth));
-  useNodeInternals.setState({
-    x: createNodesMapFromProjectConfigChildren(projectConfig, sections),
-  });
-  await maybeRunGuiToYamlOnAllSections();
+  useProjectState.setState(p);
+  useSectionColumnWidth.setState(_.mapValues(p.sections, (x) => x.columnWidth));
+  // useNodeInternals.setState({
+  //   x: createNodesMapFromProjectConfigChildren(p.projectConfig, p.sections),
+  // });
+  // await maybeRunGuiToYamlOnAllSections();
   maybeIncrementProjectStateVersion(true, false);
   return true;
 }

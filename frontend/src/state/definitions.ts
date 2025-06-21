@@ -49,6 +49,12 @@ export const useContextMenus = withProjectState(
   ),
 );
 
+export type ZustandSingletonSections = {
+  [SectionTypeEnum.GlobalVariables]: string | null;
+  [SectionTypeEnum.GenPythonCode]: string | null;
+  temporaryTerminalGroup: string | null;
+};
+
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
@@ -58,6 +64,7 @@ export type ZustandProjectState = {
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
   codeObjImplLayerings: ProjectStateSingleConfig["codeObjImplLayerings"];
   activeIds: Array<string>;
+  singletonSections: ZustandSingletonSections;
 };
 
 export const useProjectState = withProjectState(

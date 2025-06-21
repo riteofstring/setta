@@ -13,6 +13,7 @@ import {
   ProjectStateSingleConfig,
   SectionImplLayering,
   SectionImplUnionWithDiscriminator,
+  ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -412,7 +413,10 @@ function deleteSectionVariant(sectionId, variantId, isCurr) {
   });
 }
 
-export function getSectionShouldRender(visibility, viewingEditingMode) {
+export function getSectionShouldRender(
+  visibility: boolean,
+  viewingEditingMode: ViewingEditingMode,
+) {
   return visibility || viewingEditingMode !== ViewingEditingModeEnum.USER;
 }
 
@@ -421,22 +425,26 @@ export function getSectionViewingEditingModeVisibility(
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
+  const sectionImpl = getSectionImpl(state, sectionId);
+  const visibility =
+    sectionImpl.visibility[getSectionVisibilityKey(viewingEditingMode)];
   return {
-    visibility:
-      state.sections[sectionId].visibility[
-        getSectionVisibilityKey(viewingEditingMode)
-      ],
+    visibility,
     viewingEditingMode,
   };
 }
 
-export function getSectionVisibilityKey(viewingEditingMode) {
+export function getSectionVisibilityKey(
+  viewingEditingMode: ViewingEditingMode,
+) {
   switch (viewingEditingMode) {
     case ViewingEditingModeEnum.DEV:
     case ViewingEditingModeEnum.USER:
       return viewingEditingMode;
     case ViewingEditingModeEnum.USER_EDIT:
       return ViewingEditingModeEnum.USER;
+    default:
+      return viewingEditingMode satisfies never;
   }
 }
 

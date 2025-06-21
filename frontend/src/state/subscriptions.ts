@@ -1,4 +1,3 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
@@ -9,6 +8,7 @@ import {
   useProjectState,
   ZustandAIStore,
   ZustandProjectState,
+  ZustandSingletonSections,
 } from "state/definitions";
 import {
   route_file_watch_gen_python_code,
@@ -24,7 +24,7 @@ import {
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
-  getDisplayedSectionIdToChildren,
+  getSectionImpl,
   getSectionShouldRender,
   getSectionType,
   getSectionViewingEditingModeVisibility,
@@ -45,13 +45,13 @@ export function subscribe() {
     { equalityFn: _.isEqual },
   );
 
-  useProjectState.subscribe(
-    getDisplayedSectionIdToChildren,
-    (x) => {
-      useDndChildren.getState().update(x);
-    },
-    { equalityFn: _.isEqual },
-  );
+  // useProjectState.subscribe(
+  //   getDisplayedSectionIdToChildren,
+  //   (x) => {
+  //     useDndChildren.getState().update(x);
+  //   },
+  //   { equalityFn: _.isEqual },
+  // );
 
   useProjectState.subscribe(
     jsonFilenameSubscriptionFn,
@@ -169,13 +169,13 @@ export function subscribe() {
   );
 }
 
-function singletonSectionsSubscriptionFn(state) {
-  const output = {
+function singletonSectionsSubscriptionFn(state: ZustandProjectState) {
+  const output: ZustandSingletonSections = {
     [SectionTypeEnum.GlobalVariables]: null,
     [SectionTypeEnum.GenPythonCode]: null,
+    temporaryTerminalGroup: null,
   };
   for (const s of Object.values(state.sections)) {
-    const uiType = state.uiTypes[s.uiTypeId]?.type;
     if (
       output[SectionTypeEnum.GlobalVariables] &&
       output[SectionTypeEnum.GenPythonCode] &&
@@ -183,22 +183,25 @@ function singletonSectionsSubscriptionFn(state) {
     ) {
       break;
     }
+
+    const sectionImpl = getSectionImpl(state, s.id);
+
     if (
       !output[SectionTypeEnum.GlobalVariables] &&
-      uiType === SectionTypeEnum.GlobalVariables
+      sectionImpl.type === SectionTypeEnum.GlobalVariables
     ) {
       output[SectionTypeEnum.GlobalVariables] = s.id;
     }
     if (
       !output[SectionTypeEnum.GenPythonCode] &&
-      uiType === SectionTypeEnum.GenPythonCode
+      sectionImpl.type === SectionTypeEnum.GenPythonCode
     ) {
       output[SectionTypeEnum.GenPythonCode] = s.id;
     }
     // TODO: need better way of knowing if it's the temporaryTerminalGroup
     if (
       !output.temporaryTerminalGroup &&
-      uiType === SectionTypeEnum.Group &&
+      sectionImpl.type === SectionTypeEnum.Group &&
       s.isTemporary
     ) {
       output.temporaryTerminalGroup = s.id;
@@ -249,15 +252,12 @@ function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   return Array.from(filenameSet);
 }
 
-function topLevelSectionVisibilitySubscriptionFn(state) {
-  const output = {};
-  for (const [id, section] of Object.entries(state.sections)) {
-    if (!section.parentId) {
-      const { visibility, viewingEditingMode } =
-        getSectionViewingEditingModeVisibility(id, state);
-
-      output[id] = getSectionShouldRender(visibility, viewingEditingMode);
-    }
+function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
+  const output: Record<string, boolean> = {};
+  for (const id of Object.keys(state.projectConfig.topLevelSections)) {
+    const { visibility, viewingEditingMode } =
+      getSectionViewingEditingModeVisibility(id, state);
+    output[id] = getSectionShouldRender(visibility, viewingEditingMode);
   }
   return output;
 }
