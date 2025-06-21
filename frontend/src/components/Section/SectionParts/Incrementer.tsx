@@ -2,10 +2,10 @@ import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
 import { addChildrenToSeries } from "state/actions/sections/createSections";
 import { deleteChildrenFromSeries } from "state/actions/sections/deleteSections";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
 
 export function Incrementer({ sectionId, isRoot, popover = false }) {
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = false;
 
   const addSections = (numSections) => {
     addChildrenToSeries(isRoot, sectionId, numSections);

@@ -22,6 +22,7 @@ from setta.types.sections import (
     SectionSize,
 )
 from setta.types.settings_state import (
+    BackgroundVariant,
     SettingsBackend,
     SettingsGUI,
 )
@@ -29,7 +30,9 @@ from setta.types.settings_state import (
 
 def create_settings_code_objs(section_names):
     grid_dropdown = DropdownParamCodeObjImpl(
-        name="Grid Patterns", choices=['"Dots"', '"Lines"', '"Cross"'], isPreset=True
+        name="Grid Patterns",
+        choices=[b.value for b in BackgroundVariant],
+        isPreset=True,
     )
 
     selection_dropdown = DropdownParamCodeObjImpl(

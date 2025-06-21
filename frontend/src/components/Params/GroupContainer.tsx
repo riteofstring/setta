@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
 import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
-import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
 import {
   INFINITE_MAX_HEIGHT,
   PINNED_PARAMS_AREA_MIN_HEIGHT,
@@ -67,10 +66,13 @@ function GetPinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
-    sectionId,
-    true,
-  );
+  // const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+  //   sectionId,
+  //   true,
+  // );
+
+  const requiredParamIdsToPaths = {};
+  const topLevelParamIds = [];
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
@@ -208,10 +210,13 @@ function GetUnpinnedParamsCore({
   onResizeStart,
   setMaxNestedDepth,
 }) {
-  const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
-    sectionId,
-    false,
-  );
+  // const { requiredParamIdsToPaths, topLevelParamIds } = useParamIdsToShowInArea(
+  //   sectionId,
+  //   false,
+  // );
+
+  const requiredParamIdsToPaths = {};
+  const topLevelParamIds = [];
 
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
