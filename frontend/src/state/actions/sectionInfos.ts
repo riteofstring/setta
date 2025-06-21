@@ -10,6 +10,7 @@ import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoin
 import {
   CodeObjImplLayering,
   ImplLayering,
+  isBaseSectionImpl,
   ProjectStateSingleConfig,
   SectionImplLayering,
   SectionImplUnion,
@@ -194,23 +195,24 @@ export function updateProjectState({
 }
 
 export function createNodesMapFromProjectConfigChildren(
-  projectConfig,
-  sections,
+  p: ZustandProjectState,
 ) {
   const nodesMap = new Map();
   const visibilityKey = getSectionVisibilityKeyForDisplay(
-    projectConfig.viewingEditingMode,
+    p.projectConfig.viewingEditingMode,
   );
 
-  for (let k of Object.keys(projectConfig.children)) {
-    const v = projectConfig.children[k];
-    nodesMap.set(k, {
-      id: k,
-      position: { x: v.x, y: v.y },
-      zIndex: v.zIndex,
-      tempZIndex: v.zIndex,
-      visibility: sections[k].visibility[visibilityKey],
-    });
+  for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
+    const impl = getSectionImpl(p, k);
+    if (isBaseSectionImpl(impl)) {
+      nodesMap.set(k, {
+        id: k,
+        position: { x: v.x, y: v.y },
+        zIndex: v.zIndex,
+        tempZIndex: v.zIndex,
+        visibility: impl.visibility[visibilityKey],
+      });
+    }
   }
 
   return nodesMap;
@@ -449,7 +451,7 @@ export function getSectionVisibilityKey(
 }
 
 export function getSectionVisibilityKeyForDisplay(
-  viewingEditingMode: ViewingEditingModeEnum,
+  viewingEditingMode: ViewingEditingMode,
 ) {
   switch (viewingEditingMode) {
     case ViewingEditingModeEnum.USER:
@@ -457,6 +459,8 @@ export function getSectionVisibilityKeyForDisplay(
     case ViewingEditingModeEnum.DEV:
     case ViewingEditingModeEnum.USER_EDIT:
       return ViewingEditingModeEnum.DEV;
+    default:
+      return viewingEditingMode satisfies never;
   }
 }
 
