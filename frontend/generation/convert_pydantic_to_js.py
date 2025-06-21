@@ -485,7 +485,7 @@ import _ from "lodash"
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
-type ObjectValues<T> = T[keyof T]
+export type ObjectValues<T> = T[keyof T]
 """
     processed_types = set()
 

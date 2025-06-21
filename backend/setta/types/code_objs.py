@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
+from setta.types.impl_layering import ImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -40,9 +41,7 @@ class CodeObjCore(BaseModel):
     defaultImplLayering: str | None = None
 
 
-class CodeObjImplLayering(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    impl: str
+class CodeObjImplLayering(ImplLayering):
     modifiers: list[SerializeAsAny[BaseCodeObjImplModifier]] = Field(
         default_factory=list
     )

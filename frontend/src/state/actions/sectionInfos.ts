@@ -8,12 +8,84 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
+  CodeObjImplLayering,
+  ImplLayering,
   ProjectStateSingleConfig,
+  SectionImplLayering,
+  SectionImplUnionWithDiscriminator,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
+
+// Generic function with constraints
+function getEffectiveImpl<TImpl>(
+  implLayering: ImplLayering,
+  implDict: Record<string, TImpl>,
+): TImpl {
+  // Check if the impl exists
+  const baseImpl = implDict[implLayering.impl];
+  if (!baseImpl) {
+    throw new Error(`Implementation '${implLayering.impl}' not found`);
+  }
+
+  // Deep clone the base implementation
+  const effective = structuredClone(baseImpl);
+
+  // Apply each modifier
+  for (const x of implLayering.modifiers) {
+    if (x) {
+      // Guard against undefined/null modifiers
+      Object.assign(effective, x);
+    }
+  }
+
+  return effective;
+}
+
+function getEffectiveSectionImpl(
+  p: ZustandProjectState,
+  implLayering: SectionImplLayering,
+) {
+  return getEffectiveImpl(implLayering, p.sectionImpls);
+}
+
+function getEffectiveCodeObjImpl(
+  p: ZustandProjectState,
+  implLayering: CodeObjImplLayering,
+) {
+  return getEffectiveImpl(implLayering, p.codeObjImpls);
+}
+
+export function getSectionImpl(
+  p: ZustandProjectState,
+  sectionId: string | null = null,
+  sectionImpl: SectionImplUnionWithDiscriminator | null = null,
+) {
+  if (sectionImpl === null) {
+    if (sectionId === null) {
+      throw new Error("Either section_id or section_impl must be provided");
+    }
+
+    // Check if sectionId exists in the map
+    const implLayeringId = p.projectConfig.sectionImplLayeringMap[sectionId];
+    if (implLayeringId === undefined) {
+      throw new Error(
+        `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
+      );
+    }
+
+    // Check if implLayeringId exists in layerings
+    const implLayering = p.sectionImplLayerings[implLayeringId];
+    if (!implLayering) {
+      throw new Error(`Implementation layering '${implLayeringId}' not found`);
+    }
+
+    return getEffectiveSectionImpl(p, implLayering);
+  }
+  return sectionImpl;
+}
 
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];

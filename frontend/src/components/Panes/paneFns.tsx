@@ -12,7 +12,9 @@ import {
   SECTION_VARIANTS_TAB,
   UI_CONFIG_TAB,
   UI_EDITOR,
+  UIEditorTabName,
 } from "utils/constants";
+import { SectionType } from "utils/generatedTypes";
 
 export function TabButton({
   id,
@@ -49,7 +51,10 @@ function getColor({ vis, isCurrSelected, disabled }) {
   return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
 }
 
-function visToggle(paneName, onResizeStop) {
+function visToggle(
+  paneName,
+  onResizeStop: ((x: number) => void) | null = null,
+) {
   const vis = useLocalStorage.getState()[`${paneName}Vis`];
   const width = useLocalStorage.getState()[`${paneName}Width`];
   const newVis = !vis;
@@ -82,23 +87,22 @@ export function onOverviewResizeStop(widthDiff) {
   }
 }
 
-export function getOnUIEditorTabClick(uiTypeName) {
-  const setTab = (newTabState) => {
+export function getOnUIEditorTabClick(sectionType: SectionType) {
+  const setTab = (newTabState: UIEditorTabName) => {
     useLocalStorage.setState((state) => ({
       uiEditorTab: {
         ...state.uiEditorTab,
-        [uiTypeName]: newTabState,
+        [sectionType]: newTabState,
       },
     }));
   };
 
-  return (tabValue) => {
-    const vis = useLocalStorage.getState().uiEditorVis;
-    const storedTab = useLocalStorage.getState().uiEditorTab;
-    const { tab } = getUIEditorTab(uiTypeName, storedTab);
+  return (tabValue: UIEditorTabName) => {
+    const { uiEditorVis, uiEditorTab } = useLocalStorage.getState();
+    const { tab } = getUIEditorTab(sectionType, uiEditorTab);
     if (tab !== tabValue) {
       setTab(tabValue);
-      if (!vis) {
+      if (!uiEditorVis) {
         visToggle(UI_EDITOR);
       }
     } else {

@@ -312,7 +312,20 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
 );
 
 type ZustandLocalStorage = {
+  snapToGrid: boolean;
+  darkMode: boolean;
+  showMinimap: boolean;
+  projectConfigPreviewEnabled: boolean;
+  overviewVis: boolean;
+  overviewWidth: number;
+  overviewTrueWidth: number;
+  overviewTab: string;
+  uiEditorVis: boolean;
+  uiEditorWidth: number;
+  uiEditorTrueWidth: number;
   uiEditorTab: UIEditorTabLocalStorage;
+  showNavBarHelpMessage: boolean;
+  tooltipWidth: number;
 };
 
 export const useLocalStorage = createWithEqualityFn(

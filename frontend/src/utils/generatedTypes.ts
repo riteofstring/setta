@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
-export type ObjectValues<T> = T[keyof T];
+type ObjectValues<T> = T[keyof T];
 
 export const ArtifactTypeEnum = {
   IMG: "IMG",
@@ -2541,6 +2541,20 @@ export function createBaseParentCodeObjImpl(
   options: Partial<BaseParentCodeObjImpl> = {},
 ): BaseParentCodeObjImpl {
   return BaseParentCodeObjImplSchema.parse(options);
+}
+
+export const ImplLayeringSchema = z.object({
+  id: z.string().default(create_new_id),
+  impl: z.string(),
+  modifiers: z.array(z.any()).default([]),
+});
+
+export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
+
+export function createImplLayering(
+  options: Partial<ImplLayering> = {},
+): ImplLayering {
+  return ImplLayeringSchema.parse(options);
 }
 
 export const BaseParentSectionImplSchema = z.object({

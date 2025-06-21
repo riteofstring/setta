@@ -9,11 +9,6 @@ import { TbEdit, TbVersions } from "react-icons/tb";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
-  INFO_CONFIG_TAB,
-  QUICKINFO_CONFIG_TAB,
-  SECTION_CONFIG_TAB,
-  SECTION_VARIANTS_TAB,
-  UI_CONFIG_TAB,
   UI_EDITOR,
   UIEditorTabName,
   UIEditorTabNameEnum,
@@ -32,20 +27,20 @@ const paneName = UI_EDITOR;
 
 export function UiEditor() {
   const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
-  const { tab, requiredTabs, uiTypeName, renderMarkdown } = useUIEditorTab(
+  const { tab, requiredTabs, sectionType } = useUIEditorTab(
     sectionIds[0] ?? null,
   );
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,
   );
-  const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
-  const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
+  // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
+  // const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
 
   const commonProps = {
     vis,
     tab,
-    onTabClick: getOnUIEditorTabClick(uiTypeName),
+    onTabClick: getOnUIEditorTabClick(sectionType),
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,

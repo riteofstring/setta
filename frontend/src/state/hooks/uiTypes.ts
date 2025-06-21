@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { getSectionImpl } from "state/actions/sectionInfos";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
@@ -58,23 +59,20 @@ export function useIsListElement(sectionId) {
 export function useUIEditorTab(sectionId: string | null) {
   const _storedTab = useLocalStorage((x) => x.uiEditorTab);
   return useProjectState((x) => {
-    let uiTypeName, renderMarkdown;
-    if (sectionId) {
-      const uiTypeId = x.sections[sectionId].uiTypeId;
-      uiTypeName = x.uiTypes[uiTypeId].type;
-      renderMarkdown = x.sections[sectionId].renderMarkdown;
-    } else {
-      uiTypeName = null;
-      renderMarkdown = false;
+    if (!sectionId) {
+      return {
+        tab: null,
+        requiredTabs: new Set(),
+        sectionType: null,
+      };
     }
-
-    const { tab, requiredTabs } = getUIEditorTab(uiTypeName, _storedTab);
+    const sectionImpl = getSectionImpl(x, sectionId);
+    const { tab, requiredTabs } = getUIEditorTab(sectionImpl.type, _storedTab);
 
     return {
       tab,
       requiredTabs,
-      uiTypeName,
-      renderMarkdown,
+      sectionType: sectionImpl.type,
     };
   }, _.isEqual);
 }

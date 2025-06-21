@@ -1,4 +1,4 @@
-from typing import Generic, Protocol, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
@@ -6,6 +6,7 @@ from setta.types.code_objs import (
     BaseCodeObjImpl,
     CodeObjImplLayering,
 )
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -14,19 +15,11 @@ from setta.types.sections import (
     SectionImplLayering,
 )
 
-TModifier = TypeVar("TModifier", bound=BaseModel)
-
-
-class LayeringProtocol(Protocol, Generic[TModifier]):
-    impl: str
-    modifiers: list[TModifier]
-
-
 TImpl = TypeVar("TImpl", bound=BaseModel)
 
 
 def get_effective_impl(
-    impl_layering: LayeringProtocol[TModifier],
+    impl_layering: ImplLayering,
     impl_dict: dict[str, TImpl],
 ) -> TImpl:
     effective = impl_dict[impl_layering.impl].model_copy(deep=True)
