@@ -4,7 +4,6 @@ import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { isPreset, isUserPreset } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { UITypePresetTypeEnum } from "utils/generatedTypes";
 import { SaveLoadModal } from "../SaveLoadModal/SaveLoadModal";
 
 export function SaveUITypeConfigModal({ open, modalType }) {

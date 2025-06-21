@@ -2,7 +2,6 @@ import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { getHighestAncestor, getSectionType } from "state/actions/sectionInfos";
 import { useLocalStorage, useSectionRefs } from "state/definitions";
 import { HOME_ROUTER_PATH, pathRelativeToProject } from "./constants";
-import { UITypeNameEnum } from "./generatedTypes";
 
 export function overviewPaneOnKeyDown(e) {
   if (e.code !== "Tab" || e.shiftKey) {

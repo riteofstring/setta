@@ -8,8 +8,6 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
-  createCodeInfoCol,
-  createEVEntry,
   ProjectStateSingleConfig,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";

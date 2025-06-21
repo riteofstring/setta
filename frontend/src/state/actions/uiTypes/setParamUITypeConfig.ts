@@ -4,7 +4,6 @@ import {
 } from "state/actions/uiTypes/cloneUITypes";
 import { useProjectState } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionInfos";
 import { setParamUITypeId } from "./setParamUITypeId";

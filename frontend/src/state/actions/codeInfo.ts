@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { createCodeInfoCol } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionVariant } from "./sectionInfos";
 

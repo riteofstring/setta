@@ -1,5 +1,3 @@
-import { UITypeNameEnum, UITypePresetTypeEnum } from "utils/generatedTypes";
-
 export function getIsRoot(sectionTypeName) {
   return [
     UITypeNameEnum.LIST_ROOT,

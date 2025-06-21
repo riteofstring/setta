@@ -9,7 +9,6 @@ import {
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);

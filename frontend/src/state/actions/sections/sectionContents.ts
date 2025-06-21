@@ -1,4 +1,3 @@
-import { CodeInfoTypeEnum } from "utils/generatedTypes";
 import {
   findAllParameters,
   findAllParametersAndPathMaps,

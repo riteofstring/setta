@@ -1,5 +1,4 @@
 import { useProjectState } from "state/definitions";
-import { CodeInfoTypeEnum, createCodeInfo } from "utils/generatedTypes";
 import { findAllParametersAndPathMaps } from "utils/getDescendants";
 import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
 import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";

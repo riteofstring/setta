@@ -1,5 +1,3 @@
-import { CodeInfoTypeEnum } from "./generatedTypes";
-
 function _findAllDescendants(
   allCodeInfo,
   codeInfoChildren,

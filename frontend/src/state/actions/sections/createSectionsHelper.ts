@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function useCreateSectionsList() {
   const singletonSections = useProjectState(

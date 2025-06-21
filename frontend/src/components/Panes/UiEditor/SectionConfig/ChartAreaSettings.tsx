@@ -3,7 +3,6 @@ import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
 import { useMisc, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ChartAreaSettings({ sectionId }) {

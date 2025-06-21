@@ -14,7 +14,6 @@ import {
   route_file_watch_gen_python_code,
   route_file_watch_list,
 } from "utils/generatedEndpoints";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {

@@ -3,7 +3,6 @@ import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_sections_make_copy } from "utils/generatedEndpoints";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
 

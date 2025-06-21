@@ -1,7 +1,6 @@
 import { AvailableColors } from "components/Params/ParamUIs/ColorPickerInput";
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { LayerListAndListOfArtifacts } from "./ListOfArtifacts";
 
 export function DrawAreaSettings({ sectionId }) {

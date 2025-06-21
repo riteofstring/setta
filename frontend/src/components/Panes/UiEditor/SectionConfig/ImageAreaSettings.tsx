@@ -1,4 +1,3 @@
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { JustListOfArtifacts } from "./ListOfArtifacts";
 
 export function ImageAreaSettings({ sectionId }) {

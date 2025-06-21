@@ -6,13 +6,6 @@ import {
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
-import {
-  createSection,
-  createSectionConfig,
-  createSectionVariant,
-  UITypeNameEnum,
-} from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";

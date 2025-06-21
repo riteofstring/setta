@@ -4,7 +4,6 @@ import { getIsUserView } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { getIsYouTubeSection } from "state/hooks/social";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";

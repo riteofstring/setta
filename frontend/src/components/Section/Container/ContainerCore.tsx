@@ -4,7 +4,7 @@ import React from "react";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { UITypeNameEnum, ViewingEditingModeEnum } from "utils/generatedTypes";
+import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { sectionContainerCoreOnKeyDown } from "utils/tabbingLogic";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";

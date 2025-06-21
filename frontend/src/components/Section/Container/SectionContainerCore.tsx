@@ -3,7 +3,6 @@ import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import "./dndline.css";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { getOnSectionClick, getOutlineColor } from "./utils";

@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { getHighestAncestor, getSectionType } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";

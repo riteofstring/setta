@@ -10,7 +10,7 @@ import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
 import { res200 } from "utils/endpointUtils";
 import { route_load_artifact_from_disk } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, UITypeNameEnum } from "utils/generatedTypes";
+import { ArtifactTypeEnum } from "utils/generatedTypes";
 
 export function AddArtifactByFilepathModal() {
   const sectionId = useModal((x) => x.modalData);

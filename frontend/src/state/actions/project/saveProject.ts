@@ -18,7 +18,6 @@ import {
 import {
   ProjectStateSingleConfig,
   SettaNotificationTypeEnum,
-  UITypeNameEnum,
 } from "utils/generatedTypes";
 import { getArtifactStateForSaving } from "../artifacts";
 import { yamlToGUI } from "../guiToYaml";

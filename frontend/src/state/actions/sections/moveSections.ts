@@ -2,7 +2,6 @@ import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_sections_make_copy } from "utils/generatedEndpoints";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";

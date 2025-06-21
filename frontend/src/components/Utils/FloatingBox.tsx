@@ -9,7 +9,6 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 

@@ -8,7 +8,6 @@ import {
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;

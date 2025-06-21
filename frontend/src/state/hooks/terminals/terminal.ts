@@ -7,12 +7,11 @@ import {
 } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { BASE_UI_TYPE_IDS } from "utils/baseUITypes";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams, res200 } from "utils/endpointUtils";
 import { route_get_existing_terminals } from "utils/generatedEndpoints";
-import { RouteEnum, UITypeNameEnum } from "utils/generatedTypes";
+import { RouteEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";

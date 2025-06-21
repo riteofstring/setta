@@ -5,7 +5,6 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
-import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function SectionTitle({ sectionId, titleProps }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);

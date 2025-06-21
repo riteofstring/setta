@@ -9,7 +9,7 @@ import {
   route_load_artifacts,
   route_read_csv_base64,
 } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, UITypeNameEnum } from "utils/generatedTypes";
+import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";

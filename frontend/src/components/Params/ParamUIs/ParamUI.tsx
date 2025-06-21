@@ -9,7 +9,6 @@ import {
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";

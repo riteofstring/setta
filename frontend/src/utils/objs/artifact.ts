@@ -1,4 +1,3 @@
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 export function newLayer({ name, ...props }) {

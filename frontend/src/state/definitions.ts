@@ -9,9 +9,9 @@ import {
   createProjectConfig,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
+  SectionTypeEnum,
   SettaNotification,
   SettingsState,
-  UITypeNameEnum,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import { temporal } from "zundo";
@@ -48,11 +48,11 @@ export const useContextMenus = withProjectState(
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
-  variants: ProjectStateSingleConfig["variants"];
-  uiTypeCols: ProjectStateSingleConfig["uiTypeCols"];
-  uiTypes: ProjectStateSingleConfig["uiTypes"];
-  codeInfoCols: ProjectStateSingleConfig["codeInfoCols"];
-  codeInfo: ProjectStateSingleConfig["codeInfo"];
+  sectionImpls: ProjectStateSingleConfig["sectionImpls"];
+  sectionImplLayerings: ProjectStateSingleConfig["sectionImplLayerings"];
+  codeObjs: ProjectStateSingleConfig["codeObjs"];
+  codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
+  codeObjImplLayerings: ProjectStateSingleConfig["codeObjImplLayerings"];
   activeIds: Array<string>;
 };
 
@@ -65,15 +65,15 @@ export const useProjectState = withProjectState(
             withVersion<ZustandProjectState>({
               projectConfig: createProjectConfig(),
               sections: {},
-              variants: {},
-              uiTypeCols: {},
-              uiTypes: {},
-              codeInfoCols: {},
-              codeInfo: {},
+              sectionImpls: {},
+              sectionImplLayerings: {},
+              codeObjs: {},
+              codeObjImpls: {},
+              codeObjImplLayerings: {},
               artifactGroups: {},
               singletonSections: {
-                [UITypeNameEnum.GLOBAL_VARIABLES]: null,
-                [UITypeNameEnum.GEN_PYTHON_CODE]: null,
+                [SectionTypeEnum.GlobalVariables]: null,
+                [SectionTypeEnum.GenPythonCode]: null,
                 temporaryTerminalGroup: null,
               },
               requestRenameRefactor: false,

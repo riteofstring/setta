@@ -1,7 +1,6 @@
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
 import { route_delete_terminals } from "utils/generatedEndpoints";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,

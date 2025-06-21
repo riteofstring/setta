@@ -3,7 +3,6 @@ import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { createEVEntry } from "utils/generatedTypes";
 
 export function ClearValues({ sectionId }) {
   function onClick() {

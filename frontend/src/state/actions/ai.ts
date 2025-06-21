@@ -13,7 +13,6 @@ import {
   ChatRoleSchema,
   createTextBlock,
   IDToUUIDForLLM,
-  UITypeNameEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getSectionType, getSectionVariant } from "./sectionInfos";

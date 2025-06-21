@@ -8,7 +8,6 @@ import {
 } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { UITypePresetTypeEnum } from "utils/generatedTypes";
 import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {

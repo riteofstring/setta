@@ -1,5 +1,4 @@
 import { getSectionType } from "state/actions/sectionInfos";
-import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function getIsTwitterSection(sectionId, state) {
   return (

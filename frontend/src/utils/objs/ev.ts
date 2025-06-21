@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 export function getValueForUIType({ uiType, currValue }) {

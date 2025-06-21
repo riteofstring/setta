@@ -2,7 +2,6 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";

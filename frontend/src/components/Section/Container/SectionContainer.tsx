@@ -6,7 +6,6 @@ import {
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { UITypeNameEnum } from "utils/generatedTypes";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";

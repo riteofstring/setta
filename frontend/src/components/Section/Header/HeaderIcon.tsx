@@ -14,7 +14,6 @@ import { getSectionType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { UITypeNameEnum } from "utils/generatedTypes";
 
 export function HeaderIcon({
   sectionId,
