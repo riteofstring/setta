@@ -25,10 +25,9 @@
 # asyncio.run(main())
 
 
-import json
 from pprint import pprint
 
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.project_state.settings_project import create_settings_project_state
 
 # sectionImpls = SectionImplTypeAdapter.validate_python({"type": SectionType.TextBlock})
 # p = ProjectStateSingleConfig.model_validate(
@@ -39,13 +38,13 @@ from setta.types.project_state import ProjectStateSingleConfig
 # pprint(sectionImpls.model_dump())
 
 
-sectionImpls = {"123": {"type": "TextBlock"}}
-codeObjImpls = {"456": {"type": "DropdownParam", "choices": ["dog", "cat"]}}
-model_json_str = json.dumps(
-    {"projectConfig": {}, "sectionImpls": sectionImpls, "codeObjImpls": codeObjImpls}
-)
-p = ProjectStateSingleConfig.model_validate_json(model_json_str)
-pprint(p.model_dump())
+# sectionImpls = {"123": {"type": "TextBlock"}}
+# codeObjImpls = {"456": {"type": "DropdownParam", "choices": ["dog", "cat"]}}
+# model_json_str = json.dumps(
+#     {"projectConfig": {}, "sectionImpls": sectionImpls, "codeObjImpls": codeObjImpls}
+# )
+# p = ProjectStateSingleConfig.model_validate_json(model_json_str)
+# pprint(p.model_dump())
 
 # # First, let's test the TypeAdapter directly to see what's happening
 # test_data = {
@@ -60,3 +59,8 @@ pprint(p.model_dump())
 #     print(result.model_dump())
 # except Exception as e:
 #     print(f"Error: {e}")
+
+
+p = create_settings_project_state("setta_files/setta-settings.json")
+
+pprint(p.model_dump()["sectionImplLayerings"])

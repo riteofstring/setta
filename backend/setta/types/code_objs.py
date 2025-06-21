@@ -1,10 +1,10 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_impl_modifiers import CodeObjImplModifier
+from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -43,7 +43,9 @@ class CodeObjCore(BaseModel):
 class CodeObjImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
     impl: str
-    modifiers: list[CodeObjImplModifier] = Field(default_factory=list)
+    modifiers: list[SerializeAsAny[BaseCodeObjImplModifier]] = Field(
+        default_factory=list
+    )
 
 
 class BaseCodeObjImpl(BaseModel):

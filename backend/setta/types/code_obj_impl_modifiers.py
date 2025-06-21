@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
 
-class CodeObjImplModifier(BaseModel):
+class BaseCodeObjImplModifier(BaseModel):
     pass
 
 
-class ParamCodeObjModifier(CodeObjImplModifier):
+class ParamCodeObjModifier(BaseCodeObjImplModifier):
     value: str = ""

@@ -4,10 +4,11 @@ from typing import Any, Literal, Union
 from pydantic import (
     BaseModel,
     Field,
+    SerializeAsAny,
 )
 
 from setta.database.utils import create_new_id
-from setta.types.section_impl_modifiers import SectionImplModifier
+from setta.types.section_impl_modifiers import BaseSectionImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -85,7 +86,9 @@ class SectionCore(BaseModel, extra="forbid"):
 class SectionImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
     impl: str
-    modifiers: list[SectionImplModifier] = Field(default_factory=list)
+    modifiers: list[SerializeAsAny[BaseSectionImplModifier]] = Field(
+        default_factory=list
+    )
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
