@@ -10,10 +10,10 @@ import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sec
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import "./dndline.css";
 
-export function getBgColor(sectionTypeName: SectionTypeEnum) {
+export function getBgColor(sectionTypeName: SectionType) {
   switch (sectionTypeName) {
     case SectionTypeEnum.Code:
     case SectionTypeEnum.GenPythonCode:
