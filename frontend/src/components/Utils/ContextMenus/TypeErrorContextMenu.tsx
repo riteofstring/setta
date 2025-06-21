@@ -8,7 +8,7 @@ import {
   useProjectState,
   useTypeErrors,
 } from "state/definitions";
-import { BaseSectionWithParamsImplSchema } from "utils/generatedTypes";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function TypeErrorContextMenu() {
@@ -22,9 +22,8 @@ export function TypeErrorContextMenu() {
       return false;
     }
     const sectionImpl = getSectionImpl(x, sectionId);
-    const res = BaseSectionWithParamsImplSchema.safeParse(sectionImpl);
-    if (res.success) {
-      return Boolean(res.data.ignoreTypeErrors[paramInfoId]);
+    if (isBaseSectionWithParamsImpl(sectionImpl)) {
+      return Boolean(sectionImpl.ignoreTypeErrors[paramInfoId]);
     }
     return false;
   });
