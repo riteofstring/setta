@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
-type ObjectValues<T> = T[keyof T];
+export type ObjectValues<T> = T[keyof T];
 
 export const ArtifactTypeEnum = {
   IMG: "IMG",

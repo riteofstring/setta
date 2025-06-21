@@ -9,7 +9,7 @@ import { TbEdit, TbVersions } from "react-icons/tb";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import {
-  UI_EDITOR,
+  PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
   UIEditorTabNamePrettified,
@@ -23,8 +23,6 @@ import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { VersionList } from "./SectionVariants/VersionList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
-const paneName = UI_EDITOR;
-
 export function UiEditor() {
   const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
@@ -35,12 +33,13 @@ export function UiEditor() {
     shallow,
   );
   // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
-  // const inputTitle = tab === INFO_CONFIG_TAB ? infoTabTooltip : null;
+  // const inputTitle =
+  // selectedTabName === UIEditorTabNameEnum.InfoConfig ? infoTabTooltip : null;
 
   const commonProps = {
     vis,
     selectedTabName,
-    onTabClick: getOnUIEditorTabClick(sectionType),
+    onTabClick: sectionType ? getOnUIEditorTabClick(sectionType) : () => {},
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center text-2xl focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs,
@@ -57,51 +56,45 @@ export function UiEditor() {
           tabName={UIEditorTabNameEnum.SectionConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Config" })}
-        >
-          <MdOutlineSettingsApplications />
-        </TabButton>
+          icon={<MdOutlineSettingsApplications />}
+        />
         <TabButton
           tabName={UIEditorTabNameEnum.UIConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter UI Config" })}
-        >
-          <BsCardChecklist />
-        </TabButton>
+          icon={<BsCardChecklist />}
+        />
         <TabButton
           tabName={UIEditorTabNameEnum.QuickInfoConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Parameter Info Editing" })}
-        >
-          <TbEdit />
-        </TabButton>
+          icon={<TbEdit />}
+        />
         <TabButton
           tabName={UIEditorTabNameEnum.InfoConfig}
           {...commonProps}
-          {...getFloatingBoxHandlers({ content: infoTabTooltip })}
-        >
-          {/* <FaMarkdown /> */}
-          <PiCursorTextFill />
-        </TabButton>
+          {...getFloatingBoxHandlers({ content: "Info Editing" })}
+          icon={<PiCursorTextFill />}
+        />
         <TabButton
           tabName={UIEditorTabNameEnum.SectionVariantsConfig}
           {...commonProps}
           {...getFloatingBoxHandlers({ content: "Section Variants" })}
-        >
-          <TbVersions />
-        </TabButton>
+          icon={<TbVersions />}
+        />
       </div>
       <PaneContainer
-        paneName={paneName}
+        paneName={PaneNameEnum.uiEditor}
         right={true}
         minimumWidth={425}
         vis={vis}
         width={width}
       >
-        {sectionIds.length === 1 && vis ? (
+        {sectionIds.length === 1 && sectionIds[0] && vis && selectedTabName ? (
           <TabsVisible
             sectionId={sectionIds[0]}
-            tab={tab}
-            inputTitle={inputTitle}
+            selectedTabName={selectedTabName}
+            // inputTitle={inputTitle}
           />
         ) : (
           <Placeholder />
@@ -113,32 +106,32 @@ export function UiEditor() {
 
 function TabsVisible({
   sectionId,
-  tab,
+  selectedTabName,
   inputTitle,
 }: {
   sectionId: string;
-  tab: UIEditorTabName;
+  selectedTabName: UIEditorTabName;
   inputTitle?: string;
 }) {
-  const title = inputTitle ?? UIEditorTabNamePrettified[tab];
+  const title = inputTitle ?? UIEditorTabNamePrettified[selectedTabName];
   return (
     <div className="flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1 flex-col overflow-hidden pr-1.5">
       <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
-      <TabContent sectionId={sectionId} tab={tab} />
+      <TabContent sectionId={sectionId} selectedTabName={selectedTabName} />
     </div>
   );
 }
 
 function TabContent({
   sectionId,
-  tab,
+  selectedTabName,
 }: {
   sectionId: string;
-  tab: UIEditorTabName;
+  selectedTabName: UIEditorTabName;
 }) {
-  switch (tab) {
+  switch (selectedTabName) {
     case UIEditorTabNameEnum.SectionConfig:
       return <SectionConfig sectionId={sectionId} />;
     case UIEditorTabNameEnum.UIConfig:

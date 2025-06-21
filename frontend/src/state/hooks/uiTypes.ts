@@ -4,6 +4,7 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabLocalStorage,
+  UIEditorTabName,
   UIEditorTabNameEnum,
 } from "utils/constants";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
@@ -62,7 +63,7 @@ export function useUIEditorTab(sectionId: string | null) {
     if (!sectionId) {
       return {
         selectedTabName: null,
-        requiredTabs: new Set(),
+        requiredTabs: null,
         sectionType: null,
       };
     }
@@ -88,7 +89,7 @@ export function getUIEditorTab(
   const storedTab =
     _storedTab?.[sectionType] ?? UIEditorTabNameEnum.SectionConfig;
   // when sectionId changes, the requiredTabs might not include the previously active tab
-  let selectedTabName: string | null;
+  let selectedTabName: UIEditorTabName | null;
   if (requiredTabs.length > 0) {
     // @ts-ignore
     selectedTabName = requiredTabs.includes(storedTab) ? storedTab : null;

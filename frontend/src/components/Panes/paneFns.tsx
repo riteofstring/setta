@@ -9,8 +9,8 @@ import {
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   CLOSED_PANE_WIDTH,
-  OVERVIEW,
-  UI_EDITOR,
+  PaneName,
+  PaneNameEnum,
   UIEditorTabName,
 } from "utils/constants";
 import { SectionType } from "utils/generatedTypes";
@@ -21,9 +21,9 @@ type TabButtonComponentType = {
   selectedTabName: UIEditorTabName | null;
   tabName: UIEditorTabName;
   onTabClick: (x: UIEditorTabName) => void;
-  children: React.ReactElement;
   className: string;
-  requiredTabs: Set<UIEditorTabName>;
+  requiredTabs: Set<UIEditorTabName> | null;
+  icon: React.ReactElement;
 };
 
 export function TabButton({
@@ -32,9 +32,9 @@ export function TabButton({
   selectedTabName,
   tabName,
   onTabClick,
-  children,
   className,
   requiredTabs,
+  icon,
   ...props
 }: TabButtonComponentType) {
   const disabled = requiredTabs && !requiredTabs.has(tabName);
@@ -51,12 +51,20 @@ export function TabButton({
       disabled={disabled}
       {...props}
     >
-      {children}
+      {icon}
     </button>
   );
 }
 
-function getColor({ vis, isCurrSelected, disabled }) {
+function getColor({
+  vis,
+  isCurrSelected,
+  disabled,
+}: {
+  vis: boolean;
+  isCurrSelected: boolean;
+  disabled: boolean;
+}) {
   if (vis && isCurrSelected) {
     return "text-blue-500";
   } else if (disabled) {
@@ -66,7 +74,7 @@ function getColor({ vis, isCurrSelected, disabled }) {
 }
 
 function visToggle(
-  paneName,
+  paneName: PaneName,
   onResizeStop: ((x: number) => void) | null = null,
 ) {
   const vis = useLocalStorage.getState()[`${paneName}Vis`];
@@ -88,10 +96,10 @@ export function onOverviewTabClick(tabValue) {
   if (tab !== tabValue) {
     useLocalStorage.setState({ overviewTab: tabValue });
     if (!vis) {
-      visToggle(OVERVIEW, onOverviewResizeStop);
+      visToggle(PaneNameEnum.Overview, onOverviewResizeStop);
     }
   } else {
-    visToggle(OVERVIEW, onOverviewResizeStop);
+    visToggle(PaneNameEnum.Overview, onOverviewResizeStop);
   }
 }
 
@@ -117,10 +125,10 @@ export function getOnUIEditorTabClick(sectionType: SectionType) {
     if (tab !== tabValue) {
       setTab(tabValue);
       if (!uiEditorVis) {
-        visToggle(UI_EDITOR);
+        visToggle(PaneNameEnum.uiEditor);
       }
     } else {
-      visToggle(UI_EDITOR);
+      visToggle(PaneNameEnum.uiEditor);
     }
   };
 }

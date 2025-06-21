@@ -6,7 +6,7 @@ import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
 import { useLocalStorage } from "state/definitions";
-import { OVERVIEW } from "utils/constants";
+import { PaneNameEnum } from "utils/constants";
 import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
 import {
   onOverviewResizeStop,
@@ -19,7 +19,6 @@ import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectLLMSettings } from "./ProjectLevelAI/ProjectLLMSettings";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
-const paneName = OVERVIEW;
 
 export function Overview() {
   const tab = useLocalStorage((x) => x.overviewTab);
@@ -95,7 +94,7 @@ export function Overview() {
         </a>
       </div>
       <PaneContainer
-        paneName={paneName}
+        paneName={PaneNameEnum.overview}
         right={false}
         onResizeStop={onOverviewResizeStop}
         vis={vis}
