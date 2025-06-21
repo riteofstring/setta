@@ -103,6 +103,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     aspectRatioExtraHeight: int = 0
     aspectRatioExtraWidth: int = 0
     isMinimized: bool = False
+    minHeightMinimized: int = 32
     positionAndSizeLocked: bool = False
 
 
@@ -142,6 +143,8 @@ class BaseDictSectionImpl(BaseSectionWithParamsImpl):
 class CallableSectionImpl(BaseSectionWithParamsImpl):
     type: Literal[SectionType.Callable] = SectionType.Callable
     callable: str | None = None
+    minHeightHideParams: int = 58
+    minHeightDefault: int = 104
 
 
 class DictSectionImpl(BaseDictSectionImpl):
