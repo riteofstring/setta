@@ -14,6 +14,24 @@ export const PaneNameEnum = {
 
 export type PaneName = ObjectValues<typeof PaneNameEnum>;
 
+export const OverviewTabNameEnum = {
+  Overview: "Overview",
+  ProjectConfigs: "ProjectConfigs",
+  ViewModes: "ViewModes",
+  ProjectAIChat: "ProjectAIChat",
+  ProjectAISettings: "ProjectAISettings",
+} as const;
+
+export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
+
+export const OverviewTabNamePrettified = {
+  [OverviewTabNameEnum.Overview]: "Overview",
+  [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
+  [OverviewTabNameEnum.ViewModes]: "View Modes",
+  [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
+  [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
+} as const satisfies Record<OverviewTabName, string>;
+
 export const UIEditorTabNameEnum = {
   SectionConfig: "SectionConfig",
   QuickInfoConfig: "QuickInfoConfig",

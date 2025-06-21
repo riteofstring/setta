@@ -21,12 +21,14 @@ import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 
 export function Overview() {
-  const tab = useLocalStorage((x) => x.overviewTab);
-  const vis = useLocalStorage((x) => x.overviewVis);
-  const width = useLocalStorage((x) => x.overviewWidth);
+  const { selectedTabName, vis, width } = useLocalStorage((x) => ({
+    selectedTabName: x.overviewTab,
+    vis: x.overviewVis,
+    width: x.overviewWidth,
+  }));
   const commonProps = {
     vis,
-    tab,
+    selectedTabName,
     onTabClick: onOverviewTabClick,
     className:
       "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",

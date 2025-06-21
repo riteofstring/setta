@@ -37,7 +37,7 @@ export function TabButton({
   icon,
   ...props
 }: TabButtonComponentType) {
-  const disabled = requiredTabs && !requiredTabs.has(tabName);
+  const disabled = requiredTabs !== null && !requiredTabs.has(tabName);
   const color = getColor({
     vis,
     isCurrSelected: selectedTabName === tabName,
@@ -96,10 +96,10 @@ export function onOverviewTabClick(tabValue) {
   if (tab !== tabValue) {
     useLocalStorage.setState({ overviewTab: tabValue });
     if (!vis) {
-      visToggle(PaneNameEnum.Overview, onOverviewResizeStop);
+      visToggle(PaneNameEnum.overview, onOverviewResizeStop);
     }
   } else {
-    visToggle(PaneNameEnum.Overview, onOverviewResizeStop);
+    visToggle(PaneNameEnum.overview, onOverviewResizeStop);
   }
 }
 
@@ -121,8 +121,8 @@ export function getOnUIEditorTabClick(sectionType: SectionType) {
 
   return (tabValue: UIEditorTabName) => {
     const { uiEditorVis, uiEditorTab } = useLocalStorage.getState();
-    const { tab } = getUIEditorTab(sectionType, uiEditorTab);
-    if (tab !== tabValue) {
+    const { selectedTabName } = getUIEditorTab(sectionType, uiEditorTab);
+    if (selectedTabName !== tabValue) {
       setTab(tabValue);
       if (!uiEditorVis) {
         visToggle(PaneNameEnum.uiEditor);
