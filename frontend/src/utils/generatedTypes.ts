@@ -4035,3 +4035,65 @@ export function createCodeMirrorCompletion(
 ): CodeMirrorCompletion {
   return CodeMirrorCompletionSchema.parse(options);
 }
+
+export function isBaseChildlessCodeObjImpl(
+  x: BaseCodeObjImpl,
+): x is BaseChildlessCodeObjImpl {
+  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseCodeObjImpl(x: BaseCodeObjImpl): x is BaseCodeObjImpl {
+  return BaseCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParamCodeObjImpl(
+  x: BaseCodeObjImpl,
+): x is BaseParamCodeObjImpl {
+  return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImpl,
+): x is BaseParentCodeObjImpl {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseArtifactSectionImpl(
+  x: BaseSectionImpl,
+): x is BaseArtifactSectionImpl {
+  return BaseArtifactSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseCanvasSectionImpl(
+  x: BaseSectionImpl,
+): x is BaseCanvasSectionImpl {
+  return BaseCanvasSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseCodeSectionImpl(
+  x: BaseSectionImpl,
+): x is BaseCodeSectionImpl {
+  return BaseCodeSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionImpl(
+  x: BaseSectionImpl,
+): x is BaseDictSectionImpl {
+  return BaseDictSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseParentSectionImpl(
+  x: BaseSectionImpl,
+): x is BaseParentSectionImpl {
+  return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionImpl(x: BaseSectionImpl): x is BaseSectionImpl {
+  return BaseSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionWithParamsImpl(
+  x: BaseSectionImpl,
+): x is BaseSectionWithParamsImpl {
+  return BaseSectionWithParamsImplTypeSet.has(x.type);
+}

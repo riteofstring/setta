@@ -23,10 +23,16 @@ from typing import (
 
 import setta.routers
 import setta.types
+import setta.types.code_objs
+import setta.types.sections
+import setta.types.websocket
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
+from setta.types.code_objs import BaseCodeObjImpl
+from setta.types.sections import BaseSectionImpl
+from setta.types.websocket import WebsocketMsg
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code
@@ -488,6 +494,35 @@ def dataclass_to_zod(model: type, processed_types: set):
     )
 
 
+def create_type_predicate_fns_from_sets(all_sets):
+    code = ""
+    for x_name in all_sets.keys():
+        type_name = x_name.rstrip("TypeSet")
+        actual_type = getattr(setta.types.sections, type_name, None)
+        if not actual_type:
+            actual_type = getattr(setta.types.code_objs, type_name, None)
+        if not actual_type:
+            actual_type = getattr(setta.types.websocket, type_name, None)
+        if not actual_type:
+            continue
+        if issubclass(actual_type, BaseSectionImpl):
+            input_type = "BaseSectionImpl"
+        elif issubclass(actual_type, BaseCodeObjImpl):
+            input_type = "BaseCodeObjImpl"
+        elif issubclass(actual_type, WebsocketMsg):
+            input_type = "WebsocketMsg"
+        else:
+            raise TypeError(actual_type)
+
+        code += f"""
+export function is{type_name}(x: {input_type}): x is {type_name}{{
+    return {x_name}.has(x.type)
+}}
+
+"""
+    return code
+
+
 def main(output_file):
     all_sets = {}
     all_aliases = {}
@@ -534,6 +569,8 @@ export type ObjectValues<T> = T[keyof T]
 
     for x in all_dataclasses.values():
         ts_code += dataclass_to_zod(x, processed_types)
+
+    ts_code += create_type_predicate_fns_from_sets(all_sets)
 
     with open(output_file, "w") as f:
         f.write(ts_code)
