@@ -1,13 +1,22 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  BaseSectionImplUnion,
+  CodeLanguageEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
+
+type CreateSectionsContextMenuInfo = {
+  name: string;
+  specificProps: Partial<BaseSectionImplUnion>;
+};
 
 export function useCreateSectionsList() {
   const singletonSections = useProjectState(
     (x) => x.singletonSections,
     _.isEqual,
   );
-  const sectionGroupItems = [
+  const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Section", specificProps: { type: SectionTypeEnum.Callable } },
     { name: "List", specificProps: { type: SectionTypeEnum.ListRoot } },
     { name: "Dict", specificProps: { type: SectionTypeEnum.DictRoot } },
@@ -22,19 +31,19 @@ export function useCreateSectionsList() {
     });
   }
 
-  const codeGroupItems = [
+  const codeGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Python Code",
       specificProps: {
         type: SectionTypeEnum.Code,
-        sectionProps: { codeLanguage: "python" },
+        codeLanguage: CodeLanguageEnum.python,
       },
     },
     {
       name: "Bash Script",
       specificProps: {
         type: SectionTypeEnum.Code,
-        sectionProps: { codeLanguage: "bash" },
+        codeLanguage: CodeLanguageEnum.bash,
       },
     },
     {
