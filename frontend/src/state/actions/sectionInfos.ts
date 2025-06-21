@@ -8,12 +8,12 @@ import {
 import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
+  BaseSectionImpl,
   CodeObjImplLayering,
   ImplLayering,
   isBaseSectionImpl,
   ProjectStateSingleConfig,
   SectionImplLayering,
-  SectionImplUnion,
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
@@ -63,8 +63,8 @@ function getEffectiveCodeObjImpl(
 export function getSectionImpl(
   p: ZustandProjectState,
   sectionId: string | null = null,
-  sectionImpl: SectionImplUnion | null = null,
-): SectionImplUnion {
+  sectionImpl: BaseSectionImpl | null = null,
+) {
   if (sectionImpl === null) {
     if (sectionId === null) {
       throw new Error("Either section_id or section_impl must be provided");
