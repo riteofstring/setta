@@ -1229,6 +1229,12 @@ export type BaseChildlessCodeObjImplUnionWithDiscriminator = z.infer<
   typeof BaseChildlessCodeObjImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseChildlessCodeObjImplUnionWithDiscriminator(
+  options: Partial<BaseChildlessCodeObjImplUnionWithDiscriminator> = {},
+): BaseChildlessCodeObjImplUnionWithDiscriminator {
+  return BaseChildlessCodeObjImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const CodeCallableCodeObjImplSchema = z.object({
   type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
   id: z.string().default(create_new_id),
@@ -1305,6 +1311,12 @@ export type BaseCodeObjImplUnionWithDiscriminator = z.infer<
   typeof BaseCodeObjImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseCodeObjImplUnionWithDiscriminator(
+  options: Partial<BaseCodeObjImplUnionWithDiscriminator> = {},
+): BaseCodeObjImplUnionWithDiscriminator {
+  return BaseCodeObjImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseParamCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   ColorPickerParamCodeObjImplSchema,
@@ -1336,6 +1348,12 @@ export type BaseParamCodeObjImplUnionWithDiscriminator = z.infer<
   typeof BaseParamCodeObjImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseParamCodeObjImplUnionWithDiscriminator(
+  options: Partial<BaseParamCodeObjImplUnionWithDiscriminator> = {},
+): BaseParamCodeObjImplUnionWithDiscriminator {
+  return BaseParamCodeObjImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseParentCodeObjImplUnionSchema = z.union([
   CodeCallableCodeObjImplSchema,
   NestedParamCodeObjImplSchema,
@@ -1354,6 +1372,12 @@ export const BaseParentCodeObjImplUnionWithDiscriminatorSchema =
 export type BaseParentCodeObjImplUnionWithDiscriminator = z.infer<
   typeof BaseParentCodeObjImplUnionWithDiscriminatorSchema
 >;
+
+export function createBaseParentCodeObjImplUnionWithDiscriminator(
+  options: Partial<BaseParentCodeObjImplUnionWithDiscriminator> = {},
+): BaseParentCodeObjImplUnionWithDiscriminator {
+  return BaseParentCodeObjImplUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const VisibilitySchema = z.object({
   DEV: z.boolean().default(true),
@@ -1521,6 +1545,12 @@ export type BaseArtifactSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseArtifactSectionImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseArtifactSectionImplUnionWithDiscriminator(
+  options: Partial<BaseArtifactSectionImplUnionWithDiscriminator> = {},
+): BaseArtifactSectionImplUnionWithDiscriminator {
+  return BaseArtifactSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseCanvasSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
@@ -1536,6 +1566,12 @@ export const BaseCanvasSectionImplUnionWithDiscriminatorSchema =
 export type BaseCanvasSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseCanvasSectionImplUnionWithDiscriminatorSchema
 >;
+
+export function createBaseCanvasSectionImplUnionWithDiscriminator(
+  options: Partial<BaseCanvasSectionImplUnionWithDiscriminator> = {},
+): BaseCanvasSectionImplUnionWithDiscriminator {
+  return BaseCanvasSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const CodeSectionImplSchema = z.object({
   type: z.literal("Code").default(SectionTypeEnum.Code),
@@ -1609,6 +1645,12 @@ export type BaseCodeSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseCodeSectionImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseCodeSectionImplUnionWithDiscriminator(
+  options: Partial<BaseCodeSectionImplUnionWithDiscriminator> = {},
+): BaseCodeSectionImplUnionWithDiscriminator {
+  return BaseCodeSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const DictSectionImplSchema = z.object({
   type: z.literal("Dict").default(SectionTypeEnum.Dict),
   id: z.string().default(create_new_id),
@@ -1624,7 +1666,6 @@ export const DictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideParams: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -1664,7 +1705,6 @@ export const GlobalVariablesSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideParams: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -1706,6 +1746,12 @@ export const BaseDictSectionImplUnionWithDiscriminatorSchema =
 export type BaseDictSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseDictSectionImplUnionWithDiscriminatorSchema
 >;
+
+export function createBaseDictSectionImplUnionWithDiscriminator(
+  options: Partial<BaseDictSectionImplUnionWithDiscriminator> = {},
+): BaseDictSectionImplUnionWithDiscriminator {
+  return BaseDictSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const DictRootSectionImplSchema = z.object({
   type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
@@ -1804,6 +1850,12 @@ export type BaseParentSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseParentSectionImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseParentSectionImplUnionWithDiscriminator(
+  options: Partial<BaseParentSectionImplUnionWithDiscriminator> = {},
+): BaseParentSectionImplUnionWithDiscriminator {
+  return BaseParentSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BrowserSectionImplSchema = z.object({
   type: z.literal("Browser").default(SectionTypeEnum.Browser),
   id: z.string().default(create_new_id),
@@ -1844,7 +1896,6 @@ export const CallableSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideParams: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -1856,6 +1907,7 @@ export const CallableSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   callable: z.union([z.string(), z.null()]).default(null),
+  hideParams: z.boolean().default(false),
 });
 
 export type CallableSectionImpl = z.infer<typeof CallableSectionImplSchema>;
@@ -2040,6 +2092,12 @@ export type BaseSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseSectionImplUnionWithDiscriminatorSchema
 >;
 
+export function createBaseSectionImplUnionWithDiscriminator(
+  options: Partial<BaseSectionImplUnionWithDiscriminator> = {},
+): BaseSectionImplUnionWithDiscriminator {
+  return BaseSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseSectionWithParamsImplUnionSchema = z.union([
   CallableSectionImplSchema,
   DictSectionImplSchema,
@@ -2060,6 +2118,12 @@ export const BaseSectionWithParamsImplUnionWithDiscriminatorSchema =
 export type BaseSectionWithParamsImplUnionWithDiscriminator = z.infer<
   typeof BaseSectionWithParamsImplUnionWithDiscriminatorSchema
 >;
+
+export function createBaseSectionWithParamsImplUnionWithDiscriminator(
+  options: Partial<BaseSectionWithParamsImplUnionWithDiscriminator> = {},
+): BaseSectionWithParamsImplUnionWithDiscriminator {
+  return BaseSectionWithParamsImplUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -2329,6 +2393,12 @@ export const WebsocketMsgForBackendUnionWithDiscriminatorSchema =
 export type WebsocketMsgForBackendUnionWithDiscriminator = z.infer<
   typeof WebsocketMsgForBackendUnionWithDiscriminatorSchema
 >;
+
+export function createWebsocketMsgForBackendUnionWithDiscriminator(
+  options: Partial<WebsocketMsgForBackendUnionWithDiscriminator> = {},
+): WebsocketMsgForBackendUnionWithDiscriminator {
+  return WebsocketMsgForBackendUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const WebsocketConnectionInfoSchema = z.object({
   id: z.string(),
@@ -2698,6 +2768,12 @@ export type WebsocketMsgForFrontendUnionWithDiscriminator = z.infer<
   typeof WebsocketMsgForFrontendUnionWithDiscriminatorSchema
 >;
 
+export function createWebsocketMsgForFrontendUnionWithDiscriminator(
+  options: Partial<WebsocketMsgForFrontendUnionWithDiscriminator> = {},
+): WebsocketMsgForFrontendUnionWithDiscriminator {
+  return WebsocketMsgForFrontendUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const ArtifactWithIdSchema = z.object({
   name: z.string(),
   path: z.string(),
@@ -2894,7 +2970,6 @@ export const BaseSectionWithParamsImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideParams: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -3095,7 +3170,6 @@ export const BaseDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideParams: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),

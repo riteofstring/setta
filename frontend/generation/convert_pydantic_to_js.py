@@ -174,11 +174,15 @@ def alias_to_zod(name: str, alias_type, processed_types: set):
 
     dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
 
-    return (
+    code = (
         dependency_zod
         + f"export const {name}Schema = {zod_schema}\n\n"
         + create_ts_type_line(name)
     )
+
+    if zod_schema.startswith("z.discriminatedUnion"):
+        code += create_creation_fn_line(name)
+    return code
 
 
 # just to regular ts enum, not zod enum
