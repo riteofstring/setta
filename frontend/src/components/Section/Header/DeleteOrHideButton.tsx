@@ -7,7 +7,10 @@ import {
 import { deleteSections } from "state/actions/sections/deleteSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { ViewingEditingModeEnum } from "utils/generatedTypes";
+import {
+  ViewingEditingMode,
+  ViewingEditingModeEnum,
+} from "utils/generatedTypes";
 
 // absolute top-1 right-1
 export function DeleteOrHideButton({
@@ -48,7 +51,7 @@ export function DeleteOrHideButton({
   // return <button onClick={onClick} className="gg-close" />;
 }
 
-function getIcon(viewingEditingMode, visibility) {
+function getIcon(viewingEditingMode: ViewingEditingMode, visibility: boolean) {
   switch (viewingEditingMode) {
     case ViewingEditingModeEnum.DEV:
       return <i className="gg-close" />;

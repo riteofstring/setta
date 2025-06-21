@@ -1,29 +1,26 @@
 import { deleteNodes } from "state/actions/nodeInternals";
-import { useProjectState } from "state/definitions";
-import { route_delete_terminals } from "utils/generatedEndpoints";
-import { removeActiveSectionIds } from "../activeSections";
-import {
-  getAllSectionsForDeletionOrCopying,
-  getSectionVariant,
-  setSectionVariantChildren,
-} from "../sectionInfos";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { getSectionVariant, setSectionVariantChildren } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
-export function deleteSections(sectionIds, state) {
-  const idsToDelete = [
-    ...new Set(getAllSectionsForDeletionOrCopying(sectionIds, state)),
-  ];
-  const terminalIds = idsToDelete.filter(
-    (id) =>
-      state.uiTypes[state.sections[id].uiTypeId].type ===
-      UITypeNameEnum.TERMINAL,
-  );
-  removeSectionInfos(idsToDelete, state);
-  if (terminalIds) {
-    route_delete_terminals({ sectionIds: terminalIds });
-  }
-  removeActiveSectionIds(idsToDelete);
-  deleteNodes(idsToDelete);
+export function deleteSections(
+  sectionIds: Array<string>,
+  state: ZustandProjectState,
+) {
+  // const idsToDelete = [
+  //   ...new Set(getAllSectionsForDeletionOrCopying(sectionIds, state)),
+  // ];
+  // const terminalIds = idsToDelete.filter(
+  //   (id) =>
+  //     state.uiTypes[state.sections[id].uiTypeId].type ===
+  //     UITypeNameEnum.TERMINAL,
+  // );
+  // removeSectionInfos(idsToDelete, state);
+  // if (terminalIds) {
+  //   route_delete_terminals({ sectionIds: terminalIds });
+  // }
+  // removeActiveSectionIds(idsToDelete);
+  deleteNodes(sectionIds);
 }
 
 export function deleteChildrenFromSeries(isRoot, calledBy, numChildren = 1) {

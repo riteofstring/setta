@@ -23,7 +23,7 @@ export function addNodes(nodes) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function deleteNodes(nodeIds) {
+export function deleteNodes(nodeIds: Array<string>) {
   const newNodes = getNewNodes();
   for (const n of nodeIds) {
     newNodes.delete(n);

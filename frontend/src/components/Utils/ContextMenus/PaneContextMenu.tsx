@@ -7,6 +7,7 @@ import {
   CreateSectionsContextMenuInfo,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
@@ -17,7 +18,7 @@ export function PaneContextMenu() {
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
     createSection(specificProps, { x, y });
-    // maybeIncrementProjectStateVersion(true);
+    maybeIncrementProjectStateVersion(true);
     closeAllContextMenus();
   }
 
