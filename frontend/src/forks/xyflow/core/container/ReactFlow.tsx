@@ -19,13 +19,15 @@ const SCROLL_INIT = 5000;
 const ReactFlow = () => {
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showGridLines = useSettings((x) => !!x.gui.showGridLines);
-  const ref = useRef();
+  const ref = useRef<HTMLDivElement>(null);
   const [initialized, setInitialized] = useState(false);
   const wrapperDimensions = useWrapperDivDimensions(ref);
 
   useEffect(() => {
-    ref.current.scrollTop = SCROLL_INIT;
-    ref.current.scrollLeft = SCROLL_INIT;
+    if (ref.current) {
+      ref.current.scrollTop = SCROLL_INIT;
+      ref.current.scrollLeft = SCROLL_INIT;
+    }
     setInitialized(true);
   }, []);
 
@@ -36,7 +38,6 @@ const ReactFlow = () => {
     <div
       style={wrapperStyle}
       className="react-flow setta-light dark:setta-dark"
-      data-testid="rf__wrapper"
       ref={ref}
       onScroll={(e) => cancelOutScrolling(e, initialized)}
     >
@@ -61,21 +62,24 @@ const ReactFlow = () => {
   );
 };
 
-function cancelOutScrolling(e, initialized) {
+function cancelOutScrolling(
+  e: React.UIEvent<HTMLDivElement>,
+  initialized: boolean,
+) {
   if (!initialized) {
     return;
   }
   const { d3Zoom, d3Selection, transform } = useReactFlow.getState();
   d3Zoom.translateBy(
     d3Selection,
-    -(e.target.scrollLeft - SCROLL_INIT) / transform[2],
-    -(e.target.scrollTop - SCROLL_INIT) / transform[2],
+    -(e.currentTarget.scrollLeft - SCROLL_INIT) / transform[2],
+    -(e.currentTarget.scrollTop - SCROLL_INIT) / transform[2],
   );
-  e.target.scrollTop = SCROLL_INIT;
-  e.target.scrollLeft = SCROLL_INIT;
+  e.currentTarget.scrollTop = SCROLL_INIT;
+  e.currentTarget.scrollLeft = SCROLL_INIT;
 }
 
-function useWrapperDivDimensions(ref) {
+function useWrapperDivDimensions(ref: React.RefObject<HTMLDivElement>) {
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
 
@@ -85,10 +89,14 @@ function useWrapperDivDimensions(ref) {
   });
 
   useEffect(() => {
-    let resizeObserver;
+    let resizeObserver: ResizeObserver;
 
     if (ref.current) {
       resizeObserver = new ResizeObserver((entries) => {
+        if (!entries[0]) {
+          return;
+        }
+
         const { width, height } = entries[0].contentRect;
 
         // Set wrapper dimensions
