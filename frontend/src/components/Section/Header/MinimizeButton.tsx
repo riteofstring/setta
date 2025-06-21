@@ -1,11 +1,22 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import {
+  getEffectiveSectionImpl,
+  getSectionImplLayering,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
-  const isMinimized = useProjectState((x) => x.sections[sectionId].isMinimized);
+  const isMinimized = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    return impl.isMinimized;
+  });
   function onClick() {
     useProjectState.setState((state) => {
-      state.sections[sectionId].isMinimized = !isMinimized;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      const baseImpl = state.sectionImpls[implLayering.impl];
+      if (baseImpl) {
+        baseImpl.isMinimized = !isMinimized;
+      }
     });
   }
 

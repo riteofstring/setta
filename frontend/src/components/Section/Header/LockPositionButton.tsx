@@ -1,12 +1,12 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
-import { getSectionImpl, toggleSectionLock } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl, toggleSectionLock } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     return {
       isGroup: impl.type === SectionTypeEnum.Group,
       positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,

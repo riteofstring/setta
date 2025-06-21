@@ -1,6 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { getSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl, getSectionVariant } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -85,7 +85,7 @@ function setSectionName(sectionId, name) {
 
 function useTitleIsEditable(sectionId) {
   return useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     const isUneditableType = [
       SectionTypeEnum.GlobalVariables,
       SectionTypeEnum.GenPythonCode,

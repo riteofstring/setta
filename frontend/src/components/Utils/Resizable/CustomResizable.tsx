@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useEffect } from "react";
-import { getSectionImpl } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
@@ -218,7 +218,7 @@ function CustomResizableSuperCore({
 
 function useAspectRatio(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     if (impl.isMinimized) {
       return {
         size: impl.size,

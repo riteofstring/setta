@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { getSectionImpl } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
@@ -67,7 +67,7 @@ export function useUIEditorTab(sectionId: string | null) {
         sectionType: null,
       };
     }
-    const sectionImpl = getSectionImpl(x, sectionId);
+    const sectionImpl = getEffectiveSectionImpl(x, sectionId);
     const { selectedTabName, requiredTabs } = getUIEditorTab(
       sectionImpl.type,
       _storedTab,

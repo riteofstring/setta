@@ -24,7 +24,7 @@ import {
 } from "./actions/nodeInternals";
 import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
-  getSectionImpl,
+  getEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
@@ -183,7 +183,7 @@ function singletonSectionsSubscriptionFn(state: ZustandProjectState) {
       break;
     }
 
-    const sectionImpl = getSectionImpl(state, s.id);
+    const sectionImpl = getEffectiveSectionImpl(state, s.id);
 
     if (
       !output[SectionTypeEnum.GlobalVariables] &&
@@ -264,7 +264,7 @@ function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
-    if (getSectionImpl(state, s.id).type === SectionTypeEnum.Code) {
+    if (getEffectiveSectionImpl(state, s.id).type === SectionTypeEnum.Code) {
       codeBlockIds.push(s.id);
     }
   }

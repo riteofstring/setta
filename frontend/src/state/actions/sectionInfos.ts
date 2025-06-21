@@ -9,10 +9,8 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
-  CodeObjImplLayering,
   ImplLayering,
   ProjectStateSingleConfig,
-  SectionImplLayering,
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
@@ -25,12 +23,10 @@ function getEffectiveImpl<TImpl>(
   implLayering: ImplLayering,
   implDict: Record<string, TImpl>,
 ): TImpl {
-  // Check if the impl exists
   const baseImpl = implDict[implLayering.impl];
   if (!baseImpl) {
-    throw new Error(`Implementation '${implLayering.impl}' not found`);
+    throw new Error();
   }
-
   // Deep clone the base implementation
   const effective = structuredClone(baseImpl);
 
@@ -45,21 +41,27 @@ function getEffectiveImpl<TImpl>(
   return effective;
 }
 
-function getEffectiveSectionImpl(
+export function getSectionImplLayering(
   p: ZustandProjectState,
-  implLayering: SectionImplLayering,
+  sectionId: string,
 ) {
-  return getEffectiveImpl(implLayering, p.sectionImpls);
+  // Check if sectionId exists in the map
+  const implLayeringId = p.projectConfig.sectionImplLayeringMap[sectionId];
+  if (implLayeringId === undefined) {
+    throw new Error(
+      `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
+    );
+  }
+
+  // Check if implLayeringId exists in layerings
+  const implLayering = p.sectionImplLayerings[implLayeringId];
+  if (!implLayering) {
+    throw new Error(`Implementation layering '${implLayeringId}' not found`);
+  }
+  return implLayering;
 }
 
-function getEffectiveCodeObjImpl(
-  p: ZustandProjectState,
-  implLayering: CodeObjImplLayering,
-) {
-  return getEffectiveImpl(implLayering, p.codeObjImpls);
-}
-
-export function getSectionImpl(
+export function getEffectiveSectionImpl(
   p: ZustandProjectState,
   sectionId: string | null = null,
   sectionImpl: BaseSectionImplUnion | null = null,
@@ -69,21 +71,8 @@ export function getSectionImpl(
       throw new Error("Either section_id or section_impl must be provided");
     }
 
-    // Check if sectionId exists in the map
-    const implLayeringId = p.projectConfig.sectionImplLayeringMap[sectionId];
-    if (implLayeringId === undefined) {
-      throw new Error(
-        `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
-      );
-    }
-
-    // Check if implLayeringId exists in layerings
-    const implLayering = p.sectionImplLayerings[implLayeringId];
-    if (!implLayering) {
-      throw new Error(`Implementation layering '${implLayeringId}' not found`);
-    }
-
-    return getEffectiveSectionImpl(p, implLayering);
+    const implLayering = getSectionImplLayering(p, sectionId);
+    return getEffectiveImpl(implLayering, p.sectionImpls);
   }
   return sectionImpl;
 }
@@ -202,7 +191,7 @@ export function createNodesMapFromProjectConfigChildren(
   );
 
   for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
-    const impl = getSectionImpl(p, k);
+    const impl = getEffectiveSectionImpl(p, k);
     nodesMap.set(k, {
       id: k,
       position: { x: v.x, y: v.y },
@@ -424,7 +413,7 @@ export function getSectionViewingEditingModeVisibility(
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
-  const sectionImpl = getSectionImpl(state, sectionId);
+  const sectionImpl = getEffectiveSectionImpl(state, sectionId);
   const visibility =
     sectionImpl.visibility[getSectionVisibilityKey(viewingEditingMode)];
   return {
@@ -466,13 +455,13 @@ export function getAncestorSameVisibility(
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
-  let impl = getSectionImpl(state, sectionId);
+  let impl = getEffectiveSectionImpl(state, sectionId);
   let { parentId } = impl;
   const key = getSectionVisibilityKey(viewingEditingMode);
   const targetVisibility = impl.visibility[key];
 
   while (parentId) {
-    impl = getSectionImpl(state, parentId);
+    impl = getEffectiveSectionImpl(state, parentId);
     if (impl.visibility[key] === targetVisibility) {
       return true;
     }

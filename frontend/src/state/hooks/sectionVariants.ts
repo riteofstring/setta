@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
   getDisplayedSectionVariant,
-  getSectionImpl,
+  getEffectiveSectionImpl,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -30,16 +30,16 @@ export function useSectionVariantIsFrozen(sectionId) {
 
 export function useTextBlockDescriptionAndEditability(sectionId) {
   return useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     return {
-      ...getTextBlockDescription(sectionId, x),
+      ...getTextBlockDescription(sectionId, x, impl),
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
 }
 
 export function getTextBlockDescription(sectionId, state, _impl = null) {
-  const impl = getSectionImpl(state, sectionId, _impl);
+  const impl = getEffectiveSectionImpl(state, sectionId, _impl);
   if (impl.type !== SectionTypeEnum.TextBlock) {
     throw new Error();
   }

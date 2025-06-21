@@ -1,7 +1,7 @@
 import { Item } from "components/Utils/atoms/dropdown/item";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getSectionImpl } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { removeTypeErrorsForParam } from "state/actions/typeCheck";
 import {
   useContextMenus,
@@ -21,7 +21,7 @@ export function TypeErrorContextMenu() {
     if (!sectionId || !paramInfoId) {
       return false;
     }
-    const sectionImpl = getSectionImpl(x, sectionId);
+    const sectionImpl = getEffectiveSectionImpl(x, sectionId);
     if (isBaseSectionWithParamsImpl(sectionImpl)) {
       return Boolean(sectionImpl.ignoreTypeErrors[paramInfoId]);
     }

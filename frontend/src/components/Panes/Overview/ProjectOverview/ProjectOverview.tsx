@@ -1,7 +1,7 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
-import { getSectionImpl } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { useMatchSorterFilter } from "state/hooks/utils";
 import {
@@ -59,7 +59,7 @@ export function useOverviewListing() {
   return useProjectState((x) => {
     const outputList: Array<OverviewListingType> = [];
     for (const section of Object.values(x.sections)) {
-      const sectionImpl = getSectionImpl(x, section.id);
+      const sectionImpl = getEffectiveSectionImpl(x, section.id);
       if (!sectionImpl.parentId) {
         getDepthListingHelper(section, sectionImpl, 0, x, outputList);
       }
@@ -85,7 +85,7 @@ function getDepthListingHelper(
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of sectionImpl.children) {
       const childSection = x.sections[childId];
-      const childSectionImpl = getSectionImpl(x, childId);
+      const childSectionImpl = getEffectiveSectionImpl(x, childId);
       if (childSection) {
         getDepthListingHelper(
           childSection,

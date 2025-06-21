@@ -1,7 +1,7 @@
 import { SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
-import { getSectionImpl, getSectionType } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl, getSectionType } from "state/actions/sectionInfos";
 import {
   adjustAspectRatio,
   adjustSizeToBeAtLeastMin,
@@ -119,7 +119,7 @@ function getSizeMode({ sectionType, hideParams, isTwitter }) {
 export function useSectionMinMaxDims(sectionId) {
   return useProjectState((x) => {
     const isTwitter = getIsTwitterSection(sectionId, x);
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     const sectionType = impl.type;
     const hideSearch = impl.hideSearch;
     const hideParams = impl.hideParams;

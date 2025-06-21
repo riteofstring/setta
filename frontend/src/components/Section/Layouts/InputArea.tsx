@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import { getSectionImpl } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
@@ -8,7 +8,7 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 
 function _CallableArea({ sectionId, bgColor }) {
   const { callable, hideParams } = useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.Callable) {
       throw new Error();
     }

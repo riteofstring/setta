@@ -1,6 +1,6 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getIsUserView, getSectionImpl } from "state/actions/sectionInfos";
+import { getIsUserView, getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -31,7 +31,7 @@ export function SectionContainerCoreResizable({
   positionAndSizeLocked,
 }) {
   const { isMinimized, isYouTube } = useProjectState((x) => {
-    const impl = getSectionImpl(x, sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
     return {
       isMinimized: impl.isMinimized,
       isYouTube: false,
