@@ -277,12 +277,12 @@ def callable_is_already_selected(
 
 
 def callable_has_been_selected_before(
-    p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
+    p: ProjectStateSingleConfig, sectionId: str, callableName: str
 ):
     section_impl = get_effective_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
         for c in section_impl.codeObjImplLayeringMap.keys():
-            if p.codeObjs[c].name == selectedItemName:
+            if p.codeObjs[c].name == callableName:
                 return c
     return None
 

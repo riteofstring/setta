@@ -274,7 +274,7 @@ class ProjectManager:
         self,
         projectConfigId: str,
         sectionId: str,
-        selectedItemName: str,
+        callableName: str,
         refetchParams: bool,
     ):
         project_state = self.get_single_config_state(projectConfigId)
@@ -282,7 +282,7 @@ class ProjectManager:
         await self.gen_code[projectConfigId].set_callable(
             project_state,
             sectionId,
-            selectedItemName,
+            callableName,
             refetchParams,
         )
         await self.update(project_state)

@@ -5,6 +5,7 @@ import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
+import { SectionSearch } from "../SectionParts/Search";
 
 function _CallableArea({ sectionId, bgColor }) {
   const { callable, hideParams } = useProjectState((x) => {
@@ -22,9 +23,7 @@ function _CallableArea({ sectionId, bgColor }) {
 
   return (
     <>
-      {/* {!showYaml && (
-        <SectionSearch sectionId={sectionId} selectedItem={selectedItem} />
-      )} */}
+      <SectionSearch sectionId={sectionId} selectedItem={callable} />
       {!hideParams && (
         <>
           <KwargsControls

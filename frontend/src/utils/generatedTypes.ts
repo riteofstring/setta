@@ -334,7 +334,7 @@ export const RouteEnum = {
   RUN_CODE: "/runCode",
   TYPE_CHECK: "/typeCheck",
   CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
-  SET_SELECTED_ITEM: "/setSelectedItem",
+  SET_CALLABLE: "/setCallable",
   TEXT_FIELD_COMPLETION: "/textFieldCompletion",
   CODE_AREA_COMPLETION: "/codeAreaCompletion",
   GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
@@ -5289,21 +5289,19 @@ export function createGenCodePrefixCompletionRequest(
   return GenCodePrefixCompletionRequestSchema.parse(options);
 }
 
-export const SetSelectedItemRequestSchema = z.object({
+export const SetCallableRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
-  selectedItemName: z.string(),
+  callableName: z.string(),
   refetchParams: z.boolean(),
 });
 
-export type SetSelectedItemRequest = z.infer<
-  typeof SetSelectedItemRequestSchema
->;
+export type SetCallableRequest = z.infer<typeof SetCallableRequestSchema>;
 
-export function createSetSelectedItemRequest(
-  options: Partial<SetSelectedItemRequest> = {},
-): SetSelectedItemRequest {
-  return SetSelectedItemRequestSchema.parse(options);
+export function createSetCallableRequest(
+  options: Partial<SetCallableRequest> = {},
+): SetCallableRequest {
+  return SetCallableRequestSchema.parse(options);
 }
 
 export const TextFieldCompletionRequestSchema = z.object({

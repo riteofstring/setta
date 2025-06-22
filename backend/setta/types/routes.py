@@ -65,7 +65,7 @@ class Route(str, Enum):
     RUN_CODE = "/runCode"
     TYPE_CHECK = "/typeCheck"
     CLEAR_TEXT_FIELD_COMPLETION = "/clearTextFieldCompletion"
-    SET_SELECTED_ITEM = "/setSelectedItem"
+    SET_CALLABLE = "/setCallable"
     TEXT_FIELD_COMPLETION = "/textFieldCompletion"
     CODE_AREA_COMPLETION = "/codeAreaCompletion"
     GEN_CODE_PREFIX_COMPLETION = "/genCodePrefixCompletion"

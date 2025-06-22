@@ -2,31 +2,41 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
-import { setSelectedItem } from "state/actions/sections/setSelectedItem";
+import {
+  getEffectiveCodeObjImpl,
+  getEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
+import { setCallable } from "state/actions/sections/setSelectedItem";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { route_clear_text_field_completion } from "utils/generatedEndpoints";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
-export function SectionSearch({ sectionId, selectedItem }) {
+export function SectionSearch({
+  sectionId,
+  callable,
+}: {
+  sectionId: string;
+  callable: string;
+}) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
 
-  function onEnter(value) {
-    setSelectedItem(sectionId, value);
+  function onEnter(value: string) {
+    setCallable(sectionId, value);
   }
 
-  function onShiftEnter(value) {
-    setSelectedItem(sectionId, value, true);
+  function onShiftEnter(value: string) {
+    setCallable(sectionId, value, true);
   }
 
   return (
     <SectionSearchCore
       divId={`${sectionId}-search`}
       sectionId={sectionId}
-      selectedItem={selectedItem}
+      callable={callable}
       onEnter={onEnter}
       onShiftEnter={onShiftEnter}
       dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid border-setta-100 bg-white py-1 dark:border-setta-800 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
@@ -38,23 +48,41 @@ export function SectionSearch({ sectionId, selectedItem }) {
 
 function SectionSearchCore({
   sectionId,
-  selectedItem,
+  callable,
   onEnter,
   onShiftEnter,
   dummyCodeClassName,
   realCodeClassName,
   isDisabled,
   divId,
+}: {
+  sectionId: string;
+  callable: string;
+  onEnter: (x: string) => void;
+  onShiftEnter: (x: string) => void;
+  dummyCodeClassName: string;
+  realCodeClassName: string;
+  isDisabled: boolean;
+  divId: string;
 }) {
   const {
     name: codeInfoName,
     description,
     configLanguage,
   } = useProjectState((x) => {
-    const { configLanguage } = getSectionVariant(sectionId, x);
-    if (selectedItem) {
-      const { name, description } = x.codeInfo[selectedItem];
-      return { name, description, configLanguage };
+    const sectionImpl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(sectionImpl)) {
+      throw new Error();
+    }
+    const { configLanguage } = sectionImpl;
+    if (callable) {
+      const codeObj = x.codeObjs[callable];
+      if (!codeObj) {
+        throw new Error();
+      }
+      const impl = getEffectiveCodeObjImpl(x, sectionId, callable);
+      const { description } = impl;
+      return { name: codeObj.name, description, configLanguage };
     }
     return { name: "", description: "", configLanguage };
   }, _.isEqual);

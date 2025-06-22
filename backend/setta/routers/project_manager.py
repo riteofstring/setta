@@ -14,10 +14,10 @@ class ClearTextFieldCompletionRequest(BaseModel):
     paramInfoId: str | None
 
 
-class SetSelectedItemRequest(BaseModel):
+class SetCallableRequest(BaseModel):
     projectConfigId: str
     sectionId: str
-    selectedItemName: str
+    callableName: str
     refetchParams: bool
 
 
@@ -51,12 +51,10 @@ async def route_clear_text_field_completion(
     )
 
 
-@router.post(Route.SET_SELECTED_ITEM)
-async def route_set_selected_item(
-    x: SetSelectedItemRequest, state: AppStateFromRequest
-) -> None:
+@router.post(Route.SET_CALLABLE)
+async def route_set_callable(x: SetCallableRequest, state: AppStateFromRequest) -> None:
     await state.project_manager.set_callable(
-        x.projectConfigId, x.sectionId, x.selectedItemName, x.refetchParams
+        x.projectConfigId, x.sectionId, x.callableName, x.refetchParams
     )
 
 

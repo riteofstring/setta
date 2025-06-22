@@ -50,7 +50,7 @@ async def setSelectedItem(
     setta_state: SettaFastAPIState,
     projectConfigId: str,
     sectionId: ID,
-    selectedItemName: str,
+    callableName: str,
     refetchParams: bool,
 ) -> dict[ID, SimplifiedCodeInfo]:
     """
@@ -58,11 +58,11 @@ async def setSelectedItem(
     Args:
         projectConfigId: The id of the project.
         sectionId: The id of the section we're setting the selectedItem of.
-        selectedItemName: The selected item name, for example "math.sqrt"
+        callableName: The selected item name, for example "math.sqrt"
         refetchParams: If True, then the parameter list will be recomputed. Only do this if something with the python environment or language server has changed.
     """
     project_state = await setta_state.project_manager.set_callable(
-        projectConfigId, sectionId, selectedItemName, refetchParams
+        projectConfigId, sectionId, callableName, refetchParams
     )
     output: dict[ID, SimplifiedCodeInfo] = {}
     children = get_children_of_callable(project_state, sectionId)

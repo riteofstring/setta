@@ -11,6 +11,7 @@ import {
   BaseSectionImplUnion,
   ImplLayering,
   isBaseParentSectionImpl,
+  isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -72,6 +73,53 @@ export function getEffectiveSectionImpl(
 export function getSectionImpl(p: ZustandProjectState, sectionId: string) {
   const implLayering = getSectionImplLayering(p, sectionId);
   const baseImpl = p.sectionImpls[implLayering.impl];
+  if (!baseImpl) {
+    throw new Error();
+  }
+  return baseImpl;
+}
+
+export function getCodeObjImplLayering(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+) {
+  // Check if sectionId exists in the map
+  const sectionImpl = getEffectiveSectionImpl(p, sectionId);
+  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
+    throw new Error();
+  }
+  const implLayeringId = sectionImpl.codeObjImplLayeringMap[codeObjId];
+  if (implLayeringId === undefined) {
+    throw new Error(
+      `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
+    );
+  }
+
+  // Check if implLayeringId exists in layerings
+  const implLayering = p.codeObjImplLayerings[implLayeringId];
+  if (!implLayering) {
+    throw new Error(`Implementation layering '${implLayeringId}' not found`);
+  }
+  return implLayering;
+}
+
+export function getEffectiveCodeObjImpl(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+) {
+  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId);
+  return getEffectiveImpl(implLayering, p.codeObjImpls);
+}
+
+export function getCodeObjImpl(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+) {
+  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId);
+  const baseImpl = p.codeObjImpls[implLayering.impl];
   if (!baseImpl) {
     throw new Error();
   }

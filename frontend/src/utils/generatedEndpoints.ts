@@ -309,10 +309,10 @@ export async function route_clear_text_field_completion(
   return await post("/clearTextFieldCompletion", x);
 }
 
-export async function route_set_selected_item(
-  x: gt.SetSelectedItemRequest,
+export async function route_set_callable(
+  x: gt.SetCallableRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSelectedItem", x);
+  return await post("/setCallable", x);
 }
 
 export async function route_text_field_completion(
