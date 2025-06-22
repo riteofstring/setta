@@ -1,4 +1,5 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import _ from "lodash";
 import {
   useNodeInternals,
   useProjectState,
@@ -9,6 +10,7 @@ import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoin
 import {
   BaseSectionImplUnion,
   ImplLayering,
+  isBaseParentSectionImpl,
   ProjectStateSingleConfig,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -26,7 +28,7 @@ export function getEffectiveImpl<TImpl>(
     throw new Error();
   }
   // Deep clone the base implementation
-  const effective = structuredClone(baseImpl);
+  const effective = _.cloneDeep(baseImpl);
   Object.assign(effective, implLayering.modifier);
   return effective;
 }
@@ -95,8 +97,8 @@ export function getSectionVariant(sectionId, _state) {
 }
 
 export function getHighestAncestor(
-  sectionId,
-  parentIdGetter = getSectionParentId,
+  sectionId: string,
+  parentIdGetter: (id: string) => string | null = getSectionParentId,
 ) {
   let parentId = parentIdGetter(sectionId);
   let highestAncestor = sectionId;
@@ -109,12 +111,20 @@ export function getHighestAncestor(
   return highestAncestor;
 }
 
-export function getSectionDescendants(sectionId, state) {
+export function getSectionDescendants(
+  sectionId: string,
+  state: ZustandProjectState,
+) {
   const ids = [sectionId];
   let idx = 0;
   while (idx < ids.length) {
     const currId = ids[idx];
-    ids.push(...getSectionVariant(currId, state).children);
+    if (currId) {
+      const impl = getEffectiveSectionImpl(state, currId);
+      if (isBaseParentSectionImpl(impl)) {
+        ids.push(...impl.children);
+      }
+    }
     idx += 1;
   }
   return ids;

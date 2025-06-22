@@ -1,4 +1,6 @@
+import _ from "lodash";
 import {
+  getEffectiveSectionImpl,
   getHighestAncestor,
   getSectionDescendants,
   getSectionImplLayering,
@@ -8,6 +10,7 @@ import {
   createSectionSize,
   isBaseSectionImplModifier,
   SectionSize,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 
 export function setSelfParentSiblingChildrenWidths(
@@ -15,20 +18,27 @@ export function setSelfParentSiblingChildrenWidths(
   changedSize: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  // set own size
   setSectionSize(sectionId, changedSize, state);
 
-  // if (!_.isNil(changedSize.width)) {
-  //   setAllOtherWidths(sectionId, changedSize.width, state);
-  // }
+  if (!_.isNil(changedSize.width)) {
+    setAllOtherWidths(sectionId, changedSize.width, state);
+  }
 }
 
-function setAllOtherWidths(sectionId, width, state) {
+function setAllOtherWidths(
+  sectionId: string,
+  width: SectionSize["width"],
+  state: ZustandProjectState,
+) {
   // We want to stop width propagation as soon as we hit a horizontal group.
-  const parentIdGetter = (id) => {
-    const { parentId } = state.sections[id];
-    if (parentId && !state.sections[parentId].isHorizontalOrientation) {
-      return parentId;
+  const parentIdGetter = (id: string) => {
+    const impl = getEffectiveSectionImpl(state, id);
+    if (
+      impl.parentId &&
+      impl.type === SectionTypeEnum.Group &&
+      !impl.isHorizontalOrientation
+    ) {
+      return impl.parentId;
     }
     return null;
   };
@@ -122,7 +132,10 @@ export function setSectionSize(
 ) {
   const implLayering = getSectionImplLayering(state, sectionId);
   if (isBaseSectionImplModifier(implLayering.modifier)) {
-    const currSize = implLayering.modifier.size;
-    implLayering.modifier.size = createSectionSize({ ...currSize, ...size });
+    const currModifierSize = implLayering.modifier.size;
+    implLayering.modifier.size = createSectionSize({
+      ...currModifierSize,
+      ...size,
+    });
   }
 }
