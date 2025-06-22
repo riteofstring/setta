@@ -1,8 +1,12 @@
-from typing import Annotated, Union
+from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
 
 from setta.types.code_obj_impl_modifiers import (
+    BaseChildlessCodeObjImplModifier,
+    BaseCodeObjImplModifier,
+    BaseParamCodeObjImplModifier,
+    BaseParentCodeObjImplModifier,
     CodeCallableCodeObjImplModifier,
     CodeParamCodeObjImplModifier,
     ColorPickerParamCodeObjImplModifier,
@@ -123,3 +127,27 @@ BaseParentCodeObjImplModifierTypeAdapter = TypeAdapter(
 )
 
 BaseParentCodeObjImplModifierTypeSet = set(["CodeCallable", "NestedParam"])
+
+
+def isBaseCodeObjImplModifier(
+    x: BaseCodeObjImplModifier,
+) -> TypeGuard[BaseCodeObjImplModifier]:
+    return x["type"] in BaseCodeObjImplModifierTypeSet
+
+
+def isBaseParamCodeObjImplModifier(
+    x: BaseCodeObjImplModifier,
+) -> TypeGuard[BaseParamCodeObjImplModifier]:
+    return x["type"] in BaseParamCodeObjImplModifierTypeSet
+
+
+def isBaseChildlessCodeObjImplModifier(
+    x: BaseCodeObjImplModifier,
+) -> TypeGuard[BaseChildlessCodeObjImplModifier]:
+    return x["type"] in BaseChildlessCodeObjImplModifierTypeSet
+
+
+def isBaseParentCodeObjImplModifier(
+    x: BaseCodeObjImplModifier,
+) -> TypeGuard[BaseParentCodeObjImplModifier]:
+    return x["type"] in BaseParentCodeObjImplModifierTypeSet

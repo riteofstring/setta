@@ -60,11 +60,16 @@ def get_base_child_mapping(module, base_class, discriminator):
 
 
 def construct_unions(
-    module, base_class, discriminator, module_to_import_in_gen_file, class_transformer
+    module,
+    base_class,
+    discriminator,
+    module_to_import_in_gen_file,
+    class_transformer,
+    return_base_class_to_children=False,
 ):
     base_class_to_children = get_base_child_mapping(module, base_class, discriminator)
     code = """
-from typing import Annotated,Union
+from typing import Annotated,Union,TypeGuard
 from pydantic import Field, TypeAdapter
 
 """
@@ -90,6 +95,8 @@ from pydantic import Field, TypeAdapter
             f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
         )
 
+    if return_base_class_to_children:
+        return code, base_class_to_children
     return ruff_format(code)
 
 
@@ -117,30 +124,63 @@ def code_obj_impl_union():
     )
 
 
+def create_type_predicate_fns(most_base_type, set_name, transformed_base_class_name):
+    return f"""
+def is{transformed_base_class_name}(x: {most_base_type.__name__})->TypeGuard[{transformed_base_class_name}]:
+    return x["type"] in {set_name}
+
+"""
+
+
+def add_type_predicate_fns(most_base_type, base_class_to_children, class_transformer):
+    code = ""
+    for base_class in base_class_to_children.keys():
+        transformed_base_class_name = class_transformer(base_class.__name__)
+        set_name = f"{transformed_base_class_name}TypeSet"
+        code += create_type_predicate_fns(
+            most_base_type, set_name, transformed_base_class_name
+        )
+    return code
+
+
 def section_impl_modifier_union():
     import setta.types.section_impl_modifiers
     import setta.types.sections
 
-    return construct_unions(
+    code, base_class_to_children = construct_unions(
         setta.types.sections,
         setta.types.sections.BaseSectionImpl,
         "type",
         setta.types.section_impl_modifiers,
         lambda x: f"{x}Modifier",
+        True,
     )
+    code += add_type_predicate_fns(
+        setta.types.section_impl_modifiers.BaseSectionImplModifier,
+        base_class_to_children,
+        lambda x: f"{x}Modifier",
+    )
+    return ruff_format(code)
 
 
 def code_obj_impl_modifier_union():
     import setta.types.code_obj_impl_modifiers
     import setta.types.code_objs
 
-    return construct_unions(
+    code, base_class_to_children = construct_unions(
         setta.types.code_objs,
         setta.types.code_objs.BaseCodeObjImpl,
         "type",
         setta.types.code_obj_impl_modifiers,
         lambda x: f"{x}Modifier",
+        True,
     )
+    code += add_type_predicate_fns(
+        setta.types.code_obj_impl_modifiers.BaseCodeObjImplModifier,
+        base_class_to_children,
+        lambda x: f"{x}Modifier",
+    )
+    return ruff_format(code)
 
 
 # This function differs from the section_impl and code_obj_impl functions above

@@ -1,8 +1,15 @@
-from typing import Annotated, Union
+from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
 
 from setta.types.section_impl_modifiers import (
+    BaseArtifactSectionImplModifier,
+    BaseCanvasSectionImplModifier,
+    BaseCodeSectionImplModifier,
+    BaseDictSectionImplModifier,
+    BaseParentSectionImplModifier,
+    BaseSectionImplModifier,
+    BaseSectionWithParamsImplModifier,
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
     ChartSectionImplModifier,
@@ -157,3 +164,45 @@ BaseDictSectionImplModifierTypeAdapter = TypeAdapter(
 )
 
 BaseDictSectionImplModifierTypeSet = set(["Dict", "GlobalVariables"])
+
+
+def isBaseSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseSectionImplModifier]:
+    return x["type"] in BaseSectionImplModifierTypeSet
+
+
+def isBaseSectionWithParamsImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseSectionWithParamsImplModifier]:
+    return x["type"] in BaseSectionWithParamsImplModifierTypeSet
+
+
+def isBaseArtifactSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseArtifactSectionImplModifier]:
+    return x["type"] in BaseArtifactSectionImplModifierTypeSet
+
+
+def isBaseCanvasSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseCanvasSectionImplModifier]:
+    return x["type"] in BaseCanvasSectionImplModifierTypeSet
+
+
+def isBaseCodeSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseCodeSectionImplModifier]:
+    return x["type"] in BaseCodeSectionImplModifierTypeSet
+
+
+def isBaseParentSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseParentSectionImplModifier]:
+    return x["type"] in BaseParentSectionImplModifierTypeSet
+
+
+def isBaseDictSectionImplModifier(
+    x: BaseSectionImplModifier,
+) -> TypeGuard[BaseDictSectionImplModifier]:
+    return x["type"] in BaseDictSectionImplModifierTypeSet
