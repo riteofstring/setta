@@ -1,6 +1,7 @@
 from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.impl_modifiers import (
     BaseArtifactSectionImplModifier,
     BaseCanvasSectionImplModifier,
@@ -168,6 +169,7 @@ BaseDictSectionImplModifierTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.impl_modifiers import (
     BaseChildlessCodeObjImplModifier,
     BaseCodeObjImplModifier,

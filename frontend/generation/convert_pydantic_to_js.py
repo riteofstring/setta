@@ -56,12 +56,18 @@ def get_modules_from_package(package):
     package_name = package.__name__
 
     for _, modname, ispkg in pkgutil.iter_modules(package.__path__, package_name + "."):
-        if not ispkg:
-            try:
+        try:
+            if ispkg:
+                # Import the sub-package
+                subpackage = importlib.import_module(modname)
+                # Recursively get modules from the sub-package
+                modules.extend(get_modules_from_package(subpackage))
+            else:
+                # Import the module
                 module = importlib.import_module(modname)
                 modules.append(module)
-            except ImportError as e:
-                print(f"Could not import {modname}: {e}")
+        except ImportError as e:
+            print(f"Could not import {modname}: {e}")
 
     return modules
 

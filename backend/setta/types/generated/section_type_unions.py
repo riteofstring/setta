@@ -1,6 +1,7 @@
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.sections import (
     BrowserSectionImpl,
     CallableSectionImpl,
