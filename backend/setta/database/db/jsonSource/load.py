@@ -4,6 +4,11 @@ import logging
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
+from setta.types.code_obj_impl_layering import (
+    BaseChildlessCodeObjImplLayering,
+    BaseCodeObjImplLayering,
+    NestedParamCodeObjImplLayering,
+)
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -12,11 +17,11 @@ from setta.types.code_objs import (
     TextParamCodeObjImpl,
 )
 from setta.types.impl_helpers import get_effective_impl
-from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impl_layering import (
+    BaseSectionImplLayering,
     DictSectionImplLayering,
 )
 from setta.types.sections import (
@@ -34,7 +39,7 @@ class ProcessedJSONObject(BaseModel):
     codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]] = Field(
+    codeObjImplLayerings: dict[str, SerializeAsAny[BaseCodeObjImplLayering]] = Field(
         default_factory=dict
     )
 
@@ -42,10 +47,10 @@ class ProcessedJSONObject(BaseModel):
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
     sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]]
-    sectionImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
+    sectionImplLayerings: dict[str, SerializeAsAny[BaseSectionImplLayering]]
     codeObjs: dict[str, CodeObjCore]
     codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]]
-    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
+    codeObjImplLayerings: dict[str, SerializeAsAny[BaseCodeObjImplLayering]]
 
 
 def load_json_sources_into_data_structures(
@@ -81,7 +86,7 @@ def merge_into_existing(
     section_layering: DictSectionImplLayering,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
-    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering],
 ):
     filename = section_impl.name
     ancestor_paths = build_ancestor_paths(
@@ -130,19 +135,22 @@ def merge_into_existing(
         layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
         layering = codeObjImplLayerings[layeringId]
         impl = get_effective_impl(layering, codeObjImpls)
-        if isinstance(impl, NestedParamCodeObjImpl):
-            if isinstance(newImpl, NestedParamCodeObjImpl):
-                layering.modifier["children"] = [
-                    replacements[c][0] if c in replacements else c
-                    for c in newImpl.children
-                ]
-            else:
-                raise TypeError
-        elif isinstance(impl, BaseChildlessCodeObjImpl):
-            if isinstance(newImpl, BaseChildlessCodeObjImpl):
-                layering.modifier["value"] = newImpl.value
-            else:
-                raise TypeError
+        if (
+            isinstance(impl, NestedParamCodeObjImpl)
+            and isinstance(newImpl, NestedParamCodeObjImpl)
+            and isinstance(layering, NestedParamCodeObjImplLayering)
+        ):
+            layering.modifier["children"] = [
+                replacements[c][0] if c in replacements else c for c in newImpl.children
+            ]
+        elif (
+            isinstance(impl, BaseChildlessCodeObjImpl)
+            and isinstance(newImpl, BaseChildlessCodeObjImpl)
+            and isinstance(layering, BaseChildlessCodeObjImplLayering)
+        ):
+            layering.modifier["value"] = newImpl.value
+        else:
+            raise TypeError
 
     for metadataString, id in jsonSourceMetadata_to_id.items():
         newId = new_jsonSourceMetadata_to_id.get(metadataString)

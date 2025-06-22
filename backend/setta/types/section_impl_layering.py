@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import Field
 
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import BaseImplLayering
 from setta.types.section_impl_modifiers import (
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
@@ -24,7 +24,7 @@ from setta.types.section_impl_modifiers import (
 )
 
 
-class BaseSectionImplLayering(ImplLayering):
+class BaseSectionImplLayering(BaseImplLayering):
     modifier: Any
 
 

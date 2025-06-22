@@ -134,7 +134,7 @@ class {name}Modifier({parent_class}, total=False):
 def create_layering(impl_class, base_class):
     name = impl_class.__name__
     if impl_class is base_class:
-        parent_class = "ImplLayering"
+        parent_class = "BaseImplLayering"
     else:
         parent_class = f"{python_type_to_str(impl_class.__base__)}Layering"
 
@@ -190,7 +190,7 @@ def section_impl_layering(output_file, impl_classes):
     code = f"""
 from pydantic import Field
 from typing import Any
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import BaseImplLayering
 from setta.types.section_impl_modifiers import {",".join(modifier_class_names)}
 """
     for c in impl_classes:
@@ -240,10 +240,28 @@ from setta.types.code_objs import (
     return classes
 
 
+def code_obj_impl_layering(output_file, impl_classes):
+    modifier_class_names = [f"{c.__name__}Modifier" for c in impl_classes]
+    code = f"""
+from pydantic import Field
+from typing import Any
+from setta.types.impl_layering import BaseImplLayering
+from setta.types.code_obj_impl_modifiers import {",".join(modifier_class_names)}
+"""
+    for c in impl_classes:
+        code += create_layering(c, impl_classes[0])
+    code = ruff_format(code)
+    with open(output_file, "w") as f:
+        f.write(code)
+
+    print(f"wrote to {output_file}")
+
+
 def main(output_folder):
     impl_classes = section_impl_modifiers(output_folder / "section_impl_modifiers.py")
     section_impl_layering(output_folder / "section_impl_layering.py", impl_classes)
-    code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
+    impl_classes = code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
+    code_obj_impl_layering(output_folder / "code_obj_impl_layering.py", impl_classes)
 
 
 if __name__ == "__main__":

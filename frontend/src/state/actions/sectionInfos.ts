@@ -8,7 +8,7 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
-  ImplLayering,
+  BaseImplLayering,
   ProjectStateSingleConfig,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -18,7 +18,7 @@ import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
 export function getEffectiveImpl<TImpl>(
-  implLayering: ImplLayering,
+  implLayering: BaseImplLayering,
   implDict: Record<string, TImpl>,
 ): TImpl {
   const baseImpl = implDict[implLayering.impl];

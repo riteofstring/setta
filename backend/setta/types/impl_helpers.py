@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from setta.types.code_objs import (
     BaseCodeObjImpl,
 )
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import BaseImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -14,7 +14,7 @@ TImpl = TypeVar("TImpl", bound=BaseModel)
 
 
 def get_effective_impl(
-    impl_layering: ImplLayering,
+    impl_layering: BaseImplLayering,
     impl_dict: dict[str, TImpl],
 ) -> TImpl:
     effective = impl_dict[impl_layering.impl].model_copy(deep=True)
@@ -22,7 +22,7 @@ def get_effective_impl(
     return effective
 
 
-def set_effective_impl(impl_layering: ImplLayering, key, value):
+def set_effective_impl(impl_layering: BaseImplLayering, key, value):
     impl_layering.modifier[key] = value
 
 

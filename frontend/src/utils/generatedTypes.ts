@@ -3932,11 +3932,11 @@ export const ImplLayeringSchema = z.object({
   modifier: z.any(),
 });
 
-export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
+export type BaseImplLayering = z.infer<typeof ImplLayeringSchema>;
 
 export function createImplLayering(
-  options: Partial<ImplLayering> = {},
-): ImplLayering {
+  options: Partial<BaseImplLayering> = {},
+): BaseImplLayering {
   return ImplLayeringSchema.parse(options);
 }
 
