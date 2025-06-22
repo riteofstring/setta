@@ -320,12 +320,6 @@ export function getAllSectionsForDeletionOrCopying(
   return idsToDelete;
 }
 
-export function setDefaultSectionVariant(sectionId, variantId) {
-  useProjectState.setState((x) => {
-    x.sections[sectionId].defaultVariantId = variantId;
-  });
-}
-
 export function resetSectionsToDefaultVersions(sectionIds) {
   useProjectState.setState((x) => {
     for (const id of sectionIds) {

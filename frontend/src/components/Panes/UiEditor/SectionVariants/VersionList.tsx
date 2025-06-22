@@ -9,11 +9,11 @@ import { onClickSetVariantId } from "state/actions/previewOnMouseOver";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
-  setDefaultSectionVariant,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { isBaseSectionImplModifier } from "utils/generatedTypes";
 
 export function VersionList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -159,7 +159,13 @@ function OneItem({
           }`}
           onClick={(e) => {
             e.stopPropagation();
-            setDefaultSectionVariant(sectionId, id);
+            useProjectState.setState((x) => {
+              const section = x.sections[sectionId];
+              if (!section) {
+                throw new Error();
+              }
+              section.defaultImplLayering = id;
+            });
           }}
         >
           <HiHome />
@@ -173,7 +179,14 @@ function OneItem({
           onClick={(e) => {
             e.stopPropagation();
             useProjectState.setState((x) => {
-              x.variants[id].isFrozen = !x.variants[id].isFrozen;
+              const implLayering = x.sectionImplLayerings[id];
+              if (
+                !implLayering ||
+                !isBaseSectionImplModifier(implLayering.modifier)
+              ) {
+                throw new Error();
+              }
+              implLayering.modifier.isFrozen = !isFrozen;
             });
           }}
         >
