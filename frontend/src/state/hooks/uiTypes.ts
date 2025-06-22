@@ -48,7 +48,7 @@ export function useIsSeriesElement(sectionId) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(
       sectionId,
-      [SectionTypeEnum.LIST_ROOT, SectionTypeEnum.DICT_ROOT],
+      [SectionTypeEnum.ListRoot, SectionTypeEnum.DictRoot],
       x,
     ),
   );
