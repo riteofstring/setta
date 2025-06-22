@@ -1,6 +1,23 @@
 import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { useEffect } from "react";
+import { NOTIFICATION_DURATION } from "./notificationUtils";
 
-export default function Notifications({ notifications }) {
+export default function Notifications({ notifications, onRemove }) {
+  // Auto-remove notifications after 5 seconds
+  useEffect(() => {
+    if (notifications.length === 0) return;
+
+    const timers = notifications.map((notification) => {
+      return setTimeout(() => {
+        onRemove(notification.id);
+      }, NOTIFICATION_DURATION);
+    });
+
+    return () => {
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [notifications, onRemove]);
+
   if (!notifications.length) return null;
 
   return (
@@ -18,6 +35,13 @@ export default function Notifications({ notifications }) {
         >
           <InfoCircledIcon className="h-4 w-4" />
           <span className="text-sm">{notification.message}</span>
+          <button
+            onClick={() => onRemove(notification.id)}
+            className="ml-2 text-white/80 hover:text-white"
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
         </div>
       ))}
     </div>

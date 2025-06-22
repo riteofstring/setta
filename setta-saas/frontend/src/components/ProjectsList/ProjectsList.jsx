@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/clerk-react";
 import { PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useAuthenticatedFetch } from "../../hooks/useAuthenticatedFetch";
 import Notifications from "./Notifications";
+import { generateNotificationId } from "./notificationUtils";
 import NewProjectForm from "./NewProjectForm";
 import ProjectCard from "./ProjectCard";
+import LoadingProjects from "./LoadingProjects";
 
 export default function ProjectsList() {
   const navigate = useNavigate();
@@ -19,38 +21,113 @@ export default function ProjectsList() {
   const [togglingStates, setTogglingStates] = useState(new Set());
   const [deploymentProgress, setDeploymentProgress] = useState({});
   const [notifications, setNotifications] = useState([]);
+  const [fetchError, setFetchError] = useState(null);
+
+  // Track recent notification messages to prevent duplicates
+  const recentNotifications = useRef(new Map());
+  const fetchAttempts = useRef(0);
 
   const { isConnected, subscribe, EventType } = useWebSocket();
 
-  const showNotification = (type, message) => {
-    const id = Date.now();
-    setNotifications((prev) => [...prev, { id, type, message }]);
-
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 5000);
-  };
-
-  // Initial fetch
+  // Warm up the backend on mount
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const response = await authenticatedFetch("/api/projects");
-        if (!response.ok) throw new Error("Failed to fetch");
-        const data = await response.json();
-        setProjects(data);
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-        showNotification("error", "Failed to fetch projects");
-      } finally {
-        setLoading(false);
+    // Fire and forget health check to wake up Railway
+    fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/health`)
+      .then(() => console.log("Backend warmed up"))
+      .catch(() =>
+        console.log("Backend warm-up failed (will retry with auth)"),
+      );
+  }, []);
+
+  // Improved notification system with deduplication
+  const showNotification = useCallback((type, message) => {
+    // Check if we've shown this exact message recently (within 2 seconds)
+    const now = Date.now();
+    const lastShown = recentNotifications.current.get(message);
+
+    if (lastShown && now - lastShown < 2000) {
+      return; // Skip duplicate notification
+    }
+
+    recentNotifications.current.set(message, now);
+
+    // Clean up old entries
+    for (const [msg, time] of recentNotifications.current.entries()) {
+      if (now - time > 5000) {
+        recentNotifications.current.delete(msg);
+      }
+    }
+
+    const id = generateNotificationId();
+    setNotifications((prev) => [...prev, { id, type, message }]);
+  }, []);
+
+  const removeNotification = useCallback((id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  // Improved fetch with retry logic
+  const fetchProjects = useCallback(async () => {
+    try {
+      setFetchError(null);
+      const response = await authenticatedFetch("/api/projects");
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setProjects(data);
+      fetchAttempts.current = 0; // Reset attempts on success
+      return true;
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      setFetchError(error.message);
+
+      // Only show notification after initial attempts or if it's been a while
+      if (fetchAttempts.current > 1) {
+        showNotification("error", "Failed to fetch projects. Retrying...");
+      }
+
+      fetchAttempts.current++;
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [authenticatedFetch, showNotification]);
+
+  // Initial fetch with retry
+  useEffect(() => {
+    let mounted = true;
+    let retryTimeout;
+    let initTimeout;
+
+    const fetchWithRetry = async () => {
+      if (!mounted) return;
+
+      const success = await fetchProjects();
+
+      // Retry after 3 seconds if failed (max 3 attempts)
+      if (!success && fetchAttempts.current < 3 && mounted) {
+        retryTimeout = setTimeout(fetchWithRetry, 3000);
       }
     };
 
-    fetchProjects();
-  }, [authenticatedFetch]);
+    // Small delay to ensure auth is fully ready
+    initTimeout = setTimeout(() => {
+      if (mounted) {
+        fetchWithRetry();
+      }
+    }, 500);
 
-  // WebSocket subscriptions
+    return () => {
+      mounted = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      if (initTimeout) clearTimeout(initTimeout);
+    };
+  }, [fetchProjects]);
+
+  // WebSocket subscriptions with better error handling
   useEffect(() => {
     if (!isConnected) return;
 
@@ -151,19 +228,27 @@ export default function ProjectsList() {
     ];
 
     return () => unsubscribers.forEach((unsub) => unsub());
-  }, [isConnected, subscribe, EventType]);
+  }, [isConnected, subscribe, EventType, showNotification]);
 
   const handleCreateProject = async (projectName) => {
-    const response = await authenticatedFetch("/api/projects", {
-      method: "POST",
-      body: JSON.stringify({ name: projectName }),
-    });
+    try {
+      const response = await authenticatedFetch("/api/projects", {
+        method: "POST",
+        body: JSON.stringify({ name: projectName }),
+      });
 
-    if (!response.ok) throw new Error("Failed to create project");
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to create project");
+      }
 
-    const newProject = await response.json();
-    setProjects([...projects, newProject]);
-    setShowNewProjectForm(false);
+      const newProject = await response.json();
+      setProjects([...projects, newProject]);
+      setShowNewProjectForm(false);
+    } catch (error) {
+      showNotification("error", `Failed to create project: ${error.message}`);
+      throw error; // Re-throw to let form handle it
+    }
   };
 
   const handleToggleSelect = (projectId) => {
@@ -199,6 +284,8 @@ export default function ProjectsList() {
     }
 
     const projectsToDelete = Array.from(selectedProjects);
+    let deletedCount = 0;
+    let failedCount = 0;
 
     for (const projectId of projectsToDelete) {
       try {
@@ -210,10 +297,18 @@ export default function ProjectsList() {
         );
 
         if (!response.ok) throw new Error("Failed to delete project");
+        deletedCount++;
       } catch (error) {
         console.error("Error deleting project:", error);
-        showNotification("error", `Failed to delete project`);
+        failedCount++;
       }
+    }
+
+    if (failedCount > 0) {
+      showNotification("error", `Failed to delete ${failedCount} project(s)`);
+    }
+    if (deletedCount > 0) {
+      showNotification("success", `Deleted ${deletedCount} project(s)`);
     }
 
     setSelectedProjects(new Set());
@@ -230,12 +325,15 @@ export default function ProjectsList() {
         },
       );
 
-      if (!response.ok) throw new Error(`Failed to ${action} machine`);
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || `Failed to ${action} machine`);
+      }
 
       showNotification("info", `Machine ${action} requested`);
     } catch (error) {
       console.error(`Error ${action} machine:`, error);
-      showNotification("error", `Failed to ${action} machine`);
+      showNotification("error", error.message);
       setTogglingStates((prev) => {
         const newSet = new Set(prev);
         newSet.delete(projectId);
@@ -250,17 +348,23 @@ export default function ProjectsList() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="p-6 text-center text-setta-600 dark:text-setta-400">
-          Loading projects...
-        </div>
-      </div>
+      <LoadingProjects
+        error={fetchError}
+        onRetry={() => {
+          setLoading(true);
+          setFetchError(null);
+          fetchProjects();
+        }}
+      />
     );
   }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <Notifications notifications={notifications} />
+      <Notifications
+        notifications={notifications}
+        onRemove={removeNotification}
+      />
 
       <div className="flex items-center justify-between pb-6">
         <div>
@@ -316,7 +420,23 @@ export default function ProjectsList() {
       <div className="overflow-hidden rounded-lg bg-white shadow dark:bg-setta-875">
         {projects.length === 0 ? (
           <div className="p-6 text-center text-setta-500 dark:text-setta-400">
-            No projects yet. Create your first project!
+            {fetchError ? (
+              <div>
+                <p>Unable to load projects.</p>
+                <button
+                  onClick={() => {
+                    setLoading(true);
+                    setFetchError(null);
+                    fetchProjects();
+                  }}
+                  className="mt-4 px-4 py-2 bg-setta-600 text-white rounded hover:bg-setta-500"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              "No projects yet. Create your first project!"
+            )}
           </div>
         ) : (
           <>
@@ -327,10 +447,6 @@ export default function ProjectsList() {
                   checked={
                     selectedProjects.size === projects.length &&
                     projects.length > 0
-                  }
-                  indeterminate={
-                    selectedProjects.size > 0 &&
-                    selectedProjects.size < projects.length
                   }
                   onChange={handleSelectAll}
                   className="h-4 w-4 rounded border-setta-300 text-setta-600 focus:ring-setta-500 dark:border-setta-600 dark:bg-setta-800"
