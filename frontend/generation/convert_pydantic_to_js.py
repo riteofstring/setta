@@ -467,7 +467,9 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
             elif default_value is None:
                 zod_schema = f"{zod_schema}.default(null)"
         elif field_info.default_factory is not None:
-            if isinstance(field_info.default_factory, type(BaseModel)):
+            if isinstance(field_info.default_factory, type(BaseModel)) or is_typeddict(
+                field_info.default_factory
+            ):
                 zod_schema = (
                     f"{zod_schema}.default(create{field_info.default_factory.__name__})"
                 )

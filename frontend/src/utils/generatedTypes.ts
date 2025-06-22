@@ -2208,7 +2208,7 @@ export const SectionImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifier: SectionImplModifierSchema.default(SectionImplModifier),
+  modifier: SectionImplModifierSchema.default(createSectionImplModifier),
 });
 
 export type SectionImplLayering = z.infer<typeof SectionImplLayeringSchema>;
@@ -2264,7 +2264,7 @@ export const CodeObjImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifier: CodeObjImplModifierSchema.default(CodeObjImplModifier),
+  modifier: CodeObjImplModifierSchema.default(createCodeObjImplModifier),
 });
 
 export type CodeObjImplLayering = z.infer<typeof CodeObjImplLayeringSchema>;
