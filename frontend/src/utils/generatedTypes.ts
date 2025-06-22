@@ -3696,9 +3696,28 @@ export function createWebsocketMsgAllDependencies(
   return WebsocketMsgAllDependenciesSchema.parse(options);
 }
 
+export const FileWatcherUpdateSchema = z.object({
+  absPath: z.string(),
+  relPath: z.string(),
+  eventType: z.string(),
+  fileContent: z.any(),
+  matchingGlobPatterns: z.array(z.string()),
+  fileWatchGroupName: z.enum(FileWatchGroupNameEnum),
+  destAbsPath: z.union([z.string(), z.null()]).default(null),
+  destRelPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type FileWatcherUpdate = z.infer<typeof FileWatcherUpdateSchema>;
+
+export function createFileWatcherUpdate(
+  options: Partial<FileWatcherUpdate> = {},
+): FileWatcherUpdate {
+  return FileWatcherUpdateSchema.parse(options);
+}
+
 export const WebsocketMsgSpecificFileWatcherUpdateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
+  content: FileWatcherUpdateSchema,
   messageType: z
     .literal("SpecificFileWatcherUpdate")
     .default(WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate),

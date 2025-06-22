@@ -12,6 +12,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.specific_file_watcher import FileWatcherUpdate
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -116,7 +117,7 @@ class WebsocketMsgUpdateFrontendProjectState(WebsocketMsg):
 
 
 class WebsocketMsgSpecificFileWatcherUpdate(WebsocketMsg):
-    content: Any
+    content: FileWatcherUpdate
     messageType: Literal[WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate] = (
         WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate
     )

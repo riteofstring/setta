@@ -1,10 +1,15 @@
 import { useAIStore, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_section_json_source } from "utils/generatedEndpoints";
-import { FileWatchGroupNameEnum } from "utils/generatedTypes";
+import {
+  FileWatcherUpdate,
+  FileWatchGroupNameEnum,
+} from "utils/generatedTypes";
 import { getSectionVariant, updateProjectState } from "./sectionInfos";
 
-export async function updateWithFileChanges(updatedFileInfo) {
+export async function updateWithFileChanges(
+  updatedFileInfo: FileWatcherUpdate,
+) {
   const { fileWatchGroupName } = updatedFileInfo;
 
   if (fileWatchGroupName === FileWatchGroupNameEnum.jsonSource) {

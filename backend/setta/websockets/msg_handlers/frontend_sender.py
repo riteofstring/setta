@@ -6,6 +6,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.specific_file_watcher import FileWatcherUpdate
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgArtifact,
@@ -76,7 +77,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_file_updates(self, content):
+    async def broadcast_file_updates(self, content: FileWatcherUpdate):
         await self.websocket_manager.broadcast(
             WebsocketMsgSpecificFileWatcherUpdate(content=content),
             connectionType=WebsocketConnectionType.FRONTEND,

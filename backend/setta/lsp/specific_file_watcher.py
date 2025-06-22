@@ -3,19 +3,19 @@ import glob
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Any, Awaitable, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
-from setta.types.specific_file_watcher import FileWatchGroupName
+from setta.types.specific_file_watcher import FileWatcherUpdate, FileWatchGroupName
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
 
 def create_specific_file_watcher(websocket_msg_handler: WMHFrontendSender):
-    async def event_callback(event_info):
+    async def event_callback(event_info: FileWatcherUpdate):
         logger.debug(f"event_callback {event_info}")
         await websocket_msg_handler.broadcast_file_updates(event_info)
 
@@ -34,7 +34,7 @@ class MockFileEvent:
 class SpecificFileWatcher:
     """File watcher that monitors specific files and notifies via a single callback."""
 
-    def __init__(self, event_callback):
+    def __init__(self, event_callback: Callable[[FileWatcherUpdate], Awaitable[None]]):
         """
         Initialize the file watcher for specific files.
 
@@ -240,7 +240,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        callback,
+        callback: Callable[[FileWatcherUpdate], Awaitable[None]],
         loop,
         watched_files_ref: dict[FileWatchGroupName, set[str]],
         file_content_processors,
@@ -373,19 +373,19 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                     file_content = None
 
         # Prepare event info object
-        event_info = {
-            "absPath": abs_path,
-            "relPath": rel_path,
-            "eventType": event_type,
-            "fileContent": file_content,
-            "matchingGlobPatterns": list(self.file_to_patterns.get(abs_path, [])),
-            "fileWatchGroupName": file_watch_group_name,
-        }
+        event_info = FileWatcherUpdate(
+            absPath=abs_path,
+            relPath=rel_path,
+            eventType=event_type,
+            fileContent=file_content,
+            matchingGlobPatterns=list(self.file_to_patterns.get(abs_path, [])),
+            fileWatchGroupName=file_watch_group_name,
+        )
 
         # Add destination paths for moved events
         if event_type == "moved" and dest_abs_path:
-            event_info["destAbsPath"] = dest_abs_path
-            event_info["destRelPath"] = dest_rel_path
+            event_info.destAbsPath = dest_abs_path
+            event_info.destRelPath = dest_rel_path
 
         logger.debug(f"will send {event_info}")
         if asyncio.iscoroutinefunction(self.callback):
