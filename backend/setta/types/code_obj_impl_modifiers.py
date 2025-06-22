@@ -1,70 +1,68 @@
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from setta.types.code_objs import ParameterPassingStyle, ParamNameType
 
 
-class BaseCodeObjImplModifier(TypedDict, total=False):
+class BaseCodeObjImplModifier(TypedDict):
     type: Any
-    description: str
-    isPreset: bool
+    description: NotRequired[str]
+    isPreset: NotRequired[bool]
 
 
-class BaseParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+class BaseParamCodeObjImplModifier(BaseCodeObjImplModifier):
     type: Any
-    coreNameType: ParamNameType
-    coreNameEditable: bool
-    passingStyle: ParameterPassingStyle
+    coreNameType: NotRequired[ParamNameType]
+    coreNameEditable: NotRequired[bool]
+    passingStyle: NotRequired[ParameterPassingStyle]
 
 
-class BaseChildlessCodeObjImplModifier(BaseParamCodeObjImplModifier, total=False):
+class BaseChildlessCodeObjImplModifier(BaseParamCodeObjImplModifier):
     type: Any
-    defaultVal: str
-    value: str
+    defaultVal: NotRequired[str]
+    value: NotRequired[str]
 
 
-class BaseParentCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+class BaseParentCodeObjImplModifier(BaseCodeObjImplModifier):
     type: Any
-    children: list[str]
+    children: NotRequired[list[str]]
 
 
-class CodeCallableCodeObjImplModifier(BaseParentCodeObjImplModifier, total=False):
+class CodeCallableCodeObjImplModifier(BaseParentCodeObjImplModifier):
     type: Literal["CodeCallable"]
 
 
-class CodeParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class CodeParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["CodeParam"]
 
 
-class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["TextParam"]
 
 
-class SliderParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class SliderParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["SliderParam"]
-    min: int
-    max: int
-    step: int
+    min: NotRequired[int]
+    max: NotRequired[int]
+    step: NotRequired[int]
 
 
-class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["SwitchParam"]
 
 
-class ColorPickerParamCodeObjImplModifier(
-    BaseChildlessCodeObjImplModifier, total=False
-):
+class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["ColorPickerParam"]
 
 
-class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["DropdownParam"]
-    choices: list[str]
+    choices: NotRequired[list[str]]
 
 
-class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier, total=False):
+class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["PasswordParam"]
 
 
-class NestedParamCodeObjImplModifier(BaseParamCodeObjImplModifier, total=False):
+class NestedParamCodeObjImplModifier(BaseParamCodeObjImplModifier):
     type: Literal["NestedParam"]
-    children: list[str]
+    children: NotRequired[list[str]]

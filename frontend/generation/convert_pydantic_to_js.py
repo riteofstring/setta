@@ -14,6 +14,7 @@ from typing import (
     Dict,
     List,
     Literal,
+    NotRequired,
     Set,
     Tuple,
     Union,
@@ -226,6 +227,10 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         # Check if the type itself is a built-in collection type
         if python_type in (list, dict, set, tuple):
             origin = python_type
+
+    if origin is NotRequired:
+        args = get_args(python_type)
+        return python_type_to_zod(args[0], processed_types)
 
     # Handle Annotated types - extract the actual type (first arg)
     if origin is Annotated:

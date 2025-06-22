@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from setta.types.sections import (
     ChartSettings,
@@ -10,138 +10,138 @@ from setta.types.sections import (
 )
 
 
-class BaseSectionImplModifier(TypedDict, total=False):
+class BaseSectionImplModifier(TypedDict):
     type: Any
-    parentId: str | None
-    isFrozen: bool
-    visibility: Visibility
-    isInOtherProjectConfigs: bool
-    size: SectionSize
-    aspectRatio: bool
-    aspectRatioExtraHeight: int
-    aspectRatioExtraWidth: int
-    isMinimized: bool
-    positionAndSizeLocked: bool
+    parentId: NotRequired[str | None]
+    isFrozen: NotRequired[bool]
+    visibility: NotRequired[Visibility]
+    isInOtherProjectConfigs: NotRequired[bool]
+    size: NotRequired[SectionSize]
+    aspectRatio: NotRequired[bool]
+    aspectRatioExtraHeight: NotRequired[int]
+    aspectRatioExtraWidth: NotRequired[int]
+    isMinimized: NotRequired[bool]
+    positionAndSizeLocked: NotRequired[bool]
 
 
-class BaseSectionWithParamsImplModifier(BaseSectionImplModifier, total=False):
+class BaseSectionWithParamsImplModifier(BaseSectionImplModifier):
     type: Any
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
+    codeObjImplLayeringMap: NotRequired[dict[str, str]]
+    hideUnpinnedParams: NotRequired[bool]
+    paramFilter: NotRequired[str]
+    columnWidth: NotRequired[float | None]
+    configLanguage: NotRequired[ConfigLanguage]
+    pinnedParams: NotRequired[list[str]]
+    pinnedAreaHeight: NotRequired[float | Literal["auto"]]
+    selectedParams: NotRequired[list[str]]
+    ignoreTypeErrors: NotRequired[dict[str, bool]]
 
 
-class BaseArtifactSectionImplModifier(BaseSectionImplModifier, total=False):
+class BaseArtifactSectionImplModifier(BaseSectionImplModifier):
     type: Any
-    artifactGroupIds: list[str]
+    artifactGroupIds: NotRequired[list[str]]
 
 
-class BaseCanvasSectionImplModifier(BaseSectionImplModifier, total=False):
+class BaseCanvasSectionImplModifier(BaseSectionImplModifier):
     type: Any
-    renderedValue: Any
+    renderedValue: NotRequired[Any]
 
 
-class BaseCodeSectionImplModifier(BaseSectionImplModifier, total=False):
+class BaseCodeSectionImplModifier(BaseSectionImplModifier):
     type: Any
-    code: str
+    code: NotRequired[str]
 
 
-class BaseParentSectionImplModifier(BaseSectionImplModifier, total=False):
+class BaseParentSectionImplModifier(BaseSectionImplModifier):
     type: Any
-    children: list[str]
+    children: NotRequired[list[str]]
 
 
-class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
+class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier):
     type: Any
-    topLevelParamIds: list[str]
+    topLevelParamIds: NotRequired[list[str]]
 
 
-class CallableSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
+class CallableSectionImplModifier(BaseSectionWithParamsImplModifier):
     type: Literal["Callable"]
-    callable: str | None
-    hideParams: bool
+    callable: NotRequired[str | None]
+    hideParams: NotRequired[bool]
 
 
-class DictSectionImplModifier(BaseDictSectionImplModifier, total=False):
+class DictSectionImplModifier(BaseDictSectionImplModifier):
     type: Literal["Dict"]
-    isJsonSource: bool
-    jsonSourceKeys: list[str]
-    jsonSourceMissing: bool
+    isJsonSource: NotRequired[bool]
+    jsonSourceKeys: NotRequired[list[str]]
+    jsonSourceMissing: NotRequired[bool]
 
 
-class ListRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
+class ListRootSectionImplModifier(BaseParentSectionImplModifier):
     type: Literal["ListRoot"]
 
 
-class DictRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
+class DictRootSectionImplModifier(BaseParentSectionImplModifier):
     type: Literal["DictRoot"]
 
 
-class GroupSectionImplModifier(BaseParentSectionImplModifier, total=False):
+class GroupSectionImplModifier(BaseParentSectionImplModifier):
     type: Literal["Group"]
-    isHorizontalOrientation: bool
+    isHorizontalOrientation: NotRequired[bool]
 
 
-class ImageSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
+class ImageSectionImplModifier(BaseArtifactSectionImplModifier):
     type: Literal["Image"]
 
 
-class ChartSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
+class ChartSectionImplModifier(BaseArtifactSectionImplModifier):
     type: Literal["Chart"]
-    renderedValue: Any
-    chartSettings: ChartSettings
+    renderedValue: NotRequired[Any]
+    chartSettings: NotRequired[ChartSettings]
 
 
-class DrawSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
+class DrawSectionImplModifier(BaseArtifactSectionImplModifier):
     type: Literal["Draw"]
-    renderedValue: Any
-    canvasSettings: DrawAreaCanvasSettings
+    renderedValue: NotRequired[Any]
+    canvasSettings: NotRequired[DrawAreaCanvasSettings]
 
 
-class TextBlockSectionImplModifier(BaseSectionImplModifier, total=False):
+class TextBlockSectionImplModifier(BaseSectionImplModifier):
     type: Literal["TextBlock"]
-    renderMarkdown: bool
-    headingAsSectionName: bool
-    displayMode: str
-    description: str
+    renderMarkdown: NotRequired[bool]
+    headingAsSectionName: NotRequired[bool]
+    displayMode: NotRequired[str]
+    description: NotRequired[str]
 
 
-class SocialSectionImplModifier(BaseSectionImplModifier, total=False):
+class SocialSectionImplModifier(BaseSectionImplModifier):
     type: Literal["Social"]
-    social: str
+    social: NotRequired[str]
 
 
-class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier, total=False):
+class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier):
     type: Literal["GlobalVariables"]
 
 
-class CodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
+class CodeSectionImplModifier(BaseCodeSectionImplModifier):
     type: Literal["Code"]
-    codeLanguage: CodeLanguage
+    codeLanguage: NotRequired[CodeLanguage]
 
 
-class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
+class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier):
     type: Literal["GenPythonCode"]
 
 
-class TerminalSectionImplModifier(BaseSectionImplModifier, total=False):
+class TerminalSectionImplModifier(BaseSectionImplModifier):
     type: Literal["Terminal"]
 
 
-class IFrameSectionImplModifier(BaseSectionImplModifier, total=False):
+class IFrameSectionImplModifier(BaseSectionImplModifier):
     type: Literal["IFrame"]
 
 
-class ChatSectionImplModifier(BaseSectionImplModifier, total=False):
+class ChatSectionImplModifier(BaseSectionImplModifier):
     type: Literal["Chat"]
 
 
-class BrowserSectionImplModifier(BaseSectionImplModifier, total=False):
+class BrowserSectionImplModifier(BaseSectionImplModifier):
     type: Literal["Browser"]
-    hideColumn: bool
+    hideColumn: NotRequired[bool]

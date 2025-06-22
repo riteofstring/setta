@@ -116,7 +116,10 @@ def create_typed_dict(impl_class: type[BaseModel], base_class):
             and field_name != "type"
         ):
             continue
-        attributes.append(f"{field_name}: {python_type_to_str(field_info.annotation)}")
+        annotation = python_type_to_str(field_info.annotation)
+        if field_name != "type":
+            annotation = f"NotRequired[{annotation}]"
+        attributes.append(f"{field_name}: {annotation}")
     attributes = "\n\t".join(attributes)
     attributes = f"\t{attributes}"
     if impl_class is base_class:
@@ -124,7 +127,7 @@ def create_typed_dict(impl_class: type[BaseModel], base_class):
     else:
         parent_class = f"{python_type_to_str(impl_class.__base__)}Modifier"
     code = f"""
-class {name}Modifier({parent_class}, total=False):
+class {name}Modifier({parent_class}):
 {attributes}
 """
     return code
@@ -142,7 +145,7 @@ def section_impl_modifiers(output_file):
     classes = [setta.types.sections.BaseSectionImpl, *classes]
 
     code = """
-from typing import TypedDict, Literal, Any
+from typing import TypedDict, Literal, Any, NotRequired
 from setta.types.sections import (
     ChartSettings,
     DrawAreaCanvasSettings,
@@ -183,7 +186,7 @@ def code_obj_impl_modifiers(output_file):
     classes = [setta.types.code_objs.BaseCodeObjImpl, *classes]
 
     code = """
-from typing import TypedDict, Literal, Any
+from typing import TypedDict, Literal, Any, NotRequired
 from setta.types.code_objs import (
     ParameterPassingStyle,
     ParamNameType

@@ -1122,7 +1122,7 @@ export type LLMStreamingResponseChunk = z.infer<
 >;
 
 export const CodeParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("CodeParam").optional(),
+  type: z.literal("CodeParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1143,7 +1143,7 @@ export function createCodeParamCodeObjImplModifier(
 }
 
 export const TextParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("TextParam").optional(),
+  type: z.literal("TextParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1164,7 +1164,7 @@ export function createTextParamCodeObjImplModifier(
 }
 
 export const SliderParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("SliderParam").optional(),
+  type: z.literal("SliderParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1188,7 +1188,7 @@ export function createSliderParamCodeObjImplModifier(
 }
 
 export const SwitchParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("SwitchParam").optional(),
+  type: z.literal("SwitchParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1209,7 +1209,7 @@ export function createSwitchParamCodeObjImplModifier(
 }
 
 export const ColorPickerParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("ColorPickerParam").optional(),
+  type: z.literal("ColorPickerParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1230,7 +1230,7 @@ export function createColorPickerParamCodeObjImplModifier(
 }
 
 export const DropdownParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("DropdownParam").optional(),
+  type: z.literal("DropdownParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1252,7 +1252,7 @@ export function createDropdownParamCodeObjImplModifier(
 }
 
 export const PasswordParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("PasswordParam").optional(),
+  type: z.literal("PasswordParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1310,7 +1310,7 @@ export function createBaseChildlessCodeObjImplModifierUnionWithDiscriminator(
 }
 
 export const CodeCallableCodeObjImplModifierSchema = z.object({
-  type: z.literal("CodeCallable").optional(),
+  type: z.literal("CodeCallable"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
@@ -1327,7 +1327,7 @@ export function createCodeCallableCodeObjImplModifier(
 }
 
 export const NestedParamCodeObjImplModifierSchema = z.object({
-  type: z.literal("NestedParam").optional(),
+  type: z.literal("NestedParam"),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -1836,7 +1836,7 @@ export function createSectionSize(
 }
 
 export const ImageSectionImplModifierSchema = z.object({
-  type: z.literal("Image").optional(),
+  type: z.literal("Image"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -1878,7 +1878,7 @@ export function createChartSettings(
 }
 
 export const ChartSectionImplModifierSchema = z.object({
-  type: z.literal("Chart").optional(),
+  type: z.literal("Chart"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -1926,7 +1926,7 @@ export function createDrawAreaCanvasSettings(
 }
 
 export const DrawSectionImplModifierSchema = z.object({
-  type: z.literal("Draw").optional(),
+  type: z.literal("Draw"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2009,7 +2009,7 @@ export function createBaseCanvasSectionImplModifierUnionWithDiscriminator(
 }
 
 export const CodeSectionImplModifierSchema = z.object({
-  type: z.literal("Code").optional(),
+  type: z.literal("Code"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2035,7 +2035,7 @@ export function createCodeSectionImplModifier(
 }
 
 export const GenPythonCodeSectionImplModifierSchema = z.object({
-  type: z.literal("GenPythonCode").optional(),
+  type: z.literal("GenPythonCode"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2085,7 +2085,7 @@ export function createBaseCodeSectionImplModifierUnionWithDiscriminator(
 }
 
 export const DictSectionImplModifierSchema = z.object({
-  type: z.literal("Dict").optional(),
+  type: z.literal("Dict"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2122,7 +2122,7 @@ export function createDictSectionImplModifier(
 }
 
 export const GlobalVariablesSectionImplModifierSchema = z.object({
-  type: z.literal("GlobalVariables").optional(),
+  type: z.literal("GlobalVariables"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2181,7 +2181,7 @@ export function createBaseDictSectionImplModifierUnionWithDiscriminator(
 }
 
 export const ListRootSectionImplModifierSchema = z.object({
-  type: z.literal("ListRoot").optional(),
+  type: z.literal("ListRoot"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2206,7 +2206,7 @@ export function createListRootSectionImplModifier(
 }
 
 export const DictRootSectionImplModifierSchema = z.object({
-  type: z.literal("DictRoot").optional(),
+  type: z.literal("DictRoot"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2231,7 +2231,7 @@ export function createDictRootSectionImplModifier(
 }
 
 export const GroupSectionImplModifierSchema = z.object({
-  type: z.literal("Group").optional(),
+  type: z.literal("Group"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2286,7 +2286,7 @@ export function createBaseParentSectionImplModifierUnionWithDiscriminator(
 }
 
 export const CallableSectionImplModifierSchema = z.object({
-  type: z.literal("Callable").optional(),
+  type: z.literal("Callable"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2321,7 +2321,7 @@ export function createCallableSectionImplModifier(
 }
 
 export const TextBlockSectionImplModifierSchema = z.object({
-  type: z.literal("TextBlock").optional(),
+  type: z.literal("TextBlock"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2349,7 +2349,7 @@ export function createTextBlockSectionImplModifier(
 }
 
 export const SocialSectionImplModifierSchema = z.object({
-  type: z.literal("Social").optional(),
+  type: z.literal("Social"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2374,7 +2374,7 @@ export function createSocialSectionImplModifier(
 }
 
 export const TerminalSectionImplModifierSchema = z.object({
-  type: z.literal("Terminal").optional(),
+  type: z.literal("Terminal"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2398,7 +2398,7 @@ export function createTerminalSectionImplModifier(
 }
 
 export const IFrameSectionImplModifierSchema = z.object({
-  type: z.literal("IFrame").optional(),
+  type: z.literal("IFrame"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2422,7 +2422,7 @@ export function createIFrameSectionImplModifier(
 }
 
 export const ChatSectionImplModifierSchema = z.object({
-  type: z.literal("Chat").optional(),
+  type: z.literal("Chat"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -2446,7 +2446,7 @@ export function createChatSectionImplModifier(
 }
 
 export const BrowserSectionImplModifierSchema = z.object({
-  type: z.literal("Browser").optional(),
+  type: z.literal("Browser"),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -3845,7 +3845,7 @@ export function createWebsocketMsgForFrontendUnionWithDiscriminator(
 }
 
 export const BaseChildlessCodeObjImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -3866,7 +3866,7 @@ export function createBaseChildlessCodeObjImplModifier(
 }
 
 export const BaseCodeObjImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
@@ -3882,7 +3882,7 @@ export function createBaseCodeObjImplModifier(
 }
 
 export const BaseParamCodeObjImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
@@ -3901,7 +3901,7 @@ export function createBaseParamCodeObjImplModifier(
 }
 
 export const BaseParentCodeObjImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   description: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
@@ -3918,7 +3918,7 @@ export function createBaseParentCodeObjImplModifier(
 }
 
 export const BaseArtifactSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -3943,7 +3943,7 @@ export function createBaseArtifactSectionImplModifier(
 }
 
 export const BaseCanvasSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -3968,7 +3968,7 @@ export function createBaseCanvasSectionImplModifier(
 }
 
 export const BaseCodeSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -3993,7 +3993,7 @@ export function createBaseCodeSectionImplModifier(
 }
 
 export const BaseDictSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -4027,7 +4027,7 @@ export function createBaseDictSectionImplModifier(
 }
 
 export const BaseParentSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -4052,7 +4052,7 @@ export function createBaseParentSectionImplModifier(
 }
 
 export const BaseSectionImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
@@ -4076,7 +4076,7 @@ export function createBaseSectionImplModifier(
 }
 
 export const BaseSectionWithParamsImplModifierSchema = z.object({
-  type: z.any().optional(),
+  type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
   isFrozen: z.boolean().optional(),
   visibility: VisibilitySchema.optional(),
