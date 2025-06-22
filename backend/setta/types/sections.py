@@ -7,10 +7,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.impl_layering import ImplLayering
-from setta.types.section_impl_modifiers import (
-    SectionImplModifier,
-)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -34,8 +30,13 @@ class SectionType(str, Enum):
     Browser = "Browser"
 
 
-class Size(str, Enum):
+class SectionSizeMode(str, Enum):
     auto = "auto"
+
+
+class SectionSize(BaseModel, extra="forbid"):
+    width: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    height: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
 
 
 class CodeLanguage(str, Enum):
@@ -46,11 +47,6 @@ class CodeLanguage(str, Enum):
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
-
-
-class SectionSize(BaseModel, extra="forbid"):
-    width: Union[float, Literal[Size.auto]] = Size.auto
-    height: Union[float, Literal[Size.auto]] = Size.auto
 
 
 class Visibility(BaseModel, extra="forbid"):
@@ -85,10 +81,6 @@ class SectionCore(BaseModel, extra="forbid"):
     defaultImplLayering: str | None = None
 
 
-class SectionImplLayering(ImplLayering):
-    modifier: SectionImplModifier = Field(default_factory=SectionImplModifier)
-
-
 class BaseSectionImpl(BaseModel, extra="forbid"):
     type: Any
     id: str = Field(default_factory=create_new_id)
@@ -112,7 +104,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedParams: list[str] = Field(default_factory=list)
-    pinnedAreaHeight: Union[float, Literal[Size.auto]] = Size.auto
+    pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
 

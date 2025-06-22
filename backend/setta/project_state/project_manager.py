@@ -31,7 +31,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.sections import CodeSectionImpl
+from setta.types.sections import CodeLanguage, CodeSectionImpl
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER

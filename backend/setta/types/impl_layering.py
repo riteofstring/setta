@@ -11,3 +11,7 @@ class ImplLayering(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
     modifier: CodeObjImplModifier | SectionImplModifier
+
+
+class SectionImplLayering(ImplLayering):
+    modifier: SectionImplModifier = Field(default_factory=SectionImplModifier)

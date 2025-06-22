@@ -259,10 +259,9 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
             return f"z.literal({literals[0]})", type_definitions
         return f"z.literal([{', '.join(literals)}])", type_definitions
 
-    # Handle Optional/Union types
+    # Handle Union types
     if origin in (Union, types.UnionType):
         args = get_args(python_type)
-        # Check if it's Optional (Union with None)
         schemas = []
         for t in args:
             ts, dependent_type_defs = python_type_to_zod(t, processed_types)

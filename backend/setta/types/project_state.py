@@ -18,7 +18,8 @@ from setta.types.generated_code_obj_type_unions import (
 from setta.types.generated_section_type_unions import (
     BaseSectionImplTypeAdapter,
 )
-from setta.types.sections import BaseSectionImpl, SectionCore, SectionImplLayering
+from setta.types.impl_layering import SectionImplLayering
+from setta.types.sections import BaseSectionImpl, SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 

@@ -7,6 +7,7 @@ from setta.types.code_objs import (
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
+from setta.types.impl_layering import SectionImplLayering
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
@@ -17,7 +18,6 @@ from setta.types.sections import (
     ConfigLanguage,
     DictSectionImpl,
     SectionCore,
-    SectionImplLayering,
     SectionSize,
 )
 from setta.types.settings_state import (

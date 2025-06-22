@@ -254,6 +254,10 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
+export const SectionSizeModeEnum = { auto: "auto" } as const;
+
+export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
 export const SectionTypeEnum = {
   Callable: "Callable",
   Dict: "Dict",
@@ -275,10 +279,6 @@ export const SectionTypeEnum = {
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
-
-export const SizeEnum = { auto: "auto" } as const;
-
-export type Size = ObjectValues<typeof SizeEnum>;
 
 export const BackgroundVariantEnum = {
   lines: "lines",
@@ -1401,8 +1401,12 @@ export function createVisibility(
 }
 
 export const SectionSizeSchema = z.object({
-  width: z.union([z.number(), z.literal("auto")]).default(SizeEnum.auto),
-  height: z.union([z.number(), z.literal("auto")]).default(SizeEnum.auto),
+  width: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
+  height: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
 });
 
 export type SectionSize = z.infer<typeof SectionSizeSchema>;
@@ -1681,7 +1685,7 @@ export const DictSectionImplSchema = z.object({
   pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
-    .default(SizeEnum.auto),
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   topLevelParamIds: z.array(z.string()).default([]),
@@ -1720,7 +1724,7 @@ export const GlobalVariablesSectionImplSchema = z.object({
   pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
-    .default(SizeEnum.auto),
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   topLevelParamIds: z.array(z.string()).default([]),
@@ -1911,7 +1915,7 @@ export const CallableSectionImplSchema = z.object({
   pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
-    .default(SizeEnum.auto),
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   callable: z.union([z.string(), z.null()]).default(null),
@@ -2190,23 +2194,11 @@ export function createBaseSectionImpl(
   return BaseSectionImplSchema.parse(options);
 }
 
-export const BaseSectionImplModifierSchema = z.object({});
-
-export type BaseSectionImplModifier = z.infer<
-  typeof BaseSectionImplModifierSchema
->;
-
-export function createBaseSectionImplModifier(
-  options: Partial<BaseSectionImplModifier> = {},
-): BaseSectionImplModifier {
-  return BaseSectionImplModifierSchema.parse(options);
-}
-
 export const SectionImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifiers: z.array(BaseSectionImplModifierSchema).default([]),
+  modifier: SectionImplModifierSchema.default(SectionImplModifier),
 });
 
 export type SectionImplLayering = z.infer<typeof SectionImplLayeringSchema>;
@@ -2248,23 +2240,11 @@ export function createBaseCodeObjImpl(
   return BaseCodeObjImplSchema.parse(options);
 }
 
-export const BaseCodeObjImplModifierSchema = z.object({});
-
-export type BaseCodeObjImplModifier = z.infer<
-  typeof BaseCodeObjImplModifierSchema
->;
-
-export function createBaseCodeObjImplModifier(
-  options: Partial<BaseCodeObjImplModifier> = {},
-): BaseCodeObjImplModifier {
-  return BaseCodeObjImplModifierSchema.parse(options);
-}
-
 export const CodeObjImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifiers: z.array(BaseCodeObjImplModifierSchema).default([]),
+  modifier: CodeObjImplModifierSchema.default(CodeObjImplModifier),
 });
 
 export type CodeObjImplLayering = z.infer<typeof CodeObjImplLayeringSchema>;
@@ -2851,18 +2831,6 @@ export function createChatMetadata(
   return ChatMetadataSchema.parse(options);
 }
 
-export const ParamCodeObjModifierSchema = z.object({
-  value: z.string().default(""),
-});
-
-export type ParamCodeObjModifier = z.infer<typeof ParamCodeObjModifierSchema>;
-
-export function createParamCodeObjModifier(
-  options: Partial<ParamCodeObjModifier> = {},
-): ParamCodeObjModifier {
-  return ParamCodeObjModifierSchema.parse(options);
-}
-
 export const BaseChildlessCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -2930,7 +2898,7 @@ export const ImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifiers: z.array(z.any()).default([]),
+  modifier: z.union([CodeObjImplModifierSchema, SectionImplModifierSchema]),
 });
 
 export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
@@ -2988,7 +2956,7 @@ export const BaseSectionWithParamsImplSchema = z.object({
   pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
-    .default(SizeEnum.auto),
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
 });
@@ -3073,20 +3041,6 @@ export function createProjectStateCore(
   options: Partial<ProjectStateCore> = {},
 ): ProjectStateCore {
   return ProjectStateCoreSchema.parse(options);
-}
-
-export const SectionWithParamsModifierSchema = z.object({
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-});
-
-export type SectionWithParamsModifier = z.infer<
-  typeof SectionWithParamsModifierSchema
->;
-
-export function createSectionWithParamsModifier(
-  options: Partial<SectionWithParamsModifier> = {},
-): SectionWithParamsModifier {
-  return SectionWithParamsModifierSchema.parse(options);
 }
 
 export const BaseArtifactSectionImplSchema = z.object({
@@ -3188,7 +3142,7 @@ export const BaseDictSectionImplSchema = z.object({
   pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
-    .default(SizeEnum.auto),
+    .default(SectionSizeModeEnum.auto),
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   topLevelParamIds: z.array(z.string()).default([]),
@@ -3942,6 +3896,7 @@ export function createGetJSONSourcePathToBeDeleted(
 export const LoadJSONSourceObjectSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema),
   sectionImpls: z.record(z.string(), BaseSectionImplSchema),
+  sectionImplLayerings: z.record(z.string(), SectionImplLayeringSchema),
   codeObjs: z.record(z.string(), CodeObjCoreSchema),
   codeObjImpls: z.record(z.string(), BaseCodeObjImplSchema),
   codeObjImplLayerings: z.record(z.string(), CodeObjImplLayeringSchema),

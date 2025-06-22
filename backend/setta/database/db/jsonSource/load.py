@@ -13,6 +13,7 @@ from setta.types.code_objs import (
     TextParamCodeObjImpl,
 )
 from setta.types.impl_helpers import get_effective_impl
+from setta.types.impl_layering import SectionImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -20,7 +21,6 @@ from setta.types.sections import (
     BaseSectionImpl,
     DictSectionImpl,
     SectionCore,
-    SectionImplLayering,
 )
 
 logger = logging.getLogger(__name__)
