@@ -6,15 +6,14 @@ Helper service for parsing Fly.io machine events into deployment progress.
 class DeploymentEventParser:
     """Parses Fly.io machine events into user-friendly progress updates."""
 
-    # Event type to progress mapping
+    # Based on ACTUAL Fly.io events from testing
     EVENT_PROGRESS_MAP = {
-        "start": {"base": 38, "message": "Starting machine..."},
-        "image_pull": {"base": 42, "message": "Pulling Docker image..."},
-        "container_create": {"base": 48, "message": "Creating container..."},
-        "container_start": {"base": 52, "message": "Starting container..."},
-        "health": {"base": 60, "message": "Running health checks..."},
-        "network": {"base": 68, "message": "Configuring network..."},
-        "ready": {"base": 72, "message": "Machine ready..."},
+        "launch": {
+            "created": {"progress": 40, "message": "Machine created successfully"},
+        },
+        "start": {
+            "started": {"progress": 70, "message": "Machine started successfully"},
+        },
     }
 
     def __init__(self):
@@ -53,6 +52,12 @@ class DeploymentEventParser:
 
     def _get_event_id(self, event: dict) -> str:
         """Generate unique ID for an event."""
+        # Use the actual event ID if available
+        event_id = event.get("id")
+        if event_id:
+            return event_id
+
+        # Fallback to generating one
         event_type = event.get("type", "unknown")
         timestamp = event.get("timestamp", "")
         status = event.get("status", "")
@@ -61,58 +66,17 @@ class DeploymentEventParser:
     def _get_progress_for_event(self, event: dict) -> dict | None:
         """Get progress info for a specific event."""
         event_type = event.get("type")
+        status = event.get("status")
 
-        # Guard: Unknown event type
+        # Guard: Check if we have mapping for this event
         if event_type not in self.EVENT_PROGRESS_MAP:
             return None
 
-        base_info = self.EVENT_PROGRESS_MAP[event_type]
-        message = base_info["message"]
-        base_progress = base_info["base"]
+        type_map = self.EVENT_PROGRESS_MAP[event_type]
+        if status not in type_map:
+            return None
 
-        # Customize message based on event details
-        if event_type == "health":
-            message = self._get_health_check_message(event)
-            base_progress = self._get_health_check_progress(event)
-        elif event_type == "image_pull":
-            message = self._get_image_pull_message(event)
-
-        return {"message": message, "progress": base_progress}
-
-    def _get_health_check_message(self, event: dict) -> str:
-        """Get detailed health check message."""
-        status = event.get("status", "checking")
-        attempt = event.get("attempt", 1)
-
-        if status == "passing":
-            return "Health checks passed!"
-        elif status == "failing":
-            return f"Health check failed (attempt {attempt})..."
-        else:
-            return f"Running health check {attempt}..."
-
-    def _get_health_check_progress(self, event: dict) -> int:
-        """Calculate health check progress."""
-        attempt = event.get("attempt", 1)
-        max_attempts = 3
-
-        # Progress from 60 to 72 based on attempts
-        progress_range = 12
-        progress_per_attempt = progress_range // max_attempts
-
-        return 60 + (attempt * progress_per_attempt)
-
-    def _get_image_pull_message(self, event: dict) -> str:
-        """Get detailed image pull message."""
-        status = event.get("status", "pulling")
-        image = event.get("image", "container image")
-
-        if status == "complete":
-            return f"Image {image} pulled successfully"
-        elif status == "pulling":
-            return f"Pulling {image}..."
-        else:
-            return "Preparing container image..."
+        return type_map[status]
 
     def reset(self):
         """Reset parser state for new deployment."""
@@ -138,10 +102,11 @@ class DeploymentEventPoller:
         import asyncio
         import time
 
-        from fly.deployment import get_machine_events
+        from fly.deployment import get_machine_events, get_machine_status
 
         start_time = time.time()
         deployment_complete = False
+        last_state = None
 
         while time.time() - start_time < timeout:
             try:
@@ -159,10 +124,27 @@ class DeploymentEventPoller:
                     message, progress = result
                     await progress_callback(message, progress)
 
-                    # Check if deployment is complete
-                    if event.get("type") == "ready":
+                    # Check if we got the start event
+                    if event.get("type") == "start" and event.get("status") == "started":
                         deployment_complete = True
-                        break
+
+                # Also check machine state directly
+                status = await asyncio.to_thread(
+                    get_machine_status, self.fly_client, app_name, machine_id
+                )
+
+                current_state = status.get("state")
+                if current_state != last_state:
+                    last_state = current_state
+
+                    # Provide progress based on state
+                    if current_state == "created":
+                        await progress_callback("Machine is initializing...", 45)
+                    elif current_state == "starting":
+                        await progress_callback("Machine is starting up...", 55)
+                    elif current_state == "started" and not deployment_complete:
+                        await progress_callback("Machine is running!", 70)
+                        deployment_complete = True
 
                 if deployment_complete:
                     break

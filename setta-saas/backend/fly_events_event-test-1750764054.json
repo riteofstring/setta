@@ -1,0 +1,23 @@
+{
+  "app_name": "event-test-1750764054",
+  "machine_id": "48e3d79b7545d8",
+  "events": [
+    {
+      "id": "01JYGTPX31BP4WRN894DZNP5A7",
+      "type": "launch",
+      "status": "created",
+      "source": "user",
+      "timestamp": 1750764057697
+    },
+    {
+      "id": "01JYGTPYKFH5H9MKSW3G0ME5Q1",
+      "type": "start",
+      "status": "started",
+      "request": {
+        "gpu_spot_price": 0
+      },
+      "source": "flyd",
+      "timestamp": 1750764059247
+    }
+  ]
+}
