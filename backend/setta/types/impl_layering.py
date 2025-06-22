@@ -1,8 +1,10 @@
+from typing import Any
+
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_impl_modifiers import CodeObjImplModifier
-from setta.types.section_impl_modifiers import SectionImplModifier
+from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
+from setta.types.section_impl_modifiers import BaseSectionImplModifier
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -10,16 +12,16 @@ class ImplLayering(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
-    modifier: CodeObjImplModifier | SectionImplModifier
+    modifier: Any
 
 
 class SectionImplLayering(ImplLayering):
-    modifier: SerializeAsAny[SectionImplModifier] = Field(
-        default_factory=SectionImplModifier
+    modifier: SerializeAsAny[BaseSectionImplModifier] = Field(
+        default_factory=BaseSectionImplModifier
     )
 
 
 class CodeObjImplLayering(ImplLayering):
-    modifier: SerializeAsAny[CodeObjImplModifier] = Field(
-        default_factory=CodeObjImplModifier
+    modifier: SerializeAsAny[BaseCodeObjImplModifier] = Field(
+        default_factory=BaseCodeObjImplModifier
     )

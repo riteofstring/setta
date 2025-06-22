@@ -13,11 +13,14 @@ def find_sub_classes(
     base_class: Type[BaseModel],
     discriminator: str,
     return_base_classes: bool,
+    return_input_base_class: bool,
 ) -> List[Type[BaseModel]]:
     classes = []
     for _, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, base_class):
             fields = obj.model_fields
+            if not return_input_base_class and obj is base_class:
+                continue
             if (
                 return_base_classes
                 and fields[discriminator].default is PydanticUndefined
@@ -33,7 +36,7 @@ def find_sub_classes(
 
 
 def construct_unions(module, base_class, discriminator):
-    base_classes = find_sub_classes(module, base_class, discriminator, True)
+    base_classes = find_sub_classes(module, base_class, discriminator, True, True)
 
     base_class_to_children = {}
     code = """
@@ -43,7 +46,7 @@ from pydantic import Field, TypeAdapter
 """
     for base_class in base_classes:
         code += f"from {module.__name__} import {base_class.__name__}\n\n"
-        child_classes = find_sub_classes(module, base_class, discriminator, False)
+        child_classes = find_sub_classes(module, base_class, discriminator, False, True)
         base_class_to_children[base_class] = child_classes
         for child_class in child_classes:
             code += f"from {module.__name__} import {child_class.__name__}\n\n"

@@ -1,21 +1,42 @@
-from typing import TypedDict
+from typing import Any, Literal, TypedDict
 
 from setta.types.code_objs import ParameterPassingStyle, ParamNameType
 
 
-class CodeObjImplModifier(TypedDict, total=False):
-    pass
-
-
-class CodeCallableCodeObjImplModifier(TypedDict, total=False):
+class BaseCodeObjImplModifier(TypedDict, total=False):
+    type: Any
     description: str
     isPreset: bool
+
+
+class BaseChildlessCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Any
+    coreNameType: ParamNameType
+    coreNameEditable: bool
+    passingStyle: ParameterPassingStyle
+    defaultVal: str
+    value: str
+
+
+class BaseParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Any
+    coreNameType: ParamNameType
+    coreNameEditable: bool
+    passingStyle: ParameterPassingStyle
+
+
+class BaseParentCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Any
     children: list[str]
 
 
-class CodeParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class CodeCallableCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["CodeCallable"]
+    children: list[str]
+
+
+class CodeParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["CodeParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -23,9 +44,8 @@ class CodeParamCodeObjImplModifier(TypedDict, total=False):
     value: str
 
 
-class ColorPickerParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class ColorPickerParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["ColorPickerParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -33,9 +53,8 @@ class ColorPickerParamCodeObjImplModifier(TypedDict, total=False):
     value: str
 
 
-class DropdownParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class DropdownParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["DropdownParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -44,18 +63,16 @@ class DropdownParamCodeObjImplModifier(TypedDict, total=False):
     choices: list[str]
 
 
-class NestedParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class NestedParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["NestedParam"]
     children: list[str]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
 
 
-class PasswordParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class PasswordParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["PasswordParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -63,9 +80,8 @@ class PasswordParamCodeObjImplModifier(TypedDict, total=False):
     value: str
 
 
-class SliderParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class SliderParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["SliderParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -76,9 +92,8 @@ class SliderParamCodeObjImplModifier(TypedDict, total=False):
     step: int
 
 
-class SwitchParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class SwitchParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["SwitchParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle
@@ -86,9 +101,8 @@ class SwitchParamCodeObjImplModifier(TypedDict, total=False):
     value: str
 
 
-class TextParamCodeObjImplModifier(TypedDict, total=False):
-    description: str
-    isPreset: bool
+class TextParamCodeObjImplModifier(BaseCodeObjImplModifier, total=False):
+    type: Literal["TextParam"]
     coreNameType: ParamNameType
     coreNameEditable: bool
     passingStyle: ParameterPassingStyle

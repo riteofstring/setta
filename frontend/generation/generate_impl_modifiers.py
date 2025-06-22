@@ -20,7 +20,7 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
 
-exclusions = ["id", "name", "type"]
+exclusions = ["id", "name"]
 
 
 def python_type_to_str(python_type):
@@ -103,23 +103,29 @@ def python_type_to_str(python_type):
         ts_types = [python_type_to_str(t) for t in args]
         return f"tuple[{', '.join(ts_types)}]"
 
-    # if issubclass(python_type, Enum):
-    #     print(python_type)
-
     return python_type.__name__
 
 
-def create_typed_dict(impl_class: type[BaseModel]):
+def create_typed_dict(impl_class: type[BaseModel], base_class):
     name = impl_class.__name__
     attributes = []
     for field_name, field_info in impl_class.model_fields.items():
-        if field_name in exclusions:
+        if (impl_class is base_class and field_name in exclusions) or (
+            impl_class is not base_class
+            and field_name in base_class.model_fields
+            and field_name != "type"
+        ):
             continue
         attributes.append(f"{field_name}: {python_type_to_str(field_info.annotation)}")
     attributes = "\n\t".join(attributes)
     attributes = f"\t{attributes}"
+    parent_class = (
+        f"{base_class.__name__}Modifier"
+        if impl_class is not base_class
+        else "TypedDict"
+    )
     code = f"""
-class {name}Modifier(TypedDict, total=False):
+class {name}Modifier({parent_class}, total=False):
 {attributes}
 """
     return code
@@ -128,9 +134,13 @@ class {name}Modifier(TypedDict, total=False):
 def section_impl_modifiers(output_file):
     import setta.types.sections
 
-    sub_classes = find_sub_classes(
-        setta.types.sections, setta.types.sections.BaseSectionImpl, "type", False
+    classes = find_sub_classes(
+        setta.types.sections, setta.types.sections.BaseSectionImpl, "type", True, False
     )
+    classes += find_sub_classes(
+        setta.types.sections, setta.types.sections.BaseSectionImpl, "type", False, False
+    )
+    classes = [setta.types.sections.BaseSectionImpl, *classes]
 
     code = """
 from typing import TypedDict, Literal, Any
@@ -143,11 +153,9 @@ from setta.types.sections import (
     ConfigLanguage,
 )
 
-class SectionImplModifier(TypedDict, total=False):
-    pass
 """
-    for c in sub_classes:
-        code += create_typed_dict(c)
+    for c in classes:
+        code += create_typed_dict(c, setta.types.sections.BaseSectionImpl)
 
     code = ruff_format(code)
     with open(output_file, "w") as f:
@@ -159,9 +167,21 @@ class SectionImplModifier(TypedDict, total=False):
 def code_obj_impl_modifiers(output_file):
     import setta.types.code_objs
 
-    sub_classes = find_sub_classes(
-        setta.types.code_objs, setta.types.code_objs.BaseCodeObjImpl, "type", False
+    classes = find_sub_classes(
+        setta.types.code_objs,
+        setta.types.code_objs.BaseCodeObjImpl,
+        "type",
+        True,
+        False,
     )
+    classes += find_sub_classes(
+        setta.types.code_objs,
+        setta.types.code_objs.BaseCodeObjImpl,
+        "type",
+        False,
+        False,
+    )
+    classes = [setta.types.code_objs.BaseCodeObjImpl, *classes]
 
     code = """
 from typing import TypedDict, Literal, Any
@@ -170,11 +190,9 @@ from setta.types.code_objs import (
     ParamNameType
 )
 
-class CodeObjImplModifier(TypedDict, total=False):
-    pass
 """
-    for c in sub_classes:
-        code += create_typed_dict(c)
+    for c in classes:
+        code += create_typed_dict(c, setta.types.code_objs.BaseCodeObjImpl)
 
     code = ruff_format(code)
     with open(output_file, "w") as f:
