@@ -1,13 +1,9 @@
+from typing import Any
+
 from pydantic import Field
+
 from setta.types.impl_layering import BaseImplLayering
 from setta.types.section_impl_modifiers import (
-    BaseArtifactSectionImplModifier,
-    BaseCanvasSectionImplModifier,
-    BaseCodeSectionImplModifier,
-    BaseDictSectionImplModifier,
-    BaseParentSectionImplModifier,
-    BaseSectionImplModifier,
-    BaseSectionWithParamsImplModifier,
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
     ChartSectionImplModifier,
@@ -29,144 +25,116 @@ from setta.types.section_impl_modifiers import (
 
 
 class BaseSectionImplLayering(BaseImplLayering):
-    modifier: BaseSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseSectionImplModifier
-    )
+    modifier: Any
 
 
 class BaseSectionWithParamsImplLayering(BaseSectionImplLayering):
-    modifier: BaseSectionWithParamsImplModifier = Field(  # type: ignore
-        default_factory=BaseSectionWithParamsImplModifier
-    )
+    modifier: Any
 
 
 class BaseArtifactSectionImplLayering(BaseSectionImplLayering):
-    modifier: BaseArtifactSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseArtifactSectionImplModifier
-    )
+    modifier: Any
 
 
 class BaseCanvasSectionImplLayering(BaseSectionImplLayering):
-    modifier: BaseCanvasSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseCanvasSectionImplModifier
-    )
+    modifier: Any
 
 
 class BaseCodeSectionImplLayering(BaseSectionImplLayering):
-    modifier: BaseCodeSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseCodeSectionImplModifier
-    )
+    modifier: Any
 
 
 class BaseParentSectionImplLayering(BaseSectionImplLayering):
-    modifier: BaseParentSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseParentSectionImplModifier
-    )
+    modifier: Any
 
 
 class BaseDictSectionImplLayering(BaseSectionWithParamsImplLayering):
-    modifier: BaseDictSectionImplModifier = Field(  # type: ignore
-        default_factory=BaseDictSectionImplModifier
-    )
+    modifier: Any
 
 
 class CallableSectionImplLayering(BaseSectionWithParamsImplLayering):
-    modifier: CallableSectionImplModifier = Field(  # type: ignore
+    modifier: CallableSectionImplModifier = Field(
         default_factory=CallableSectionImplModifier
     )
 
 
 class DictSectionImplLayering(BaseDictSectionImplLayering):
-    modifier: DictSectionImplModifier = Field(  # type: ignore
-        default_factory=DictSectionImplModifier
-    )
+    modifier: DictSectionImplModifier = Field(default_factory=DictSectionImplModifier)
 
 
 class ListRootSectionImplLayering(BaseParentSectionImplLayering):
-    modifier: ListRootSectionImplModifier = Field(  # type: ignore
+    modifier: ListRootSectionImplModifier = Field(
         default_factory=ListRootSectionImplModifier
     )
 
 
 class DictRootSectionImplLayering(BaseParentSectionImplLayering):
-    modifier: DictRootSectionImplModifier = Field(  # type: ignore
+    modifier: DictRootSectionImplModifier = Field(
         default_factory=DictRootSectionImplModifier
     )
 
 
 class GroupSectionImplLayering(BaseParentSectionImplLayering):
-    modifier: GroupSectionImplModifier = Field(  # type: ignore
-        default_factory=GroupSectionImplModifier
-    )
+    modifier: GroupSectionImplModifier = Field(default_factory=GroupSectionImplModifier)
 
 
 class ImageSectionImplLayering(BaseArtifactSectionImplLayering):
-    modifier: ImageSectionImplModifier = Field(  # type: ignore
-        default_factory=ImageSectionImplModifier
-    )
+    modifier: ImageSectionImplModifier = Field(default_factory=ImageSectionImplModifier)
 
 
 class ChartSectionImplLayering(BaseArtifactSectionImplLayering):
-    modifier: ChartSectionImplModifier = Field(  # type: ignore
-        default_factory=ChartSectionImplModifier
-    )
+    modifier: ChartSectionImplModifier = Field(default_factory=ChartSectionImplModifier)
 
 
 class DrawSectionImplLayering(BaseArtifactSectionImplLayering):
-    modifier: DrawSectionImplModifier = Field(  # type: ignore
-        default_factory=DrawSectionImplModifier
-    )
+    modifier: DrawSectionImplModifier = Field(default_factory=DrawSectionImplModifier)
 
 
 class TextBlockSectionImplLayering(BaseSectionImplLayering):
-    modifier: TextBlockSectionImplModifier = Field(  # type: ignore
+    modifier: TextBlockSectionImplModifier = Field(
         default_factory=TextBlockSectionImplModifier
     )
 
 
 class SocialSectionImplLayering(BaseSectionImplLayering):
-    modifier: SocialSectionImplModifier = Field(  # type: ignore
+    modifier: SocialSectionImplModifier = Field(
         default_factory=SocialSectionImplModifier
     )
 
 
 class GlobalVariablesSectionImplLayering(BaseDictSectionImplLayering):
-    modifier: GlobalVariablesSectionImplModifier = Field(  # type: ignore
+    modifier: GlobalVariablesSectionImplModifier = Field(
         default_factory=GlobalVariablesSectionImplModifier
     )
 
 
 class CodeSectionImplLayering(BaseCodeSectionImplLayering):
-    modifier: CodeSectionImplModifier = Field(  # type: ignore
-        default_factory=CodeSectionImplModifier
-    )
+    modifier: CodeSectionImplModifier = Field(default_factory=CodeSectionImplModifier)
 
 
 class GenPythonCodeSectionImplLayering(BaseCodeSectionImplLayering):
-    modifier: GenPythonCodeSectionImplModifier = Field(  # type: ignore
+    modifier: GenPythonCodeSectionImplModifier = Field(
         default_factory=GenPythonCodeSectionImplModifier
     )
 
 
 class TerminalSectionImplLayering(BaseSectionImplLayering):
-    modifier: TerminalSectionImplModifier = Field(  # type: ignore
+    modifier: TerminalSectionImplModifier = Field(
         default_factory=TerminalSectionImplModifier
     )
 
 
 class IFrameSectionImplLayering(BaseSectionImplLayering):
-    modifier: IFrameSectionImplModifier = Field(  # type: ignore
+    modifier: IFrameSectionImplModifier = Field(
         default_factory=IFrameSectionImplModifier
     )
 
 
 class ChatSectionImplLayering(BaseSectionImplLayering):
-    modifier: ChatSectionImplModifier = Field(  # type: ignore
-        default_factory=ChatSectionImplModifier
-    )
+    modifier: ChatSectionImplModifier = Field(default_factory=ChatSectionImplModifier)
 
 
 class BrowserSectionImplLayering(BaseSectionImplLayering):
-    modifier: BrowserSectionImplModifier = Field(  # type: ignore
+    modifier: BrowserSectionImplModifier = Field(
         default_factory=BrowserSectionImplModifier
     )
