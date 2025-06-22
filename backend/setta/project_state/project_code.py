@@ -29,10 +29,12 @@ from setta.types.helpers import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_effective_code_obj_impl,
+    get_code_obj_impl_layering,
     get_effective_section_impl,
+    get_section_impl_layering,
     get_section_path_full_name,
 )
+from setta.types.impl_helpers import get_effective_impl
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -115,20 +117,23 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_impl = get_effective_section_impl(project_state, sectionId)
+        section_impl_layering = get_section_impl_layering(project_state, sectionId)
+        section_impl = get_effective_impl(
+            section_impl_layering, project_state.sectionImpls
+        )
 
         if not isinstance(section_impl, CallableSectionImpl):
             raise TypeError
 
         if callableName == "":
-            section_impl.callable = None
+            section_impl_layering.modifier["callable"] = None
 
         prev_selected = callable_has_been_selected_before(
             project_state, sectionId, callableName
         )
 
         if prev_selected and not refetchParams:
-            section_impl.callable = prev_selected
+            section_impl_layering.modifier["callable"] = prev_selected
             return
 
         line_col = await self.insert_code_at_position(
@@ -153,28 +158,31 @@ class ProjectGenPythonCode(PythonCode):
         if not prev_selected:
             callable_code_obj = CodeObjCore(name=callableName)
             callable_code_obj_impl = CodeCallableCodeObjImpl()
-            add_code_obj(
+            callable_code_obj_impl_layering = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_code_obj_impl
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
-            callable_code_obj_impl = get_effective_code_obj_impl(
-                project_state, sectionId, prev_selected
+            callable_code_obj_impl_layering = get_code_obj_impl_layering(
+                project_state, callable_code_obj.id, section_impl=section_impl
             )
+            callable_code_obj_impl = get_effective_impl(
+                callable_code_obj_impl_layering, project_state.codeObjImpls
+            )
+
+        if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
+            raise TypeError
 
         result = process_signature_help_response(response)
         if result is None:
             return
 
-        if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
-            raise TypeError
-
         [documentation, params, param_impl_map] = result
-        callable_code_obj_impl.description = documentation
+        callable_code_obj_impl_layering.modifier["description"] = documentation
         add_children_of_callable(
             project_state, sectionId, callable_code_obj.id, params, param_impl_map
         )
-        section_impl.callable = callable_code_obj.id
+        section_impl_layering.modifier["callable"] = callable_code_obj.id
 
     async def gen_code_prefix_autocomplete(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)

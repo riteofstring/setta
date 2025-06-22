@@ -12,10 +12,16 @@ from setta.types.code_objs import (
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
+from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import BaseSectionImpl, DictSectionImpl, SectionCore
+from setta.types.sections import (
+    BaseSectionImpl,
+    DictSectionImpl,
+    SectionCore,
+    SectionImplLayering,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +36,7 @@ class ProcessedJSONObject(BaseModel):
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
     sectionImpls: dict[str, BaseSectionImpl]
+    sectionImplLayerings: dict[str, SectionImplLayering]
     codeObjs: dict[str, CodeObjCore]
     codeObjImpls: dict[str, BaseCodeObjImpl]
     codeObjImplLayerings: dict[str, CodeObjImplLayering]
@@ -37,29 +44,32 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 def load_json_sources_into_data_structures(
     p: ProjectStateSingleConfig | LoadJSONSourceObject,
-    section_impl_ids: list[str] | None = None,
+    section_impl_layering_ids: list[str] | None = None,
 ):
-    for section_impl_id, section_impl in p.sectionImpls.items():
+    for layering_id, layering in p.sectionImplLayerings.items():
+        impl = get_effective_impl(layering, p.sectionImpls)
         if (
-            not isinstance(section_impl, DictSectionImpl)
-            or not section_impl.isJsonSource
-            or (section_impl_ids and section_impl_id not in section_impl_ids)
+            not isinstance(impl, DictSectionImpl)
+            or not impl.isJsonSource
+            or (
+                section_impl_layering_ids
+                and layering_id not in section_impl_layering_ids
+            )
         ):
             continue
-        new_data, isMissing = load_json_source(
-            section_impl.name, section_impl.jsonSourceKeys
-        )
-        section_impl.jsonSourceMissing = isMissing
+        new_data, isMissing = load_json_source(impl.name, impl.jsonSourceKeys)
+        layering.modifier["jsonSourceMissing"] = isMissing
         if isMissing:
             continue
         merge_into_existing(
-            new_data, section_impl, p.codeObjs, p.codeObjImpls, p.codeObjImplLayerings
+            new_data, impl, layering, p.codeObjs, p.codeObjImpls, p.codeObjImplLayerings
         )
 
 
 def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: DictSectionImpl,
+    section_layering: SectionImplLayering,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
     codeObjImplLayerings: dict[str, CodeObjImplLayering],
@@ -110,7 +120,7 @@ def merge_into_existing(
     for newId, (existingCodeObjId, newImpl) in replacements.items():
         layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
         layering = codeObjImplLayerings[layeringId]
-        impl = codeObjImpls[layering.impl]
+        impl = get_effective_impl(layering, codeObjImpls)
         if isinstance(impl, NestedParamCodeObjImpl):
             if isinstance(newImpl, NestedParamCodeObjImpl):
                 layering.modifier["children"] = [
@@ -136,7 +146,7 @@ def merge_into_existing(
             del codeObjImpls[impl.id]
             del codeObjImplLayerings[layeringId]
 
-    section_impl.topLevelParamIds = [
+    section_layering.modifier["topLevelParamIds"] = [
         replacements[c][0] if c in replacements else c
         for c in new_data.sectionImpl.topLevelParamIds
     ]

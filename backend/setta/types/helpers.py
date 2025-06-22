@@ -136,10 +136,17 @@ def get_effective_section_impl(
     if section_impl is None:
         if section_id is None:
             raise ValueError("Either section_id or section_impl must be provided")
-        impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
-        impl_layering = p.sectionImplLayerings[impl_layering_id]
+        impl_layering = get_section_impl_layering(p, section_id)
         return get_effective_impl(impl_layering, p.sectionImpls)
     return section_impl
+
+
+def get_section_impl_layering(
+    p: ProjectStateSingleConfig,
+    section_id: str,
+):
+    impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
+    return p.sectionImplLayerings[impl_layering_id]
 
 
 def get_section_callable(
@@ -188,13 +195,13 @@ def get_top_level_param_ids(
 
 def get_code_obj_impl_layering(
     p: ProjectStateSingleConfig,
-    paramId: str,
+    codeObjId: str,
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[paramId]
+        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[codeObjId]
         code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
         return code_obj_impl_layering
     raise TypeError
@@ -202,14 +209,14 @@ def get_code_obj_impl_layering(
 
 def get_effective_code_obj_impl(
     p: ProjectStateSingleConfig,
-    paramId: str,
+    codeObjId: str,
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_impl_layering = get_code_obj_impl_layering(
-            p, paramId, section_impl=section_impl
+            p, codeObjId, section_impl=section_impl
         )
         code_obj_impl = get_effective_impl(code_obj_impl_layering, p.codeObjImpls)
         return code_obj_impl
@@ -218,11 +225,11 @@ def get_effective_code_obj_impl(
 
 def get_code_obj_children_ids(
     p: ProjectStateSingleConfig,
-    paramId: str,
+    codeObjId: str,
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    code_obj_impl = get_effective_code_obj_impl(p, paramId, section_id, section_impl)
+    code_obj_impl = get_effective_code_obj_impl(p, codeObjId, section_id, section_impl)
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):
         return code_obj_impl.children
     raise TypeError
@@ -276,14 +283,18 @@ def add_code_obj(
     code_obj: CodeObjCore,
     code_obj_impl: BaseCodeObjImpl,
 ):
-    section_impl = get_effective_section_impl(p, section_id)
+    section_layering = get_section_impl_layering(p, section_id)
+    section_impl = get_effective_impl(section_layering, p.sectionImpls)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
     code_obj_impl_layering = CodeObjImplLayering(impl=code_obj_impl.id)
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
-    section_impl.codeObjImplLayeringMap[code_obj.id] = code_obj_impl_layering.id
+    section_layering.modifier["codeObjImplLayeringMap"][code_obj.id] = (
+        code_obj_impl_layering.id
+    )
+    return code_obj_impl_layering
 
 
 def add_children_of_callable(
@@ -293,7 +304,10 @@ def add_children_of_callable(
     new_params: list[CodeObjCore],
     new_param_impl_map: dict[str, BaseParamCodeObjImpl],
 ):
-    callable_code_obj_impl = get_effective_code_obj_impl(p, section_id, callable_id)
+    callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
+    callable_code_obj_impl = get_effective_impl(
+        callable_code_obj_layering, p.codeObjImpls
+    )
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
     existing_param_core: dict[str, CodeObjCore] = {}
@@ -315,7 +329,7 @@ def add_children_of_callable(
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    callable_code_obj_impl.children = param_ids_in_order
+    callable_code_obj_layering.modifier["children"] = param_ids_in_order
 
 
 def set_param_entered_value(
@@ -324,10 +338,10 @@ def set_param_entered_value(
     paramId: str,
     value: str,
 ):
-    code_obj_impl_layering = get_code_obj_impl_layering(p, sectionId, paramId)
-    impl = p.codeObjImpls[code_obj_impl_layering.impl]
+    code_obj_impl_layering = get_code_obj_impl_layering(p, paramId, sectionId)
+    impl = get_effective_impl(code_obj_impl_layering, p.codeObjImpls)
     if isinstance(impl, BaseChildlessCodeObjImpl):
-        impl.value = value
+        code_obj_impl_layering.modifier["value"] = value
     raise TypeError
 
 

@@ -22,6 +22,10 @@ def get_effective_impl(
     return effective
 
 
+def set_effective_impl(impl_layering: ImplLayering, key, value):
+    impl_layering.modifier[key] = value
+
+
 def update_impl_layerings(
     p: ProjectStateSingleConfig, implLayerings: list[str], new_impl: BaseCodeObjImpl
 ):
