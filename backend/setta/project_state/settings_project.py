@@ -6,7 +6,7 @@ from setta.types.code_objs import (
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
@@ -132,11 +132,11 @@ def create_settings_project_state(settings_path: str):
 
     sections: dict[str, SectionCore] = {}
     sectionImpls: dict[str, BaseSectionImpl] = {}
-    sectionImplLayerings: dict[str, SectionImplLayering] = {}
+    sectionImplLayerings: dict[str, ImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
     codeObjs: dict[str, CodeObjCore] = {}
     codeObjImpls: dict[str, BaseCodeObjImpl] = {}
-    codeObjImplLayerings: dict[str, CodeObjImplLayering] = {}
+    codeObjImplLayerings: dict[str, ImplLayering] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
             name=settings_path,
@@ -145,7 +145,7 @@ def create_settings_project_state(settings_path: str):
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
         )
-        sectionImplLayering = SectionImplLayering(impl=sectionImpl.id)
+        sectionImplLayering = ImplLayering(impl=sectionImpl.id)
         section = SectionCore(
             name=k,
             implLayerings=[sectionImplLayering.id],
@@ -158,7 +158,7 @@ def create_settings_project_state(settings_path: str):
         sections[section.id] = section
 
         for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjImplLayering = CodeObjImplLayering(impl=codeObjImpl.id)
+            codeObjImplLayering = ImplLayering(impl=codeObjImpl.id)
             codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
             codeObjImpls[codeObjImpl.id] = codeObjImpl
 

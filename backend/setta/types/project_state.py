@@ -11,7 +11,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_impl_layering import BaseCodeObjImplLayering
 from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
 from setta.types.generated_code_obj_type_unions import (
     BaseCodeObjImplTypeAdapter,
@@ -19,7 +18,7 @@ from setta.types.generated_code_obj_type_unions import (
 from setta.types.generated_section_type_unions import (
     BaseSectionImplTypeAdapter,
 )
-from setta.types.section_impl_layering import BaseSectionImplLayering
+from setta.types.impl_layering import ImplLayering
 from setta.types.sections import BaseSectionImpl, SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -81,16 +80,12 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]] = Field(
         default_factory=dict
     )
-    sectionImplLayerings: dict[str, SerializeAsAny[BaseSectionImplLayering]] = Field(
-        default_factory=dict
-    )
+    sectionImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, SerializeAsAny[BaseCodeObjImplLayering]] = Field(
-        default_factory=dict
-    )
+    codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
 
     _validate_section_impls = field_validator("sectionImpls", mode="before")(
         dict_validator(BaseSectionImpl, BaseSectionImplTypeAdapter, "sectionImpls")

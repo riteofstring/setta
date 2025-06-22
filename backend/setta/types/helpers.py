@@ -10,7 +10,7 @@ from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
 )
-from setta.types.impl_layering import CodeObjImplLayering
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -287,7 +287,7 @@ def add_code_obj(
     section_impl = get_effective_impl(section_layering, p.sectionImpls)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
-    code_obj_impl_layering = CodeObjImplLayering(impl=code_obj_impl.id)
+    code_obj_impl_layering = ImplLayering(impl=code_obj_impl.id)
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering

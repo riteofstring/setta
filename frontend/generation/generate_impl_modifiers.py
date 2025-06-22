@@ -4,7 +4,6 @@ from enum import Enum
 from pathlib import Path
 from typing import (
     Annotated,
-    Any,
     Dict,
     List,
     Literal,
@@ -131,25 +130,6 @@ class {name}Modifier({parent_class}, total=False):
     return code
 
 
-def create_layering(impl_class, base_class):
-    name = impl_class.__name__
-    if impl_class is base_class:
-        parent_class = "BaseImplLayering"
-    else:
-        parent_class = f"{python_type_to_str(impl_class.__base__)}Layering"
-
-    if impl_class.model_fields["type"].annotation is Any:
-        modifier = "Any"
-    else:
-        modifier_class = f"{name}Modifier"
-        modifier = f"{modifier_class} = Field(default_factory={modifier_class})"
-    return f"""
-class {name}Layering({parent_class}):
-    modifier: {modifier}
-
-"""
-
-
 def section_impl_modifiers(output_file):
     import setta.types.sections
 
@@ -176,25 +156,6 @@ from setta.types.sections import (
     for c in classes:
         code += create_typed_dict(c, setta.types.sections.BaseSectionImpl)
 
-    code = ruff_format(code)
-    with open(output_file, "w") as f:
-        f.write(code)
-
-    print(f"wrote to {output_file}")
-
-    return classes
-
-
-def section_impl_layering(output_file, impl_classes):
-    modifier_class_names = [f"{c.__name__}Modifier" for c in impl_classes]
-    code = f"""
-from pydantic import Field
-from typing import Any
-from setta.types.impl_layering import BaseImplLayering
-from setta.types.section_impl_modifiers import {",".join(modifier_class_names)}
-"""
-    for c in impl_classes:
-        code += create_layering(c, impl_classes[0])
     code = ruff_format(code)
     with open(output_file, "w") as f:
         f.write(code)
@@ -237,31 +198,11 @@ from setta.types.code_objs import (
         f.write(code)
 
     print(f"wrote to {output_file}")
-    return classes
-
-
-def code_obj_impl_layering(output_file, impl_classes):
-    modifier_class_names = [f"{c.__name__}Modifier" for c in impl_classes]
-    code = f"""
-from pydantic import Field
-from typing import Any
-from setta.types.impl_layering import BaseImplLayering
-from setta.types.code_obj_impl_modifiers import {",".join(modifier_class_names)}
-"""
-    for c in impl_classes:
-        code += create_layering(c, impl_classes[0])
-    code = ruff_format(code)
-    with open(output_file, "w") as f:
-        f.write(code)
-
-    print(f"wrote to {output_file}")
 
 
 def main(output_folder):
-    impl_classes = section_impl_modifiers(output_folder / "section_impl_modifiers.py")
-    section_impl_layering(output_folder / "section_impl_layering.py", impl_classes)
-    impl_classes = code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
-    code_obj_impl_layering(output_folder / "code_obj_impl_layering.py", impl_classes)
+    section_impl_modifiers(output_folder / "section_impl_modifiers.py")
+    code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
 
 
 if __name__ == "__main__":

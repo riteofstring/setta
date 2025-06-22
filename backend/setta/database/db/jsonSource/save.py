@@ -9,7 +9,7 @@ from setta.types.code_objs import (
 )
 from setta.types.helpers import get_effective_code_obj_impl
 from setta.types.impl_helpers import get_effective_impl
-from setta.types.impl_layering import CodeObjImplLayering
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -58,7 +58,7 @@ def save_json_source_data(
 
 def build_parent_map(
     codeObjImpls: dict[str, BaseCodeObjImpl],
-    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],
 ) -> dict[str, str | None]:
@@ -84,7 +84,7 @@ def build_parent_map(
 def build_ancestor_paths(
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
-    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],
 ) -> dict[str, list[str]]:
