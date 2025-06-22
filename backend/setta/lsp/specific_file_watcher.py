@@ -3,14 +3,16 @@ import glob
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Awaitable, Callable
+from typing import Awaitable, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from setta.types.specific_file_watcher import (
     FileEventType,
+    FileWatcherCoreUpdate,
     FileWatcherUpdate,
+    FileWatcherUpdateHandler,
     FileWatchGroupName,
 )
 from setta.utils.constants import CWD
@@ -52,13 +54,13 @@ class SpecificFileWatcher:
         self.observer = Observer()
         # map from fileWatchGroupName to set of filepaths
         self.watched_files: dict[FileWatchGroupName, set[Path]] = defaultdict(set)
-        self.file_content_processors: dict[Path, Callable[[str], Any]] = {}
+        self.file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler] = {}
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
             event_callback,
             asyncio.get_event_loop(),
             self.watched_files,
-            self.file_content_processors,
+            self.file_watcher_update_handlers,
             self.file_to_patterns,
         )
 
@@ -78,7 +80,7 @@ class SpecificFileWatcher:
         self,
         file_path: Path,
         file_watch_group_name: FileWatchGroupName,
-        content_processor: Callable[[str], Any] | None = None,
+        file_watcher_update_handler: FileWatcherUpdateHandler,
         fire_immediately: bool = True,
     ):
         """
@@ -87,9 +89,7 @@ class SpecificFileWatcher:
         Args:
             file_path: Path to the file to watch
             file_watch_group_name: Name of the group to add this file to
-            content_processor: Optional callback to process file content on events.
-                             If None, file content won't be read. If provided, it will
-                             be called with the raw file content as its argument.
+            file_watcher_update_handler:
             fire_immediately: If True, trigger an event for this file right away
 
         Returns:
@@ -108,12 +108,14 @@ class SpecificFileWatcher:
         # Add file to watched files if not already there
         if is_new_file:
             self.watched_files[file_watch_group_name].add(absolute_path)
-            if content_processor is not None:
-                self.file_content_processors[absolute_path] = content_processor
+            self.file_watcher_update_handlers[absolute_path] = (
+                file_watcher_update_handler
+            )
         else:
             # Already watching this file - update processor if provided
-            if content_processor is not None:
-                self.file_content_processors[absolute_path] = content_processor
+            self.file_watcher_update_handlers[absolute_path] = (
+                file_watcher_update_handler
+            )
 
         # Schedule the directory for watching if needed
         dir_path_str = str(dir_path)
@@ -157,14 +159,14 @@ class SpecificFileWatcher:
             )
 
             # Only remove the processor if file is no longer watched in any group
-            if not still_watched and absolute_path in self.file_content_processors:
-                del self.file_content_processors[absolute_path]
+            if not still_watched and absolute_path in self.file_watcher_update_handlers:
+                del self.file_watcher_update_handlers[absolute_path]
 
     def update_watch_list(
         self,
         filepaths_and_glob_patterns: list[str],
         file_watch_group_name: FileWatchGroupName,
-        content_processor: Callable[[str], Any] | None = None,
+        file_watcher_update_handler: FileWatcherUpdateHandler,
         fire_immediately: bool = True,
     ):
         """
@@ -174,9 +176,7 @@ class SpecificFileWatcher:
         Args:
             filepaths_and_glob_patterns: List of file paths that should be watched
             file_watch_group_name: Name of the group for these files
-            content_processor: Optional callback to process file content on events.
-                             If None, file content won't be read. If provided, it will
-                             be called with the raw file content as its argument.
+            content_processor:
             fire_immediately: If True, trigger an event for each added file right away
 
         Returns:
@@ -199,7 +199,10 @@ class SpecificFileWatcher:
         # Add new files
         for file_path in files_to_add:
             success = self.add_file(
-                file_path, file_watch_group_name, content_processor, fire_immediately
+                file_path,
+                file_watch_group_name,
+                file_watcher_update_handler,
+                fire_immediately,
             )
             if success:
                 added_files.append(file_path)
@@ -250,7 +253,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         callback: Callable[[FileWatcherUpdate], Awaitable[None]],
         loop: asyncio.AbstractEventLoop,
         watched_files_ref: dict[FileWatchGroupName, set[Path]],
-        file_content_processors: dict[Path, Callable[[str], Any]],
+        file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler],
         file_to_patterns: dict[Path, set[str]],
     ):
         """
@@ -260,13 +263,13 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             callback: Function to call when a watched file changes
             loop: Asyncio event loop for async callbacks
             watched_files_ref: Reference to the dict of files being watched
-            file_content_processors: Reference to the dict of file content processors
+            file_watcher_update_handlers: Reference to the dict of file update handlers
             file_to_patterns: Reference to the dict of file to pattern mappings
         """
         self.callback = callback
         self.loop = loop
         self.watched_files_ref = watched_files_ref
-        self.file_content_processors = file_content_processors
+        self.file_watcher_update_handlers = file_watcher_update_handlers
         self.file_to_patterns = file_to_patterns
 
     def on_created(self, event: FileSystemEvent):
@@ -345,66 +348,40 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             # If path is not relative to CWD, use the absolute path
             rel_path = abs_path
 
-        # Get file contents for created, modified, and readRequested events
-        file_content = None
-        processor = self.file_content_processors.get(abs_path)
-
-        if processor is not None and event_type in (
-            "created",
-            "modified",
-            "readRequested",
-        ):
-            try:
-                with open(abs_path, "r", encoding="utf-8") as f:
-                    raw_content = f.read()
-                    # Apply the processor to the content
-                    file_content = processor(raw_content)
-            except Exception as e:
-                logger.debug(f"Error processing file {abs_path}: {e}")
-                file_content = None
-
         # For moved events, get the content of the destination file
         dest_abs_path = None
         dest_rel_path = None
-        if event_type == "moved" and hasattr(event, "dest_path"):
+        if event_type == FileEventType.moved and hasattr(event, "dest_path"):
             dest_abs_path = Path(ensure_str_path(event.dest_path)).resolve()
             try:
                 dest_rel_path = dest_abs_path.relative_to(CWD)
             except ValueError:
                 dest_rel_path = dest_abs_path
 
-            dest_processor = self.file_content_processors.get(dest_abs_path)
+        if dest_abs_path:
+            handler = self.file_watcher_update_handlers.get(dest_abs_path)
+            file_to_read = dest_abs_path
+        else:
+            handler = self.file_watcher_update_handlers.get(abs_path)
+            file_to_read = abs_path
 
-            if dest_processor is not None:
-                try:
-                    with open(dest_abs_path, "r", encoding="utf-8") as f:
-                        raw_content = f.read()
-                        # Apply the processor to the content
-                        file_content = dest_processor(raw_content)
-                except Exception as e:
-                    logger.debug(
-                        f"Error processing destination file {dest_abs_path}: {e}"
-                    )
-                    file_content = None
+        if not handler:
+            return
 
-        # Prepare event info object
-        event_info = FileWatcherUpdate(
+        core_update = FileWatcherCoreUpdate(
             absPath=abs_path,
             relPath=rel_path,
             eventType=FileEventType(event_type),
-            fileContent=file_content,
             matchingGlobPatterns=list(self.file_to_patterns.get(abs_path, [])),
-            fileWatchGroupName=file_watch_group_name,
+            destAbsPath=dest_abs_path,
+            destRelPath=dest_rel_path,
         )
 
-        # Add destination paths for moved events
-        if event_type == "moved" and dest_abs_path:
-            event_info.destAbsPath = dest_abs_path
-            event_info.destRelPath = dest_rel_path
+        file_watch_update = handler(core_update, file_to_read)
 
-        logger.debug(f"will send {event_info}")
+        logger.debug(f"will send {file_watch_update}")
         if asyncio.iscoroutinefunction(self.callback):
-            coro = self.callback(event_info)
+            coro = self.callback(file_watch_update)
             self.loop.call_soon_threadsafe(lambda: self.loop.create_task(coro))
         else:
-            self.callback(event_info)
+            self.callback(file_watch_update)

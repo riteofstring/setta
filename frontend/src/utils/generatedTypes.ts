@@ -384,6 +384,16 @@ export const RenameRefactorModeEnum = {
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
+export const FileEventTypeEnum = {
+  created: "created",
+  modified: "modified",
+  deleted: "deleted",
+  moved: "moved",
+  readRequested: "readRequested",
+} as const;
+
+export type FileEventType = ObjectValues<typeof FileEventTypeEnum>;
+
 export const FileWatchGroupNameEnum = {
   jsonSource: "jsonSource",
   apiKeys: "apiKeys",
@@ -3696,15 +3706,27 @@ export function createWebsocketMsgAllDependencies(
   return WebsocketMsgAllDependenciesSchema.parse(options);
 }
 
-export const FileWatcherUpdateSchema = z.object({
+export const FileWatcherCoreUpdateSchema = z.object({
   absPath: z.string(),
   relPath: z.string(),
-  eventType: z.string(),
-  fileContent: z.any(),
+  eventType: z.enum(FileEventTypeEnum),
   matchingGlobPatterns: z.array(z.string()),
-  fileWatchGroupName: z.enum(FileWatchGroupNameEnum),
   destAbsPath: z.union([z.string(), z.null()]).default(null),
   destRelPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
+
+export function createFileWatcherCoreUpdate(
+  options: Partial<FileWatcherCoreUpdate> = {},
+): FileWatcherCoreUpdate {
+  return FileWatcherCoreUpdateSchema.parse(options);
+}
+
+export const FileWatcherUpdateSchema = z.object({
+  fileWatchGroupName: z.any(),
+  coreUpdate: FileWatcherCoreUpdateSchema,
+  fileContent: z.any(),
 });
 
 export type FileWatcherUpdate = z.infer<typeof FileWatcherUpdateSchema>;
@@ -3967,6 +3989,93 @@ export function createWebsocketMsgForFrontendUnionWithDiscriminator(
   options: Partial<WebsocketMsgForFrontendUnionWithDiscriminator> = {},
 ): WebsocketMsgForFrontendUnionWithDiscriminator {
   return WebsocketMsgForFrontendUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const FileWatcherUpdateHandlerSchema = CallableSchema;
+
+export type FileWatcherUpdateHandler = z.infer<
+  typeof FileWatcherUpdateHandlerSchema
+>;
+
+export const FileWatcherUpdateJSONSourceSchema = z.object({
+  fileWatchGroupName: z
+    .literal("jsonSource")
+    .default(FileWatchGroupNameEnum.jsonSource),
+  coreUpdate: FileWatcherCoreUpdateSchema,
+  fileContent: z.null().default(null),
+});
+
+export type FileWatcherUpdateJSONSource = z.infer<
+  typeof FileWatcherUpdateJSONSourceSchema
+>;
+
+export function createFileWatcherUpdateJSONSource(
+  options: Partial<FileWatcherUpdateJSONSource> = {},
+): FileWatcherUpdateJSONSource {
+  return FileWatcherUpdateJSONSourceSchema.parse(options);
+}
+
+export const FileWatcherUpdateAPIKeysSchema = z.object({
+  fileWatchGroupName: z
+    .literal("apiKeys")
+    .default(FileWatchGroupNameEnum.apiKeys),
+  coreUpdate: FileWatcherCoreUpdateSchema,
+  fileContent: z.record(z.string(), z.union([z.string(), z.null()])),
+});
+
+export type FileWatcherUpdateAPIKeys = z.infer<
+  typeof FileWatcherUpdateAPIKeysSchema
+>;
+
+export function createFileWatcherUpdateAPIKeys(
+  options: Partial<FileWatcherUpdateAPIKeys> = {},
+): FileWatcherUpdateAPIKeys {
+  return FileWatcherUpdateAPIKeysSchema.parse(options);
+}
+
+export const FileWatcherUpdateGenPythonCodeSchema = z.object({
+  fileWatchGroupName: z
+    .literal("genPythonCode")
+    .default(FileWatchGroupNameEnum.genPythonCode),
+  coreUpdate: FileWatcherCoreUpdateSchema,
+  fileContent: z.string(),
+});
+
+export type FileWatcherUpdateGenPythonCode = z.infer<
+  typeof FileWatcherUpdateGenPythonCodeSchema
+>;
+
+export function createFileWatcherUpdateGenPythonCode(
+  options: Partial<FileWatcherUpdateGenPythonCode> = {},
+): FileWatcherUpdateGenPythonCode {
+  return FileWatcherUpdateGenPythonCodeSchema.parse(options);
+}
+
+export const FileWatcherUpdateUnionSchema = z.union([
+  FileWatcherUpdateJSONSourceSchema,
+  FileWatcherUpdateAPIKeysSchema,
+  FileWatcherUpdateGenPythonCodeSchema,
+]);
+
+export type FileWatcherUpdateUnion = z.infer<
+  typeof FileWatcherUpdateUnionSchema
+>;
+
+export const FileWatcherUpdateUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("fileWatchGroupName", [
+    FileWatcherUpdateJSONSourceSchema,
+    FileWatcherUpdateAPIKeysSchema,
+    FileWatcherUpdateGenPythonCodeSchema,
+  ]);
+
+export type FileWatcherUpdateUnionWithDiscriminator = z.infer<
+  typeof FileWatcherUpdateUnionWithDiscriminatorSchema
+>;
+
+export function createFileWatcherUpdateUnionWithDiscriminator(
+  options: Partial<FileWatcherUpdateUnionWithDiscriminator> = {},
+): FileWatcherUpdateUnionWithDiscriminator {
+  return FileWatcherUpdateUnionWithDiscriminatorSchema.parse(options);
 }
 
 export const BaseArtifactSectionImplModifierSchema = z.object({

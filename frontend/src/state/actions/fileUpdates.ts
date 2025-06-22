@@ -2,22 +2,25 @@ import { useAIStore, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_section_json_source } from "utils/generatedEndpoints";
 import {
-  FileWatcherUpdate,
+  FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
 } from "utils/generatedTypes";
 import { getSectionVariant, updateProjectState } from "./sectionInfos";
 
 export async function updateWithFileChanges(
-  updatedFileInfo: FileWatcherUpdate,
+  updatedFileInfo: FileWatcherUpdateUnion,
 ) {
   const { fileWatchGroupName } = updatedFileInfo;
 
-  if (fileWatchGroupName === FileWatchGroupNameEnum.jsonSource) {
-    await updateJSONSourceContents(updatedFileInfo);
-  } else if (fileWatchGroupName === FileWatchGroupNameEnum.apiKeys) {
-    updateApiKeyInfo(updatedFileInfo);
-  } else if (fileWatchGroupName === FileWatchGroupNameEnum.genPythonCode) {
-    updateGenPythonCode(updatedFileInfo);
+  switch (fileWatchGroupName) {
+    case FileWatchGroupNameEnum.jsonSource:
+      return await updateJSONSourceContents(updatedFileInfo);
+    case FileWatchGroupNameEnum.apiKeys:
+      return updateApiKeyInfo(updatedFileInfo);
+    case FileWatchGroupNameEnum.genPythonCode:
+      return updateGenPythonCode(updatedFileInfo);
+    default:
+      return fileWatchGroupName satisfies never;
   }
 }
 
