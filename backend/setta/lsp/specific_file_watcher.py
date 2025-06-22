@@ -8,6 +8,7 @@ from typing import Any, Callable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ class SpecificFileWatcher:
         """
         self.observer = Observer()
         # map from fileWatchGroupName to set of filepaths
-        self.watched_files: dict[str, set[str]] = defaultdict(set)
+        self.watched_files: dict[FileWatchGroupName, set[str]] = defaultdict(set)
         self.file_content_processors: dict[
             str, Callable[[str], Any]
         ] = {}  # maps filepath to optional callback
@@ -65,14 +66,14 @@ class SpecificFileWatcher:
                     file_watch_group_name, mock_event, "readRequested"
                 )
 
-    def request_read(self, file_watch_group_name, abs_path):
+    def request_read(self, file_watch_group_name: FileWatchGroupName, abs_path):
         mock_event = MockFileEvent(abs_path)
         self.handler._send_event(file_watch_group_name, mock_event, "readRequested")
 
     def add_file(
         self,
         file_path: str,
-        file_watch_group_name: str,
+        file_watch_group_name: FileWatchGroupName,
         content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
     ) -> bool:
@@ -128,7 +129,9 @@ class SpecificFileWatcher:
 
         return True
 
-    def remove_file(self, file_path: str, file_watch_group_name: str) -> None:
+    def remove_file(
+        self, file_path: str, file_watch_group_name: FileWatchGroupName
+    ) -> None:
         """
         Remove a file from being watched.
 
@@ -153,7 +156,7 @@ class SpecificFileWatcher:
     def update_watch_list(
         self,
         filepaths_and_glob_patterns: list[str],
-        file_watch_group_name: str,
+        file_watch_group_name: FileWatchGroupName,
         content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
     ) -> dict[str, list[str]]:
@@ -239,7 +242,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         self,
         callback,
         loop,
-        watched_files_ref,
+        watched_files_ref: dict[FileWatchGroupName, set[str]],
         file_content_processors,
         file_to_patterns,
     ):
@@ -312,7 +315,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
     def _send_event(
         self,
-        file_watch_group_name: str,
+        file_watch_group_name: FileWatchGroupName,
         event: FileSystemEvent | MockFileEvent,
         event_type: str,
     ):

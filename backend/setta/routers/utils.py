@@ -2,13 +2,14 @@ from io import StringIO
 
 from dotenv import dotenv_values
 
+from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.constants import C
 
 
-def get_content_processor(file_watch_group_name):
-    if file_watch_group_name == "genPythonCode":
+def get_content_processor(file_watch_group_name: FileWatchGroupName):
+    if file_watch_group_name == FileWatchGroupName.genPythonCode:
         return content_processor_gen_python_code
-    elif file_watch_group_name == "apiKeys":
+    elif file_watch_group_name == FileWatchGroupName.apiKeys:
         return content_processor_api_keys
     return None
 

@@ -20,6 +20,7 @@ from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.routers.utils import get_content_processor
 from setta.types.routes import Route
+from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.generate_new_filename import generate_new_filename
 
 router = SettaAPIRouter()
@@ -65,7 +66,7 @@ class DeleteFileRequest(BaseModel):
 
 class FileWatchListRequest(BaseModel):
     filepaths: list[str]
-    fileWatchGroupName: str
+    fileWatchGroupName: FileWatchGroupName
 
 
 class FileWatchGenPythonCodeRequest(BaseModel):
@@ -177,6 +178,6 @@ async def route_file_watch_gen_python_code(
 
     state.specific_file_watcher.update_watch_list(
         filepaths,
-        "genPythonCode",
-        get_content_processor("genPythonCode"),
+        FileWatchGroupName.genPythonCode,
+        get_content_processor(FileWatchGroupName.genPythonCode),
     )

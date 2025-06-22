@@ -384,6 +384,14 @@ export const RenameRefactorModeEnum = {
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
 
+export const FileWatchGroupNameEnum = {
+  jsonSource: "jsonSource",
+  apiKeys: "apiKeys",
+  genPythonCode: "genPythonCode",
+} as const;
+
+export type FileWatchGroupName = ObjectValues<typeof FileWatchGroupNameEnum>;
+
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -5403,7 +5411,7 @@ export function createFileWatchGenPythonCodeRequest(
 
 export const FileWatchListRequestSchema = z.object({
   filepaths: z.array(z.string()),
-  fileWatchGroupName: z.string(),
+  fileWatchGroupName: z.enum(FileWatchGroupNameEnum),
 });
 
 export type FileWatchListRequest = z.infer<typeof FileWatchListRequestSchema>;

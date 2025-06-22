@@ -14,7 +14,7 @@ import {
   route_file_watch_gen_python_code,
   route_file_watch_list,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { FileWatchGroupNameEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
@@ -55,7 +55,10 @@ export function subscribe() {
   useProjectState.subscribe(
     jsonFilenameSubscriptionFn,
     (filepaths) =>
-      route_file_watch_list({ filepaths, fileWatchGroupName: "jsonSource" }),
+      route_file_watch_list({
+        filepaths,
+        fileWatchGroupName: FileWatchGroupNameEnum.jsonSource,
+      }),
     {
       equalityFn: _.isEqual,
     },
@@ -160,7 +163,10 @@ export function subscribe() {
   useAIStore.subscribe(
     apiKeysFilepathSubscriptionFn,
     (filepaths) =>
-      route_file_watch_list({ filepaths, fileWatchGroupName: "apiKeys" }),
+      route_file_watch_list({
+        filepaths,
+        fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
+      }),
     {
       equalityFn: _.isEqual,
       fireImmediately: true,
