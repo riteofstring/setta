@@ -1,7 +1,12 @@
 import _ from "lodash";
 import { useProjectState, useTypeErrors } from "state/definitions";
 import { route_type_check } from "utils/generatedEndpoints";
+import {
+  isBaseSectionWithParamsImpl,
+  SettaProjectConfigDiagnostics,
+} from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
+import { getEffectiveSectionImpl } from "./sectionInfos";
 
 export async function requestTypeCheck(userRequested = false) {
   if (userRequested) {
@@ -12,9 +17,10 @@ export async function requestTypeCheck(userRequested = false) {
   route_type_check({ projectConfigId });
 }
 
-export function processTypeErrors(content) {
-  const { projectConfigId, codeSectionId, diagnostics } = content;
-  if (projectConfigId !== useProjectState.getState().projectConfig.id) {
+export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
+  const p = useProjectState.getState();
+  const { projectConfigId, diagnostics } = content;
+  if (projectConfigId !== p.projectConfig.id) {
     return;
   }
 
@@ -22,7 +28,14 @@ export function processTypeErrors(content) {
 
   for (const d of diagnostics) {
     const { sectionId, paramInfoId, message } = d;
-    if (useProjectState.getState().codeInfo[paramInfoId].ignoreTypeErrors) {
+    if (!paramInfoId) {
+      continue;
+    }
+    const impl = getEffectiveSectionImpl(p, sectionId);
+    if (
+      isBaseSectionWithParamsImpl(impl) &&
+      impl.ignoreTypeErrors[paramInfoId]
+    ) {
       continue;
     }
     if (!(sectionId in typeErrors)) {

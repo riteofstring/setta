@@ -202,11 +202,9 @@ export function processProjectStateUpdateFromBackend(
   }
   useProjectState.setState(projectState);
   useNodeInternals.setState({
-    x: createNodesMapFromProjectConfigChildren(
-      projectState.projectConfig,
-      projectState.sections,
-    ),
+    x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
   });
+  console.log("useProjectState.getState()", useProjectState.getState())
 }
 
 export function updateProjectState({
