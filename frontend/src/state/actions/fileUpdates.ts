@@ -2,6 +2,7 @@ import { useAIStore, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_section_json_source } from "utils/generatedEndpoints";
 import {
+  FileWatcherUpdateAPIKeys,
   FileWatcherUpdateGenPythonCode,
   FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
@@ -81,7 +82,7 @@ export async function loadJsonContents(variantIdsToLoad: Array<string>) {
   return { variants, codeInfo, codeInfoCols };
 }
 
-async function updateApiKeyInfo(updatedFileInfo) {
+async function updateApiKeyInfo(updatedFileInfo: FileWatcherUpdateAPIKeys) {
   const { fileContent } = updatedFileInfo;
   useAIStore.setState({
     apiKeys: fileContent,

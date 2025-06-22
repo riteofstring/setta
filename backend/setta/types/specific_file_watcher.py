@@ -42,7 +42,7 @@ class FileWatcherUpdateJSONSource(FileWatcherUpdate):
 
 
 class FileWatcherUpdateAPIKeys(FileWatcherUpdate):
-    fileContent: dict[str, str | None]
+    fileContent: dict[str, str]
     fileWatchGroupName: Literal[FileWatchGroupName.apiKeys] = FileWatchGroupName.apiKeys
 
 

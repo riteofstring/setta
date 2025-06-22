@@ -4014,7 +4014,7 @@ export const FileWatcherUpdateAPIKeysSchema = z.object({
     .literal("apiKeys")
     .default(FileWatchGroupNameEnum.apiKeys),
   coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.record(z.string(), z.union([z.string(), z.null()])),
+  fileContent: z.record(z.string(), z.string()),
 });
 
 export type FileWatcherUpdateAPIKeys = z.infer<
