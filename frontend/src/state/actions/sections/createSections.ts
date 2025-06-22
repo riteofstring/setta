@@ -9,8 +9,8 @@ import {
 import {
   BaseSectionImplUnion,
   createBaseSectionImplUnionWithDiscriminator,
+  createImplLayering,
   createSectionCore,
-  createSectionImplLayering,
   createTopLevelSectionLayout,
   Position,
 } from "utils/generatedTypes";
@@ -195,8 +195,9 @@ export function createSection(
   const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
     ...sectionProps,
   });
-  const sectionImplLayering = createSectionImplLayering({
+  const sectionImplLayering = createImplLayering({
     impl: sectionImpl.id,
+    modifier: { type: sectionImpl.type },
   });
   const section = createSectionCore({
     implLayerings: [sectionImplLayering.id],

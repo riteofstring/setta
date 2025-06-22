@@ -6,7 +6,7 @@ import {
   route_new_json_version_name,
   route_save_section_json_source,
 } from "utils/generatedEndpoints";
-import { createSectionImplLayering } from "utils/generatedTypes";
+import { createImplLayering } from "utils/generatedTypes";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 import { getSectionImpl, getSectionVariant } from "./sectionInfos";
@@ -18,7 +18,10 @@ export function createNewVersion(p: ZustandProjectState, sectionId: string) {
     id: createNewId(),
     name: createRandomName(),
   });
-  const newImplLayering = createSectionImplLayering({ impl: newImpl.id });
+  const newImplLayering = createImplLayering({
+    impl: newImpl.id,
+    modifier: { type: newImpl.type },
+  });
   const section = p.sections[sectionId];
   if (!section) {
     throw new Error();

@@ -8,7 +8,7 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
-  BaseImplLayering,
+  ImplLayering,
   ProjectStateSingleConfig,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -18,7 +18,7 @@ import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
 export function getEffectiveImpl<TImpl>(
-  implLayering: BaseImplLayering,
+  implLayering: ImplLayering,
   implDict: Record<string, TImpl>,
 ): TImpl {
   const baseImpl = implDict[implLayering.impl];
@@ -27,15 +27,7 @@ export function getEffectiveImpl<TImpl>(
   }
   // Deep clone the base implementation
   const effective = structuredClone(baseImpl);
-
-  // Apply each modifier
-  for (const x of implLayering.modifiers) {
-    if (x) {
-      // Guard against undefined/null modifiers
-      Object.assign(effective, x);
-    }
-  }
-
+  Object.assign(effective, implLayering.modifier);
   return effective;
 }
 
