@@ -145,7 +145,9 @@ def create_settings_project_state(settings_path: str):
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
         )
-        sectionImplLayering = ImplLayering(impl=sectionImpl.id)
+        sectionImplLayering = ImplLayering(
+            impl=sectionImpl.id, modifier={"type": sectionImpl.type}
+        )
         section = SectionCore(
             name=k,
             implLayerings=[sectionImplLayering.id],
@@ -158,7 +160,9 @@ def create_settings_project_state(settings_path: str):
         sections[section.id] = section
 
         for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjImplLayering = ImplLayering(impl=codeObjImpl.id)
+            codeObjImplLayering = ImplLayering(
+                impl=codeObjImpl.id, modifier={"type": codeObjImpl.type}
+            )
             codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
             codeObjImpls[codeObjImpl.id] = codeObjImpl
 

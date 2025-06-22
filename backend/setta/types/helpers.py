@@ -1,5 +1,4 @@
 from setta.types.code_objs import (
-    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -7,6 +6,8 @@ from setta.types.code_objs import (
     CodeObjCore,
 )
 from setta.types.generated.impl_modifier_unions import (
+    isBaseChildlessCodeObjImplModifier,
+    isBaseParentCodeObjImplModifier,
     isBaseSectionWithParamsImplModifier,
 )
 from setta.types.impl_helpers import (
@@ -290,7 +291,9 @@ def add_code_obj(
     section_impl = get_effective_impl(section_layering, p.sectionImpls)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
-    code_obj_impl_layering = ImplLayering(impl=code_obj_impl.id)
+    code_obj_impl_layering = ImplLayering(
+        impl=code_obj_impl.id, modifier={"type": code_obj_impl.type}
+    )
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
@@ -334,7 +337,9 @@ def add_children_of_callable(
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    callable_code_obj_layering.modifier["children"] = param_ids_in_order
+    modifier = callable_code_obj_layering.modifier
+    if isBaseParentCodeObjImplModifier(modifier):
+        modifier["children"] = param_ids_in_order
 
 
 def set_param_entered_value(
@@ -344,9 +349,9 @@ def set_param_entered_value(
     value: str,
 ):
     code_obj_impl_layering = get_code_obj_impl_layering(p, paramId, sectionId)
-    impl = get_effective_impl(code_obj_impl_layering, p.codeObjImpls)
-    if isinstance(impl, BaseChildlessCodeObjImpl):
-        code_obj_impl_layering.modifier["value"] = value
+    modifier = code_obj_impl_layering.modifier
+    if isBaseChildlessCodeObjImplModifier(modifier):
+        modifier["value"] = value
     raise TypeError
 
 

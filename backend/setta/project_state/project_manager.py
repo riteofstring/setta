@@ -230,7 +230,7 @@ class ProjectManager:
             section_impl = get_effective_section_impl(projectState, sectionId)
             if isinstance(section_impl, CodeSectionImpl):
                 section_code = self.create_code_obj(
-                    project_temp_folder, projectState, sectionId
+                    project_temp_folder, projectState, sectionId, section_impl
                 )
 
                 if not section_code:
@@ -373,8 +373,9 @@ class ProjectManager:
         project_temp_folder: Path,
         project_state: ProjectStateSingleConfig,
         sectionId: str,
+        section_impl: CodeSectionImpl,
     ):
-        codeLanguage = project_state.sections[sectionId].codeLanguage
+        codeLanguage = section_impl.codeLanguage
         if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
                 project_temp_folder,

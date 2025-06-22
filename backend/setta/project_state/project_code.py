@@ -23,7 +23,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
-from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore
+from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore, CodeObjType
 from setta.types.helpers import (
     add_children_of_callable,
     add_code_obj,
@@ -42,6 +42,7 @@ from setta.types.project_state import (
 from setta.types.sections import (
     CallableSectionImpl,
     CodeSectionImpl,
+    SectionType,
 )
 
 
@@ -122,7 +123,10 @@ class ProjectGenPythonCode(PythonCode):
             section_impl_layering, project_state.sectionImpls
         )
 
-        if not isinstance(section_impl, CallableSectionImpl):
+        if (
+            not isinstance(section_impl, CallableSectionImpl)
+            or section_impl_layering.modifier["type"] != SectionType.Callable
+        ):
             raise TypeError
 
         if callableName == "":
@@ -170,7 +174,11 @@ class ProjectGenPythonCode(PythonCode):
                 callable_code_obj_impl_layering, project_state.codeObjImpls
             )
 
-        if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
+        if (
+            not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl)
+            or callable_code_obj_impl_layering.modifier["type"]
+            != CodeObjType.CodeCallable
+        ):
             raise TypeError
 
         result = process_signature_help_response(response)
