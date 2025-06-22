@@ -2,7 +2,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
   getEffectiveSectionImpl,
-  getSectionImpl,
+  getSectionImplLayering,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -18,11 +18,11 @@ export function HideShowParamsButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const impl = getSectionImpl(state, sectionId);
-      if (impl.type !== SectionTypeEnum.Callable) {
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.Callable) {
         throw new Error();
       }
-      impl.hideParams = !hideParams;
+      implLayering.modifier.hideParams = !hideParams;
     });
   }
 

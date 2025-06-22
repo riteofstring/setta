@@ -1,16 +1,16 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import {
-  getEffectiveSectionImpl,
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { getIsSeriesElementHelper } from "state/hooks/uiTypes";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseParentSectionImpl,
+  SectionType,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
-export function SectionTitle({ sectionId, titleProps }) {
+export function SectionTitle({ sectionId, titleProps }: { sectionId: string }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
 
   if (titleIsEditable) {
@@ -51,11 +51,11 @@ function EditableTitle({
   onMouseEnter,
   onMouseLeave,
 }) {
-  function onTitleInputChange(value) {
+  function onTitleInputChange(value: string) {
     setSectionName(sectionId, value);
   }
 
-  function condition(value) {
+  function condition(value: string) {
     return !getSiblingHasName(sectionId, value);
   }
 
@@ -77,44 +77,55 @@ function EditableTitle({
   );
 }
 
-function setSectionName(sectionId, name) {
+function setSectionName(sectionId: string, name: string) {
   useProjectState.setState((x) => {
     const s = x.sections[sectionId];
+    if (!s) {
+      throw new Error();
+    }
     s.name = name;
     x.requestRenameRefactor = true;
   });
   maybeIncrementProjectStateVersion(true);
 }
 
-function useTitleIsEditable(sectionId) {
+function useTitleIsEditable(sectionId: string) {
   return useProjectState((x) => {
     const impl = getEffectiveSectionImpl(x, sectionId);
-    const isUneditableType = [
+
+    const uneditableTypes: Array<SectionType> = [
       SectionTypeEnum.GlobalVariables,
       SectionTypeEnum.GenPythonCode,
-    ].includes(impl.type);
+    ];
 
-    const isListElement = getIsSeriesElementHelper(
-      sectionId,
-      [SectionTypeEnum.ListRoot],
-      x,
-    );
+    const s = x.sections[sectionId];
+    if (!s) {
+      throw new Error();
+    }
 
     return {
-      sectionName: x.sections[sectionId].name,
-      titleIsEditable: !isListElement && !isUneditableType,
+      sectionName: s.name,
+      titleIsEditable: !uneditableTypes.includes(impl.type),
     };
   });
 }
 
-function getSiblingHasName(sectionId, newName) {
+function getSiblingHasName(sectionId: string, newName: string) {
   const state = useProjectState.getState();
-  const { parentId } = state.sections[sectionId];
-  const siblingIds = parentId
-    ? getSectionVariant(parentId).children
-    : useNodeInternals.getState().x.keys();
+  const impl = getEffectiveSectionImpl(state, sectionId);
+  const { parentId } = impl;
+  let siblingIds: Iterable<string>;
+  if (parentId) {
+    const parentImpl = getEffectiveSectionImpl(state, parentId);
+    if (!isBaseParentSectionImpl(parentImpl)) {
+      throw new Error();
+    }
+    siblingIds = parentImpl.children;
+  } else {
+    siblingIds = useNodeInternals.getState().x.keys();
+  }
   for (const s of siblingIds) {
-    if (state.sections[s].name === newName) {
+    if (state.sections[s]?.name === newName) {
       return true;
     }
   }
