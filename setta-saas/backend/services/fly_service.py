@@ -18,6 +18,7 @@ from fly.deployment import (
     wait_for_app_ready,
 )
 from models.websocket import EventType, ProgressData, WebSocketEvent
+from services.deployment_events import DeploymentEventPoller
 from services.websocket_service import get_connection_manager
 
 
@@ -30,6 +31,7 @@ class FlyService:
         self.org_slug = settings.fly_org_slug or "personal"
         self._org_id = None
         self.ws_manager = get_connection_manager()
+        self.event_poller = DeploymentEventPoller(self.client)
 
     @property
     def org_id(self) -> str:
@@ -57,61 +59,81 @@ class FlyService:
         )
         await self.ws_manager.broadcast(event)
 
+    async def _poll_and_broadcast_events(self, app_name: str, machine_id: str, project_id: str):
+        """Poll for deployment events and broadcast progress."""
+
+        async def broadcast_callback(message: str, progress: int):
+            await self._broadcast_deployment_progress(project_id, message, progress)
+
+        # Poll for events with timeout
+        success = await self.event_poller.poll_deployment_progress(
+            app_name, machine_id, broadcast_callback, timeout=60
+        )
+
+        return success
+
     async def create_and_deploy_app_with_progress(self, app_name: str, project_id: str) -> dict:
         """Create app with progress updates (async wrapper for project service)."""
         try:
+            # Reset event poller for new deployment
+            self.event_poller.reset()
+
             # Send initial progress
             await self._broadcast_deployment_progress(project_id, "Connecting to Fly.io...", 5)
             await asyncio.sleep(0.2)
 
-            # Create the app (usually quick - 2-5 seconds)
-            print(f"Creating app '{app_name}'...")
+            # Create the app
             await self._broadcast_deployment_progress(
                 project_id, "Creating Fly.io application...", 10
             )
-
             app = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
             print(f"✓ App created: {app['hostname']}")
 
-            # Allocate IP addresses (usually quick - 1-2 seconds)
+            # Allocate IP addresses
             await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 20)
-
-            print("Allocating IP addresses...")
             ipv4, ipv6 = await asyncio.to_thread(allocate_ips, self.client, app_name)
             print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
-            # Deploy machine (this takes the most time - 10-20 seconds)
+            # Start machine deployment (non-blocking)
             await self._broadcast_deployment_progress(
-                project_id, "Building and deploying container...", 30
+                project_id, "Starting container deployment...", 30
             )
 
-            print("Deploying machine with hibernation enabled...")
-            machine_id = await asyncio.to_thread(
-                create_and_deploy_machine,
-                self.client,
-                app_name,
-                idle_timeout_minutes=5,
-            )
-            print(f"✓ Machine created: {machine_id}")
-            print("✓ Hibernation enabled (5 minute idle timeout)")
+            # Deploy machine and poll events concurrently
+            deploy_task = asyncio.create_task(self._deploy_machine(app_name))
 
-            # Wait for app to be ready (also takes time - 10-30 seconds)
-            await self._broadcast_deployment_progress(
-                project_id, "Starting container and waiting for health checks...", 70
+            # Wait a moment for machine to be created before starting polling
+            await asyncio.sleep(2)
+
+            # Get machine ID from deployment
+            machine_result = await deploy_task
+            machine_id = machine_result["machine_id"]
+
+            # Now poll for detailed progress
+            poll_task = asyncio.create_task(
+                self._poll_and_broadcast_events(app_name, machine_id, project_id)
             )
 
-            print("Waiting for DNS propagation...")
+            # Wait for polling to complete or timeout
+            poll_success = await poll_task
+
+            # Only show DNS/verification if we didn't get complete events
+            if not poll_success:
+                await self._broadcast_deployment_progress(
+                    project_id, "Waiting for DNS propagation...", 80
+                )
+
             is_ready = await asyncio.to_thread(wait_for_app_ready, self.client, app_name)
 
             if is_ready:
-                print("✓ App is ready!")
                 await self._broadcast_deployment_progress(project_id, "Verifying deployment...", 90)
                 await asyncio.sleep(0.5)
                 await self._broadcast_deployment_progress(project_id, "Deployment complete!", 100)
+                print("✓ App is ready!")
             else:
                 print("⚠ App deployment may still be in progress")
                 await self._broadcast_deployment_progress(
-                    project_id, "Deployment nearly complete...", 85
+                    project_id, "Deployment in progress...", 85
                 )
 
             # Return deployment info
@@ -128,9 +150,22 @@ class FlyService:
 
         except Exception as e:
             print(f"✗ Error during deployment: {str(e)}")
-            # Try to clean up if deployment failed
             await asyncio.to_thread(self._cleanup_failed_app, app_name)
             raise
+
+    async def _deploy_machine(self, app_name: str) -> dict:
+        """Deploy machine and return result."""
+        print("Deploying machine with hibernation enabled...")
+        machine_id = await asyncio.to_thread(
+            create_and_deploy_machine,
+            self.client,
+            app_name,
+            idle_timeout_minutes=5,
+        )
+        print(f"✓ Machine created: {machine_id}")
+        print("✓ Hibernation enabled (5 minute idle timeout)")
+
+        return {"machine_id": machine_id}
 
     def create_and_deploy_app(self, app_name: str) -> dict:
         """Create app, allocate IPs, and deploy a machine (sync version for compatibility)."""
