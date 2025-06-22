@@ -30,6 +30,7 @@ class Project(Base):
     url = Column(String)
     status = Column(String, default="running")
     user_id = Column(String, nullable=False)  # Clerk user ID
+    github_url = Column(String, nullable=True)  # GitHub repository URL
     created_at = Column(DateTime, default=datetime.utcnow)
     last_checked = Column(DateTime, nullable=True)
     machine_id = Column(String, nullable=True)  # Fly.io machine ID

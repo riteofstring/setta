@@ -9,6 +9,25 @@ from pathlib import Path
 # Add parent directory to path so we can import from backend
 sys.path.append(str(Path(__file__).parent.parent))
 
+# Load environment variables from .env file
+
+from dotenv import load_dotenv
+
+# Try multiple paths for .env file
+env_paths = [
+    Path(__file__).parent.parent / ".env",  # backend/.env
+    Path.cwd() / "backend" / ".env",  # From project root
+    Path.cwd() / ".env",  # Current directory
+]
+
+for env_path in env_paths:
+    if env_path.exists():
+        print(f"Loading .env from: {env_path}")
+        load_dotenv(env_path)
+        break
+else:
+    print("Warning: No .env file found")
+
 # Now we can import from backend modules
 from sqlalchemy import text
 

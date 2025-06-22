@@ -71,6 +71,7 @@ class ProjectService:
             url="Creating...",
             status="creating",
             user_id=user_id,  # Set the user who owns this project
+            github_url=project_data.github_url,  # Store GitHub URL if provided
         )
         self.db.add(project)
         self.db.commit()
@@ -441,6 +442,7 @@ class ProjectService:
             url=project.url,
             status=project.status,
             created_at=project.created_at,
+            github_url=project.github_url,
             machine_id=project.machine_id,
             machine_state=project.machine_state,
         )
