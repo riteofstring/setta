@@ -4,22 +4,32 @@ import logging
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
+from setta.types.code_obj_impl_modifiers import (
+    NestedParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+)
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     CodeObjCore,
+    CodeObjType,
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
+)
+from setta.types.generated_code_obj_impl_modifier_unions import (
+    isBaseChildlessCodeObjImplModifier,
 )
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
+from setta.types.section_impl_modifiers import DictSectionImplModifier
 from setta.types.sections import (
     BaseSectionImpl,
     DictSectionImpl,
     SectionCore,
+    SectionType,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,21 +69,26 @@ def load_json_sources_into_data_structures(
         ):
             continue
 
-        if not isinstance(layering, DictSectionImplLayering):
+        if layering.modifier["type"] != SectionType.Dict:
             continue
         new_data, isMissing = load_json_source(impl.name, impl.jsonSourceKeys)
         layering.modifier["jsonSourceMissing"] = isMissing
         if isMissing:
             continue
         merge_into_existing(
-            new_data, impl, layering, p.codeObjs, p.codeObjImpls, p.codeObjImplLayerings
+            new_data,
+            impl,
+            layering.modifier,
+            p.codeObjs,
+            p.codeObjImpls,
+            p.codeObjImplLayerings,
         )
 
 
 def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: DictSectionImpl,
-    section_layering: ImplLayering,
+    section_impl_modifier: DictSectionImplModifier,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
     codeObjImplLayerings: dict[str, ImplLayering],
@@ -128,7 +143,7 @@ def merge_into_existing(
         if (
             isinstance(impl, NestedParamCodeObjImpl)
             and isinstance(newImpl, NestedParamCodeObjImpl)
-            and isinstance(layering, NestedParamCodeObjImplLayering)
+            and layering.modifier["type"] == CodeObjType.NestedParam
         ):
             layering.modifier["children"] = [
                 replacements[c][0] if c in replacements else c for c in newImpl.children
@@ -136,7 +151,7 @@ def merge_into_existing(
         elif (
             isinstance(impl, BaseChildlessCodeObjImpl)
             and isinstance(newImpl, BaseChildlessCodeObjImpl)
-            and isinstance(layering, BaseChildlessCodeObjImplLayering)
+            and isBaseChildlessCodeObjImplModifier(layering.modifier)
         ):
             layering.modifier["value"] = newImpl.value
         else:
@@ -153,7 +168,7 @@ def merge_into_existing(
             del codeObjImpls[impl.id]
             del codeObjImplLayerings[layeringId]
 
-    section_layering.modifier["topLevelParamIds"] = [
+    section_impl_modifier["topLevelParamIds"] = [
         replacements[c][0] if c in replacements else c
         for c in new_data.sectionImpl.topLevelParamIds
     ]
@@ -211,10 +226,15 @@ def add_to_processed_json_object(key: str, value, output: ProcessedJSONObject):
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = NestedParamCodeObjImpl()
-        codeObjImplLayering = NestedParamCodeObjImplLayering(impl=codeObjImpl.id)
+        codeObjImplLayering = ImplLayering(
+            impl=codeObjImpl.id,
+            modifier=NestedParamCodeObjImplModifier(type="NestedParam"),
+        )
     else:
         codeObjImpl = TextParamCodeObjImpl(value=json.dumps(value))
-        codeObjImplLayering = TextParamCodeObjImplLayering(impl=codeObjImpl.id)
+        codeObjImplLayering = ImplLayering(
+            impl=codeObjImpl.id, modifier=TextParamCodeObjImplModifier(type="TextParam")
+        )
 
     layeringId = codeObjImplLayering.id
     codeObj = CodeObjCore(
