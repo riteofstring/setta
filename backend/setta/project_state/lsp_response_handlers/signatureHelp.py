@@ -1,100 +1,154 @@
 import re
+from dataclasses import dataclass
+from typing import Callable
 
 import docstring_parser
+from lsprotocol import types as LSPTypes
 
-from setta.types.code_objs import ParameterPassingStyle
+from setta.types.code_objs import (
+    CodeObjCore,
+    ParameterPassingStyle,
+    TextParamCodeObjImpl,
+)
+from setta.types.generated.code_obj_type_unions import (
+    BaseParamCodeObjImplUnion,
+)
 
 
-def process_signature_help_response(response):
+@dataclass
+class ProcessedVarDocstring:
+    default: str | None
+    description: str | None
+
+
+ProcessedVarDocstringDict = dict[str, ProcessedVarDocstring]
+
+
+@dataclass
+class ParamProposal:
+    name: str
+    default: str | None
+    description: str | None
+
+
+def process_signature_help_response(
+    response: LSPTypes.TextDocumentSignatureHelpResponse,
+):
     content = None
-    if response["result"]:
-        content = parse_signature(response["result"]["signatures"][0])
+    if response.result:
+        content = parse_signature(response.result.signatures[0])
     return content
 
 
-def parse_signature(signature):
-    docstring = process_docstring(signature)
-    param_info_list = wrapper_parse_signature(
-        signature, docstring, get_pyright_param_proposals
+def parse_signature(signature: LSPTypes.SignatureInformation):
+    documentation = lsp_documentation_to_str(signature.documentation)
+    var_docstrings = process_docstring(documentation)
+    codeObjs, codeObjImplMap = wrapper_parse_signature(
+        signature, var_docstrings, get_pyright_param_proposals
     )
-    if len(param_info_list) == 0:
-        param_info_list = wrapper_parse_signature(
-            signature, docstring, get_docstring_parser_param_proposals
+    if len(codeObjs) == 0:
+        codeObjs, codeObjImplMap = wrapper_parse_signature(
+            signature, var_docstrings, get_docstring_parser_param_proposals
         )
-    documentation = signature.get("documentation", {"value": ""})["value"]
-    return documentation, param_info_list
+    return documentation, codeObjs, codeObjImplMap
 
 
-def process_docstring(signature):
-    if "documentation" in signature:
-        parsed = docstring_parser.parse(signature["documentation"]["value"])
-        return {
-            extract_variable_name(v.arg_name): {
-                "default": v.default,
-                "description": v.description,
-            }
-            for v in parsed.params
-        }
-    return {}
+def process_docstring(documentation: str):
+    output: ProcessedVarDocstringDict = {}
+    if documentation:
+        parsed = docstring_parser.parse(documentation)
+        for v in parsed.params:
+            var_name = extract_variable_name(v.arg_name)
+            if var_name:
+                output[var_name] = ProcessedVarDocstring(
+                    default=v.default, description=v.description
+                )
+        return output
+    return output
 
 
-def wrapper_parse_signature(signature, docstring, get_proposed_params):
+def wrapper_parse_signature(
+    signature: LSPTypes.SignatureInformation,
+    docstring: ProcessedVarDocstringDict,
+    get_proposed_params: Callable[
+        [LSPTypes.SignatureInformation, ProcessedVarDocstringDict],
+        list[ParamProposal],
+    ],
+):
     params = get_proposed_params(signature, docstring)
-    param_info_list: list[CodeInfo] = []
+    codeObjs: list[CodeObjCore] = []
+    codeObjImplMap: dict[str, BaseParamCodeObjImplUnion] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
 
-    for idx, (name, _, _) in enumerate(params):
+    for idx, paramProposal in enumerate(params):
+        name = paramProposal.name
         if name == "/":
             positional_only_indicator_idx = idx
         if name == "*":
             keyword_only_indicator_idx = idx
 
-    for idx, (name, default, description) in enumerate(params):
-        if name in [None, "/", "*", "", "..."]:
+    for idx, paramProposal in enumerate(params):
+        name = paramProposal.name
+        default = paramProposal.default
+        description = paramProposal.description
+        if paramProposal.name in [None, "/", "*", "", "..."]:
             continue
 
         passingStyle = get_passing_style(
-            idx, positional_only_indicator_idx, keyword_only_indicator_idx, name
+            idx,
+            positional_only_indicator_idx,
+            keyword_only_indicator_idx,
+            paramProposal.name,
         )
 
         if not default:
             default = ""
 
         if not description:
-            description = docstring.get(name, {}).get("description", "")
+            var_docstring = docstring.get(name)
+            description = var_docstring.description if var_docstring else ""
+            if not description:
+                description = ""
 
         # Append parsed information to list
-        param_info_list.append(
-            CodeInfo(
-                name=name.lstrip("*"),
-                editable=False,
-                defaultVal=default,
-                description=description,
-                passingStyle=passingStyle,
-                rcType=CodeInfoType.PARAMETER,
-            )
+        codeObj = CodeObjCore(name=name.lstrip("*"))
+        codeObjs.append(codeObj)
+        codeObjImplMap[codeObj.id] = TextParamCodeObjImpl(
+            defaultVal=default, description=description, passingStyle=passingStyle
         )
 
-    return param_info_list
+    return codeObjs, codeObjImplMap
 
 
-def get_docstring_parser_param_proposals(_, docstring):
-    return [(k, v["default"], v["description"]) for k, v in docstring.items()]
+def get_docstring_parser_param_proposals(_, docstring: ProcessedVarDocstringDict):
+    return [
+        ParamProposal(name=k, default=v.default, description=v.description)
+        for k, v in docstring.items()
+    ]
 
 
-def get_pyright_param_proposals(signature, _):
-    parameters = signature["parameters"]
-    params = [(p["label"], p["documentation"]["value"]) for p in parameters]
-    proposals = []
-    for param, description in params:
-        name, _, default = parse_param_name(param)
-        proposals.append((name, default, description))
+def get_pyright_param_proposals(signature: LSPTypes.SignatureInformation, _):
+    proposals: list[ParamProposal] = []
+    parameters = signature.parameters
+    if not parameters:
+        return proposals
+    params = []
+    for p in parameters:
+        params.append((p.label, lsp_documentation_to_str(p.documentation)))
+
+    for label, documentation in params:
+        name, _, default = parse_param_name(label)
+        if not name:
+            continue
+        proposals.append(
+            ParamProposal(name=name, default=default, description=documentation)
+        )
 
     return proposals
 
 
-def parse_param_name(param_string):
+def parse_param_name(param_string: str):
     # Special cases for / and *
     if param_string in ["/", "*"]:
         return param_string, None, None
@@ -117,7 +171,7 @@ def parse_param_name(param_string):
     return name, type_annotation, default_value
 
 
-def extract_variable_name(code_string):
+def extract_variable_name(code_string: str) -> str | None:
     # Find potential variable names including * and ** prefixes
     potential_names = re.findall(r"\*{1,2}?[a-zA-Z_]\w*|\b[a-zA-Z_]\w*\b", code_string)
 
@@ -128,8 +182,19 @@ def extract_variable_name(code_string):
     return None
 
 
+def lsp_documentation_to_str(documentation: str | LSPTypes.MarkupContent | None):
+    if not documentation:
+        return ""
+    if isinstance(documentation, LSPTypes.MarkupContent):
+        documentation = documentation.value
+    return documentation
+
+
 def get_passing_style(
-    idx, positional_only_indicator_idx, keyword_only_indicator_idx, name
+    idx: int,
+    positional_only_indicator_idx: int,
+    keyword_only_indicator_idx: int,
+    name: str,
 ):
     if name.startswith("**"):  # Check for **kwargs first
         return ParameterPassingStyle.KWARGS

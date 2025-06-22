@@ -185,10 +185,10 @@ class ProjectGenPythonCode(PythonCode):
         if result is None:
             return
 
-        [documentation, params, param_impl_map] = result
+        [documentation, codeObjs, codeObjImplMap] = result
         callable_code_obj_impl_layering.modifier["description"] = documentation
         add_children_of_callable(
-            project_state, sectionId, callable_code_obj.id, params, param_impl_map
+            project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
         section_impl_layering.modifier["callable"] = callable_code_obj.id
 
