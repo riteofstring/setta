@@ -59,17 +59,11 @@ class ProjectConfig(BaseModel, extra="forbid"):
 T = TypeVar("T")
 
 
-def dict_validator(base_type: Type[T], type_adapter: TypeAdapter[T], field_name: str):
+def dict_validator(type_adapter: TypeAdapter[T]):
     def validator(v: Any) -> dict[str, T]:
-        if not isinstance(v, dict):
-            raise ValueError(f"{field_name} must be a dictionary")
-
         validated: dict[str, T] = {}
         for key, value in v.items():
-            if isinstance(value, base_type):
-                validated[key] = value
-            else:
-                validated[key] = type_adapter.validate_python(value)
+            validated[key] = type_adapter.validate_python(value)
         return validated
 
     return validator
@@ -88,11 +82,11 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
 
     _validate_section_impls = field_validator("sectionImpls", mode="before")(
-        dict_validator(BaseSectionImpl, BaseSectionImplTypeAdapter, "sectionImpls")
+        dict_validator(BaseSectionImplTypeAdapter)
     )
 
     _validate_code_obj_impls = field_validator("codeObjImpls", mode="before")(
-        dict_validator(BaseCodeObjImpl, BaseCodeObjImplTypeAdapter, "codeObjImpls")
+        dict_validator(BaseCodeObjImplTypeAdapter)
     )
 
 
