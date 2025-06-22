@@ -80,7 +80,7 @@ class SpecificFileWatcher:
         file_watch_group_name: FileWatchGroupName,
         content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
-    ) -> bool:
+    ):
         """
         Add a specific file to watch.
 
@@ -137,9 +137,7 @@ class SpecificFileWatcher:
 
         return True
 
-    def remove_file(
-        self, file_path: Path, file_watch_group_name: FileWatchGroupName
-    ) -> None:
+    def remove_file(self, file_path: Path, file_watch_group_name: FileWatchGroupName):
         """
         Remove a file from being watched.
 
@@ -168,7 +166,7 @@ class SpecificFileWatcher:
         file_watch_group_name: FileWatchGroupName,
         content_processor: Callable[[str], Any] | None = None,
         fire_immediately: bool = True,
-    ) -> dict[str, list[Path]]:
+    ):
         """
         Update the entire list of files being watched with a single function call.
         This efficiently handles adding new files and removing files that are no longer needed.
@@ -196,7 +194,7 @@ class SpecificFileWatcher:
         files_to_remove = self.watched_files[file_watch_group_name] - absolute_paths
 
         # Track which files were successfully added
-        added_files = []
+        added_files: list[Path] = []
 
         # Add new files
         for file_path in files_to_add:
@@ -213,10 +211,8 @@ class SpecificFileWatcher:
         # Return information about what changed
         return {"added": added_files, "removed": list(files_to_remove)}
 
-    def get_actual_file_paths_to_watch(
-        self, filepaths_and_glob_patterns: list[str]
-    ) -> set[Path]:
-        actual_filepaths = set()
+    def get_actual_file_paths_to_watch(self, filepaths_and_glob_patterns: list[str]):
+        actual_filepaths: set[Path] = set()
         # Expand glob patterns and build the mapping
         for pattern in filepaths_and_glob_patterns:
             matching_files = glob.glob(pattern)
@@ -234,12 +230,12 @@ class SpecificFileWatcher:
 
         return actual_filepaths
 
-    def start(self) -> None:
+    def start(self):
         """Start the file watcher."""
         self.observer.start()
         self.started = True
 
-    def stop(self) -> None:
+    def stop(self):
         """Stop the file watcher."""
         self.observer.stop()
         self.observer.join()
@@ -252,7 +248,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
     def __init__(
         self,
         callback: Callable[[FileWatcherUpdate], Awaitable[None]],
-        loop,
+        loop: asyncio.AbstractEventLoop,
         watched_files_ref: dict[FileWatchGroupName, set[Path]],
         file_content_processors: dict[Path, Callable[[str], Any]],
         file_to_patterns: dict[Path, set[str]],
@@ -408,8 +404,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
         logger.debug(f"will send {event_info}")
         if asyncio.iscoroutinefunction(self.callback):
-            self.loop.call_soon_threadsafe(
-                lambda: self.loop.create_task(self.callback(event_info))
-            )
+            coro = self.callback(event_info)
+            self.loop.call_soon_threadsafe(lambda: self.loop.create_task(coro))
         else:
             self.callback(event_info)
