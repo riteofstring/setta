@@ -24,7 +24,7 @@ export function SectionSearch({
   callable,
 }: {
   sectionId: string;
-  callable: string;
+  callable: string | null;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
 
@@ -61,7 +61,7 @@ function SectionSearchCore({
   divId,
 }: {
   sectionId: string;
-  callable: string;
+  callable: string | null;
   onEnter: (x: string) => void;
   onShiftEnter: (x: string) => void;
   dummyCodeClassName: string;

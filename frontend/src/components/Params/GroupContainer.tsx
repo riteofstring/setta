@@ -16,8 +16,8 @@ import {
 } from "utils/constants";
 import { GetParamSwitch } from "./GetParamSwitch";
 
-function _ParamGroupContainer({ sectionId }) {
-  const outerRef = useRef();
+function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
+  const outerRef = useRef(null);
   const [maxNestedDepth, setMaxNestedDepth] = useState({
     pinned: 1,
     unpinned: 1,

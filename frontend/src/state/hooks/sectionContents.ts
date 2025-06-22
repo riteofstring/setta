@@ -28,7 +28,7 @@ export function useParamInfosForSidePane(sectionId) {
   }, _.isEqual);
 }
 
-export function useParamIdsToShowInArea(sectionId, isPinned) {
+export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
   return useProjectState((x) => {
     const { codeInfoChildren, parentCodeInfoId } =
       getCodeChildrenAndParentCodeInfoId(sectionId, x);

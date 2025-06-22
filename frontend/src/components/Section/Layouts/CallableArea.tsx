@@ -23,7 +23,7 @@ function _CallableArea({ sectionId, bgColor }) {
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} selectedItem={callable} />
+      <SectionSearch sectionId={sectionId} callable={callable} />
       {!hideParams && (
         <>
           <KwargsControls
