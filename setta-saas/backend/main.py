@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from config import get_settings
-from database import SessionLocal
+from database import Project, SessionLocal
 from middleware import CurrentUser
 from models.project import ProjectCreate, ProjectResponse
 from services.fly_service import FlyService
@@ -262,6 +262,102 @@ async def check_project_machine_state(
         return {"message": "No machine state available", "state": None}
 
     return {"state": state, "project_id": project_id}
+
+
+@app.post("/api/projects/{project_id}/machine/start")
+async def start_project_machine(
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
+):
+    """Start (wake up) a hibernated project machine."""
+    # Verify ownership
+    project = service.get_project(project_id, user_id)
+    if not project:
+        raise HTTPException(404, "Project not found or not authorized")
+
+    if not project.machine_id:
+        raise HTTPException(400, "Project has no machine")
+
+    # Extract app name from URL
+    if not project.url or "fly.dev" not in project.url:
+        raise HTTPException(400, "Invalid project URL")
+
+    app_name = project.url.split("//")[1].split(".")[0]
+
+    # Start the machine
+    try:
+        from fly.deployment import start_machine
+
+        success = await asyncio.to_thread(
+            start_machine, service.fly.client, app_name, project.machine_id
+        )
+
+        if not success:
+            raise HTTPException(500, "Failed to start machine")
+
+        # Update state
+        project = service.db.query(Project).filter(Project.id == project_id).first()
+        project.machine_state = "starting"
+        service.db.commit()
+
+        # Check state after a moment
+        await asyncio.sleep(2)
+        await service.check_machine_state(project_id)
+
+        return {"message": "Machine start requested", "status": "starting"}
+
+    except Exception as e:
+        print(f"Error starting machine: {e}")
+        raise HTTPException(500, f"Failed to start machine: {str(e)}")
+
+
+@app.post("/api/projects/{project_id}/machine/stop")
+async def stop_project_machine(
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
+):
+    """Stop (hibernate) a running project machine."""
+    # Verify ownership
+    project = service.get_project(project_id, user_id)
+    if not project:
+        raise HTTPException(404, "Project not found or not authorized")
+
+    if not project.machine_id:
+        raise HTTPException(400, "Project has no machine")
+
+    # Extract app name from URL
+    if not project.url or "fly.dev" not in project.url:
+        raise HTTPException(400, "Invalid project URL")
+
+    app_name = project.url.split("//")[1].split(".")[0]
+
+    # Stop the machine
+    try:
+        from fly.deployment import stop_machine
+
+        success = await asyncio.to_thread(
+            stop_machine, service.fly.client, app_name, project.machine_id
+        )
+
+        if not success:
+            raise HTTPException(500, "Failed to stop machine")
+
+        # Update state
+        project = service.db.query(Project).filter(Project.id == project_id).first()
+        project.machine_state = "stopping"
+        service.db.commit()
+
+        # Check state after a moment
+        await asyncio.sleep(2)
+        await service.check_machine_state(project_id)
+
+        return {"message": "Machine stop requested", "status": "stopping"}
+
+    except Exception as e:
+        print(f"Error stopping machine: {e}")
+        raise HTTPException(500, f"Failed to stop machine: {str(e)}")
 
 
 @app.post("/api/projects/check-all-machine-states")

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useClerk } from "@clerk/clerk-react";
-import { PlusIcon } from "@radix-ui/react-icons";
+import { PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useAuthenticatedFetch } from "../../hooks/useAuthenticatedFetch";
 import Notifications from "./Notifications";
@@ -15,7 +15,8 @@ export default function ProjectsList() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNewProjectForm, setShowNewProjectForm] = useState(false);
-  const [deletingProjects, setDeletingProjects] = useState(new Set());
+  const [selectedProjects, setSelectedProjects] = useState(new Set());
+  const [togglingStates, setTogglingStates] = useState(new Set());
   const [deploymentProgress, setDeploymentProgress] = useState({});
   const [notifications, setNotifications] = useState([]);
 
@@ -80,6 +81,13 @@ export default function ProjectsList() {
         };
         return updated;
       });
+
+      // Remove from toggling states
+      setTogglingStates((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(machineData.project_id);
+        return newSet;
+      });
     };
 
     const unsubscribers = [
@@ -118,6 +126,11 @@ export default function ProjectsList() {
         setProjects((prev) =>
           prev.filter((p) => p.id !== event.data.project_id),
         );
+        setSelectedProjects((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(event.data.project_id);
+          return newSet;
+        });
         showNotification("info", `Project deleted: ${event.data.project_name}`);
       }),
       subscribe(EventType.PROJECT_STATUS_CHANGED, (event) => {
@@ -126,7 +139,7 @@ export default function ProjectsList() {
       subscribe(EventType.MACHINE_STATE_CHANGED, (event) => {
         updateMachineState(event.data);
         const stateText =
-          event.data.new_state === "stopped" ? "hibernated" : "woke up";
+          event.data.new_state === "stopped" ? "hibernated" : "resumed";
         showNotification("info", `${event.data.project_name} ${stateText}`);
       }),
       subscribe(EventType.DEPLOYMENT_PROGRESS, (event) => {
@@ -153,22 +166,77 @@ export default function ProjectsList() {
     setShowNewProjectForm(false);
   };
 
-  const handleDeleteProject = async (projectId) => {
-    if (!confirm("Are you sure you want to delete this project?")) return;
+  const handleToggleSelect = (projectId) => {
+    setSelectedProjects((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
 
-    setDeletingProjects((prev) => new Set(prev).add(projectId));
+  const handleSelectAll = () => {
+    if (selectedProjects.size === projects.length) {
+      setSelectedProjects(new Set());
+    } else {
+      setSelectedProjects(new Set(projects.map((p) => p.id)));
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const count = selectedProjects.size;
+    if (!count) return;
+
+    if (
+      !confirm(
+        `Are you sure you want to delete ${count} project${count > 1 ? "s" : ""}?`,
+      )
+    ) {
+      return;
+    }
+
+    const projectsToDelete = Array.from(selectedProjects);
+
+    for (const projectId of projectsToDelete) {
+      try {
+        const response = await authenticatedFetch(
+          `/api/projects/${projectId}`,
+          {
+            method: "DELETE",
+          },
+        );
+
+        if (!response.ok) throw new Error("Failed to delete project");
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        showNotification("error", `Failed to delete project`);
+      }
+    }
+
+    setSelectedProjects(new Set());
+  };
+
+  const handleToggleMachineState = async (projectId, action) => {
+    setTogglingStates((prev) => new Set(prev).add(projectId));
 
     try {
-      const response = await authenticatedFetch(`/api/projects/${projectId}`, {
-        method: "DELETE",
-      });
+      const response = await authenticatedFetch(
+        `/api/projects/${projectId}/machine/${action}`,
+        {
+          method: "POST",
+        },
+      );
 
-      if (!response.ok) throw new Error("Failed to delete project");
+      if (!response.ok) throw new Error(`Failed to ${action} machine`);
+
+      showNotification("info", `Machine ${action} requested`);
     } catch (error) {
-      console.error("Error deleting project:", error);
-      showNotification("error", "Failed to delete project");
-    } finally {
-      setDeletingProjects((prev) => {
+      console.error(`Error ${action} machine:`, error);
+      showNotification("error", `Failed to ${action} machine`);
+      setTogglingStates((prev) => {
         const newSet = new Set(prev);
         newSet.delete(projectId);
         return newSet;
@@ -213,6 +281,15 @@ export default function ProjectsList() {
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedProjects.size > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="inline-flex items-center rounded-full bg-red-500 px-4 py-2 text-xs font-medium text-white hover:bg-red-600"
+            >
+              <TrashIcon className="mr-1 h-3 w-3" />
+              Delete ({selectedProjects.size})
+            </button>
+          )}
           <button
             onClick={() => setShowNewProjectForm(true)}
             className="inline-flex items-center rounded-full bg-setta-600 px-4 py-2 text-xs font-medium text-white hover:bg-setta-500 dark:bg-setta-700 dark:hover:bg-setta-600"
@@ -243,14 +320,34 @@ export default function ProjectsList() {
           </div>
         ) : (
           <>
+            <div className="border-b border-setta-200 px-6 py-3 dark:border-setta-700">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={
+                    selectedProjects.size === projects.length &&
+                    projects.length > 0
+                  }
+                  indeterminate={
+                    selectedProjects.size > 0 &&
+                    selectedProjects.size < projects.length
+                  }
+                  onChange={handleSelectAll}
+                  className="h-4 w-4 rounded border-setta-300 text-setta-600 focus:ring-setta-500 dark:border-setta-600 dark:bg-setta-800"
+                />
+                Select all
+              </label>
+            </div>
             <ul className="divide-y divide-setta-200/50 dark:divide-setta-700/50">
               {projects.map((project) => (
                 <ProjectCard
                   key={project.id}
                   project={project}
                   progress={deploymentProgress[project.id]}
-                  onDelete={handleDeleteProject}
-                  isDeleting={deletingProjects.has(project.id)}
+                  isSelected={selectedProjects.has(project.id)}
+                  onToggleSelect={handleToggleSelect}
+                  onToggleMachineState={handleToggleMachineState}
+                  isTogglingState={togglingStates.has(project.id)}
                 />
               ))}
             </ul>

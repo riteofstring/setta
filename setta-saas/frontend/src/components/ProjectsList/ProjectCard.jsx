@@ -1,5 +1,4 @@
 import {
-  TrashIcon,
   ExternalLinkIcon,
   CheckCircledIcon,
   CrossCircledIcon,
@@ -11,8 +10,10 @@ import { getStatusColor, isValidProjectUrl, formatDate } from "./utils";
 export default function ProjectCard({
   project,
   progress,
-  onDelete,
-  isDeleting,
+  isSelected,
+  onToggleSelect,
+  onToggleMachineState,
+  isTogglingState,
 }) {
   const handleClick = () => {
     if (!isValidProjectUrl(project.url)) return;
@@ -25,87 +26,90 @@ export default function ProjectCard({
     return null;
   };
 
-  const getMachineStateIcon = (state) => {
-    if (state === "started") return <PlayIcon className="h-3 w-3" />;
-    if (state === "stopped") return <PauseIcon className="h-3 w-3" />;
-    return null;
-  };
+  const getMachineStateButton = () => {
+    // Only show button for running projects with machine ID
+    if (project.status !== "running" || !project.machine_id) {
+      return (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(
+            project.status,
+          )}`}
+        >
+          {getStatusIcon(project.status)}
+          {project.status}
+        </span>
+      );
+    }
 
-  const getMachineStateColor = (state) => {
-    if (state === "started") return "text-green-600 dark:text-green-400";
-    if (state === "stopped") return "text-yellow-600 dark:text-yellow-400";
-    return "text-gray-600 dark:text-gray-400";
+    const isHibernating = project.machine_state === "stopped";
+    const buttonText = isHibernating ? "Resume" : "Hibernate";
+    const icon = isHibernating ? (
+      <PlayIcon className="h-3 w-3" />
+    ) : (
+      <PauseIcon className="h-3 w-3" />
+    );
+    const buttonColor = isHibernating
+      ? "bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900 dark:text-green-300 dark:hover:bg-green-800"
+      : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:hover:bg-yellow-800";
+
+    return (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleMachineState(project.id, isHibernating ? "start" : "stop");
+        }}
+        disabled={isTogglingState}
+        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${buttonColor} disabled:opacity-50 disabled:cursor-not-allowed`}
+      >
+        {icon}
+        {isTogglingState ? "..." : buttonText}
+      </button>
+    );
   };
 
   return (
-    <li className="px-6 py-4 hover:bg-setta-50 dark:hover:bg-setta-850 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 cursor-pointer" onClick={handleClick}>
-          <p className="font-medium text-setta-800 dark:text-setta-100">
-            {project.name}
-          </p>
-          <p className="text-xs text-setta-500 dark:text-setta-400 hover:text-setta-600 dark:hover:text-setta-300 flex items-center gap-1">
-            {project.url}
-            {isValidProjectUrl(project.url) && (
-              <ExternalLinkIcon className="h-3 w-3" />
-            )}
-          </p>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-xs text-setta-400 dark:text-setta-500">
-              Created: {formatDate(project.created_at)}
-            </p>
-            {project.machine_state && project.status === "running" && (
-              <span
-                className={`text-xs flex items-center gap-1 ${getMachineStateColor(
-                  project.machine_state,
-                )}`}
-              >
-                {getMachineStateIcon(project.machine_state)}
-                {project.machine_state === "stopped" ? "Hibernating" : "Active"}
-              </span>
-            )}
-          </div>
+    <li className="flex items-center gap-4 px-6 py-4 hover:bg-setta-50 dark:hover:bg-setta-850 transition-colors">
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={(e) => {
+          e.stopPropagation();
+          onToggleSelect(project.id);
+        }}
+        className="h-4 w-4 rounded border-setta-300 text-setta-600 focus:ring-setta-500 dark:border-setta-600 dark:bg-setta-800"
+      />
 
-          {progress && (
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs text-setta-600 dark:text-setta-400 mb-1">
-                <span>{progress.message}</span>
-                <span>{progress.percent_complete}%</span>
-              </div>
-              <div className="w-full bg-setta-200 dark:bg-setta-700 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${progress.percent_complete}%` }}
-                />
-              </div>
-            </div>
+      <div className="flex-1 cursor-pointer" onClick={handleClick}>
+        <p className="font-medium text-setta-800 dark:text-setta-100">
+          {project.name}
+        </p>
+        <p className="text-xs text-setta-500 dark:text-setta-400 hover:text-setta-600 dark:hover:text-setta-300 flex items-center gap-1">
+          {project.url}
+          {isValidProjectUrl(project.url) && (
+            <ExternalLinkIcon className="h-3 w-3" />
           )}
-        </div>
+        </p>
+        <p className="text-xs text-setta-400 dark:text-setta-500 mt-1">
+          Created: {formatDate(project.created_at)}
+        </p>
 
-        <div className="flex items-center gap-3">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(
-              project.status,
-            )}`}
-          >
-            {getStatusIcon(project.status)}
-            {project.status}
-          </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(project.id);
-            }}
-            disabled={isDeleting}
-            className="inline-flex items-center rounded-full p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Delete project"
-          >
-            <TrashIcon
-              className={`h-4 w-4 ${isDeleting ? "animate-pulse" : ""}`}
-            />
-          </button>
-        </div>
+        {progress && (
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-xs text-setta-600 dark:text-setta-400 mb-1">
+              <span>{progress.message}</span>
+              <span>{progress.percent_complete}%</span>
+            </div>
+            <div className="w-full bg-setta-200 dark:bg-setta-700 rounded-full h-2">
+              <div
+                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress.percent_complete}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
+
+      <div className="flex items-center">{getMachineStateButton()}</div>
     </li>
   );
 }
