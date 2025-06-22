@@ -16,13 +16,22 @@ import {
 import { useProjectState } from "state/definitions";
 import { useListElementIdx } from "state/hooks/sectionVariants";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
-import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  CodeLanguageEnum,
+  SectionType,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function HeaderIcon({
   sectionId,
   sectionTypeName,
   isInOtherProjectConfigs,
   isListElement,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+  isListElement: boolean;
 }) {
   if (isListElement) {
     return <ListElementIcon sectionId={sectionId} />;
@@ -158,7 +167,7 @@ function CodeLanguageIcon({ sectionId, classes }) {
   }
 }
 
-function ListElementIcon({ sectionId }) {
+function ListElementIcon({ sectionId }: { sectionId: string }) {
   const idx = useListElementIdx(sectionId);
   return (
     <p className="group/card-section:hover:bg font-mono text-[9px] tracking-tighter text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff] ">

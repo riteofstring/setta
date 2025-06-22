@@ -2,7 +2,7 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { MenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
@@ -15,7 +15,15 @@ import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
 import { ShowYaml } from "./ShowYaml";
 import { UngroupButton } from "./UngroupButton";
 
-function MenuButton({ sectionId, sectionTypeName, isInOtherProjectConfigs }) {
+function MenuButton({
+  sectionId,
+  sectionTypeName,
+  isInOtherProjectConfigs,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+}) {
   const menuItems = getMenuItems(sectionTypeName);
   const isListElement = useIsListElement(sectionId);
 

@@ -1,6 +1,10 @@
 import _ from "lodash";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
   UIEditorTabLocalStorage,
@@ -27,18 +31,17 @@ export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
 }
 
 export function getIsSeriesElementHelper(
-  sectionId,
-  parentTypesToCheck,
-  _state = {},
+  sectionId: string,
+  parentTypesToCheck: Array<SectionType>,
+  state: ZustandProjectState,
 ) {
-  const state = _state ?? useProjectState.getState();
-  // if (!state.sections[sectionId]) return false;
-
-  const { parentId } = state.sections[sectionId];
-  const uiTypeId = state.sections[parentId]?.uiTypeId;
-  return uiTypeId
-    ? parentTypesToCheck.includes(state.uiTypes[uiTypeId].type)
-    : false;
+  const impl = getEffectiveSectionImpl(state, sectionId);
+  const { parentId } = impl;
+  if (!parentId) {
+    return false;
+  }
+  const parentImpl = getEffectiveSectionImpl(state, parentId);
+  return parentTypesToCheck.includes(parentImpl.type);
 }
 
 export function useIsSeriesElement(sectionId) {
@@ -53,7 +56,7 @@ export function useIsSeriesElement(sectionId) {
 
 export function useIsListElement(sectionId) {
   return useProjectState((x) =>
-    getIsSeriesElementHelper(sectionId, [SectionTypeEnum.LIST_ROOT], x),
+    getIsSeriesElementHelper(sectionId, [SectionTypeEnum.ListRoot], x),
   );
 }
 

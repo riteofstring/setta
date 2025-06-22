@@ -4,7 +4,7 @@ import {
   getEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { isBaseParentSectionImpl, SectionTypeEnum } from "utils/generatedTypes";
 
 export function useGetParamEnteredValue(sectionId, paramInfoId) {
   return useProjectState((x) => {
@@ -16,10 +16,18 @@ export function useGetParamEnteredValue(sectionId, paramInfoId) {
   }, _.isEqual);
 }
 
-export function useListElementIdx(sectionId) {
+export function useListElementIdx(sectionId: string) {
   return useProjectState((x) => {
-    const parentId = x.sections[sectionId].parentId;
-    return getDisplayedSectionVariant(parentId).children.indexOf(sectionId);
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    const { parentId } = impl;
+    if (!parentId) {
+      throw new Error();
+    }
+    const parentImpl = getEffectiveSectionImpl(x, parentId);
+    if (!isBaseParentSectionImpl(parentImpl)) {
+      throw new Error();
+    }
+    return parentImpl.children.indexOf(sectionId);
   });
 }
 
