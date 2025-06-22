@@ -24,6 +24,19 @@ class BaseSectionImplModifier(TypedDict, total=False):
     positionAndSizeLocked: bool
 
 
+class BaseSectionWithParamsImplModifier(BaseSectionImplModifier, total=False):
+    type: Any
+    codeObjImplLayeringMap: dict[str, str]
+    hideUnpinnedParams: bool
+    paramFilter: str
+    columnWidth: float | None
+    configLanguage: ConfigLanguage
+    pinnedParams: list[str]
+    pinnedAreaHeight: float | Literal["auto"]
+    selectedParams: list[str]
+    ignoreTypeErrors: dict[str, bool]
+
+
 class BaseArtifactSectionImplModifier(BaseSectionImplModifier, total=False):
     type: Any
     artifactGroupIds: list[str]
@@ -39,7 +52,12 @@ class BaseCodeSectionImplModifier(BaseSectionImplModifier, total=False):
     code: str
 
 
-class BaseDictSectionImplModifier(BaseSectionImplModifier, total=False):
+class BaseParentSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Any
+    children: list[str]
+
+
+class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
     type: Any
     codeObjImplLayeringMap: dict[str, str]
     hideUnpinnedParams: bool
@@ -53,30 +71,7 @@ class BaseDictSectionImplModifier(BaseSectionImplModifier, total=False):
     topLevelParamIds: list[str]
 
 
-class BaseParentSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Any
-    children: list[str]
-
-
-class BaseSectionWithParamsImplModifier(BaseSectionImplModifier, total=False):
-    type: Any
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
-
-
-class BrowserSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Browser"]
-    hideColumn: bool
-
-
-class CallableSectionImplModifier(BaseSectionImplModifier, total=False):
+class CallableSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
     type: Literal["Callable"]
     codeObjImplLayeringMap: dict[str, str]
     hideUnpinnedParams: bool
@@ -91,29 +86,7 @@ class CallableSectionImplModifier(BaseSectionImplModifier, total=False):
     hideParams: bool
 
 
-class ChartSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Chart"]
-    renderedValue: Any
-    artifactGroupIds: list[str]
-    chartSettings: ChartSettings
-
-
-class ChatSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Chat"]
-
-
-class CodeSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Code"]
-    code: str
-    codeLanguage: CodeLanguage
-
-
-class DictRootSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["DictRoot"]
-    children: list[str]
-
-
-class DictSectionImplModifier(BaseSectionImplModifier, total=False):
+class DictSectionImplModifier(BaseDictSectionImplModifier, total=False):
     type: Literal["Dict"]
     codeObjImplLayeringMap: dict[str, str]
     hideUnpinnedParams: bool
@@ -130,19 +103,55 @@ class DictSectionImplModifier(BaseSectionImplModifier, total=False):
     jsonSourceMissing: bool
 
 
-class DrawSectionImplModifier(BaseSectionImplModifier, total=False):
+class ListRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
+    type: Literal["ListRoot"]
+    children: list[str]
+
+
+class DictRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
+    type: Literal["DictRoot"]
+    children: list[str]
+
+
+class GroupSectionImplModifier(BaseParentSectionImplModifier, total=False):
+    type: Literal["Group"]
+    children: list[str]
+    isHorizontalOrientation: bool
+
+
+class ImageSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
+    type: Literal["Image"]
+    artifactGroupIds: list[str]
+
+
+class ChartSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
+    type: Literal["Chart"]
+    renderedValue: Any
+    artifactGroupIds: list[str]
+    chartSettings: ChartSettings
+
+
+class DrawSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
     type: Literal["Draw"]
     renderedValue: Any
     artifactGroupIds: list[str]
     canvasSettings: DrawAreaCanvasSettings
 
 
-class GenPythonCodeSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["GenPythonCode"]
-    code: str
+class TextBlockSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Literal["TextBlock"]
+    renderMarkdown: bool
+    headingAsSectionName: bool
+    displayMode: str
+    description: str
 
 
-class GlobalVariablesSectionImplModifier(BaseSectionImplModifier, total=False):
+class SocialSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Literal["Social"]
+    social: str
+
+
+class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier, total=False):
     type: Literal["GlobalVariables"]
     codeObjImplLayeringMap: dict[str, str]
     hideUnpinnedParams: bool
@@ -156,38 +165,29 @@ class GlobalVariablesSectionImplModifier(BaseSectionImplModifier, total=False):
     topLevelParamIds: list[str]
 
 
-class GroupSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Group"]
-    children: list[str]
-    isHorizontalOrientation: bool
+class CodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
+    type: Literal["Code"]
+    code: str
+    codeLanguage: CodeLanguage
 
 
-class IFrameSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["IFrame"]
-
-
-class ImageSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Image"]
-    artifactGroupIds: list[str]
-
-
-class ListRootSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["ListRoot"]
-    children: list[str]
-
-
-class SocialSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["Social"]
-    social: str
+class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
+    type: Literal["GenPythonCode"]
+    code: str
 
 
 class TerminalSectionImplModifier(BaseSectionImplModifier, total=False):
     type: Literal["Terminal"]
 
 
-class TextBlockSectionImplModifier(BaseSectionImplModifier, total=False):
-    type: Literal["TextBlock"]
-    renderMarkdown: bool
-    headingAsSectionName: bool
-    displayMode: str
-    description: str
+class IFrameSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Literal["IFrame"]
+
+
+class ChatSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Literal["Chat"]
+
+
+class BrowserSectionImplModifier(BaseSectionImplModifier, total=False):
+    type: Literal["Browser"]
+    hideColumn: bool

@@ -22,8 +22,70 @@ from setta.types.sections import (
     TextBlockSectionImpl,
 )
 
+BaseSectionImplUnion = Union[
+    CallableSectionImpl,
+    DictSectionImpl,
+    ListRootSectionImpl,
+    DictRootSectionImpl,
+    GroupSectionImpl,
+    ImageSectionImpl,
+    ChartSectionImpl,
+    DrawSectionImpl,
+    TextBlockSectionImpl,
+    SocialSectionImpl,
+    GlobalVariablesSectionImpl,
+    CodeSectionImpl,
+    GenPythonCodeSectionImpl,
+    TerminalSectionImpl,
+    IFrameSectionImpl,
+    ChatSectionImpl,
+    BrowserSectionImpl,
+]
+
+BaseSectionImplUnionWithDiscriminator = Annotated[
+    BaseSectionImplUnion, Field(discriminator="type")
+]
+
+BaseSectionImplTypeAdapter = TypeAdapter(BaseSectionImplUnionWithDiscriminator)
+
+BaseSectionImplTypeSet = set(
+    [
+        "Callable",
+        "Dict",
+        "ListRoot",
+        "DictRoot",
+        "Group",
+        "Image",
+        "Chart",
+        "Draw",
+        "TextBlock",
+        "Social",
+        "GlobalVariables",
+        "Code",
+        "GenPythonCode",
+        "Terminal",
+        "IFrame",
+        "Chat",
+        "Browser",
+    ]
+)
+
+BaseSectionWithParamsImplUnion = Union[
+    CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl
+]
+
+BaseSectionWithParamsImplUnionWithDiscriminator = Annotated[
+    BaseSectionWithParamsImplUnion, Field(discriminator="type")
+]
+
+BaseSectionWithParamsImplTypeAdapter = TypeAdapter(
+    BaseSectionWithParamsImplUnionWithDiscriminator
+)
+
+BaseSectionWithParamsImplTypeSet = set(["Callable", "Dict", "GlobalVariables"])
+
 BaseArtifactSectionImplUnion = Union[
-    ChartSectionImpl, DrawSectionImpl, ImageSectionImpl
+    ImageSectionImpl, ChartSectionImpl, DrawSectionImpl
 ]
 
 BaseArtifactSectionImplUnionWithDiscriminator = Annotated[
@@ -34,7 +96,7 @@ BaseArtifactSectionImplTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplTypeSet = set(["Chart", "Draw", "Image"])
+BaseArtifactSectionImplTypeSet = set(["Image", "Chart", "Draw"])
 
 BaseCanvasSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
@@ -58,18 +120,8 @@ BaseCodeSectionImplTypeAdapter = TypeAdapter(BaseCodeSectionImplUnionWithDiscrim
 
 BaseCodeSectionImplTypeSet = set(["Code", "GenPythonCode"])
 
-BaseDictSectionImplUnion = Union[DictSectionImpl, GlobalVariablesSectionImpl]
-
-BaseDictSectionImplUnionWithDiscriminator = Annotated[
-    BaseDictSectionImplUnion, Field(discriminator="type")
-]
-
-BaseDictSectionImplTypeAdapter = TypeAdapter(BaseDictSectionImplUnionWithDiscriminator)
-
-BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
-
 BaseParentSectionImplUnion = Union[
-    DictRootSectionImpl, GroupSectionImpl, ListRootSectionImpl
+    ListRootSectionImpl, DictRootSectionImpl, GroupSectionImpl
 ]
 
 BaseParentSectionImplUnionWithDiscriminator = Annotated[
@@ -80,66 +132,14 @@ BaseParentSectionImplTypeAdapter = TypeAdapter(
     BaseParentSectionImplUnionWithDiscriminator
 )
 
-BaseParentSectionImplTypeSet = set(["DictRoot", "Group", "ListRoot"])
+BaseParentSectionImplTypeSet = set(["ListRoot", "DictRoot", "Group"])
 
-BaseSectionImplUnion = Union[
-    BrowserSectionImpl,
-    CallableSectionImpl,
-    ChartSectionImpl,
-    ChatSectionImpl,
-    CodeSectionImpl,
-    DictRootSectionImpl,
-    DictSectionImpl,
-    DrawSectionImpl,
-    GenPythonCodeSectionImpl,
-    GlobalVariablesSectionImpl,
-    GroupSectionImpl,
-    IFrameSectionImpl,
-    ImageSectionImpl,
-    ListRootSectionImpl,
-    SocialSectionImpl,
-    TerminalSectionImpl,
-    TextBlockSectionImpl,
+BaseDictSectionImplUnion = Union[DictSectionImpl, GlobalVariablesSectionImpl]
+
+BaseDictSectionImplUnionWithDiscriminator = Annotated[
+    BaseDictSectionImplUnion, Field(discriminator="type")
 ]
 
-BaseSectionImplUnionWithDiscriminator = Annotated[
-    BaseSectionImplUnion, Field(discriminator="type")
-]
+BaseDictSectionImplTypeAdapter = TypeAdapter(BaseDictSectionImplUnionWithDiscriminator)
 
-BaseSectionImplTypeAdapter = TypeAdapter(BaseSectionImplUnionWithDiscriminator)
-
-BaseSectionImplTypeSet = set(
-    [
-        "Browser",
-        "Callable",
-        "Chart",
-        "Chat",
-        "Code",
-        "DictRoot",
-        "Dict",
-        "Draw",
-        "GenPythonCode",
-        "GlobalVariables",
-        "Group",
-        "IFrame",
-        "Image",
-        "ListRoot",
-        "Social",
-        "Terminal",
-        "TextBlock",
-    ]
-)
-
-BaseSectionWithParamsImplUnion = Union[
-    CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl
-]
-
-BaseSectionWithParamsImplUnionWithDiscriminator = Annotated[
-    BaseSectionWithParamsImplUnion, Field(discriminator="type")
-]
-
-BaseSectionWithParamsImplTypeAdapter = TypeAdapter(
-    BaseSectionWithParamsImplUnionWithDiscriminator
-)
-
-BaseSectionWithParamsImplTypeSet = set(["Callable", "Dict", "GlobalVariables"])
+BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])

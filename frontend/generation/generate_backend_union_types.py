@@ -16,8 +16,14 @@ def find_sub_classes(
     return_input_base_class: bool,
 ) -> List[Type[BaseModel]]:
     classes = []
+
+    # Get all classes that match our criteria
     for _, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, base_class):
+            # Skip if the class is not defined in the target module
+            if obj.__module__ != module.__name__:
+                continue
+
             fields = obj.model_fields
             if not return_input_base_class and obj is base_class:
                 continue
@@ -31,6 +37,15 @@ def find_sub_classes(
                 and fields[discriminator].default is not PydanticUndefined
             ):
                 classes.append(obj)
+
+    # Sort by line number where the class is defined
+    def get_line_number(cls):
+        try:
+            return inspect.getsourcelines(cls)[1]
+        except (OSError, TypeError):
+            return float("inf")  # Put classes without source at the end
+
+    classes.sort(key=get_line_number)
 
     return classes
 

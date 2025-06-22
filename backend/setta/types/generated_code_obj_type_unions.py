@@ -14,46 +14,16 @@ from setta.types.code_objs import (
     TextParamCodeObjImpl,
 )
 
-BaseChildlessCodeObjImplUnion = Union[
-    CodeParamCodeObjImpl,
-    ColorPickerParamCodeObjImpl,
-    DropdownParamCodeObjImpl,
-    PasswordParamCodeObjImpl,
-    SliderParamCodeObjImpl,
-    SwitchParamCodeObjImpl,
-    TextParamCodeObjImpl,
-]
-
-BaseChildlessCodeObjImplUnionWithDiscriminator = Annotated[
-    BaseChildlessCodeObjImplUnion, Field(discriminator="type")
-]
-
-BaseChildlessCodeObjImplTypeAdapter = TypeAdapter(
-    BaseChildlessCodeObjImplUnionWithDiscriminator
-)
-
-BaseChildlessCodeObjImplTypeSet = set(
-    [
-        "CodeParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-        "SliderParam",
-        "SwitchParam",
-        "TextParam",
-    ]
-)
-
 BaseCodeObjImplUnion = Union[
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
-    ColorPickerParamCodeObjImpl,
-    DropdownParamCodeObjImpl,
-    NestedParamCodeObjImpl,
-    PasswordParamCodeObjImpl,
+    TextParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
-    TextParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+    NestedParamCodeObjImpl,
 ]
 
 BaseCodeObjImplUnionWithDiscriminator = Annotated[
@@ -66,25 +36,25 @@ BaseCodeObjImplTypeSet = set(
     [
         "CodeCallable",
         "CodeParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "NestedParam",
-        "PasswordParam",
+        "TextParam",
         "SliderParam",
         "SwitchParam",
-        "TextParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
     ]
 )
 
 BaseParamCodeObjImplUnion = Union[
     CodeParamCodeObjImpl,
-    ColorPickerParamCodeObjImpl,
-    DropdownParamCodeObjImpl,
-    NestedParamCodeObjImpl,
-    PasswordParamCodeObjImpl,
+    TextParamCodeObjImpl,
     SliderParamCodeObjImpl,
     SwitchParamCodeObjImpl,
-    TextParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+    NestedParamCodeObjImpl,
 ]
 
 BaseParamCodeObjImplUnionWithDiscriminator = Annotated[
@@ -98,13 +68,43 @@ BaseParamCodeObjImplTypeAdapter = TypeAdapter(
 BaseParamCodeObjImplTypeSet = set(
     [
         "CodeParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "NestedParam",
-        "PasswordParam",
+        "TextParam",
         "SliderParam",
         "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
+    ]
+)
+
+BaseChildlessCodeObjImplUnion = Union[
+    CodeParamCodeObjImpl,
+    TextParamCodeObjImpl,
+    SliderParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+]
+
+BaseChildlessCodeObjImplUnionWithDiscriminator = Annotated[
+    BaseChildlessCodeObjImplUnion, Field(discriminator="type")
+]
+
+BaseChildlessCodeObjImplTypeAdapter = TypeAdapter(
+    BaseChildlessCodeObjImplUnionWithDiscriminator
+)
+
+BaseChildlessCodeObjImplTypeSet = set(
+    [
+        "CodeParam",
         "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
     ]
 )
 

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_objs import (
@@ -12,9 +12,12 @@ from setta.types.code_objs import (
     TextParamCodeObjImpl,
 )
 from setta.types.impl_helpers import get_effective_impl
-from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
+)
+from setta.types.section_impl_layering import (
+    DictSectionImplLayering,
 )
 from setta.types.sections import (
     BaseSectionImpl,
@@ -28,17 +31,21 @@ logger = logging.getLogger(__name__)
 class ProcessedJSONObject(BaseModel):
     sectionImpl: DictSectionImpl
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
-    codeObjImpls: dict[str, BaseCodeObjImpl] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
+    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
+        default_factory=dict
+    )
+    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]] = Field(
+        default_factory=dict
+    )
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
-    sectionImpls: dict[str, BaseSectionImpl]
-    sectionImplLayerings: dict[str, SectionImplLayering]
+    sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]]
+    sectionImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
     codeObjs: dict[str, CodeObjCore]
-    codeObjImpls: dict[str, BaseCodeObjImpl]
-    codeObjImplLayerings: dict[str, CodeObjImplLayering]
+    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]]
+    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
 
 
 def load_json_sources_into_data_structures(
@@ -56,6 +63,9 @@ def load_json_sources_into_data_structures(
             )
         ):
             continue
+
+        if not isinstance(layering, DictSectionImplLayering):
+            continue
         new_data, isMissing = load_json_source(impl.name, impl.jsonSourceKeys)
         layering.modifier["jsonSourceMissing"] = isMissing
         if isMissing:
@@ -68,7 +78,7 @@ def load_json_sources_into_data_structures(
 def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: DictSectionImpl,
-    section_layering: SectionImplLayering,
+    section_layering: DictSectionImplLayering,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
     codeObjImplLayerings: dict[str, CodeObjImplLayering],
