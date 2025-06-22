@@ -9,7 +9,6 @@ import { ClearValues } from "./ClearValues";
 import { CreateNewVersionButton } from "./CreateNewVersionButton";
 import { HideColumn } from "./HideColumn";
 import { HideShowParamsButton } from "./HideShowParamsButton";
-import { HideShowSearchButton } from "./HideShowSearchButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
 import { ResetToDefaultVersion } from "./ResetToDefaultVersion";
 import { ConvertFormat, RenderTextBlock } from "./ShowMarkdown";
@@ -87,7 +86,6 @@ function getMenuItems(uiTypeName) {
     case SectionTypeEnum.Callable:
       return [
         CreateNewVersionButton,
-        HideShowSearchButton,
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
