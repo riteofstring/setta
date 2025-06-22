@@ -24,14 +24,46 @@ from services.websocket_service import get_connection_manager
 settings = get_settings()
 
 
+async def check_machine_states_once():
+    """Check machine states once and return result."""
+    db = SessionLocal()
+    try:
+        service = ProjectService(db)
+        return await service.check_all_machine_states()
+    finally:
+        db.close()
+
+
+async def periodic_machine_state_check():
+    """Periodically check machine states for all projects."""
+    while True:
+        try:
+            await asyncio.sleep(60)
+            result = await check_machine_states_once()
+            print(f"Machine state check: {result}")
+        except asyncio.CancelledError:
+            print("Stopping periodic machine state checks")
+            break
+        except Exception as e:
+            print(f"Error in periodic machine state check: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
-    # Startup
     print("Starting up...")
+
+    # Start background task for checking machine states
+    task = asyncio.create_task(periodic_machine_state_check())
+
     yield
-    # Shutdown
+
     print("Shutting down...")
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 # Create FastAPI app
@@ -104,26 +136,26 @@ async def websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            # Keep connection alive and handle any incoming messages
             data = await websocket.receive_text()
             print(f"Received from client: {data}")
 
-            # Parse and handle the message
             try:
                 message = json.loads(data)
-
-                # Echo ping messages back as pong
-                if message.get("type") == "ping":
-                    pong_response = {
-                        "type": "pong",
-                        "data": message.get("data", ""),
-                        "timestamp": datetime.utcnow().isoformat(),
-                    }
-                    await websocket.send_text(json.dumps(pong_response))
-                    print("Sent pong response")
-
             except json.JSONDecodeError:
                 print(f"Received non-JSON message: {data}")
+                continue
+
+            # Handle ping messages
+            if message.get("type") != "ping":
+                continue
+
+            pong_response = {
+                "type": "pong",
+                "data": message.get("data", ""),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            await websocket.send_text(json.dumps(pong_response))
+            print("Sent pong response")
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
@@ -133,11 +165,33 @@ async def websocket_endpoint(websocket: WebSocket):
         await manager.disconnect(websocket)
 
 
+async def check_project_machine_states(projects: list[ProjectResponse], service: ProjectService):
+    """Check machine states for a list of projects."""
+    for project in projects:
+        # Skip if not running or no machine ID
+        if project.status != "running":
+            continue
+        if not project.machine_id:
+            continue
+
+        try:
+            await service.check_machine_state(project.id)
+        except Exception as e:
+            print(f"Failed to check machine state for {project.id}: {e}")
+
+
 @app.get("/api/projects", response_model=list[ProjectResponse])
 async def list_projects(
-    user_id: str = CurrentUser, service: ProjectService = Depends(get_project_service)
+    user_id: str = CurrentUser, service: ProjectService = Depends(get_async_project_service)
 ):
     """List all projects for the authenticated user."""
+    # Get projects
+    projects = service.list_user_projects(user_id)
+
+    # Check machine states
+    await check_project_machine_states(projects, service)
+
+    # Return updated project list
     return service.list_user_projects(user_id)
 
 
@@ -216,7 +270,6 @@ async def check_all_machine_states(
     service: ProjectService = Depends(get_async_project_service),
 ):
     """Check machine states for all user's projects."""
-    # This is a user-specific operation, but we'll run it for their projects only
     result = await service.check_all_machine_states()
     return {"message": "Machine state check completed", "result": result}
 
