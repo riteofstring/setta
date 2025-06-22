@@ -22,6 +22,7 @@ import {
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import { addNodes } from "../nodeInternals";
 import {
   getEffectiveSectionImpl,
   getSectionImplLayering,
@@ -188,18 +189,16 @@ export function createSection(
   if (!sectionProps.parentId) {
     const topLevelSectionLayout = createTopLevelSectionLayout(position);
     state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
+    addNodes([
+      {
+        id: section.id,
+        position,
+        zIndex: 0,
+        tempZIndex: 0,
+        visibility: true,
+      },
+    ]);
   }
 
   return section.id;
 }
-
-// if (!sectionProps.parentId)
-//   addNodes([
-//     {
-//       id: section.id,
-//       position,
-//       zIndex: 0,
-//       tempZIndex: 0,
-//       visibility: true,
-//     },
-//   ]);

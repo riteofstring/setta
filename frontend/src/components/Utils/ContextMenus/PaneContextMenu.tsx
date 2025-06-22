@@ -18,7 +18,7 @@ export function PaneContextMenu() {
   function onClick(
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
-    useProjectState((state) => {
+    useProjectState.setState((state) => {
       createSection(specificProps, state, screenToFlowPosition({ x, y }));
     });
     maybeIncrementProjectStateVersion(true);

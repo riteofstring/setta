@@ -258,32 +258,29 @@ export function setSectionVariantChildren(sectionId, newStateFn, state) {
   variant.children = newStateFn(variant.children);
 }
 
-function getDisplayedSectionIdToChildrenHelper(sectionId, state, output) {
-  const children = getDisplayedSectionVariant(sectionId, state).children;
-  output[sectionId] = children;
-  if (children) {
+function getDisplayedSectionIdToChildrenHelper(
+  sectionId: string,
+  sectionImpl: BaseSectionImplUnion,
+  state: ZustandProjectState,
+  output: Record<string, Array<string>>,
+) {
+  if (isBaseParentSectionImpl(sectionImpl)) {
+    const { children } = sectionImpl;
+    output[sectionId] = children;
     for (const childId of children) {
-      getDisplayedSectionIdToChildrenHelper(childId, state, output);
+      const childImpl = getEffectiveSectionImpl(state, childId);
+      getDisplayedSectionIdToChildrenHelper(childId, childImpl, state, output);
     }
+  } else {
+    output[sectionId] = [];
   }
 }
 
-export function getDisplayedSectionIdToChildren(
-  state,
-  includeNullAsRoot = false,
-) {
-  const output = {};
-  const s = state ?? useProjectState.getState();
-  for (const section of Object.values(s.sections)) {
-    if (!section.parentId) {
-      getDisplayedSectionIdToChildrenHelper(section.id, s, output);
-      if (includeNullAsRoot) {
-        if (!(null in output)) {
-          output[null] = [];
-        }
-        output[null].push(section.id);
-      }
-    }
+export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
+  const output: Record<string, Array<string>> = {};
+  for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
+    const impl = getEffectiveSectionImpl(state, sectionId);
+    getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
 }

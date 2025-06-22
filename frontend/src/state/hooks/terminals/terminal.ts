@@ -1,10 +1,7 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { setSectionVariantChildren } from "state/actions/sectionInfos";
-import {
-  addSectionInEmptySpace,
-  createSectionInfo,
-} from "state/actions/sections/createSections";
+import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
