@@ -8,12 +8,11 @@ from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     CodeObjCore,
-    CodeObjImplLayering,
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
 from setta.types.impl_helpers import get_effective_impl
-from setta.types.impl_layering import SectionImplLayering
+from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )

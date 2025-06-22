@@ -5,12 +5,12 @@ from setta.types.code_objs import (
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjCore,
-    CodeObjImplLayering,
 )
 from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
 )
+from setta.types.impl_layering import CodeObjImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,

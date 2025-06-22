@@ -124,20 +124,6 @@ export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
 
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
-export const CodeObjTypeEnum = {
-  CodeCallable: "CodeCallable",
-  CodeParam: "CodeParam",
-  TextParam: "TextParam",
-  SliderParam: "SliderParam",
-  SwitchParam: "SwitchParam",
-  ColorPickerParam: "ColorPickerParam",
-  DropdownParam: "DropdownParam",
-  PasswordParam: "PasswordParam",
-  NestedParam: "NestedParam",
-} as const;
-
-export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
-
 export const ParamNameTypeEnum = { CODE: "CODE", TEXT: "TEXT" } as const;
 
 export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
@@ -153,6 +139,20 @@ export const ParameterPassingStyleEnum = {
 export type ParameterPassingStyle = ObjectValues<
   typeof ParameterPassingStyleEnum
 >;
+
+export const CodeObjTypeEnum = {
+  CodeCallable: "CodeCallable",
+  CodeParam: "CodeParam",
+  TextParam: "TextParam",
+  SliderParam: "SliderParam",
+  SwitchParam: "SwitchParam",
+  ColorPickerParam: "ColorPickerParam",
+  DropdownParam: "DropdownParam",
+  PasswordParam: "PasswordParam",
+  NestedParam: "NestedParam",
+} as const;
+
+export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
 export const SettaNotificationTypeEnum = {
   success: "success",
@@ -2894,21 +2894,6 @@ export function createBaseParentCodeObjImpl(
   return BaseParentCodeObjImplSchema.parse(options);
 }
 
-export const ImplLayeringSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  impl: z.string(),
-  modifier: z.union([CodeObjImplModifierSchema, SectionImplModifierSchema]),
-});
-
-export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
-
-export function createImplLayering(
-  options: Partial<ImplLayering> = {},
-): ImplLayering {
-  return ImplLayeringSchema.parse(options);
-}
-
 export const BaseParentSectionImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -3020,6 +3005,21 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
+}
+
+export const ImplLayeringSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  impl: z.string(),
+  modifier: z.union([CodeObjImplModifierSchema, SectionImplModifierSchema]),
+});
+
+export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
+
+export function createImplLayering(
+  options: Partial<ImplLayering> = {},
+): ImplLayering {
+  return ImplLayeringSchema.parse(options);
 }
 
 export const ProjectStateCoreSchema = z.object({

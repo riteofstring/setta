@@ -11,14 +11,14 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore, CodeObjImplLayering
+from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
 from setta.types.generated_code_obj_type_unions import (
     BaseCodeObjImplTypeAdapter,
 )
 from setta.types.generated_section_type_unions import (
     BaseSectionImplTypeAdapter,
 )
-from setta.types.impl_layering import SectionImplLayering
+from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
 from setta.types.sections import BaseSectionImpl, SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 

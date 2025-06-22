@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impl_modifiers import CodeObjImplModifier
@@ -14,4 +14,12 @@ class ImplLayering(BaseModel):
 
 
 class SectionImplLayering(ImplLayering):
-    modifier: SectionImplModifier = Field(default_factory=SectionImplModifier)
+    modifier: SerializeAsAny[SectionImplModifier] = Field(
+        default_factory=SectionImplModifier
+    )
+
+
+class CodeObjImplLayering(ImplLayering):
+    modifier: SerializeAsAny[CodeObjImplModifier] = Field(
+        default_factory=CodeObjImplModifier
+    )

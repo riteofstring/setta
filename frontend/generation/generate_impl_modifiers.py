@@ -125,7 +125,7 @@ class {name}Modifier(TypedDict, total=False):
     return code
 
 
-def main(output_folder):
+def section_impl_modifiers(output_file):
     import setta.types.sections
 
     sub_classes = find_sub_classes(
@@ -150,10 +150,42 @@ class SectionImplModifier(TypedDict, total=False):
         code += create_typed_dict(c)
 
     code = ruff_format(code)
-    with open(output_folder / "section_impl_modifiers.py", "w") as f:
+    with open(output_file, "w") as f:
         f.write(code)
 
-    print("wrote to section_impl_modifiers")
+    print(f"wrote to {output_file}")
+
+
+def code_obj_impl_modifiers(output_file):
+    import setta.types.code_objs
+
+    sub_classes = find_sub_classes(
+        setta.types.code_objs, setta.types.code_objs.BaseCodeObjImpl, "type", False
+    )
+
+    code = """
+from typing import TypedDict, Literal, Any
+from setta.types.code_objs import (
+    ParameterPassingStyle,
+    ParamNameType
+)
+
+class CodeObjImplModifier(TypedDict, total=False):
+    pass
+"""
+    for c in sub_classes:
+        code += create_typed_dict(c)
+
+    code = ruff_format(code)
+    with open(output_file, "w") as f:
+        f.write(code)
+
+    print(f"wrote to {output_file}")
+
+
+def main(output_folder):
+    section_impl_modifiers(output_folder / "section_impl_modifiers.py")
+    code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
 
 
 if __name__ == "__main__":

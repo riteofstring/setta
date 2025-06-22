@@ -2,12 +2,11 @@ from setta.types.code_objs import (
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     CodeObjCore,
-    CodeObjImplLayering,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.impl_layering import SectionImplLayering
+from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
