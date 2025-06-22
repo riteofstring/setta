@@ -14,6 +14,7 @@ from setta.types.generated.impl_modifier_unions import (
     isBaseSectionWithParamsImplModifier,
 )
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
+from setta.types.generated.section_type_unions import BaseSectionImplUnion
 from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
@@ -25,7 +26,6 @@ from setta.types.project_state import (
 )
 from setta.types.sections import (
     BaseParentSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
@@ -141,7 +141,7 @@ def merge_single_config_into_backend(
 def get_effective_section_impl(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ):
     if section_impl is None:
         if section_id is None:
@@ -162,7 +162,7 @@ def get_section_impl_layering(
 def get_section_callable(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
@@ -175,7 +175,7 @@ def get_section_callable(
 def get_section_children_ids(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseParentSectionImpl):
@@ -186,7 +186,7 @@ def get_section_children_ids(
 def get_top_level_param_ids(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ) -> list[str]:
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
@@ -207,7 +207,7 @@ def get_code_obj_impl_layering(
     p: ProjectStateSingleConfig,
     codeObjId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
@@ -221,7 +221,7 @@ def get_effective_code_obj_impl(
     p: ProjectStateSingleConfig,
     codeObjId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
+    section_impl: BaseSectionImplUnion | None = None,
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
@@ -237,12 +237,12 @@ def get_code_obj_children_ids(
     p: ProjectStateSingleConfig,
     codeObjId: str,
     section_id: str | None = None,
-    section_impl: BaseSectionImpl | None = None,
-):
+    section_impl: BaseSectionImplUnion | None = None,
+) -> list[str]:
     code_obj_impl = get_effective_code_obj_impl(p, codeObjId, section_id, section_impl)
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):
         return code_obj_impl.children
-    raise TypeError
+    return []
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):

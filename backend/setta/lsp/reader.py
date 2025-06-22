@@ -113,6 +113,10 @@ class LanguageServerReader(LanguageServerInteractor):
                 self.initialized_callback()
         else:
             if id in self.pending_requests:
+                if method == "textDocument/signatureHelp":
+                    response = self.lsp_converter.structure(
+                        response, LSPTypes.TextDocumentSignatureHelpResponse
+                    )
                 self.pending_requests[id].set_result(response)
 
     def process_response_without_id(self, method, response):

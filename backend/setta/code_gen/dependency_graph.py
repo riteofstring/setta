@@ -213,10 +213,10 @@ class DependencyGraph:
             graph_key = self.create_graph_key(sectionId, pid)
             param_node = self.get_node(graph_key)
             if not param_node:
-                code_obj_impl = get_effective_code_obj_impl(p, sectionId, pid)
+                code_obj_impl = get_effective_code_obj_impl(p, pid, sectionId)
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
-                param_children = get_code_obj_children_ids(p, sectionId, pid)
+                param_children = get_code_obj_children_ids(p, pid, sectionId)
                 name = p.codeObjs[pid].name
                 value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
