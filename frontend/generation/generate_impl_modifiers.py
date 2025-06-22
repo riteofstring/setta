@@ -138,11 +138,12 @@ def create_layering(impl_class, base_class):
     else:
         parent_class = f"{python_type_to_str(impl_class.__base__)}Layering"
 
-    if impl_class.model_fields["type"].annotation is Any:
-        modifier = "Any"
-    else:
-        modifier_class = f"{name}Modifier"
-        modifier = f"{modifier_class} = Field(default_factory={modifier_class})"
+    modifier_class = f"{name}Modifier"
+    modifier = (
+        f"""{modifier_class} = Field( # type: ignore
+            default_factory={modifier_class}
+        )"""
+    )
     return f"""
 class {name}Layering({parent_class}):
     modifier: {modifier}
