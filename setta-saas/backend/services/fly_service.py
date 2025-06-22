@@ -102,8 +102,27 @@ class FlyService:
             # Deploy machine and poll events concurrently
             deploy_task = asyncio.create_task(self._deploy_machine(app_name))
 
-            # Wait a moment for machine to be created before starting polling
-            await asyncio.sleep(2)
+            # Show progress while waiting for machine creation
+            machine_result = None
+            wait_messages = [
+                ("Requesting new machine from Fly.io...", 31),
+                ("Allocating resources (CPU, memory)...", 32),
+                ("Setting up machine configuration...", 33),
+                ("Initializing container runtime...", 34),
+            ]
+
+            for i, (msg, progress) in enumerate(wait_messages):
+                if deploy_task.done():
+                    break
+                await self._broadcast_deployment_progress(project_id, msg, progress)
+                await asyncio.sleep(3)  # Show each message for 3 seconds
+
+            # If still not done, show a waiting message
+            while not deploy_task.done():
+                await self._broadcast_deployment_progress(
+                    project_id, "Waiting for Fly.io to provision machine...", 35
+                )
+                await asyncio.sleep(2)
 
             # Get machine ID from deployment
             machine_result = await deploy_task

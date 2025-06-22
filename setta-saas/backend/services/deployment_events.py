@@ -8,18 +8,18 @@ class DeploymentEventParser:
 
     # Event type to progress mapping
     EVENT_PROGRESS_MAP = {
-        "start": {"base": 35, "message": "Starting machine..."},
-        "image_pull": {"base": 40, "message": "Pulling Docker image..."},
-        "container_create": {"base": 45, "message": "Creating container..."},
-        "container_start": {"base": 50, "message": "Starting container..."},
+        "start": {"base": 38, "message": "Starting machine..."},
+        "image_pull": {"base": 42, "message": "Pulling Docker image..."},
+        "container_create": {"base": 48, "message": "Creating container..."},
+        "container_start": {"base": 52, "message": "Starting container..."},
         "health": {"base": 60, "message": "Running health checks..."},
-        "network": {"base": 65, "message": "Configuring network..."},
-        "ready": {"base": 70, "message": "Machine ready..."},
+        "network": {"base": 68, "message": "Configuring network..."},
+        "ready": {"base": 72, "message": "Machine ready..."},
     }
 
     def __init__(self):
         self.seen_events = set()
-        self.last_progress = 30  # Start after machine creation
+        self.last_progress = 35  # Start after machine creation messages
 
     def parse_event(self, event: dict) -> tuple[str, int] | None:
         """
@@ -96,8 +96,8 @@ class DeploymentEventParser:
         attempt = event.get("attempt", 1)
         max_attempts = 3
 
-        # Progress from 60 to 70 based on attempts
-        progress_range = 10
+        # Progress from 60 to 72 based on attempts
+        progress_range = 12
         progress_per_attempt = progress_range // max_attempts
 
         return 60 + (attempt * progress_per_attempt)
@@ -117,7 +117,7 @@ class DeploymentEventParser:
     def reset(self):
         """Reset parser state for new deployment."""
         self.seen_events.clear()
-        self.last_progress = 30
+        self.last_progress = 35
 
 
 class DeploymentEventPoller:
