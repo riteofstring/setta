@@ -84,6 +84,7 @@ function visToggle(
     [`${paneName}Vis`]: newVis,
     [`${paneName}TrueWidth`]: newVis ? width : CLOSED_PANE_WIDTH,
   });
+  console.log("useLocalStorage.getState()", useLocalStorage.getState());
   if (onResizeStop) {
     const widthDiff = width - CLOSED_PANE_WIDTH;
     onResizeStop(newVis ? widthDiff : -widthDiff);

@@ -299,9 +299,11 @@ BaseParentCodeObjImplModifierTypeSet = set(["CodeCallable", "NestedParam"])
 
 AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
 
-AllImplModifierUnionTypeAdapter = TypeAdapter(
-    Annotated[AllImplModifierUnion, Field(discriminator="type")]
-)
+AllImplModifierUnionWithDiscriminator = Annotated[
+    AllImplModifierUnion, Field(discriminator="type")
+]
+
+AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscriminator)
 
 
 def isBaseSectionImplModifier(

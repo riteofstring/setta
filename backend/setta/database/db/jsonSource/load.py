@@ -1,7 +1,7 @@
 import json
 import logging
 
-from pydantic import BaseModel, Field, SerializeAsAny
+from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_objs import (
@@ -12,19 +12,24 @@ from setta.types.code_objs import (
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
+from setta.types.generated.code_obj_type_unions import (
+    BaseCodeObjImplUnion,
+)
 from setta.types.generated.impl_modifier_unions import (
     NestedParamCodeObjImplModifier,
     TextParamCodeObjImplModifier,
     isBaseChildlessCodeObjImplModifier,
 )
 from setta.types.generated.impl_modifiers import DictSectionImplModifier
+from setta.types.generated.section_type_unions import (
+    BaseSectionImplUnion,
+)
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.sections import (
-    BaseSectionImpl,
     DictSectionImpl,
     SectionCore,
     SectionType,
@@ -36,18 +41,16 @@ logger = logging.getLogger(__name__)
 class ProcessedJSONObject(BaseModel):
     sectionImpl: DictSectionImpl
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
-    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
-        default_factory=dict
-    )
+    codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
-    sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]]
+    sectionImpls: dict[str, BaseSectionImplUnion]
     sectionImplLayerings: dict[str, ImplLayering]
     codeObjs: dict[str, CodeObjCore]
-    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]]
+    codeObjImpls: dict[str, BaseCodeObjImplUnion]
     codeObjImplLayerings: dict[str, ImplLayering]
 
 
@@ -88,7 +91,7 @@ def merge_into_existing(
     section_impl: DictSectionImpl,
     section_impl_modifier: DictSectionImplModifier,
     codeObjs: dict[str, CodeObjCore],
-    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
     filename = section_impl.name

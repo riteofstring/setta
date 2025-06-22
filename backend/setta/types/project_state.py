@@ -1,25 +1,22 @@
 from enum import Enum
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from pydantic import (
     BaseModel,
     Field,
-    SerializeAsAny,
-    TypeAdapter,
-    field_validator,
     model_validator,
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
+from setta.types.code_objs import CodeObjCore
 from setta.types.generated.code_obj_type_unions import (
-    BaseCodeObjImplTypeAdapter,
+    BaseCodeObjImplUnionWithDiscriminator,
 )
 from setta.types.generated.section_type_unions import (
-    BaseSectionImplTypeAdapter,
+    BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.impl_layering import ImplLayering
-from setta.types.sections import BaseSectionImpl, SectionCore
+from setta.types.sections import SectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -59,35 +56,17 @@ class ProjectConfig(BaseModel, extra="forbid"):
 T = TypeVar("T")
 
 
-def dict_validator(type_adapter: TypeAdapter[T]):
-    def validator(v: Any) -> dict[str, T]:
-        validated: dict[str, T] = {}
-        for key, value in v.items():
-            validated[key] = type_adapter.validate_python(value)
-        return validated
-
-    return validator
-
-
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore] = Field(default_factory=dict)
-    sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]] = Field(
+    sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
     sectionImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
-    codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
+    codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
-
-    _validate_section_impls = field_validator("sectionImpls", mode="before")(
-        dict_validator(BaseSectionImplTypeAdapter)
-    )
-
-    _validate_code_obj_impls = field_validator("codeObjImpls", mode="before")(
-        dict_validator(BaseCodeObjImplTypeAdapter)
-    )
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

@@ -100,7 +100,7 @@
     "ts-prune": "ts-prune",
     "postinstall": "rm -rf node_modules/.vite && python fix_xterm.py",
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
-    "generate": "python -m generation.generate_impl_modifiers && python -m generation.generate_backend_union_types && python -m generation.convert_pydantic_to_js && python -m generation.convert_constants_to_js && python -m generation.convert_endpoints && cd .. && ./format_code.sh"
+    "generate": "python -m generation.generate_impl_modifiers && python -m generation.generate_backend_union_types && python -m generation.generate_impl_to_modifier_fns && python -m generation.convert_pydantic_to_js && python -m generation.convert_constants_to_js && python -m generation.convert_endpoints && cd .. && ./format_code.sh"
   },
   "eslintConfig": {
     "extends": [

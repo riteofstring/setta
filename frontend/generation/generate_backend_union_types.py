@@ -174,9 +174,11 @@ def impl_modifier_union():
     code += """
 AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
 
-AllImplModifierUnionTypeAdapter = TypeAdapter(Annotated[
+AllImplModifierUnionWithDiscriminator = Annotated[
     AllImplModifierUnion, Field(discriminator="type")
-])
+]
+
+AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscriminator)
 """
 
     code += add_type_predicate_fns(

@@ -2,11 +2,11 @@ from collections import defaultdict
 
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
-    BaseCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeObjCore,
     NestedParamCodeObjImpl,
 )
+from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion
 from setta.types.helpers import get_effective_code_obj_impl
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.impl_layering import ImplLayering
@@ -57,7 +57,7 @@ def save_json_source_data(
 
 
 def build_parent_map(
-    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],
@@ -83,7 +83,7 @@ def build_parent_map(
 
 def build_ancestor_paths(
     codeObjs: dict[str, CodeObjCore],
-    codeObjImpls: dict[str, BaseCodeObjImpl],
+    codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],
     paramIds: list[str],

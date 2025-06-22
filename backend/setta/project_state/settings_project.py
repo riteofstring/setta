@@ -1,10 +1,16 @@
 from setta.types.code_objs import (
-    BaseCodeObjImpl,
-    BaseParamCodeObjImpl,
     CodeObjCore,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     SwitchParamCodeObjImpl,
+)
+from setta.types.generated.code_obj_type_unions import (
+    BaseCodeObjImplUnion,
+    BaseParamCodeObjImplUnion,
+)
+from setta.types.generated.impl_to_modifier import create_modifier_for_impl
+from setta.types.generated.section_type_unions import (
+    BaseSectionImplUnion,
 )
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
@@ -13,7 +19,6 @@ from setta.types.project_state import (
     TopLevelSectionLayout,
 )
 from setta.types.sections import (
-    BaseSectionImpl,
     ConfigLanguage,
     DictSectionImpl,
     SectionCore,
@@ -47,7 +52,7 @@ def create_settings_code_objs(section_names):
 
     switch = SwitchParamCodeObjImpl()
 
-    codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImpl]]] = {
+    codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImplUnion]]] = {
         s: [] for s in section_names
     }
     codeObjsAndImpls["gui"].append(
@@ -131,11 +136,11 @@ def create_settings_project_state(settings_path: str):
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}
-    sectionImpls: dict[str, BaseSectionImpl] = {}
+    sectionImpls: dict[str, BaseSectionImplUnion] = {}
     sectionImplLayerings: dict[str, ImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
     codeObjs: dict[str, CodeObjCore] = {}
-    codeObjImpls: dict[str, BaseCodeObjImpl] = {}
+    codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, ImplLayering] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
@@ -161,7 +166,7 @@ def create_settings_project_state(settings_path: str):
 
         for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
             codeObjImplLayering = ImplLayering(
-                impl=codeObjImpl.id, modifier={"type": codeObjImpl.type}
+                impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
             )
             codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
             codeObjImpls[codeObjImpl.id] = codeObjImpl

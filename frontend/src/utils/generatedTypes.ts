@@ -2224,6 +2224,48 @@ export const AllImplModifierUnionSchema = z.union([
 
 export type AllImplModifierUnion = z.infer<typeof AllImplModifierUnionSchema>;
 
+export const AllImplModifierUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    CallableSectionImplModifierSchema,
+    DictSectionImplModifierSchema,
+    ListRootSectionImplModifierSchema,
+    DictRootSectionImplModifierSchema,
+    GroupSectionImplModifierSchema,
+    ImageSectionImplModifierSchema,
+    ChartSectionImplModifierSchema,
+    DrawSectionImplModifierSchema,
+    TextBlockSectionImplModifierSchema,
+    SocialSectionImplModifierSchema,
+    GlobalVariablesSectionImplModifierSchema,
+    CodeSectionImplModifierSchema,
+    GenPythonCodeSectionImplModifierSchema,
+    TerminalSectionImplModifierSchema,
+    IFrameSectionImplModifierSchema,
+    ChatSectionImplModifierSchema,
+    BrowserSectionImplModifierSchema,
+    CodeCallableCodeObjImplModifierSchema,
+    CodeParamCodeObjImplModifierSchema,
+    TextParamCodeObjImplModifierSchema,
+    SliderParamCodeObjImplModifierSchema,
+    SwitchParamCodeObjImplModifierSchema,
+    ColorPickerParamCodeObjImplModifierSchema,
+    DropdownParamCodeObjImplModifierSchema,
+    PasswordParamCodeObjImplModifierSchema,
+    NestedParamCodeObjImplModifierSchema,
+  ],
+);
+
+export type AllImplModifierUnionWithDiscriminator = z.infer<
+  typeof AllImplModifierUnionWithDiscriminatorSchema
+>;
+
+export function createAllImplModifierUnionWithDiscriminator(
+  options: Partial<AllImplModifierUnionWithDiscriminator> = {},
+): AllImplModifierUnionWithDiscriminator {
+  return AllImplModifierUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseArtifactSectionImplModifierUnionSchema = z.union([
   ImageSectionImplModifierSchema,
   ChartSectionImplModifierSchema,
@@ -2585,6 +2627,158 @@ export function createBaseSectionWithParamsImplModifierUnionWithDiscriminator(
   );
 }
 
+export const CallableSectionImplSchema = z.object({
+  type: z.literal("Callable").default(SectionTypeEnum.Callable),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  hideUnpinnedParams: z.boolean().default(false),
+  paramFilter: z.string().default(""),
+  columnWidth: z.union([z.number(), z.null()]).default(null),
+  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedParams: z.array(z.string()).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
+  selectedParams: z.array(z.string()).default([]),
+  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
+  callable: z.union([z.string(), z.null()]).default(null),
+  hideParams: z.boolean().default(false),
+});
+
+export type CallableSectionImpl = z.infer<typeof CallableSectionImplSchema>;
+
+export function createCallableSectionImpl(
+  options: Partial<CallableSectionImpl> = {},
+): CallableSectionImpl {
+  return CallableSectionImplSchema.parse(options);
+}
+
+export const DictSectionImplSchema = z.object({
+  type: z.literal("Dict").default(SectionTypeEnum.Dict),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  hideUnpinnedParams: z.boolean().default(false),
+  paramFilter: z.string().default(""),
+  columnWidth: z.union([z.number(), z.null()]).default(null),
+  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedParams: z.array(z.string()).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
+  selectedParams: z.array(z.string()).default([]),
+  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
+  topLevelParamIds: z.array(z.string()).default([]),
+  isJsonSource: z.boolean().default(false),
+  jsonSourceKeys: z.array(z.string()).default([]),
+  jsonSourceMissing: z.boolean().default(false),
+});
+
+export type DictSectionImpl = z.infer<typeof DictSectionImplSchema>;
+
+export function createDictSectionImpl(
+  options: Partial<DictSectionImpl> = {},
+): DictSectionImpl {
+  return DictSectionImplSchema.parse(options);
+}
+
+export const ListRootSectionImplSchema = z.object({
+  type: z.literal("ListRoot").default(SectionTypeEnum.ListRoot),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  children: z.array(z.string()).default([]),
+});
+
+export type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
+
+export function createListRootSectionImpl(
+  options: Partial<ListRootSectionImpl> = {},
+): ListRootSectionImpl {
+  return ListRootSectionImplSchema.parse(options);
+}
+
+export const DictRootSectionImplSchema = z.object({
+  type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  children: z.array(z.string()).default([]),
+});
+
+export type DictRootSectionImpl = z.infer<typeof DictRootSectionImplSchema>;
+
+export function createDictRootSectionImpl(
+  options: Partial<DictRootSectionImpl> = {},
+): DictRootSectionImpl {
+  return DictRootSectionImplSchema.parse(options);
+}
+
+export const GroupSectionImplSchema = z.object({
+  type: z.literal("Group").default(SectionTypeEnum.Group),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  children: z.array(z.string()).default([]),
+  isHorizontalOrientation: z.boolean().default(false),
+});
+
+export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
+
+export function createGroupSectionImpl(
+  options: Partial<GroupSectionImpl> = {},
+): GroupSectionImpl {
+  return GroupSectionImplSchema.parse(options);
+}
+
 export const ImageSectionImplSchema = z.object({
   type: z.literal("Image").default(SectionTypeEnum.Image),
   id: z.string().default(create_new_id),
@@ -2666,53 +2860,95 @@ export function createDrawSectionImpl(
   return DrawSectionImplSchema.parse(options);
 }
 
-export const BaseArtifactSectionImplUnionSchema = z.union([
-  ImageSectionImplSchema,
-  ChartSectionImplSchema,
-  DrawSectionImplSchema,
-]);
+export const TextBlockSectionImplSchema = z.object({
+  type: z.literal("TextBlock").default(SectionTypeEnum.TextBlock),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  renderMarkdown: z.boolean().default(false),
+  headingAsSectionName: z.boolean().default(false),
+  displayMode: z.string().default("GUI"),
+  description: z.string().default(""),
+});
 
-export type BaseArtifactSectionImplUnion = z.infer<
-  typeof BaseArtifactSectionImplUnionSchema
->;
+export type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
 
-export const BaseArtifactSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    ImageSectionImplSchema,
-    ChartSectionImplSchema,
-    DrawSectionImplSchema,
-  ]);
-
-export type BaseArtifactSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseArtifactSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseArtifactSectionImplUnionWithDiscriminator(
-  options: Partial<BaseArtifactSectionImplUnionWithDiscriminator> = {},
-): BaseArtifactSectionImplUnionWithDiscriminator {
-  return BaseArtifactSectionImplUnionWithDiscriminatorSchema.parse(options);
+export function createTextBlockSectionImpl(
+  options: Partial<TextBlockSectionImpl> = {},
+): TextBlockSectionImpl {
+  return TextBlockSectionImplSchema.parse(options);
 }
 
-export const BaseCanvasSectionImplUnionSchema = z.union([
-  ChartSectionImplSchema,
-  DrawSectionImplSchema,
-]);
+export const SocialSectionImplSchema = z.object({
+  type: z.literal("Social").default(SectionTypeEnum.Social),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  social: z.string().default(""),
+});
 
-export type BaseCanvasSectionImplUnion = z.infer<
-  typeof BaseCanvasSectionImplUnionSchema
+export type SocialSectionImpl = z.infer<typeof SocialSectionImplSchema>;
+
+export function createSocialSectionImpl(
+  options: Partial<SocialSectionImpl> = {},
+): SocialSectionImpl {
+  return SocialSectionImplSchema.parse(options);
+}
+
+export const GlobalVariablesSectionImplSchema = z.object({
+  type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
+  id: z.string().default(create_new_id),
+  name: z.string().default("Global Variables"),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  hideUnpinnedParams: z.boolean().default(false),
+  paramFilter: z.string().default(""),
+  columnWidth: z.union([z.number(), z.null()]).default(null),
+  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
+  pinnedParams: z.array(z.string()).default([]),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto")])
+    .default(SectionSizeModeEnum.auto),
+  selectedParams: z.array(z.string()).default([]),
+  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
+  topLevelParamIds: z.array(z.string()).default([]),
+});
+
+export type GlobalVariablesSectionImpl = z.infer<
+  typeof GlobalVariablesSectionImplSchema
 >;
 
-export const BaseCanvasSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [ChartSectionImplSchema, DrawSectionImplSchema]);
-
-export type BaseCanvasSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseCanvasSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseCanvasSectionImplUnionWithDiscriminator(
-  options: Partial<BaseCanvasSectionImplUnionWithDiscriminator> = {},
-): BaseCanvasSectionImplUnionWithDiscriminator {
-  return BaseCanvasSectionImplUnionWithDiscriminatorSchema.parse(options);
+export function createGlobalVariablesSectionImpl(
+  options: Partial<GlobalVariablesSectionImpl> = {},
+): GlobalVariablesSectionImpl {
+  return GlobalVariablesSectionImplSchema.parse(options);
 }
 
 export const CodeSectionImplSchema = z.object({
@@ -2766,326 +3002,6 @@ export function createGenPythonCodeSectionImpl(
   options: Partial<GenPythonCodeSectionImpl> = {},
 ): GenPythonCodeSectionImpl {
   return GenPythonCodeSectionImplSchema.parse(options);
-}
-
-export const BaseCodeSectionImplUnionSchema = z.union([
-  CodeSectionImplSchema,
-  GenPythonCodeSectionImplSchema,
-]);
-
-export type BaseCodeSectionImplUnion = z.infer<
-  typeof BaseCodeSectionImplUnionSchema
->;
-
-export const BaseCodeSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    CodeSectionImplSchema,
-    GenPythonCodeSectionImplSchema,
-  ]);
-
-export type BaseCodeSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseCodeSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseCodeSectionImplUnionWithDiscriminator(
-  options: Partial<BaseCodeSectionImplUnionWithDiscriminator> = {},
-): BaseCodeSectionImplUnionWithDiscriminator {
-  return BaseCodeSectionImplUnionWithDiscriminatorSchema.parse(options);
-}
-
-export const DictSectionImplSchema = z.object({
-  type: z.literal("Dict").default(SectionTypeEnum.Dict),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
-  pinnedAreaHeight: z
-    .union([z.number(), z.literal("auto")])
-    .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
-  isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default([]),
-  jsonSourceMissing: z.boolean().default(false),
-});
-
-export type DictSectionImpl = z.infer<typeof DictSectionImplSchema>;
-
-export function createDictSectionImpl(
-  options: Partial<DictSectionImpl> = {},
-): DictSectionImpl {
-  return DictSectionImplSchema.parse(options);
-}
-
-export const GlobalVariablesSectionImplSchema = z.object({
-  type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
-  id: z.string().default(create_new_id),
-  name: z.string().default("Global Variables"),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
-  pinnedAreaHeight: z
-    .union([z.number(), z.literal("auto")])
-    .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
-});
-
-export type GlobalVariablesSectionImpl = z.infer<
-  typeof GlobalVariablesSectionImplSchema
->;
-
-export function createGlobalVariablesSectionImpl(
-  options: Partial<GlobalVariablesSectionImpl> = {},
-): GlobalVariablesSectionImpl {
-  return GlobalVariablesSectionImplSchema.parse(options);
-}
-
-export const BaseDictSectionImplUnionSchema = z.union([
-  DictSectionImplSchema,
-  GlobalVariablesSectionImplSchema,
-]);
-
-export type BaseDictSectionImplUnion = z.infer<
-  typeof BaseDictSectionImplUnionSchema
->;
-
-export const BaseDictSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    DictSectionImplSchema,
-    GlobalVariablesSectionImplSchema,
-  ]);
-
-export type BaseDictSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseDictSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseDictSectionImplUnionWithDiscriminator(
-  options: Partial<BaseDictSectionImplUnionWithDiscriminator> = {},
-): BaseDictSectionImplUnionWithDiscriminator {
-  return BaseDictSectionImplUnionWithDiscriminatorSchema.parse(options);
-}
-
-export const ListRootSectionImplSchema = z.object({
-  type: z.literal("ListRoot").default(SectionTypeEnum.ListRoot),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
-});
-
-export type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
-
-export function createListRootSectionImpl(
-  options: Partial<ListRootSectionImpl> = {},
-): ListRootSectionImpl {
-  return ListRootSectionImplSchema.parse(options);
-}
-
-export const DictRootSectionImplSchema = z.object({
-  type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
-});
-
-export type DictRootSectionImpl = z.infer<typeof DictRootSectionImplSchema>;
-
-export function createDictRootSectionImpl(
-  options: Partial<DictRootSectionImpl> = {},
-): DictRootSectionImpl {
-  return DictRootSectionImplSchema.parse(options);
-}
-
-export const GroupSectionImplSchema = z.object({
-  type: z.literal("Group").default(SectionTypeEnum.Group),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
-  isHorizontalOrientation: z.boolean().default(false),
-});
-
-export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
-
-export function createGroupSectionImpl(
-  options: Partial<GroupSectionImpl> = {},
-): GroupSectionImpl {
-  return GroupSectionImplSchema.parse(options);
-}
-
-export const BaseParentSectionImplUnionSchema = z.union([
-  ListRootSectionImplSchema,
-  DictRootSectionImplSchema,
-  GroupSectionImplSchema,
-]);
-
-export type BaseParentSectionImplUnion = z.infer<
-  typeof BaseParentSectionImplUnionSchema
->;
-
-export const BaseParentSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    ListRootSectionImplSchema,
-    DictRootSectionImplSchema,
-    GroupSectionImplSchema,
-  ]);
-
-export type BaseParentSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseParentSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseParentSectionImplUnionWithDiscriminator(
-  options: Partial<BaseParentSectionImplUnionWithDiscriminator> = {},
-): BaseParentSectionImplUnionWithDiscriminator {
-  return BaseParentSectionImplUnionWithDiscriminatorSchema.parse(options);
-}
-
-export const CallableSectionImplSchema = z.object({
-  type: z.literal("Callable").default(SectionTypeEnum.Callable),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
-  hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
-  columnWidth: z.union([z.number(), z.null()]).default(null),
-  configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
-  pinnedAreaHeight: z
-    .union([z.number(), z.literal("auto")])
-    .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  callable: z.union([z.string(), z.null()]).default(null),
-  hideParams: z.boolean().default(false),
-});
-
-export type CallableSectionImpl = z.infer<typeof CallableSectionImplSchema>;
-
-export function createCallableSectionImpl(
-  options: Partial<CallableSectionImpl> = {},
-): CallableSectionImpl {
-  return CallableSectionImplSchema.parse(options);
-}
-
-export const TextBlockSectionImplSchema = z.object({
-  type: z.literal("TextBlock").default(SectionTypeEnum.TextBlock),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  renderMarkdown: z.boolean().default(false),
-  headingAsSectionName: z.boolean().default(false),
-  displayMode: z.string().default("GUI"),
-  description: z.string().default(""),
-});
-
-export type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
-
-export function createTextBlockSectionImpl(
-  options: Partial<TextBlockSectionImpl> = {},
-): TextBlockSectionImpl {
-  return TextBlockSectionImplSchema.parse(options);
-}
-
-export const SocialSectionImplSchema = z.object({
-  type: z.literal("Social").default(SectionTypeEnum.Social),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  social: z.string().default(""),
-});
-
-export type SocialSectionImpl = z.infer<typeof SocialSectionImplSchema>;
-
-export function createSocialSectionImpl(
-  options: Partial<SocialSectionImpl> = {},
-): SocialSectionImpl {
-  return SocialSectionImplSchema.parse(options);
 }
 
 export const TerminalSectionImplSchema = z.object({
@@ -3207,6 +3123,132 @@ export const BaseSectionImplUnionSchema = z.union([
 
 export type BaseSectionImplUnion = z.infer<typeof BaseSectionImplUnionSchema>;
 
+export const BaseArtifactSectionImplUnionSchema = z.union([
+  ImageSectionImplSchema,
+  ChartSectionImplSchema,
+  DrawSectionImplSchema,
+]);
+
+export type BaseArtifactSectionImplUnion = z.infer<
+  typeof BaseArtifactSectionImplUnionSchema
+>;
+
+export const BaseArtifactSectionImplUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    ImageSectionImplSchema,
+    ChartSectionImplSchema,
+    DrawSectionImplSchema,
+  ]);
+
+export type BaseArtifactSectionImplUnionWithDiscriminator = z.infer<
+  typeof BaseArtifactSectionImplUnionWithDiscriminatorSchema
+>;
+
+export function createBaseArtifactSectionImplUnionWithDiscriminator(
+  options: Partial<BaseArtifactSectionImplUnionWithDiscriminator> = {},
+): BaseArtifactSectionImplUnionWithDiscriminator {
+  return BaseArtifactSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const BaseCanvasSectionImplUnionSchema = z.union([
+  ChartSectionImplSchema,
+  DrawSectionImplSchema,
+]);
+
+export type BaseCanvasSectionImplUnion = z.infer<
+  typeof BaseCanvasSectionImplUnionSchema
+>;
+
+export const BaseCanvasSectionImplUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [ChartSectionImplSchema, DrawSectionImplSchema]);
+
+export type BaseCanvasSectionImplUnionWithDiscriminator = z.infer<
+  typeof BaseCanvasSectionImplUnionWithDiscriminatorSchema
+>;
+
+export function createBaseCanvasSectionImplUnionWithDiscriminator(
+  options: Partial<BaseCanvasSectionImplUnionWithDiscriminator> = {},
+): BaseCanvasSectionImplUnionWithDiscriminator {
+  return BaseCanvasSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const BaseCodeSectionImplUnionSchema = z.union([
+  CodeSectionImplSchema,
+  GenPythonCodeSectionImplSchema,
+]);
+
+export type BaseCodeSectionImplUnion = z.infer<
+  typeof BaseCodeSectionImplUnionSchema
+>;
+
+export const BaseCodeSectionImplUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    CodeSectionImplSchema,
+    GenPythonCodeSectionImplSchema,
+  ]);
+
+export type BaseCodeSectionImplUnionWithDiscriminator = z.infer<
+  typeof BaseCodeSectionImplUnionWithDiscriminatorSchema
+>;
+
+export function createBaseCodeSectionImplUnionWithDiscriminator(
+  options: Partial<BaseCodeSectionImplUnionWithDiscriminator> = {},
+): BaseCodeSectionImplUnionWithDiscriminator {
+  return BaseCodeSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const BaseDictSectionImplUnionSchema = z.union([
+  DictSectionImplSchema,
+  GlobalVariablesSectionImplSchema,
+]);
+
+export type BaseDictSectionImplUnion = z.infer<
+  typeof BaseDictSectionImplUnionSchema
+>;
+
+export const BaseDictSectionImplUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    DictSectionImplSchema,
+    GlobalVariablesSectionImplSchema,
+  ]);
+
+export type BaseDictSectionImplUnionWithDiscriminator = z.infer<
+  typeof BaseDictSectionImplUnionWithDiscriminatorSchema
+>;
+
+export function createBaseDictSectionImplUnionWithDiscriminator(
+  options: Partial<BaseDictSectionImplUnionWithDiscriminator> = {},
+): BaseDictSectionImplUnionWithDiscriminator {
+  return BaseDictSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const BaseParentSectionImplUnionSchema = z.union([
+  ListRootSectionImplSchema,
+  DictRootSectionImplSchema,
+  GroupSectionImplSchema,
+]);
+
+export type BaseParentSectionImplUnion = z.infer<
+  typeof BaseParentSectionImplUnionSchema
+>;
+
+export const BaseParentSectionImplUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    ListRootSectionImplSchema,
+    DictRootSectionImplSchema,
+    GroupSectionImplSchema,
+  ]);
+
+export type BaseParentSectionImplUnionWithDiscriminator = z.infer<
+  typeof BaseParentSectionImplUnionWithDiscriminatorSchema
+>;
+
+export function createBaseParentSectionImplUnionWithDiscriminator(
+  options: Partial<BaseParentSectionImplUnionWithDiscriminator> = {},
+): BaseParentSectionImplUnionWithDiscriminator {
+  return BaseParentSectionImplUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const BaseSectionImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
   "type",
   [
@@ -3300,30 +3342,6 @@ export function createSectionCore(
   return SectionCoreSchema.parse(options);
 }
 
-export const BaseSectionImplSchema = z.object({
-  type: z.any(),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-});
-
-export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
-
-export function createBaseSectionImpl(
-  options: Partial<BaseSectionImpl> = {},
-): BaseSectionImpl {
-  return BaseSectionImplSchema.parse(options);
-}
-
 export const ImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -3381,22 +3399,6 @@ export function createCodeObjCore(
   return CodeObjCoreSchema.parse(options);
 }
 
-export const BaseCodeObjImplSchema = z.object({
-  type: z.any(),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
-});
-
-export type BaseCodeObjImpl = z.infer<typeof BaseCodeObjImplSchema>;
-
-export function createBaseCodeObjImpl(
-  options: Partial<BaseCodeObjImpl> = {},
-): BaseCodeObjImpl {
-  return BaseCodeObjImplSchema.parse(options);
-}
-
 export const ViewportSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -3452,10 +3454,48 @@ export function createProjectConfig(
 
 export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema).default({}),
-  sectionImpls: z.record(z.string(), BaseSectionImplSchema).default({}),
+  sectionImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionImplSchema,
+        DictSectionImplSchema,
+        ListRootSectionImplSchema,
+        DictRootSectionImplSchema,
+        GroupSectionImplSchema,
+        ImageSectionImplSchema,
+        ChartSectionImplSchema,
+        DrawSectionImplSchema,
+        TextBlockSectionImplSchema,
+        SocialSectionImplSchema,
+        GlobalVariablesSectionImplSchema,
+        CodeSectionImplSchema,
+        GenPythonCodeSectionImplSchema,
+        TerminalSectionImplSchema,
+        IFrameSectionImplSchema,
+        ChatSectionImplSchema,
+        BrowserSectionImplSchema,
+      ]),
+    )
+    .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
   codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
-  codeObjImpls: z.record(z.string(), BaseCodeObjImplSchema).default({}),
+  codeObjImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjImplSchema,
+        CodeParamCodeObjImplSchema,
+        TextParamCodeObjImplSchema,
+        SliderParamCodeObjImplSchema,
+        SwitchParamCodeObjImplSchema,
+        ColorPickerParamCodeObjImplSchema,
+        DropdownParamCodeObjImplSchema,
+        PasswordParamCodeObjImplSchema,
+        NestedParamCodeObjImplSchema,
+      ]),
+    )
+    .default({}),
   codeObjImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
   projectConfig: ProjectConfigSchema,
 });
@@ -4258,6 +4298,22 @@ export function createBaseChildlessCodeObjImpl(
   return BaseChildlessCodeObjImplSchema.parse(options);
 }
 
+export const BaseCodeObjImplSchema = z.object({
+  type: z.any(),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  description: z.string().default(""),
+  isPreset: z.boolean().default(false),
+});
+
+export type BaseCodeObjImpl = z.infer<typeof BaseCodeObjImplSchema>;
+
+export function createBaseCodeObjImpl(
+  options: Partial<BaseCodeObjImpl> = {},
+): BaseCodeObjImpl {
+  return BaseCodeObjImplSchema.parse(options);
+}
+
 export const BaseParamCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -4321,6 +4377,30 @@ export function createBaseParentSectionImpl(
   return BaseParentSectionImplSchema.parse(options);
 }
 
+export const BaseSectionImplSchema = z.object({
+  type: z.any(),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+});
+
+export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
+
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
+  return BaseSectionImplSchema.parse(options);
+}
+
 export const BaseSectionWithParamsImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -4360,10 +4440,48 @@ export function createBaseSectionWithParamsImpl(
 
 export const ProjectStateBackendSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema).default({}),
-  sectionImpls: z.record(z.string(), BaseSectionImplSchema).default({}),
+  sectionImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionImplSchema,
+        DictSectionImplSchema,
+        ListRootSectionImplSchema,
+        DictRootSectionImplSchema,
+        GroupSectionImplSchema,
+        ImageSectionImplSchema,
+        ChartSectionImplSchema,
+        DrawSectionImplSchema,
+        TextBlockSectionImplSchema,
+        SocialSectionImplSchema,
+        GlobalVariablesSectionImplSchema,
+        CodeSectionImplSchema,
+        GenPythonCodeSectionImplSchema,
+        TerminalSectionImplSchema,
+        IFrameSectionImplSchema,
+        ChatSectionImplSchema,
+        BrowserSectionImplSchema,
+      ]),
+    )
+    .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
   codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
-  codeObjImpls: z.record(z.string(), BaseCodeObjImplSchema).default({}),
+  codeObjImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjImplSchema,
+        CodeParamCodeObjImplSchema,
+        TextParamCodeObjImplSchema,
+        SliderParamCodeObjImplSchema,
+        SwitchParamCodeObjImplSchema,
+        ColorPickerParamCodeObjImplSchema,
+        DropdownParamCodeObjImplSchema,
+        PasswordParamCodeObjImplSchema,
+        NestedParamCodeObjImplSchema,
+      ]),
+    )
+    .default({}),
   codeObjImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
   projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
@@ -4407,10 +4525,48 @@ export function createSimplifiedSectionCreation(
 
 export const ProjectStateCoreSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema).default({}),
-  sectionImpls: z.record(z.string(), BaseSectionImplSchema).default({}),
+  sectionImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionImplSchema,
+        DictSectionImplSchema,
+        ListRootSectionImplSchema,
+        DictRootSectionImplSchema,
+        GroupSectionImplSchema,
+        ImageSectionImplSchema,
+        ChartSectionImplSchema,
+        DrawSectionImplSchema,
+        TextBlockSectionImplSchema,
+        SocialSectionImplSchema,
+        GlobalVariablesSectionImplSchema,
+        CodeSectionImplSchema,
+        GenPythonCodeSectionImplSchema,
+        TerminalSectionImplSchema,
+        IFrameSectionImplSchema,
+        ChatSectionImplSchema,
+        BrowserSectionImplSchema,
+      ]),
+    )
+    .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
   codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
-  codeObjImpls: z.record(z.string(), BaseCodeObjImplSchema).default({}),
+  codeObjImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjImplSchema,
+        CodeParamCodeObjImplSchema,
+        TextParamCodeObjImplSchema,
+        SliderParamCodeObjImplSchema,
+        SwitchParamCodeObjImplSchema,
+        ColorPickerParamCodeObjImplSchema,
+        DropdownParamCodeObjImplSchema,
+        PasswordParamCodeObjImplSchema,
+        NestedParamCodeObjImplSchema,
+      ]),
+    )
+    .default({}),
   codeObjImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
 });
 
@@ -5274,10 +5430,44 @@ export function createGetJSONSourcePathToBeDeleted(
 
 export const LoadJSONSourceObjectSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema),
-  sectionImpls: z.record(z.string(), BaseSectionImplSchema),
+  sectionImpls: z.record(
+    z.string(),
+    z.discriminatedUnion("type", [
+      CallableSectionImplSchema,
+      DictSectionImplSchema,
+      ListRootSectionImplSchema,
+      DictRootSectionImplSchema,
+      GroupSectionImplSchema,
+      ImageSectionImplSchema,
+      ChartSectionImplSchema,
+      DrawSectionImplSchema,
+      TextBlockSectionImplSchema,
+      SocialSectionImplSchema,
+      GlobalVariablesSectionImplSchema,
+      CodeSectionImplSchema,
+      GenPythonCodeSectionImplSchema,
+      TerminalSectionImplSchema,
+      IFrameSectionImplSchema,
+      ChatSectionImplSchema,
+      BrowserSectionImplSchema,
+    ]),
+  ),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema),
   codeObjs: z.record(z.string(), CodeObjCoreSchema),
-  codeObjImpls: z.record(z.string(), BaseCodeObjImplSchema),
+  codeObjImpls: z.record(
+    z.string(),
+    z.discriminatedUnion("type", [
+      CodeCallableCodeObjImplSchema,
+      CodeParamCodeObjImplSchema,
+      TextParamCodeObjImplSchema,
+      SliderParamCodeObjImplSchema,
+      SwitchParamCodeObjImplSchema,
+      ColorPickerParamCodeObjImplSchema,
+      DropdownParamCodeObjImplSchema,
+      PasswordParamCodeObjImplSchema,
+      NestedParamCodeObjImplSchema,
+    ]),
+  ),
   codeObjImplLayerings: z.record(z.string(), ImplLayeringSchema),
 });
 
