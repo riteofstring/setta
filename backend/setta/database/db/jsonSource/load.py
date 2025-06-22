@@ -5,8 +5,6 @@ from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_obj_impl_layering import (
-    BaseChildlessCodeObjImplLayering,
-    BaseCodeObjImplLayering,
     NestedParamCodeObjImplLayering,
     TextParamCodeObjImplLayering,
 )
@@ -18,11 +16,11 @@ from setta.types.code_objs import (
     TextParamCodeObjImpl,
 )
 from setta.types.impl_helpers import get_effective_impl
+from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impl_layering import (
-    BaseSectionImplLayering,
     DictSectionImplLayering,
 )
 from setta.types.sections import (
@@ -40,7 +38,7 @@ class ProcessedJSONObject(BaseModel):
     codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, SerializeAsAny[BaseCodeObjImplLayering]] = Field(
+    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]] = Field(
         default_factory=dict
     )
 
@@ -48,10 +46,10 @@ class ProcessedJSONObject(BaseModel):
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, SectionCore]
     sectionImpls: dict[str, SerializeAsAny[BaseSectionImpl]]
-    sectionImplLayerings: dict[str, SerializeAsAny[BaseSectionImplLayering]]
+    sectionImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
     codeObjs: dict[str, CodeObjCore]
     codeObjImpls: dict[str, SerializeAsAny[BaseCodeObjImpl]]
-    codeObjImplLayerings: dict[str, SerializeAsAny[BaseCodeObjImplLayering]]
+    codeObjImplLayerings: dict[str, SerializeAsAny[ImplLayering]]
 
 
 def load_json_sources_into_data_structures(
@@ -87,7 +85,7 @@ def merge_into_existing(
     section_layering: DictSectionImplLayering,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImpl],
-    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering],
+    codeObjImplLayerings: dict[str, ImplLayering],
 ):
     filename = section_impl.name
     ancestor_paths = build_ancestor_paths(

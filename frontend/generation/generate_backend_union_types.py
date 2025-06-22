@@ -1,5 +1,6 @@
 import inspect
 from pathlib import Path
+from pprint import pprint
 from typing import Any, List, Type
 
 from pydantic import BaseModel
@@ -50,19 +51,24 @@ def find_sub_classes(
     return classes
 
 
-def construct_unions(module, base_class, discriminator):
+def get_base_child_mapping(module, base_class, discriminator):
     base_classes = find_sub_classes(module, base_class, discriminator, True, True)
-
     base_class_to_children = {}
+    for base_class in base_classes:
+        child_classes = find_sub_classes(module, base_class, discriminator, False, True)
+        base_class_to_children[base_class] = child_classes
+    return base_class_to_children
+
+
+def construct_unions(module, base_class, discriminator):
+    base_class_to_children = get_base_child_mapping(module, base_class, discriminator)
     code = """
 from typing import Annotated,Union
 from pydantic import Field, TypeAdapter
 
 """
-    for base_class in base_classes:
+    for base_class, child_classes in base_class_to_children.items():
         code += f"from {module.__name__} import {base_class.__name__}\n\n"
-        child_classes = find_sub_classes(module, base_class, discriminator, False, True)
-        base_class_to_children[base_class] = child_classes
         for child_class in child_classes:
             code += f"from {module.__name__} import {child_class.__name__}\n\n"
 
@@ -100,6 +106,21 @@ def code_obj_impl_union():
     return construct_unions(
         setta.types.code_objs, setta.types.code_objs.BaseCodeObjImpl, "type"
     )
+
+
+def section_impl_layering_union():
+    import setta.types.sections
+
+    base_class_to_children = get_base_child_mapping(
+        setta.types.sections, setta.types.sections.BaseSectionImpl, "type"
+    )
+
+    code = ""
+    for base_class, child_classes in base_class_to_children.items():
+        for child_class in child_classes:
+            code += f"from setta.types.section_impl_layering import {child_class.__name__}Layering\n\n"
+    
+    return ""
 
 
 # This function differs from the section_impl and code_obj_impl functions above
@@ -168,6 +189,14 @@ def main(output_folder):
     # order matters! (because of imports)
     gen_write(section_impl_union, output_folder / "generated_section_type_unions.py")
     gen_write(code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py")
+    gen_write(
+        section_impl_layering_union,
+        output_folder / "generated_section_impl_layering_unions.py",
+    )
+    # gen_write(
+    #     code_obj_impl_modifier_union,
+    #     output_folder / "generated_code_obj_impl_layering_unions.py",
+    # )
     gen_write(
         websocket_msg_union,
         output_folder / "generated_websocket_type_unions.py",

@@ -1,5 +1,3 @@
-from typing import Any
-
 from pydantic import Field
 
 from setta.types.code_obj_impl_modifiers import (
@@ -13,74 +11,58 @@ from setta.types.code_obj_impl_modifiers import (
     SwitchParamCodeObjImplModifier,
     TextParamCodeObjImplModifier,
 )
-from setta.types.impl_layering import BaseImplLayering
+from setta.types.impl_layering import ImplLayering
 
 
-class BaseCodeObjImplLayering(BaseImplLayering):
-    modifier: Any
-
-
-class BaseParamCodeObjImplLayering(BaseCodeObjImplLayering):
-    modifier: Any
-
-
-class BaseChildlessCodeObjImplLayering(BaseParamCodeObjImplLayering):
-    modifier: Any
-
-
-class BaseParentCodeObjImplLayering(BaseCodeObjImplLayering):
-    modifier: Any
-
-
-class CodeCallableCodeObjImplLayering(BaseParentCodeObjImplLayering):
+class CodeCallableCodeObjImplLayering(ImplLayering):
     modifier: CodeCallableCodeObjImplModifier = Field(
         default_factory=CodeCallableCodeObjImplModifier
     )
 
 
-class CodeParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class CodeParamCodeObjImplLayering(ImplLayering):
     modifier: CodeParamCodeObjImplModifier = Field(
         default_factory=CodeParamCodeObjImplModifier
     )
 
 
-class TextParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class TextParamCodeObjImplLayering(ImplLayering):
     modifier: TextParamCodeObjImplModifier = Field(
         default_factory=TextParamCodeObjImplModifier
     )
 
 
-class SliderParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class SliderParamCodeObjImplLayering(ImplLayering):
     modifier: SliderParamCodeObjImplModifier = Field(
         default_factory=SliderParamCodeObjImplModifier
     )
 
 
-class SwitchParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class SwitchParamCodeObjImplLayering(ImplLayering):
     modifier: SwitchParamCodeObjImplModifier = Field(
         default_factory=SwitchParamCodeObjImplModifier
     )
 
 
-class ColorPickerParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class ColorPickerParamCodeObjImplLayering(ImplLayering):
     modifier: ColorPickerParamCodeObjImplModifier = Field(
         default_factory=ColorPickerParamCodeObjImplModifier
     )
 
 
-class DropdownParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class DropdownParamCodeObjImplLayering(ImplLayering):
     modifier: DropdownParamCodeObjImplModifier = Field(
         default_factory=DropdownParamCodeObjImplModifier
     )
 
 
-class PasswordParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
+class PasswordParamCodeObjImplLayering(ImplLayering):
     modifier: PasswordParamCodeObjImplModifier = Field(
         default_factory=PasswordParamCodeObjImplModifier
     )
 
 
-class NestedParamCodeObjImplLayering(BaseParamCodeObjImplLayering):
+class NestedParamCodeObjImplLayering(ImplLayering):
     modifier: NestedParamCodeObjImplModifier = Field(
         default_factory=NestedParamCodeObjImplModifier
     )
