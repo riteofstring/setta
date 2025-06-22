@@ -133,7 +133,7 @@ class {name}Modifier({parent_class}):
     return code
 
 
-def section_impl_modifiers(output_file):
+def section_impl_modifiers():
     import setta.types.sections
 
     classes = find_sub_classes(
@@ -159,14 +159,10 @@ from setta.types.sections import (
     for c in classes:
         code += create_typed_dict(c, setta.types.sections.BaseSectionImpl)
 
-    code = ruff_format(code)
-    with open(output_file, "w") as f:
-        f.write(code)
-
-    print(f"wrote to {output_file}")
+    return code
 
 
-def code_obj_impl_modifiers(output_file):
+def code_obj_impl_modifiers():
     import setta.types.code_objs
 
     classes = find_sub_classes(
@@ -196,16 +192,17 @@ from setta.types.code_objs import (
     for c in classes:
         code += create_typed_dict(c, setta.types.code_objs.BaseCodeObjImpl)
 
-    code = ruff_format(code)
-    with open(output_file, "w") as f:
-        f.write(code)
-
-    print(f"wrote to {output_file}")
+    return code
 
 
 def main(output_folder):
-    section_impl_modifiers(output_folder / "section_impl_modifiers.py")
-    code_obj_impl_modifiers(output_folder / "code_obj_impl_modifiers.py")
+    code = section_impl_modifiers()
+    code += code_obj_impl_modifiers()
+    code = ruff_format(code)
+    output_file = output_folder / "impl_modifiers.py"
+    with open(output_file, "w") as f:
+        f.write(code)
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

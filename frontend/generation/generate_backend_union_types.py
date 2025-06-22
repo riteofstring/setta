@@ -145,45 +145,46 @@ def add_type_predicate_fns(most_base_type, base_class_to_children, class_transfo
     return code
 
 
-def section_impl_modifier_union():
-    import setta.types.generated.section_impl_modifiers
+def impl_modifier_union():
+    import setta.types.code_objs
+    import setta.types.generated.impl_modifiers
     import setta.types.sections
 
-    code, base_class_to_children = construct_unions(
+    code1, base_class_to_children1 = construct_unions(
         setta.types.sections,
         setta.types.sections.BaseSectionImpl,
         "type",
-        setta.types.generated.section_impl_modifiers,
+        setta.types.generated.impl_modifiers,
         lambda x: f"{x}Modifier",
         True,
     )
-    code += "from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier\n"
-    code += add_type_predicate_fns(
-        "BaseSectionImplModifier | BaseCodeObjImplModifier",
-        base_class_to_children,
-        lambda x: f"{x}Modifier",
-    )
-    return ruff_format(code)
 
-
-def code_obj_impl_modifier_union():
-    import setta.types.code_objs
-    import setta.types.generated.code_obj_impl_modifiers
-
-    code, base_class_to_children = construct_unions(
+    code2, base_class_to_children2 = construct_unions(
         setta.types.code_objs,
         setta.types.code_objs.BaseCodeObjImpl,
         "type",
-        setta.types.generated.code_obj_impl_modifiers,
+        setta.types.generated.impl_modifiers,
         lambda x: f"{x}Modifier",
         True,
     )
-    code += "from setta.types.section_impl_modifiers import BaseSectionImplModifier\n"
+
+    code = code1 + code2
+    base_class_to_children = {**base_class_to_children1, **base_class_to_children2}  # type: ignore
+
+    code += """
+AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
+
+AllImplModifierUnionTypeAdapter = TypeAdapter(Annotated[
+    AllImplModifierUnion, Field(discriminator="type")
+])
+"""
+
     code += add_type_predicate_fns(
-        "BaseSectionImplModifier | BaseCodeObjImplModifier",
+        "AllImplModifierUnion",
         base_class_to_children,
         lambda x: f"{x}Modifier",
     )
+
     return ruff_format(code)
 
 
@@ -254,12 +255,8 @@ def main(output_folder):
     gen_write(section_impl_union, output_folder / "section_type_unions.py")
     gen_write(code_obj_impl_union, output_folder / "code_obj_type_unions.py")
     gen_write(
-        section_impl_modifier_union,
-        output_folder / "section_impl_modifier_unions.py",
-    )
-    gen_write(
-        code_obj_impl_modifier_union,
-        output_folder / "code_obj_impl_modifier_unions.py",
+        impl_modifier_union,
+        output_folder / "impl_modifier_unions.py",
     )
     gen_write(
         websocket_msg_union,

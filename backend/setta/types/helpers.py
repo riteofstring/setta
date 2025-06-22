@@ -6,7 +6,7 @@ from setta.types.code_objs import (
     CodeCallableCodeObjImpl,
     CodeObjCore,
 )
-from setta.types.generated.section_impl_modifier_unions import (
+from setta.types.generated.impl_modifier_unions import (
     isBaseSectionWithParamsImplModifier,
 )
 from setta.types.impl_helpers import (

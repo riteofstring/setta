@@ -12,14 +12,12 @@ from setta.types.code_objs import (
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
-from setta.types.generated.code_obj_impl_modifier_unions import (
-    isBaseChildlessCodeObjImplModifier,
-)
-from setta.types.generated.code_obj_impl_modifiers import (
+from setta.types.generated.impl_modifier_unions import (
     NestedParamCodeObjImplModifier,
     TextParamCodeObjImplModifier,
+    isBaseChildlessCodeObjImplModifier,
 )
-from setta.types.generated.section_impl_modifiers import DictSectionImplModifier
+from setta.types.generated.impl_modifiers import DictSectionImplModifier
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (

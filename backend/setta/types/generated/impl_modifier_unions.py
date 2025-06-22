@@ -1,7 +1,7 @@
 from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
-from setta.types.generated.section_impl_modifiers import (
+from setta.types.generated.impl_modifiers import (
     BaseArtifactSectionImplModifier,
     BaseCanvasSectionImplModifier,
     BaseCodeSectionImplModifier,
@@ -164,46 +164,205 @@ BaseDictSectionImplModifierTypeAdapter = TypeAdapter(
 
 BaseDictSectionImplModifierTypeSet = set(["Dict", "GlobalVariables"])
 
-from setta.types.generated.code_obj_impl_modifiers import BaseCodeObjImplModifier
+
+from typing import Annotated, Union
+
+from pydantic import Field, TypeAdapter
+from setta.types.generated.impl_modifiers import (
+    BaseChildlessCodeObjImplModifier,
+    BaseCodeObjImplModifier,
+    BaseParamCodeObjImplModifier,
+    BaseParentCodeObjImplModifier,
+    CodeCallableCodeObjImplModifier,
+    CodeParamCodeObjImplModifier,
+    ColorPickerParamCodeObjImplModifier,
+    DropdownParamCodeObjImplModifier,
+    NestedParamCodeObjImplModifier,
+    PasswordParamCodeObjImplModifier,
+    SliderParamCodeObjImplModifier,
+    SwitchParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+)
+
+BaseCodeObjImplModifierUnion = Union[
+    CodeCallableCodeObjImplModifier,
+    CodeParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+    SliderParamCodeObjImplModifier,
+    SwitchParamCodeObjImplModifier,
+    ColorPickerParamCodeObjImplModifier,
+    DropdownParamCodeObjImplModifier,
+    PasswordParamCodeObjImplModifier,
+    NestedParamCodeObjImplModifier,
+]
+
+BaseCodeObjImplModifierUnionWithDiscriminator = Annotated[
+    BaseCodeObjImplModifierUnion, Field(discriminator="type")
+]
+
+BaseCodeObjImplModifierTypeAdapter = TypeAdapter(
+    BaseCodeObjImplModifierUnionWithDiscriminator
+)
+
+BaseCodeObjImplModifierTypeSet = set(
+    [
+        "CodeCallable",
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
+    ]
+)
+
+BaseParamCodeObjImplModifierUnion = Union[
+    CodeParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+    SliderParamCodeObjImplModifier,
+    SwitchParamCodeObjImplModifier,
+    ColorPickerParamCodeObjImplModifier,
+    DropdownParamCodeObjImplModifier,
+    PasswordParamCodeObjImplModifier,
+    NestedParamCodeObjImplModifier,
+]
+
+BaseParamCodeObjImplModifierUnionWithDiscriminator = Annotated[
+    BaseParamCodeObjImplModifierUnion, Field(discriminator="type")
+]
+
+BaseParamCodeObjImplModifierTypeAdapter = TypeAdapter(
+    BaseParamCodeObjImplModifierUnionWithDiscriminator
+)
+
+BaseParamCodeObjImplModifierTypeSet = set(
+    [
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
+    ]
+)
+
+BaseChildlessCodeObjImplModifierUnion = Union[
+    CodeParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+    SliderParamCodeObjImplModifier,
+    SwitchParamCodeObjImplModifier,
+    ColorPickerParamCodeObjImplModifier,
+    DropdownParamCodeObjImplModifier,
+    PasswordParamCodeObjImplModifier,
+]
+
+BaseChildlessCodeObjImplModifierUnionWithDiscriminator = Annotated[
+    BaseChildlessCodeObjImplModifierUnion, Field(discriminator="type")
+]
+
+BaseChildlessCodeObjImplModifierTypeAdapter = TypeAdapter(
+    BaseChildlessCodeObjImplModifierUnionWithDiscriminator
+)
+
+BaseChildlessCodeObjImplModifierTypeSet = set(
+    [
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+    ]
+)
+
+BaseParentCodeObjImplModifierUnion = Union[
+    CodeCallableCodeObjImplModifier, NestedParamCodeObjImplModifier
+]
+
+BaseParentCodeObjImplModifierUnionWithDiscriminator = Annotated[
+    BaseParentCodeObjImplModifierUnion, Field(discriminator="type")
+]
+
+BaseParentCodeObjImplModifierTypeAdapter = TypeAdapter(
+    BaseParentCodeObjImplModifierUnionWithDiscriminator
+)
+
+BaseParentCodeObjImplModifierTypeSet = set(["CodeCallable", "NestedParam"])
+
+
+AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
+
+AllImplModifierUnionTypeAdapter = TypeAdapter(
+    Annotated[AllImplModifierUnion, Field(discriminator="type")]
+)
 
 
 def isBaseSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseSectionImplModifier]:
     return x["type"] in BaseSectionImplModifierTypeSet
 
 
 def isBaseSectionWithParamsImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseSectionWithParamsImplModifier]:
     return x["type"] in BaseSectionWithParamsImplModifierTypeSet
 
 
 def isBaseArtifactSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseArtifactSectionImplModifier]:
     return x["type"] in BaseArtifactSectionImplModifierTypeSet
 
 
 def isBaseCanvasSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseCanvasSectionImplModifier]:
     return x["type"] in BaseCanvasSectionImplModifierTypeSet
 
 
 def isBaseCodeSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseCodeSectionImplModifier]:
     return x["type"] in BaseCodeSectionImplModifierTypeSet
 
 
 def isBaseParentSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseParentSectionImplModifier]:
     return x["type"] in BaseParentSectionImplModifierTypeSet
 
 
 def isBaseDictSectionImplModifier(
-    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
+    x: AllImplModifierUnion,
 ) -> TypeGuard[BaseDictSectionImplModifier]:
     return x["type"] in BaseDictSectionImplModifierTypeSet
+
+
+def isBaseCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseCodeObjImplModifier]:
+    return x["type"] in BaseCodeObjImplModifierTypeSet
+
+
+def isBaseParamCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseParamCodeObjImplModifier]:
+    return x["type"] in BaseParamCodeObjImplModifierTypeSet
+
+
+def isBaseChildlessCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseChildlessCodeObjImplModifier]:
+    return x["type"] in BaseChildlessCodeObjImplModifierTypeSet
+
+
+def isBaseParentCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseParentCodeObjImplModifier]:
+    return x["type"] in BaseParentCodeObjImplModifierTypeSet
