@@ -1,4 +1,9 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import {
+  addDndChild,
+  removeDndChild,
+  replaceDndSectionWithTemp,
+  useDndChildren,
+} from "forks/dnd-kit/dndChildren";
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
@@ -20,7 +25,7 @@ export function onDragStart({ active }) {
     height,
   });
   if (dndState.isMovingFree) {
-    useDndChildren.getState().replaceWithTemp(active.id);
+    replaceDndSectionWithTemp(active.id);
   }
 }
 
@@ -68,7 +73,7 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
   // There can be discrepancy between over and collisions due to the way state updates in DndContext.
   // Collisions will be more up-to-date. If it's empty, reset relevant state and return early.
   if (collisions.length === 0) {
-    dndChildrenState.removeChild(dndSectionId);
+    removeDndChild(dndSectionId);
     setNullBehavior(null);
     return;
   }
@@ -95,7 +100,7 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
 
   // Dragging onto the pane or over self.
   if (!overId) {
-    dndChildrenState.removeChild(dndSectionId);
+    removeDndChild(dndSectionId);
     setNullBehavior(overId);
     return;
   }
@@ -145,7 +150,7 @@ function maybeMoveToNewParent({
   // Check if section can actually be dropped onto newParentId
   const behaviorDropType = getBehaviorDropType(active.id, newParentId);
   if (behaviorDropType === BehaviorDropType.INVALID) {
-    dndChildrenState.removeChild(dndSectionId);
+    removeDndChild(dndSectionId);
     useDndState.setState({ behaviorDropType, overId });
     return;
   }
@@ -158,12 +163,7 @@ function maybeMoveToNewParent({
     newParentNumChildren === 1 &&
     getSectionParentId(active.id) === newParentId
   ) {
-    dndChildrenState.addChild({
-      oldParentId,
-      newParentId,
-      childId: dndSectionId,
-      index: 0,
-    });
+    addDndChild(oldParentId, newParentId, dndSectionId, 0);
     return;
   }
 
@@ -171,7 +171,7 @@ function maybeMoveToNewParent({
   // prevent flickering when dragging a section into
   // a list with nested sections, from the left.
   if (overId === newParentId && newParentNumChildren > 0) {
-    dndChildrenState.removeChild(dndSectionId);
+    removeDndChild(dndSectionId);
     return;
   }
 
@@ -188,12 +188,7 @@ function maybeMoveToNewParent({
     } else {
       index = 0;
     }
-    dndChildrenState.addChild({
-      oldParentId,
-      newParentId,
-      childId: dndSectionId,
-      index,
-    });
+    addDndChild(oldParentId, newParentId, dndSectionId, index);
   }
 
   setNullBehavior(overId);

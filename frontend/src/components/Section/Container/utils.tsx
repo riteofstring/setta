@@ -99,8 +99,8 @@ export function getOnSectionClick(sectionId, isActiveSection) {
   };
 }
 
-export function useHasTempNested(sectionId) {
-  return useDndChildren((x) => x.x[sectionId]?.length > 0);
+export function useHasTempNested(sectionId: string) {
+  return useDndChildren((x) => (x.x[sectionId] ?? []).length > 0);
 }
 
 function isActuallyADrag(minimumDelta = 5) {

@@ -48,7 +48,7 @@ export const useDndState = withProjectState(
 
 const dndIdSuffix = "-TempDND";
 
-export function getDndSectionId(sectionId) {
+export function getDndSectionId(sectionId: string) {
   return `${sectionId}${dndIdSuffix}`;
 }
 

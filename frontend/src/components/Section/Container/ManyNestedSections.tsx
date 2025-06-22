@@ -5,7 +5,13 @@ import { useProjectState } from "state/definitions";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
 
-export function MaybeManyNestedSections({ sectionId, isGroup }) {
+export function MaybeManyNestedSections({
+  sectionId,
+  isGroup,
+}: {
+  sectionId: string;
+  isGroup: boolean;
+}) {
   const hasNested = useHasTempNested(sectionId);
   return (
     hasNested && (
@@ -17,7 +23,7 @@ export function MaybeManyNestedSections({ sectionId, isGroup }) {
 }
 
 function ManyNestedSections({ sectionId, isGroup }) {
-  const tempChildIds = useDndChildren((x) => x.x[sectionId]);
+  const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
 
   return (
     <DNDSortable sectionId={sectionId} items={tempChildIds}>

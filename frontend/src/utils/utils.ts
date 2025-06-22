@@ -10,7 +10,11 @@ export function clamp(number, min, max) {
 
 // https://stackoverflow.com/a/38181008
 // create new array with inserted value (no mutation)
-export function insertIntoArray(arr, index, ...newItems) {
+export function insertIntoArray<T>(
+  arr: Array<T>,
+  index: number,
+  ...newItems: Array<T>
+) {
   return [
     // part of the array before the specified index
     ...arr.slice(0, index),

@@ -153,7 +153,7 @@ export function addChildrenToSeries(
       throw new Error();
     }
     parentImplLayering.modifier.children = insertIntoArray(
-      parentImpl.children ?? [],
+      parentImplLayering.modifier.children ?? [],
       startIdx,
       ...newIds,
     );
