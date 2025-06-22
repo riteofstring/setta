@@ -3,6 +3,7 @@ import os
 from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
+from typing import Any
 
 
 def get_absolute_path(src_path, file_path):
@@ -97,3 +98,9 @@ def remove_empty(x):
     else:
         # Original behavior for regular dictionaries
         return {k: v for k, v in x.items() if len(v) > 0}
+
+
+def ensure_str_path(path: str | bytes | Any):
+    if isinstance(path, bytes):
+        return path.decode("utf-8")
+    return str(path)
