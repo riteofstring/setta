@@ -1,6 +1,7 @@
 import _ from "lodash";
-import { useNodeInternals, useProjectState } from "state/definitions";
-import { getHighestAncestor, getSectionType } from "./sectionInfos";
+import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
+import { getEffectiveSectionImpl, getHighestAncestor } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
@@ -49,9 +50,13 @@ export function selectAll() {
 }
 
 export function setTopLevelNonGroupSectionsAsActive() {
-  const topLevelSections = Array.from(useNodeInternals.getState().x.values());
-  const nonGroup = topLevelSections.filter(
-    (s) => getSectionType(s.id) !== UITypeNameEnum.GROUP,
-  );
-  setActiveSectionIds(nonGroup.map((x) => x.id));
+  const p = useProjectState.getState();
+  const { topLevelSections } = p.projectConfig;
+  const nonGroup: Array<string> = [];
+  for (const sectionId of Object.keys(topLevelSections)) {
+    if (getEffectiveSectionImpl(p, sectionId).type !== SectionTypeEnum.Group) {
+      nonGroup.push(sectionId);
+    }
+  }
+  setActiveSectionIds(nonGroup);
 }

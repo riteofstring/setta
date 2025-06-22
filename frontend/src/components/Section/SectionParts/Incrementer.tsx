@@ -10,7 +10,7 @@ export function Incrementer({
 }: {
   sectionId: string;
   isRoot: boolean;
-  popover: boolean;
+  popover?: boolean;
 }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
