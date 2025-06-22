@@ -1,11 +1,14 @@
-import _ from "lodash";
 import {
-  getCurrentSectionConfigs,
   getHighestAncestor,
   getSectionDescendants,
+  getSectionImplLayering,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
-import { SectionSize } from "utils/generatedTypes";
+import {
+  createSectionSize,
+  isBaseSectionImplModifier,
+  SectionSize,
+} from "utils/generatedTypes";
 
 export function setSelfParentSiblingChildrenWidths(
   sectionId: string,
@@ -15,9 +18,9 @@ export function setSelfParentSiblingChildrenWidths(
   // set own size
   setSectionSize(sectionId, changedSize, state);
 
-  if (!_.isNil(changedSize.width)) {
-    setAllOtherWidths(sectionId, changedSize.width, state);
-  }
+  // if (!_.isNil(changedSize.width)) {
+  //   setAllOtherWidths(sectionId, changedSize.width, state);
+  // }
 }
 
 function setAllOtherWidths(sectionId, width, state) {
@@ -117,9 +120,9 @@ export function setSectionSize(
   size: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  const sConfigs = getCurrentSectionConfigs(state);
-  sConfigs[sectionId].size = {
-    ...sConfigs[sectionId].size,
-    ...size,
-  };
+  const implLayering = getSectionImplLayering(state, sectionId);
+  if (isBaseSectionImplModifier(implLayering.modifier)) {
+    const currSize = implLayering.modifier.size;
+    implLayering.modifier.size = createSectionSize({ ...currSize, ...size });
+  }
 }
