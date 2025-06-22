@@ -9,13 +9,13 @@ export function setActiveSectionIds(ids: Array<string>) {
   useProjectState.setState({ activeIds: ids });
 }
 
-export function addActiveSectionIds(ids) {
+export function addActiveSectionIds(ids: Array<string>) {
   useProjectState.setState((state) => ({
     activeIds: [...new Set([...state.activeIds, ...ids])],
   }));
 }
 
-export function removeActiveSectionIds(ids) {
+export function removeActiveSectionIds(ids: Array<string>) {
   useProjectState.setState((state) => ({
     activeIds: _.difference(state.activeIds, ids),
   }));
@@ -25,7 +25,7 @@ export function clearActiveSectionIds() {
   useProjectState.setState({ activeIds: [] });
 }
 
-export function setActiveSectionIdAndUpdateZIndex(id) {
+export function setActiveSectionIdAndUpdateZIndex(id: string) {
   setActiveSectionIds([id]);
   const highestAncestor = getHighestAncestor(id);
   setZIndices([highestAncestor], false);

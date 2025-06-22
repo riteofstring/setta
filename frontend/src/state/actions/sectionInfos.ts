@@ -279,15 +279,32 @@ export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   return output;
 }
 
-function getSectionDescendantsFromAllVariants(sectionId, state) {
-  const output = [];
-  for (const v of state.sections[sectionId].variantIds) {
-    output.push(...state.variants[v].children);
+function getSectionDescendantsFromAllVariants(
+  sectionId: string,
+  state: ZustandProjectState,
+) {
+  const output: Array<string> = [];
+  const section = state.sections[sectionId];
+  if (!section) {
+    throw new Error();
+  }
+  for (const layeringId of section.implLayerings) {
+    const implLayering = state.sectionImplLayerings[layeringId];
+    if (!implLayering) {
+      throw new Error();
+    }
+    const impl = getEffectiveImpl(implLayering, state.sectionImpls);
+    if (isBaseParentSectionImpl(impl)) {
+      output.push(...impl.children);
+    }
   }
   return output;
 }
 
-export function getAllSectionsForDeletionOrCopying(sectionIds, state) {
+export function getAllSectionsForDeletionOrCopying(
+  sectionIds: Array<string>,
+  state: ZustandProjectState,
+) {
   const idsToDelete = [...sectionIds];
   let idx = 0;
   while (idx < idsToDelete.length) {
