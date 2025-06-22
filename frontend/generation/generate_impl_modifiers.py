@@ -209,4 +209,4 @@ def main(output_folder):
 
 
 if __name__ == "__main__":
-    main(get_absolute_path(__file__, Path("../../backend/setta/types")))
+    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))

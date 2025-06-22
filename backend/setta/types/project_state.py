@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import (
     BaseModel,
@@ -12,10 +12,10 @@ from pydantic import (
 
 from setta.database.utils import create_new_id
 from setta.types.code_objs import BaseCodeObjImpl, CodeObjCore
-from setta.types.generated_code_obj_type_unions import (
+from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplTypeAdapter,
 )
-from setta.types.generated_section_type_unions import (
+from setta.types.generated.section_type_unions import (
     BaseSectionImplTypeAdapter,
 )
 from setta.types.impl_layering import ImplLayering

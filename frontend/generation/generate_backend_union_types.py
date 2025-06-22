@@ -146,14 +146,14 @@ def add_type_predicate_fns(most_base_type, base_class_to_children, class_transfo
 
 
 def section_impl_modifier_union():
-    import setta.types.section_impl_modifiers
+    import setta.types.generated.section_impl_modifiers
     import setta.types.sections
 
     code, base_class_to_children = construct_unions(
         setta.types.sections,
         setta.types.sections.BaseSectionImpl,
         "type",
-        setta.types.section_impl_modifiers,
+        setta.types.generated.section_impl_modifiers,
         lambda x: f"{x}Modifier",
         True,
     )
@@ -167,14 +167,14 @@ def section_impl_modifier_union():
 
 
 def code_obj_impl_modifier_union():
-    import setta.types.code_obj_impl_modifiers
     import setta.types.code_objs
+    import setta.types.generated.code_obj_impl_modifiers
 
     code, base_class_to_children = construct_unions(
         setta.types.code_objs,
         setta.types.code_objs.BaseCodeObjImpl,
         "type",
-        setta.types.code_obj_impl_modifiers,
+        setta.types.generated.code_obj_impl_modifiers,
         lambda x: f"{x}Modifier",
         True,
     )
@@ -251,21 +251,21 @@ def gen_write(fn, output_path):
 
 def main(output_folder):
     # order matters! (because of imports)
-    gen_write(section_impl_union, output_folder / "generated_section_type_unions.py")
-    gen_write(code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py")
+    gen_write(section_impl_union, output_folder / "section_type_unions.py")
+    gen_write(code_obj_impl_union, output_folder / "code_obj_type_unions.py")
     gen_write(
         section_impl_modifier_union,
-        output_folder / "generated_section_impl_modifier_unions.py",
+        output_folder / "section_impl_modifier_unions.py",
     )
     gen_write(
         code_obj_impl_modifier_union,
-        output_folder / "generated_code_obj_impl_modifier_unions.py",
+        output_folder / "code_obj_impl_modifier_unions.py",
     )
     gen_write(
         websocket_msg_union,
-        output_folder / "generated_websocket_type_unions.py",
+        output_folder / "websocket_type_unions.py",
     )
 
 
 if __name__ == "__main__":
-    main(get_absolute_path(__file__, Path("../../backend/setta/types")))
+    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))

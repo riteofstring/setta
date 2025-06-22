@@ -1,10 +1,10 @@
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
-from setta.types.generated_code_obj_impl_modifier_unions import (
+from setta.types.generated.code_obj_impl_modifier_unions import (
     BaseCodeObjImplModifierUnion,
 )
-from setta.types.generated_section_impl_modifier_unions import (
+from setta.types.generated.section_impl_modifier_unions import (
     BaseSectionImplModifierUnion,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string

@@ -4,10 +4,6 @@ import logging
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.types.code_obj_impl_modifiers import (
-    NestedParamCodeObjImplModifier,
-    TextParamCodeObjImplModifier,
-)
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -16,15 +12,19 @@ from setta.types.code_objs import (
     NestedParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
-from setta.types.generated_code_obj_impl_modifier_unions import (
+from setta.types.generated.code_obj_impl_modifier_unions import (
     isBaseChildlessCodeObjImplModifier,
 )
+from setta.types.generated.code_obj_impl_modifiers import (
+    NestedParamCodeObjImplModifier,
+    TextParamCodeObjImplModifier,
+)
+from setta.types.generated.section_impl_modifiers import DictSectionImplModifier
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impl_modifiers import DictSectionImplModifier
 from setta.types.sections import (
     BaseSectionImpl,
     DictSectionImpl,
