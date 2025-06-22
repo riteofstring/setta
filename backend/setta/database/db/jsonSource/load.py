@@ -8,6 +8,7 @@ from setta.types.code_obj_impl_layering import (
     BaseChildlessCodeObjImplLayering,
     BaseCodeObjImplLayering,
     NestedParamCodeObjImplLayering,
+    TextParamCodeObjImplLayering,
 )
 from setta.types.code_objs import (
     BaseChildlessCodeObjImpl,
@@ -221,10 +222,11 @@ def add_to_processed_json_object(key: str, value, output: ProcessedJSONObject):
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = NestedParamCodeObjImpl()
+        codeObjImplLayering = NestedParamCodeObjImplLayering(impl=codeObjImpl.id)
     else:
         codeObjImpl = TextParamCodeObjImpl(value=json.dumps(value))
+        codeObjImplLayering = TextParamCodeObjImplLayering(impl=codeObjImpl.id)
 
-    codeObjImplLayering = CodeObjImplLayering(impl=codeObjImpl.id)
     layeringId = codeObjImplLayering.id
     codeObj = CodeObjCore(
         name=key,
