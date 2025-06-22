@@ -68,6 +68,20 @@ export default function ProjectsList() {
       });
     };
 
+    const updateMachineState = (machineData) => {
+      setProjects((prev) => {
+        const index = prev.findIndex((p) => p.id === machineData.project_id);
+        if (index === -1) return prev;
+
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          machine_state: machineData.new_state,
+        };
+        return updated;
+      });
+    };
+
     const unsubscribers = [
       subscribe(EventType.PROJECT_CREATING, (event) => {
         updateProjectInList(event.data);
@@ -108,6 +122,12 @@ export default function ProjectsList() {
       }),
       subscribe(EventType.PROJECT_STATUS_CHANGED, (event) => {
         updateProjectInList(event.data);
+      }),
+      subscribe(EventType.MACHINE_STATE_CHANGED, (event) => {
+        updateMachineState(event.data);
+        const stateText =
+          event.data.new_state === "stopped" ? "hibernated" : "woke up";
+        showNotification("info", `${event.data.project_name} ${stateText}`);
       }),
       subscribe(EventType.DEPLOYMENT_PROGRESS, (event) => {
         setDeploymentProgress((prev) => ({

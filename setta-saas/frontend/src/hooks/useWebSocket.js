@@ -9,6 +9,7 @@ const EventType = {
   PROJECT_ERROR: "project.error",
   PROJECT_DELETED: "project.deleted",
   PROJECT_STATUS_CHANGED: "project.status_changed",
+  MACHINE_STATE_CHANGED: "machine.state_changed",
   DEPLOYMENT_PROGRESS: "deployment.progress",
   CONNECTION_ESTABLISHED: "connection.established",
   HEARTBEAT: "heartbeat",

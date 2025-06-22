@@ -3,6 +3,8 @@ import {
   ExternalLinkIcon,
   CheckCircledIcon,
   CrossCircledIcon,
+  PauseIcon,
+  PlayIcon,
 } from "@radix-ui/react-icons";
 import { getStatusColor, isValidProjectUrl, formatDate } from "./utils";
 
@@ -23,6 +25,18 @@ export default function ProjectCard({
     return null;
   };
 
+  const getMachineStateIcon = (state) => {
+    if (state === "started") return <PlayIcon className="h-3 w-3" />;
+    if (state === "stopped") return <PauseIcon className="h-3 w-3" />;
+    return null;
+  };
+
+  const getMachineStateColor = (state) => {
+    if (state === "started") return "text-green-600 dark:text-green-400";
+    if (state === "stopped") return "text-yellow-600 dark:text-yellow-400";
+    return "text-gray-600 dark:text-gray-400";
+  };
+
   return (
     <li className="px-6 py-4 hover:bg-setta-50 dark:hover:bg-setta-850 transition-colors">
       <div className="flex items-center justify-between">
@@ -36,9 +50,21 @@ export default function ProjectCard({
               <ExternalLinkIcon className="h-3 w-3" />
             )}
           </p>
-          <p className="text-xs text-setta-400 dark:text-setta-500 mt-1">
-            Created: {formatDate(project.created_at)}
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-xs text-setta-400 dark:text-setta-500">
+              Created: {formatDate(project.created_at)}
+            </p>
+            {project.machine_state && project.status === "running" && (
+              <span
+                className={`text-xs flex items-center gap-1 ${getMachineStateColor(
+                  project.machine_state,
+                )}`}
+              >
+                {getMachineStateIcon(project.machine_state)}
+                {project.machine_state === "stopped" ? "Hibernating" : "Active"}
+              </span>
+            )}
+          </div>
 
           {progress && (
             <div className="mt-2">
