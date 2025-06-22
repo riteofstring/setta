@@ -1,40 +1,22 @@
-import { ZustandProjectState } from "state/definitions";
-import {
-  BaseCodeObjImplUnion,
-  CodeObjCore,
-  isBaseParentCodeObjImpl,
-} from "./generatedTypes";
-
-type ConditionFunctionForFindingCodeObjDescendants = (
-  currObj: CodeObjCore,
-  currImpl: BaseCodeObjImplUnion,
-) => boolean;
-
 function _findAllDescendants(
-  codeObjs: ZustandProjectState["codeObjImpls"],
-  allCodeObjImpls: Record<string, BaseCodeObjImplUnion>,
-  codeInfoIds: Array<string>,
-  outputCondition: ConditionFunctionForFindingCodeObjDescendants,
-  stackCondition: ConditionFunctionForFindingCodeObjDescendants,
-  paramPathCondition?: ConditionFunctionForFindingCodeObjDescendants,
-  earlyReturnCondition?: ConditionFunctionForFindingCodeObjDescendants,
+  allCodeInfo,
+  codeInfoChildren,
+  codeInfoIds,
+  outputCondition,
+  stackCondition,
+  paramPathCondition = null, // null or a function
+  earlyReturnCondition = null, // null or a function
 ) {
-  const output: Array<string> = [];
+  const output = [];
   const idStack = codeInfoIds
-    .filter((x) => stackCondition(codeObjs[x]!, allCodeObjImpls[x]!))
+    .filter((x) => stackCondition(allCodeInfo[x]))
     .reverse();
   const visited = new Set();
-  const pathMap = {};
+  const pathMap = paramPathCondition ? {} : null;
 
   if (paramPathCondition) {
     idStack.forEach(
-      (id) =>
-        (pathMap[id] = paramPathCondition(
-          codeObjs[id]!,
-          allCodeObjImpls[id]!,
-        )
-          ? [id]
-          : []),
+      (id) => (pathMap[id] = paramPathCondition(allCodeInfo[id]) ? [id] : []),
     );
   }
 
@@ -44,25 +26,18 @@ function _findAllDescendants(
       continue;
     }
     visited.add(id);
-    const currObj = codeObjs[id];
-    const currImpl = allCodeObjImpls[id];
+    const currInfo = allCodeInfo[id];
 
-    if (outputCondition(currObj!, currImpl!)) {
-      output.push(currObj!.id);
+    if (outputCondition(currInfo)) {
+      output.push(currInfo.id);
     }
 
-    if (
-      stackCondition(currObj!, currImpl!) &&
-      isBaseParentCodeObjImpl(currImpl!)
-    ) {
-      const children = currImpl.children.slice().reverse();
+    if (stackCondition(currInfo)) {
+      const children = codeInfoChildren[currInfo.id].slice().reverse();
       if (paramPathCondition) {
         const currentPath = pathMap[id];
         children.forEach((childId) => {
-          pathMap[childId] = paramPathCondition(
-            codeObjs[childId]!,
-            allCodeObjImpls[childId]!,
-          )
+          pathMap[childId] = paramPathCondition(allCodeInfo[childId])
             ? [...currentPath, childId]
             : [...currentPath];
         });
@@ -70,9 +45,10 @@ function _findAllDescendants(
       idStack.push(...children);
     }
 
-    if (output.length > 0) {
-      const lastId = output[output.length - 1];
-      earlyReturnCondition?.(codeObjs[lastId!]!, allCodeObjImpls[lastId!]!);
+    if (
+      output.length > 0 &&
+      earlyReturnCondition?.(allCodeInfo[output[output.length - 1]])
+    ) {
       return { ids: output, pathMap, earlyReturnTriggered: true };
     }
   }
@@ -81,28 +57,23 @@ function _findAllDescendants(
 }
 
 export function findAllParameters({
-  allCodeObjs,
-  allCodeObjImpls,
+  allCodeInfo,
+  codeInfoChildren,
   startingId,
-  additionalOutputCondition,
-  paramPathCondition,
-  earlyReturnCondition,
-}: {
-  allCodeObjs: Record<string, CodeObjCore>;
-  allCodeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  startingId: string | null;
-  additionalOutputCondition?: ConditionFunctionForFindingCodeObjDescendants;
-  paramPathCondition?: ConditionFunctionForFindingCodeObjDescendants;
-  earlyReturnCondition?: ConditionFunctionForFindingCodeObjDescendants;
+  additionalOutputCondition = null,
+  paramPathCondition = null,
+  earlyReturnCondition = null,
 }) {
-  const codeInfoIds = startingId ? [startingId] : allCodeObjImpls[startingId];
+  const codeInfoIds = startingId ? [startingId] : codeInfoChildren[startingId];
   // if startingId is null, then we're starting at the root
   // so we don't want to avoid the parameters of callables
-  const stackCondition = () => true;
+  const stackCondition = startingId
+    ? () => true
+    : (c) => c?.rcType === CodeInfoTypeEnum.PARAMETER;
 
   return _findAllDescendants(
-    allCodeObjs,
-    allCodeObjImpls,
+    allCodeInfo,
+    codeInfoChildren,
     codeInfoIds ?? [],
     (c) =>
       c?.rcType === CodeInfoTypeEnum.PARAMETER &&
@@ -128,9 +99,4 @@ export function findAllParametersAndPathMaps(props) {
     ...props,
     paramPathCondition: (p) => p.rcType === CodeInfoTypeEnum.PARAMETER,
   });
-}
-
-
-export function findAllDescendantsOfCallable(){
-  
 }
