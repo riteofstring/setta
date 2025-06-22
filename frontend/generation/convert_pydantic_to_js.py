@@ -19,6 +19,7 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    is_typeddict,
 )
 
 import setta.routers
@@ -87,28 +88,6 @@ def get_all_type_aliases(module):
     ]
 
 
-def set_to_ts(name: str, set_obj: set, processed_types: set):
-    if name in processed_types:
-        return ""
-
-    processed_types.add(name)
-
-    # Convert set elements to TypeScript array literals
-    elements = []
-    for elem in sorted(set_obj):  # Sort for consistent output
-        if isinstance(elem, str):
-            elements.append(f'"{elem}"')
-        elif isinstance(elem, (int, float)):
-            elements.append(str(elem))
-        elif isinstance(elem, bool):
-            elements.append(str(elem).lower())
-        else:
-            elements.append(str(elem))
-
-    elements_str = ", ".join(elements)
-    return f"export const {name} = new Set([{elements_str}]);\n\n"
-
-
 def get_all_enums(module):
     return inspect.getmembers(
         module,
@@ -116,6 +95,10 @@ def get_all_enums(module):
         and issubclass(obj, enum.Enum)
         and obj is not enum.Enum,
     )
+
+
+def get_all_typeddicts(module):
+    return inspect.getmembers(module, is_typeddict)
 
 
 def get_all_pydantic_models(module):
@@ -160,7 +143,31 @@ def generate_dependencies_zod(type_definitions: dict, processed_types: set):
                 dependency_ts += pydantic_model_to_zod(dep_obj, processed_types)
             elif dep_type == "dataclass":
                 dependency_ts += dataclass_to_zod(dep_obj, processed_types)
+            elif dep_type == "typeddict":
+                dependency_ts += typeddict_to_zod(dep_obj, processed_types)
     return dependency_ts
+
+
+def set_to_ts(name: str, set_obj: set, processed_types: set):
+    if name in processed_types:
+        return ""
+
+    processed_types.add(name)
+
+    # Convert set elements to TypeScript array literals
+    elements = []
+    for elem in sorted(set_obj):  # Sort for consistent output
+        if isinstance(elem, str):
+            elements.append(f'"{elem}"')
+        elif isinstance(elem, (int, float)):
+            elements.append(str(elem))
+        elif isinstance(elem, bool):
+            elements.append(str(elem).lower())
+        else:
+            elements.append(str(elem))
+
+    elements_str = ", ".join(elements)
+    return f"export const {name} = new Set([{elements_str}]);\n\n"
 
 
 def alias_to_zod(name: str, alias_type, processed_types: set):
@@ -339,6 +346,12 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
             type_definitions[dc_name] = ("dataclass", python_type)
         return f"{dc_name}Schema", type_definitions
 
+    if is_typeddict(python_type):
+        td_name = python_type.__name__
+        if td_name not in processed_types:
+            type_definitions[td_name] = ("typeddict", python_type)
+        return f"{td_name}Schema", type_definitions
+
     # Basic type mappings
     type_map = {
         str: "z.string()",
@@ -364,6 +377,58 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         return f"{python_type.__name__}Schema", type_definitions
     # Fallback
     return "z.any()", type_definitions
+
+
+def typeddict_to_zod(typed_dict: type, processed_types: set):
+    name = typed_dict.__name__
+
+    if name in processed_types:
+        return ""
+
+    type_definitions = {}
+    processed_types.add(name)
+
+    # Get annotations
+    annotations = typed_dict.__annotations__
+
+    # Get optional keys
+    optional_keys = getattr(typed_dict, "__optional_keys__", set())
+
+    # If neither __required_keys__ nor __optional_keys__ exist, check __total__
+    if not hasattr(typed_dict, "__required_keys__") and not hasattr(
+        typed_dict, "__optional_keys__"
+    ):
+        # If __total__ is False, all keys are optional
+        if hasattr(typed_dict, "__total__") and not typed_dict.__total__:
+            optional_keys = set(annotations.keys())
+
+    # Build the object schema
+    fields_list = []
+    for field_name, field_type in annotations.items():
+        zod_schema, dependent_type_defs = python_type_to_zod(
+            field_type, processed_types
+        )
+        type_definitions.update(dependent_type_defs)
+
+        # Make field optional if it's in optional_keys
+        if field_name in optional_keys:
+            zod_schema = f"{zod_schema}.optional()"
+
+        fields_list.append(f"  {field_name}: {zod_schema}")
+
+    fields_str = ",\n".join(fields_list)
+
+    dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
+
+    # Generate schema and inferred type
+    return (
+        dependency_zod
+        + f"""export const {name}Schema = z.object({{
+{fields_str}
+}});\n\n"""
+        + create_ts_type_line(name)
+        + create_creation_fn_line(name)
+    )
 
 
 def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
@@ -530,6 +595,7 @@ def main(output_file):
     all_sets = {}
     all_aliases = {}
     all_enums = {}
+    all_typeddicts = {}
     all_pydantic_models = {}
     all_dataclasses = {}
     modules = get_modules_from_package(setta.types)
@@ -541,6 +607,8 @@ def main(output_file):
         all_enums.update({k: v for k, v in enums})
         aliases = get_all_type_aliases(module)
         all_aliases.update({k: v for k, v in aliases})
+        typeddicts = get_all_typeddicts(module)
+        all_typeddicts.update({k: v for k, v in typeddicts})
         pydantic_models = get_all_pydantic_models(module)
         all_pydantic_models.update({k: v for k, v in pydantic_models})
         dataclasses_list = get_all_dataclasses(module)
@@ -566,6 +634,9 @@ export type ObjectValues<T> = T[keyof T]
 
     for x_name, x in all_aliases.items():
         ts_code += alias_to_zod(x_name, x, processed_types)
+
+    for x in all_typeddicts.values():
+        ts_code += typeddict_to_zod(x, processed_types)
 
     for x in all_pydantic_models.values():
         ts_code += pydantic_model_to_zod(x, processed_types)
