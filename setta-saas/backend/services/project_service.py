@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from database import Project, SessionLocal
 from models.project import ProjectCreate, ProjectResponse
 from models.websocket import (
-    DeploymentStep,
     EventType,
     MachineStateData,
     ProgressData,
@@ -105,11 +104,8 @@ class ProjectService:
                 project, EventType.PROJECT_DEPLOYING, "Deploying to Fly.io..."
             )
 
-            # Send initial progress
-            await self._broadcast_progress(project, DeploymentStep.CREATING_APP.value, 20)
-
-            # Actually deploy (this is synchronous so run in thread)
-            deployment = await asyncio.to_thread(self.fly.create_and_deploy_app, app_name)
+            # Deploy with progress updates
+            deployment = await self.fly.create_and_deploy_app_with_progress(app_name, project_id)
 
             # Update project with deployment info INCLUDING machine data
             project.url = deployment["url"]
@@ -118,9 +114,6 @@ class ProjectService:
             project.machine_id = deployment["machine_id"]  # Store machine ID
             project.machine_state = deployment["machine_state"]  # Store initial state
             db.commit()
-
-            # Send completion progress
-            await self._broadcast_progress(project, DeploymentStep.COMPLETE.value, 100)
 
             # Broadcast success with full project data including machine info
             await self._broadcast_project_ready(project)
@@ -341,7 +334,7 @@ class ProjectService:
         event = WebSocketEvent(type=EventType.MACHINE_STATE_CHANGED, data=state_data.dict())
         await self.ws_manager.broadcast(event)
 
-    async def _broadcast_progress(self, project: Project, message: str, percent: int):
+    async def _broadcast_progress(self, project_id: str, message: str, percent: int):
         """Broadcast deployment progress."""
         progress_data = ProgressData(
             current_step=percent // 20,
@@ -353,7 +346,7 @@ class ProjectService:
         event = WebSocketEvent(
             type=EventType.DEPLOYMENT_PROGRESS,
             data={
-                "project_id": project.id,
+                "project_id": project_id,
                 "progress": progress_data.dict(),
             },
         )

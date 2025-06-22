@@ -61,27 +61,28 @@ class FlyService:
         """Create app with progress updates (async wrapper for project service)."""
         try:
             # Send initial progress
-            await self._broadcast_deployment_progress(project_id, "Starting deployment...", 10)
+            await self._broadcast_deployment_progress(project_id, "Connecting to Fly.io...", 5)
+            await asyncio.sleep(0.2)
 
-            # Create the app
+            # Create the app (usually quick - 2-5 seconds)
             print(f"Creating app '{app_name}'...")
             await self._broadcast_deployment_progress(
-                project_id, "Creating Fly.io application...", 20
+                project_id, "Creating Fly.io application...", 10
             )
 
             app = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
             print(f"✓ App created: {app['hostname']}")
 
-            # Allocate IP addresses
-            await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 40)
+            # Allocate IP addresses (usually quick - 1-2 seconds)
+            await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 20)
 
             print("Allocating IP addresses...")
             ipv4, ipv6 = await asyncio.to_thread(allocate_ips, self.client, app_name)
             print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
-            # Deploy machine
+            # Deploy machine (this takes the most time - 10-20 seconds)
             await self._broadcast_deployment_progress(
-                project_id, "Deploying container to Fly.io...", 60
+                project_id, "Building and deploying container...", 30
             )
 
             print("Deploying machine with hibernation enabled...")
@@ -94,9 +95,9 @@ class FlyService:
             print(f"✓ Machine created: {machine_id}")
             print("✓ Hibernation enabled (5 minute idle timeout)")
 
-            # Wait for app to be ready
+            # Wait for app to be ready (also takes time - 10-30 seconds)
             await self._broadcast_deployment_progress(
-                project_id, "Waiting for container to start...", 80
+                project_id, "Starting container and waiting for health checks...", 70
             )
 
             print("Waiting for DNS propagation...")
@@ -104,16 +105,13 @@ class FlyService:
 
             if is_ready:
                 print("✓ App is ready!")
-                await self._broadcast_deployment_progress(
-                    project_id, "Finalizing deployment...", 95
-                )
-                # Small delay so user sees the progress
+                await self._broadcast_deployment_progress(project_id, "Verifying deployment...", 90)
                 await asyncio.sleep(0.5)
                 await self._broadcast_deployment_progress(project_id, "Deployment complete!", 100)
             else:
                 print("⚠ App deployment may still be in progress")
                 await self._broadcast_deployment_progress(
-                    project_id, "Deployment in progress...", 90
+                    project_id, "Deployment nearly complete...", 85
                 )
 
             # Return deployment info
