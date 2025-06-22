@@ -131,13 +131,6 @@ export function getSectionDescendants(
   return ids;
 }
 
-export function toggleSectionOrientation(sectionId) {
-  useProjectState.setState((state) => {
-    state.sections[sectionId].isHorizontalOrientation =
-      !state.sections[sectionId].isHorizontalOrientation;
-  });
-}
-
 export function manualDndChildrenReset() {
   useDndChildren.getState().update(getDisplayedSectionIdToChildren());
 }

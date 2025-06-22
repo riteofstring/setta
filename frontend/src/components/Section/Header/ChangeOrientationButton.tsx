@@ -3,16 +3,27 @@ import {
   TbArrowBigDownLinesFilled,
   TbArrowBigRightLinesFilled,
 } from "react-icons/tb";
-import { toggleSectionOrientation } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionImplLayering,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function ChangeOrientationButton({ sectionId }) {
-  const isHorizontalOrientation = useProjectState(
-    (x) => x.sections[sectionId].isHorizontalOrientation,
-  );
+  const isHorizontalOrientation = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
+  });
 
   function onClick() {
-    toggleSectionOrientation(sectionId);
+    useProjectState.setState((state) => {
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.Group) {
+        throw new Error();
+      }
+      implLayering.modifier.isHorizontalOrientation = !isHorizontalOrientation;
+    });
   }
 
   return (
