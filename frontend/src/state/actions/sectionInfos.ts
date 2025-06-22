@@ -1,5 +1,4 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
-import _ from "lodash";
 import {
   useNodeInternals,
   useProjectState,
@@ -14,7 +13,6 @@ import {
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
@@ -331,23 +329,6 @@ export function resetAllSectionsToDefaultVersions() {
   resetSectionsToDefaultVersions(
     Object.keys(useProjectState.getState().sections),
   );
-}
-
-export function duplicateCodeInfoCol(id, state) {
-  const newId = createNewId();
-  const s = state.codeInfoCols;
-  s[newId] = _.cloneDeep(s[id]);
-  return newId;
-}
-
-export function duplicateSectionVariant(id, newName, newCodeInfoColId, state) {
-  const newId = createNewId();
-  const s = state.variants;
-  s[newId] = _.cloneDeep(s[id]);
-  s[newId].name = newName;
-  s[newId].codeInfoColId = newCodeInfoColId;
-  s[newId].isFrozen = false;
-  return newId;
 }
 
 export function getCodeChildrenAndParentCodeInfoId(
