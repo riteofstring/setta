@@ -4,6 +4,7 @@ import {
   CrossCircledIcon,
   PauseIcon,
   PlayIcon,
+  DotFilledIcon,
 } from "@radix-ui/react-icons";
 import { getStatusColor, isValidProjectUrl, formatDate } from "./utils";
 
@@ -23,6 +24,31 @@ export default function ProjectCard({
   const getStatusIcon = (status) => {
     if (status === "running") return <CheckCircledIcon className="h-4 w-4" />;
     if (status === "error") return <CrossCircledIcon className="h-4 w-4" />;
+    return null;
+  };
+
+  const getStatusIndicator = () => {
+    // Show a subtle dot indicator for running projects
+    if (project.status === "running" && project.machine_state === "started") {
+      return (
+        <DotFilledIcon className="h-4 w-4 text-green-500 dark:text-green-400" />
+      );
+    }
+    if (project.status === "running" && project.machine_state === "stopped") {
+      return (
+        <DotFilledIcon className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+      );
+    }
+    if (project.status === "error") {
+      return (
+        <DotFilledIcon className="h-4 w-4 text-red-500 dark:text-red-400" />
+      );
+    }
+    if (project.status === "deploying" || project.status === "creating") {
+      return (
+        <DotFilledIcon className="h-4 w-4 text-yellow-500 dark:text-yellow-400 animate-pulse" />
+      );
+    }
     return null;
   };
 
@@ -80,10 +106,14 @@ export default function ProjectCard({
       />
 
       <div className="flex-1 cursor-pointer" onClick={handleClick}>
-        <p className="font-medium text-setta-800 dark:text-setta-100">
-          {project.name}
-        </p>
-        <p className="text-xs text-setta-500 dark:text-setta-400 hover:text-setta-600 dark:hover:text-setta-300 flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {getStatusIndicator()}
+          <p className="font-medium text-setta-800 dark:text-setta-100">
+            {project.name}
+          </p>
+        </div>
+
+        <p className="text-xs text-setta-500 dark:text-setta-400 hover:text-setta-600 dark:hover:text-setta-300 flex items-center gap-1 mt-1">
           {project.url}
           {isValidProjectUrl(project.url) && (
             <ExternalLinkIcon className="h-3 w-3" />
