@@ -2,16 +2,20 @@ import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMi
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getEffectiveCodeObjImpl,
   getEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
-import { setCallable } from "state/actions/sections/setSelectedItem";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
-import { route_clear_text_field_completion } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_clear_text_field_completion,
+  route_set_callable,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -198,4 +202,23 @@ function LoadingSpinner({ sectionId }) {
       <i className="single-cell-child gg-spinner mr-2 self-center justify-self-end text-blue-500/70" />
     )
   );
+}
+
+export async function setCallable(
+  sectionId: string,
+  callableName: string,
+  refetchParams = false,
+) {
+  const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const res = await route_set_callable({
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams,
+  });
+  if (res200(res)) {
+    // state update occurs by websocket
+    setToNotWaiting();
+  }
 }
