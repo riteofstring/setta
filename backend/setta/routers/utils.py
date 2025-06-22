@@ -20,7 +20,7 @@ def get_content_processor(
 ) -> FileWatcherUpdateHandler:
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
-            return content_processor_api_keys
+            return content_processor_json_source
         case FileWatchGroupName.genPythonCode:
             return content_processor_gen_python_code
         case FileWatchGroupName.apiKeys:
