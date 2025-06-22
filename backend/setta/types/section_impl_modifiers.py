@@ -1,6 +1,5 @@
-from typing import Annotated, Any, Literal, TypedDict, Union
+from typing import Any, Literal, TypedDict
 
-from pydantic import ConfigDict, Field, TypeAdapter
 from setta.types.sections import (
     ChartSettings,
     CodeLanguage,
@@ -146,23 +145,3 @@ class ChatSectionImplModifier(BaseSectionImplModifier, total=False):
 class BrowserSectionImplModifier(BaseSectionImplModifier, total=False):
     type: Literal["Browser"]
     hideColumn: bool
-
-
-ModifierUnion = Union[
-    CallableSectionImplModifier, DictSectionImplModifier, BrowserSectionImplModifier
-]
-ModifierUnionWithDiscriminator = Annotated[ModifierUnion, Field(discriminator="type")]
-ModifierUnionTypeAdapter = TypeAdapter(
-    ModifierUnionWithDiscriminator, config=ConfigDict(extra="forbid")
-)
-
-
-
-
-
-# TODO:
-# stick with the TypedDict
-# use a single ImplLayering class
-# create union types for the modifiers
-# use a TypeAdapter on the backend to parse raw json into modifier types
-# use generated type predicate functions on the backend to distinguish between modifier types because typeddict can't be used in isinstance calls
