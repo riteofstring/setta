@@ -3991,12 +3991,6 @@ export function createWebsocketMsgForFrontendUnionWithDiscriminator(
   return WebsocketMsgForFrontendUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const FileWatcherUpdateHandlerSchema = CallableSchema;
-
-export type FileWatcherUpdateHandler = z.infer<
-  typeof FileWatcherUpdateHandlerSchema
->;
-
 export const FileWatcherUpdateJSONSourceSchema = z.object({
   fileWatchGroupName: z
     .literal("jsonSource")

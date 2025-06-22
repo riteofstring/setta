@@ -3,9 +3,9 @@ from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from setta.database.db.chats.load import load_uuid_mapping_for_llm
+from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.routers.utils import get_llm_api_keys_from_env_vars
 from setta.types.ai import APIKeys, IDToUUIDForLLM
 from setta.types.chat_messages import ChatMessage, ChatMetadata, ToolResult
 from setta.types.notifications import SettaNotification, SettaNotificationType

@@ -2,10 +2,12 @@ import { useAIStore, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_load_section_json_source } from "utils/generatedEndpoints";
 import {
+  FileWatcherUpdateGenPythonCode,
   FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
-import { getSectionVariant, updateProjectState } from "./sectionInfos";
+import { getSectionImplLayering, updateProjectState } from "./sectionInfos";
 
 export async function updateWithFileChanges(
   updatedFileInfo: FileWatcherUpdateUnion,
@@ -87,12 +89,15 @@ async function updateApiKeyInfo(updatedFileInfo) {
   });
 }
 
-function updateGenPythonCode(updatedFileInfo) {
+function updateGenPythonCode(updatedFileInfo: FileWatcherUpdateGenPythonCode) {
   const { fileContent } = updatedFileInfo;
   useProjectState.setState((state) => {
-    const id = state.singletonSections[UITypeNameEnum.GEN_PYTHON_CODE];
-    if (id) {
-      getSectionVariant(id, state).code = fileContent;
+    const sectionId = state.singletonSections[SectionTypeEnum.GenPythonCode];
+    if (sectionId) {
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type === SectionTypeEnum.GenPythonCode) {
+        implLayering.modifier.code = fileContent;
+      }
     }
   });
 }

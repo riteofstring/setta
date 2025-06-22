@@ -1,18 +1,20 @@
 from io import StringIO
 from pathlib import Path
-from typing import assert_never
+from typing import Callable, assert_never
 
 from dotenv import dotenv_values
 
 from setta.types.specific_file_watcher import (
     FileWatcherCoreUpdate,
+    FileWatcherUpdate,
     FileWatcherUpdateAPIKeys,
     FileWatcherUpdateGenPythonCode,
-    FileWatcherUpdateHandler,
     FileWatcherUpdateJSONSource,
     FileWatchGroupName,
 )
 from setta.utils.constants import C
+
+FileWatcherUpdateHandler = Callable[[FileWatcherCoreUpdate, Path], FileWatcherUpdate]
 
 
 def get_content_processor(

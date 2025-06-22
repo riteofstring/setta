@@ -2,8 +2,8 @@ import asyncio
 
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import create_specific_file_watcher
 from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
-from setta.lsp.specific_file_watcher import create_specific_file_watcher
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP

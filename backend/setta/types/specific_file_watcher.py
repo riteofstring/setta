@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Callable, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -32,9 +32,6 @@ class FileWatcherUpdate(BaseModel):
     fileWatchGroupName: Any
     coreUpdate: FileWatcherCoreUpdate
     fileContent: Any
-
-
-FileWatcherUpdateHandler = Callable[[FileWatcherCoreUpdate, Path], FileWatcherUpdate]
 
 
 class FileWatcherUpdateJSONSource(FileWatcherUpdate):

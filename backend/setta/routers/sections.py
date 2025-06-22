@@ -16,9 +16,9 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
+from setta.file_watchers.utils import get_content_processor
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.routers.utils import get_content_processor
 from setta.types.routes import Route
 from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.generate_new_filename import generate_new_filename

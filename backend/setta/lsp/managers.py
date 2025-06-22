@@ -4,7 +4,7 @@ from setta.types.notifications import SettaNotification
 from setta.utils.constants import CWD
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
-from .file_watcher import LSPFileWatcher
+from ..file_watchers.lsp import LSPFileWatcher
 from .reader import LanguageServerReader
 from .server import LanguageServer
 from .writer import LanguageServerWriter

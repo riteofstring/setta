@@ -8,11 +8,11 @@ from typing import Awaitable, Callable
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
+from setta.file_watchers.utils import FileWatcherUpdateHandler
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
     FileWatcherUpdate,
-    FileWatcherUpdateHandler,
     FileWatchGroupName,
 )
 from setta.utils.constants import CWD
