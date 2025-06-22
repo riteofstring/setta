@@ -33,14 +33,20 @@ function _SectionItem({
   checkbox: boolean;
   depth: number;
 }) {
-  const onClick = (e) => {
+  const handleSelection = () => {
     goToSection(sectionId);
-    focusOnSection(e, sectionId);
   };
 
-  const onKeyDown = (e) => {
+  const onClick = (e: React.MouseEvent) => {
+    handleSelection();
+    // focusOnSection(e, sectionId);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.code === "Space") {
-      onClick(e);
+      e.preventDefault();
+      handleSelection();
+      // focusOnSection(e, sectionId);
     }
   };
 

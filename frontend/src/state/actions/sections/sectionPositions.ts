@@ -12,7 +12,10 @@ import { useNodeInternals, useSettings } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getNewNodes } from "../nodeInternals";
 
-export function setZIndices(sectionIds, incrementVersion) {
+export function setZIndices(
+  sectionIds: Array<string>,
+  incrementVersion: boolean = false,
+) {
   const nodeInternals = useNodeInternals.getState().x;
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
     (x) => !sectionIds.includes(x),
@@ -40,14 +43,18 @@ export function setZIndices(sectionIds, incrementVersion) {
   maybeIncrementProjectStateVersion(incrementVersion);
 }
 
-export function goToSection(sectionId) {
+export function goToSection(sectionId: string) {
   const rfStore = useReactFlow.getState();
+  const rect = getSectionRect(sectionId);
+  if (!rect) {
+    return;
+  }
   const {
     x: sectionX,
     y: sectionY,
     width: sectionWidth,
     height: sectionHeight,
-  } = getSectionRect(sectionId);
+  } = rect;
   const { x, y, zoom } = getViewportForBounds(
     { x: sectionX, y: sectionY, width: sectionWidth, height: sectionHeight },
     rfStore.width,

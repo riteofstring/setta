@@ -5,7 +5,7 @@ import { getEffectiveSectionImpl, getHighestAncestor } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
-export function setActiveSectionIds(ids) {
+export function setActiveSectionIds(ids: Array<string>) {
   useProjectState.setState({ activeIds: ids });
 }
 
