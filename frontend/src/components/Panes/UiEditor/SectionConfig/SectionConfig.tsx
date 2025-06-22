@@ -1,6 +1,7 @@
 import React from "react";
-import { getSectionType } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
@@ -10,7 +11,7 @@ import { ImageAreaSettings } from "./ImageAreaSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
-function _SectionConfig({ sectionId }) {
+function _SectionConfig({ sectionId }: { sectionId: string }) {
   return (
     <div className="flex min-h-0 flex-col gap-1 overflow-y-clip">
       <SpecializedConfiguration sectionId={sectionId} />
@@ -20,29 +21,30 @@ function _SectionConfig({ sectionId }) {
 
 export const SectionConfig = React.memo(_SectionConfig);
 
-function SpecializedConfiguration({ sectionId }) {
+function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
   const sectionType = useProjectState((x) => {
-    return getSectionType(sectionId, x);
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    return impl.type;
   });
   switch (sectionType) {
-    // case UITypeNameEnum.SECTION:
-    // case UITypeNameEnum.GLOBAL_VARIABLES:
+    // case SectionTypeEnum.SECTION:
+    // case SectionTypeEnum.GLOBAL_VARIABLES:
     //   return <InputAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.TEXT_BLOCK:
+    case SectionTypeEnum.TextBlock:
       return <TextBlockSettings sectionId={sectionId} />;
-    case UITypeNameEnum.DRAW:
+    case SectionTypeEnum.Draw:
       return <DrawAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.IMAGE:
+    case SectionTypeEnum.Image:
       return <ImageAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.CHART:
+    case SectionTypeEnum.Chart:
       return <ChartAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.SOCIAL:
+    case SectionTypeEnum.Social:
       return <SocialAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.IFRAME:
+    case SectionTypeEnum.IFrame:
       return <IframeSettings sectionId={sectionId} />;
-    case UITypeNameEnum.CHAT:
+    case SectionTypeEnum.Chat:
       return <ChatAreaSettings sectionId={sectionId} />;
-    case UITypeNameEnum.GEN_PYTHON_CODE:
+    case SectionTypeEnum.GenPythonCode:
       return <GenPythonCodeSettings />;
   }
 }
