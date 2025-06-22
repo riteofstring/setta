@@ -1,26 +1,30 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { addNodes } from "state/actions/nodeInternals";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
   useProjectState,
   useSectionRefs,
+  ZustandProjectState,
 } from "state/definitions";
 import {
   BaseSectionImplUnion,
   createBaseSectionImplUnionWithDiscriminator,
   createImplLayering,
   createSectionCore,
+  createSectionSize,
   createTopLevelSectionLayout,
+  isBaseParentSectionImpl,
+  isBaseParentSectionImplModifier,
   Position,
+  SectionSizeModeEnum,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
-import { addChatHistoryArtifact, addDrawAreaLayer } from "../artifacts";
 import {
-  getCurrentSectionConfigs,
-  setSectionVariantChildren,
+  getEffectiveSectionImpl,
+  getSectionImplLayering,
 } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
@@ -105,92 +109,63 @@ export function addSectionAtPosition({
   return newId;
 }
 
-export function addChildrenToSeries(isRoot, calledBy, numChildren) {
-  let newIds;
+export function addChildrenToSeries(
+  isRoot: boolean,
+  calledBy: string,
+  numChildren: number,
+) {
   useProjectState.setState((state) => {
-    let parentId, startIdx;
+    let parentId: string, parentImpl: BaseSectionImplUnion, startIdx: number;
     if (isRoot) {
       parentId = calledBy;
+      parentImpl = getEffectiveSectionImpl(state, parentId);
+      if (!isBaseParentSectionImpl(parentImpl)) {
+        throw new Error();
+      }
       startIdx = 0;
     } else {
-      parentId = state.sections[calledBy].parentId;
-      startIdx =
-        state.variants[state.sections[parentId].variantId].children.indexOf(
-          calledBy,
-        ) + 1;
+      const impl = getEffectiveSectionImpl(state, calledBy);
+      parentId = impl.parentId!;
+      parentImpl = getEffectiveSectionImpl(state, parentId);
+      if (!isBaseParentSectionImpl(parentImpl)) {
+        throw new Error();
+      }
+      startIdx = parentImpl.children.indexOf(calledBy) + 1;
     }
 
-    newIds = createSectionInfo({
-      sectionProps: {
-        parentId,
-        size: { height: "auto", width: state.sections[parentId].size.width },
-      },
-      numSections: numChildren,
-      state,
+    const size = createSectionSize({
+      height: SectionSizeModeEnum.auto,
+      width: parentImpl.size.width,
     });
 
-    setSectionVariantChildren(
-      parentId,
-      (x) => insertIntoArray(x, startIdx, ...newIds),
-      state,
+    const newIds: Array<string> = [];
+    for (let x = 0; x < numChildren; x++) {
+      newIds.push(
+        createSection(
+          { parentId, size, type: SectionTypeEnum.Callable },
+          state,
+        ),
+      );
+    }
+
+    const parentImplLayering = getSectionImplLayering(state, parentId);
+    if (!isBaseParentSectionImplModifier(parentImplLayering.modifier)) {
+      throw new Error();
+    }
+    parentImplLayering.modifier.children = insertIntoArray(
+      parentImpl.children ?? [],
+      startIdx,
+      ...newIds,
     );
   });
 
   maybeIncrementProjectStateVersion(true);
-
-  return newIds;
-}
-
-export function createSectionInfo({
-  sectionProps = {},
-  sectionVariantProps = {},
-  numSections = 1,
-  position,
-  state,
-}) {
-  const newIds: string[] = [];
-  const topLevelSectionIds: string[] = [];
-
-  for (let i = 0; i < numSections; i++) {
-    const s = createSection(sectionProps);
-    const sConfig = createSectionConfig();
-    s.variantIds = [sConfig.variantId];
-    s.defaultVariantId = sConfig.variantId;
-    newIds.push(s.id);
-    state.sections[s.id] = s;
-    getCurrentSectionConfigs(state)[s.id] = sConfig;
-    state.variants[sConfig.variantId] =
-      createSectionVariant(sectionVariantProps);
-    switch (state.uiTypes[s.uiTypeId].type) {
-      case UITypeNameEnum.DRAW:
-        addDrawAreaLayer(s.id, state);
-        break;
-      case UITypeNameEnum.CHAT:
-        addChatHistoryArtifact(s.id, state);
-        break;
-    }
-    if (!s.parentId) {
-      topLevelSectionIds.push(s.id);
-    }
-  }
-
-  if (topLevelSectionIds.length > 0) {
-    addNodes(
-      topLevelSectionIds.map((s) => ({
-        id: s,
-        position,
-        zIndex: 0,
-        tempZIndex: 0,
-      })),
-    );
-  }
-
-  return newIds;
 }
 
 export function createSection(
   sectionProps: Partial<BaseSectionImplUnion>,
-  position: Position,
+  state: ZustandProjectState,
+  position?: Position,
 ) {
   const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
     ...sectionProps,
@@ -203,23 +178,28 @@ export function createSection(
     implLayerings: [sectionImplLayering.id],
     defaultImplLayering: sectionImplLayering.id,
   });
-  const topLevelSectionLayout = createTopLevelSectionLayout(position);
 
-  useProjectState.setState((state) => {
-    state.projectConfig.sectionImplLayeringMap[section.id] =
-      sectionImplLayering.id;
+  state.projectConfig.sectionImplLayeringMap[section.id] =
+    sectionImplLayering.id;
+  state.sections[section.id] = section;
+  state.sectionImpls[sectionImpl.id] = sectionImpl;
+  state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
+
+  if (!sectionProps.parentId) {
+    const topLevelSectionLayout = createTopLevelSectionLayout(position);
     state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
-    state.sections[section.id] = section;
-    state.sectionImpls[sectionImpl.id] = sectionImpl;
-    state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
-  });
-  addNodes([
-    {
-      id: section.id,
-      position,
-      zIndex: 0,
-      tempZIndex: 0,
-      visibility: true,
-    },
-  ]);
+  }
+
+  return section.id;
 }
+
+// if (!sectionProps.parentId)
+//   addNodes([
+//     {
+//       id: section.id,
+//       position,
+//       zIndex: 0,
+//       tempZIndex: 0,
+//       visibility: true,
+//     },
+//   ]);

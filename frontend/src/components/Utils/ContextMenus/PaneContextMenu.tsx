@@ -9,7 +9,7 @@ import {
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useContextMenus } from "state/definitions";
+import { useContextMenus, useProjectState } from "state/definitions";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -18,7 +18,9 @@ export function PaneContextMenu() {
   function onClick(
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
-    createSection(specificProps, screenToFlowPosition({ x, y }));
+    useProjectState((state) => {
+      createSection(specificProps, state, screenToFlowPosition({ x, y }));
+    });
     maybeIncrementProjectStateVersion(true);
     closeAllContextMenus();
   }
