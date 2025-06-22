@@ -4,14 +4,11 @@ import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { loadJsonContents } from "state/actions/fileUpdates";
-import { createNewVersionMaybeWithJSON } from "state/actions/newVersion";
-import {
-  onClickSetVariantId,
-  onMouseEnterSetPreviewVariantId,
-  onMouseLeaveSetPreviewVariantId,
-} from "state/actions/previewOnMouseOver";
+import { createNewVersion } from "state/actions/newVersion";
+import { onClickSetVariantId } from "state/actions/previewOnMouseOver";
 import {
   deleteSectionVariantAndMaybeJsonFile,
+  getEffectiveImpl,
   setDefaultSectionVariant,
   updateProjectState,
 } from "state/actions/sectionInfos";
@@ -26,7 +23,9 @@ export function VersionList({ sectionId }) {
   }
 
   function onClickAddVersionButton() {
-    createNewVersionMaybeWithJSON(sectionId);
+    useProjectState.setState((state) => {
+      createNewVersion(state, sectionId);
+    });
   }
 
   return (
@@ -51,7 +50,7 @@ export function VersionList({ sectionId }) {
       </header>
       <ul
         className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
-        onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+        // onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
       >
         <EVItems sectionId={sectionId} isEditing={isEditing} />
       </ul>
@@ -59,52 +58,82 @@ export function VersionList({ sectionId }) {
   );
 }
 
-function EVItems({ sectionId, isEditing }) {
-  const { currVariantId, variantIds, defaultVariantId } = useProjectState(
-    (x) => ({
-      currVariantId: x.sections[sectionId].variantId,
-      variantIds: x.sections[sectionId].variantIds,
-      defaultVariantId: x.sections[sectionId].defaultVariantId,
-    }),
+function EVItems({
+  sectionId,
+  isEditing,
+}: {
+  sectionId: string;
+  isEditing: boolean;
+}) {
+  const { currVersionId, versionIds, defaultVersionId } = useProjectState(
+    (x) => {
+      const sectionCore = x.sections[sectionId];
+      if (!sectionCore) {
+        throw new Error();
+      }
+      const { implLayerings, defaultImplLayering } = sectionCore;
+      const currImplLayering =
+        x.projectConfig.sectionImplLayeringMap[sectionId];
+      if (!currImplLayering) {
+        throw new Error();
+      }
+      return {
+        currVersionId: currImplLayering,
+        versionIds: implLayerings,
+        defaultVersionId: defaultImplLayering,
+      };
+    },
     _.isEqual,
   );
 
+  console.log("versionIds", versionIds);
+
   if (isEditing) {
-    return variantIds.map((e) => (
+    return versionIds.map((e) => (
       <OneItemEditing
         key={e}
         sectionId={sectionId}
         id={e}
-        isCurr={currVariantId === e}
-        deletable={variantIds.length > 1}
+        isCurr={currVersionId === e}
+        deletable={versionIds.length > 1}
       />
     ));
   }
 
-  return variantIds.map((e) => (
+  return versionIds.map((e) => (
     <OneItem
       key={e}
       sectionId={sectionId}
       id={e}
-      isCurr={currVariantId === e}
-      isDefault={e === defaultVariantId}
+      isCurr={currVersionId === e}
+      isDefault={e === defaultVersionId}
     />
   ));
 }
 
-function OneItem({ sectionId, id, isCurr, isDefault }) {
-  const { name, isFrozen, isJsonSource } = useProjectState(
-    (x) => ({
-      name: x.variants[id].name,
-      isFrozen: x.variants[id].isFrozen,
-      isJsonSource: x.variants[id].isJsonSource,
-    }),
-    _.isEqual,
-  );
+function OneItem({
+  sectionId,
+  id,
+  isCurr,
+  isDefault,
+}: {
+  sectionId: string;
+  id: string;
+  isCurr: boolean;
+  isDefault: boolean;
+}) {
+  const { name, isFrozen, isJsonSource } = useProjectState((x) => {
+    const implLayering = x.sectionImplLayerings[id];
+    if (!implLayering) {
+      throw new Error();
+    }
+    const impl = getEffectiveImpl(implLayering, x.sectionImpls);
+    return { name: impl.name, isFrozen: impl.isFrozen, isJsonSource: false };
+  }, _.isEqual);
 
   return (
     <li
-      onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
+      // onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
       onClick={() => onClickSetVariantId(sectionId, id)}
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >

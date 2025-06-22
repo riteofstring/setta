@@ -19,7 +19,7 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-function getEffectiveImpl<TImpl>(
+export function getEffectiveImpl<TImpl>(
   implLayering: ImplLayering,
   implDict: Record<string, TImpl>,
 ): TImpl {

@@ -19,6 +19,11 @@ export function createNewVersion(p: ZustandProjectState, sectionId: string) {
     name: createRandomName(),
   });
   const newImplLayering = createSectionImplLayering({ impl: newImpl.id });
+  const section = p.sections[sectionId];
+  if (!section) {
+    throw new Error();
+  }
+  section.implLayerings.push(newImplLayering.id);
   p.sectionImpls[newImpl.id] = newImpl;
   p.sectionImplLayerings[newImplLayering.id] = newImplLayering;
   p.projectConfig.sectionImplLayeringMap[sectionId] = newImplLayering.id;
