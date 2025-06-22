@@ -50,29 +50,34 @@ def find_sub_classes(
     return classes
 
 
-def construct_unions(module, base_class, discriminator):
+def get_base_child_mapping(module, base_class, discriminator):
     base_classes = find_sub_classes(module, base_class, discriminator, True, True)
-
     base_class_to_children = {}
+    for base_class in base_classes:
+        child_classes = find_sub_classes(module, base_class, discriminator, False, True)
+        base_class_to_children[base_class] = child_classes
+    return base_class_to_children
+
+
+def construct_unions(
+    module, base_class, discriminator, module_to_import_in_gen_file, class_transformer
+):
+    base_class_to_children = get_base_child_mapping(module, base_class, discriminator)
     code = """
 from typing import Annotated,Union
 from pydantic import Field, TypeAdapter
 
 """
-    for base_class in base_classes:
-        code += f"from {module.__name__} import {base_class.__name__}\n\n"
-        child_classes = find_sub_classes(module, base_class, discriminator, False, True)
-        base_class_to_children[base_class] = child_classes
+    for base_class, child_classes in base_class_to_children.items():
+        code += f"from {module_to_import_in_gen_file.__name__} import {class_transformer(base_class.__name__)}\n\n"
         for child_class in child_classes:
-            code += f"from {module.__name__} import {child_class.__name__}\n\n"
+            code += f"from {module_to_import_in_gen_file.__name__} import {class_transformer(child_class.__name__)}\n\n"
 
     for base_class, child_classes in base_class_to_children.items():
-        union_name = f"{base_class.__name__}Union"
-        code += (
-            f"{union_name} = Union[{', '.join(c.__name__ for c in child_classes)}]\n\n"
-        )
+        union_name = f"{class_transformer(base_class.__name__)}Union"
+        code += f"{union_name} = Union[{', '.join(class_transformer(c.__name__) for c in child_classes)}]\n\n"
         code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
-        code += f"{base_class.__name__}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
+        code += f"{class_transformer(base_class.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
 
         defaults = []
         for c in child_classes:
@@ -81,7 +86,9 @@ from pydantic import Field, TypeAdapter
             assert d.name == d.value
             defaults.append(f'"{d.name}"')
         defaults = ", ".join(defaults)
-        code += f"{base_class.__name__}TypeSet = set([{defaults}])\n\n"
+        code += (
+            f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
+        )
 
     return ruff_format(code)
 
@@ -90,7 +97,11 @@ def section_impl_union():
     import setta.types.sections
 
     return construct_unions(
-        setta.types.sections, setta.types.sections.BaseSectionImpl, "type"
+        setta.types.sections,
+        setta.types.sections.BaseSectionImpl,
+        "type",
+        setta.types.sections,
+        lambda x: x,
     )
 
 
@@ -98,7 +109,37 @@ def code_obj_impl_union():
     import setta.types.code_objs
 
     return construct_unions(
-        setta.types.code_objs, setta.types.code_objs.BaseCodeObjImpl, "type"
+        setta.types.code_objs,
+        setta.types.code_objs.BaseCodeObjImpl,
+        "type",
+        setta.types.code_objs,
+        lambda x: x,
+    )
+
+
+def section_impl_modifier_union():
+    import setta.types.section_impl_modifiers
+    import setta.types.sections
+
+    return construct_unions(
+        setta.types.sections,
+        setta.types.sections.BaseSectionImpl,
+        "type",
+        setta.types.section_impl_modifiers,
+        lambda x: f"{x}Modifier",
+    )
+
+
+def code_obj_impl_modifier_union():
+    import setta.types.code_obj_impl_modifiers
+    import setta.types.code_objs
+
+    return construct_unions(
+        setta.types.code_objs,
+        setta.types.code_objs.BaseCodeObjImpl,
+        "type",
+        setta.types.code_obj_impl_modifiers,
+        lambda x: f"{x}Modifier",
     )
 
 
@@ -168,6 +209,14 @@ def main(output_folder):
     # order matters! (because of imports)
     gen_write(section_impl_union, output_folder / "generated_section_type_unions.py")
     gen_write(code_obj_impl_union, output_folder / "generated_code_obj_type_unions.py")
+    gen_write(
+        section_impl_modifier_union,
+        output_folder / "generated_section_impl_modifier_unions.py",
+    )
+    gen_write(
+        code_obj_impl_modifier_union,
+        output_folder / "generated_code_obj_impl_modifier_unions.py",
+    )
     gen_write(
         websocket_msg_union,
         output_folder / "generated_websocket_type_unions.py",
