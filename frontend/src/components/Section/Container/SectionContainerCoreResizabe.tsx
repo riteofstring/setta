@@ -1,12 +1,13 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import {
-  getEffectiveSectionImpl,
-  getIsUserView,
-} from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  SectionType,
+  SectionTypeEnum,
+  ViewingEditingModeEnum,
+} from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
@@ -44,7 +45,7 @@ export function SectionContainerCoreResizable({
 
   const isRoot = getIsRoot(sectionTypeName);
   const bgColor = getBgColor(sectionTypeName);
-  const isUserView = getIsUserView(viewingEditingMode);
+  const isUserView = viewingEditingMode === ViewingEditingModeEnum.USER;
 
   return (
     <CustomResizable
@@ -75,7 +76,15 @@ export function SectionContainerCoreResizable({
   );
 }
 
-function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
+function AreaSwitch({
+  sectionId,
+  sectionTypeName,
+  bgColor,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  bgColor: string;
+}) {
   switch (sectionTypeName) {
     case SectionTypeEnum.Callable:
       return <CallableArea sectionId={sectionId} bgColor={bgColor} />;
@@ -105,7 +114,11 @@ function AreaSwitch({ sectionId, sectionTypeName, bgColor }) {
       return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
-    default:
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.DictRoot:
+    case SectionTypeEnum.Group:
       return null;
+    default:
+      return sectionTypeName satisfies never;
   }
 }

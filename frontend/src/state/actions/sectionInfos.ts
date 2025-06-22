@@ -448,10 +448,6 @@ export function getAncestorSameVisibility(
   return false;
 }
 
-export function getIsUserView(viewingEditingMode) {
-  return viewingEditingMode === ViewingEditingModeEnum.USER;
-}
-
 export function getCurrentSectionConfigs(
   _state: ZustandProjectState | null = null,
 ) {
