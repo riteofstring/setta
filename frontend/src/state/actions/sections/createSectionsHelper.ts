@@ -18,8 +18,15 @@ export function useCreateSectionsList() {
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", specificProps: { type: SectionTypeEnum.Callable } },
-    { name: "List", specificProps: { type: SectionTypeEnum.ListRoot } },
-    { name: "Dict", specificProps: { type: SectionTypeEnum.DictRoot } },
+    { name: "Dict", specificProps: { type: SectionTypeEnum.Dict } },
+    {
+      name: "List of Objects",
+      specificProps: { type: SectionTypeEnum.ListRoot },
+    },
+    {
+      name: "Dict of Objects",
+      specificProps: { type: SectionTypeEnum.DictRoot },
+    },
     { name: "Group", specificProps: { type: SectionTypeEnum.Group } },
     { name: "Text", specificProps: { type: SectionTypeEnum.TextBlock } },
   ];
