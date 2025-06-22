@@ -5,10 +5,10 @@ import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { loadJsonContents } from "state/actions/fileUpdates";
 import { createNewVersion } from "state/actions/newVersion";
-import { onClickSetVariantId } from "state/actions/previewOnMouseOver";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
+  getSectionImplLayering,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -138,7 +138,11 @@ function OneItem({
   return (
     <li
       // onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
-      onClick={() => onClickSetVariantId(sectionId, id)}
+      onClick={() =>
+        useProjectState.setState((state) => {
+          state.projectConfig.sectionImplLayeringMap[sectionId] = id;
+        })
+      }
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >
       <p
@@ -216,20 +220,38 @@ function OneItem({
   );
 }
 
-function OneItemEditing({ sectionId, id, isCurr, deletable }) {
-  const name = useProjectState((x) => x.variants[id].name, _.isEqual);
+function OneItemEditing({
+  sectionId,
+  id,
+  isCurr,
+  deletable,
+}: {
+  sectionId: string;
+  id: string;
+  isCurr: boolean;
+  deletable: boolean;
+}) {
+  const name = useProjectState((x) => {
+    const implLayering = getSectionImplLayering(x, sectionId);
+    return implLayering.name;
+  }, _.isEqual);
 
-  function onSetName(v) {
+  function onSetName(v: string) {
     useProjectState.setState((x) => {
-      x.variants[id].name = v;
+      const implLayering = getSectionImplLayering(x, sectionId);
+      implLayering.name = v;
     });
-    maybeLoadJsonContents(id);
+    // maybeLoadJsonContents(id);
   }
 
-  function conditionToSetName(v) {
+  function conditionToSetName(v: string) {
     const state = useProjectState.getState();
-    for (const variantId of state.sections[sectionId].variantIds) {
-      if (state.variants[variantId].name === v) {
+    const section = state.sections[sectionId];
+    if (!section) {
+      throw new Error();
+    }
+    for (const layeringId of section.implLayerings) {
+      if (state.sectionImplLayerings[layeringId]?.name === v) {
         return false;
       }
     }

@@ -21,14 +21,3 @@ export function onMouseLeaveSetPreviewVariantId(sectionId) {
   // or we haven't switched variants, and we don't want to overwrite
   // the current "in-progress" yaml with information that's outdated.
 }
-
-export function onClickSetVariantId(sectionId, id) {
-  let selectedVariantId;
-  useProjectState.setState((state) => {
-    selectedVariantId = state.sections[sectionId].variantId;
-    state.sections[sectionId].variantId = id;
-  });
-  if (selectedVariantId !== id) {
-    maybeRunGuiToYaml(sectionId, id);
-  }
-}
