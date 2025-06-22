@@ -8,7 +8,7 @@ from setta.types.code_objs import (
     CodeObjImplLayering,
     NestedParamCodeObjImpl,
 )
-from setta.types.helpers import get_code_obj_impl
+from setta.types.helpers import get_effective_code_obj_impl
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -124,7 +124,7 @@ def recursively_add_keys(
     ancestor_paths: dict[str, list[str]],
     output_dict: dict,
 ):
-    codeObjImpl = get_code_obj_impl(p, paramId, section_impl=section_impl)
+    codeObjImpl = get_effective_code_obj_impl(p, paramId, section_impl=section_impl)
     if isinstance(codeObjImpl, BaseChildlessCodeObjImpl):
         value = try_json(codeObjImpl.value)
     elif isinstance(codeObjImpl, BaseParentCodeObjImpl):

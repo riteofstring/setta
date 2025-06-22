@@ -20,7 +20,7 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     convert_backend_to_single_config,
     create_sections,
-    get_section_impl,
+    get_effective_section_impl,
     get_top_level_sections,
     merge_single_config_into_backend,
     set_param_entered_value,
@@ -227,7 +227,7 @@ class ProjectManager:
         self.code_dict[projectConfigId] = {}
 
         for sectionId in projectState.sections.keys():
-            section_impl = get_section_impl(projectState, sectionId)
+            section_impl = get_effective_section_impl(projectState, sectionId)
             if isinstance(section_impl, CodeSectionImpl):
                 section_code = self.create_code_obj(
                     project_temp_folder, projectState, sectionId

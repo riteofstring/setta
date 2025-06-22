@@ -8,14 +8,12 @@ from setta.types.code_objs import (
     CodeObjImplLayering,
 )
 from setta.types.impl_helpers import (
-    get_effective_code_obj_impl,
-    get_effective_section_impl,
+    get_effective_impl,
     update_impl_layerings,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
-    TopLevelSectionLayout,
 )
 from setta.types.sections import (
     BaseParentSectionImpl,
@@ -67,7 +65,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             section_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.sectionImplLayerings[impl_layering_id]
             section_impl_ids.add(impl_layering.impl)
-            effective_impl = get_effective_section_impl(p, impl_layering)
+            effective_impl = get_effective_impl(impl_layering, p.sectionImpls)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
@@ -88,13 +86,15 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
         code_obj_ids.add(obj_id)
         obj = p.codeObjs[obj_id]
 
-        for impl_id in obj.implLayerings:
-            if impl_id in section_impl_ids:
+        for impl_layering_id in obj.implLayerings:
+            if impl_layering_id in code_obj_impl_layering_ids:
                 continue
-            code_obj_impl_ids.add(impl_id)
-            impl = p.codeObjImpls[impl_id]
-            if isinstance(impl, BaseParentCodeObjImpl):
-                code_objs_to_process.update(impl.children)
+            code_obj_impl_layering_ids.add(impl_layering_id)
+            impl_layering = p.codeObjImplLayerings[impl_layering_id]
+            code_obj_impl_ids.add(impl_layering.impl)
+            effective_impl = get_effective_impl(impl_layering, p.codeObjImpls)
+            if isinstance(effective_impl, BaseParentCodeObjImpl):
+                code_objs_to_process.update(effective_impl.children)
 
     # Build the sliced state
     return ProjectStateSingleConfig(
@@ -128,7 +128,7 @@ def merge_single_config_into_backend(
     )
 
 
-def get_section_impl(
+def get_effective_section_impl(
     p: ProjectStateSingleConfig,
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
@@ -138,7 +138,7 @@ def get_section_impl(
             raise ValueError("Either section_id or section_impl must be provided")
         impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
         impl_layering = p.sectionImplLayerings[impl_layering_id]
-        return get_effective_section_impl(p, impl_layering)
+        return get_effective_impl(impl_layering, p.sectionImpls)
     return section_impl
 
 
@@ -147,7 +147,7 @@ def get_section_callable(
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, section_id, section_impl)
+    section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
         if section_impl.callable:
             return p.codeObjs[section_impl.callable]
@@ -160,7 +160,7 @@ def get_section_children_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, section_id, section_impl)
+    section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseParentSectionImpl):
         return section_impl.children
     raise TypeError
@@ -171,12 +171,14 @@ def get_top_level_param_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ) -> list[str]:
-    section_impl = get_section_impl(p, section_id, section_impl)
+    section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
         callable = get_section_callable(p, section_impl=section_impl)
         if not callable:
             return []
-        code_obj_impl = get_code_obj_impl(p, callable.id, section_impl=section_impl)
+        code_obj_impl = get_effective_code_obj_impl(
+            p, callable.id, section_impl=section_impl
+        )
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
     elif isinstance(section_impl, DictSectionImpl):
@@ -190,7 +192,7 @@ def get_code_obj_impl_layering(
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, section_id, section_impl)
+    section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[paramId]
         code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
@@ -198,18 +200,18 @@ def get_code_obj_impl_layering(
     raise TypeError
 
 
-def get_code_obj_impl(
+def get_effective_code_obj_impl(
     p: ProjectStateSingleConfig,
     paramId: str,
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    section_impl = get_section_impl(p, section_id, section_impl)
+    section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_impl_layering = get_code_obj_impl_layering(
             p, paramId, section_impl=section_impl
         )
-        code_obj_impl = get_effective_code_obj_impl(p, code_obj_impl_layering)
+        code_obj_impl = get_effective_impl(code_obj_impl_layering, p.codeObjImpls)
         return code_obj_impl
     raise TypeError
 
@@ -220,14 +222,14 @@ def get_code_obj_children_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImpl | None = None,
 ):
-    code_obj_impl = get_code_obj_impl(p, paramId, section_id, section_impl)
+    code_obj_impl = get_effective_code_obj_impl(p, paramId, section_id, section_impl)
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):
         return code_obj_impl.children
     raise TypeError
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    section_impl = get_section_impl(p, section_id)
+    section_impl = get_effective_section_impl(p, section_id)
     parent_id = section_impl.parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -243,7 +245,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = get_section_impl(p, parent_id).parentId
+        parent_id = get_effective_section_impl(p, parent_id).parentId
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
@@ -260,7 +262,7 @@ def callable_is_already_selected(
 def callable_has_been_selected_before(
     p: ProjectStateSingleConfig, sectionId: str, selectedItemName: str
 ):
-    section_impl = get_section_impl(p, sectionId)
+    section_impl = get_effective_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
         for c in section_impl.codeObjImplLayeringMap.keys():
             if p.codeObjs[c].name == selectedItemName:
@@ -274,7 +276,7 @@ def add_code_obj(
     code_obj: CodeObjCore,
     code_obj_impl: BaseCodeObjImpl,
 ):
-    section_impl = get_section_impl(p, section_id)
+    section_impl = get_effective_section_impl(p, section_id)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
     code_obj_impl_layering = CodeObjImplLayering(impl=code_obj_impl.id)
@@ -291,7 +293,7 @@ def add_children_of_callable(
     new_params: list[CodeObjCore],
     new_param_impl_map: dict[str, BaseParamCodeObjImpl],
 ):
-    callable_code_obj_impl = get_code_obj_impl(p, section_id, callable_id)
+    callable_code_obj_impl = get_effective_code_obj_impl(p, section_id, callable_id)
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
     existing_param_core: dict[str, CodeObjCore] = {}
@@ -300,7 +302,7 @@ def add_children_of_callable(
         existing_param_core[match.name] = match
 
     param_ids_in_order = []
-    section_impl = get_section_impl(p, section_id)
+    section_impl = get_effective_section_impl(p, section_id)
     if not isinstance(section_impl, CallableSectionImpl):
         raise TypeError
     for new_param in new_params:
@@ -342,7 +344,7 @@ def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
     output: list[tuple[CodeObjCore, BaseParamCodeObjImpl]] = []
     for x in param_ids:
         codeObj = p.codeObjs[x]
-        codeObjImpl = get_code_obj_impl(p, sectionId, x)
+        codeObjImpl = get_effective_code_obj_impl(p, sectionId, x)
         if not isinstance(codeObjImpl, BaseParamCodeObjImpl):
             raise TypeError
         output.append((codeObj, codeObjImpl))
@@ -371,11 +373,11 @@ def create_sections(
     for s in sections:
         # sectionImpl =
         sectionCore = SectionCore(name=s.name)
-        p.sections[sectionCore.id] = sectionCore
-        p.sectionImpls[sectionImpl.id] = sectionImpl
-        new_section.variantIds = [new_section_config.variantId]
-        new_section.defaultVariantId = new_section_config.variantId
-        p.projectConfig.sectionConfigs[new_section.id] = new_section_config
-        p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
-            x=s.position.x, y=s.position.y
-        )
+        # p.sections[sectionCore.id] = sectionCore
+        # p.sectionImpls[sectionImpl.id] = sectionImpl
+        # new_section.variantIds = [new_section_config.variantId]
+        # new_section.defaultVariantId = new_section_config.variantId
+        # p.projectConfig.sectionConfigs[new_section.id] = new_section_config
+        # p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
+        #     x=s.position.x, y=s.position.y
+        # )

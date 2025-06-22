@@ -4,7 +4,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, SerializeAsAny
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
+from setta.types.code_obj_impl_modifiers import (
+    CodeObjImplModifier,
+)
 from setta.types.impl_layering import ImplLayering
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -42,8 +44,8 @@ class CodeObjCore(BaseModel):
 
 
 class CodeObjImplLayering(ImplLayering):
-    modifiers: list[SerializeAsAny[BaseCodeObjImplModifier]] = Field(
-        default_factory=list
+    modifier: SerializeAsAny[CodeObjImplModifier] = Field(
+        default_factory=CodeObjImplModifier
     )
 
 

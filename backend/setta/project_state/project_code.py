@@ -29,8 +29,8 @@ from setta.types.helpers import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_code_obj_impl,
-    get_section_impl,
+    get_effective_code_obj_impl,
+    get_effective_section_impl,
     get_section_path_full_name,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
@@ -115,7 +115,7 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_impl = get_section_impl(project_state, sectionId)
+        section_impl = get_effective_section_impl(project_state, sectionId)
 
         if not isinstance(section_impl, CallableSectionImpl):
             raise TypeError
@@ -158,7 +158,7 @@ class ProjectGenPythonCode(PythonCode):
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
-            callable_code_obj_impl = get_code_obj_impl(
+            callable_code_obj_impl = get_effective_code_obj_impl(
                 project_state, sectionId, prev_selected
             )
 
@@ -245,7 +245,7 @@ class ProjectPythonCode(PythonCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = get_section_impl(project_state, sectionId)
+        section_impl = get_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
@@ -291,7 +291,7 @@ class ProjectBashCode(BashCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = get_section_impl(project_state, sectionId)
+        section_impl = get_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code

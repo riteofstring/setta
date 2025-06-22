@@ -1,4 +1,3 @@
-from setta.types.code_obj_impl_modifiers import ParamCodeObjModifier
 from setta.types.code_objs import (
     BaseCodeObjImpl,
     BaseParamCodeObjImpl,
@@ -160,9 +159,7 @@ def create_settings_project_state(settings_path: str):
         sections[section.id] = section
 
         for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjImplLayering = CodeObjImplLayering(
-                impl=codeObjImpl.id, modifiers=[ParamCodeObjModifier()]
-            )
+            codeObjImplLayering = CodeObjImplLayering(impl=codeObjImpl.id)
             codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
             codeObjImpls[codeObjImpl.id] = codeObjImpl
 

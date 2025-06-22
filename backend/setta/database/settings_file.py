@@ -6,7 +6,7 @@ from pathlib import Path
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
-from setta.types.helpers import get_section_impl
+from setta.types.helpers import get_effective_section_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -78,7 +78,7 @@ class MetaSettingsFile:
 
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            impl = get_section_impl(p, sectionId)
+            impl = get_effective_section_impl(p, sectionId)
             if isinstance(impl, DictSectionImpl):
                 if impl.jsonSourceKeys == [slice]:
                     return Path(impl.name)

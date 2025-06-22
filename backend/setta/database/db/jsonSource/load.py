@@ -113,7 +113,7 @@ def merge_into_existing(
         impl = codeObjImpls[layering.impl]
         if isinstance(impl, NestedParamCodeObjImpl):
             if isinstance(newImpl, NestedParamCodeObjImpl):
-                impl.children = [
+                layering.modifier["children"] = [
                     replacements[c][0] if c in replacements else c
                     for c in newImpl.children
                 ]
@@ -121,7 +121,7 @@ def merge_into_existing(
                 raise TypeError
         elif isinstance(impl, BaseChildlessCodeObjImpl):
             if isinstance(newImpl, BaseChildlessCodeObjImpl):
-                impl.value = newImpl.value
+                layering.modifier["value"] = newImpl.value
             else:
                 raise TypeError
 

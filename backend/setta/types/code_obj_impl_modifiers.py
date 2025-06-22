@@ -1,9 +1,5 @@
-from pydantic import BaseModel
+from typing import TypedDict
 
 
-class BaseCodeObjImplModifier(BaseModel):
+class CodeObjImplModifier(TypedDict, total=False):
     pass
-
-
-class ParamCodeObjModifier(BaseCodeObjImplModifier):
-    value: str = ""

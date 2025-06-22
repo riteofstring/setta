@@ -1,9 +1,5 @@
-from pydantic import BaseModel, Field
+from typing import TypedDict
 
 
-class BaseSectionImplModifier(BaseModel):
+class SectionImplModifier(TypedDict, total=False):
     pass
-
-
-class SectionWithParamsModifier(BaseSectionImplModifier):
-    codeObjImplLayeringMap: dict[str, str] = Field(default_factory=dict)

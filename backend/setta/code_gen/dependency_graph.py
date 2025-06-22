@@ -14,9 +14,9 @@ from setta.types.code_objs import (
 )
 from setta.types.helpers import (
     get_code_obj_children_ids,
-    get_code_obj_impl,
+    get_effective_code_obj_impl,
+    get_effective_section_impl,
     get_section_callable,
-    get_section_impl,
     get_top_level_param_ids,
 )
 from setta.types.project_state import (
@@ -127,7 +127,7 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section_node = self.get_node(graph_key)
         if not section_node:
-            sectionImpl = get_section_impl(p, id)
+            sectionImpl = get_effective_section_impl(p, id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
@@ -149,7 +149,9 @@ class DependencyGraph:
                 children = [
                     c
                     for c in sectionImpl.children
-                    if isinstance(get_section_impl(p, c), self.section_types_to_process)
+                    if isinstance(
+                        get_effective_section_impl(p, c), self.section_types_to_process
+                    )
                 ]
                 node = SectionNode(
                     id=id,
@@ -211,7 +213,7 @@ class DependencyGraph:
             graph_key = self.create_graph_key(sectionId, pid)
             param_node = self.get_node(graph_key)
             if not param_node:
-                code_obj_impl = get_code_obj_impl(p, sectionId, pid)
+                code_obj_impl = get_effective_code_obj_impl(p, sectionId, pid)
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
                 param_children = get_code_obj_children_ids(p, sectionId, pid)
