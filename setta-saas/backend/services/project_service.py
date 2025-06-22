@@ -122,10 +122,8 @@ class ProjectService:
             # Send completion progress
             await self._broadcast_progress(project, DeploymentStep.COMPLETE.value, 100)
 
-            # Broadcast success
-            await self._broadcast_project_event(
-                project, EventType.PROJECT_READY, "Project is ready!"
-            )
+            # Broadcast success with full project data including machine info
+            await self._broadcast_project_ready(project)
 
         except Exception as e:
             # Update status on failure
@@ -309,6 +307,23 @@ class ProjectService:
         )
 
         event = WebSocketEvent(type=event_type, data=event_data.dict())
+        await self.ws_manager.broadcast(event)
+
+    async def _broadcast_project_ready(self, project: Project):
+        """Broadcast project ready event with full project data including machine info."""
+        # Create event data with ALL project fields including machine data
+        event_data = {
+            "project_id": project.id,
+            "project_name": project.name,
+            "status": project.status,
+            "url": project.url,
+            "machine_id": project.machine_id,
+            "machine_state": project.machine_state,
+            "message": "Project is ready!",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+        event = WebSocketEvent(type=EventType.PROJECT_READY, data=event_data)
         await self.ws_manager.broadcast(event)
 
     async def _broadcast_machine_state_change(

@@ -141,6 +141,11 @@ export default function ProjectsList() {
           ...updated[index],
           status: projectData.status,
           url: projectData.url || updated[index].url,
+          // Update machine data if provided
+          ...(projectData.machine_id && { machine_id: projectData.machine_id }),
+          ...(projectData.machine_state && {
+            machine_state: projectData.machine_state,
+          }),
         };
         return updated;
       });
@@ -176,6 +181,7 @@ export default function ProjectsList() {
         );
       }),
       subscribe(EventType.PROJECT_READY, (event) => {
+        // PROJECT_READY now includes full project data with machine info
         updateProjectInList(event.data);
         setDeploymentProgress((prev) => {
           const updated = { ...prev };
