@@ -126,8 +126,10 @@ def merge_single_config_into_backend(
     return ProjectStateBackend(
         sections={**x.sections, **config.sections},
         sectionImpls={**x.sectionImpls, **config.sectionImpls},
+        sectionImplLayerings={**x.sectionImplLayerings, **config.sectionImplLayerings},
         codeObjs={**x.codeObjs, **config.codeObjs},
         codeObjImpls={**x.codeObjImpls, **config.codeObjImpls},
+        codeObjImplLayerings={**x.codeObjImplLayerings, **config.codeObjImplLayerings},
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,

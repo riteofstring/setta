@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import TypeVar
 
 from pydantic import (
     BaseModel,
@@ -51,9 +50,6 @@ class ProjectConfig(BaseModel, extra="forbid"):
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionImplLayeringMap: dict[str, str] = Field(default_factory=dict)
-
-
-T = TypeVar("T")
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):

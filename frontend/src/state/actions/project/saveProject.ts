@@ -4,10 +4,9 @@ import _ from "lodash";
 import {
   useNodeInternals,
   useProjectState,
-  useSectionColumnWidth,
   useSettings,
 } from "state/definitions";
-import { SECTION_DISPLAY_MODES, SETTINGS_PROJECT_NAME } from "utils/constants";
+import { SETTINGS_PROJECT_NAME } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_save_as_existing_project_config,
@@ -19,8 +18,6 @@ import {
   ProjectStateSingleConfig,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
-import { getArtifactStateForSaving } from "../artifacts";
-import { yamlToGUI } from "../guiToYaml";
 import { addTemporaryNotification } from "../notifications";
 import { getSectionType } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
@@ -31,34 +28,31 @@ export function getProjectData({
 }) {
   // remove temporary sections
   let sections = _.cloneDeep(useProjectState.getState().sections);
-  sections = _.pickBy(sections, (x) => !x.isTemporary);
-  if (convertYamlToGUI) {
-    for (const s of Object.values(sections)) {
-      if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
-        yamlToGUI(s.id);
-      }
-    }
-  }
-  sections = _.mapValues(sections, (x) => {
-    x.columnWidth = useSectionColumnWidth.getState()[x.id];
-    return x;
-  });
+  // sections = _.pickBy(sections, (x) => !x.isTemporary);
+  // if (convertYamlToGUI) {
+  //   for (const s of Object.values(sections)) {
+  //     if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
+  //       yamlToGUI(s.id);
+  //     }
+  //   }
+  // }
+  // sections = _.mapValues(sections, (x) => {
+  //   x.columnWidth = useSectionColumnWidth.getState()[x.id];
+  //   return x;
+  // });
 
-  const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
+  // const artifacts = withArtifacts ? getArtifactStateForSaving() : {};
 
-  const variants = _.mapValues(useProjectState.getState().variants, (x) => ({
-    ...x,
-    // need this filter because some sections might be temporary
-    children: x.children.filter((c) => c in sections),
-  }));
-  const artifactGroups = useProjectState.getState().artifactGroups;
-  const uiTypes = useProjectState.getState().uiTypes;
-  const uiTypeCols = useProjectState.getState().uiTypeCols;
-  const codeInfo = useProjectState.getState().codeInfo;
-  const codeInfoCols = useProjectState.getState().codeInfoCols;
+  // const variants = _.mapValues(useProjectState.getState().variants, (x) => ({
+  //   ...x,
+  //   // need this filter because some sections might be temporary
+  //   children: x.children.filter((c) => c in sections),
+  // }));
+  // const artifactGroups = useProjectState.getState().artifactGroups;
 
   const projectConfig = getProjectConfigMetadata();
-  const children: ProjectStateSingleConfig["projectConfig"]["children"] = {};
+  const children: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
+    {};
   for (const c of useNodeInternals.getState().x.values()) {
     if (c.id in sections) {
       // need this filter because some sections might be temporary
@@ -71,18 +65,26 @@ export function getProjectData({
       };
     }
   }
-  projectConfig.children = children;
+  projectConfig.topLevelSections = children;
+
+  const {
+    sectionImpls,
+    sectionImplLayerings,
+    codeObjs,
+    codeObjImpls,
+    codeObjImplLayerings,
+  } = useProjectState.getState();
+
+  console.log(useProjectState.getState())
 
   const output: ProjectStateSingleConfig = {
     projectConfig,
-    variants,
-    // artifacts,
-    // artifactGroups,
-    uiTypes,
-    uiTypeCols,
     sections,
-    codeInfo,
-    codeInfoCols,
+    sectionImpls,
+    sectionImplLayerings,
+    codeObjs,
+    codeObjImpls,
+    codeObjImplLayerings,
   };
 
   return output;
