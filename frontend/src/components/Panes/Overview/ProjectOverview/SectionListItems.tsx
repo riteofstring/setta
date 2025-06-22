@@ -1,6 +1,5 @@
 import React from "react";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { focusOnSection } from "utils/tabbingLogic";
 
 export type OverviewListingType = { id: string; name: string; depth: number };
 

@@ -22,7 +22,13 @@ export function MaybeManyNestedSections({
   );
 }
 
-function ManyNestedSections({ sectionId, isGroup }) {
+function ManyNestedSections({
+  sectionId,
+  isGroup,
+}: {
+  sectionId: string;
+  isGroup: boolean;
+}) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
 
   return (

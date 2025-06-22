@@ -8,7 +8,15 @@ import { getSectionInfo } from "state/actions/sectionInfos";
 import { useDndState } from "./dndState";
 import { getDndParentId } from "./useDropType";
 
-export function DNDSortable({ sectionId, items, children }) {
+export function DNDSortable({
+  sectionId,
+  items,
+  children,
+}: {
+  sectionId: string;
+  items: Array<string>;
+  children: React.ReactNode;
+}) {
   const disabled = useDisableSortable(sectionId);
   const idForDeterminingStrategy = useDndState((x) =>
     x.isSorting ? x.activeId : x.overId,

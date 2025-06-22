@@ -75,7 +75,7 @@ export function getProjectData({
     codeObjImplLayerings,
   } = useProjectState.getState();
 
-  console.log(useProjectState.getState())
+  console.log(useProjectState.getState());
 
   const output: ProjectStateSingleConfig = {
     projectConfig,

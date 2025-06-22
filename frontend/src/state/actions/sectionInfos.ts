@@ -82,8 +82,9 @@ export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }
 
-export function getSectionParentId(sectionId) {
-  return getSectionInfo(sectionId).parentId;
+export function getSectionParentId(sectionId: string) {
+  return getEffectiveSectionImpl(useProjectState.getState(), sectionId)
+    .parentId;
 }
 
 export function getSectionType(sectionId, _state = null) {

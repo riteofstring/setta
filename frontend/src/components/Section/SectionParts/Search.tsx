@@ -6,13 +6,13 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { setSelectedItem } from "state/actions/sections/setSelectedItem";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
+import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionSearch({ sectionId, selectedItem }) {
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const variantIsFrozen = useSectionImplIsFrozen(sectionId);
 
   function onEnter(value) {
     setSelectedItem(sectionId, value);

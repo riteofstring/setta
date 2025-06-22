@@ -2,7 +2,6 @@ import _ from "lodash";
 import {
   getDisplayedSectionVariant,
   getEffectiveSectionImpl,
-  getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -24,8 +23,8 @@ export function useListElementIdx(sectionId) {
   });
 }
 
-export function useSectionVariantIsFrozen(sectionId) {
-  return useProjectState((x) => getSectionVariant(sectionId, x).isFrozen);
+export function useSectionImplIsFrozen(sectionId: string) {
+  return useProjectState((x) => getEffectiveSectionImpl(x, sectionId).isFrozen);
 }
 
 export function useTextBlockDescriptionAndEditability(sectionId) {

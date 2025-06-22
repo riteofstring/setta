@@ -1,10 +1,14 @@
 import { useDndMonitor } from "forks/dnd-kit/CustomCore";
-import { useDndMode, useDndState } from "forks/dnd-kit/dndState";
+import {
+  setDndDisabled,
+  useDndMode,
+  useDndState,
+} from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
-import { getSectionParentId } from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useSectionVariantIsFrozen } from "state/hooks/sectionVariants";
+import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
 import { BehaviorDropType } from "./dropTypes";
 
@@ -28,32 +32,35 @@ export function useHighlightDroppable({ sectionId, isGroup }) {
   }, _.isEqual);
 }
 
-export function useDisableSortable(sectionId) {
+export function useDisableSortable(sectionId: string) {
   const { isSorting, isMovingFree } = useDndMode();
-  const disabled = useDndState((x) => x.disabled[sectionId]);
-  const setDisabled = useDndState((x) => x.setDisabled);
-  const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
+  const implIsFrozen = useSectionImplIsFrozen(sectionId);
+  const disabled = useDndState(
+    (x) =>
+      x.disabled[sectionId] ?? { draggable: implIsFrozen, droppable: true },
+  );
 
   useEffect(() => {
-    setDisabled(sectionId, {
-      draggable: variantIsFrozen,
+    setDndDisabled(sectionId, {
+      draggable: implIsFrozen,
       droppable: true,
     });
-  }, [variantIsFrozen]);
+  }, [implIsFrozen]);
 
-  function activeIdInAncestorSet(activeId) {
-    let parentId = getSectionParentId(sectionId);
+  function activeIdInAncestorSet(activeId: string) {
+    const state = useProjectState.getState();
+    let { parentId } = getEffectiveSectionImpl(state, sectionId);
     while (parentId) {
       if (activeId === parentId) {
         return true;
       }
-      parentId = getSectionParentId(parentId);
+      ({ parentId } = getEffectiveSectionImpl(state, parentId));
     }
     return false;
   }
 
   function enableSort({ active }) {
-    if (variantIsFrozen) {
+    if (implIsFrozen) {
       return;
     }
 
@@ -63,19 +70,19 @@ export function useDisableSortable(sectionId) {
       active.id !== sectionId &&
       !activeIdInAncestorSet(active.id)
     ) {
-      setDisabled(sectionId, { draggable: false, droppable: false });
+      setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
     // Sorting a child of this section
     else if (
       isSorting &&
       active.data.current.sortable?.containerId === sectionId
     ) {
-      setDisabled(sectionId, { draggable: false, droppable: false });
+      setDndDisabled(sectionId, { draggable: false, droppable: false });
     }
   }
 
   function onDragDone() {
-    setDisabled(sectionId, { draggable: variantIsFrozen, droppable: true });
+    setDndDisabled(sectionId, { draggable: implIsFrozen, droppable: true });
   }
 
   useDndMonitor({
@@ -84,7 +91,7 @@ export function useDisableSortable(sectionId) {
     onDragCancel: onDragDone,
   });
 
-  return disabled ?? { draggable: variantIsFrozen, droppable: true };
+  return disabled;
 }
 
 export function useDndProps({ sectionId, isTopLevel }) {

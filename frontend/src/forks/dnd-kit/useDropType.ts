@@ -4,7 +4,12 @@ import {
   replaceDndSectionWithTemp,
   useDndChildren,
 } from "forks/dnd-kit/dndChildren";
-import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
+import {
+  getDndSectionId,
+  setActiveDnd,
+  setDndTime,
+  useDndState,
+} from "forks/dnd-kit/dndState";
 import { BehaviorDropType } from "forks/dnd-kit/dropTypes";
 import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
@@ -18,12 +23,7 @@ import { useProjectState } from "state/definitions";
 export function onDragStart({ active }) {
   const { width, height } = getSectionRectWithNested(active.id);
   const dndState = useDndState.getState();
-  dndState.setActive({
-    id: active.id,
-    isTopLevel: active.data.current.isTopLevel,
-    width,
-    height,
-  });
+  setActiveDnd(active.id, active.data.current.isTopLevel, width, height);
   if (dndState.isMovingFree) {
     replaceDndSectionWithTemp(active.id);
   }
@@ -96,7 +96,7 @@ function onDragOver({ active, over, collisions, calledFromOnDragMove }) {
     return;
   }
 
-  dndState.setTime(overId);
+  setDndTime(overId);
 
   // Dragging onto the pane or over self.
   if (!overId) {
