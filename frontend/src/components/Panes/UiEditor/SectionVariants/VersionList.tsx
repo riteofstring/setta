@@ -128,7 +128,11 @@ function OneItem({
       throw new Error();
     }
     const impl = getEffectiveImpl(implLayering, x.sectionImpls);
-    return { name: impl.name, isFrozen: impl.isFrozen, isJsonSource: false };
+    return {
+      name: implLayering.name,
+      isFrozen: impl.isFrozen,
+      isJsonSource: false,
+    };
   }, _.isEqual);
 
   return (

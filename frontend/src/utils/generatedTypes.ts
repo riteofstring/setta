@@ -2204,6 +2204,7 @@ export function createBaseSectionImplModifier(
 
 export const SectionImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
   impl: z.string(),
   modifiers: z.array(BaseSectionImplModifierSchema).default([]),
 });
@@ -2261,6 +2262,7 @@ export function createBaseCodeObjImplModifier(
 
 export const CodeObjImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
   impl: z.string(),
   modifiers: z.array(BaseCodeObjImplModifierSchema).default([]),
 });
@@ -2926,6 +2928,7 @@ export function createBaseParentCodeObjImpl(
 
 export const ImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
   impl: z.string(),
   modifiers: z.array(z.any()).default([]),
 });
