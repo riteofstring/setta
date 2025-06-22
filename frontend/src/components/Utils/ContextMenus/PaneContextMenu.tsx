@@ -1,5 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Item } from "components/Utils/atoms/dropdown/item";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { createSection } from "state/actions/sections/createSections";
@@ -17,7 +18,7 @@ export function PaneContextMenu() {
   function onClick(
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
-    createSection(specificProps, { x, y });
+    createSection(specificProps, screenToFlowPosition({ x, y }));
     maybeIncrementProjectStateVersion(true);
     closeAllContextMenus();
   }

@@ -1,4 +1,5 @@
 import Background from "forks/xyflow/background/Background";
+import _ from "lodash";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
@@ -80,8 +81,13 @@ function cancelOutScrolling(
 }
 
 function useWrapperDivDimensions(ref: React.RefObject<HTMLDivElement>) {
-  const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
-  const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
+  const { overviewWidth, uiEditorWidth } = useLocalStorage(
+    (x) => ({
+      overviewWidth: x.overviewTrueWidth,
+      uiEditorWidth: x.uiEditorTrueWidth,
+    }),
+    _.isEqual,
+  );
 
   const [wrapperDimensions, setWrapperDimensions] = useState({
     width: 0,
