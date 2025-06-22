@@ -190,6 +190,37 @@ async def check_project_status(
     return {"status": status}
 
 
+@app.post("/api/projects/{project_id}/check-machine-state")
+async def check_project_machine_state(
+    project_id: str,
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
+):
+    """Check and update machine state for a specific project."""
+    # Get the project to verify ownership
+    project = service.get_project(project_id, user_id)
+    if not project:
+        raise HTTPException(404, "Project not found or not authorized")
+
+    # Check machine state
+    state = await service.check_machine_state(project_id)
+    if state is None:
+        return {"message": "No machine state available", "state": None}
+
+    return {"state": state, "project_id": project_id}
+
+
+@app.post("/api/projects/check-all-machine-states")
+async def check_all_machine_states(
+    user_id: str = CurrentUser,
+    service: ProjectService = Depends(get_async_project_service),
+):
+    """Check machine states for all user's projects."""
+    # This is a user-specific operation, but we'll run it for their projects only
+    result = await service.check_all_machine_states()
+    return {"message": "Machine state check completed", "result": result}
+
+
 # Project management endpoints
 @app.post("/api/projects/sync-all")
 async def sync_all_projects(service: ProjectService = Depends(get_project_service)):

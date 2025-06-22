@@ -20,6 +20,9 @@ class EventType(str, Enum):
     PROJECT_DELETED = "project.deleted"
     PROJECT_STATUS_CHANGED = "project.status_changed"
 
+    # Machine state events
+    MACHINE_STATE_CHANGED = "machine.state_changed"
+
     # Progress events
     DEPLOYMENT_PROGRESS = "deployment.progress"
 
@@ -48,11 +51,22 @@ class ProjectEventData(BaseModel):
     timestamp: datetime = datetime.utcnow()
 
 
+class MachineStateData(BaseModel):
+    """Data for machine state change events."""
+
+    project_id: str
+    project_name: str
+    machine_id: str
+    old_state: str
+    new_state: str
+    timestamp: datetime = datetime.utcnow()
+
+
 class WebSocketEvent(BaseModel):
     """Base WebSocket event structure."""
 
     type: EventType
-    data: dict | ProjectEventData | ProgressData
+    data: dict | ProjectEventData | ProgressData | MachineStateData
     timestamp: datetime = datetime.utcnow()
 
 

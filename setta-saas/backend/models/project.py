@@ -21,3 +21,5 @@ class ProjectResponse(BaseModel):
     url: str
     status: str
     created_at: datetime
+    machine_id: str | None = None
+    machine_state: str | None = None

@@ -14,6 +14,7 @@ from models.project import ProjectCreate, ProjectResponse
 from models.websocket import (
     DeploymentStep,
     EventType,
+    MachineStateData,
     ProgressData,
     ProjectEventData,
     WebSocketEvent,
@@ -230,6 +231,73 @@ class ProjectService:
 
         return project.status
 
+    async def check_machine_state(self, project_id: str) -> str | None:
+        """Check and update machine state for a project."""
+        project = self.db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return None
+
+        # Skip if no machine ID
+        if not project.machine_id:
+            return None
+
+        # Skip if no valid URL
+        if not project.url or not project.url.startswith("https://"):
+            return None
+
+        try:
+            # Extract app name from URL
+            app_name = project.url.split("//")[1].split(".")[0]
+
+            # Get machine status from Fly.io
+            from fly.deployment import get_machine_status
+
+            status = await asyncio.to_thread(
+                get_machine_status, self.fly.client, app_name, project.machine_id
+            )
+
+            if not status:
+                return None
+
+            new_state = status.get("state", "unknown")
+            old_state = project.machine_state
+
+            # Update if state changed
+            if old_state != new_state:
+                project.machine_state = new_state
+                self.db.commit()
+
+                # Broadcast state change
+                await self._broadcast_machine_state_change(project, old_state, new_state)
+
+            return new_state
+
+        except Exception as e:
+            print(f"Machine state check failed: {str(e)}")
+            return None
+
+    async def check_all_machine_states(self) -> dict:
+        """Check machine states for all projects with machines."""
+        projects = self.db.query(Project).filter(Project.machine_id.isnot(None)).all()
+
+        checked = 0
+        changed = 0
+
+        for project in projects:
+            try:
+                old_state = project.machine_state
+                new_state = await self.check_machine_state(project.id)
+
+                if new_state:
+                    checked += 1
+                    if old_state != new_state:
+                        changed += 1
+
+            except Exception as e:
+                print(f"Failed to check machine state for {project.id}: {str(e)}")
+
+        return {"total": len(projects), "checked": checked, "changed": changed}
+
     async def _broadcast_project_event(self, project: Project, event_type: EventType, message: str):
         """Broadcast a project event to all connected clients."""
         event_data = ProjectEventData(
@@ -241,6 +309,21 @@ class ProjectService:
         )
 
         event = WebSocketEvent(type=event_type, data=event_data.dict())
+        await self.ws_manager.broadcast(event)
+
+    async def _broadcast_machine_state_change(
+        self, project: Project, old_state: str, new_state: str
+    ):
+        """Broadcast a machine state change event."""
+        state_data = MachineStateData(
+            project_id=project.id,
+            project_name=project.name,
+            machine_id=project.machine_id,
+            old_state=old_state,
+            new_state=new_state,
+        )
+
+        event = WebSocketEvent(type=EventType.MACHINE_STATE_CHANGED, data=state_data.dict())
         await self.ws_manager.broadcast(event)
 
     async def _broadcast_progress(self, project: Project, message: str, percent: int):
