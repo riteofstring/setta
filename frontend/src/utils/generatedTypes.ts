@@ -3297,7 +3297,34 @@ export const ImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
-  modifier: z.any(),
+  modifier: z.union([
+    CallableSectionImplModifierSchema,
+    DictSectionImplModifierSchema,
+    ListRootSectionImplModifierSchema,
+    DictRootSectionImplModifierSchema,
+    GroupSectionImplModifierSchema,
+    ImageSectionImplModifierSchema,
+    ChartSectionImplModifierSchema,
+    DrawSectionImplModifierSchema,
+    TextBlockSectionImplModifierSchema,
+    SocialSectionImplModifierSchema,
+    GlobalVariablesSectionImplModifierSchema,
+    CodeSectionImplModifierSchema,
+    GenPythonCodeSectionImplModifierSchema,
+    TerminalSectionImplModifierSchema,
+    IFrameSectionImplModifierSchema,
+    ChatSectionImplModifierSchema,
+    BrowserSectionImplModifierSchema,
+    CodeCallableCodeObjImplModifierSchema,
+    CodeParamCodeObjImplModifierSchema,
+    TextParamCodeObjImplModifierSchema,
+    SliderParamCodeObjImplModifierSchema,
+    SwitchParamCodeObjImplModifierSchema,
+    ColorPickerParamCodeObjImplModifierSchema,
+    DropdownParamCodeObjImplModifierSchema,
+    PasswordParamCodeObjImplModifierSchema,
+    NestedParamCodeObjImplModifierSchema,
+  ]),
 });
 
 export type ImplLayering = z.infer<typeof ImplLayeringSchema>;
@@ -3917,6 +3944,30 @@ export function createBaseParentCodeObjImplModifier(
   return BaseParentCodeObjImplModifierSchema.parse(options);
 }
 
+export const BaseSectionImplModifierSchema = z.object({
+  type: z.any(),
+  parentId: z.union([z.string(), z.null()]).optional(),
+  isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.boolean().optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+});
+
+export type BaseSectionImplModifier = z.infer<
+  typeof BaseSectionImplModifierSchema
+>;
+
+export function createBaseSectionImplModifier(
+  options: Partial<BaseSectionImplModifier> = {},
+): BaseSectionImplModifier {
+  return BaseSectionImplModifierSchema.parse(options);
+}
+
 export const BaseArtifactSectionImplModifierSchema = z.object({
   type: z.any(),
   parentId: z.union([z.string(), z.null()]).optional(),
@@ -4049,30 +4100,6 @@ export function createBaseParentSectionImplModifier(
   options: Partial<BaseParentSectionImplModifier> = {},
 ): BaseParentSectionImplModifier {
   return BaseParentSectionImplModifierSchema.parse(options);
-}
-
-export const BaseSectionImplModifierSchema = z.object({
-  type: z.any(),
-  parentId: z.union([z.string(), z.null()]).optional(),
-  isFrozen: z.boolean().optional(),
-  visibility: VisibilitySchema.optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.boolean().optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-});
-
-export type BaseSectionImplModifier = z.infer<
-  typeof BaseSectionImplModifierSchema
->;
-
-export function createBaseSectionImplModifier(
-  options: Partial<BaseSectionImplModifier> = {},
-): BaseSectionImplModifier {
-  return BaseSectionImplModifierSchema.parse(options);
 }
 
 export const BaseSectionWithParamsImplModifierSchema = z.object({

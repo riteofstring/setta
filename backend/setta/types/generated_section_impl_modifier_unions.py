@@ -165,44 +165,46 @@ BaseDictSectionImplModifierTypeAdapter = TypeAdapter(
 
 BaseDictSectionImplModifierTypeSet = set(["Dict", "GlobalVariables"])
 
+from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier
+
 
 def isBaseSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseSectionImplModifier]:
     return x["type"] in BaseSectionImplModifierTypeSet
 
 
 def isBaseSectionWithParamsImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseSectionWithParamsImplModifier]:
     return x["type"] in BaseSectionWithParamsImplModifierTypeSet
 
 
 def isBaseArtifactSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseArtifactSectionImplModifier]:
     return x["type"] in BaseArtifactSectionImplModifierTypeSet
 
 
 def isBaseCanvasSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseCanvasSectionImplModifier]:
     return x["type"] in BaseCanvasSectionImplModifierTypeSet
 
 
 def isBaseCodeSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseCodeSectionImplModifier]:
     return x["type"] in BaseCodeSectionImplModifierTypeSet
 
 
 def isBaseParentSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseParentSectionImplModifier]:
     return x["type"] in BaseParentSectionImplModifierTypeSet
 
 
 def isBaseDictSectionImplModifier(
-    x: BaseSectionImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseDictSectionImplModifier]:
     return x["type"] in BaseDictSectionImplModifierTypeSet

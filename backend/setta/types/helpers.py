@@ -6,6 +6,9 @@ from setta.types.code_objs import (
     CodeCallableCodeObjImpl,
     CodeObjCore,
 )
+from setta.types.generated_section_impl_modifier_unions import (
+    isBaseSectionWithParamsImplModifier,
+)
 from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
@@ -291,9 +294,11 @@ def add_code_obj(
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
-    section_layering.modifier["codeObjImplLayeringMap"][code_obj.id] = (
-        code_obj_impl_layering.id
-    )
+    if isBaseSectionWithParamsImplModifier(section_layering.modifier):
+        m = section_layering.modifier
+        if "codeObjImplLayeringMap" not in m:
+            m["codeObjImplLayeringMap"] = {}
+        m["codeObjImplLayeringMap"][code_obj.id] = code_obj_impl_layering.id
     return code_obj_impl_layering
 
 

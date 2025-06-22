@@ -124,9 +124,11 @@ def code_obj_impl_union():
     )
 
 
-def create_type_predicate_fns(most_base_type, set_name, transformed_base_class_name):
+def create_type_predicate_fns(
+    most_base_type_names, set_name, transformed_base_class_name
+):
     return f"""
-def is{transformed_base_class_name}(x: {most_base_type.__name__})->TypeGuard[{transformed_base_class_name}]:
+def is{transformed_base_class_name}(x: {most_base_type_names})->TypeGuard[{transformed_base_class_name}]:
     return x["type"] in {set_name}
 
 """
@@ -155,8 +157,9 @@ def section_impl_modifier_union():
         lambda x: f"{x}Modifier",
         True,
     )
+    code += "from setta.types.code_obj_impl_modifiers import BaseCodeObjImplModifier\n"
     code += add_type_predicate_fns(
-        setta.types.section_impl_modifiers.BaseSectionImplModifier,
+        "BaseSectionImplModifier | BaseCodeObjImplModifier",
         base_class_to_children,
         lambda x: f"{x}Modifier",
     )
@@ -175,8 +178,9 @@ def code_obj_impl_modifier_union():
         lambda x: f"{x}Modifier",
         True,
     )
+    code += "from setta.types.section_impl_modifiers import BaseSectionImplModifier\n"
     code += add_type_predicate_fns(
-        setta.types.code_obj_impl_modifiers.BaseCodeObjImplModifier,
+        "BaseSectionImplModifier | BaseCodeObjImplModifier",
         base_class_to_children,
         lambda x: f"{x}Modifier",
     )

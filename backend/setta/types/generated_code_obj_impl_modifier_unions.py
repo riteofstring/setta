@@ -128,26 +128,28 @@ BaseParentCodeObjImplModifierTypeAdapter = TypeAdapter(
 
 BaseParentCodeObjImplModifierTypeSet = set(["CodeCallable", "NestedParam"])
 
+from setta.types.section_impl_modifiers import BaseSectionImplModifier
+
 
 def isBaseCodeObjImplModifier(
-    x: BaseCodeObjImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseCodeObjImplModifier]:
     return x["type"] in BaseCodeObjImplModifierTypeSet
 
 
 def isBaseParamCodeObjImplModifier(
-    x: BaseCodeObjImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseParamCodeObjImplModifier]:
     return x["type"] in BaseParamCodeObjImplModifierTypeSet
 
 
 def isBaseChildlessCodeObjImplModifier(
-    x: BaseCodeObjImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseChildlessCodeObjImplModifier]:
     return x["type"] in BaseChildlessCodeObjImplModifierTypeSet
 
 
 def isBaseParentCodeObjImplModifier(
-    x: BaseCodeObjImplModifier,
+    x: BaseSectionImplModifier | BaseCodeObjImplModifier,
 ) -> TypeGuard[BaseParentCodeObjImplModifier]:
     return x["type"] in BaseParentCodeObjImplModifierTypeSet
