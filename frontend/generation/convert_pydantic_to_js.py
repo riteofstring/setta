@@ -26,6 +26,8 @@ from typing import (
 import setta.routers
 import setta.types
 import setta.types.code_objs
+import setta.types.generated
+import setta.types.generated.impl_modifiers
 import setta.types.sections
 import setta.types.websocket
 from fastapi import WebSocket
@@ -583,6 +585,8 @@ def create_type_predicate_fns_from_sets(all_sets):
         if not actual_type:
             actual_type = getattr(setta.types.code_objs, type_name, None)
         if not actual_type:
+            actual_type = getattr(setta.types.generated.impl_modifiers, type_name, None)
+        if not actual_type:
             actual_type = getattr(setta.types.websocket, type_name, None)
         if not actual_type:
             continue
@@ -590,6 +594,12 @@ def create_type_predicate_fns_from_sets(all_sets):
             input_type = "BaseSectionImpl"
         elif issubclass(actual_type, BaseCodeObjImpl):
             input_type = "BaseCodeObjImpl"
+        # can't do subclass check with typeddict
+        elif "Impl" in actual_type.__name__ and "Section" in actual_type.__name__:
+            input_type = "BaseSectionImplModifier"
+        # can't do subclass check with typeddict
+        elif "Impl" in actual_type.__name__ and "CodeObj" in actual_type.__name__:
+            input_type = "BaseCodeObjImplModifier"
         elif issubclass(actual_type, WebsocketMsg):
             input_type = "WebsocketMsg"
         else:

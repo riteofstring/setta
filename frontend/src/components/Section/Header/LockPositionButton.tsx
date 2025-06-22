@@ -2,10 +2,13 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import {
   getEffectiveSectionImpl,
-  getSectionImpl,
+  getSectionImplLayering,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseSectionImplModifier,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
@@ -26,8 +29,10 @@ export function LockPositionButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      getSectionImpl(state, sectionId).positionAndSizeLocked =
-        !positionAndSizeLocked;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (isBaseSectionImplModifier(implLayering.modifier)) {
+        implLayering.modifier.positionAndSizeLocked = !positionAndSizeLocked;
+      }
     });
   }
 

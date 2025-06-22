@@ -5432,7 +5432,7 @@ export const LoadJSONSourceObjectSchema = z.object({
   sections: z.record(z.string(), SectionCoreSchema),
   sectionImpls: z.record(
     z.string(),
-    z.discriminatedUnion("type", [
+    z.union([
       CallableSectionImplSchema,
       DictSectionImplSchema,
       ListRootSectionImplSchema,
@@ -5456,7 +5456,7 @@ export const LoadJSONSourceObjectSchema = z.object({
   codeObjs: z.record(z.string(), CodeObjCoreSchema),
   codeObjImpls: z.record(
     z.string(),
-    z.discriminatedUnion("type", [
+    z.union([
       CodeCallableCodeObjImplSchema,
       CodeParamCodeObjImplSchema,
       TextParamCodeObjImplSchema,
@@ -5667,6 +5667,72 @@ export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImpl,
 ): x is BaseParentCodeObjImpl {
   return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseArtifactSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseArtifactSectionImplModifier {
+  return BaseArtifactSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseCanvasSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseCanvasSectionImplModifier {
+  return BaseCanvasSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseChildlessCodeObjImplModifier(
+  x: BaseCodeObjImplModifier,
+): x is BaseChildlessCodeObjImplModifier {
+  return BaseChildlessCodeObjImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseCodeObjImplModifier(
+  x: BaseCodeObjImplModifier,
+): x is BaseCodeObjImplModifier {
+  return BaseCodeObjImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseCodeSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseCodeSectionImplModifier {
+  return BaseCodeSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseDictSectionImplModifier {
+  return BaseDictSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseParamCodeObjImplModifier(
+  x: BaseCodeObjImplModifier,
+): x is BaseParamCodeObjImplModifier {
+  return BaseParamCodeObjImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjImplModifier(
+  x: BaseCodeObjImplModifier,
+): x is BaseParentCodeObjImplModifier {
+  return BaseParentCodeObjImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseParentSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseParentSectionImplModifier {
+  return BaseParentSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseSectionImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseSectionImplModifier {
+  return BaseSectionImplModifierTypeSet.has(x.type);
+}
+
+export function isBaseSectionWithParamsImplModifier(
+  x: BaseSectionImplModifier,
+): x is BaseSectionWithParamsImplModifier {
+  return BaseSectionWithParamsImplModifierTypeSet.has(x.type);
 }
 
 export function isBaseArtifactSectionImpl(
