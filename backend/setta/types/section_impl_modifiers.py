@@ -59,45 +59,17 @@ class BaseParentSectionImplModifier(BaseSectionImplModifier, total=False):
 
 class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
     type: Any
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
     topLevelParamIds: list[str]
 
 
 class CallableSectionImplModifier(BaseSectionWithParamsImplModifier, total=False):
     type: Literal["Callable"]
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
     callable: str | None
     hideParams: bool
 
 
 class DictSectionImplModifier(BaseDictSectionImplModifier, total=False):
     type: Literal["Dict"]
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
-    topLevelParamIds: list[str]
     isJsonSource: bool
     jsonSourceKeys: list[str]
     jsonSourceMissing: bool
@@ -105,36 +77,30 @@ class DictSectionImplModifier(BaseDictSectionImplModifier, total=False):
 
 class ListRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
     type: Literal["ListRoot"]
-    children: list[str]
 
 
 class DictRootSectionImplModifier(BaseParentSectionImplModifier, total=False):
     type: Literal["DictRoot"]
-    children: list[str]
 
 
 class GroupSectionImplModifier(BaseParentSectionImplModifier, total=False):
     type: Literal["Group"]
-    children: list[str]
     isHorizontalOrientation: bool
 
 
 class ImageSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
     type: Literal["Image"]
-    artifactGroupIds: list[str]
 
 
 class ChartSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
     type: Literal["Chart"]
     renderedValue: Any
-    artifactGroupIds: list[str]
     chartSettings: ChartSettings
 
 
 class DrawSectionImplModifier(BaseArtifactSectionImplModifier, total=False):
     type: Literal["Draw"]
     renderedValue: Any
-    artifactGroupIds: list[str]
     canvasSettings: DrawAreaCanvasSettings
 
 
@@ -153,27 +119,15 @@ class SocialSectionImplModifier(BaseSectionImplModifier, total=False):
 
 class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier, total=False):
     type: Literal["GlobalVariables"]
-    codeObjImplLayeringMap: dict[str, str]
-    hideUnpinnedParams: bool
-    paramFilter: str
-    columnWidth: float | None
-    configLanguage: ConfigLanguage
-    pinnedParams: list[str]
-    pinnedAreaHeight: float | Literal["auto"]
-    selectedParams: list[str]
-    ignoreTypeErrors: dict[str, bool]
-    topLevelParamIds: list[str]
 
 
 class CodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
     type: Literal["Code"]
-    code: str
     codeLanguage: CodeLanguage
 
 
 class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier, total=False):
     type: Literal["GenPythonCode"]
-    code: str
 
 
 class TerminalSectionImplModifier(BaseSectionImplModifier, total=False):

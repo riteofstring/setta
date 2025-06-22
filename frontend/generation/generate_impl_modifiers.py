@@ -113,7 +113,7 @@ def create_typed_dict(impl_class: type[BaseModel], base_class):
     for field_name, field_info in impl_class.model_fields.items():
         if (impl_class is base_class and field_name in exclusions) or (
             impl_class is not base_class
-            and field_name in base_class.model_fields
+            and field_name in impl_class.__base__.model_fields  # type: ignore
             and field_name != "type"
         ):
             continue
