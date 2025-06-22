@@ -16,11 +16,10 @@ from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
 from setta.types.generated.impl_modifier_unions import (
-    NestedParamCodeObjImplModifier,
-    TextParamCodeObjImplModifier,
     isBaseChildlessCodeObjImplModifier,
 )
 from setta.types.generated.impl_modifiers import DictSectionImplModifier
+from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
@@ -227,16 +226,11 @@ def add_to_processed_json_object(key: str, value, output: ProcessedJSONObject):
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = NestedParamCodeObjImpl()
-        codeObjImplLayering = ImplLayering(
-            impl=codeObjImpl.id,
-            modifier=NestedParamCodeObjImplModifier(type="NestedParam"),
-        )
     else:
         codeObjImpl = TextParamCodeObjImpl(value=json.dumps(value))
-        codeObjImplLayering = ImplLayering(
-            impl=codeObjImpl.id, modifier=TextParamCodeObjImplModifier(type="TextParam")
-        )
-
+    codeObjImplLayering = ImplLayering(
+        impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
+    )
     layeringId = codeObjImplLayering.id
     codeObj = CodeObjCore(
         name=key,

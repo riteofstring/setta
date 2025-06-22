@@ -151,7 +151,7 @@ def create_settings_project_state(settings_path: str):
             configLanguage=ConfigLanguage.json,
         )
         sectionImplLayering = ImplLayering(
-            impl=sectionImpl.id, modifier={"type": sectionImpl.type}
+            impl=sectionImpl.id, modifier=create_modifier_for_impl(sectionImpl)
         )
         section = SectionCore(
             name=k,

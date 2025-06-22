@@ -1,15 +1,19 @@
 from setta.types.code_objs import (
-    BaseCodeObjImpl,
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjCore,
+)
+from setta.types.generated.code_obj_type_unions import (
+    BaseCodeObjImplUnion,
+    BaseParamCodeObjImplUnion,
 )
 from setta.types.generated.impl_modifier_unions import (
     isBaseChildlessCodeObjImplModifier,
     isBaseParentCodeObjImplModifier,
     isBaseSectionWithParamsImplModifier,
 )
+from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
@@ -285,14 +289,14 @@ def add_code_obj(
     p: ProjectStateSingleConfig,
     section_id: str,
     code_obj: CodeObjCore,
-    code_obj_impl: BaseCodeObjImpl,
+    code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_layering = get_section_impl_layering(p, section_id)
     section_impl = get_effective_impl(section_layering, p.sectionImpls)
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
     code_obj_impl_layering = ImplLayering(
-        impl=code_obj_impl.id, modifier={"type": code_obj_impl.type}
+        impl=code_obj_impl.id, modifier=create_modifier_for_impl(code_obj_impl)
     )
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
@@ -310,7 +314,7 @@ def add_children_of_callable(
     section_id: str,
     callable_id: str,
     new_params: list[CodeObjCore],
-    new_param_impl_map: dict[str, BaseParamCodeObjImpl],
+    new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
 ):
     callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
     callable_code_obj_impl = get_effective_impl(
