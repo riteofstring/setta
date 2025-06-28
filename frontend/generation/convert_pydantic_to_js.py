@@ -444,6 +444,37 @@ def typeddict_to_zod(typed_dict: type, processed_types: set):
     )
 
 
+def python_value_to_ts(value):
+    """Convert a Python value to its TypeScript literal representation."""
+    if isinstance(value, enum.Enum):
+        return f"{value.__class__.__name__}Enum.{value.name}"
+    elif isinstance(value, str):
+        return f'"{value}"'
+    elif isinstance(value, bool):
+        return str(value).lower()
+    elif isinstance(value, (int, float)):
+        return str(value)
+    elif value is None:
+        return "null"
+    elif isinstance(value, dict):
+        items = [f'"{k}": {python_value_to_ts(v)}' for k, v in value.items()]
+        return f"{{{', '.join(items)}}}"
+    elif isinstance(value, (list, tuple)):
+        items = [python_value_to_ts(item) for item in value]
+        return f"[{', '.join(items)}]"
+    elif isinstance(value, BaseModel):
+        # For Pydantic models, use their creation function
+        model_name = value.__class__.__name__
+        model_data = value.model_dump(exclude_defaults=True)
+        if model_data:
+            params = python_value_to_ts(model_data)
+            return f"create{model_name}({params})"
+        else:
+            return f"create{model_name}()"
+    else:
+        return str(value)
+
+
 def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
     name = model.__name__
 
@@ -464,22 +495,10 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
 
         # Handle default values
         if field_info.default is not PydanticUndefined:
-            default_value = field_info.default
-            if isinstance(default_value, enum.Enum):
-                enum_class_name = default_value.__class__.__name__
-                enum_member_name = default_value.name
-                zod_schema = (
-                    f"{zod_schema}.default({enum_class_name}Enum.{enum_member_name})"
-                )
-            elif isinstance(default_value, str):
-                zod_schema = f'{zod_schema}.default("{default_value}")'
-            elif isinstance(default_value, bool):
-                zod_schema = f"{zod_schema}.default({str(default_value).lower()})"
-            elif isinstance(default_value, (int, float)):
-                zod_schema = f"{zod_schema}.default({default_value})"
-            elif default_value is None:
-                zod_schema = f"{zod_schema}.default(null)"
+            default_value_ts = python_value_to_ts(field_info.default)
+            zod_schema = f"{zod_schema}.default({default_value_ts})"
         elif field_info.default_factory is not None:
+            # Handle special cases for default factories
             if isinstance(field_info.default_factory, type(BaseModel)) or is_typeddict(
                 field_info.default_factory
             ):
@@ -490,6 +509,18 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
                 zod_schema = f"{zod_schema}.default({{}})"
             elif field_info.default_factory is list:
                 zod_schema = f"{zod_schema}.default([])"
+            elif (
+                hasattr(field_info.default_factory, "__name__")
+                and field_info.default_factory.__name__ == "<lambda>"
+            ):
+                # Handle lambda functions by trying to execute them
+                try:
+                    result = field_info.default_factory()  # type:ignore
+                    ts_value = python_value_to_ts(result)
+                    zod_schema = f"{zod_schema}.default(() => ({ts_value}))"
+                except Exception:
+                    # If we can't execute the lambda, generate a generic function
+                    zod_schema = f"{zod_schema}.default(() => ({{}}))"
             else:
                 zod_schema = (
                     f"{zod_schema}.default({field_info.default_factory.__name__})"

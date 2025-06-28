@@ -2851,7 +2851,9 @@ export const ChartSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 400.0, height: 400.0 }),
+  ),
   aspectRatio: z.boolean().default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3003,7 +3005,7 @@ export const CodeSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.boolean().default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3056,7 +3058,9 @@ export const TerminalSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 700.0, height: 300.0 }),
+  ),
   aspectRatio: z.boolean().default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -3104,7 +3108,9 @@ export const ChatSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
   isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
+  size: SectionSizeSchema.default(() =>
+    createSectionSize({ width: 405.0, height: 405.0 }),
+  ),
   aspectRatio: z.boolean().default(false),
   aspectRatioExtraHeight: z.int().default(0),
   aspectRatioExtraWidth: z.int().default(0),
@@ -4037,7 +4043,7 @@ export function createSettingsShortcuts(
 }
 
 export const SettingsGUISchema = z.object({
-  snapGrid: z.tuple([z.int(), z.int()]),
+  snapGrid: z.tuple([z.int(), z.int()]).default([15, 15]),
   showGridLines: z.boolean().default(true),
   gridPattern: z
     .enum(BackgroundVariantEnum)
@@ -4097,8 +4103,13 @@ export const SettingsStateSchema = z.object({
   shortcuts: SettingsShortcutsSchema.default(createSettingsShortcuts),
   gui: SettingsGUISchema.default(createSettingsGUI),
   backend: SettingsBackendSchema.default(createSettingsBackend),
-  languageServer: z.record(z.string(), z.any()),
-  sections: z.record(z.string(), z.any()),
+  languageServer: z.record(z.string(), z.any()).default({}),
+  sections: z
+    .record(z.string(), z.any())
+    .default({
+      GLOBAL_VARIABLES: { name: "Global Variables" },
+      GEN_PYTHON_CODE: { name: "Generated Python Code" },
+    }),
 });
 
 export type SettingsState = z.infer<typeof SettingsStateSchema>;

@@ -172,6 +172,9 @@ class ImageSectionImpl(BaseArtifactSectionImpl):
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
     chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=400, height=400)
+    )
 
 
 class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
@@ -202,6 +205,7 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
@@ -211,6 +215,9 @@ class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
 
 class TerminalSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=700, height=300)
+    )
 
 
 class IFrameSectionImpl(BaseSectionImpl):
@@ -219,6 +226,9 @@ class IFrameSectionImpl(BaseSectionImpl):
 
 class ChatSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Chat] = SectionType.Chat
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=405, height=405)
+    )
 
 
 class BrowserSectionImpl(BaseSectionImpl):
