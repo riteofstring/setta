@@ -85,8 +85,6 @@ async def maybe_read_json_source_contents(
     p = project_manager.project_state_backend
     for layering in p.sectionImplLayerings.values():
         impl = get_effective_impl(layering, p.sectionImpls)
-        print("\n\n\nimpl", impl, flush=True)
-        print("coreUpdate.relPath", str(coreUpdate.relPath), flush=True)
         if (
             not isinstance(impl, BaseDictSectionImpl)
             or not impl.isJsonSource
@@ -96,44 +94,7 @@ async def maybe_read_json_source_contents(
 
         implLayeringsToLoad.append(layering.id)
 
-    print("\n\n\nimplLayeringsToLoad", implLayeringsToLoad, flush=True)
     if len(implLayeringsToLoad) > 0:
         await project_manager.load_json_sources(implLayeringsToLoad)
         return True
     return False
-
-
-# // TODO: this logic should be on the backend
-# async function updateJSONSourceContents(updatedFileInfo) {
-#   const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
-#     updatedFileInfo;
-
-#   const variantIdsToLoad = [];
-#   for (const [id, v] of Object.entries(useProjectState.getState().variants)) {
-#     if (!v.isJsonSource) {
-#       continue;
-#     }
-
-#     if (
-#       !(absPath && v.name === absPath) &&
-#       !(relPath && v.name === relPath) &&
-#       !(destAbsPath && v.name === destAbsPath) &&
-#       !(destRelPath && v.name === destRelPath)
-#     ) {
-#       continue;
-#     }
-#     variantIdsToLoad.push(id);
-#   }
-
-#   const { variants, codeInfo, codeInfoCols } =
-#     await loadJsonContents(variantIdsToLoad);
-
-#   useProjectState.setState((state) => {
-#     updateProjectState({
-#       variants,
-#       codeInfo,
-#       codeInfoCols,
-#       state,
-#     });
-#   });
-# }

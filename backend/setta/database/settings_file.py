@@ -21,12 +21,12 @@ logger = logging.getLogger(__name__)
 class SettingsFile:
     def __init__(self):
         self.settings: SettingsState = SettingsState()
-        self.meta_settings_file = MetaSettingsFile()
+        self.settings_project = SettingsProject()
         self.load_settings()
 
     def save_settings(self, settings):
         logger.debug("Saving settings")
-        paths = self.meta_settings_file.get_settings_paths()
+        paths = self.settings_project.get_settings_paths()
         to_be_saved = {}
         for settings_slice, path in paths.items():
             if path not in to_be_saved:
@@ -38,7 +38,7 @@ class SettingsFile:
 
     def load_settings(self):
         logger.debug("Loading settings")
-        paths = self.meta_settings_file.get_settings_paths()
+        paths = self.settings_project.get_settings_paths()
         output = {}
         for settings_slice, path in paths.items():
             with open(path, "r") as f:
@@ -48,25 +48,27 @@ class SettingsFile:
         return self.settings
 
     def load_settings_project(self):
-        return self.meta_settings_file.load_settings_project()
+        return self.settings_project.load_settings_project()
 
     def save_settings_project(self, p: ProjectStateSingleConfig):
-        self.meta_settings_file.save_settings_project(p)
+        self.settings_project.save_settings_project(p)
         return self.load_settings()
 
 
-class MetaSettingsFile:
+class SettingsProject:
     def __init__(self):
         self.path_default_settings = SETTA_FILES_FOLDER / "setta-settings.json"
-        self.path_meta_settings = SETTA_FILES_FOLDER / "setta-meta-settings.json"
+        self.path_default_settings_project = (
+            SETTA_FILES_FOLDER / "setta-settings-project.json"
+        )
         self.obj_seed_settings = SettingsState()
-        self.obj_seed_meta_settings = create_settings_project_state(
+        self.obj_seed_settings_project = create_settings_project_state(
             self.path_default_settings
         )
 
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
-        p = self.load_meta_settings()
+        p = self.seed_settings_project()
         for k in SettingsState.model_fields.keys():
             path = self.find_path_for_settings_slice(p, k)
             if not path:
@@ -91,23 +93,21 @@ class MetaSettingsFile:
             save_json_to_file(path, self.obj_seed_settings.model_dump())
         return path
 
-    def seed_meta_settings(self):
-        if not os.path.exists(self.path_meta_settings):
+    def seed_settings_project(self):
+        if not os.path.exists(self.path_default_settings_project):
             save_json_to_file(
-                self.path_meta_settings, self.obj_seed_meta_settings.model_dump()
+                self.path_default_settings_project,
+                self.obj_seed_settings_project.model_dump(),
             )
-
-    def load_meta_settings(self):
-        logger.debug("Loading meta settings")
-        self.seed_meta_settings()
-        with open(self.path_meta_settings, "r") as f:
+        with open(self.path_default_settings_project, "r") as f:
             return ProjectStateSingleConfig.model_validate(json.load(f))
 
     def load_settings_project(self):
-        p = self.load_meta_settings()
+        logger.debug("Loading settings project")
+        p = self.seed_settings_project()
         load_json_sources_into_data_structures(p)
         return p
 
     def save_settings_project(self, p: ProjectStateSingleConfig):
         save_json_source_data(p)
-        save_json_to_file(self.path_meta_settings, p.model_dump())
+        save_json_to_file(self.path_default_settings_project, p.model_dump())
