@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class SettingsFile:
     def __init__(self, websocket_msg_handler: WMHFrontendSender):
+        self.websocket_msg_handler = websocket_msg_handler
         self.settings: SettingsState = SettingsState()
         self.settings_project = SettingsProject(websocket_msg_handler)
         self.load_settings()
@@ -56,9 +57,13 @@ class SettingsFile:
         self.settings_project.save_settings_project(p)
         return self.load_settings()
 
+    async def broadcast_settings(self):
+        await self.websocket_msg_handler.broadcast_settings(self.settings)
+
 
 class SettingsProject:
     def __init__(self, websocket_msg_handler: WMHFrontendSender):
+        self.websocket_msg_handler = websocket_msg_handler
         self.path_default_settings = SETTA_FILES_FOLDER / "setta-settings.json"
         self.path_default_settings_project = (
             SETTA_FILES_FOLDER / "setta-settings-project.json"
@@ -68,7 +73,6 @@ class SettingsProject:
             self.path_default_settings
         )
         self.project_state = self.obj_seed_settings_project.model_copy()
-        self.websocket_msg_handler = websocket_msg_handler
 
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
@@ -119,5 +123,5 @@ class SettingsProject:
         save_json_to_file(self.path_default_settings_project, p.model_dump())
         self.project_state = p
 
-    async def broadcast_update(self):
+    async def broadcast_settings_project(self):
         await self.websocket_msg_handler.broadcast_project_state(self.project_state)

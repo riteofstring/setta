@@ -164,7 +164,7 @@ def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
         x.fileWatchGroupName,
         get_content_processor(
             state.project_manager,
-            state.settings_file.settings_project,
+            state.settings_file,
             x.fileWatchGroupName,
         ),
     )
@@ -187,7 +187,7 @@ async def route_file_watch_gen_python_code(
         FileWatchGroupName.genPythonCode,
         get_content_processor(
             state.project_manager,
-            state.settings_file.settings_project,
+            state.settings_file,
             FileWatchGroupName.genPythonCode,
         ),
     )

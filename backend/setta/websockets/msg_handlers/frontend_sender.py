@@ -6,6 +6,7 @@ from setta.types.lsp import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.settings_state import SettingsState
 from setta.types.specific_file_watcher import FileWatcherUpdate
 from setta.types.websocket import (
     WebsocketConnectionType,
@@ -18,6 +19,7 @@ from setta.types.websocket import (
     WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
 )
 from setta.websockets.msg_handlers.base import BaseWebsocketMsgSender
@@ -94,5 +96,11 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgNewTerminalCreated(
                 content={"projectConfigId": projectConfigId, "terminalId": terminalId}
             ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_settings(self, settings: SettingsState):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgUpdateSettings(content=settings),
             connectionType=WebsocketConnectionType.FRONTEND,
         )

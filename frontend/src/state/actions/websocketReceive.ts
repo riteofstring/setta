@@ -28,6 +28,7 @@ import {
 } from "./interactive";
 import { processRenameRefactorResults } from "./referenceRenaming";
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
+import { updateSettings } from "./settings";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -115,6 +116,8 @@ function receiveMessage(message: string) {
       return updateUUIDMappingForLLM(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState:
       return processProjectStateUpdateFromBackend(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
+      return updateSettings(m.content);
     default:
       return m satisfies never;
   }

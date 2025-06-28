@@ -16,6 +16,7 @@ from setta.types.websocket import (
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateBackendProjectState,
     WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
 )
 
@@ -49,6 +50,7 @@ WebsocketMsgForFrontendUnion = Union[
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgNewTerminalCreated,
+    WebsocketMsgUpdateSettings,
 ]
 
 WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[
@@ -73,5 +75,6 @@ WebsocketMsgForFrontendTypeSet = set(
         "ReturnRenameRefactorResults",
         "UpdateFrontendProjectState",
         "NewTerminalCreated",
+        "UpdateSettings",
     ]
 )

@@ -197,6 +197,7 @@ export const WebsocketMsgForFrontendTypeSet = new Set([
   "TerminalMetadata",
   "UUIDMappingForLLM",
   "UpdateFrontendProjectState",
+  "UpdateSettings",
 ]);
 
 export const ArtifactTypeEnum = {
@@ -436,6 +437,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   NewTerminalCreated: "NewTerminalCreated",
+  UpdateSettings: "UpdateSettings",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -3952,6 +3954,161 @@ export function createWebsocketMsgNewTerminalCreated(
   return WebsocketMsgNewTerminalCreatedSchema.parse(options);
 }
 
+export const SettingsShortcutsSchema = z.object({
+  newCardShortcut: z.string().default("N"),
+  newGroupShortcut: z.string().default("G"),
+  typeCheckShortcut: z.string().default(""),
+  newProjectConfigShortcut: z.string().default(""),
+  undoShortcut: z.string().default("Mod + Z"),
+  redoShortcut: z.string().default("Mod + Shift + Z"),
+  groupShortcut: z.string().default("Mod + G"),
+  ungroupShortcut: z.string().default("Shift + Mod + G"),
+  saveShortcut: z.string().default("Mod + S"),
+  saveAsShortcut: z.string().default("Mod + Shift + S"),
+  loadShortcut: z.string().default("Mod + L"),
+  searchShortcut: z.string().default("Mod + K"),
+  advancedSearchShortcut: z.string().default("Mod + P"),
+  commandPaletteShortcut: z.string().default("Mod + Shift + P"),
+  resetZoomShortcut: z.string().default("Mod + Comma"),
+  copyShortcut: z.string().default("Mod + C"),
+  pasteShortcut: z.string().default("Mod + V"),
+  pasteAsRefShortcut: z.string().default("Mod + Shift + V"),
+  sortingShortcut: z.string().default("Mod + Alt"),
+  movingFreeShortcut: z.string().default("Alt"),
+  showTooltipShortcut: z.string().default("Q"),
+  tooltipToPlaintextShortcut: z.string().default("Q + S"),
+  tooltipToMarkdownShortcut: z.string().default("Q + W"),
+  freezeTooltipShortcut: z.string().default("Q + F"),
+  frozenTooltipToPlaintextShortcut: z.string().default("S"),
+  frozenTooltipToMarkdownShortcut: z.string().default("W"),
+  incrementTooltipPageShortcut: z.string().default("Q + ArrowRight"),
+  decrementTooltipPageShortcut: z.string().default("Q + ArrowLeft"),
+  copyTooltipTextShortcut: z.string().default("Q + C"),
+  frozenTooltipIncrementShortcut: z.string().default("ArrowRight"),
+  frozenTooltipDecrementShortcut: z.string().default("ArrowLeft"),
+  frozenTooltipCopyShortcut: z.string().default("C"),
+  newTerminalShortcut: z.string().default("Ctrl + `"),
+  fitViewShortcut: z.string().default("F"),
+  zoomToMouseShortcut: z.string().default("Z"),
+  deleteSectionShortcut: z.string().default("Backspace"),
+  selectAll: z.string().default("Mod + A"),
+  selectTopLevelNonGroupSections: z.string().default("Mod + Shift + A"),
+  showVersionsTabShortcut: z.string().default("V"),
+  showParamUITypeTabShortcut: z.string().default("P"),
+  showProjectOverviewTabShortcut: z.string().default("O"),
+  runCodeShortcut: z.string().default("Mod + Enter"),
+  runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter"),
+  sendProjectToAllInteractiveCode: z.string().default("Alt + I"),
+  paramSelect: z.string().default("Mod + Shift"),
+  formatCode: z.string().default("Shift + Alt + F"),
+  selectionKeyCode: z.string().default("Shift"),
+  multiSelectionKeyCode: z.string().default("Mod"),
+  panActivationKeyCode: z.string().default("Space"),
+  zoomActivationKeyCode: z.string().default("Mod"),
+  zoomInShortcut: z.string().default("Equal"),
+  zoomOutShortcut: z.string().default("Minus"),
+  restartLanguageServerShortcut: z.string().default("Alt + Shift + R"),
+});
+
+export type SettingsShortcuts = z.infer<typeof SettingsShortcutsSchema>;
+
+export function createSettingsShortcuts(
+  options: Partial<SettingsShortcuts> = {},
+): SettingsShortcuts {
+  return SettingsShortcutsSchema.parse(options);
+}
+
+export const SettingsGUISchema = z.object({
+  snapGrid: z.tuple([z.int(), z.int()]),
+  showGridLines: z.boolean().default(true),
+  gridPattern: z
+    .enum(BackgroundVariantEnum)
+    .default(BackgroundVariantEnum.dots),
+  gridPatternSize: z.int().default(2),
+  gridColor: z.string().default("#afbacf"),
+  gridColorDarkMode: z.string().default("#2b364a"),
+  defaultZoomLevel: z.number().default(1.0),
+  minZoom: z.number().default(0.1),
+  maxZoom: z.number().default(10.0),
+  panOnDrag: z.boolean().default(true),
+  panOnScroll: z.boolean().default(true),
+  panOnScrollSpeed: z.number().default(1.0),
+  panOnScrollMode: z.string().default("free"),
+  zoomOnScroll: z.boolean().default(true),
+  zoomOnPinch: z.boolean().default(true),
+  zoomOnDoubleClick: z.boolean().default(false),
+  selectionMode: z.string().default("partial"),
+  leftSidePaneShiftsMap: z.boolean().default(true),
+  transitionDuration: z.int().default(50),
+});
+
+export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
+
+export function createSettingsGUI(
+  options: Partial<SettingsGUI> = {},
+): SettingsGUI {
+  return SettingsGUISchema.parse(options);
+}
+
+export const SettingsBackendSchema = z.object({
+  showDefaultConfigOnLoad: z.boolean().default(true),
+  autosave: z.boolean().default(false),
+  autobackup: z.boolean().default(false),
+  autobackupFreq: z.int().default(300),
+  autobackupKeepLastN: z.int().default(10),
+  clearTerminalBeforeMarkingAsReady: z.boolean().default(true),
+  defaultTerminalShell: z.union([z.string(), z.null()]).default(null),
+  exportDbRawOnSave: z.boolean().default(false),
+  exportDbReadableOnSave: z.boolean().default(false),
+  exportDbReadableWithVariantsOnSave: z.boolean().default(false),
+  renameRefactorMode: z
+    .enum(RenameRefactorModeEnum)
+    .default(RenameRefactorModeEnum.ALWAYS_ASK),
+  saveRenderedValues: z.boolean().default(false),
+});
+
+export type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
+
+export function createSettingsBackend(
+  options: Partial<SettingsBackend> = {},
+): SettingsBackend {
+  return SettingsBackendSchema.parse(options);
+}
+
+export const SettingsStateSchema = z.object({
+  shortcuts: SettingsShortcutsSchema.default(createSettingsShortcuts),
+  gui: SettingsGUISchema.default(createSettingsGUI),
+  backend: SettingsBackendSchema.default(createSettingsBackend),
+  languageServer: z.record(z.string(), z.any()),
+  sections: z.record(z.string(), z.any()),
+});
+
+export type SettingsState = z.infer<typeof SettingsStateSchema>;
+
+export function createSettingsState(
+  options: Partial<SettingsState> = {},
+): SettingsState {
+  return SettingsStateSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateSettingsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: SettingsStateSchema,
+  messageType: z
+    .literal("UpdateSettings")
+    .default(WebsocketMsgTypeForFrontendEnum.UpdateSettings),
+});
+
+export type WebsocketMsgUpdateSettings = z.infer<
+  typeof WebsocketMsgUpdateSettingsSchema
+>;
+
+export function createWebsocketMsgUpdateSettings(
+  options: Partial<WebsocketMsgUpdateSettings> = {},
+): WebsocketMsgUpdateSettings {
+  return WebsocketMsgUpdateSettingsSchema.parse(options);
+}
+
 export const WebsocketMsgForFrontendUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgLSPDiagnosticsSchema,
@@ -3965,6 +4122,7 @@ export const WebsocketMsgForFrontendUnionSchema = z.union([
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
   WebsocketMsgNewTerminalCreatedSchema,
+  WebsocketMsgUpdateSettingsSchema,
 ]);
 
 export type WebsocketMsgForFrontendUnion = z.infer<
@@ -3985,6 +4143,7 @@ export const WebsocketMsgForFrontendUnionWithDiscriminatorSchema =
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
     WebsocketMsgNewTerminalCreatedSchema,
+    WebsocketMsgUpdateSettingsSchema,
   ]);
 
 export type WebsocketMsgForFrontendUnionWithDiscriminator = z.infer<
@@ -4831,143 +4990,6 @@ export function createBaseSectionImpl(
   options: Partial<BaseSectionImpl> = {},
 ): BaseSectionImpl {
   return BaseSectionImplSchema.parse(options);
-}
-
-export const SettingsBackendSchema = z.object({
-  showDefaultConfigOnLoad: z.boolean().default(true),
-  autosave: z.boolean().default(false),
-  autobackup: z.boolean().default(false),
-  autobackupFreq: z.int().default(300),
-  autobackupKeepLastN: z.int().default(10),
-  clearTerminalBeforeMarkingAsReady: z.boolean().default(true),
-  defaultTerminalShell: z.union([z.string(), z.null()]).default(null),
-  exportDbRawOnSave: z.boolean().default(false),
-  exportDbReadableOnSave: z.boolean().default(false),
-  exportDbReadableWithVariantsOnSave: z.boolean().default(false),
-  renameRefactorMode: z
-    .enum(RenameRefactorModeEnum)
-    .default(RenameRefactorModeEnum.ALWAYS_ASK),
-  saveRenderedValues: z.boolean().default(false),
-});
-
-export type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
-
-export function createSettingsBackend(
-  options: Partial<SettingsBackend> = {},
-): SettingsBackend {
-  return SettingsBackendSchema.parse(options);
-}
-
-export const SettingsGUISchema = z.object({
-  snapGrid: z.tuple([z.int(), z.int()]),
-  showGridLines: z.boolean().default(true),
-  gridPattern: z
-    .enum(BackgroundVariantEnum)
-    .default(BackgroundVariantEnum.dots),
-  gridPatternSize: z.int().default(2),
-  gridColor: z.string().default("#afbacf"),
-  gridColorDarkMode: z.string().default("#2b364a"),
-  defaultZoomLevel: z.number().default(1.0),
-  minZoom: z.number().default(0.1),
-  maxZoom: z.number().default(10.0),
-  panOnDrag: z.boolean().default(true),
-  panOnScroll: z.boolean().default(true),
-  panOnScrollSpeed: z.number().default(1.0),
-  panOnScrollMode: z.string().default("free"),
-  zoomOnScroll: z.boolean().default(true),
-  zoomOnPinch: z.boolean().default(true),
-  zoomOnDoubleClick: z.boolean().default(false),
-  selectionMode: z.string().default("partial"),
-  leftSidePaneShiftsMap: z.boolean().default(true),
-  transitionDuration: z.int().default(50),
-});
-
-export type SettingsGUI = z.infer<typeof SettingsGUISchema>;
-
-export function createSettingsGUI(
-  options: Partial<SettingsGUI> = {},
-): SettingsGUI {
-  return SettingsGUISchema.parse(options);
-}
-
-export const SettingsShortcutsSchema = z.object({
-  newCardShortcut: z.string().default("N"),
-  newGroupShortcut: z.string().default("G"),
-  typeCheckShortcut: z.string().default(""),
-  newProjectConfigShortcut: z.string().default(""),
-  undoShortcut: z.string().default("Mod + Z"),
-  redoShortcut: z.string().default("Mod + Shift + Z"),
-  groupShortcut: z.string().default("Mod + G"),
-  ungroupShortcut: z.string().default("Shift + Mod + G"),
-  saveShortcut: z.string().default("Mod + S"),
-  saveAsShortcut: z.string().default("Mod + Shift + S"),
-  loadShortcut: z.string().default("Mod + L"),
-  searchShortcut: z.string().default("Mod + K"),
-  advancedSearchShortcut: z.string().default("Mod + P"),
-  commandPaletteShortcut: z.string().default("Mod + Shift + P"),
-  resetZoomShortcut: z.string().default("Mod + Comma"),
-  copyShortcut: z.string().default("Mod + C"),
-  pasteShortcut: z.string().default("Mod + V"),
-  pasteAsRefShortcut: z.string().default("Mod + Shift + V"),
-  sortingShortcut: z.string().default("Mod + Alt"),
-  movingFreeShortcut: z.string().default("Alt"),
-  showTooltipShortcut: z.string().default("Q"),
-  tooltipToPlaintextShortcut: z.string().default("Q + S"),
-  tooltipToMarkdownShortcut: z.string().default("Q + W"),
-  freezeTooltipShortcut: z.string().default("Q + F"),
-  frozenTooltipToPlaintextShortcut: z.string().default("S"),
-  frozenTooltipToMarkdownShortcut: z.string().default("W"),
-  incrementTooltipPageShortcut: z.string().default("Q + ArrowRight"),
-  decrementTooltipPageShortcut: z.string().default("Q + ArrowLeft"),
-  copyTooltipTextShortcut: z.string().default("Q + C"),
-  frozenTooltipIncrementShortcut: z.string().default("ArrowRight"),
-  frozenTooltipDecrementShortcut: z.string().default("ArrowLeft"),
-  frozenTooltipCopyShortcut: z.string().default("C"),
-  newTerminalShortcut: z.string().default("Ctrl + `"),
-  fitViewShortcut: z.string().default("F"),
-  zoomToMouseShortcut: z.string().default("Z"),
-  deleteSectionShortcut: z.string().default("Backspace"),
-  selectAll: z.string().default("Mod + A"),
-  selectTopLevelNonGroupSections: z.string().default("Mod + Shift + A"),
-  showVersionsTabShortcut: z.string().default("V"),
-  showParamUITypeTabShortcut: z.string().default("P"),
-  showProjectOverviewTabShortcut: z.string().default("O"),
-  runCodeShortcut: z.string().default("Mod + Enter"),
-  runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter"),
-  sendProjectToAllInteractiveCode: z.string().default("Alt + I"),
-  paramSelect: z.string().default("Mod + Shift"),
-  formatCode: z.string().default("Shift + Alt + F"),
-  selectionKeyCode: z.string().default("Shift"),
-  multiSelectionKeyCode: z.string().default("Mod"),
-  panActivationKeyCode: z.string().default("Space"),
-  zoomActivationKeyCode: z.string().default("Mod"),
-  zoomInShortcut: z.string().default("Equal"),
-  zoomOutShortcut: z.string().default("Minus"),
-  restartLanguageServerShortcut: z.string().default("Alt + Shift + R"),
-});
-
-export type SettingsShortcuts = z.infer<typeof SettingsShortcutsSchema>;
-
-export function createSettingsShortcuts(
-  options: Partial<SettingsShortcuts> = {},
-): SettingsShortcuts {
-  return SettingsShortcutsSchema.parse(options);
-}
-
-export const SettingsStateSchema = z.object({
-  shortcuts: SettingsShortcutsSchema.default(createSettingsShortcuts),
-  gui: SettingsGUISchema.default(createSettingsGUI),
-  backend: SettingsBackendSchema.default(createSettingsBackend),
-  languageServer: z.record(z.string(), z.any()),
-  sections: z.record(z.string(), z.any()),
-});
-
-export type SettingsState = z.infer<typeof SettingsStateSchema>;
-
-export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
-  return SettingsStateSchema.parse(options);
 }
 
 export const SimplifiedCodeInfoSchema = z.object({

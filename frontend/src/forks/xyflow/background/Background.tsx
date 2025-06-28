@@ -16,6 +16,8 @@ function Background() {
   const variant = useSettings((x) => x.gui.gridPattern);
   const ref = useRef<SVGSVGElement>(null);
 
+  console.log("variant", variant);
+
   const isDots = variant === BackgroundVariantEnum.dots;
   const isCross = variant === BackgroundVariantEnum.cross;
 

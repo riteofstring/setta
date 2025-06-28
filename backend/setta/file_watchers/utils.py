@@ -4,7 +4,7 @@ from typing import Awaitable, Callable, assert_never
 
 from dotenv import dotenv_values
 
-from setta.database.settings_file import SettingsProject
+from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
 from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
@@ -26,12 +26,12 @@ FileWatcherUpdateHandler = Callable[
 
 def get_content_processor(
     project_manager: ProjectManager,
-    settings_project: SettingsProject,
+    settings_file: SettingsFile,
     file_watch_group_name: FileWatchGroupName,
 ) -> FileWatcherUpdateHandler:
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
-            return get_content_processor_json_source(project_manager, settings_project)
+            return get_content_processor_json_source(project_manager, settings_file)
         case FileWatchGroupName.genPythonCode:
             return content_processor_gen_python_code
         case FileWatchGroupName.apiKeys:
@@ -63,13 +63,13 @@ async def content_processor_api_keys(
 
 
 def get_content_processor_json_source(
-    project_manager: ProjectManager, settings_project: SettingsProject
+    project_manager: ProjectManager, settings_file: SettingsFile
 ):
     async def content_processor_json_source(
         coreUpdate: FileWatcherCoreUpdate, file_to_read: Path
     ):
         await maybe_read_json_source_contents(
-            project_manager, settings_project, coreUpdate
+            project_manager, settings_file, coreUpdate
         )
         return FileWatcherUpdateJSONSource(coreUpdate=coreUpdate, fileContent=None)
 
@@ -86,7 +86,7 @@ def get_llm_api_keys_from_env_vars(env_vars: dict[str, str | None]):
 
 async def maybe_read_json_source_contents(
     project_manager: ProjectManager,
-    settings_project: SettingsProject,
+    settings_file: SettingsFile,
     coreUpdate: FileWatcherCoreUpdate,
 ):
     p = project_manager.project_state_backend
@@ -95,11 +95,13 @@ async def maybe_read_json_source_contents(
         await project_manager.load_json_sources(implLayeringsToLoad)
 
     implLayeringsToLoad = get_json_source_impl_layerings(
-        settings_project.project_state, coreUpdate
+        settings_file.settings_project.project_state, coreUpdate
     )
     if len(implLayeringsToLoad) > 0:
-        settings_project.load_settings_project()
-        await settings_project.broadcast_update()
+        settings_file.settings_project.load_settings_project()
+        settings_file.load_settings()
+        await settings_file.settings_project.broadcast_settings_project()
+        await settings_file.broadcast_settings()
 
 
 def get_json_source_impl_layerings(
