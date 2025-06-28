@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from setta.types.generated.user_defaults import (
     UserDefaultCallableSectionImpl,
+    UserDefaultGroupSectionImpl,
     UserDefaultSliderParamCodeObjImpl,
 )
 
@@ -113,22 +114,17 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool = False
 
 
-class SectionDefaults(BaseModel):
-    callable: UserDefaultCallableSectionImpl = Field(
-        default_factory=UserDefaultCallableSectionImpl
-    )
-
-
-class CodeObjDefaults(BaseModel):
-    slider: UserDefaultSliderParamCodeObjImpl = Field(
-        default_factory=UserDefaultSliderParamCodeObjImpl
-    )
-
-
 class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
-    sections: SectionDefaults = Field(default_factory=SectionDefaults)
-    codeObjs: CodeObjDefaults = Field(default_factory=CodeObjDefaults)
+    callableSectionDefault: UserDefaultCallableSectionImpl = Field(
+        default_factory=UserDefaultCallableSectionImpl
+    )
+    groupSectionDefault: UserDefaultGroupSectionImpl = Field(
+        default_factory=UserDefaultGroupSectionImpl
+    )
+    sliderParamDefault: UserDefaultSliderParamCodeObjImpl = Field(
+        default_factory=UserDefaultSliderParamCodeObjImpl
+    )

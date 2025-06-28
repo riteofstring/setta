@@ -11,12 +11,12 @@ export function UIConfigDropdownAndFields({
 }) {
   return (
     <>
-      <ParamConfigUITypeCombobox
+      {/* <ParamConfigUITypeCombobox
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         onDropdownSelect={onDropdownSelect}
         selectedId={selectedId}
-      />
+      /> */}
       <ParamUIConfig
         sectionId={sectionId}
         paramInfoId={paramInfoId}

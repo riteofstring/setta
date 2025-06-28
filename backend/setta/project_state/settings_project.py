@@ -140,8 +140,9 @@ def create_settings_project_state(settings_path: Path):
         "gui",
         "backend",
         "languageServer",
-        "sections",
-        "codeObjs",
+        "callableSectionDefault",
+        "groupSectionDefault",
+        "sliderParamDefault",
     ]
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
@@ -194,7 +195,8 @@ def create_settings_project_state(settings_path: Path):
         sections[section.id] = section
 
     projectConfigChildren = {
-        k: TopLevelSectionLayout(x=idx * 600) for idx, k in enumerate(sections.keys())
+        k: TopLevelSectionLayout(x=(idx % 3) * 600, y=(idx // 3) * 600)
+        for idx, k in enumerate(sections.keys())
     }
     projectConfig = ProjectConfig(
         name="settings",
