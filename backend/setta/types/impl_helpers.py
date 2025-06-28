@@ -15,15 +15,14 @@ TImpl = TypeVar("TImpl", bound=BaseModel)
 
 
 def apply_modifier(impl: TImpl, modifier: AllImplModifierUnion) -> TImpl:
-    return impl.model_copy(update=modifier)
+    return impl.model_copy(update=modifier, deep=True)
 
 
 def get_effective_impl(
     impl_layering: ImplLayering,
     impl_dict: dict[str, TImpl],
 ) -> TImpl:
-    effective = impl_dict[impl_layering.impl].model_copy(deep=True)
-    return apply_modifier(effective, impl_layering.modifier)
+    return apply_modifier(impl_dict[impl_layering.impl], impl_layering.modifier)
 
 
 def update_impl_layerings(
