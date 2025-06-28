@@ -296,6 +296,7 @@ class ProjectManager:
         project_state = self.get_single_config_state(projectConfigId)
 
         await self.gen_code[projectConfigId].set_callable(
+            self.settings_file.settings,
             project_state,
             sectionId,
             callableName,

@@ -24,6 +24,8 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
 from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore, CodeObjType
+from setta.types.generated.creation_functions import createCodeCallableCodeObjImpl
+from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers import (
     add_children_of_callable,
     add_code_obj,
@@ -108,6 +110,7 @@ class ProjectGenPythonCode(PythonCode):
 
     async def set_callable(
         self,
+        settings: SettingsState,
         project_state: ProjectStateSingleConfig,
         sectionId: str,
         callableName: str,
@@ -161,7 +164,9 @@ class ProjectGenPythonCode(PythonCode):
 
         if not prev_selected:
             callable_code_obj = CodeObjCore(name=callableName)
-            callable_code_obj_impl = CodeCallableCodeObjImpl()
+            callable_code_obj_impl = createCodeCallableCodeObjImpl(
+                settings.codeCallableDefault
+            )
             callable_code_obj_impl_layering = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_code_obj_impl
             )

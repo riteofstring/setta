@@ -8,11 +8,12 @@ from lsprotocol import types as LSPTypes
 from setta.types.code_objs import (
     CodeObjCore,
     ParameterPassingStyle,
-    TextParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_type_unions import (
     BaseParamCodeObjImplUnion,
 )
+from setta.types.generated.creation_functions import createTextParamCodeObjImpl
+from setta.types.generated.settings_state import SettingsState
 
 
 @dataclass
@@ -68,6 +69,7 @@ def process_docstring(documentation: str):
 
 
 def wrapper_parse_signature(
+    settings: SettingsState,
     signature: LSPTypes.SignatureInformation,
     docstring: ProcessedVarDocstringDict,
     get_proposed_params: Callable[
@@ -114,8 +116,11 @@ def wrapper_parse_signature(
         # Append parsed information to list
         codeObj = CodeObjCore(name=name.lstrip("*"))
         codeObjs.append(codeObj)
-        codeObjImplMap[codeObj.id] = TextParamCodeObjImpl(
-            defaultVal=default, description=description, passingStyle=passingStyle
+        codeObjImplMap[codeObj.id] = createTextParamCodeObjImpl(
+            settings.textParamDefault,
+            defaultVal=default,
+            description=description,
+            passingStyle=passingStyle,
         )
 
     return codeObjs, codeObjImplMap

@@ -11,10 +11,14 @@ from setta.types.code_objs import (
     CodeObjCore,
     CodeObjType,
     NestedParamCodeObjImpl,
-    TextParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
+)
+from setta.types.generated.creation_functions import (
+    createDictSectionImpl,
+    createNestedParamCodeObjImpl,
+    createTextParamCodeObjImpl,
 )
 from setta.types.generated.impl_modifier_unions import (
     isBaseChildlessCodeObjImplModifier,
@@ -26,6 +30,7 @@ from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
+from setta.types.generated.settings_state import SettingsState
 from setta.types.impl_helpers import apply_modifier, get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
@@ -34,7 +39,6 @@ from setta.types.project_state import (
 )
 from setta.types.sections import (
     BaseDictSectionImpl,
-    DictSectionImpl,
     SectionCore,
     SectionType,
 )
@@ -59,6 +63,7 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 
 def load_json_sources_into_data_structures(
+    settings: SettingsState,
     p: ProjectStateBackend | ProjectStateSingleConfig | LoadJSONSourceObject,
     section_impl_layering_ids: list[str] | None = None,
 ):
@@ -76,7 +81,9 @@ def load_json_sources_into_data_structures(
 
         if layering.modifier["type"] != SectionType.Dict:
             continue
-        new_data, isMissing = load_json_source(layering.name, impl.jsonSourceKeys)
+        new_data, isMissing = load_json_source(
+            settings, layering.name, impl.jsonSourceKeys
+        )
         layering.modifier["jsonSourceMissing"] = isMissing
         impl = apply_modifier(impl, layering.modifier)
         if isMissing:
@@ -188,7 +195,7 @@ def merge_into_existing(
     ]
 
 
-def load_json_source(filename: str, jsonSourceKeys: list[str]):
+def load_json_source(settings: SettingsState, filename: str, jsonSourceKeys: list[str]):
     jsonSourceData = {}
     isMissing = False
 
@@ -202,14 +209,22 @@ def load_json_source(filename: str, jsonSourceKeys: list[str]):
         logger.debug(f"couldn't find: {filename}")
         isMissing = True
 
-    new_data = process_json_object(jsonSourceData, jsonSourceKeys)
+    new_data = process_json_object(settings, jsonSourceData, jsonSourceKeys)
 
     return new_data, isMissing
 
 
-def process_json_object(jsonSourceData: dict, jsonSourceKeys: list[str]):
+def process_json_object(
+    settings: SettingsState,
+    jsonSourceData: dict,
+    jsonSourceKeys: list[str],
+):
     new_data = ProcessedJSONObject(
-        sectionImpl=DictSectionImpl(isJsonSource=True, jsonSourceKeys=jsonSourceKeys)
+        sectionImpl=createDictSectionImpl(
+            settings.dictSectionDefault,
+            isJsonSource=True,
+            jsonSourceKeys=jsonSourceKeys,
+        )
     )
 
     try:
@@ -236,12 +251,16 @@ def process_json_object_helper(output: ProcessedJSONObject, obj: dict):
     return children_keys
 
 
-def add_to_processed_json_object(key: str, value, output: ProcessedJSONObject):
+def add_to_processed_json_object(
+    settings: SettingsState, key: str, value, output: ProcessedJSONObject
+):
     is_dict = isinstance(value, dict)
     if is_dict:
-        codeObjImpl = NestedParamCodeObjImpl()
+        codeObjImpl = createNestedParamCodeObjImpl(settings.nestedParamDefault)
     else:
-        codeObjImpl = TextParamCodeObjImpl(value=json.dumps(value))
+        codeObjImpl = createTextParamCodeObjImpl(
+            settings.textParamDefault, value=json.dumps(value)
+        )
     codeObjImplLayering = ImplLayering(
         impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
     )

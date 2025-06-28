@@ -95,10 +95,10 @@ async def maybe_read_json_source_contents(
         await project_manager.load_json_sources(implLayeringsToLoad)
 
     implLayeringsToLoad = get_json_source_impl_layerings(
-        settings_file.settings_project.project_state, coreUpdate
+        settings_file.project_state, coreUpdate
     )
     if len(implLayeringsToLoad) > 0:
-        await settings_file.settings_project.load_and_broadcast_settings_project()
+        await settings_file.load_and_broadcast_settings_project()
         await settings_file.load_and_broadcast_settings()
 
 
