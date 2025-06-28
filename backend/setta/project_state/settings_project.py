@@ -168,6 +168,7 @@ def create_settings_project_state(settings_path: Path):
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
             codeObjImplLayeringMap=codeObjImplLayeringMap,
+            topLevelParamIds=list(codeObjImplLayeringMap.keys()),
         )
         sectionImplLayering = ImplLayering(
             name=str(settings_path.relative_to(CWD)),

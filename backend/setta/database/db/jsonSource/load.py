@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 
@@ -136,7 +137,9 @@ def merge_into_existing(
         newImpl = new_data.codeObjImpls[newLayering.impl]
         if not existingCodeObjId:
             if "codeObjImplLayeringMap" not in section_impl_modifier:
-                section_impl_modifier["codeObjImplLayeringMap"] = {}
+                section_impl_modifier["codeObjImplLayeringMap"] = copy.deepcopy(
+                    section_impl.codeObjImplLayeringMap
+                )
             section_impl_modifier["codeObjImplLayeringMap"][newId] = newLayeringId
             section_impl = apply_modifier(section_impl, section_impl_modifier)
             codeObjImplLayerings[newLayeringId] = newLayering
