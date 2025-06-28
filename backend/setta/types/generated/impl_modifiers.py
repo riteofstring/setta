@@ -151,7 +151,11 @@ class BrowserSectionImplModifier(BaseSectionImplModifier):
 
 from typing import Any, Literal, NotRequired, TypedDict
 
-from setta.types.code_objs import ParameterPassingStyle, ParamNameType
+from setta.types.code_objs import (
+    ColorPickerChoice,
+    ParameterPassingStyle,
+    ParamNameType,
+)
 
 
 class BaseCodeObjImplModifier(TypedDict):
@@ -203,6 +207,7 @@ class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
 
 class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["ColorPickerParam"]
+    choices: NotRequired[list[ColorPickerChoice]]
 
 
 class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):

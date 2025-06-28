@@ -1256,6 +1256,19 @@ export function createSwitchParamCodeObjImpl(
   return SwitchParamCodeObjImplSchema.parse(options);
 }
 
+export const ColorPickerChoiceSchema = z.object({
+  color: z.string(),
+  description: z.string(),
+});
+
+export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
+
+export function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
+  return ColorPickerChoiceSchema.parse(options);
+}
+
 export const ColorPickerParamCodeObjImplSchema = z.object({
   type: z.literal("ColorPickerParam").default(CodeObjTypeEnum.ColorPickerParam),
   id: z.string().default(create_new_id),
@@ -1269,6 +1282,7 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
+  choices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type ColorPickerParamCodeObjImpl = z.infer<
@@ -2157,6 +2171,7 @@ export const ColorPickerParamCodeObjImplModifierSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   defaultVal: z.string().optional(),
   value: z.string().optional(),
+  choices: z.array(ColorPickerChoiceSchema).optional(),
 });
 
 export type ColorPickerParamCodeObjImplModifier = z.infer<

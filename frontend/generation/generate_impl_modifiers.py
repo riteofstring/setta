@@ -187,7 +187,8 @@ def code_obj_impl_modifiers():
 from typing import TypedDict, Literal, Any, NotRequired
 from setta.types.code_objs import (
     ParameterPassingStyle,
-    ParamNameType
+    ParamNameType,
+    ColorPickerChoice
 )
 
 """

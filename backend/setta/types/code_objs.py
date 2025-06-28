@@ -32,6 +32,11 @@ class ParamNameType(str, Enum):
     TEXT = "TEXT"
 
 
+class ColorPickerChoice(BaseModel):
+    color: str
+    description: str
+
+
 class CodeObjCore(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
@@ -87,6 +92,7 @@ class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
+    choices: list[ColorPickerChoice] = Field(default_factory=list)
 
 
 class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
