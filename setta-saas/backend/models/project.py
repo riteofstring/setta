@@ -11,6 +11,7 @@ class ProjectCreate(BaseModel):
     """Request model for creating a project."""
 
     name: str
+    github_url: str | None = None
 
 
 class ProjectResponse(BaseModel):

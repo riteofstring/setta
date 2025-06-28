@@ -236,11 +236,16 @@ export default function ProjectsList() {
     return () => unsubscribers.forEach((unsub) => unsub());
   }, [isConnected, subscribe, EventType, showNotification]);
 
-  const handleCreateProject = async (projectName) => {
+  const handleCreateProject = async (projectName, githubUrl) => {
     try {
+      const payload = { name: projectName };
+      if (githubUrl && githubUrl.trim()) {
+        payload.github_url = githubUrl.trim();
+      }
+
       const response = await authenticatedFetch("/api/projects", {
         method: "POST",
-        body: JSON.stringify({ name: projectName }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {

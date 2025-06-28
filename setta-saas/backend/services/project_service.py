@@ -106,7 +106,9 @@ class ProjectService:
             )
 
             # Deploy with progress updates
-            deployment = await self.fly.create_and_deploy_app_with_progress(app_name, project_id)
+            deployment = await self.fly.create_and_deploy_app_with_progress(
+                app_name, project_id, project.github_url
+            )
 
             # Update project with deployment info INCLUDING machine data
             project.url = deployment["url"]

@@ -72,7 +72,9 @@ class FlyService:
 
         return success
 
-    async def create_and_deploy_app_with_progress(self, app_name: str, project_id: str) -> dict:
+    async def create_and_deploy_app_with_progress(
+        self, app_name: str, project_id: str, github_url: str | None = None
+    ) -> dict:
         """Create app with progress updates (async wrapper for project service)."""
         try:
             # Reset event poller for new deployment
@@ -100,16 +102,25 @@ class FlyService:
             )
 
             # Deploy machine and poll events concurrently
-            deploy_task = asyncio.create_task(self._deploy_machine(app_name))
+            deploy_task = asyncio.create_task(self._deploy_machine(app_name, github_url))
 
             # Show progress while waiting for machine creation
             machine_result = None
-            wait_messages = [
-                ("Requesting new machine from Fly.io...", 31),
-                ("Allocating resources (CPU, memory)...", 32),
-                ("Setting up machine configuration...", 33),
-                ("Initializing container runtime...", 34),
-            ]
+
+            if github_url:
+                wait_messages = [
+                    ("Fetching code from GitHub...", 31),
+                    ("Building Python application...", 32),
+                    ("Installing dependencies...", 33),
+                    ("Creating container image...", 34),
+                ]
+            else:
+                wait_messages = [
+                    ("Requesting new machine from Fly.io...", 31),
+                    ("Allocating resources (CPU, memory)...", 32),
+                    ("Setting up machine configuration...", 33),
+                    ("Initializing container runtime...", 34),
+                ]
 
             for i, (msg, progress) in enumerate(wait_messages):
                 if deploy_task.done():
@@ -172,19 +183,67 @@ class FlyService:
             await asyncio.to_thread(self._cleanup_failed_app, app_name)
             raise
 
-    async def _deploy_machine(self, app_name: str) -> dict:
+    async def _deploy_machine(self, app_name: str, github_url: str | None = None) -> dict:
         """Deploy machine and return result."""
-        print("Deploying machine with hibernation enabled...")
-        machine_id = await asyncio.to_thread(
-            create_and_deploy_machine,
-            self.client,
-            app_name,
-            idle_timeout_minutes=5,
-        )
+        if github_url:
+            print(f"Deploying from GitHub: {github_url}")
+            # Deploy from GitHub repository
+            machine_id = await asyncio.to_thread(
+                self._create_machine_from_github,
+                app_name,
+                github_url,
+            )
+        else:
+            print("Deploying with default hello world image...")
+            machine_id = await asyncio.to_thread(
+                create_and_deploy_machine,
+                self.client,
+                app_name,
+                idle_timeout_minutes=5,
+            )
+
         print(f"✓ Machine created: {machine_id}")
         print("✓ Hibernation enabled (5 minute idle timeout)")
 
         return {"machine_id": machine_id}
+
+    def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
+        """Create a machine that builds from GitHub."""
+        # Machine configuration for GitHub builds
+        config = {
+            "build": {
+                "repo": github_url,
+                "builder": "paketobuildpacks/builder:base",
+                "buildpacks": ["paketo-buildpacks/python"],
+            },
+            "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 512},
+            "services": [
+                {
+                    "ports": [
+                        {"port": 80, "handlers": ["http"], "force_https": True},
+                        {"port": 443, "handlers": ["http", "tls"]},
+                    ],
+                    "protocol": "tcp",
+                    "internal_port": 8080,
+                    "autostop": "stop",
+                    "autostart": True,
+                    "min_machines_running": 0,
+                }
+            ],
+            "env": {
+                "PORT": "8080",
+            },
+            "auto_destroy": False,
+            "restart": {"policy": "on-failure", "max_retries": 1},
+            "stop": {
+                "timeout": "5m",
+                "signal": "SIGTERM",
+            },
+        }
+
+        # Create machine with build configuration
+        machine = self.client.create_machine(app_name, config, region="ewr")
+        return machine["id"]
 
     def create_and_deploy_app(self, app_name: str) -> dict:
         """Create app, allocate IPs, and deploy a machine (sync version for compatibility)."""
