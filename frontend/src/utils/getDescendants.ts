@@ -77,7 +77,10 @@ function _findAllDescendants(
       output.push(id);
     }
 
-    if (conditions.stack?.(impl) && isBaseParentCodeObjImpl(impl)) {
+    if (
+      (!conditions.stack || conditions.stack(impl)) &&
+      isBaseParentCodeObjImpl(impl)
+    ) {
       let children = impl.children;
       childrenMap[id] = children;
       children = children.slice().reverse();
