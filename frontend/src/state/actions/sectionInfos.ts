@@ -81,11 +81,12 @@ export function getSectionImpl(p: ZustandProjectState, sectionId: string) {
 
 export function getCodeObjImplLayering(
   p: ZustandProjectState,
-  sectionId: string,
   codeObjId: string,
+  sectionId: string | null,
+  sectionImpl: BaseSectionImplUnion | null,
 ) {
   // Check if sectionId exists in the map
-  const sectionImpl = getEffectiveSectionImpl(p, sectionId);
+  sectionImpl = getEffectiveSectionImpl(p, sectionId, sectionImpl);
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     throw new Error();
   }
@@ -106,10 +107,16 @@ export function getCodeObjImplLayering(
 
 export function getEffectiveCodeObjImpl(
   p: ZustandProjectState,
-  sectionId: string,
   codeObjId: string,
+  sectionId: string | null,
+  sectionImpl: BaseSectionImplUnion | null,
 ) {
-  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId);
+  const implLayering = getCodeObjImplLayering(
+    p,
+    codeObjId,
+    sectionId,
+    sectionImpl,
+  );
   return getEffectiveImpl(implLayering, p.codeObjImpls);
 }
 
@@ -124,6 +131,20 @@ export function getCodeObjImpl(
     throw new Error();
   }
   return baseImpl;
+}
+
+export function getEffectiveImplFromLayeringMap<TImpl>(
+  id: string,
+  impls: Record<string, TImpl>,
+  layerings: Record<string, ImplLayering>,
+  layeringMap: Record<string, string>,
+) {
+  const layeringId = layeringMap[id];
+  const implLayering = layerings[layeringId!];
+  if (!implLayering) {
+    throw new Error();
+  }
+  return getEffectiveImpl(implLayering, impls);
 }
 
 export function getSectionInfo(sectionId) {
@@ -204,7 +225,6 @@ export function processProjectStateUpdateFromBackend(
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
   });
-  console.log("useProjectState.getState()", useProjectState.getState())
 }
 
 export function updateProjectState({
