@@ -169,7 +169,7 @@ class UserDefaultGlobalVariablesSectionImpl(
 ):
     """User-configurable defaults for GlobalVariablesSectionImpl"""
 
-    pass
+    name: str = "Global Variables"
 
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
@@ -184,7 +184,7 @@ class UserDefaultGenPythonCodeSectionImpl(
 ):
     """User-configurable defaults for GenPythonCodeSectionImpl"""
 
-    pass
+    name: str = "Generated Python Code"
 
 
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

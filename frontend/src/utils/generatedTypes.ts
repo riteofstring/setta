@@ -4369,6 +4369,7 @@ export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   code: z.string().default(""),
+  name: z.string().default("Generated Python Code"),
 });
 
 export type UserDefaultGenPythonCodeSectionImpl = z.infer<
@@ -4408,6 +4409,7 @@ export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
+  name: z.string().default("Global Variables"),
 });
 
 export type UserDefaultGlobalVariablesSectionImpl = z.infer<

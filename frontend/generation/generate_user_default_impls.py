@@ -1,6 +1,6 @@
 import inspect
 from pathlib import Path
-from typing import List, Tuple, Type
+from typing import Dict, List, Set, Tuple, Type
 
 from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
@@ -8,8 +8,55 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
 
-# Fields to exclude from user defaults
-EXCLUSIONS = {"id", "name", "type"}
+DEFAULT_EXCLUSIONS = {"id", "name", "type"}
+
+# Class-specific exclusions (can override defaults)
+SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
+    # Base classes
+    "BaseSectionImpl": {"id", "name", "type"},
+    "BaseSectionWithParamsImpl": {"type"},
+    "BaseArtifactSectionImpl": {"type"},
+    "BaseCanvasSectionImpl": {"type"},
+    "BaseCodeSectionImpl": {"type"},
+    "BaseParentSectionImpl": {"type"},
+    "BaseDictSectionImpl": {"type"},
+    # Concrete classes
+    "CallableSectionImpl": {"id", "name", "type"},
+    "DictSectionImpl": {"id", "name", "type"},
+    "ListRootSectionImpl": {"id", "name", "type"},
+    "DictRootSectionImpl": {"id", "name", "type"},
+    "GroupSectionImpl": {"id", "name", "type"},
+    "ImageSectionImpl": {"id", "name", "type"},
+    "ChartSectionImpl": {"id", "name", "type"},
+    "DrawSectionImpl": {"id", "name", "type"},
+    "TextBlockSectionImpl": {"id", "name", "type"},
+    "SocialSectionImpl": {"id", "name", "type"},
+    "GlobalVariablesSectionImpl": {"id", "name", "type"},
+    "CodeSectionImpl": {"id", "name", "type"},
+    "GenPythonCodeSectionImpl": {"id", "name", "type"},
+    "TerminalSectionImpl": {"id", "name", "type"},
+    "IFrameSectionImpl": {"id", "name", "type"},
+    "ChatSectionImpl": {"id", "name", "type"},
+    "BrowserSectionImpl": {"id", "name", "type"},
+}
+
+CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
+    # Base classes
+    "BaseCodeObjImpl": {"id", "name", "type"},
+    "BaseParamCodeObjImpl": {"id", "name", "type"},
+    "BaseChildlessCodeObjImpl": {"id", "name", "type"},
+    "BaseParentCodeObjImpl": {"id", "name", "type"},
+    # Concrete classes
+    "CodeCallableCodeObjImpl": {"id", "name", "type"},
+    "CodeParamCodeObjImpl": {"id", "name", "type"},
+    "TextParamCodeObjImpl": {"id", "name", "type"},
+    "SliderParamCodeObjImpl": {"id", "name", "type"},
+    "SwitchParamCodeObjImpl": {"id", "name", "type"},
+    "ColorPickerParamCodeObjImpl": {"id", "name", "type"},
+    "DropdownParamCodeObjImpl": {"id", "name", "type"},
+    "PasswordParamCodeObjImpl": {"id", "name", "type"},
+    "NestedParamCodeObjImpl": {"id", "name", "type"},
+}
 
 
 def extract_class_info(
@@ -47,7 +94,10 @@ def extract_class_info(
 
 
 def transform_class_to_user_default(
-    class_lines: List[str], class_name: str, parent_mapping: dict, base_class_name: str
+    class_lines: List[str],
+    class_name: str,
+    parent_mapping: dict,
+    exclusions: Set[str],
 ) -> List[str]:
     """Transform class source to UserDefault version."""
     new_lines = []
@@ -86,7 +136,7 @@ def transform_class_to_user_default(
                 and not stripped.startswith('"""')
             ):
                 field_name = stripped.split(":")[0].strip()
-                if field_name not in EXCLUSIONS:
+                if field_name not in exclusions:
                     # Add this line
                     new_lines.append(line)
 
@@ -133,7 +183,11 @@ def transform_class_to_user_default(
 
 
 def process_module_classes(
-    source_file: Path, module, base_class: Type[BaseModel], discriminator: str
+    source_file: Path,
+    module,
+    base_class: Type[BaseModel],
+    discriminator: str,
+    exclusions_map: Dict[str, Set[str]],
 ) -> List[str]:
     """Process classes from a module and return transformed classes."""
     # Get all target classes
@@ -159,8 +213,14 @@ def process_module_classes(
     for cls in all_classes:
         class_lines, _ = extract_class_info(source_lines, cls.__name__)
         if class_lines:
+            # Get exclusions for this class
+            exclusions = exclusions_map[cls.__name__]
+
             transformed = transform_class_to_user_default(
-                class_lines, cls.__name__, parent_mapping, base_class.__name__
+                class_lines,
+                cls.__name__,
+                parent_mapping,
+                exclusions,
             )
             class_definitions.extend(transformed)
             class_definitions.append("\n")
@@ -183,6 +243,7 @@ def main(output_folder: Path):
         setta.types.sections,
         setta.types.sections.BaseSectionImpl,
         "type",
+        SECTION_EXCLUSIONS,
     )
 
     code_objs_classes = process_module_classes(
@@ -190,57 +251,54 @@ def main(output_folder: Path):
         setta.types.code_objs,
         setta.types.code_objs.BaseCodeObjImpl,
         "type",
+        CODE_OBJ_EXCLUSIONS,
     )
 
     # Build the complete file
-    output = []
+    header = """# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
+# Generated from section and code obj implementations
 
-    # Header
-    output.extend(
-        [
-            "# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY\n",
-            "# Generated from section and code obj implementations\n",
-            "\n",
-            "from typing import Any, Dict, List, Literal, Optional, Union\n",
-            "from pydantic import BaseModel, Field\n",
-            "\n",
-            "# Section type imports\n",
-            "from setta.types.sections import (\n",
-            "    ChartSettings,\n",
-            "    CodeLanguage,\n",
-            "    ConfigLanguage,\n",
-            "    DrawAreaCanvasSettings,\n",
-            "    SectionSize,\n",
-            "    SectionSizeMode,\n",
-            "    SectionType,\n",
-            "    TextBlockDisplayMode,\n",
-            "    TextBlockFormat,\n",
-            "    Visibility,\n",
-            ")\n",
-            "\n",
-            "# Code object type imports\n",
-            "from setta.types.code_objs import (\n",
-            "    CodeObjType,\n",
-            "    ColorPickerChoice,\n",
-            "    ParameterPassingStyle,\n",
-            "    ParamNameType,\n",
-            ")\n",
-            "\n\n",
-            "# ============== Section UserDefault Classes ==============\n\n",
-        ]
-    )
+from typing import Any, Dict, List, Literal, Optional, Union
+from pydantic import BaseModel, Field
 
-    # Add section classes
-    output.extend(sections_classes)
+# Section type imports
+from setta.types.sections import (
+    ChartSettings,
+    CodeLanguage,
+    ConfigLanguage,
+    DrawAreaCanvasSettings,
+    SectionSize,
+    SectionSizeMode,
+    SectionType,
+    TextBlockDisplayMode,
+    TextBlockFormat,
+    Visibility,
+)
 
-    # Add code obj classes
-    output.extend(
-        ["\n\n# ============== Code Object UserDefault Classes ==============\n\n"]
-    )
-    output.extend(code_objs_classes)
+# Code object type imports
+from setta.types.code_objs import (
+    CodeObjType,
+    ColorPickerChoice,
+    ParameterPassingStyle,
+    ParamNameType,
+)
 
-    # Join and format
-    combined = "".join(output)
+
+# ============== Section UserDefault Classes ==============
+
+"""
+
+    # Join everything
+    sections_str = "".join(sections_classes)
+    code_objs_str = "".join(code_objs_classes)
+
+    combined = f"""{header}{sections_str}
+
+# ============== Code Object UserDefault Classes ==============
+
+{code_objs_str}"""
+
+    # Format
     formatted = ruff_format(combined)
 
     # Write output
