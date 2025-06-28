@@ -153,6 +153,8 @@ from setta.types.sections import (
     Visibility,
     CodeLanguage,
     ConfigLanguage,
+    TextBlockDisplayMode,
+    TextBlockFormat
 )
 
 """

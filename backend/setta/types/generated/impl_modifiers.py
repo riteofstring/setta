@@ -6,6 +6,8 @@ from setta.types.sections import (
     ConfigLanguage,
     DrawAreaCanvasSettings,
     SectionSize,
+    TextBlockDisplayMode,
+    TextBlockFormat,
     Visibility,
 )
 
@@ -106,9 +108,9 @@ class DrawSectionImplModifier(BaseArtifactSectionImplModifier):
 
 class TextBlockSectionImplModifier(BaseSectionImplModifier):
     type: Literal["TextBlock"]
-    renderMarkdown: NotRequired[bool]
+    format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
-    displayMode: NotRequired[str]
+    displayMode: NotRequired[TextBlockDisplayMode]
     description: NotRequired[str]
 
 

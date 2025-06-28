@@ -251,6 +251,22 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
+export const TextBlockDisplayModeEnum = {
+  render: "render",
+  edit: "edit",
+} as const;
+
+export type TextBlockDisplayMode = ObjectValues<
+  typeof TextBlockDisplayModeEnum
+>;
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+
+export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
 export const SettaNotificationTypeEnum = {
   success: "success",
   error: "error",
@@ -1802,9 +1818,9 @@ export const TextBlockSectionImplModifierSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  renderMarkdown: z.boolean().optional(),
+  format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
-  displayMode: z.string().optional(),
+  displayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   description: z.string().optional(),
 });
 
@@ -2897,9 +2913,11 @@ export const TextBlockSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  renderMarkdown: z.boolean().default(false),
+  format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
-  displayMode: z.string().default("GUI"),
+  displayMode: z
+    .enum(TextBlockDisplayModeEnum)
+    .default(TextBlockDisplayModeEnum.render),
   description: z.string().default(""),
 });
 

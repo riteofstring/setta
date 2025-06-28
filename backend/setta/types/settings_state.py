@@ -119,6 +119,5 @@ class SettingsState(BaseModel, extra="forbid"):
         "CHART": {"size": {"width": 400, "height": 400}},
         "GLOBAL_VARIABLES": {"name": "Global Variables"},
         "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
-        "TEXT_BLOCK": {"displayMode": "RENDER"},
         "CHAT": {"size": {"width": 405, "height": 405}},
     }

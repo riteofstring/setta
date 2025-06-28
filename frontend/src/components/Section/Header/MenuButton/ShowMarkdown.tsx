@@ -1,37 +1,45 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionImplLayering,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
+import {
+  SectionTypeEnum,
+  TextBlockDisplayModeEnum,
+  TextBlockFormatEnum,
+} from "utils/generatedTypes";
 
 export function RenderTextBlock({ sectionId }) {
-  const { displayMode, renderMarkdown, variantIsFrozen } = useProjectState(
-    (x) => {
-      return {
-        displayMode: x.sections[sectionId].displayMode,
-        renderMarkdown: x.sections[sectionId].renderMarkdown,
-        variantIsFrozen: getSectionVariant(sectionId, x).isFrozen,
-      };
-    },
-    _.isEqual,
-  );
+  const { displayMode, format, implIsFrozen } = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.TextBlock) {
+      throw new Error();
+    }
+    return {
+      displayMode: impl.displayMode,
+      format: impl.format,
+      implIsFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
 
   function onClick() {
     useProjectState.setState((state) => {
-      state.sections[sectionId].displayMode =
-        displayMode === SECTION_DISPLAY_MODES.RENDER
-          ? SECTION_DISPLAY_MODES.EDIT
-          : SECTION_DISPLAY_MODES.RENDER;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
+        throw new Error();
+      }
+      implLayering.modifier.displayMode =
+        displayMode === TextBlockDisplayModeEnum.render
+          ? TextBlockDisplayModeEnum.edit
+          : TextBlockDisplayModeEnum.render;
     });
   }
 
-  const format = renderMarkdown ? "Markdown" : "Plaintext";
-
-  // only show this option if there are no parameters
-  // and the search bar isn't hidden (we don't want to hide both params and search)
   return (
-    <MenuItem onClick={onClick} disabled={variantIsFrozen}>
-      {displayMode === SECTION_DISPLAY_MODES.EDIT
+    <MenuItem onClick={onClick} disabled={implIsFrozen}>
+      {displayMode === TextBlockDisplayModeEnum.edit
         ? `Render ${format}`
         : `Edit ${format}`}
     </MenuItem>
@@ -39,19 +47,30 @@ export function RenderTextBlock({ sectionId }) {
 }
 
 export function ConvertFormat({ sectionId }) {
-  const renderMarkdown = useProjectState(
-    (x) => x.sections[sectionId].renderMarkdown,
-  );
+  const format = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.TextBlock) {
+      throw new Error();
+    }
+    return impl.format;
+  });
+
+  const convertTo =
+    format === TextBlockFormatEnum.Plaintext
+      ? TextBlockFormatEnum.Markdown
+      : TextBlockFormatEnum.Plaintext;
 
   function onClick() {
     useProjectState.setState((state) => {
-      state.sections[sectionId].renderMarkdown = !renderMarkdown;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
+        throw new Error();
+      }
+      implLayering.modifier.format = convertTo;
     });
   }
 
-  const format = renderMarkdown ? "Plaintext" : "Markdown";
-
   // only show this option if there are no parameters
   // and the search bar isn't hidden (we don't want to hide both params and search)
-  return <MenuItem onClick={onClick}>{`Convert to ${format}`}</MenuItem>;
+  return <MenuItem onClick={onClick}>{`Convert to ${convertTo}`}</MenuItem>;
 }

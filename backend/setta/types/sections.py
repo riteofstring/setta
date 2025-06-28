@@ -49,6 +49,16 @@ class ConfigLanguage(str, Enum):
     json = "json"
 
 
+class TextBlockDisplayMode(str, Enum):
+    render = "render"
+    edit = "edit"
+
+
+class TextBlockFormat(str, Enum):
+    Plaintext = "Plaintext"
+    Markdown = "Markdown"
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
@@ -173,9 +183,9 @@ class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
 
 class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    renderMarkdown: bool = False
+    format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: str = "GUI"
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
     description: str = ""
 
 

@@ -195,8 +195,6 @@ export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 
 export const SECTION_DISPLAY_MODES = {
-  RENDER: "RENDER",
-  EDIT: "EDIT",
   YAML: "YAML",
   GUI: "GUI",
 };
