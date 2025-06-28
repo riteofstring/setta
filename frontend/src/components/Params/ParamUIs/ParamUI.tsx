@@ -332,7 +332,6 @@ function PasswordParamConfigured({
   );
 }
 
-
 const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (obj: SliderParamCodeObjImpl) => ({
     min: obj.min,

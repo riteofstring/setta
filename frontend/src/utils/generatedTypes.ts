@@ -4119,12 +4119,10 @@ export const SettingsStateSchema = z.object({
   gui: SettingsGUISchema.default(createSettingsGUI),
   backend: SettingsBackendSchema.default(createSettingsBackend),
   languageServer: z.record(z.string(), z.any()).default({}),
-  sections: z
-    .record(z.string(), z.any())
-    .default({
-      GLOBAL_VARIABLES: { name: "Global Variables" },
-      GEN_PYTHON_CODE: { name: "Generated Python Code" },
-    }),
+  sections: z.record(z.string(), z.any()).default({
+    GLOBAL_VARIABLES: { name: "Global Variables" },
+    GEN_PYTHON_CODE: { name: "Generated Python Code" },
+  }),
 });
 
 export type SettingsState = z.infer<typeof SettingsStateSchema>;

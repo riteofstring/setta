@@ -193,6 +193,7 @@ def create_settings_project_state(settings_path: Path):
         name="settings",
         topLevelSections=projectConfigChildren,
         sectionImplLayeringMap=sectionImplLayeringMap,
+        viewport=None,
     )
 
     return ProjectStateSingleConfig(
