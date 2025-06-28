@@ -74,11 +74,14 @@ def load_json_sources_into_data_structures(
         ):
             continue
 
-        if layering.modifier["type"] != SectionType.Dict:
-            continue
         new_data, isMissing = load_json_source(layering.name, impl.jsonSourceKeys)
-        layering.modifier["jsonSourceMissing"] = isMissing
-        impl = apply_modifier(impl, layering.modifier)
+        if impl.isPreset:
+            if layering.modifier["type"] != SectionType.Dict:
+                continue
+            layering.modifier["jsonSourceMissing"] = isMissing
+            impl = apply_modifier(impl, layering.modifier)
+        else:
+            impl.jsonSourceMissing = isMissing
         if isMissing:
             continue
         merge_into_existing(

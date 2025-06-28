@@ -25,6 +25,22 @@ def get_effective_impl(
     return apply_modifier(impl_dict[impl_layering.impl], impl_layering.modifier)
 
 
+
+def set_impl_layering_attr(
+    impl: ImplType,
+    layering: ImplLayering,
+    impl_callback: Callable[[ImplType], None],
+    modifier_callback: Callable[[ImplLayering], None],
+    apply_modifier: Callable[[ImplType, dict], ImplType]
+) -> ImplType:
+    if not impl.isPreset:
+        impl_callback(impl)
+        return impl
+    else:
+        modifier_callback(layering)
+        return apply_modifier(impl, layering.modifier)
+
+
 def update_impl_layerings(
     p: ProjectStateSingleConfig, implLayerings: list[str], new_impl: BaseCodeObjImpl
 ):

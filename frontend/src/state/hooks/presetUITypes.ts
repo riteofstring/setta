@@ -8,7 +8,6 @@ import {
 } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
-import { getUITypeColAttr } from "./uiTypes";
 
 function createName(uiType) {
   const x = uiTypesToPretty[uiType.type];
@@ -52,33 +51,39 @@ function filterUITypes(
   return output.map((v) => ({
     id: v.id,
     name: createName(v),
-    presetType: v.presetType,
+    isPreset: v.presetType,
     displayType: v.presetType ?? UITypePresetTypeEnum.BASE, // display non-preset types as "base" types
   }));
 }
 
-export function useAvailableUITypesForParam(
-  sectionId,
-  paramInfoId,
-  selectedId,
-) {
+export function useAvailableUITypesForParam(paramInfoId, selectedId) {
   return useProjectState((x) => {
-    const nonPresetUITypeIds = getUITypeColAttr(
-      sectionId,
-      paramInfoId,
-      "nonPresetUITypeIds",
-      x,
-    );
+    const codeObj = x.codeObjs[paramInfoId];
+    if (!codeObj) {
+      throw new Error();
+    }
+    const { implLayerings } = codeObj;
 
-    const generalFilterFn = (x) => C.NON_SECTION_TYPES.includes(x.type);
-    const nonPresetFilterFn = (uiType) =>
-      isAmongNonPresets(uiType, nonPresetUITypeIds);
+    const output = []
+    for (const layeringId of implLayerings){
+      const layering = x.codeObjImplLayerings[layeringId]
+      if (!layering){
+        throw new Error()
+      }
+      output.push({id: })
+    }
 
-    return filterUITypes(
-      x.uiTypes,
-      generalFilterFn,
-      nonPresetFilterFn,
-      selectedId,
-    );
+    return 
+
+    // const generalFilterFn = (x) => C.NON_SECTION_TYPES.includes(x.type);
+    // const nonPresetFilterFn = (uiType) =>
+    //   isAmongNonPresets(uiType, nonPresetUITypeIds);
+
+    // return filterUITypes(
+    //   x.uiTypes,
+    //   generalFilterFn,
+    //   nonPresetFilterFn,
+    //   selectedId,
+    // );
   }, _.isEqual);
 }

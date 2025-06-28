@@ -24,11 +24,7 @@ export function ParamConfigUITypeCombobox({
   selectedId,
   ...props
 }) {
-  const availableUITypes = useAvailableUITypesForParam(
-    sectionId,
-    paramInfoId,
-    selectedId,
-  );
+  const availableUITypes = useAvailableUITypesForParam(paramInfoId, selectedId);
   return (
     <UITypeCombobox
       availableUITypes={availableUITypes}
