@@ -14,6 +14,7 @@ from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
+from setta.types.generated.settings_state import SettingsState
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectConfig,
@@ -135,15 +136,7 @@ def create_settings_code_objs(section_names):
 
 
 def create_settings_project_state(settings_path: Path):
-    section_names = [
-        "shortcuts",
-        "gui",
-        "backend",
-        "languageServer",
-        "callableSectionDefault",
-        "groupSectionDefault",
-        "sliderParamDefault",
-    ]
+    section_names = SettingsState.model_fields.keys()
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}
