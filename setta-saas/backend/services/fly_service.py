@@ -3,6 +3,7 @@ Fly.io service for managing apps and deployments.
 """
 
 import asyncio
+import base64
 
 from config import get_settings
 from fly.client import FlyClient
@@ -109,10 +110,10 @@ class FlyService:
 
             if github_url:
                 wait_messages = [
-                    ("Fetching code from GitHub...", 31),
-                    ("Building Python application...", 32),
-                    ("Installing dependencies...", 33),
-                    ("Creating container image...", 34),
+                    ("Preparing GitHub deployment script...", 31),
+                    ("Configuring Python environment...", 32),
+                    ("Setting up container...", 33),
+                    ("Initializing deployment...", 34),
                 ]
             else:
                 wait_messages = [
@@ -208,14 +209,71 @@ class FlyService:
         return {"machine_id": machine_id}
 
     def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
-        """Create a machine that builds from GitHub."""
-        # Machine configuration for GitHub builds
+        """Create a machine that clones and runs a GitHub repository."""
+        # Create a startup script that clones and runs the repo
+        startup_script = f"""#!/bin/bash
+set -e
+
+echo "=== Starting GitHub deployment ==="
+echo "Repository: {github_url}"
+
+# Update package list and install git
+apt-get update && apt-get install -y git
+
+# Clone the repository
+cd /
+git clone {github_url} app
+cd /app
+
+# Check for requirements.txt and install dependencies
+if [ -f requirements.txt ]; then
+    echo "Found requirements.txt, installing dependencies..."
+    pip install -r requirements.txt
+else
+    echo "WARNING: No requirements.txt found"
+fi
+
+# For now, try to detect and run the app
+# In the future, this will just be 'setta'
+if [ -f Procfile ]; then
+    echo "Found Procfile"
+    # Extract web command from Procfile
+    WEB_CMD=$(grep "^web:" Procfile | sed 's/^web: //')
+    echo "Running: $WEB_CMD"
+    exec $WEB_CMD
+elif [ -f app.py ]; then
+    echo "Found app.py"
+    # Try to run with gunicorn first (common for production)
+    if pip list | grep -q gunicorn; then
+        exec gunicorn app:app --bind 0.0.0.0:8080
+    elif pip list | grep -q uvicorn; then
+        exec uvicorn app:app --host 0.0.0.0 --port 8080
+    else
+        # Fallback to direct python execution
+        exec python app.py
+    fi
+elif [ -f main.py ]; then
+    echo "Found main.py"
+    if pip list | grep -q uvicorn; then
+        exec uvicorn main:app --host 0.0.0.0 --port 8080
+    else
+        exec python main.py
+    fi
+else
+    echo "ERROR: No app.py or main.py found!"
+    echo "Directory contents:"
+    ls -la
+    # Keep container running for debugging
+    exec sleep infinity
+fi
+"""
+
+        # Write the script to a temporary file to avoid escaping issues
+        script_base64 = base64.b64encode(startup_script.encode()).decode()
+
+        # Machine configuration using a Python base image
         config = {
-            "build": {
-                "repo": github_url,
-                "builder": "paketobuildpacks/builder:base",
-                "buildpacks": ["paketo-buildpacks/python"],
-            },
+            "image": "python:3.11-slim",
             "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 512},
             "services": [
                 {
@@ -232,6 +290,15 @@ class FlyService:
             ],
             "env": {
                 "PORT": "8080",
+                "PYTHONUNBUFFERED": "1",
+            },
+            # Use CMD instead of init.exec
+            "init": {
+                "cmd": [
+                    "/bin/bash",
+                    "-c",
+                    f"echo '{script_base64}' | base64 -d > /start.sh && chmod +x /start.sh && /start.sh",
+                ]
             },
             "auto_destroy": False,
             "restart": {"policy": "on-failure", "max_retries": 1},
@@ -241,7 +308,7 @@ class FlyService:
             },
         }
 
-        # Create machine with build configuration
+        # Create machine
         machine = self.client.create_machine(app_name, config, region="ewr")
         return machine["id"]
 
