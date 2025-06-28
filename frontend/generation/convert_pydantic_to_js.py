@@ -133,8 +133,18 @@ def create_ts_type_line(name):
     return f"export type {name} = z.infer<typeof {name}Schema>;\n\n"
 
 
-def create_creation_fn_line(name):
-    return f"""export function create{name[0].upper() + name[1:]}(options: Partial<{name}> = {{}}): {name} {{
+def create_creation_fn_line(name, is_impl_class=False):
+    if is_impl_class:
+        # For impl classes, take user defaults as first parameter
+        user_default_name = f"UserDefault{name}"
+        return f"""export function create{name}(defaults: {user_default_name}, overrides: Partial<{name}> = {{}}): {name} {{
+    return {name}Schema.parse({{...defaults, ...overrides}});
+}}
+
+"""
+    else:
+        # Original implementation for other types
+        return f"""export function create{name[0].upper() + name[1:]}(options: Partial<{name}> = {{}}): {name} {{
     return {name}Schema.parse(options);
 }}
 
@@ -532,6 +542,10 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
 
     dependency_zod = generate_dependencies_zod(type_definitions, processed_types)
 
+    is_impl_class = (
+        issubclass(model, BaseSectionImpl) or issubclass(model, BaseCodeObjImpl)
+    ) and not name.startswith("Base")
+
     # Generate schema and inferred type
     return (
         dependency_zod
@@ -539,7 +553,7 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
 {fields_str}
 }});\n\n"""
         + create_ts_type_line(name)
-        + create_creation_fn_line(name)
+        + create_creation_fn_line(name, is_impl_class)
     )
 
 

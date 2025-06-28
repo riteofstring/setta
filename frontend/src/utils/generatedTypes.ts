@@ -1175,9 +1175,10 @@ export const CodeParamCodeObjImplSchema = z.object({
 export type CodeParamCodeObjImpl = z.infer<typeof CodeParamCodeObjImplSchema>;
 
 export function createCodeParamCodeObjImpl(
-  options: Partial<CodeParamCodeObjImpl> = {},
+  defaults: UserDefaultCodeParamCodeObjImpl,
+  overrides: Partial<CodeParamCodeObjImpl> = {},
 ): CodeParamCodeObjImpl {
-  return CodeParamCodeObjImplSchema.parse(options);
+  return CodeParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const TextParamCodeObjImplSchema = z.object({
@@ -1198,9 +1199,10 @@ export const TextParamCodeObjImplSchema = z.object({
 export type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
 
 export function createTextParamCodeObjImpl(
-  options: Partial<TextParamCodeObjImpl> = {},
+  defaults: UserDefaultTextParamCodeObjImpl,
+  overrides: Partial<TextParamCodeObjImpl> = {},
 ): TextParamCodeObjImpl {
-  return TextParamCodeObjImplSchema.parse(options);
+  return TextParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const SliderParamCodeObjImplSchema = z.object({
@@ -1226,9 +1228,10 @@ export type SliderParamCodeObjImpl = z.infer<
 >;
 
 export function createSliderParamCodeObjImpl(
-  options: Partial<SliderParamCodeObjImpl> = {},
+  defaults: UserDefaultSliderParamCodeObjImpl,
+  overrides: Partial<SliderParamCodeObjImpl> = {},
 ): SliderParamCodeObjImpl {
-  return SliderParamCodeObjImplSchema.parse(options);
+  return SliderParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const SwitchParamCodeObjImplSchema = z.object({
@@ -1251,9 +1254,10 @@ export type SwitchParamCodeObjImpl = z.infer<
 >;
 
 export function createSwitchParamCodeObjImpl(
-  options: Partial<SwitchParamCodeObjImpl> = {},
+  defaults: UserDefaultSwitchParamCodeObjImpl,
+  overrides: Partial<SwitchParamCodeObjImpl> = {},
 ): SwitchParamCodeObjImpl {
-  return SwitchParamCodeObjImplSchema.parse(options);
+  return SwitchParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ColorPickerChoiceSchema = z.object({
@@ -1290,9 +1294,10 @@ export type ColorPickerParamCodeObjImpl = z.infer<
 >;
 
 export function createColorPickerParamCodeObjImpl(
-  options: Partial<ColorPickerParamCodeObjImpl> = {},
+  defaults: UserDefaultColorPickerParamCodeObjImpl,
+  overrides: Partial<ColorPickerParamCodeObjImpl> = {},
 ): ColorPickerParamCodeObjImpl {
-  return ColorPickerParamCodeObjImplSchema.parse(options);
+  return ColorPickerParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const DropdownParamCodeObjImplSchema = z.object({
@@ -1316,9 +1321,10 @@ export type DropdownParamCodeObjImpl = z.infer<
 >;
 
 export function createDropdownParamCodeObjImpl(
-  options: Partial<DropdownParamCodeObjImpl> = {},
+  defaults: UserDefaultDropdownParamCodeObjImpl,
+  overrides: Partial<DropdownParamCodeObjImpl> = {},
 ): DropdownParamCodeObjImpl {
-  return DropdownParamCodeObjImplSchema.parse(options);
+  return DropdownParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const PasswordParamCodeObjImplSchema = z.object({
@@ -1341,9 +1347,10 @@ export type PasswordParamCodeObjImpl = z.infer<
 >;
 
 export function createPasswordParamCodeObjImpl(
-  options: Partial<PasswordParamCodeObjImpl> = {},
+  defaults: UserDefaultPasswordParamCodeObjImpl,
+  overrides: Partial<PasswordParamCodeObjImpl> = {},
 ): PasswordParamCodeObjImpl {
-  return PasswordParamCodeObjImplSchema.parse(options);
+  return PasswordParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const BaseChildlessCodeObjImplUnionSchema = z.union([
@@ -1395,9 +1402,10 @@ export type CodeCallableCodeObjImpl = z.infer<
 >;
 
 export function createCodeCallableCodeObjImpl(
-  options: Partial<CodeCallableCodeObjImpl> = {},
+  defaults: UserDefaultCodeCallableCodeObjImpl,
+  overrides: Partial<CodeCallableCodeObjImpl> = {},
 ): CodeCallableCodeObjImpl {
-  return CodeCallableCodeObjImplSchema.parse(options);
+  return CodeCallableCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const NestedParamCodeObjImplSchema = z.object({
@@ -1419,9 +1427,10 @@ export type NestedParamCodeObjImpl = z.infer<
 >;
 
 export function createNestedParamCodeObjImpl(
-  options: Partial<NestedParamCodeObjImpl> = {},
+  defaults: UserDefaultNestedParamCodeObjImpl,
+  overrides: Partial<NestedParamCodeObjImpl> = {},
 ): NestedParamCodeObjImpl {
-  return NestedParamCodeObjImplSchema.parse(options);
+  return NestedParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const BaseCodeObjImplUnionSchema = z.union([
@@ -2705,9 +2714,10 @@ export const CallableSectionImplSchema = z.object({
 export type CallableSectionImpl = z.infer<typeof CallableSectionImplSchema>;
 
 export function createCallableSectionImpl(
-  options: Partial<CallableSectionImpl> = {},
+  defaults: UserDefaultCallableSectionImpl,
+  overrides: Partial<CallableSectionImpl> = {},
 ): CallableSectionImpl {
-  return CallableSectionImplSchema.parse(options);
+  return CallableSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const DictSectionImplSchema = z.object({
@@ -2745,9 +2755,10 @@ export const DictSectionImplSchema = z.object({
 export type DictSectionImpl = z.infer<typeof DictSectionImplSchema>;
 
 export function createDictSectionImpl(
-  options: Partial<DictSectionImpl> = {},
+  defaults: UserDefaultDictSectionImpl,
+  overrides: Partial<DictSectionImpl> = {},
 ): DictSectionImpl {
-  return DictSectionImplSchema.parse(options);
+  return DictSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ListRootSectionImplSchema = z.object({
@@ -2771,9 +2782,10 @@ export const ListRootSectionImplSchema = z.object({
 export type ListRootSectionImpl = z.infer<typeof ListRootSectionImplSchema>;
 
 export function createListRootSectionImpl(
-  options: Partial<ListRootSectionImpl> = {},
+  defaults: UserDefaultListRootSectionImpl,
+  overrides: Partial<ListRootSectionImpl> = {},
 ): ListRootSectionImpl {
-  return ListRootSectionImplSchema.parse(options);
+  return ListRootSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const DictRootSectionImplSchema = z.object({
@@ -2797,9 +2809,10 @@ export const DictRootSectionImplSchema = z.object({
 export type DictRootSectionImpl = z.infer<typeof DictRootSectionImplSchema>;
 
 export function createDictRootSectionImpl(
-  options: Partial<DictRootSectionImpl> = {},
+  defaults: UserDefaultDictRootSectionImpl,
+  overrides: Partial<DictRootSectionImpl> = {},
 ): DictRootSectionImpl {
-  return DictRootSectionImplSchema.parse(options);
+  return DictRootSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const GroupSectionImplSchema = z.object({
@@ -2824,9 +2837,10 @@ export const GroupSectionImplSchema = z.object({
 export type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
 
 export function createGroupSectionImpl(
-  options: Partial<GroupSectionImpl> = {},
+  defaults: UserDefaultGroupSectionImpl,
+  overrides: Partial<GroupSectionImpl> = {},
 ): GroupSectionImpl {
-  return GroupSectionImplSchema.parse(options);
+  return GroupSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ImageSectionImplSchema = z.object({
@@ -2850,9 +2864,10 @@ export const ImageSectionImplSchema = z.object({
 export type ImageSectionImpl = z.infer<typeof ImageSectionImplSchema>;
 
 export function createImageSectionImpl(
-  options: Partial<ImageSectionImpl> = {},
+  defaults: UserDefaultImageSectionImpl,
+  overrides: Partial<ImageSectionImpl> = {},
 ): ImageSectionImpl {
-  return ImageSectionImplSchema.parse(options);
+  return ImageSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ChartSectionImplSchema = z.object({
@@ -2880,9 +2895,10 @@ export const ChartSectionImplSchema = z.object({
 export type ChartSectionImpl = z.infer<typeof ChartSectionImplSchema>;
 
 export function createChartSectionImpl(
-  options: Partial<ChartSectionImpl> = {},
+  defaults: UserDefaultChartSectionImpl,
+  overrides: Partial<ChartSectionImpl> = {},
 ): ChartSectionImpl {
-  return ChartSectionImplSchema.parse(options);
+  return ChartSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const DrawSectionImplSchema = z.object({
@@ -2910,9 +2926,10 @@ export const DrawSectionImplSchema = z.object({
 export type DrawSectionImpl = z.infer<typeof DrawSectionImplSchema>;
 
 export function createDrawSectionImpl(
-  options: Partial<DrawSectionImpl> = {},
+  defaults: UserDefaultDrawSectionImpl,
+  overrides: Partial<DrawSectionImpl> = {},
 ): DrawSectionImpl {
-  return DrawSectionImplSchema.parse(options);
+  return DrawSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const TextBlockSectionImplSchema = z.object({
@@ -2941,9 +2958,10 @@ export const TextBlockSectionImplSchema = z.object({
 export type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
 
 export function createTextBlockSectionImpl(
-  options: Partial<TextBlockSectionImpl> = {},
+  defaults: UserDefaultTextBlockSectionImpl,
+  overrides: Partial<TextBlockSectionImpl> = {},
 ): TextBlockSectionImpl {
-  return TextBlockSectionImplSchema.parse(options);
+  return TextBlockSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const SocialSectionImplSchema = z.object({
@@ -2967,9 +2985,10 @@ export const SocialSectionImplSchema = z.object({
 export type SocialSectionImpl = z.infer<typeof SocialSectionImplSchema>;
 
 export function createSocialSectionImpl(
-  options: Partial<SocialSectionImpl> = {},
+  defaults: UserDefaultSocialSectionImpl,
+  overrides: Partial<SocialSectionImpl> = {},
 ): SocialSectionImpl {
-  return SocialSectionImplSchema.parse(options);
+  return SocialSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const GlobalVariablesSectionImplSchema = z.object({
@@ -3009,9 +3028,10 @@ export type GlobalVariablesSectionImpl = z.infer<
 >;
 
 export function createGlobalVariablesSectionImpl(
-  options: Partial<GlobalVariablesSectionImpl> = {},
+  defaults: UserDefaultGlobalVariablesSectionImpl,
+  overrides: Partial<GlobalVariablesSectionImpl> = {},
 ): GlobalVariablesSectionImpl {
-  return GlobalVariablesSectionImplSchema.parse(options);
+  return GlobalVariablesSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const CodeSectionImplSchema = z.object({
@@ -3036,9 +3056,10 @@ export const CodeSectionImplSchema = z.object({
 export type CodeSectionImpl = z.infer<typeof CodeSectionImplSchema>;
 
 export function createCodeSectionImpl(
-  options: Partial<CodeSectionImpl> = {},
+  defaults: UserDefaultCodeSectionImpl,
+  overrides: Partial<CodeSectionImpl> = {},
 ): CodeSectionImpl {
-  return CodeSectionImplSchema.parse(options);
+  return CodeSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const GenPythonCodeSectionImplSchema = z.object({
@@ -3064,9 +3085,10 @@ export type GenPythonCodeSectionImpl = z.infer<
 >;
 
 export function createGenPythonCodeSectionImpl(
-  options: Partial<GenPythonCodeSectionImpl> = {},
+  defaults: UserDefaultGenPythonCodeSectionImpl,
+  overrides: Partial<GenPythonCodeSectionImpl> = {},
 ): GenPythonCodeSectionImpl {
-  return GenPythonCodeSectionImplSchema.parse(options);
+  return GenPythonCodeSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const TerminalSectionImplSchema = z.object({
@@ -3091,9 +3113,10 @@ export const TerminalSectionImplSchema = z.object({
 export type TerminalSectionImpl = z.infer<typeof TerminalSectionImplSchema>;
 
 export function createTerminalSectionImpl(
-  options: Partial<TerminalSectionImpl> = {},
+  defaults: UserDefaultTerminalSectionImpl,
+  overrides: Partial<TerminalSectionImpl> = {},
 ): TerminalSectionImpl {
-  return TerminalSectionImplSchema.parse(options);
+  return TerminalSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const IFrameSectionImplSchema = z.object({
@@ -3116,9 +3139,10 @@ export const IFrameSectionImplSchema = z.object({
 export type IFrameSectionImpl = z.infer<typeof IFrameSectionImplSchema>;
 
 export function createIFrameSectionImpl(
-  options: Partial<IFrameSectionImpl> = {},
+  defaults: UserDefaultIFrameSectionImpl,
+  overrides: Partial<IFrameSectionImpl> = {},
 ): IFrameSectionImpl {
-  return IFrameSectionImplSchema.parse(options);
+  return IFrameSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ChatSectionImplSchema = z.object({
@@ -3143,9 +3167,10 @@ export const ChatSectionImplSchema = z.object({
 export type ChatSectionImpl = z.infer<typeof ChatSectionImplSchema>;
 
 export function createChatSectionImpl(
-  options: Partial<ChatSectionImpl> = {},
+  defaults: UserDefaultChatSectionImpl,
+  overrides: Partial<ChatSectionImpl> = {},
 ): ChatSectionImpl {
-  return ChatSectionImplSchema.parse(options);
+  return ChatSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const BrowserSectionImplSchema = z.object({
@@ -3169,9 +3194,10 @@ export const BrowserSectionImplSchema = z.object({
 export type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
 
 export function createBrowserSectionImpl(
-  options: Partial<BrowserSectionImpl> = {},
+  defaults: UserDefaultBrowserSectionImpl,
+  overrides: Partial<BrowserSectionImpl> = {},
 ): BrowserSectionImpl {
-  return BrowserSectionImplSchema.parse(options);
+  return BrowserSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const BaseSectionImplUnionSchema = z.union([
