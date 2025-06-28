@@ -12,7 +12,7 @@ router = SettaAPIRouter()
 
 
 class SaveSettingsRequest(BaseModel):
-    settings: dict
+    settings: SettingsState
 
 
 class SaveSettingsProjectRequest(BaseModel):
@@ -20,8 +20,8 @@ class SaveSettingsProjectRequest(BaseModel):
 
 
 @router.post(Route.SAVE_SETTINGS)
-def route_save_settings(x: SaveSettingsRequest, state: AppStateFromRequest):
-    return state.settings_file.save_settings(x.settings)
+async def route_save_settings(x: SaveSettingsRequest, state: AppStateFromRequest):
+    await state.settings_file.save_settings(x.settings)
 
 
 @router.post(Route.LOAD_SETTINGS)
@@ -34,11 +34,9 @@ async def route_save_settings_project(
     x: SaveSettingsProjectRequest,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
-) -> SettingsState | None:
-    notification = None
-    output = None
+) -> None:
     try:
-        output = state.settings_file.save_settings_project(x.settingsProject)
+        await state.settings_file.save_settings_project(x.settingsProject)
         notification = SettaNotification(
             projectConfigId=x.settingsProject.projectConfig.id,
             message="Saved!",
@@ -56,8 +54,6 @@ async def route_save_settings_project(
         state.wmh_frontend_sender.broadcast_notification,
         notification,
     )
-
-    return output
 
 
 @router.post(Route.LOAD_SETTINGS_PROJECT)

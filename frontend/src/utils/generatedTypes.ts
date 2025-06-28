@@ -5730,7 +5730,7 @@ export function createSaveSettingsProjectRequest(
 }
 
 export const SaveSettingsRequestSchema = z.object({
-  settings: z.record(z.string(), z.any()),
+  settings: SettingsStateSchema,
 });
 
 export type SaveSettingsRequest = z.infer<typeof SaveSettingsRequestSchema>;

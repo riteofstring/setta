@@ -18,38 +18,42 @@ from setta.utils.utils import save_json_to_file, try_json
 
 
 def save_json_source_data(
-    p: ProjectStateSingleConfig, section_impl_ids: list[str] | None = None
+    p: ProjectStateSingleConfig, section_impl_layering_ids: list[str] | None = None
 ):
     to_be_saved = defaultdict(dict)
 
-    for section_impl_id, section_impl in p.sectionImpls.items():
+    for layering_id, layering in p.sectionImplLayerings.items():
+        impl = get_effective_impl(layering, p.sectionImpls)
         if (
-            not isinstance(section_impl, DictSectionImpl)
-            or not section_impl.isJsonSource
-            or (section_impl_ids and section_impl_id not in section_impl_ids)
+            not isinstance(impl, DictSectionImpl)
+            or not impl.isJsonSource
+            or (
+                section_impl_layering_ids
+                and layering_id not in section_impl_layering_ids
+            )
         ):
             continue
         ancestor_paths = build_ancestor_paths(
             p.codeObjs,
             p.codeObjImpls,
             p.codeObjImplLayerings,
-            section_impl.codeObjImplLayeringMap,
-            section_impl.topLevelParamIds,
+            impl.codeObjImplLayeringMap,
+            impl.topLevelParamIds,
         )
-        filename = section_impl.name
-        for paramId in section_impl.topLevelParamIds:
+        filename = layering.name
+        for paramId in impl.topLevelParamIds:
             recursively_add_keys(
                 p,
-                section_impl,
+                impl,
                 paramId,
-                section_impl.jsonSourceKeys,
+                impl.jsonSourceKeys,
                 ancestor_paths,
                 to_be_saved[filename],
             )
 
         # Make sure the jsonSourceKeys are present.
         # (They might not be because they are completely empty)
-        add_key_path_to_dict(to_be_saved[filename], section_impl.jsonSourceKeys)
+        add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
     # Save each file
     for filename, data in to_be_saved.items():

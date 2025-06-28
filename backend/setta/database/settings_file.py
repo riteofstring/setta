@@ -23,21 +23,24 @@ logger = logging.getLogger(__name__)
 class SettingsFile:
     def __init__(self, websocket_msg_handler: WMHFrontendSender):
         self.websocket_msg_handler = websocket_msg_handler
-        self.settings: SettingsState = SettingsState()
+        self.settings = SettingsState()
         self.settings_project = SettingsProject(websocket_msg_handler)
         self.load_settings()
 
-    def save_settings(self, settings):
+    async def save_settings(self, settings: SettingsState):
         logger.debug("Saving settings")
         paths = self.settings_project.get_settings_paths()
         to_be_saved = {}
         for settings_slice, path in paths.items():
             if path not in to_be_saved:
                 to_be_saved[path] = {}
-            to_be_saved[path].update({settings_slice: settings[settings_slice]})
+            to_be_saved[path].update(
+                {settings_slice: getattr(settings, settings_slice)}
+            )
 
         for filename, data in to_be_saved.items():
             save_json_to_file(filename, data)
+        await self.load_and_broadcast_settings()
 
     def load_settings(self):
         logger.debug("Loading settings")
@@ -50,15 +53,16 @@ class SettingsFile:
         self.settings = SettingsState.model_validate(output)
         return self.settings
 
+    async def load_and_broadcast_settings(self):
+        self.load_settings()
+        await self.websocket_msg_handler.broadcast_settings(self.settings)
+
+    async def save_settings_project(self, p: ProjectStateSingleConfig):
+        await self.settings_project.save_settings_project(p)
+        await self.load_and_broadcast_settings()
+
     def load_settings_project(self):
         return self.settings_project.load_settings_project()
-
-    def save_settings_project(self, p: ProjectStateSingleConfig):
-        self.settings_project.save_settings_project(p)
-        return self.load_settings()
-
-    async def broadcast_settings(self):
-        await self.websocket_msg_handler.broadcast_settings(self.settings)
 
 
 class SettingsProject:
@@ -118,10 +122,11 @@ class SettingsProject:
         self.project_state = p
         return p
 
-    def save_settings_project(self, p: ProjectStateSingleConfig):
+    async def save_settings_project(self, p: ProjectStateSingleConfig):
         save_json_source_data(p)
         save_json_to_file(self.path_default_settings_project, p.model_dump())
-        self.project_state = p
+        await self.load_and_broadcast_settings_project()
 
-    async def broadcast_settings_project(self):
+    async def load_and_broadcast_settings_project(self):
+        self.load_settings_project()
         await self.websocket_msg_handler.broadcast_project_state(self.project_state)

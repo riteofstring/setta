@@ -7,7 +7,6 @@ import {
   useSettings,
 } from "state/definitions";
 import { SETTINGS_PROJECT_NAME } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import {
   route_save_as_existing_project_config,
   route_save_as_new_project_config,
@@ -94,14 +93,9 @@ export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
 
   if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
-    const res = await route_save_settings_project({
+    await route_save_settings_project({
       settingsProject: getProjectData({}),
     });
-    if (res200(res)) {
-      if (res.data) {
-        useSettings.setState(res.data);
-      }
-    }
   } else {
     route_save_project({
       project: await getProjectDataForSaving(),
