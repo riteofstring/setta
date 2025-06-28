@@ -8,5 +8,5 @@ export function useTextFieldWaitingForLSPResult({ sectionId, paramInfoId }) {
 }
 
 export function useParametersRequestWaitingForLSPResult(sectionId: string) {
-  return useWaitingForLSPResult((x) => x.parametersRequest[sectionId]);
+  return useWaitingForLSPResult((x) => x.parametersRequest[sectionId] ?? false);
 }

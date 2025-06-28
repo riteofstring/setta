@@ -1,20 +1,20 @@
 import _ from "lodash";
 import React, { useCallback } from "react";
 import { toggleParamSelected } from "state/actions/kwargs";
-import { getDisplayedCodeInfoCol } from "state/actions/sectionInfos";
-import {
-  useMisc,
-  useProjectSearch,
-  useProjectState,
-  useTypeErrors,
-} from "state/definitions";
+import { useMisc, useProjectSearch, useTypeErrors } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 function _ParamSwitch(props) {
-  const { sectionId, paramInfoId } = props;
+  const {
+    sectionId,
+    paramInfoId,
+    paramIsSelected,
+    isKwarg,
+    paramChildren = [],
+  } = props;
 
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -28,15 +28,6 @@ function _ParamSwitch(props) {
       isSearchResult: x.lookup.has(
         createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
-    };
-  }, _.isEqual);
-
-  const { paramIsSelected, isKwarg, paramChildren } = useProjectState((x) => {
-    const codeInfoChildren = getDisplayedCodeInfoCol(sectionId, x).children;
-    return {
-      paramIsSelected: x.codeInfo[paramInfoId].isSelected,
-      isKwarg: x.codeInfo[paramInfoId].editable,
-      paramChildren: codeInfoChildren[paramInfoId] ?? [],
     };
   }, _.isEqual);
 

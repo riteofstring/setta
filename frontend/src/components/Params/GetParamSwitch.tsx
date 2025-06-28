@@ -1,6 +1,8 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -9,26 +11,32 @@ export function GetParamSwitch({
   requiredParamIdsToPaths,
   onResizeStart,
   isTopLevel = false,
+}: {
+  sectionId: string;
+  paramIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  onResizeStart: React.MouseEventHandler;
+  isTopLevel: boolean;
 }) {
   // TODO: make this more efficient
   const filteredIds = useProjectState((x) => {
     let matches = paramIds;
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
 
-    if (x.sections[sectionId].paramFilter) {
+    if (impl.paramFilter) {
       const requiredParamIdsWithNames = Object.keys(
         requiredParamIdsToPaths,
       ).map((id) => ({
         id,
-        name: x.codeInfo[id].name,
+        name: x.codeObjs[id]!.name,
       }));
 
-      matches = matchSorter(
-        requiredParamIdsWithNames,
-        x.sections[sectionId].paramFilter,
-        {
-          keys: ["name"],
-        },
-      );
+      matches = matchSorter(requiredParamIdsWithNames, impl.paramFilter, {
+        keys: ["name"],
+      });
     }
 
     const filteredRequired = new Set();

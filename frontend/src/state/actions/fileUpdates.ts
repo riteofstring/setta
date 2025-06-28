@@ -15,16 +15,16 @@ export async function updateWithFileChanges(
 ) {
   const { fileWatchGroupName } = updatedFileInfo;
 
-  switch (fileWatchGroupName) {
-    case FileWatchGroupNameEnum.jsonSource:
-      return await updateJSONSourceContents(updatedFileInfo);
-    case FileWatchGroupNameEnum.apiKeys:
-      return updateApiKeyInfo(updatedFileInfo);
-    case FileWatchGroupNameEnum.genPythonCode:
-      return updateGenPythonCode(updatedFileInfo);
-    default:
-      return fileWatchGroupName satisfies never;
-  }
+  // switch (fileWatchGroupName) {
+  //   case FileWatchGroupNameEnum.jsonSource:
+  //     return await updateJSONSourceContents(updatedFileInfo);
+  //   case FileWatchGroupNameEnum.apiKeys:
+  //     return updateApiKeyInfo(updatedFileInfo);
+  //   case FileWatchGroupNameEnum.genPythonCode:
+  //     return updateGenPythonCode(updatedFileInfo);
+  //   default:
+  //     return fileWatchGroupName satisfies never;
+  // }
 }
 
 // TODO: this logic should be on the backend

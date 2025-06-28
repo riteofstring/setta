@@ -126,13 +126,18 @@ export const useHomePageSearch = createWithEqualityFn(
   })),
 );
 
+type ZustandWaitingForLSPResult = {
+  textFields: Record<string, boolean>;
+  parametersRequest: Record<string, boolean>;
+};
+
 // keys for textFields are of the form:
 // {sectionId}-null for the main section combobox
 // {sectionId}-{paramInfoId} for section parameter fields
 export const useWaitingForLSPResult = withProjectState(
   createWithEqualityFn(
     immer(
-      withResetFn(() => ({
+      withResetFn<ZustandWaitingForLSPResult>(() => ({
         textFields: {},
         parametersRequest: {},
       })),
@@ -226,10 +231,15 @@ export const useStateVersion = withProjectState(
   ),
 );
 
+type ZustandTypeErrors = {
+  userRequested: boolean;
+  errors: Record<string, Record<string, string>>;
+};
+
 export const useTypeErrors = withProjectState(
   createWithEqualityFn(
     immer(
-      withResetFn(() => ({
+      withResetFn<ZustandTypeErrors>(() => ({
         userRequested: false,
         errors: {},
       })),

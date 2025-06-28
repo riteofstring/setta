@@ -3,6 +3,10 @@ import { getChangedSize, SIZE_MODE } from "components/Utils/Resizable/utils";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
+import {
+  getEffectiveSectionImpl,
+  getSectionImplLayering,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useParamIdsToShowInArea } from "state/hooks/sectionContents";
@@ -15,6 +19,10 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import {
+  isBaseSectionWithParamsImpl,
+  isBaseSectionWithParamsImplModifier,
+} from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -31,7 +39,6 @@ function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
   );
 
   const waitingForResult = useParametersRequestWaitingForLSPResult(sectionId);
-  // const waitingForResult = true;
 
   return (
     <div
@@ -99,9 +106,13 @@ function ResizablePinnedArea({
   handleColumnResizeStart,
 }) {
   const { sectionHeight, height } = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
     return {
-      sectionHeight: x.sections[sectionId].size.height,
-      height: x.sections[sectionId].pinnedAreaHeight,
+      sectionHeight: impl.size.height,
+      height: impl.pinnedAreaHeight,
     };
   }, _.isEqual);
   const [initialMaxHeight, setInitialMaxHeight] = useState(INFINITE_MAX_HEIGHT);
@@ -109,11 +120,14 @@ function ResizablePinnedArea({
   function onResizeStop(...props) {
     const { height } = getChangedSize({
       props,
-      minHeight: "auto",
       sizeMode: { height: SIZE_MODE.any },
     });
     useProjectState.setState((state) => {
-      state.sections[sectionId].pinnedAreaHeight = height;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (!isBaseSectionWithParamsImplModifier(implLayering.modifier)) {
+        throw new Error();
+      }
+      implLayering.modifier.pinnedAreaHeight = height;
     });
   }
 
@@ -181,9 +195,13 @@ function GetUnpinnedParams({
   setMaxNestedDepth,
 }) {
   const { ref, isScrollable } = useIsScrollable();
-  const hideUnpinnedParams = useProjectState(
-    (x) => x.sections[sectionId].hideUnpinnedParams,
-  );
+  const hideUnpinnedParams = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
+    return impl.hideUnpinnedParams;
+  });
 
   return (
     <div
@@ -213,9 +231,6 @@ function GetUnpinnedParamsCore({
     false,
   );
 
-  console.log("requiredParamIdsToPaths", requiredParamIdsToPaths);
-  console.log("topLevelParamIds", topLevelParamIds);
-
   const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
 
   useEffect(() => {
@@ -233,7 +248,7 @@ function GetUnpinnedParamsCore({
   );
 }
 
-function getLongestListLength(obj) {
+function getLongestListLength(obj: Record<string, Array<string>>) {
   return Object.values(obj).reduce(
     (max, arr) => (arr.length > max ? arr.length : max),
     0,
