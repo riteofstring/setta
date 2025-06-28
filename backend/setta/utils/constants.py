@@ -36,16 +36,6 @@ class C:
     PORT: int = DEFAULT_PORT
     DB_PATH: Path = DEFAULT_DB_PATH
 
-    # Non-section types list
-    NON_SECTION_TYPES = [
-        "TEXT",
-        "SLIDER",
-        "SWITCH",
-        "COLOR_PICKER",
-        "DROPDOWN",
-        "PASSWORD",
-    ]
-
     # WebSocket message types
     WS_RUN_CODE = "runCode"
     WS_TERMINAL_RESIZE = "terminalResize"

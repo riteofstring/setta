@@ -37,14 +37,6 @@ export class C {
   static MCP_CHAT_ID_ARG_NAME = "setta_chat_id";
   static MCP_PROJECT_CONFIG_ID_ARG_NAME = "projectConfigId";
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
-  static NON_SECTION_TYPES = [
-    "TEXT",
-    "SLIDER",
-    "SWITCH",
-    "COLOR_PICKER",
-    "DROPDOWN",
-    "PASSWORD",
-  ];
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PORT = 8000;
   static SETTA_MCP_PARAM_NAMES = [
