@@ -186,23 +186,21 @@ class SocialSectionImpl(BaseSectionImpl):
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
+    name: str = "Global Variables"
 
 
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
+    name: str = "Generated Python Code"
 
 
 class TerminalSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=700, height=300)
-    )
 
 
 class IFrameSectionImpl(BaseSectionImpl):
