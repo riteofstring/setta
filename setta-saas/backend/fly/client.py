@@ -2,6 +2,8 @@
 Fly.io API client for GraphQL and REST operations.
 """
 
+import json
+
 import httpx
 
 
@@ -56,6 +58,13 @@ class FlyClient:
 
         with httpx.Client() as client:
             response = client.post(url, json=payload, headers=self.headers, timeout=30.0)
+
+            # Log the full error if request fails
+            if response.status_code != 200:
+                print(f"Fly.io API Error: {response.status_code}")
+                print(f"Request URL: {url}")
+                print(f"Request payload: {json.dumps(payload, indent=2)}")
+                print(f"Response: {response.text}")
 
             response.raise_for_status()
             return response.json()
