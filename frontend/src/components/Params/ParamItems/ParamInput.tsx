@@ -1,12 +1,15 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import {
+  getCodeObjImplLayering,
   getEffectiveCodeObjImpl,
-  setParamEnteredValue,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
+import {
+  isBaseChildlessCodeObjImpl,
+  isBaseChildlessCodeObjImplModifier,
+} from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
@@ -46,7 +49,16 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, paramInfoId, vStr) => {
     useProjectState.setState((state) => {
-      setParamEnteredValue(sectionId, paramInfoId, vStr, state);
+      const implLayering = getCodeObjImplLayering(
+        state,
+        paramInfoId,
+        sectionId,
+        null,
+      );
+      if (!isBaseChildlessCodeObjImplModifier(implLayering.modifier)) {
+        throw new Error();
+      }
+      implLayering.modifier.value = vStr;
     });
     maybeIncrementProjectStateVersion(true);
   },

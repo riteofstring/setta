@@ -300,6 +300,9 @@ def add_code_obj(
     code_obj_impl_layering = ImplLayering(
         impl=code_obj_impl.id, modifier=create_modifier_for_impl(code_obj_impl)
     )
+    code_obj.implLayerings.append(code_obj_impl_layering.id)
+    if not code_obj.defaultImplLayering:
+        code_obj.defaultImplLayering = code_obj_impl_layering.id
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
