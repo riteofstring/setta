@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from setta.types.code_objs import (
     CodeObjCore,
     ColorPickerParamCodeObjImpl,
@@ -29,6 +31,7 @@ from setta.types.settings_state import (
     SettingsBackend,
     SettingsGUI,
 )
+from setta.utils.constants import CWD
 
 
 def create_settings_code_objs(section_names):
@@ -131,7 +134,7 @@ def create_settings_code_objs(section_names):
     return codeObjsAndImpls
 
 
-def create_settings_project_state(settings_path: str):
+def create_settings_project_state(settings_path: Path):
     section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
@@ -143,12 +146,29 @@ def create_settings_project_state(settings_path: str):
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, ImplLayering] = {}
     for k in section_names:
+        codeObjImplLayeringMap = {}
+        for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
+            codeObjImplLayering = ImplLayering(
+                impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
+            )
+            codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
+            codeObjImpls[codeObjImpl.id] = codeObjImpl
+
+            codeObj = CodeObjCore(
+                name=codeObjName,
+                implLayerings=[codeObjImplLayering.id],
+                defaultImplLayering=codeObjImplLayering.id,
+            )
+            codeObjs[codeObj.id] = codeObj
+            codeObjImplLayeringMap[codeObj.id] = codeObjImplLayering.id
+
         sectionImpl = DictSectionImpl(
-            name=settings_path,
+            name=str(settings_path.relative_to(CWD)),
             size=SectionSize(width=550),
             isJsonSource=True,
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
+            codeObjImplLayeringMap=codeObjImplLayeringMap,
         )
         sectionImplLayering = ImplLayering(
             impl=sectionImpl.id, modifier=create_modifier_for_impl(sectionImpl)
@@ -163,20 +183,6 @@ def create_settings_project_state(settings_path: str):
         sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering
         sectionImplLayeringMap[section.id] = sectionImplLayering.id
         sections[section.id] = section
-
-        for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjImplLayering = ImplLayering(
-                impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
-            )
-            codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
-            codeObjImpls[codeObjImpl.id] = codeObjImpl
-
-            codeObj = CodeObjCore(
-                name=codeObjName,
-                implLayerings=[codeObjImplLayering.id],
-                defaultImplLayering=codeObjImplLayering.id,
-            )
-            codeObjs[codeObj.id] = codeObj
 
     projectConfigChildren = {
         k: TopLevelSectionLayout(x=idx * 600) for idx, k in enumerate(sections.keys())

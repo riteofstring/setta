@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getCodeChildrenAndParentCodeInfoId } from "state/actions/sectionInfos";
+import {
+  getCodeChildrenAndParentCodeInfoId,
+  getEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
 import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
@@ -30,14 +33,10 @@ export function useParamInfosForSidePane(sectionId) {
 
 export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
   return useProjectState((x) => {
-    const { codeInfoChildren, parentCodeInfoId } =
-      getCodeChildrenAndParentCodeInfoId(sectionId, x);
-
     return getParamIdsToShowInArea(
+      x,
+      getEffectiveSectionImpl(x, sectionId),
       isPinned,
-      x.codeInfo,
-      codeInfoChildren,
-      parentCodeInfoId,
     );
   }, _.isEqual);
 }

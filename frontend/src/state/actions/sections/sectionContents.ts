@@ -1,8 +1,14 @@
+import { ZustandProjectState } from "state/definitions";
+import {
+  BaseSectionImplUnion,
+  isBaseDictSectionImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import {
   findAllParameters,
-  findAllParametersAndPathMaps,
+  findAllParametersOfBaseDictSection,
+  findAllParametersOfCallableSection,
 } from "utils/getDescendants";
-import { bothTruthyOrFalsey } from "utils/utils";
 import {
   getCodeChildrenAndParentCodeInfoId,
   getCodeInfoCol,
@@ -10,36 +16,47 @@ import {
 } from "../sectionInfos";
 
 export function getParamIdsToShowInArea(
-  isPinned,
-  codeInfo,
-  codeInfoChildren,
-  parentCodeInfoId,
+  p: ZustandProjectState,
+  impl: BaseSectionImplUnion,
+  isPinned: boolean,
 ) {
-  const { ids, pathMap } = findAllParametersAndPathMaps({
-    allCodeInfo: codeInfo,
-    codeInfoChildren,
-    startingId: parentCodeInfoId,
-  });
+  let ids: Array<string>,
+    pathMap: Record<string, Array<string>>,
+    childrenMap: Record<string, Array<string>>;
+  if (impl.type === SectionTypeEnum.Callable) {
+    ({ ids, pathMap, childrenMap } = findAllParametersOfCallableSection(
+      p,
+      impl,
+    ));
+  } else if (isBaseDictSectionImpl(impl)) {
+    ({ ids, pathMap, childrenMap } = findAllParametersOfBaseDictSection(
+      p,
+      impl,
+    ));
+  } else {
+    throw new Error();
+  }
   ids.reverse();
 
-  let topLevelParamIds = [];
-  const topLevelParamIdsSet = new Set();
-  const requiredParamIdsToPaths = {};
+  const topLevelParamIds: Array<string> = [];
+  const topLevelParamIdsSet: Set<string> = new Set();
+  const requiredParamIdsToPaths: Record<string, Array<string>> = {};
   for (const a of ids) {
     // Evalutes to true if:
     // 1. The current param's isPinned matches the isPinned condition
     // 2. And: either the param has no children or at least one of its children is required
     // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
     if (
-      bothTruthyOrFalsey(codeInfo[a].isPinned, isPinned) &&
-      (codeInfoChildren[a].length === 0 ||
-        codeInfoChildren[a].some((child) => child in requiredParamIdsToPaths))
+      impl.pinnedParams.includes(a) === isPinned &&
+      (childrenMap[a]?.length === 0 ||
+        childrenMap[a]?.some((child) => child in requiredParamIdsToPaths))
     ) {
-      for (const p of pathMap[a]) {
-        requiredParamIdsToPaths[p] = pathMap[p];
-        if (!topLevelParamIdsSet.has(pathMap[a][0])) {
-          topLevelParamIds.push(pathMap[a][0]);
-          topLevelParamIdsSet.add(pathMap[a][0]);
+      const currPathMap = pathMap[a] ?? [];
+      for (const p of currPathMap) {
+        requiredParamIdsToPaths[p] = pathMap[p] ?? [];
+        if (currPathMap[0] && !topLevelParamIdsSet.has(currPathMap[0])) {
+          topLevelParamIds.push(currPathMap[0]);
+          topLevelParamIdsSet.add(currPathMap[0]);
         }
       }
     }

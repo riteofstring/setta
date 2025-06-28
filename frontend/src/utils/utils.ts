@@ -33,10 +33,6 @@ export function updateWithArrayMove(active, over) {
   };
 }
 
-export function bothTruthyOrFalsey(a, b) {
-  return !a === !b || a === b;
-}
-
 export function asyncDebounce(func, wait) {
   const debounced = _.debounce((resolve, reject, args) => {
     func(...args)

@@ -1,13 +1,11 @@
-import {
-  getEffectiveImplFromLayeringMap,
-  getEffectiveSectionImpl,
-} from "state/actions/sectionInfos";
+import { getEffectiveImplFromLayeringMap } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 import {
   BaseCodeObjImplUnion,
+  BaseDictSectionImpl,
   CallableSectionImpl,
+  isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
-  SectionTypeEnum,
 } from "./generatedTypes";
 
 type ConditionFunctionForFindingCodeObjDescendants = (
@@ -19,16 +17,19 @@ function _findAllDescendants(
   layerings: ZustandProjectState["codeObjImplLayerings"],
   layeringMap: CallableSectionImpl["codeObjImplLayeringMap"],
   ids: Array<string>,
-  outputCondition?: ConditionFunctionForFindingCodeObjDescendants,
-  stackCondition?: ConditionFunctionForFindingCodeObjDescendants,
-  paramPathCondition?: ConditionFunctionForFindingCodeObjDescendants,
-  earlyReturnCondition?: ConditionFunctionForFindingCodeObjDescendants,
+  conditions: {
+    output?: ConditionFunctionForFindingCodeObjDescendants;
+    stack?: ConditionFunctionForFindingCodeObjDescendants;
+    paramPath?: ConditionFunctionForFindingCodeObjDescendants;
+    earlyReturn?: ConditionFunctionForFindingCodeObjDescendants;
+  },
 ) {
   const output: Array<string> = [];
   const visited: Set<string> = new Set();
   const pathMap: Record<string, Array<string>> = {};
+  const childrenMap: Record<string, Array<string>> = {};
   let idStack: Array<string>;
-  if (stackCondition) {
+  if (conditions.stack) {
     idStack = [];
     for (const id of ids.reverse()) {
       const impl = getEffectiveImplFromLayeringMap(
@@ -37,7 +38,7 @@ function _findAllDescendants(
         layerings,
         layeringMap,
       );
-      if (stackCondition(impl)) {
+      if (conditions.stack(impl)) {
         idStack.push(id);
       }
     }
@@ -45,10 +46,10 @@ function _findAllDescendants(
     idStack = [...ids].reverse();
   }
 
-  if (paramPathCondition) {
+  if (conditions.paramPath) {
     for (const id of idStack) {
       if (
-        paramPathCondition(
+        conditions.paramPath(
           getEffectiveImplFromLayeringMap(id, impls, layerings, layeringMap),
         )
       ) {
@@ -72,13 +73,15 @@ function _findAllDescendants(
       layeringMap,
     );
 
-    if (outputCondition?.(impl)) {
+    if (conditions.output?.(impl)) {
       output.push(id);
     }
 
-    if (stackCondition?.(impl) && isBaseParentCodeObjImpl(impl)) {
-      const children = impl.children.slice().reverse();
-      if (paramPathCondition) {
+    if (conditions.stack?.(impl) && isBaseParentCodeObjImpl(impl)) {
+      let children = impl.children;
+      childrenMap[id] = children;
+      children = children.slice().reverse();
+      if (conditions.paramPath) {
         const currentPath = pathMap[id] ?? [];
         for (const childId of children) {
           const childImpl = getEffectiveImplFromLayeringMap(
@@ -87,7 +90,7 @@ function _findAllDescendants(
             layerings,
             layeringMap,
           );
-          if (paramPathCondition(childImpl)) {
+          if (conditions.paramPath(childImpl)) {
             pathMap[childId] = [...currentPath, childId];
           } else {
             pathMap[childId] = [...currentPath];
@@ -101,7 +104,7 @@ function _findAllDescendants(
       const lastId = output[output.length - 1];
       if (
         lastId &&
-        earlyReturnCondition?.(
+        conditions.earlyReturn?.(
           getEffectiveImplFromLayeringMap(
             lastId,
             impls,
@@ -110,12 +113,17 @@ function _findAllDescendants(
           ),
         )
       ) {
-        return { ids: output, pathMap, earlyReturnTriggered: true };
+        return {
+          ids: output,
+          pathMap,
+          childrenMap,
+          earlyReturnTriggered: true,
+        };
       }
     }
   }
 
-  return { ids: output, pathMap, earlyReturnTriggered: false };
+  return { ids: output, pathMap, childrenMap, earlyReturnTriggered: false };
 }
 
 export function findAllParameters({
@@ -165,12 +173,28 @@ export function findAllParametersAndPathMaps(props) {
 
 export function findAllParametersOfCallableSection(
   p: ZustandProjectState,
-  sectionId: string,
+  impl: CallableSectionImpl,
 ) {
-  const impl = getEffectiveSectionImpl(p, sectionId);
-  if (impl.type !== SectionTypeEnum.Callable) {
-    throw new Error();
-  }
   const { callable, codeObjImplLayeringMap } = impl;
-  return _findAllDescendants();
+  return _findAllDescendants(
+    p.codeObjImpls,
+    p.codeObjImplLayerings,
+    codeObjImplLayeringMap,
+    callable ? [callable] : [],
+    { output: isBaseParamCodeObjImpl },
+  );
+}
+
+export function findAllParametersOfBaseDictSection(
+  p: ZustandProjectState,
+  impl: BaseDictSectionImpl,
+) {
+  const { topLevelParamIds, codeObjImplLayeringMap } = impl;
+  return _findAllDescendants(
+    p.codeObjImpls,
+    p.codeObjImplLayerings,
+    codeObjImplLayeringMap,
+    topLevelParamIds,
+    { output: isBaseParamCodeObjImpl },
+  );
 }

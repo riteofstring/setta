@@ -61,7 +61,7 @@ class MetaSettingsFile:
         self.path_meta_settings = SETTA_FILES_FOLDER / "setta-meta-settings.json"
         self.obj_seed_settings = SettingsState()
         self.obj_seed_meta_settings = create_settings_project_state(
-            str(self.path_default_settings)
+            self.path_default_settings
         )
 
     def get_settings_paths(self):

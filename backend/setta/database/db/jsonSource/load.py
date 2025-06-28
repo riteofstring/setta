@@ -23,7 +23,7 @@ from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
-from setta.types.impl_helpers import get_effective_impl
+from setta.types.impl_helpers import apply_modifier, get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -73,6 +73,7 @@ def load_json_sources_into_data_structures(
             continue
         new_data, isMissing = load_json_source(impl.name, impl.jsonSourceKeys)
         layering.modifier["jsonSourceMissing"] = isMissing
+        impl = apply_modifier(impl, layering.modifier)
         if isMissing:
             continue
         merge_into_existing(
@@ -129,7 +130,10 @@ def merge_into_existing(
         newLayering = new_data.codeObjImplLayerings[newLayeringId]
         newImpl = new_data.codeObjImpls[newLayering.impl]
         if not existingCodeObjId:
-            section_impl.codeObjImplLayeringMap[newId] = newLayeringId
+            if "codeObjImplLayeringMap" not in section_impl_modifier:
+                section_impl_modifier["codeObjImplLayeringMap"] = {}
+            section_impl_modifier["codeObjImplLayeringMap"][newId] = newLayeringId
+            section_impl = apply_modifier(section_impl, section_impl_modifier)
             codeObjImplLayerings[newLayeringId] = newLayering
             codeObjImpls[newImpl.id] = newImpl
             codeObjs[newId] = newCodeObj
@@ -148,12 +152,14 @@ def merge_into_existing(
             layering.modifier["children"] = [
                 replacements[c][0] if c in replacements else c for c in newImpl.children
             ]
+            impl = apply_modifier(impl, layering.modifier)
         elif (
             isinstance(impl, BaseChildlessCodeObjImpl)
             and isinstance(newImpl, BaseChildlessCodeObjImpl)
             and isBaseChildlessCodeObjImplModifier(layering.modifier)
         ):
             layering.modifier["value"] = newImpl.value
+            impl = apply_modifier(impl, layering.modifier)
         else:
             raise TypeError
 
