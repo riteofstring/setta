@@ -181,7 +181,7 @@ export function findAllParametersOfCallableSection(
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     callable ? [callable] : [],
-    { output: isBaseParamCodeObjImpl },
+    { output: isBaseParamCodeObjImpl, paramPath: isBaseParamCodeObjImpl },
   );
 }
 
@@ -195,6 +195,6 @@ export function findAllParametersOfBaseDictSection(
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     topLevelParamIds,
-    { output: isBaseParamCodeObjImpl },
+    { output: isBaseParamCodeObjImpl, paramPath: isBaseParamCodeObjImpl },
   );
 }

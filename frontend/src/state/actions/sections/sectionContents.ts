@@ -48,10 +48,14 @@ export function getParamIdsToShowInArea(
     // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
     if (
       impl.pinnedParams.includes(a) === isPinned &&
-      (childrenMap[a]?.length === 0 ||
-        childrenMap[a]?.some((child) => child in requiredParamIdsToPaths))
+      (!childrenMap[a] ||
+        childrenMap[a].length === 0 ||
+        childrenMap[a].some((child) => child in requiredParamIdsToPaths))
     ) {
-      const currPathMap = pathMap[a] ?? [];
+      const currPathMap = pathMap[a];
+      if (!currPathMap) {
+        throw new Error();
+      }
       for (const p of currPathMap) {
         requiredParamIdsToPaths[p] = pathMap[p] ?? [];
         if (currPathMap[0] && !topLevelParamIdsSet.has(currPathMap[0])) {
