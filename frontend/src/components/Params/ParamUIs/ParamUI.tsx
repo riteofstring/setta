@@ -12,6 +12,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import {
+  BaseChildlessCodeObjImplUnion,
   CodeObjTypeEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
@@ -39,6 +40,28 @@ export function ParamUIConfig({ name, ...props }) {
   }
 }
 
+function getParamCodeObjUIConfig(codeObjImpl: BaseChildlessCodeObjImplUnion) {
+  switch (codeObjImpl.type) {
+    case CodeObjTypeEnum.CodeParam:
+    case CodeObjTypeEnum.TextParam:
+    case CodeObjTypeEnum.PasswordParam:
+    case CodeObjTypeEnum.SwitchParam:
+      return {};
+    case CodeObjTypeEnum.SliderParam:
+      return {
+        min: codeObjImpl.min,
+        max: codeObjImpl.max,
+        step: codeObjImpl.step,
+      };
+    case CodeObjTypeEnum.DropdownParam:
+      return { choices: codeObjImpl.choices };
+    case CodeObjTypeEnum.ColorPickerParam:
+      return { colorChoices: codeObjImpl.colorChoices };
+    default:
+      return codeObjImpl.type satisfies never;
+  }
+}
+
 export function ParamUI({
   sectionId,
   paramInfoId,
@@ -47,28 +70,33 @@ export function ParamUI({
   maybeErrorMessage,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
-    useProjectState((x) => {
-      const impl = getEffectiveSectionImpl(x, sectionId);
-      if (!isBaseSectionWithParamsImpl(impl)) {
-        throw new Error();
-      }
-      const codeObjImpl = getEffectiveCodeObjImpl(
-        x,
-        paramInfoId,
-        sectionId,
-        impl,
-      );
-      if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
-        throw new Error();
-      }
-      return {
-        codeObjType: codeObjImpl.type,
-        configLanguage: impl.configLanguage,
-        defaultVal: codeObjImpl.defaultVal,
-        disabledOrFrozen: impl.isFrozen,
-      };
-    }, _.isEqual);
+  const {
+    codeObjType,
+    configLanguage,
+    defaultVal,
+    disabledOrFrozen,
+    uiConfig,
+  } = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
+    const codeObjImpl = getEffectiveCodeObjImpl(
+      x,
+      paramInfoId,
+      sectionId,
+      impl,
+    );
+    if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
+      throw new Error();
+    }
+    return {
+      codeObjType: codeObjImpl.type,
+      configLanguage: impl.configLanguage,
+      defaultVal: codeObjImpl.defaultVal,
+      disabledOrFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
 
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -81,6 +109,8 @@ export function ParamUI({
   }
 
   // need to put the group/textinput in a higher div
+
+  console.log("codeObjType", codeObjType);
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
@@ -113,7 +143,7 @@ export function ParamUI({
         </>
       );
     case CodeObjTypeEnum.SliderParam: {
-      const { min, max, step } = uiType.config;
+      const { min, max, step } = uiConfig;
       return (
         <SliderInput
           value={value}
