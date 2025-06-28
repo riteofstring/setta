@@ -1,4 +1,25 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
+import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
+
+export function DropdownInputConfigForParam({
+  sectionId,
+  paramInfoId,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+}) {
+  const config = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.DropdownParam,
+  );
+
+  function onChange() {
+    console.log("onChange");
+  }
+  return <DropdownInputConfig config={config} onChange={onChange} />;
+}
 
 export function DropdownInputConfig({ onChange, config }) {
   const choices = config.choices ?? [];

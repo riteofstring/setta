@@ -12,7 +12,7 @@ import {
 } from "utils/generatedTypes";
 import { findAllParametersOfSection } from "utils/getDescendants";
 
-export function useParamInfosForSidePane(sectionId: string) {
+export function useParamIdsAndNamesForSidePane(sectionId: string) {
   return useProjectState((x) => {
     const impl = getEffectiveSectionImpl(x, sectionId);
     if (!isBaseSectionWithParamsImpl(impl)) {

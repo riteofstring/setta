@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getEffectiveCodeObjImpl,
+  getEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
 import {
   useLocalStorage,
   useProjectState,
@@ -11,7 +14,15 @@ import {
   UIEditorTabName,
   UIEditorTabNameEnum,
 } from "utils/constants";
-import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  CodeObjType,
+  CodeObjTypeEnum,
+  ColorPickerParamCodeObjImpl,
+  DropdownParamCodeObjImpl,
+  SectionType,
+  SectionTypeEnum,
+  SliderParamCodeObjImpl,
+} from "utils/generatedTypes";
 
 export function getParamUIType(sectionId, paramInfoId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -100,4 +111,48 @@ export function getUIEditorTab(
     selectedTabName = null;
   }
   return { selectedTabName, requiredTabs: new Set(requiredTabs) };
+}
+
+const UI_CONFIG_EXTRACTORS = {
+  [CodeObjTypeEnum.SliderParam]: (obj: SliderParamCodeObjImpl) => ({
+    min: obj.min,
+    max: obj.max,
+    step: obj.step,
+  }),
+  [CodeObjTypeEnum.DropdownParam]: (obj: DropdownParamCodeObjImpl) => ({
+    choices: obj.choices,
+  }),
+  [CodeObjTypeEnum.ColorPickerParam]: (obj: ColorPickerParamCodeObjImpl) => ({
+    choices: obj.choices,
+  }),
+} as const;
+
+type ExtractorResult<T extends keyof typeof UI_CONFIG_EXTRACTORS> = ReturnType<
+  (typeof UI_CONFIG_EXTRACTORS)[T]
+>;
+
+export function useParamCodeObjUIConfig<T extends CodeObjType>(
+  sectionId: string,
+  paramInfoId: string,
+  type: T,
+): T extends keyof typeof UI_CONFIG_EXTRACTORS ? ExtractorResult<T> : {} {
+  return useProjectState((x) => {
+    const codeObjImpl = getEffectiveCodeObjImpl(
+      x,
+      paramInfoId,
+      sectionId,
+      null,
+    );
+    if (codeObjImpl.type !== type) {
+      throw new Error();
+    }
+
+    const extractor =
+      UI_CONFIG_EXTRACTORS[type as keyof typeof UI_CONFIG_EXTRACTORS];
+    if (!extractor) {
+      return {} as any; // No UI config for this type
+    }
+
+    return extractor(codeObjImpl as any) as any;
+  }, _.isEqual);
 }

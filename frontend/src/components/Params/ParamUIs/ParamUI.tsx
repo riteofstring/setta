@@ -6,6 +6,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
+import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -14,32 +15,52 @@ import {
 import {
   CodeObjType,
   CodeObjTypeEnum,
-  ColorPickerParamCodeObjImpl,
-  DropdownParamCodeObjImpl,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
-  SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
-import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
-import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
+import {
+  ColorPickerInput,
+  ColorPickerInputConfigForParam,
+} from "./ColorPickerInput";
+import { DropdownInput, DropdownInputConfigForParam } from "./DropdownInput";
 import { PasswordInput } from "./PasswordInput";
-import { SliderInput, SliderInputConfig } from "./SliderInput";
-import { SwitchInput, SwitchInputConfig } from "./SwitchInput";
-import { TextInputConfig } from "./TextInput";
+import { SliderInput, SliderInputConfigForParam } from "./SliderInput";
+import { SwitchInput } from "./SwitchInput";
 
-export function ParamUIConfig({ name, ...props }) {
-  switch (name) {
+export function ParamUIConfig({
+  sectionId,
+  paramInfoId,
+  implType,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  implType: CodeObjType;
+}) {
+  switch (implType) {
+    case CodeObjTypeEnum.SliderParam:
+      return (
+        <SliderInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
+    case CodeObjTypeEnum.ColorPickerParam:
+      return (
+        <ColorPickerInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
+    case CodeObjTypeEnum.DropdownParam:
+      return (
+        <DropdownInputConfigForParam
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+        />
+      );
     default:
-      return <TextInputConfig {...props} />;
-    case UITypeNameEnum.SLIDER:
-      return <SliderInputConfig {...props} />;
-    case UITypeNameEnum.SWITCH:
-      return <SwitchInputConfig {...props} />;
-    case UITypeNameEnum.COLOR_PICKER:
-      return <ColorPickerInputConfig {...props} />;
-    case UITypeNameEnum.DROPDOWN:
-      return <DropdownInputConfig {...props} />;
+      return null;
   }
 }
 
@@ -330,48 +351,4 @@ function PasswordParamConfigured({
       />
     </>
   );
-}
-
-const UI_CONFIG_EXTRACTORS = {
-  [CodeObjTypeEnum.SliderParam]: (obj: SliderParamCodeObjImpl) => ({
-    min: obj.min,
-    max: obj.max,
-    step: obj.step,
-  }),
-  [CodeObjTypeEnum.DropdownParam]: (obj: DropdownParamCodeObjImpl) => ({
-    choices: obj.choices,
-  }),
-  [CodeObjTypeEnum.ColorPickerParam]: (obj: ColorPickerParamCodeObjImpl) => ({
-    choices: obj.choices,
-  }),
-} as const;
-
-type ExtractorResult<T extends keyof typeof UI_CONFIG_EXTRACTORS> = ReturnType<
-  (typeof UI_CONFIG_EXTRACTORS)[T]
->;
-
-function useParamCodeObjUIConfig<T extends CodeObjType>(
-  sectionId: string,
-  paramInfoId: string,
-  type: T,
-): T extends keyof typeof UI_CONFIG_EXTRACTORS ? ExtractorResult<T> : {} {
-  return useProjectState((x) => {
-    const codeObjImpl = getEffectiveCodeObjImpl(
-      x,
-      paramInfoId,
-      sectionId,
-      null,
-    );
-    if (codeObjImpl.type !== type) {
-      throw new Error();
-    }
-
-    const extractor =
-      UI_CONFIG_EXTRACTORS[type as keyof typeof UI_CONFIG_EXTRACTORS];
-    if (!extractor) {
-      return {} as any; // No UI config for this type
-    }
-
-    return extractor(codeObjImpl as any) as any;
-  }, _.isEqual);
 }

@@ -1,8 +1,30 @@
 import * as Slider from "@radix-ui/react-slider";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 import { SimpleConfig } from "./SimpleConfig";
+
+export function SliderInputConfigForParam({
+  sectionId,
+  paramInfoId,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+}) {
+  const config = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.SliderParam,
+  );
+
+  function onChange() {
+    console.log("onChange");
+  }
+
+  return <SliderInputConfig onChange={onChange} config={config} />;
+}
 
 export function SliderInputConfig({ onChange, config }) {
   const options = ["min", "max", "step"];

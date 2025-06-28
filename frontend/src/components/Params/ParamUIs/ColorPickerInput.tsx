@@ -1,5 +1,26 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
+
+export function ColorPickerInputConfigForParam({
+  sectionId,
+  paramInfoId,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+}) {
+  const config = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.ColorPickerParam,
+  );
+
+  function onChange() {
+    console.log("onChange");
+  }
+  return <ColorPickerInputConfig config={config} onChange={onChange} />;
+}
 
 export function ColorPickerInputConfig({ onChange, config }) {
   const colors = config.colorChoices ?? [];

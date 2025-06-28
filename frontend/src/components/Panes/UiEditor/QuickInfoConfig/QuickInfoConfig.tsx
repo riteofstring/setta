@@ -2,13 +2,13 @@ import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
 import { useProjectState } from "state/definitions";
-import { useParamInfosForSidePane } from "state/hooks/sectionContents";
+import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
 function _QuickInfoConfig({ sectionId }) {
-  const paramInfos = useParamInfosForSidePane(sectionId);
+  const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
   return <QuickInfoConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
 }
 

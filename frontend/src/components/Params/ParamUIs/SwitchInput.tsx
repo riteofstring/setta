@@ -1,9 +1,5 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 
-export function SwitchInputConfig() {
-  return null;
-}
-
 export function SwitchInput({
   value,
   defaultVal,

@@ -1,25 +1,30 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
-import { setParamUITypeConfig } from "state/actions/uiTypes/setParamUITypeConfig";
+import { getEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { useProjectState } from "state/definitions";
-import { useParamInfosForSidePane } from "state/hooks/sectionContents";
-import { getParamUIType } from "state/hooks/uiTypes";
+import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
 const UIElement = React.memo(_UIElement, _.isEqual);
 
-function _UIConfig({ sectionId }) {
-  const paramInfos = useParamInfosForSidePane(sectionId);
+function _UIConfig({ sectionId }: { sectionId: string }) {
+  const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
   return <UIConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
 }
 
 export const UIConfig = React.memo(_UIConfig);
 
-function UIConfigCore({ sectionId, paramInfos }) {
+function UIConfigCore({
+  sectionId,
+  paramInfos,
+}: {
+  sectionId: string;
+  paramInfos: Array<{ id: string; name: string }>;
+}) {
   const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
     ["name"],
@@ -41,25 +46,30 @@ function UIConfigCore({ sectionId, paramInfos }) {
         onChange={(e) => setFilter(e.target.value)}
       />
       <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
-        {sectionId &&
-          filteredList.map((e, idx) => (
-            <UIElement
-              sectionId={sectionId}
-              paramInfo={e}
-              key={`${e.name}-${idx}`}
-            />
-          ))}
+        {filteredList.map((e, idx) => (
+          <UIElement
+            sectionId={sectionId}
+            paramInfo={e}
+            key={`${e.name}-${idx}`}
+          />
+        ))}
       </div>
     </div>
   );
 }
 
-function _UIElement({ sectionId, paramInfo }) {
+function _UIElement({
+  sectionId,
+  paramInfo,
+}: {
+  sectionId: string;
+  paramInfo: { id: string; name: string };
+}) {
   const paramInfoId = paramInfo.id;
-  const uiType = useProjectState(
-    (x) => getParamUIType(sectionId, paramInfoId, x),
-    _.isEqual,
-  );
+  const implType = useProjectState((x) => {
+    const impl = getEffectiveCodeObjImpl(x, paramInfo.id, sectionId, null);
+    return impl.type;
+  }, _.isEqual);
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
@@ -70,14 +80,6 @@ function _UIElement({ sectionId, paramInfo }) {
         paramInfoId,
         state,
       });
-    });
-  };
-
-  const onChange = (configName, newValueFn) => {
-    setParamUITypeConfig({
-      sectionId,
-      paramInfoId,
-      configProps: { configName, newValueFn },
     });
   };
 
@@ -93,13 +95,12 @@ function _UIElement({ sectionId, paramInfo }) {
       </div>
 
       <UIConfigDropdownAndFields
-        onDropdownSelect={onSelect}
-        selectedId={uiType.id}
-        selectedType={uiType.type}
-        onConfigChange={onChange}
-        config={uiType.config}
         sectionId={sectionId}
         paramInfoId={paramInfoId}
+        implType={implType}
+        onDropdownSelect={onSelect}
+        // selectedId={uiType.id}
+        // selectedType={uiType.type}
       />
     </div>
   );
