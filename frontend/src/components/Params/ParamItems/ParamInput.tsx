@@ -1,13 +1,22 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { setParamEnteredValue } from "state/actions/sectionInfos";
+import {
+  getEffectiveCodeObjImpl,
+  setParamEnteredValue,
+} from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { useGetParamEnteredValue } from "state/hooks/sectionVariants";
+import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
-  const enteredValue = useGetParamEnteredValue(sectionId, paramInfoId);
+  const enteredValue = useProjectState((x) => {
+    const impl = getEffectiveCodeObjImpl(x, paramInfoId, sectionId, null);
+    if (!isBaseChildlessCodeObjImpl(impl)) {
+      throw new Error();
+    }
+    return impl.value;
+  });
   const [value, setValue] = useState(enteredValue);
 
   // value and enteredValue should always be string

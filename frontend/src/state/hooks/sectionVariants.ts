@@ -1,20 +1,7 @@
 import _ from "lodash";
-import {
-  getDisplayedSectionVariant,
-  getEffectiveSectionImpl,
-} from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseParentSectionImpl, SectionTypeEnum } from "utils/generatedTypes";
-
-export function useGetParamEnteredValue(sectionId, paramInfoId) {
-  return useProjectState((x) => {
-    const vals = getDisplayedSectionVariant(sectionId, x).values;
-    if (paramInfoId in vals) {
-      return vals[paramInfoId].value;
-    }
-    return createEVEntry().value;
-  }, _.isEqual);
-}
 
 export function useListElementIdx(sectionId: string) {
   return useProjectState((x) => {

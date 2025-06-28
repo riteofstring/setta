@@ -7,6 +7,7 @@ import React, { useEffect, useRef } from "react";
 import { BiChevronUp, BiError } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
+import { getEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState, useSectionColumnWidth } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
@@ -27,9 +28,15 @@ function _ParamContainer({
 }) {
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
+      const codeObjImpl = getEffectiveCodeObjImpl(
+        x,
+        paramInfoId,
+        sectionId,
+        null,
+      );
       return {
-        description: x.codeInfo[paramInfoId].description,
-        name: x.codeInfo[paramInfoId].name,
+        description: codeObjImpl.description,
+        name: x.codeObjs[paramInfoId]!.name,
       };
     },
     _.isEqual,

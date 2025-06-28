@@ -1,14 +1,21 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getEffectiveCodeObjImpl,
+  getEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
-import { getParamUIType } from "state/hooks/uiTypes";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
+import {
+  CodeObjTypeEnum,
+  isBaseChildlessCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 import { ColorPickerInput, ColorPickerInputConfig } from "./ColorPickerInput";
 import { DropdownInput, DropdownInputConfig } from "./DropdownInput";
@@ -40,16 +47,29 @@ export function ParamUI({
   maybeErrorMessage,
 }) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const { uiType, configLanguage, defaultVal, disabledOrFrozen } =
+  const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
     useProjectState((x) => {
-      const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
+      const impl = getEffectiveSectionImpl(x, sectionId);
+      if (!isBaseSectionWithParamsImpl(impl)) {
+        throw new Error();
+      }
+      const codeObjImpl = getEffectiveCodeObjImpl(
+        x,
+        paramInfoId,
+        sectionId,
+        impl,
+      );
+      if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
+        throw new Error();
+      }
       return {
-        uiType: getParamUIType(sectionId, paramInfoId, x),
-        configLanguage: configLanguage,
-        defaultVal: x.codeInfo[paramInfoId].defaultVal,
-        disabledOrFrozen: x.codeInfo[paramInfoId].isDisabled || isFrozen,
+        codeObjType: codeObjImpl.type,
+        configLanguage: impl.configLanguage,
+        defaultVal: codeObjImpl.defaultVal,
+        disabledOrFrozen: impl.isFrozen,
       };
     }, _.isEqual);
+
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
     paramInfoId,
@@ -62,8 +82,9 @@ export function ParamUI({
 
   // need to put the group/textinput in a higher div
 
-  switch (uiType.type) {
-    case UITypeNameEnum.TEXT:
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+    case CodeObjTypeEnum.TextParam:
       return (
         <>
           <TextInputCodeMirror
@@ -91,7 +112,7 @@ export function ParamUI({
           />
         </>
       );
-    case UITypeNameEnum.SLIDER: {
+    case CodeObjTypeEnum.SliderParam: {
       const { min, max, step } = uiType.config;
       return (
         <SliderInput
@@ -113,7 +134,7 @@ export function ParamUI({
         />
       );
     }
-    case UITypeNameEnum.SWITCH:
+    case CodeObjTypeEnum.SwitchParam:
       return (
         <SwitchInput
           value={value}
@@ -125,7 +146,7 @@ export function ParamUI({
           twRootClasses="nodrag"
         />
       );
-    case UITypeNameEnum.COLOR_PICKER:
+    case CodeObjTypeEnum.ColorPickerParam:
       const { colorChoices } = uiType.config;
       return (
         <ColorPickerInput
@@ -138,7 +159,7 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
-    case UITypeNameEnum.DROPDOWN:
+    case CodeObjTypeEnum.DropdownParam:
       const { choices } = uiType.config;
       return (
         <DropdownInput
@@ -149,7 +170,7 @@ export function ParamUI({
           isDisabled={isDisabled}
         />
       );
-    case UITypeNameEnum.PASSWORD:
+    case CodeObjTypeEnum.PasswordParam:
       return (
         <>
           <PasswordInput
@@ -164,5 +185,7 @@ export function ParamUI({
           />
         </>
       );
+    default:
+      return codeObjType satisfies never;
   }
 }

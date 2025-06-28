@@ -1,20 +1,28 @@
 import _ from "lodash";
 import React, { useCallback } from "react";
 import { toggleParamSelected } from "state/actions/kwargs";
-import { useMisc, useProjectSearch, useTypeErrors } from "state/definitions";
+import {
+  getEffectiveCodeObjImpl,
+  getEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
+import {
+  useMisc,
+  useProjectSearch,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
+import {
+  isBaseParamCodeObjImpl,
+  isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import { ParamContainer } from "./ParamContainer";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 
 function _ParamSwitch(props) {
-  const {
-    sectionId,
-    paramInfoId,
-    paramIsSelected,
-    isKwarg,
-    paramChildren = [],
-  } = props;
+  const { sectionId, paramInfoId } = props;
 
   const maybeErrorMessage = useTypeErrors(
     (x) => x.errors[sectionId]?.[paramInfoId],
@@ -28,6 +36,29 @@ function _ParamSwitch(props) {
       isSearchResult: x.lookup.has(
         createProjectSearchLookupKey(sectionId, paramInfoId),
       ),
+    };
+  }, _.isEqual);
+
+  const { paramIsSelected, isKwarg, paramChildren } = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
+    const codeObjImpl = getEffectiveCodeObjImpl(
+      x,
+      paramInfoId,
+      sectionId,
+      impl,
+    );
+    if (!isBaseParamCodeObjImpl(codeObjImpl)) {
+      throw new Error();
+    }
+    return {
+      paramIsSelected: impl.selectedParams.includes(paramInfoId),
+      isKwarg: codeObjImpl.coreNameEditable,
+      paramChildren: isBaseParentCodeObjImpl(codeObjImpl)
+        ? codeObjImpl.children
+        : [],
     };
   }, _.isEqual);
 
