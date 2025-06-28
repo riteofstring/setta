@@ -45,7 +45,6 @@ class BaseCodeObjImpl(BaseModel):
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
     isPreset: bool = False
-    uiConfig: Any = None
 
 
 class BaseParamCodeObjImpl(BaseCodeObjImpl):
@@ -75,43 +74,24 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
 
 
-class SliderParamCodeObjImplUIConfig(BaseModel):
+class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     min: int = 0
     max: int = 100
     step: int = 1
-
-
-class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
-    uiConfig: SliderParamCodeObjImplUIConfig = Field(
-        default_factory=SliderParamCodeObjImplUIConfig
-    )
 
 
 class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
 
 
-class ColorChoicesParamCodeObjImplUIConfig(BaseModel):
-    colorChoices: list[str] = Field(default_factory=list)
-
-
 class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    uiConfig: ColorChoicesParamCodeObjImplUIConfig = Field(
-        default_factory=ColorChoicesParamCodeObjImplUIConfig
-    )
-
-
-class DropdownParamCodeObjImplUIConfig(BaseModel):
-    choices: list[str] = Field(default_factory=list)
 
 
 class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    uiConfig: DropdownParamCodeObjImplUIConfig = Field(
-        default_factory=DropdownParamCodeObjImplUIConfig
-    )
+    choices: list[str]
 
 
 class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
