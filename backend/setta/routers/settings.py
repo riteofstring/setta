@@ -3,10 +3,10 @@ from pydantic import BaseModel
 
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.generated.settings_state import SettingsState
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
-from setta.types.settings_state import SettingsState
 
 router = SettaAPIRouter()
 

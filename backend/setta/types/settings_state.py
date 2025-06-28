@@ -1,12 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
-
-from setta.types.generated.user_defaults import (
-    UserDefaultCallableSectionImpl,
-    UserDefaultGroupSectionImpl,
-    UserDefaultSliderParamCodeObjImpl,
-)
+from pydantic import BaseModel
 
 
 class RenameRefactorMode(str, Enum):
@@ -112,19 +106,3 @@ class SettingsBackend(BaseModel):
     exportDbReadableWithVariantsOnSave: bool = False
     renameRefactorMode: RenameRefactorMode = RenameRefactorMode.ALWAYS_ASK
     saveRenderedValues: bool = False
-
-
-class SettingsState(BaseModel, extra="forbid"):
-    shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
-    gui: SettingsGUI = Field(default_factory=SettingsGUI)
-    backend: SettingsBackend = Field(default_factory=SettingsBackend)
-    languageServer: dict = {}  # TODO make a model for this?
-    callableSectionDefault: UserDefaultCallableSectionImpl = Field(
-        default_factory=UserDefaultCallableSectionImpl
-    )
-    groupSectionDefault: UserDefaultGroupSectionImpl = Field(
-        default_factory=UserDefaultGroupSectionImpl
-    )
-    sliderParamDefault: UserDefaultSliderParamCodeObjImpl = Field(
-        default_factory=UserDefaultSliderParamCodeObjImpl
-    )
