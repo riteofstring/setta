@@ -135,7 +135,14 @@ def create_settings_code_objs(section_names):
 
 
 def create_settings_project_state(settings_path: Path):
-    section_names = ["shortcuts", "gui", "backend", "languageServer", "sections"]
+    section_names = [
+        "shortcuts",
+        "gui",
+        "backend",
+        "languageServer",
+        "sections",
+        "codeObjs",
+    ]
     codeObjsAndImpls = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}

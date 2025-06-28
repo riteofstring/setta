@@ -1,6 +1,6 @@
 import inspect
 from pathlib import Path
-from typing import List, Type
+from typing import List, Tuple, Type
 
 from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
@@ -12,9 +12,12 @@ from .generate_backend_union_types import find_sub_classes
 EXCLUSIONS = {"id", "name", "type"}
 
 
-def extract_class_source(source_lines: List[str], class_name: str) -> List[str]:
-    """Extract source lines for a specific class."""
+def extract_class_info(
+    source_lines: List[str], class_name: str
+) -> Tuple[List[str], str]:
+    """Extract source lines for a specific class and its parent class name."""
     class_lines = []
+    parent_class = None
     in_class = False
     indent_level = None
 
@@ -23,16 +26,24 @@ def extract_class_source(source_lines: List[str], class_name: str) -> List[str]:
             in_class = True
             indent_level = len(line) - len(line.lstrip())
             class_lines.append(line)
+
+            # Extract parent class from the line
+            # e.g., "class TextBlockSectionImpl(BaseSectionImpl):"
+            if "(" in line and ")" in line:
+                parent_part = line.split("(")[1].split(")")[0]
+                # Handle multiple inheritance - take the first parent
+                parent_class = parent_part.split(",")[0].strip()
+
         elif in_class:
             if line.strip() == "":
                 class_lines.append(line)
-            elif len(line) - len(line.lstrip()) > indent_level:  # type: ignore
+            elif len(line) - len(line.lstrip()) > indent_level:
                 class_lines.append(line)
             else:
                 # End of class
                 break
 
-    return class_lines
+    return class_lines, parent_class
 
 
 def transform_class_to_user_default(
@@ -48,8 +59,8 @@ def transform_class_to_user_default(
 
         if line.strip().startswith(f"class {class_name}"):
             # Determine parent
-            parent = parent_mapping.get(class_name, base_class_name)
-            if parent != base_class_name and parent in parent_mapping:
+            parent = parent_mapping.get(class_name)
+            if parent:
                 new_parent = f"UserDefault{parent}"
             else:
                 new_parent = "BaseModel"
@@ -123,26 +134,30 @@ def transform_class_to_user_default(
 
 def process_module_classes(
     source_file: Path, module, base_class: Type[BaseModel], discriminator: str
-) -> tuple[List[str], List[str]]:
-    """Process classes from a module and return transformed classes and instances."""
+) -> List[str]:
+    """Process classes from a module and return transformed classes."""
     # Get all target classes
     base_classes = find_sub_classes(module, base_class, discriminator, True, False)
     concrete_classes = find_sub_classes(module, base_class, discriminator, False, False)
     all_classes = [base_class] + base_classes + concrete_classes
 
-    # Build parent mapping
-    parent_mapping = {}
-    for cls in all_classes:
-        if hasattr(cls, "__base__") and cls.__base__.__name__ != "BaseModel":  # type: ignore
-            parent_mapping[cls.__name__] = cls.__base__.__name__  # type: ignore
+    # Create a set of all class names for quick lookup
+    all_class_names = {cls.__name__ for cls in all_classes}
 
     # Read source file
     source_lines = source_file.read_text().splitlines(keepends=True)
 
+    # Build parent mapping by parsing source
+    parent_mapping = {}
+    for cls in all_classes:
+        _, parent_name = extract_class_info(source_lines, cls.__name__)
+        if parent_name and parent_name in all_class_names:
+            parent_mapping[cls.__name__] = parent_name
+
     # Generate UserDefault classes
     class_definitions = []
     for cls in all_classes:
-        class_lines = extract_class_source(source_lines, cls.__name__)
+        class_lines, _ = extract_class_info(source_lines, cls.__name__)
         if class_lines:
             transformed = transform_class_to_user_default(
                 class_lines, cls.__name__, parent_mapping, base_class.__name__
@@ -150,27 +165,7 @@ def process_module_classes(
             class_definitions.extend(transformed)
             class_definitions.append("\n")
 
-    # Generate instances
-    instance_definitions = []
-
-    # Create instances for concrete classes
-    for cls in concrete_classes:
-        instance_name = f"user_default_{cls.__name__.replace('SectionImpl', '').replace('CodeObjImpl', '').lower()}"
-        instance_name = instance_name.replace("__", "_").strip("_")
-        class_name = f"UserDefault{cls.__name__}"
-        instance_definitions.append(f"{instance_name} = {class_name}()\n")
-
-    # Create instances for base classes
-    for cls in [base_class] + base_classes:
-        if cls.__name__.startswith("Base"):
-            instance_name = f"user_default_base_{cls.__name__.replace('Base', '').replace('SectionImpl', '').replace('CodeObjImpl', '').lower()}"
-        else:
-            instance_name = f"user_default_{cls.__name__.replace('SectionImpl', '').replace('CodeObjImpl', '').lower()}"
-        instance_name = instance_name.replace("__", "_").strip("_")
-        class_name = f"UserDefault{cls.__name__}"
-        instance_definitions.append(f"{instance_name} = {class_name}()\n")
-
-    return class_definitions, instance_definitions
+    return class_definitions
 
 
 def main(output_folder: Path):
@@ -183,14 +178,14 @@ def main(output_folder: Path):
     code_objs_file = Path(inspect.getfile(setta.types.code_objs))
 
     # Process both modules
-    sections_classes, sections_instances = process_module_classes(
+    sections_classes = process_module_classes(
         sections_file,
         setta.types.sections,
         setta.types.sections.BaseSectionImpl,
         "type",
     )
 
-    code_objs_classes, code_objs_instances = process_module_classes(
+    code_objs_classes = process_module_classes(
         code_objs_file,
         setta.types.code_objs,
         setta.types.code_objs.BaseCodeObjImpl,
@@ -243,18 +238,6 @@ def main(output_folder: Path):
         ["\n\n# ============== Code Object UserDefault Classes ==============\n\n"]
     )
     output.extend(code_objs_classes)
-
-    # Add instances
-    output.extend(
-        [
-            "\n\n# ============== Global Instances ==============\n\n",
-            "# Section instances\n",
-        ]
-    )
-    output.extend(sections_instances)
-
-    output.extend(["\n# Code object instances\n"])
-    output.extend(code_objs_instances)
 
     # Join and format
     combined = "".join(output)
