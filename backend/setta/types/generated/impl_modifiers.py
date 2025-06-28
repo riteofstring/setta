@@ -158,6 +158,7 @@ class BaseCodeObjImplModifier(TypedDict):
     type: Any
     description: NotRequired[str]
     isPreset: NotRequired[bool]
+    uiConfig: NotRequired[Any]
 
 
 class BaseParamCodeObjImplModifier(BaseCodeObjImplModifier):
@@ -192,9 +193,6 @@ class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
 
 class SliderParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["SliderParam"]
-    min: NotRequired[int]
-    max: NotRequired[int]
-    step: NotRequired[int]
 
 
 class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
@@ -207,7 +205,6 @@ class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
 
 class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal["DropdownParam"]
-    choices: NotRequired[list[str]]
 
 
 class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
