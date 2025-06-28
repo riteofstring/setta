@@ -105,6 +105,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     aspectRatioExtraWidth: int = 0
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
+    isPreset: bool = False
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):

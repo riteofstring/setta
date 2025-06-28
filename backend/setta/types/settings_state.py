@@ -113,7 +113,4 @@ class SettingsState(BaseModel, extra="forbid"):
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
-    sections: dict = {  # TODO make a model for this?
-        "GLOBAL_VARIABLES": {"name": "Global Variables"},
-        "GEN_PYTHON_CODE": {"name": "Generated Python Code"},
-    }
+    sections: dict = {}  # TODO make a model for this?

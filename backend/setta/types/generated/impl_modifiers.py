@@ -161,7 +161,6 @@ from setta.types.code_objs import (
 class BaseCodeObjImplModifier(TypedDict):
     type: Any
     description: NotRequired[str]
-    isPreset: NotRequired[bool]
 
 
 class BaseParamCodeObjImplModifier(BaseCodeObjImplModifier):

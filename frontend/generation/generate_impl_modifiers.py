@@ -20,7 +20,7 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
 
-exclusions = ["id", "name"]
+exclusions = ["id", "name", "isPreset"]
 
 
 def python_type_to_str(python_type):
