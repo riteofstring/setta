@@ -160,7 +160,9 @@ def route_delete_file(x: DeleteFileRequest):
 def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
     # x.filepaths is the current list of file paths or glob patterns that should be watched
     state.specific_file_watcher.update_watch_list(
-        x.filepaths, x.fileWatchGroupName, get_content_processor(x.fileWatchGroupName)
+        x.filepaths,
+        x.fileWatchGroupName,
+        get_content_processor(state.project_manager, x.fileWatchGroupName),
     )
 
 
@@ -179,5 +181,5 @@ async def route_file_watch_gen_python_code(
     state.specific_file_watcher.update_watch_list(
         filepaths,
         FileWatchGroupName.genPythonCode,
-        get_content_processor(FileWatchGroupName.genPythonCode),
+        get_content_processor(state.project_manager, FileWatchGroupName.genPythonCode),
     )

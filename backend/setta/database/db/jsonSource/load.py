@@ -18,7 +18,9 @@ from setta.types.generated.code_obj_type_unions import (
 from setta.types.generated.impl_modifier_unions import (
     isBaseChildlessCodeObjImplModifier,
 )
-from setta.types.generated.impl_modifiers import DictSectionImplModifier
+from setta.types.generated.impl_modifiers import (
+    BaseDictSectionImplModifier,
+)
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
@@ -26,9 +28,11 @@ from setta.types.generated.section_type_unions import (
 from setta.types.impl_helpers import apply_modifier, get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
+    ProjectStateBackend,
     ProjectStateSingleConfig,
 )
 from setta.types.sections import (
+    BaseDictSectionImpl,
     DictSectionImpl,
     SectionCore,
     SectionType,
@@ -38,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessedJSONObject(BaseModel):
-    sectionImpl: DictSectionImpl
+    sectionImpl: BaseDictSectionImpl
     codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
@@ -54,13 +58,13 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
 
 
 def load_json_sources_into_data_structures(
-    p: ProjectStateSingleConfig | LoadJSONSourceObject,
+    p: ProjectStateBackend | ProjectStateSingleConfig | LoadJSONSourceObject,
     section_impl_layering_ids: list[str] | None = None,
 ):
     for layering_id, layering in p.sectionImplLayerings.items():
         impl = get_effective_impl(layering, p.sectionImpls)
         if (
-            not isinstance(impl, DictSectionImpl)
+            not isinstance(impl, BaseDictSectionImpl)
             or not impl.isJsonSource
             or (
                 section_impl_layering_ids
@@ -88,8 +92,8 @@ def load_json_sources_into_data_structures(
 
 def merge_into_existing(
     new_data: ProcessedJSONObject,
-    section_impl: DictSectionImpl,
-    section_impl_modifier: DictSectionImplModifier,
+    section_impl: BaseDictSectionImpl,
+    section_impl_modifier: BaseDictSectionImplModifier,
     codeObjs: dict[str, CodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],

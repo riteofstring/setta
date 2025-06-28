@@ -1863,6 +1863,9 @@ export const GlobalVariablesSectionImplModifierSchema = z.object({
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
   topLevelParamIds: z.array(z.string()).optional(),
+  isJsonSource: z.boolean().optional(),
+  jsonSourceKeys: z.array(z.string()).optional(),
+  jsonSourceMissing: z.boolean().optional(),
 });
 
 export type GlobalVariablesSectionImplModifier = z.infer<
@@ -2957,6 +2960,9 @@ export const GlobalVariablesSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   topLevelParamIds: z.array(z.string()).default([]),
+  isJsonSource: z.boolean().default(false),
+  jsonSourceKeys: z.array(z.string()).default([]),
+  jsonSourceMissing: z.boolean().default(false),
 });
 
 export type GlobalVariablesSectionImpl = z.infer<
@@ -4206,6 +4212,9 @@ export const BaseDictSectionImplModifierSchema = z.object({
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
   topLevelParamIds: z.array(z.string()).optional(),
+  isJsonSource: z.boolean().optional(),
+  jsonSourceKeys: z.array(z.string()).optional(),
+  jsonSourceMissing: z.boolean().optional(),
 });
 
 export type BaseDictSectionImplModifier = z.infer<
@@ -4507,30 +4516,6 @@ export function createBaseParentSectionImpl(
   return BaseParentSectionImplSchema.parse(options);
 }
 
-export const BaseSectionImplSchema = z.object({
-  type: z.any(),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-});
-
-export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
-
-export function createBaseSectionImpl(
-  options: Partial<BaseSectionImpl> = {},
-): BaseSectionImpl {
-  return BaseSectionImplSchema.parse(options);
-}
-
 export const BaseSectionWithParamsImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -4811,6 +4796,9 @@ export const BaseDictSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   topLevelParamIds: z.array(z.string()).default([]),
+  isJsonSource: z.boolean().default(false),
+  jsonSourceKeys: z.array(z.string()).default([]),
+  jsonSourceMissing: z.boolean().default(false),
 });
 
 export type BaseDictSectionImpl = z.infer<typeof BaseDictSectionImplSchema>;
@@ -4819,6 +4807,30 @@ export function createBaseDictSectionImpl(
   options: Partial<BaseDictSectionImpl> = {},
 ): BaseDictSectionImpl {
   return BaseDictSectionImplSchema.parse(options);
+}
+
+export const BaseSectionImplSchema = z.object({
+  type: z.any(),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.boolean().default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+});
+
+export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
+
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
+  return BaseSectionImplSchema.parse(options);
 }
 
 export const SettingsBackendSchema = z.object({

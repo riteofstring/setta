@@ -377,11 +377,13 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             destRelPath=dest_rel_path,
         )
 
-        file_watch_update = handler(core_update, file_to_read)
+        self.loop.call_soon_threadsafe(
+            lambda: self.loop.create_task(
+                self.process_file_watch_update(core_update, file_to_read, handler)
+            )
+        )
 
+    async def process_file_watch_update(self, core_update, file_to_read, handler):
+        file_watch_update = await handler(core_update, file_to_read)
         logger.debug(f"will send {file_watch_update}")
-        if asyncio.iscoroutinefunction(self.callback):
-            coro = self.callback(file_watch_update)
-            self.loop.call_soon_threadsafe(lambda: self.loop.create_task(coro))
-        else:
-            self.callback(file_watch_update)
+        await self.callback(file_watch_update)

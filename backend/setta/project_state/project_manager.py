@@ -6,6 +6,7 @@ from typing import Coroutine, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
+from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.projects.load import load_project_state
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
@@ -186,6 +187,21 @@ class ProjectManager:
         requestRenameRefactor: bool = False,
     ):
         await self.update(projectState, requestRenameRefactor, messageId)
+
+    @enqueue_method
+    async def load_json_sources(
+        self,
+        section_impl_layering_ids: list[str] | None = None,
+    ):
+        load_json_sources_into_data_structures(
+            self.project_state_backend, section_impl_layering_ids
+        )
+        for configId in self.project_state_backend.projectConfigs.keys():
+            singleConfig = convert_backend_to_single_config(
+                self.project_state_backend, configId
+            )
+            await self.update(singleConfig)
+            await self.websocket_msg_handler.broadcast_project_state(singleConfig)
 
     async def update(
         self,

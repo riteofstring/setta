@@ -60,6 +60,9 @@ class BaseParentSectionImplModifier(BaseSectionImplModifier):
 class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier):
     type: Any
     topLevelParamIds: NotRequired[list[str]]
+    isJsonSource: NotRequired[bool]
+    jsonSourceKeys: NotRequired[list[str]]
+    jsonSourceMissing: NotRequired[bool]
 
 
 class CallableSectionImplModifier(BaseSectionWithParamsImplModifier):
@@ -70,9 +73,6 @@ class CallableSectionImplModifier(BaseSectionWithParamsImplModifier):
 
 class DictSectionImplModifier(BaseDictSectionImplModifier):
     type: Literal["Dict"]
-    isJsonSource: NotRequired[bool]
-    jsonSourceKeys: NotRequired[list[str]]
-    jsonSourceMissing: NotRequired[bool]
 
 
 class ListRootSectionImplModifier(BaseParentSectionImplModifier):

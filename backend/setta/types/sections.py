@@ -127,6 +127,9 @@ class BaseParentSectionImpl(BaseSectionImpl):
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
     topLevelParamIds: list[str] = Field(default_factory=list)
+    isJsonSource: bool = False
+    jsonSourceKeys: list[str] = Field(default_factory=list)
+    jsonSourceMissing: bool = False
 
 
 class CallableSectionImpl(BaseSectionWithParamsImpl):
@@ -137,9 +140,6 @@ class CallableSectionImpl(BaseSectionWithParamsImpl):
 
 class DictSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.Dict] = SectionType.Dict
-    isJsonSource: bool = False
-    jsonSourceKeys: list[str] = Field(default_factory=list)
-    jsonSourceMissing: bool = False
 
 
 class ListRootSectionImpl(BaseParentSectionImpl):
