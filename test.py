@@ -65,3 +65,12 @@
 
 # pprint(p.model_dump()["sectionImplLayerings"])
 
+
+from setta.database.settings_file import SettingsFile
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+from setta.websockets.websocket_manager import WebsocketManager
+
+wm = WebsocketManager()
+wmh = WMHFrontendSender(wm)
+sf = SettingsFile(wmh)
+print(sf.settings)

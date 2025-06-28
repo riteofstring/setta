@@ -2,6 +2,9 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from setta.types.generated.user_defaults import UserDefaultCallableSectionImpl
+from setta.types.sections import CallableSectionImpl
+
 
 class RenameRefactorMode(str, Enum):
     ALWAYS_ASK = "ALWAYS_ASK"
@@ -108,9 +111,13 @@ class SettingsBackend(BaseModel):
     saveRenderedValues: bool = False
 
 
+class SectionDefaults(BaseModel):
+    callable: UserDefaultCallableSectionImpl = Field(default_factory=UserDefaultCallableSectionImpl)
+
+
 class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = {}  # TODO make a model for this?
-    sections: dict = {}  # TODO make a model for this?
+    sections: SectionDefaults = Field(default_factory=SectionDefaults)

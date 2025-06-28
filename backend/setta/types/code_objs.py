@@ -97,7 +97,7 @@ class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    choices: list[str]
+    choices: list[str] = Field(default_factory=list)
 
 
 class PasswordParamCodeObjImpl(BaseChildlessCodeObjImpl):
