@@ -14,13 +14,12 @@ import {
   createSectionCore,
   createSectionSize,
   createTopLevelSectionLayout,
+  getSectionDefault,
   isBaseParentSectionImpl,
   isBaseParentSectionImplModifier,
   Position,
   SectionSizeModeEnum,
-  SectionType,
   SectionTypeEnum,
-  SettingsState,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
@@ -209,15 +208,4 @@ export function createSection(
   }
 
   return section.id;
-}
-
-function getSectionDefault(settings: SettingsState, sectionType: SectionType) {
-  switch (sectionType) {
-    case SectionTypeEnum.Callable:
-      return settings.callableSectionDefault;
-    case SectionTypeEnum.Group:
-      return settings.groupSectionDefault;
-    default:
-      return null;
-  }
 }

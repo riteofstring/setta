@@ -6819,3 +6819,75 @@ export function isBaseSectionWithParamsImpl(
 ): x is BaseSectionWithParamsImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
+
+export function getSectionDefault(
+  settings: SettingsState,
+  sectionType: SectionType,
+) {
+  switch (sectionType) {
+    case SectionTypeEnum.Callable:
+      return settings.callableSectionDefault;
+    case SectionTypeEnum.Dict:
+      return settings.dictSectionDefault;
+    case SectionTypeEnum.ListRoot:
+      return settings.listRootSectionDefault;
+    case SectionTypeEnum.DictRoot:
+      return settings.dictRootSectionDefault;
+    case SectionTypeEnum.Group:
+      return settings.groupSectionDefault;
+    case SectionTypeEnum.Image:
+      return settings.imageSectionDefault;
+    case SectionTypeEnum.Chart:
+      return settings.chartSectionDefault;
+    case SectionTypeEnum.Draw:
+      return settings.drawSectionDefault;
+    case SectionTypeEnum.TextBlock:
+      return settings.textBlockSectionDefault;
+    case SectionTypeEnum.Social:
+      return settings.socialSectionDefault;
+    case SectionTypeEnum.GlobalVariables:
+      return settings.globalVariablesSectionDefault;
+    case SectionTypeEnum.Code:
+      return settings.codeSectionDefault;
+    case SectionTypeEnum.GenPythonCode:
+      return settings.genPythonCodeSectionDefault;
+    case SectionTypeEnum.Terminal:
+      return settings.terminalSectionDefault;
+    case SectionTypeEnum.IFrame:
+      return settings.iFrameSectionDefault;
+    case SectionTypeEnum.Chat:
+      return settings.chatSectionDefault;
+    case SectionTypeEnum.Browser:
+      return settings.browserSectionDefault;
+    default:
+      return sectionType satisfies never;
+  }
+}
+
+export function getCodeObjDefault(
+  settings: SettingsState,
+  codeObjType: CodeObjType,
+) {
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeCallable:
+      return settings.codeCallableDefault;
+    case CodeObjTypeEnum.CodeParam:
+      return settings.codeParamDefault;
+    case CodeObjTypeEnum.TextParam:
+      return settings.textParamDefault;
+    case CodeObjTypeEnum.SliderParam:
+      return settings.sliderParamDefault;
+    case CodeObjTypeEnum.SwitchParam:
+      return settings.switchParamDefault;
+    case CodeObjTypeEnum.ColorPickerParam:
+      return settings.colorPickerParamDefault;
+    case CodeObjTypeEnum.DropdownParam:
+      return settings.dropdownParamDefault;
+    case CodeObjTypeEnum.PasswordParam:
+      return settings.passwordParamDefault;
+    case CodeObjTypeEnum.NestedParam:
+      return settings.nestedParamDefault;
+    default:
+      return codeObjType satisfies never;
+  }
+}
