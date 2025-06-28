@@ -163,7 +163,6 @@ def create_settings_project_state(settings_path: Path):
             codeObjImplLayeringMap[codeObj.id] = codeObjImplLayering.id
 
         sectionImpl = DictSectionImpl(
-            name=str(settings_path.relative_to(CWD)),
             size=SectionSize(width=550),
             isJsonSource=True,
             jsonSourceKeys=[k],
@@ -171,7 +170,9 @@ def create_settings_project_state(settings_path: Path):
             codeObjImplLayeringMap=codeObjImplLayeringMap,
         )
         sectionImplLayering = ImplLayering(
-            impl=sectionImpl.id, modifier=create_modifier_for_impl(sectionImpl)
+            name=str(settings_path.relative_to(CWD)),
+            impl=sectionImpl.id,
+            modifier=create_modifier_for_impl(sectionImpl),
         )
         section = SectionCore(
             name=k,

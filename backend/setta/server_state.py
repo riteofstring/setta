@@ -22,13 +22,14 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 class SettaFastAPIState:
     def __init__(self, app):
-        self.settings_file = SettingsFile()
         self.websocket_manager = WebsocketManager()
+        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
+        self.settings_file = SettingsFile(self.wmh_frontend_sender)
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
         self.lsp_writers = LSPWriters(self.lsps)
         self.script_metadata = ScriptMetadata()
         self.dbe = DBE(C.DB_PATH)
-        self.wmh_frontend_sender = WMHFrontendSender(self.websocket_manager)
+
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.specific_file_watcher = create_specific_file_watcher(
             self.wmh_frontend_sender

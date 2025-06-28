@@ -75,12 +75,13 @@ def load_json_sources_into_data_structures(
 
         if layering.modifier["type"] != SectionType.Dict:
             continue
-        new_data, isMissing = load_json_source(impl.name, impl.jsonSourceKeys)
+        new_data, isMissing = load_json_source(layering.name, impl.jsonSourceKeys)
         layering.modifier["jsonSourceMissing"] = isMissing
         impl = apply_modifier(impl, layering.modifier)
         if isMissing:
             continue
         merge_into_existing(
+            layering.name,
             new_data,
             impl,
             layering.modifier,
@@ -91,6 +92,7 @@ def load_json_sources_into_data_structures(
 
 
 def merge_into_existing(
+    filename: str,
     new_data: ProcessedJSONObject,
     section_impl: BaseDictSectionImpl,
     section_impl_modifier: BaseDictSectionImplModifier,
@@ -98,7 +100,6 @@ def merge_into_existing(
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
-    filename = section_impl.name
     ancestor_paths = build_ancestor_paths(
         codeObjs,
         codeObjImpls,

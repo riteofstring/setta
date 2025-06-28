@@ -4,8 +4,10 @@ from typing import Awaitable, Callable, assert_never
 
 from dotenv import dotenv_values
 
+from setta.database.settings_file import SettingsProject
 from setta.project_state.project_manager import ProjectManager
 from setta.types.impl_helpers import get_effective_impl
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.sections import BaseDictSectionImpl
 from setta.types.specific_file_watcher import (
     FileWatcherCoreUpdate,
@@ -24,11 +26,12 @@ FileWatcherUpdateHandler = Callable[
 
 def get_content_processor(
     project_manager: ProjectManager,
+    settings_project: SettingsProject,
     file_watch_group_name: FileWatchGroupName,
 ) -> FileWatcherUpdateHandler:
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
-            return get_content_processor_json_source(project_manager)
+            return get_content_processor_json_source(project_manager, settings_project)
         case FileWatchGroupName.genPythonCode:
             return content_processor_gen_python_code
         case FileWatchGroupName.apiKeys:
@@ -59,11 +62,15 @@ async def content_processor_api_keys(
     return FileWatcherUpdateAPIKeys(coreUpdate=coreUpdate, fileContent=fileContent)
 
 
-def get_content_processor_json_source(project_manager: ProjectManager):
+def get_content_processor_json_source(
+    project_manager: ProjectManager, settings_project: SettingsProject
+):
     async def content_processor_json_source(
         coreUpdate: FileWatcherCoreUpdate, file_to_read: Path
     ):
-        await maybe_read_json_source_contents(project_manager, coreUpdate)
+        await maybe_read_json_source_contents(
+            project_manager, settings_project, coreUpdate
+        )
         return FileWatcherUpdateJSONSource(coreUpdate=coreUpdate, fileContent=None)
 
     return content_processor_json_source
@@ -79,10 +86,26 @@ def get_llm_api_keys_from_env_vars(env_vars: dict[str, str | None]):
 
 async def maybe_read_json_source_contents(
     project_manager: ProjectManager,
+    settings_project: SettingsProject,
     coreUpdate: FileWatcherCoreUpdate,
 ):
-    implLayeringsToLoad = []
     p = project_manager.project_state_backend
+    implLayeringsToLoad = get_json_source_impl_layerings(p, coreUpdate)
+    if len(implLayeringsToLoad) > 0:
+        await project_manager.load_json_sources(implLayeringsToLoad)
+
+    implLayeringsToLoad = get_json_source_impl_layerings(
+        settings_project.project_state, coreUpdate
+    )
+    if len(implLayeringsToLoad) > 0:
+        settings_project.load_settings_project()
+        await settings_project.broadcast_update()
+
+
+def get_json_source_impl_layerings(
+    p: ProjectStateBackend | ProjectStateSingleConfig, coreUpdate: FileWatcherCoreUpdate
+):
+    implLayeringsToLoad: list[str] = []
     for layering in p.sectionImplLayerings.values():
         impl = get_effective_impl(layering, p.sectionImpls)
         if (
@@ -93,8 +116,4 @@ async def maybe_read_json_source_contents(
             continue
 
         implLayeringsToLoad.append(layering.id)
-
-    if len(implLayeringsToLoad) > 0:
-        await project_manager.load_json_sources(implLayeringsToLoad)
-        return True
-    return False
+    return implLayeringsToLoad

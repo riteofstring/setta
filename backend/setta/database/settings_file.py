@@ -6,7 +6,8 @@ from pathlib import Path
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
-from setta.types.helpers import get_effective_section_impl
+from setta.types.helpers import get_section_impl_layering
+from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -14,14 +15,15 @@ from setta.types.sections import DictSectionImpl
 from setta.types.settings_state import SettingsState
 from setta.utils.constants import SETTA_FILES_FOLDER
 from setta.utils.utils import save_json_to_file
+from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
 
 
 class SettingsFile:
-    def __init__(self):
+    def __init__(self, websocket_msg_handler: WMHFrontendSender):
         self.settings: SettingsState = SettingsState()
-        self.settings_project = SettingsProject()
+        self.settings_project = SettingsProject(websocket_msg_handler)
         self.load_settings()
 
     def save_settings(self, settings):
@@ -56,7 +58,7 @@ class SettingsFile:
 
 
 class SettingsProject:
-    def __init__(self):
+    def __init__(self, websocket_msg_handler: WMHFrontendSender):
         self.path_default_settings = SETTA_FILES_FOLDER / "setta-settings.json"
         self.path_default_settings_project = (
             SETTA_FILES_FOLDER / "setta-settings-project.json"
@@ -65,6 +67,8 @@ class SettingsProject:
         self.obj_seed_settings_project = create_settings_project_state(
             self.path_default_settings
         )
+        self.project_state = self.obj_seed_settings_project.model_copy()
+        self.websocket_msg_handler = websocket_msg_handler
 
     def get_settings_paths(self):
         settings_slice_to_path: dict[str, Path] = {}
@@ -80,10 +84,11 @@ class SettingsProject:
 
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            impl = get_effective_section_impl(p, sectionId)
+            implLayering = get_section_impl_layering(p, sectionId)
+            impl = get_effective_impl(implLayering, p.sectionImpls)
             if isinstance(impl, DictSectionImpl):
                 if impl.jsonSourceKeys == [slice]:
-                    return Path(impl.name)
+                    return Path(implLayering.name)
             else:
                 raise TypeError
         return None
@@ -106,8 +111,13 @@ class SettingsProject:
         logger.debug("Loading settings project")
         p = self.seed_settings_project()
         load_json_sources_into_data_structures(p)
+        self.project_state = p
         return p
 
     def save_settings_project(self, p: ProjectStateSingleConfig):
         save_json_source_data(p)
         save_json_to_file(self.path_default_settings_project, p.model_dump())
+        self.project_state = p
+
+    async def broadcast_update(self):
+        await self.websocket_msg_handler.broadcast_project_state(self.project_state)

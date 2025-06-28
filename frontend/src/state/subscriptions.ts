@@ -26,6 +26,7 @@ import {
 import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
   getDisplayedSectionIdToChildren,
+  getEffectiveImpl,
   getEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewingEditingModeVisibility,
@@ -249,11 +250,10 @@ function artifactWhoModifiedSubscriptionFn(state) {
 
 function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   const filenameSet: Set<string> = new Set();
-  for (const v of Object.values(state.sectionImpls)) {
-    if (v.type === SectionTypeEnum.Dict) {
-      if (v.isJsonSource) {
-        filenameSet.add(v.name);
-      }
+  for (const v of Object.values(state.sectionImplLayerings)) {
+    const impl = getEffectiveImpl(v, state.sectionImpls);
+    if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
+      filenameSet.add(v.name);
     }
   }
   return Array.from(filenameSet);
