@@ -39,28 +39,29 @@ function _ParamSwitch(props) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
-    if (!isBaseSectionWithParamsImpl(impl)) {
-      throw new Error();
-    }
-    const codeObjImpl = getEffectiveCodeObjImpl(
-      x,
-      paramInfoId,
-      sectionId,
-      impl,
-    );
-    if (!isBaseParamCodeObjImpl(codeObjImpl)) {
-      throw new Error();
-    }
-    return {
-      paramIsSelected: impl.selectedParams.includes(paramInfoId),
-      isKwarg: codeObjImpl.coreNameEditable,
-      paramChildren: isBaseParentCodeObjImpl(codeObjImpl)
-        ? codeObjImpl.children
-        : [],
-    };
-  }, _.isEqual);
+  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
+    useProjectState((x) => {
+      const impl = getEffectiveSectionImpl(x, sectionId);
+      if (!isBaseSectionWithParamsImpl(impl)) {
+        throw new Error();
+      }
+      const codeObjImpl = getEffectiveCodeObjImpl(
+        x,
+        paramInfoId,
+        sectionId,
+        impl,
+      );
+      if (!isBaseParamCodeObjImpl(codeObjImpl)) {
+        throw new Error();
+      }
+      const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+      return {
+        paramIsSelected: impl.selectedParams.includes(paramInfoId),
+        isKwarg: codeObjImpl.coreNameEditable,
+        paramChildren: isNestedParam ? codeObjImpl.children : [],
+        isNestedParam,
+      };
+    }, _.isEqual);
 
   const hasChildren = paramChildren.length > 0;
   const handleParamSelection = useCallback(
@@ -94,6 +95,7 @@ function _ParamSwitch(props) {
     <ParamContainer
       {...props}
       isKwarg={isKwarg}
+      isNestedParam={isNestedParam}
       paramChildren={paramChildren}
       onMouseDown={onMouseDownAlways}
       maybeErrorMessage={maybeErrorMessage}

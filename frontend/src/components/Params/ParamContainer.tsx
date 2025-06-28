@@ -18,7 +18,8 @@ function _ParamContainer({
   requiredParamIdsToPaths,
   children,
   onResizeStart,
-  isKwarg = false,
+  isKwarg,
+  isNestedParam,
   isTopLevelWithPad,
   paramChildren,
   onMouseDown,
@@ -44,7 +45,7 @@ function _ParamContainer({
 
   const { childlessRef, childlessNameRef, parentRef } = useColumnWidth(
     sectionId,
-    paramChildren,
+    isNestedParam,
   );
 
   // TODO: fix quick hacky solution below. shouldn't use !important everywhere.
@@ -63,7 +64,7 @@ function _ParamContainer({
       ]
     : [{ title: paramName, content: paramDescription }];
 
-  return paramChildren.length === 0 ? (
+  return !isNestedParam ? (
     <>
       <article
         id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
@@ -111,7 +112,7 @@ function _ParamContainer({
 
 export const ParamContainer = React.memo(_ParamContainer);
 
-function useColumnWidth(sectionId, paramChildren) {
+function useColumnWidth(sectionId, isNestedParam) {
   const childlessRef = useRef();
   const childlessNameRef = useRef();
   const parentRef = useRef();
@@ -132,7 +133,7 @@ function useColumnWidth(sectionId, paramChildren) {
       },
       { fireImmediately: true },
     );
-  }, [paramChildren.length > 0]); // have to update the subscriber when parameter becomes a parent or child
+  }, [isNestedParam]); // have to update the subscriber when parameter becomes a parent or child
 
   return { childlessRef, childlessNameRef, parentRef };
 }
