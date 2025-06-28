@@ -7,11 +7,12 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import { getSectionImplLayering } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { useTextBlockDescriptionAndEditability } from "state/hooks/sectionVariants";
+import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
@@ -42,25 +43,32 @@ export function MarkdownEditorInSection({ sectionId }) {
 
 const _MarkdownEditorCore = React.forwardRef(
   ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { renderMarkdown, description, variantIsFrozen } =
-      useTextBlockDescriptionAndEditability(sectionId);
+    const { format, text, isFrozen } =
+      useTextBlockTextAndEditability(sectionId);
 
-    const [localDescription, setLocalDescription] = useState(description);
+    const [localText, setLocalText] = useState(text);
 
     useEffect(() => {
-      if (description !== localDescription) {
-        setLocalDescription(description);
+      if (text !== localText) {
+        setLocalText(text);
       }
-    }, [description]);
+    }, [text]);
 
-    const debouncedSetDescription = useCallback(
-      _.debounce((sectionId, v, description) => {
-        if (v !== description) {
+    const debouncedSetText = useCallback(
+      _.debounce((sectionId, v, text) => {
+        if (v !== text) {
           useProjectState.setState((state) => {
-            getSectionVariant(sectionId, state).description = v;
-            if (state.sections[sectionId].headingAsSectionName) {
-              state.sections[sectionId].name =
-                getFirstHeadingOrText(v) ?? state.sections[sectionId].name;
+            const implLayering = getSectionImplLayering(state, sectionId);
+            if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
+              throw new Error();
+            }
+            implLayering.modifier.text = v;
+            if (implLayering.modifier.headingAsSectionName) {
+              const section = state.sections[sectionId];
+              if (!section) {
+                throw new Error();
+              }
+              section.name = getFirstHeadingOrText(v) ?? section.name;
             }
           });
           maybeIncrementProjectStateVersion(true);
@@ -70,8 +78,8 @@ const _MarkdownEditorCore = React.forwardRef(
     );
 
     function onChange(v) {
-      setLocalDescription(v);
-      debouncedSetDescription(sectionId, v, description);
+      setLocalText(v);
+      debouncedSetText(sectionId, v, text);
     }
 
     const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
@@ -80,10 +88,10 @@ const _MarkdownEditorCore = React.forwardRef(
     const theme = useCodeMirrorStyle();
 
     const extensions = getExtensions({
-      language: renderMarkdown ? "markdown" : null,
+      language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
       tabToAutocomplete: true,
       indentWithTab: true,
-      isDisabled: variantIsFrozen,
+      isDisabled: isFrozen,
       onEscape: onEscapeFocusOnArticleDiv,
     });
 
@@ -96,7 +104,7 @@ const _MarkdownEditorCore = React.forwardRef(
       >
         <CodeMirror
           maxHeight={maxHeight}
-          value={description}
+          value={text}
           theme={theme}
           extensions={extensions}
           onChange={onChange}

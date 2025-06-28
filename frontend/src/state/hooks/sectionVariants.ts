@@ -1,7 +1,11 @@
 import _ from "lodash";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
-import { isBaseParentSectionImpl, SectionTypeEnum } from "utils/generatedTypes";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import {
+  BaseSectionImplUnion,
+  isBaseParentSectionImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function useListElementIdx(sectionId: string) {
   return useProjectState((x) => {
@@ -22,24 +26,28 @@ export function useSectionImplIsFrozen(sectionId: string) {
   return useProjectState((x) => getEffectiveSectionImpl(x, sectionId).isFrozen);
 }
 
-export function useTextBlockDescriptionAndEditability(sectionId) {
+export function useTextBlockTextAndEditability(sectionId: string) {
   return useProjectState((x) => {
     const impl = getEffectiveSectionImpl(x, sectionId);
     return {
-      ...getTextBlockDescription(sectionId, x, impl),
+      ...getTextBlockText(sectionId, x, impl),
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
 }
 
-export function getTextBlockDescription(sectionId, state, _impl = null) {
+export function getTextBlockText(
+  sectionId: string,
+  state: ZustandProjectState,
+  _impl: BaseSectionImplUnion | null = null,
+) {
   const impl = getEffectiveSectionImpl(state, sectionId, _impl);
   if (impl.type !== SectionTypeEnum.TextBlock) {
     throw new Error();
   }
   return {
-    renderMarkdown: impl.renderMarkdown,
+    format: impl.format,
     headingAsSectionName: impl.headingAsSectionName,
-    description: impl.description,
+    text: impl.text,
   };
 }

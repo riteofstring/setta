@@ -1821,7 +1821,7 @@ export const TextBlockSectionImplModifierSchema = z.object({
   format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
   displayMode: z.enum(TextBlockDisplayModeEnum).optional(),
-  description: z.string().optional(),
+  text: z.string().optional(),
 });
 
 export type TextBlockSectionImplModifier = z.infer<
@@ -2918,7 +2918,7 @@ export const TextBlockSectionImplSchema = z.object({
   displayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.render),
-  description: z.string().default(""),
+  text: z.string().default(""),
 });
 
 export type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;

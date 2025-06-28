@@ -20,6 +20,7 @@ import {
   CodeLanguageEnum,
   SectionType,
   SectionTypeEnum,
+  TextBlockFormatEnum,
 } from "utils/generatedTypes";
 
 export function HeaderIcon({
@@ -177,11 +178,15 @@ function ListElementIcon({ sectionId }: { sectionId: string }) {
 }
 
 function TextBlockIcon({ sectionId }) {
-  const renderMarkdown = useProjectState(
-    (x) => x.sections[sectionId].renderMarkdown,
-  );
+  const format = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.TextBlock) {
+      throw new Error();
+    }
+    return impl.format;
+  });
 
-  return renderMarkdown ? (
+  return format === TextBlockFormatEnum.Markdown ? (
     <FaMarkdown className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />
   ) : (
     <PiTextTFill className="text-transparent transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:text-transparent dark:group-hover/card-section:text-[#0084ff]" />

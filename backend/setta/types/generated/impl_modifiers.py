@@ -111,7 +111,7 @@ class TextBlockSectionImplModifier(BaseSectionImplModifier):
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
     displayMode: NotRequired[TextBlockDisplayMode]
-    description: NotRequired[str]
+    text: NotRequired[str]
 
 
 class SocialSectionImplModifier(BaseSectionImplModifier):

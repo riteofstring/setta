@@ -7,18 +7,27 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
-import { getTextBlockDescription } from "state/hooks/sectionVariants";
+import { getTextBlockText } from "state/hooks/sectionVariants";
+import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import {
-  SECTION_DISPLAY_MODES,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
+  SectionTypeEnum,
+  TextBlockDisplayModeEnum,
+  TextBlockFormatEnum,
+} from "utils/generatedTypes";
 
 function _TextBlock({ sectionId }) {
-  const displayMode = useProjectState((x) => x.sections[sectionId].displayMode);
+  const displayMode = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (impl.type !== SectionTypeEnum.TextBlock) {
+      throw new Error();
+    }
+    return impl.displayMode;
+  });
 
-  return displayMode === SECTION_DISPLAY_MODES.RENDER ? (
+  return displayMode === TextBlockDisplayModeEnum.render ? (
     <Markdown sectionId={sectionId} />
   ) : (
     <MarkdownEditorInSection sectionId={sectionId} />
@@ -26,8 +35,8 @@ function _TextBlock({ sectionId }) {
 }
 
 function _Markdown({ sectionId }) {
-  const { renderMarkdown, description } = useProjectState(
-    (x) => getTextBlockDescription(sectionId, x),
+  const { format, text } = useProjectState(
+    (x) => getTextBlockText(sectionId, x),
     _.isEqual,
   );
 
@@ -37,7 +46,7 @@ function _Markdown({ sectionId }) {
 
   // the classes "prose-code:before:hidden prose-code:after:hidden" are needed to prevent backticks from appearing
   // https://github.com/tailwindlabs/tailwindcss-typography/issues/18#issuecomment-1280797041
-  return renderMarkdown ? (
+  return format === TextBlockFormatEnum.Markdown ? (
     <div ref={ref} className={wrapperClassName}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
@@ -47,7 +56,7 @@ function _Markdown({ sectionId }) {
           code: CodeBlock,
         }}
       >
-        {description}
+        {text}
       </ReactMarkdown>
     </div>
   ) : (
@@ -55,7 +64,7 @@ function _Markdown({ sectionId }) {
       ref={ref}
       className={`${wrapperClassName} overflow-x-clip text-wrap break-words text-xs text-setta-700 dark:text-setta-300`}
     >
-      {description}
+      {text}
     </pre>
   );
 }

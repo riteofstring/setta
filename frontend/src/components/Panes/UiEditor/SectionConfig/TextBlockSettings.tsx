@@ -1,31 +1,42 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import { getSectionImplLayering } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useTextBlockDescriptionAndEditability } from "state/hooks/sectionVariants";
+import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
 import { route_docstring_to_markdown } from "utils/generatedEndpoints";
+import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function TextBlockSettings({ sectionId }) {
-  const { renderMarkdown, description, variantIsFrozen, headingAsSectionName } =
-    useTextBlockDescriptionAndEditability(sectionId);
+  const { format, text, isFrozen, headingAsSectionName } =
+    useTextBlockTextAndEditability(sectionId);
 
   async function onChangeRenderMarkdown(v) {
-    let newDescription;
+    let newText;
     if (v) {
-      const res = await route_docstring_to_markdown({ docstring: description });
-      newDescription = res200(res) ? res.data : description;
+      const res = await route_docstring_to_markdown({ docstring: text });
+      newText = res200(res) ? res.data : text;
     } else {
-      newDescription = description;
+      newText = text;
     }
     useProjectState.setState((state) => {
-      getSectionVariant(sectionId, state).description = newDescription;
-      state.sections[sectionId].renderMarkdown = v;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
+        throw new Error();
+      }
+      implLayering.modifier.text = newText;
+      implLayering.modifier.format = v
+        ? TextBlockFormatEnum.Markdown
+        : TextBlockFormatEnum.Plaintext;
     });
   }
 
   async function onChangeHeadingAsSectionName(v) {
     useProjectState.setState((state) => {
-      state.sections[sectionId].headingAsSectionName = v;
+      const implLayering = getSectionImplLayering(state, sectionId);
+      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
+        throw new Error();
+      }
+      implLayering.modifier.headingAsSectionName = v;
     });
   }
 
@@ -33,11 +44,11 @@ export function TextBlockSettings({ sectionId }) {
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-          Render Markdown
+          Markdown
         </p>
         <SwitchInput
-          isDisabled={variantIsFrozen}
-          value={renderMarkdown}
+          isDisabled={isFrozen}
+          value={format === TextBlockFormatEnum.Markdown}
           onChange={onChangeRenderMarkdown}
           outerDivClassName="flex items-center"
         />
@@ -47,7 +58,7 @@ export function TextBlockSettings({ sectionId }) {
           Heading As Section Name
         </p>
         <SwitchInput
-          isDisabled={variantIsFrozen}
+          isDisabled={isFrozen}
           value={headingAsSectionName} // Add your state value
           onChange={onChangeHeadingAsSectionName} // Add your onChange handler
           outerDivClassName="flex items-center"

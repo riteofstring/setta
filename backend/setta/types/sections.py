@@ -186,7 +186,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
     displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
-    description: str = ""
+    text: str = ""
 
 
 class SocialSectionImpl(BaseSectionImpl):
