@@ -4,7 +4,7 @@ export function DropdownInputConfig({ onChange, config }) {
   const choices = config.choices ?? [];
 
   const addChoice = () => {
-    const newChoices = [...choices, { id: "", name: "" }];
+    const newChoices = [...choices, ""];
     onChange("choices", () => newChoices);
   };
 
@@ -15,7 +15,7 @@ export function DropdownInputConfig({ onChange, config }) {
 
   const updateChoice = (updateIdx, newChoice) => {
     const newChoices = choices.map((c, idx) =>
-      idx === updateIdx ? { id: newChoice, name: newChoice } : c,
+      idx === updateIdx ? newChoice : c,
     );
     onChange("choices", () => newChoices);
   };
@@ -37,7 +37,7 @@ export function DropdownInputConfig({ onChange, config }) {
             <div className="flex flex-auto items-center gap-1 overflow-hidden">
               <input
                 type="text"
-                value={c.id}
+                value={c}
                 onChange={(e) => updateChoice(idx, e.target.value)}
                 placeholder="Add description..."
                 className="m-[2px] w-full truncate rounded border px-2 py-1 text-xs text-setta-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-setta-400 dark:placeholder-setta-700"
@@ -69,7 +69,7 @@ export function DropdownInput({
   const allItems = [
     {
       group: "Choices",
-      items: choices ? choices.filter((c) => c.id) : [],
+      items: choices.map((c) => ({ id: c, name: c })),
     },
   ];
 

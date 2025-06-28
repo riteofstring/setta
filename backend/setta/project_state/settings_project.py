@@ -37,7 +37,7 @@ from setta.utils.constants import CWD
 def create_settings_code_objs(section_names):
     grid_dropdown = DropdownParamCodeObjImpl(
         name="Grid Patterns",
-        choices=[b.value for b in BackgroundVariant],
+        choices=[f'"{b.value}"' for b in BackgroundVariant],
         isPreset=True,
     )
 
