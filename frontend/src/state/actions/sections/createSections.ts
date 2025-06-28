@@ -4,6 +4,7 @@ import {
   useLocalStorage,
   useProjectState,
   useSectionRefs,
+  useSettings,
   ZustandProjectState,
 } from "state/definitions";
 import {
@@ -17,7 +18,9 @@ import {
   isBaseParentSectionImplModifier,
   Position,
   SectionSizeModeEnum,
+  SectionType,
   SectionTypeEnum,
+  SettingsState,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
@@ -168,7 +171,12 @@ export function createSection(
   state: ZustandProjectState,
   position?: Position,
 ) {
+  const sectionDefault = getSectionDefault(
+    useSettings.getState(),
+    sectionProps.type,
+  );
   const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
+    ...sectionDefault,
     ...sectionProps,
   });
   const sectionImplLayering = createImplLayering({
@@ -201,4 +209,15 @@ export function createSection(
   }
 
   return section.id;
+}
+
+function getSectionDefault(settings: SettingsState, sectionType: SectionType) {
+  switch (sectionType) {
+    case SectionTypeEnum.Callable:
+      return settings.callableSectionDefault;
+    case SectionTypeEnum.Group:
+      return settings.groupSectionDefault;
+    default:
+      return null;
+  }
 }

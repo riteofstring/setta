@@ -234,19 +234,21 @@ def process_json_object(
         # TODO print warning or something
         pass
 
-    topLevelParamIds = process_json_object_helper(new_data, jsonSourceData)
+    topLevelParamIds = process_json_object_helper(settings, new_data, jsonSourceData)
     new_data.sectionImpl.topLevelParamIds = topLevelParamIds
 
     return new_data
 
 
-def process_json_object_helper(output: ProcessedJSONObject, obj: dict):
+def process_json_object_helper(
+    settings: SettingsState, output: ProcessedJSONObject, obj: dict
+):
     children_keys: list[str] = []
     for k, v in obj.items():
-        codeObj, codeObjImpl = add_to_processed_json_object(k, v, output)
+        codeObj, codeObjImpl = add_to_processed_json_object(settings, k, v, output)
         children_keys.append(codeObj.id)
         if isinstance(codeObjImpl, NestedParamCodeObjImpl):
-            codeObjImpl.children = process_json_object_helper(output, v)
+            codeObjImpl.children = process_json_object_helper(settings, output, v)
 
     return children_keys
 
