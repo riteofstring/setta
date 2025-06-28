@@ -4,62 +4,29 @@ import { route_load_section_json_source } from "utils/generatedEndpoints";
 import {
   FileWatcherUpdateAPIKeys,
   FileWatcherUpdateGenPythonCode,
+  FileWatcherUpdateJSONSource,
   FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { getSectionImplLayering, updateProjectState } from "./sectionInfos";
+import { addTemporaryNotification } from "./notifications";
+import { getSectionImplLayering } from "./sectionInfos";
 
 export async function updateWithFileChanges(
   updatedFileInfo: FileWatcherUpdateUnion,
 ) {
   const { fileWatchGroupName } = updatedFileInfo;
 
-  // switch (fileWatchGroupName) {
-  //   case FileWatchGroupNameEnum.jsonSource:
-  //     return await updateJSONSourceContents(updatedFileInfo);
-  //   case FileWatchGroupNameEnum.apiKeys:
-  //     return updateApiKeyInfo(updatedFileInfo);
-  //   case FileWatchGroupNameEnum.genPythonCode:
-  //     return updateGenPythonCode(updatedFileInfo);
-  //   default:
-  //     return fileWatchGroupName satisfies never;
-  // }
-}
-
-// TODO: this logic should be on the backend
-async function updateJSONSourceContents(updatedFileInfo) {
-  const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
-    updatedFileInfo;
-
-  const variantIdsToLoad = [];
-  for (const [id, v] of Object.entries(useProjectState.getState().variants)) {
-    if (!v.isJsonSource) {
-      continue;
-    }
-
-    if (
-      !(absPath && v.name === absPath) &&
-      !(relPath && v.name === relPath) &&
-      !(destAbsPath && v.name === destAbsPath) &&
-      !(destRelPath && v.name === destRelPath)
-    ) {
-      continue;
-    }
-    variantIdsToLoad.push(id);
+  switch (fileWatchGroupName) {
+    case FileWatchGroupNameEnum.jsonSource:
+      return jsonSourceUpdateHandler(updatedFileInfo);
+    case FileWatchGroupNameEnum.apiKeys:
+      return apiKeyUpdateHandler(updatedFileInfo);
+    case FileWatchGroupNameEnum.genPythonCode:
+      return genPythonCodeUpdateHandler(updatedFileInfo);
+    default:
+      return fileWatchGroupName satisfies never;
   }
-
-  const { variants, codeInfo, codeInfoCols } =
-    await loadJsonContents(variantIdsToLoad);
-
-  useProjectState.setState((state) => {
-    updateProjectState({
-      variants,
-      codeInfo,
-      codeInfoCols,
-      state,
-    });
-  });
 }
 
 export async function loadJsonContents(variantIdsToLoad: Array<string>) {
@@ -82,7 +49,14 @@ export async function loadJsonContents(variantIdsToLoad: Array<string>) {
   return { variants, codeInfo, codeInfoCols };
 }
 
-async function updateApiKeyInfo(updatedFileInfo: FileWatcherUpdateAPIKeys) {
+function jsonSourceUpdateHandler(updatedFileInfo: FileWatcherUpdateJSONSource) {
+  const {
+    coreUpdate: { relPath, eventType },
+  } = updatedFileInfo;
+  addTemporaryNotification(`${relPath} ${eventType}`);
+}
+
+async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
   const { fileContent } = updatedFileInfo;
   useAIStore.setState({
     apiKeys: fileContent,
@@ -90,7 +64,9 @@ async function updateApiKeyInfo(updatedFileInfo: FileWatcherUpdateAPIKeys) {
   });
 }
 
-function updateGenPythonCode(updatedFileInfo: FileWatcherUpdateGenPythonCode) {
+function genPythonCodeUpdateHandler(
+  updatedFileInfo: FileWatcherUpdateGenPythonCode,
+) {
   const { fileContent } = updatedFileInfo;
   useProjectState.setState((state) => {
     const sectionId = state.singletonSections[SectionTypeEnum.GenPythonCode];

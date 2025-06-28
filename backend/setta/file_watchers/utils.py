@@ -63,3 +63,40 @@ def get_llm_api_keys_from_env_vars(env_vars: dict[str, str | None]):
         for key, value in env_vars.items()
         if key in C.LLM_API_KEY_NAMES.values() and value
     }
+
+
+
+# // TODO: this logic should be on the backend
+# async function updateJSONSourceContents(updatedFileInfo) {
+#   const { absPath, relPath, destAbsPath, destRelPath, matchingGlobPatterns } =
+#     updatedFileInfo;
+
+#   const variantIdsToLoad = [];
+#   for (const [id, v] of Object.entries(useProjectState.getState().variants)) {
+#     if (!v.isJsonSource) {
+#       continue;
+#     }
+
+#     if (
+#       !(absPath && v.name === absPath) &&
+#       !(relPath && v.name === relPath) &&
+#       !(destAbsPath && v.name === destAbsPath) &&
+#       !(destRelPath && v.name === destRelPath)
+#     ) {
+#       continue;
+#     }
+#     variantIdsToLoad.push(id);
+#   }
+
+#   const { variants, codeInfo, codeInfoCols } =
+#     await loadJsonContents(variantIdsToLoad);
+
+#   useProjectState.setState((state) => {
+#     updateProjectState({
+#       variants,
+#       codeInfo,
+#       codeInfoCols,
+#       state,
+#     });
+#   });
+# }
