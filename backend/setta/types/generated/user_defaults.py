@@ -1,14 +1,13 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Any, Literal, Union
+from typing import Literal, Union
 
 from pydantic import BaseModel, Field
 
 # Code object type imports
 from setta.types.code_objs import (
     ColorPickerChoice,
-    ParameterPassingStyle,
     ParamNameType,
 )
 
@@ -31,43 +30,34 @@ from setta.types.sections import (
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseSectionImpl"""
 
-    parentId: str | None = None
     isFrozen: bool = False
     visibility: Visibility = Field(default_factory=Visibility)
-    isInOtherProjectConfigs: bool = False
     size: SectionSize = Field(default_factory=SectionSize)
     aspectRatio: bool = False
-    aspectRatioExtraHeight: int = 0
-    aspectRatioExtraWidth: int = 0
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
-    isPreset: bool = False
 
 
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     """User-configurable defaults for BaseSectionWithParamsImpl"""
 
-    codeObjImplLayeringMap: dict[str, str] = Field(default_factory=dict)
     hideUnpinnedParams: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
-    pinnedParams: list[str] = Field(default_factory=list)
     pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
-    selectedParams: list[str] = Field(default_factory=list)
-    ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
 
 
 class UserDefaultBaseArtifactSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     """User-configurable defaults for BaseArtifactSectionImpl"""
 
-    artifactGroupIds: list[str] = Field(default_factory=list)
+    pass
 
 
 class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     """User-configurable defaults for BaseCanvasSectionImpl"""
 
-    renderedValue: Any = None
+    pass
 
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -79,7 +69,7 @@ class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid")
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     """User-configurable defaults for BaseParentSectionImpl"""
 
-    children: list[str] = Field(default_factory=list)
+    pass
 
 
 class UserDefaultBaseDictSectionImpl(
@@ -87,10 +77,8 @@ class UserDefaultBaseDictSectionImpl(
 ):
     """User-configurable defaults for BaseDictSectionImpl"""
 
-    topLevelParamIds: list[str] = Field(default_factory=list)
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
-    jsonSourceMissing: bool = False
 
 
 class UserDefaultCallableSectionImpl(
@@ -98,7 +86,6 @@ class UserDefaultCallableSectionImpl(
 ):
     """User-configurable defaults for CallableSectionImpl"""
 
-    callable: str | None = None
     hideParams: bool = False
 
 
@@ -169,7 +156,7 @@ class UserDefaultGlobalVariablesSectionImpl(
 ):
     """User-configurable defaults for GlobalVariablesSectionImpl"""
 
-    name: str = "Global Variables"
+    pass
 
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
@@ -184,7 +171,7 @@ class UserDefaultGenPythonCodeSectionImpl(
 ):
     """User-configurable defaults for GenPythonCodeSectionImpl"""
 
-    name: str = "Generated Python Code"
+    pass
 
 
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -221,8 +208,7 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseCodeObjImpl"""
 
-    description: str = ""
-    isPreset: bool = False
+    pass
 
 
 class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"):
@@ -230,7 +216,6 @@ class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"
 
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
-    passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
 
 
 class UserDefaultBaseChildlessCodeObjImpl(
@@ -245,7 +230,7 @@ class UserDefaultBaseChildlessCodeObjImpl(
 class UserDefaultBaseParentCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"):
     """User-configurable defaults for BaseParentCodeObjImpl"""
 
-    children: list[str] = Field(default_factory=list)
+    pass
 
 
 class UserDefaultCodeCallableCodeObjImpl(

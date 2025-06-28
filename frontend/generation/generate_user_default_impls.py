@@ -13,49 +13,61 @@ DEFAULT_EXCLUSIONS = {"id", "name", "type"}
 # Class-specific exclusions (can override defaults)
 SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     # Base classes
-    "BaseSectionImpl": {"id", "name", "type"},
-    "BaseSectionWithParamsImpl": {"type"},
-    "BaseArtifactSectionImpl": {"type"},
-    "BaseCanvasSectionImpl": {"type"},
-    "BaseCodeSectionImpl": {"type"},
-    "BaseParentSectionImpl": {"type"},
-    "BaseDictSectionImpl": {"type"},
+    "BaseSectionImpl": DEFAULT_EXCLUSIONS.union(
+        {
+            "parentId",
+            "isInOtherProjectConfigs",
+            "isPreset",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+        }
+    ),
+    "BaseSectionWithParamsImpl": DEFAULT_EXCLUSIONS.union(
+        {"codeObjImplLayeringMap", "pinnedParams", "selectedParams", "ignoreTypeErrors"}
+    ),
+    "BaseArtifactSectionImpl": DEFAULT_EXCLUSIONS.union({"artifactGroupIds"}),
+    "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS.union({"renderedValue"}),
+    "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
+    "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
+    "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
+        {"topLevelParamIds", "jsonSourceMissing"}
+    ),
     # Concrete classes
-    "CallableSectionImpl": {"id", "name", "type"},
-    "DictSectionImpl": {"id", "name", "type"},
-    "ListRootSectionImpl": {"id", "name", "type"},
-    "DictRootSectionImpl": {"id", "name", "type"},
-    "GroupSectionImpl": {"id", "name", "type"},
-    "ImageSectionImpl": {"id", "name", "type"},
-    "ChartSectionImpl": {"id", "name", "type"},
-    "DrawSectionImpl": {"id", "name", "type"},
-    "TextBlockSectionImpl": {"id", "name", "type"},
-    "SocialSectionImpl": {"id", "name", "type"},
-    "GlobalVariablesSectionImpl": {"id", "name", "type"},
-    "CodeSectionImpl": {"id", "name", "type"},
-    "GenPythonCodeSectionImpl": {"id", "name", "type"},
-    "TerminalSectionImpl": {"id", "name", "type"},
-    "IFrameSectionImpl": {"id", "name", "type"},
-    "ChatSectionImpl": {"id", "name", "type"},
-    "BrowserSectionImpl": {"id", "name", "type"},
+    "CallableSectionImpl": DEFAULT_EXCLUSIONS.union({"callable"}),
+    "DictSectionImpl": DEFAULT_EXCLUSIONS,
+    "ListRootSectionImpl": DEFAULT_EXCLUSIONS,
+    "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
+    "GroupSectionImpl": DEFAULT_EXCLUSIONS,
+    "ImageSectionImpl": DEFAULT_EXCLUSIONS,
+    "ChartSectionImpl": DEFAULT_EXCLUSIONS,
+    "DrawSectionImpl": DEFAULT_EXCLUSIONS,
+    "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
+    "SocialSectionImpl": DEFAULT_EXCLUSIONS,
+    "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,  # Keep name for GlobalVariables
+    "CodeSectionImpl": DEFAULT_EXCLUSIONS,
+    "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,  # Keep name for GenPythonCode
+    "TerminalSectionImpl": DEFAULT_EXCLUSIONS,
+    "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
+    "ChatSectionImpl": DEFAULT_EXCLUSIONS,
+    "BrowserSectionImpl": DEFAULT_EXCLUSIONS,
 }
 
 CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
     # Base classes
-    "BaseCodeObjImpl": {"id", "name", "type"},
-    "BaseParamCodeObjImpl": {"id", "name", "type"},
-    "BaseChildlessCodeObjImpl": {"id", "name", "type"},
-    "BaseParentCodeObjImpl": {"id", "name", "type"},
+    "BaseCodeObjImpl": DEFAULT_EXCLUSIONS.union({"description", "isPreset"}),
+    "BaseParamCodeObjImpl": DEFAULT_EXCLUSIONS.union({"passingStyle"}),
+    "BaseChildlessCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "BaseParentCodeObjImpl": DEFAULT_EXCLUSIONS.union({"children"}),
     # Concrete classes
-    "CodeCallableCodeObjImpl": {"id", "name", "type"},
-    "CodeParamCodeObjImpl": {"id", "name", "type"},
-    "TextParamCodeObjImpl": {"id", "name", "type"},
-    "SliderParamCodeObjImpl": {"id", "name", "type"},
-    "SwitchParamCodeObjImpl": {"id", "name", "type"},
-    "ColorPickerParamCodeObjImpl": {"id", "name", "type"},
-    "DropdownParamCodeObjImpl": {"id", "name", "type"},
-    "PasswordParamCodeObjImpl": {"id", "name", "type"},
-    "NestedParamCodeObjImpl": {"id", "name", "type"},
+    "CodeCallableCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "CodeParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "TextParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "SliderParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "SwitchParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "ColorPickerParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "DropdownParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "PasswordParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    "NestedParamCodeObjImpl": DEFAULT_EXCLUSIONS,
 }
 
 

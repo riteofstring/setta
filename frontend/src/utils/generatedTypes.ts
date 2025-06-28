@@ -4123,17 +4123,12 @@ export function createSettingsBackend(
 }
 
 export const UserDefaultBrowserSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
 });
 
@@ -4148,29 +4143,19 @@ export function createUserDefaultBrowserSectionImpl(
 }
 
 export const UserDefaultCallableSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  callable: z.union([z.string(), z.null()]).default(null),
   hideParams: z.boolean().default(false),
 });
 
@@ -4185,20 +4170,14 @@ export function createUserDefaultCallableSectionImpl(
 }
 
 export const UserDefaultChartSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 400.0, height: 400.0 }),
   ),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
   chartSettings: ChartSettingsSchema.default(createChartSettings),
 });
 
@@ -4213,19 +4192,14 @@ export function createUserDefaultChartSectionImpl(
 }
 
 export const UserDefaultChatSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 405.0, height: 405.0 }),
   ),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
 });
 
 export type UserDefaultChatSectionImpl = z.infer<
@@ -4239,17 +4213,12 @@ export function createUserDefaultChatSectionImpl(
 }
 
 export const UserDefaultCodeSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() => createSectionSize({ width: 500.0 })),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   code: z.string().default(""),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
@@ -4265,32 +4234,21 @@ export function createUserDefaultCodeSectionImpl(
 }
 
 export const UserDefaultDictSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
-  jsonSourceMissing: z.boolean().default(false),
 });
 
 export type UserDefaultDictSectionImpl = z.infer<
@@ -4304,18 +4262,12 @@ export function createUserDefaultDictSectionImpl(
 }
 
 export const UserDefaultDictRootSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
 });
 
 export type UserDefaultDictRootSectionImpl = z.infer<
@@ -4329,18 +4281,12 @@ export function createUserDefaultDictRootSectionImpl(
 }
 
 export const UserDefaultDrawSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
   canvasSettings: DrawAreaCanvasSettingsSchema.default(
     createDrawAreaCanvasSettings,
   ),
@@ -4357,19 +4303,13 @@ export function createUserDefaultDrawSectionImpl(
 }
 
 export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   code: z.string().default(""),
-  name: z.string().default("Generated Python Code"),
 });
 
 export type UserDefaultGenPythonCodeSectionImpl = z.infer<
@@ -4383,33 +4323,21 @@ export function createUserDefaultGenPythonCodeSectionImpl(
 }
 
 export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
-  jsonSourceMissing: z.boolean().default(false),
-  name: z.string().default("Global Variables"),
 });
 
 export type UserDefaultGlobalVariablesSectionImpl = z.infer<
@@ -4423,18 +4351,12 @@ export function createUserDefaultGlobalVariablesSectionImpl(
 }
 
 export const UserDefaultGroupSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
   isHorizontalOrientation: z.boolean().default(false),
 });
 
@@ -4449,17 +4371,12 @@ export function createUserDefaultGroupSectionImpl(
 }
 
 export const UserDefaultIFrameSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
 });
 
 export type UserDefaultIFrameSectionImpl = z.infer<
@@ -4473,18 +4390,12 @@ export function createUserDefaultIFrameSectionImpl(
 }
 
 export const UserDefaultImageSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
 });
 
 export type UserDefaultImageSectionImpl = z.infer<
@@ -4498,18 +4409,12 @@ export function createUserDefaultImageSectionImpl(
 }
 
 export const UserDefaultListRootSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
 });
 
 export type UserDefaultListRootSectionImpl = z.infer<
@@ -4523,17 +4428,12 @@ export function createUserDefaultListRootSectionImpl(
 }
 
 export const UserDefaultSocialSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   social: z.string().default(""),
 });
 
@@ -4548,19 +4448,14 @@ export function createUserDefaultSocialSectionImpl(
 }
 
 export const UserDefaultTerminalSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(() =>
     createSectionSize({ width: 700.0, height: 300.0 }),
   ),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
 });
 
 export type UserDefaultTerminalSectionImpl = z.infer<
@@ -4574,17 +4469,12 @@ export function createUserDefaultTerminalSectionImpl(
 }
 
 export const UserDefaultTextBlockSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
   displayMode: z
@@ -4603,11 +4493,7 @@ export function createUserDefaultTextBlockSectionImpl(
   return UserDefaultTextBlockSectionImplSchema.parse(options);
 }
 
-export const UserDefaultCodeCallableCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
-});
+export const UserDefaultCodeCallableCodeObjImplSchema = z.object({});
 
 export type UserDefaultCodeCallableCodeObjImpl = z.infer<
   typeof UserDefaultCodeCallableCodeObjImplSchema
@@ -4620,13 +4506,8 @@ export function createUserDefaultCodeCallableCodeObjImpl(
 }
 
 export const UserDefaultCodeParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
 });
@@ -4642,13 +4523,8 @@ export function createUserDefaultCodeParamCodeObjImpl(
 }
 
 export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
   choices: z.array(ColorPickerChoiceSchema).default([]),
@@ -4665,13 +4541,8 @@ export function createUserDefaultColorPickerParamCodeObjImpl(
 }
 
 export const UserDefaultDropdownParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
   choices: z.array(z.string()).default([]),
@@ -4688,13 +4559,8 @@ export function createUserDefaultDropdownParamCodeObjImpl(
 }
 
 export const UserDefaultNestedParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
 });
 
 export type UserDefaultNestedParamCodeObjImpl = z.infer<
@@ -4708,13 +4574,8 @@ export function createUserDefaultNestedParamCodeObjImpl(
 }
 
 export const UserDefaultPasswordParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
 });
@@ -4730,13 +4591,8 @@ export function createUserDefaultPasswordParamCodeObjImpl(
 }
 
 export const UserDefaultSliderParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
   min: z.int().default(0),
@@ -4755,13 +4611,8 @@ export function createUserDefaultSliderParamCodeObjImpl(
 }
 
 export const UserDefaultSwitchParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
 });
@@ -4777,13 +4628,8 @@ export function createUserDefaultSwitchParamCodeObjImpl(
 }
 
 export const UserDefaultTextParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
 });
@@ -5449,18 +5295,12 @@ export function createBaseParentCodeObjImpl(
 }
 
 export const UserDefaultBaseArtifactSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
 });
 
 export type UserDefaultBaseArtifactSectionImpl = z.infer<
@@ -5474,18 +5314,12 @@ export function createUserDefaultBaseArtifactSectionImpl(
 }
 
 export const UserDefaultBaseCanvasSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  renderedValue: z.any().default(null),
 });
 
 export type UserDefaultBaseCanvasSectionImpl = z.infer<
@@ -5499,13 +5333,8 @@ export function createUserDefaultBaseCanvasSectionImpl(
 }
 
 export const UserDefaultBaseChildlessCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default(""),
   value: z.string().default(""),
 });
@@ -5520,10 +5349,7 @@ export function createUserDefaultBaseChildlessCodeObjImpl(
   return UserDefaultBaseChildlessCodeObjImplSchema.parse(options);
 }
 
-export const UserDefaultBaseCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
-});
+export const UserDefaultBaseCodeObjImplSchema = z.object({});
 
 export type UserDefaultBaseCodeObjImpl = z.infer<
   typeof UserDefaultBaseCodeObjImplSchema
@@ -5536,17 +5362,12 @@ export function createUserDefaultBaseCodeObjImpl(
 }
 
 export const UserDefaultBaseCodeSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
   code: z.string().default(""),
 });
 
@@ -5561,32 +5382,21 @@ export function createUserDefaultBaseCodeSectionImpl(
 }
 
 export const UserDefaultBaseDictSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
-  topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
-  jsonSourceMissing: z.boolean().default(false),
 });
 
 export type UserDefaultBaseDictSectionImpl = z.infer<
@@ -5600,13 +5410,8 @@ export function createUserDefaultBaseDictSectionImpl(
 }
 
 export const UserDefaultBaseParamCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  passingStyle: z
-    .enum(ParameterPassingStyleEnum)
-    .default(ParameterPassingStyleEnum.DEFAULT),
 });
 
 export type UserDefaultBaseParamCodeObjImpl = z.infer<
@@ -5619,11 +5424,7 @@ export function createUserDefaultBaseParamCodeObjImpl(
   return UserDefaultBaseParamCodeObjImplSchema.parse(options);
 }
 
-export const UserDefaultBaseParentCodeObjImplSchema = z.object({
-  description: z.string().default(""),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
-});
+export const UserDefaultBaseParentCodeObjImplSchema = z.object({});
 
 export type UserDefaultBaseParentCodeObjImpl = z.infer<
   typeof UserDefaultBaseParentCodeObjImplSchema
@@ -5636,18 +5437,12 @@ export function createUserDefaultBaseParentCodeObjImpl(
 }
 
 export const UserDefaultBaseParentSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  children: z.array(z.string()).default([]),
 });
 
 export type UserDefaultBaseParentSectionImpl = z.infer<
@@ -5661,17 +5456,12 @@ export function createUserDefaultBaseParentSectionImpl(
 }
 
 export const UserDefaultBaseSectionImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
 });
 
 export type UserDefaultBaseSectionImpl = z.infer<
@@ -5685,28 +5475,19 @@ export function createUserDefaultBaseSectionImpl(
 }
 
 export const UserDefaultBaseSectionWithParamsImplSchema = z.object({
-  parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
   size: SectionSizeSchema.default(createSectionSize),
   aspectRatio: z.boolean().default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default(""),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(z.string()).default([]),
   pinnedAreaHeight: z
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
-  selectedParams: z.array(z.string()).default([]),
-  ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
 });
 
 export type UserDefaultBaseSectionWithParamsImpl = z.infer<
