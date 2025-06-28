@@ -31,7 +31,7 @@ export function GetParamSwitch({
         requiredParamIdsToPaths,
       ).map((id) => ({
         id,
-        name: x.codeObjs[id]!.name,
+        name: x.codeObjs[id].name,
       }));
 
       matches = matchSorter(requiredParamIdsWithNames, impl.paramFilter, {

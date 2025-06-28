@@ -1,30 +1,32 @@
 import _ from "lodash";
-import {
-  getCodeChildrenAndParentCodeInfoId,
-  getEffectiveSectionImpl,
-} from "state/actions/sectionInfos";
+import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
 } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
-import { findAllParametersAndPathMaps } from "utils/getDescendants";
+import {
+  isBaseChildlessCodeObjImpl,
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
+import { findAllParametersOfSection } from "utils/getDescendants";
 
-export function useParamInfosForSidePane(sectionId) {
+export function useParamInfosForSidePane(sectionId: string) {
   return useProjectState((x) => {
-    const { codeInfoChildren, parentCodeInfoId } =
-      getCodeChildrenAndParentCodeInfoId(sectionId, x);
-    const { ids, pathMap } = findAllParametersAndPathMaps({
-      allCodeInfo: x.codeInfo,
-      codeInfoChildren,
-      startingId: parentCodeInfoId,
-      additionalOutputCondition: (c) => codeInfoChildren[c.id]?.length === 0,
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
+    const { ids, pathMap } = findAllParametersOfSection(x, impl, {
+      output: isBaseChildlessCodeObjImpl,
+      paramPath: isBaseParamCodeObjImpl,
     });
-    const output = [];
+    const output: Array<{ id: string; name: string }> = [];
     for (const id of ids) {
       output.push({
         id,
-        name: paramNameFromPathArray(x.codeInfo, pathMap, id),
+        name: paramNameFromPathArray(x.codeObjs, pathMap, id),
       });
     }
     return output;

@@ -1,13 +1,13 @@
 import { ZustandProjectState } from "state/definitions";
 import {
   BaseSectionImplUnion,
-  isBaseDictSectionImpl,
-  SectionTypeEnum,
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import {
+  CodeObjPathMap,
   findAllParameters,
-  findAllParametersOfBaseDictSection,
-  findAllParametersOfCallableSection,
+  findAllParametersOfSection,
 } from "utils/getDescendants";
 import {
   getCodeChildrenAndParentCodeInfoId,
@@ -20,22 +20,13 @@ export function getParamIdsToShowInArea(
   impl: BaseSectionImplUnion,
   isPinned: boolean,
 ) {
-  let ids: Array<string>,
-    pathMap: Record<string, Array<string>>,
-    childrenMap: Record<string, Array<string>>;
-  if (impl.type === SectionTypeEnum.Callable) {
-    ({ ids, pathMap, childrenMap } = findAllParametersOfCallableSection(
-      p,
-      impl,
-    ));
-  } else if (isBaseDictSectionImpl(impl)) {
-    ({ ids, pathMap, childrenMap } = findAllParametersOfBaseDictSection(
-      p,
-      impl,
-    ));
-  } else {
+  if (!isBaseSectionWithParamsImpl(impl)) {
     throw new Error();
   }
+  const { ids, pathMap, childrenMap } = findAllParametersOfSection(p, impl, {
+    output: isBaseParamCodeObjImpl,
+    paramPath: isBaseParamCodeObjImpl,
+  });
   ids.reverse();
 
   const topLevelParamIds: Array<string> = [];
@@ -72,16 +63,21 @@ export function getParamIdsToShowInArea(
   return { requiredParamIdsToPaths, topLevelParamIds };
 }
 
-export function paramNameFromPathArray(codeInfo, pathMap, paramId) {
-  if (pathMap[paramId].length === 1) {
-    return codeInfo[pathMap[paramId][0]].name;
+export function paramNameFromPathArray(
+  codeObjs: ZustandProjectState["codeObjs"],
+  pathMap: CodeObjPathMap,
+  paramId: string,
+) {
+  const currPath = pathMap[paramId];
+  if (currPath.length === 1) {
+    return codeObjs[currPath[0]].name;
   } else {
     let name = "";
     for (const [pathIdx, currId] of pathMap[paramId].entries()) {
       if (pathIdx === 0) {
-        name = codeInfo[currId].name;
+        name = codeObjs[currId].name;
       } else {
-        name += `["${codeInfo[currId].name}"]`;
+        name += `["${codeObjs[currId].name}"]`;
       }
     }
     return name;

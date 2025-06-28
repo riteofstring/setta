@@ -3,30 +3,34 @@ import { ZustandProjectState } from "state/definitions";
 import {
   BaseCodeObjImplUnion,
   BaseDictSectionImpl,
+  BaseSectionWithParamsImplUnion,
   CallableSectionImpl,
-  isBaseParamCodeObjImpl,
+  isBaseDictSectionImpl,
   isBaseParentCodeObjImpl,
+  SectionTypeEnum,
 } from "./generatedTypes";
 
-type ConditionFunctionForFindingCodeObjDescendants = (
-  currImpl: BaseCodeObjImplUnion,
-) => boolean;
+type ConditionFunction = (currImpl: BaseCodeObjImplUnion) => boolean;
+
+type ConditionFunctions = {
+  output?: ConditionFunction;
+  stack?: ConditionFunction;
+  paramPath?: ConditionFunction;
+  earlyReturn?: ConditionFunction;
+};
+
+export type CodeObjPathMap = Record<string, Array<string>>;
 
 function _findAllDescendants(
   impls: ZustandProjectState["codeObjImpls"],
   layerings: ZustandProjectState["codeObjImplLayerings"],
   layeringMap: CallableSectionImpl["codeObjImplLayeringMap"],
   ids: Array<string>,
-  conditions: {
-    output?: ConditionFunctionForFindingCodeObjDescendants;
-    stack?: ConditionFunctionForFindingCodeObjDescendants;
-    paramPath?: ConditionFunctionForFindingCodeObjDescendants;
-    earlyReturn?: ConditionFunctionForFindingCodeObjDescendants;
-  },
+  conditions: ConditionFunctions,
 ) {
   const output: Array<string> = [];
   const visited: Set<string> = new Set();
-  const pathMap: Record<string, Array<string>> = {};
+  const pathMap: CodeObjPathMap = {};
   const childrenMap: Record<string, Array<string>> = {};
   let idStack: Array<string>;
   if (conditions.stack) {
@@ -174,9 +178,23 @@ export function findAllParametersAndPathMaps(props) {
   });
 }
 
+export function findAllParametersOfSection(
+  p: ZustandProjectState,
+  impl: BaseSectionWithParamsImplUnion,
+  conditions: ConditionFunctions,
+) {
+  if (impl.type === SectionTypeEnum.Callable) {
+    return findAllParametersOfCallableSection(p, impl, conditions);
+  } else if (isBaseDictSectionImpl(impl)) {
+    return findAllParametersOfBaseDictSection(p, impl, conditions);
+  }
+  throw new Error();
+}
+
 export function findAllParametersOfCallableSection(
   p: ZustandProjectState,
   impl: CallableSectionImpl,
+  conditions: ConditionFunctions,
 ) {
   const { callable, codeObjImplLayeringMap } = impl;
   return _findAllDescendants(
@@ -184,13 +202,14 @@ export function findAllParametersOfCallableSection(
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     callable ? [callable] : [],
-    { output: isBaseParamCodeObjImpl, paramPath: isBaseParamCodeObjImpl },
+    conditions,
   );
 }
 
 export function findAllParametersOfBaseDictSection(
   p: ZustandProjectState,
   impl: BaseDictSectionImpl,
+  conditions: ConditionFunctions,
 ) {
   const { topLevelParamIds, codeObjImplLayeringMap } = impl;
   return _findAllDescendants(
@@ -198,6 +217,6 @@ export function findAllParametersOfBaseDictSection(
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     topLevelParamIds,
-    { output: isBaseParamCodeObjImpl, paramPath: isBaseParamCodeObjImpl },
+    conditions,
   );
 }
