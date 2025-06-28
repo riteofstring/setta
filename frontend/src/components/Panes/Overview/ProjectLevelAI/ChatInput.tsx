@@ -10,7 +10,7 @@ export const ChatInput = memo(function ChatInput({
   userSelectedLLM,
   currentChatId,
 }) {
-  const disabled = !Boolean(userSelectedLLM);
+  const disabled = !userSelectedLLM;
   // Keep input state local to this component
   const [inputValue, setInputValue] = useState("");
 

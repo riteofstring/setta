@@ -99,7 +99,7 @@ export function ProjectChat() {
                     : "Select an LLM"
                 }
                 // TODO: should not use bg for all this. really should restructure IdNameCombobox to be more flexible.
-                bg={`${!Boolean(userSelectedLLM) ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
+                bg={`${!userSelectedLLM ? "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500" : ""}`}
                 outerDivClasses="@[17.5rem]:max-w-64 justify-center"
               />
             </div>
@@ -113,7 +113,7 @@ export function ProjectChat() {
             placeholderText={
               noModelsAvailable
                 ? "Add API key!"
-                : !Boolean(userSelectedLLM)
+                : !userSelectedLLM
                   ? "Select an LLM"
                   : "Type a message..."
             }
