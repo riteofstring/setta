@@ -1,4 +1,8 @@
-#!/bin/bash
+"""
+Deployment scripts for Fly.io containers.
+"""
+
+GITHUB_DEPLOY_SCRIPT = """#!/bin/bash
 set -e
 
 echo "=== Starting GitHub deployment ==="
@@ -53,3 +57,4 @@ else
     # Keep container running for debugging
     exec sleep infinity
 fi
+"""

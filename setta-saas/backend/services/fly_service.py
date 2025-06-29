@@ -4,9 +4,9 @@ Fly.io service for managing apps and deployments.
 
 import asyncio
 import base64
-from pathlib import Path
 
 from config import get_settings
+from deployment_script import GITHUB_DEPLOY_SCRIPT
 from fly.client import FlyClient
 from fly.deployment import (
     allocate_ips,
@@ -211,14 +211,8 @@ class FlyService:
 
     def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
         """Create a machine that clones and runs a GitHub repository."""
-        # Read the deployment script from file
-        script_path = Path(__file__).parent.parent / "deploy_scripts" / "github_deploy.sh"
-
-        if not script_path.exists():
-            raise FileNotFoundError(f"Deployment script not found: {script_path}")
-
-        with open(script_path) as f:
-            startup_script = f.read()
+        # Use the imported deployment script
+        startup_script = GITHUB_DEPLOY_SCRIPT
 
         # Encode the script
         script_base64 = base64.b64encode(startup_script.encode()).decode()
