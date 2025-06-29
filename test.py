@@ -91,12 +91,12 @@
 
 
 from pprint import pprint
+
 from setta.project_state.settings_project import create_settings_project_state
+from setta.types.generated.impl_helpers import set_effective_impl_value
 from setta.types.helpers import get_effective_section_impl, get_section_impl_layering
-from setta.types.impl_helpers import set_effective_impl_value
 from setta.types.section_impls import SectionSize
 from setta.utils.constants import CWD
-
 
 p = create_settings_project_state(CWD / "setta_files/setta-settings.json")
 

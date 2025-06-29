@@ -8,6 +8,10 @@ from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
 )
+from setta.types.generated.impl_helpers import (
+    get_effective_impl,
+    set_effective_impl_value,
+)
 from setta.types.generated.impl_modifier_unions import (
     isBaseChildlessCodeObjImplModifier,
     isBaseParentCodeObjImplModifier,
@@ -20,8 +24,6 @@ from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,
 )
 from setta.types.impl_helpers import (
-    get_effective_impl,
-    set_effective_impl_value,
     update_impl_layerings,
 )
 from setta.types.impl_layering import ImplLayering
@@ -77,7 +79,8 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             section_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.sectionImplLayerings[impl_layering_id]
             section_impl_ids.add(impl_layering.impl)
-            effective_impl = get_effective_impl(impl_layering, section, p.sectionImpls)
+            impl = p.sectionImpls[impl_layering.impl]
+            effective_impl = get_effective_impl(impl, section, impl_layering.modifier)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
