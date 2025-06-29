@@ -8,8 +8,14 @@ from pydantic import (
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_core import BaseCodeObjCore
+from setta.types.generated.code_obj_core_unions import (
+    BaseCodeObjCoreUnionWithDiscriminator,
+)
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnionWithDiscriminator,
+)
+from setta.types.generated.section_core_unions import (
+    BaseSectionCoreUnionWithDiscriminator,
 )
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnionWithDiscriminator,
@@ -53,12 +59,16 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSectionCore] = Field(default_factory=dict)
+    sections: dict[str, BaseSectionCoreUnionWithDiscriminator] = Field(
+        default_factory=dict
+    )
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
     sectionImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
-    codeObjs: dict[str, BaseCodeObjCore] = Field(default_factory=dict)
+    codeObjs: dict[str, BaseCodeObjCoreUnionWithDiscriminator] = Field(
+        default_factory=dict
+    )
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )

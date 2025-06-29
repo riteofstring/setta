@@ -20,10 +20,6 @@ def find_sub_classes(
     # Get all classes that match our criteria
     for _, obj in inspect.getmembers(module, inspect.isclass):
         if issubclass(obj, base_class):
-            # Skip if the class is not defined in the target module
-            if obj.__module__ != module.__name__:
-                continue
-
             fields = obj.model_fields
             if not return_input_base_class and obj is base_class:
                 continue

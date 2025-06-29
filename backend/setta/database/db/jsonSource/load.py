@@ -12,6 +12,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
 )
+from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
@@ -27,6 +28,7 @@ from setta.types.generated.impl_modifiers import (
     BaseDictSectionImplModifier,
 )
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
+from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
@@ -54,10 +56,10 @@ class ProcessedJSONObject(BaseModel):
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSectionCore]
+    sections: dict[str, BaseSectionCoreUnion]
     sectionImpls: dict[str, BaseSectionImplUnion]
     sectionImplLayerings: dict[str, ImplLayering]
-    codeObjs: dict[str, BaseCodeObjCore]
+    codeObjs: dict[str, BaseCodeObjCoreUnion]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
     codeObjImplLayerings: dict[str, ImplLayering]
 
@@ -104,7 +106,7 @@ def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: BaseDictSectionImpl,
     section_impl_modifier: BaseDictSectionImplModifier,
-    codeObjs: dict[str, BaseCodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
