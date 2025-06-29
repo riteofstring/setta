@@ -16,6 +16,7 @@ from config import get_settings
 from database import Project, SessionLocal
 from middleware import CurrentUser
 from models.project import ProjectCreate, ProjectResponse
+from routes import storage_router
 from services.fly_service import FlyService
 from services.project_service import ProjectService
 from services.websocket_service import get_connection_manager
@@ -440,6 +441,10 @@ async def websocket_status():
 async def get_current_user(user_id: str = CurrentUser):
     """Get current user info."""
     return {"user_id": user_id}
+
+
+# Include routers
+app.include_router(storage_router)
 
 
 if __name__ == "__main__":

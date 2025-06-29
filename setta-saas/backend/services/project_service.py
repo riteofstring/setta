@@ -18,6 +18,7 @@ from models.websocket import (
     ProjectEventData,
     WebSocketEvent,
 )
+from services import storage_service
 from services.fly_service import FlyService
 from services.websocket_service import get_connection_manager
 from utils.validators import sanitize_app_name
@@ -166,6 +167,14 @@ class ProjectService:
                     print(f"✗ Failed to delete Fly.io app '{app_name}'")
             except Exception as e:
                 print(f"Error deleting Fly.io app: {str(e)}")
+
+        # Delete storage files
+        try:
+            storage_service.delete_project(user_id or project.user_id, project_id)
+            print(f"✓ Storage files deleted for project {project_id}")
+        except Exception as e:
+            print(f"Warning: Failed to delete storage files: {str(e)}")
+            # Continue with deletion even if storage cleanup fails
 
         if project.url and "fly.dev" in project.url:
             try:
