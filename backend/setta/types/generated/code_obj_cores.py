@@ -22,13 +22,17 @@ from setta.types.generated.impl_modifiers import (
 
 class CodeCallableCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
-    sharedModifier: CodeCallableCodeObjImplModifier
+    sharedModifier: CodeCallableCodeObjImplModifier = Field(
+        default_factory=CodeCallableCodeObjImplModifier(type=CodeObjType.CodeCallable)
+    )
     unsharedKeys: set[Literal["children", "description"]] = Field(default_factory=set)
 
 
 class CodeParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
-    sharedModifier: CodeParamCodeObjImplModifier
+    sharedModifier: CodeParamCodeObjImplModifier = Field(
+        default_factory=CodeParamCodeObjImplModifier(type=CodeObjType.CodeParam)
+    )
     unsharedKeys: set[
         Literal[
             "coreNameEditable",
@@ -43,7 +47,11 @@ class CodeParamCodeObjCore(BaseCodeObjCore):
 
 class ColorPickerParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    sharedModifier: ColorPickerParamCodeObjImplModifier
+    sharedModifier: ColorPickerParamCodeObjImplModifier = Field(
+        default_factory=ColorPickerParamCodeObjImplModifier(
+            type=CodeObjType.ColorPickerParam
+        )
+    )
     unsharedKeys: set[
         Literal[
             "choices",
@@ -59,7 +67,9 @@ class ColorPickerParamCodeObjCore(BaseCodeObjCore):
 
 class DropdownParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    sharedModifier: DropdownParamCodeObjImplModifier
+    sharedModifier: DropdownParamCodeObjImplModifier = Field(
+        default_factory=DropdownParamCodeObjImplModifier(type=CodeObjType.DropdownParam)
+    )
     unsharedKeys: set[
         Literal[
             "choices",
@@ -75,7 +85,9 @@ class DropdownParamCodeObjCore(BaseCodeObjCore):
 
 class NestedParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
-    sharedModifier: NestedParamCodeObjImplModifier
+    sharedModifier: NestedParamCodeObjImplModifier = Field(
+        default_factory=NestedParamCodeObjImplModifier(type=CodeObjType.NestedParam)
+    )
     unsharedKeys: set[
         Literal[
             "children",
@@ -89,7 +101,9 @@ class NestedParamCodeObjCore(BaseCodeObjCore):
 
 class PasswordParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
-    sharedModifier: PasswordParamCodeObjImplModifier
+    sharedModifier: PasswordParamCodeObjImplModifier = Field(
+        default_factory=PasswordParamCodeObjImplModifier(type=CodeObjType.PasswordParam)
+    )
     unsharedKeys: set[
         Literal[
             "coreNameEditable",
@@ -104,7 +118,9 @@ class PasswordParamCodeObjCore(BaseCodeObjCore):
 
 class SliderParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
-    sharedModifier: SliderParamCodeObjImplModifier
+    sharedModifier: SliderParamCodeObjImplModifier = Field(
+        default_factory=SliderParamCodeObjImplModifier(type=CodeObjType.SliderParam)
+    )
     unsharedKeys: set[
         Literal[
             "coreNameEditable",
@@ -122,7 +138,9 @@ class SliderParamCodeObjCore(BaseCodeObjCore):
 
 class SwitchParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
-    sharedModifier: SwitchParamCodeObjImplModifier
+    sharedModifier: SwitchParamCodeObjImplModifier = Field(
+        default_factory=SwitchParamCodeObjImplModifier(type=CodeObjType.SwitchParam)
+    )
     unsharedKeys: set[
         Literal[
             "coreNameEditable",
@@ -137,7 +155,9 @@ class SwitchParamCodeObjCore(BaseCodeObjCore):
 
 class TextParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
-    sharedModifier: TextParamCodeObjImplModifier
+    sharedModifier: TextParamCodeObjImplModifier = Field(
+        default_factory=TextParamCodeObjImplModifier(type=CodeObjType.TextParam)
+    )
     unsharedKeys: set[
         Literal[
             "coreNameEditable",

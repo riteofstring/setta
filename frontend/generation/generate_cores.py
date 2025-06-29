@@ -99,7 +99,7 @@ def generate_core_class(
     class_def = f"""
 class {type_name}{core_class_suffix}(Base{core_class_suffix}):
     type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
-    sharedModifier: {type_name}{modifier_suffix}
+    sharedModifier: {type_name}{modifier_suffix} = Field(default_factory={type_name}{modifier_suffix}(type={enum_prefix}.{type_name}))
     unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
 """
 

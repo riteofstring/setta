@@ -30,7 +30,9 @@ from setta.types.section_impls import SectionType
 
 class BrowserSectionCore(BaseSectionCore):
     type: Literal[SectionType.Browser] = SectionType.Browser
-    sharedModifier: BrowserSectionImplModifier
+    sharedModifier: BrowserSectionImplModifier = Field(
+        default_factory=BrowserSectionImplModifier(type=SectionType.Browser)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -50,7 +52,9 @@ class BrowserSectionCore(BaseSectionCore):
 
 class CallableSectionCore(BaseSectionCore):
     type: Literal[SectionType.Callable] = SectionType.Callable
-    sharedModifier: CallableSectionImplModifier
+    sharedModifier: CallableSectionImplModifier = Field(
+        default_factory=CallableSectionImplModifier(type=SectionType.Callable)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -80,7 +84,9 @@ class CallableSectionCore(BaseSectionCore):
 
 class ChartSectionCore(BaseSectionCore):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    sharedModifier: ChartSectionImplModifier
+    sharedModifier: ChartSectionImplModifier = Field(
+        default_factory=ChartSectionImplModifier(type=SectionType.Chart)
+    )
     unsharedKeys: set[
         Literal[
             "artifactGroupIds",
@@ -102,7 +108,9 @@ class ChartSectionCore(BaseSectionCore):
 
 class ChatSectionCore(BaseSectionCore):
     type: Literal[SectionType.Chat] = SectionType.Chat
-    sharedModifier: ChatSectionImplModifier
+    sharedModifier: ChatSectionImplModifier = Field(
+        default_factory=ChatSectionImplModifier(type=SectionType.Chat)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -121,7 +129,9 @@ class ChatSectionCore(BaseSectionCore):
 
 class CodeSectionCore(BaseSectionCore):
     type: Literal[SectionType.Code] = SectionType.Code
-    sharedModifier: CodeSectionImplModifier
+    sharedModifier: CodeSectionImplModifier = Field(
+        default_factory=CodeSectionImplModifier(type=SectionType.Code)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -142,7 +152,9 @@ class CodeSectionCore(BaseSectionCore):
 
 class DictSectionCore(BaseSectionCore):
     type: Literal[SectionType.Dict] = SectionType.Dict
-    sharedModifier: DictSectionImplModifier
+    sharedModifier: DictSectionImplModifier = Field(
+        default_factory=DictSectionImplModifier(type=SectionType.Dict)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -174,7 +186,9 @@ class DictSectionCore(BaseSectionCore):
 
 class DictRootSectionCore(BaseSectionCore):
     type: Literal[SectionType.DictRoot] = SectionType.DictRoot
-    sharedModifier: DictRootSectionImplModifier
+    sharedModifier: DictRootSectionImplModifier = Field(
+        default_factory=DictRootSectionImplModifier(type=SectionType.DictRoot)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -194,7 +208,9 @@ class DictRootSectionCore(BaseSectionCore):
 
 class DrawSectionCore(BaseSectionCore):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    sharedModifier: DrawSectionImplModifier
+    sharedModifier: DrawSectionImplModifier = Field(
+        default_factory=DrawSectionImplModifier(type=SectionType.Draw)
+    )
     unsharedKeys: set[
         Literal[
             "artifactGroupIds",
@@ -216,7 +232,9 @@ class DrawSectionCore(BaseSectionCore):
 
 class GenPythonCodeSectionCore(BaseSectionCore):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-    sharedModifier: GenPythonCodeSectionImplModifier
+    sharedModifier: GenPythonCodeSectionImplModifier = Field(
+        default_factory=GenPythonCodeSectionImplModifier(type=SectionType.GenPythonCode)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -236,7 +254,11 @@ class GenPythonCodeSectionCore(BaseSectionCore):
 
 class GlobalVariablesSectionCore(BaseSectionCore):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
-    sharedModifier: GlobalVariablesSectionImplModifier
+    sharedModifier: GlobalVariablesSectionImplModifier = Field(
+        default_factory=GlobalVariablesSectionImplModifier(
+            type=SectionType.GlobalVariables
+        )
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -268,7 +290,9 @@ class GlobalVariablesSectionCore(BaseSectionCore):
 
 class GroupSectionCore(BaseSectionCore):
     type: Literal[SectionType.Group] = SectionType.Group
-    sharedModifier: GroupSectionImplModifier
+    sharedModifier: GroupSectionImplModifier = Field(
+        default_factory=GroupSectionImplModifier(type=SectionType.Group)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -289,7 +313,9 @@ class GroupSectionCore(BaseSectionCore):
 
 class IFrameSectionCore(BaseSectionCore):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
-    sharedModifier: IFrameSectionImplModifier
+    sharedModifier: IFrameSectionImplModifier = Field(
+        default_factory=IFrameSectionImplModifier(type=SectionType.IFrame)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -308,7 +334,9 @@ class IFrameSectionCore(BaseSectionCore):
 
 class ImageSectionCore(BaseSectionCore):
     type: Literal[SectionType.Image] = SectionType.Image
-    sharedModifier: ImageSectionImplModifier
+    sharedModifier: ImageSectionImplModifier = Field(
+        default_factory=ImageSectionImplModifier(type=SectionType.Image)
+    )
     unsharedKeys: set[
         Literal[
             "artifactGroupIds",
@@ -328,7 +356,9 @@ class ImageSectionCore(BaseSectionCore):
 
 class ListRootSectionCore(BaseSectionCore):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
-    sharedModifier: ListRootSectionImplModifier
+    sharedModifier: ListRootSectionImplModifier = Field(
+        default_factory=ListRootSectionImplModifier(type=SectionType.ListRoot)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -348,7 +378,9 @@ class ListRootSectionCore(BaseSectionCore):
 
 class SocialSectionCore(BaseSectionCore):
     type: Literal[SectionType.Social] = SectionType.Social
-    sharedModifier: SocialSectionImplModifier
+    sharedModifier: SocialSectionImplModifier = Field(
+        default_factory=SocialSectionImplModifier(type=SectionType.Social)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -368,7 +400,9 @@ class SocialSectionCore(BaseSectionCore):
 
 class TerminalSectionCore(BaseSectionCore):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
-    sharedModifier: TerminalSectionImplModifier
+    sharedModifier: TerminalSectionImplModifier = Field(
+        default_factory=TerminalSectionImplModifier(type=SectionType.Terminal)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
@@ -387,7 +421,9 @@ class TerminalSectionCore(BaseSectionCore):
 
 class TextBlockSectionCore(BaseSectionCore):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    sharedModifier: TextBlockSectionImplModifier
+    sharedModifier: TextBlockSectionImplModifier = Field(
+        default_factory=TextBlockSectionImplModifier(type=SectionType.TextBlock)
+    )
     unsharedKeys: set[
         Literal[
             "aspectRatio",
