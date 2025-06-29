@@ -3,12 +3,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
-from models.project import Project, ProjectCreate
+from database import Project, SessionLocal  # Project is from database, not models
+from models.project import ProjectCreate  # Only Pydantic models from models.project
 from services.fly_service import FlyService
 from services.websocket_service import ConnectionManager, EventType
-
-from .async_project_service import AsyncProjectService
 
 
 class ProjectService:
@@ -90,11 +88,8 @@ class ProjectService:
             project.status = "deploying"
             db.commit()
 
-            # Create async service instance
-            async_service = AsyncProjectService(db, self.fly, self.ws_manager)
-
             # Broadcast deployment starting
-            await async_service._broadcast_project_event(
+            await self._broadcast_project_event(
                 project, EventType.PROJECT_DEPLOYING, "Deploying to Fly.io..."
             )
 
@@ -112,7 +107,7 @@ class ProjectService:
             db.commit()
 
             # Broadcast success
-            await async_service._broadcast_project_event(
+            await self._broadcast_project_event(
                 project, EventType.PROJECT_READY, "Project is ready!"
             )
 
@@ -126,8 +121,7 @@ class ProjectService:
 
             # Broadcast error
             if project:
-                async_service = AsyncProjectService(db, self.fly, self.ws_manager)
-                await async_service._broadcast_project_event(
+                await self._broadcast_project_event(
                     project, EventType.PROJECT_ERROR, f"Deployment failed: {str(e)}"
                 )
         finally:
@@ -221,3 +215,17 @@ class ProjectService:
             self.db.commit()
 
         return success
+
+    async def _broadcast_project_event(self, project: Project, event_type: EventType, message: str):
+        """Broadcast a project event to the project owner."""
+        # Convert project to dict for broadcasting
+        project_dict = {
+            "id": str(project.id),
+            "name": project.name,
+            "url": project.url,
+            "status": project.status,
+            "user_id": project.user_id,
+            "machine_state": getattr(project, "machine_state", None),
+        }
+
+        await self.ws_manager.broadcast_project_event(project_dict, event_type, message)
