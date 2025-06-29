@@ -44,7 +44,7 @@ class FlyService:
     async def _broadcast_deployment_progress(self, project_id: str, message: str, percent: int):
         """Broadcast deployment progress."""
         progress_data = ProgressData(
-            current_step=percent // 20,
+            current_step=min(percent // 20, 4),  # Ensure we don't exceed 4 (0-4 range)
             total_steps=5,
             message=message,
             percent_complete=percent,
