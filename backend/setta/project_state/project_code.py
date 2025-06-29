@@ -37,7 +37,7 @@ from setta.types.helpers import (
     get_section_impl_layering,
     get_section_path_full_name,
 )
-from setta.types.generated.impl_helpers import get_effective_impl
+from setta.types.impl_helpers import get_effective_impl
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,

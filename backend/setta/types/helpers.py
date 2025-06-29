@@ -19,10 +19,10 @@ from setta.types.generated.type_to_core import create_core_for_section_type
 from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,
 )
-from setta.types.generated.impl_helpers import (
+from setta.types.impl_helpers import (
     get_effective_impl,
+    update_impl_layerings,
 )
-from setta.types.impl_helpers import update_impl_layerings
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
