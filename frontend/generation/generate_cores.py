@@ -33,15 +33,15 @@ DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
 
 # Default unsharedKeys for each code obj type
 DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "CodeCallable": set(),
-    "CodeParam": set(),
-    "TextParam": set(),
-    "SliderParam": set(),
-    "SwitchParam": set(),
-    "ColorPickerParam": set(),
-    "DropdownParam": set(),
-    "PasswordParam": set(),
-    "NestedParam": set(),
+    "CodeCallable": {"value"},
+    "CodeParam": {"value"},
+    "TextParam": {"value"},
+    "SliderParam": {"value"},
+    "SwitchParam": {"value"},
+    "ColorPickerParam": {"value"},
+    "DropdownParam": {"value"},
+    "PasswordParam": {"value"},
+    "NestedParam": {"value"},
 }
 
 

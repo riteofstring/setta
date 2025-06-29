@@ -5664,7 +5664,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => new Set(["codeObjImplLayeringMap", "callable"] as const)),
+    .default(() => new Set(["callable", "codeObjImplLayeringMap"] as const)),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
