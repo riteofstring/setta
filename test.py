@@ -90,13 +90,36 @@
 # load_json_sources_into_data_structures(settings, p)
 
 
-from pydantic import BaseModel
+from pprint import pprint
+from setta.project_state.settings_project import create_settings_project_state
+from setta.types.helpers import get_effective_section_impl, get_section_impl_layering
+from setta.types.impl_helpers import set_effective_impl_value
+from setta.types.section_impls import SectionSize
+from setta.utils.constants import CWD
 
 
-class SomeModel(BaseModel):
-    dog: int = 5
+p = create_settings_project_state(CWD / "setta_files/setta-settings.json")
+
+sectionId = list(p.sections.keys())[0]
+
+core = p.sections[sectionId]
+impl = get_effective_section_impl(p, sectionId)
+layering = get_section_impl_layering(p, sectionId)
+
+set_effective_impl_value(layering, core, p.sectionImpls, "isPreset", True)
+set_effective_impl_value(
+    layering, core, p.sectionImpls, "size", SectionSize(width=500, height=200)
+)
+set_effective_impl_value(
+    layering, core, p.sectionImpls, "codeObjImplLayeringMap", {"dog": 5}
+)
+
+core = p.sections[sectionId]
+impl = get_effective_section_impl(p, sectionId)
+layering = get_section_impl_layering(p, sectionId)
 
 
-x = SomeModel()
-
-x["dog"] = 10
+pprint(p.sectionImpls[layering.impl].model_dump())
+pprint(core.sharedModifier)
+pprint(layering.modifier)
+pprint(impl.model_dump())
