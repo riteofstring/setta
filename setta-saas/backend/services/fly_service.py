@@ -13,12 +13,13 @@ from fly.deployment import (
     delete_all_apps_in_org,
     get_app_status,
     get_machine_status,
+    get_organization_id,
     list_all_apps,
     start_machine,
     stop_machine,
     wait_for_app_ready,
 )
-from fly.queries import GET_APP, GET_LATEST_DEPLOYMENT
+from fly.queries import GET_APP
 from models.fly import FlyAppInfo, FlyDeploymentStatus, FlyMachineInfo
 from services.deployment_events import DeploymentEventPoller
 
@@ -29,8 +30,16 @@ class FlyService:
     def __init__(self):
         self.client = FlyClient(os.getenv("FLY_API_TOKEN"))
         self.org_slug = os.getenv("FLY_ORG_SLUG", "personal")
-        self.org_id = os.getenv("FLY_ORG_ID")
+        self._org_id = None  # Cache for org ID
         self.event_poller = DeploymentEventPoller(self.client)
+
+    @property
+    def org_id(self) -> str:
+        """Get organization ID (cached)."""
+        if not self._org_id:
+            self._org_id = get_organization_id(self.client, self.org_slug)
+            print(f"Using organization: {self.org_slug} (ID: {self._org_id})")
+        return self._org_id
 
     async def _broadcast_deployment_progress(self, project_id: str, message: str, progress: int):
         """Helper to broadcast deployment progress via websocket."""
@@ -126,9 +135,9 @@ class FlyService:
     async def _create_fly_app(self, app_name: str, project_id: str) -> dict:
         """Create a Fly.io application."""
         await self._broadcast_deployment_progress(project_id, "Creating Fly.io application...", 10)
-        app = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
-        print(f"✓ App created: {app['hostname']}")
-        return app
+        app_data = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
+        print(f"✓ App created: {app_data['hostname']}")
+        return app_data
 
     async def _allocate_app_ips(self, app_name: str, project_id: str) -> tuple:
         """Allocate IP addresses for the app."""
@@ -212,8 +221,8 @@ class FlyService:
 
         try:
             # Create the app
-            app = create_app(self.client, app_name, self.org_id)
-            print(f"✓ App created: {app['hostname']}")
+            app_data = create_app(self.client, app_name, self.org_id)
+            print(f"✓ App created: {app_data['hostname']}")
 
             # Allocate IP addresses
             print("Allocating IP addresses...")
@@ -244,7 +253,7 @@ class FlyService:
             return {
                 "app_name": app_name,
                 "machine_id": machine_id,
-                "url": url,
+                "url": f"https://{app_name}.fly.dev",
                 "status": "running",
             }
 
@@ -278,7 +287,7 @@ class FlyService:
             await asyncio.sleep(0.2)
 
             # Create the app
-            app = await self._create_fly_app(app_name, project_id)
+            app_data = await self._create_fly_app(app_name, project_id)
 
             # Allocate IP addresses
             ipv4, ipv6 = await self._allocate_app_ips(app_name, project_id)
@@ -352,7 +361,7 @@ class FlyService:
             print(f"Destroying app {app_name}...")
 
             # Get app details to find machines
-            app_query = self.client.execute_query(GET_APP, {"name": app_name})
+            app_query = self.client.execute_graphql(GET_APP, {"name": app_name})
             if not app_query or "app" not in app_query:
                 print(f"App {app_name} not found")
                 return False
@@ -381,7 +390,7 @@ class FlyService:
     def get_app_info(self, app_name: str) -> FlyAppInfo | None:
         """Get detailed information about a Fly.io app."""
         try:
-            result = self.client.execute_query(GET_APP, {"name": app_name})
+            result = self.client.execute_graphql(GET_APP, {"name": app_name})
 
             if not result or "app" not in result:
                 return None
@@ -408,31 +417,9 @@ class FlyService:
 
     def get_deployment_status(self, app_name: str) -> FlyDeploymentStatus | None:
         """Get the latest deployment status for an app."""
-        try:
-            result = self.client.execute_query(GET_LATEST_DEPLOYMENT, {"appName": app_name})
-
-            if not result or "app" not in result:
-                return None
-
-            nodes = result.get("app", {}).get("deployments", {}).get("nodes", [])
-            if not nodes:
-                return None
-
-            # Get the latest deployment (first in list)
-            deployment = nodes[0]
-
-            return FlyDeploymentStatus(
-                id=deployment["id"],
-                status=deployment["status"],
-                successful=deployment.get("successful", False),
-                created_at=deployment.get("createdAt"),
-                updated_at=deployment.get("updatedAt"),
-                description=deployment.get("description"),
-            )
-
-        except Exception as e:
-            print(f"Error getting deployment status: {e}")
-            return None
+        # TODO: Implement when GET_LATEST_DEPLOYMENT query is available
+        # For now, return None
+        return None
 
     async def get_machine_state(self, app_name: str, machine_id: str) -> str | None:
         """Get the current state of a machine."""
