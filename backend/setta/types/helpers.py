@@ -15,6 +15,7 @@ from setta.types.generated.impl_modifier_unions import (
 )
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import BaseSectionImplUnion
+from setta.types.generated.type_to_core import create_core_for_section_type
 from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,
 )
@@ -27,7 +28,6 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
@@ -76,7 +76,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             section_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.sectionImplLayerings[impl_layering_id]
             section_impl_ids.add(impl_layering.impl)
-            effective_impl = get_effective_impl(impl_layering, p.sectionImpls)
+            effective_impl = get_effective_impl(impl_layering, section, p.sectionImpls)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
@@ -103,7 +103,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             code_obj_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.codeObjImplLayerings[impl_layering_id]
             code_obj_impl_ids.add(impl_layering.impl)
-            effective_impl = get_effective_impl(impl_layering, p.codeObjImpls)
+            effective_impl = get_effective_impl(impl_layering, obj, p.codeObjImpls)
             if isinstance(effective_impl, BaseParentCodeObjImpl):
                 code_objs_to_process.update(effective_impl.children)
 
@@ -150,7 +150,7 @@ def get_effective_section_impl(
         if section_id is None:
             raise ValueError("Either section_id or section_impl must be provided")
         impl_layering = get_section_impl_layering(p, section_id)
-        return get_effective_impl(impl_layering, p.sectionImpls)
+        return get_effective_impl(impl_layering, p.sections[section_id], p.sectionImpls)
     return section_impl
 
 
@@ -231,7 +231,9 @@ def get_effective_code_obj_impl(
         code_obj_impl_layering = get_code_obj_impl_layering(
             p, codeObjId, section_impl=section_impl
         )
-        code_obj_impl = get_effective_impl(code_obj_impl_layering, p.codeObjImpls)
+        code_obj_impl = get_effective_impl(
+            code_obj_impl_layering, p.codeObjs[codeObjId], p.codeObjImpls
+        )
         return code_obj_impl
     raise TypeError
 
@@ -297,7 +299,9 @@ def add_code_obj(
     code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_layering = get_section_impl_layering(p, section_id)
-    section_impl = get_effective_impl(section_layering, p.sectionImpls)
+    section_impl = get_effective_impl(
+        section_layering, p.sections[section_id], p.sectionImpls
+    )
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
     code_obj_impl_layering = ImplLayering(
@@ -327,7 +331,7 @@ def add_children_of_callable(
 ):
     callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
     callable_code_obj_impl = get_effective_impl(
-        callable_code_obj_layering, p.codeObjImpls
+        callable_code_obj_layering, p.codeObjs[callable_id], p.codeObjImpls
     )
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
@@ -409,7 +413,7 @@ def create_sections(
     # TODO!
     for s in sections:
         # sectionImpl =
-        sectionCore = BaseSectionCore(name=s.name)
+        sectionCore = create_core_for_section_type(s.type, name=s.name)
         # p.sections[sectionCore.id] = sectionCore
         # p.sectionImpls[sectionImpl.id] = sectionImpl
         # new_section.variantIds = [new_section_config.variantId]

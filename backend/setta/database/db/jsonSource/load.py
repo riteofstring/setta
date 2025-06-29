@@ -68,36 +68,42 @@ def load_json_sources_into_data_structures(
     p: ProjectStateBackend | ProjectStateSingleConfig | LoadJSONSourceObject,
     section_impl_layering_ids: list[str] | None = None,
 ):
-    for layering_id, layering in p.sectionImplLayerings.items():
-        impl = get_effective_impl(layering, p.sectionImpls)
-        if (
-            not isinstance(impl, BaseDictSectionImpl)
-            or not impl.isJsonSource
-            or (
-                section_impl_layering_ids
-                and layering_id not in section_impl_layering_ids
-            )
-        ):
-            continue
+    processed = set()
+    for section in p.sections.values():
+        for layering_id in section.implLayerings:
+            if layering_id in processed:
+                continue
+            processed.add(layering_id)
+            layering = p.sectionImplLayerings[layering_id]
+            impl = get_effective_impl(layering, section, p.sectionImpls)
+            if (
+                not isinstance(impl, BaseDictSectionImpl)
+                or not impl.isJsonSource
+                or (
+                    section_impl_layering_ids
+                    and layering_id not in section_impl_layering_ids
+                )
+            ):
+                continue
 
-        if layering.modifier["type"] != SectionType.Dict:
-            continue
-        new_data, isMissing = load_json_source(
-            settings, layering.name, impl.jsonSourceKeys
-        )
-        layering.modifier["jsonSourceMissing"] = isMissing
-        impl = apply_modifier(impl, layering.modifier)
-        if isMissing:
-            continue
-        merge_into_existing(
-            layering.name,
-            new_data,
-            impl,
-            layering.modifier,
-            p.codeObjs,
-            p.codeObjImpls,
-            p.codeObjImplLayerings,
-        )
+            if layering.modifier["type"] != SectionType.Dict:
+                continue
+            new_data, isMissing = load_json_source(
+                settings, layering.name, impl.jsonSourceKeys
+            )
+            layering.modifier["jsonSourceMissing"] = isMissing
+            impl = apply_modifier(impl, layering.modifier)
+            if isMissing:
+                continue
+            merge_into_existing(
+                layering.name,
+                new_data,
+                impl,
+                layering.modifier,
+                p.codeObjs,
+                p.codeObjImpls,
+                p.codeObjImplLayerings,
+            )
 
 
 def merge_into_existing(
@@ -159,7 +165,7 @@ def merge_into_existing(
     for newId, (existingCodeObjId, newImpl) in replacements.items():
         layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
         layering = codeObjImplLayerings[layeringId]
-        impl = get_effective_impl(layering, codeObjImpls)
+        impl = get_effective_impl(layering, codeObjs[existingCodeObjId], codeObjImpls)
         if (
             isinstance(impl, NestedParamCodeObjImpl)
             and isinstance(newImpl, NestedParamCodeObjImpl)

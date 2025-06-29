@@ -124,7 +124,9 @@ class ProjectGenPythonCode(PythonCode):
 
         section_impl_layering = get_section_impl_layering(project_state, sectionId)
         section_impl = get_effective_impl(
-            section_impl_layering, project_state.sectionImpls
+            section_impl_layering,
+            project_state.sections[sectionId],
+            project_state.sectionImpls,
         )
 
         if (
@@ -179,7 +181,9 @@ class ProjectGenPythonCode(PythonCode):
                 project_state, callable_code_obj.id, section_impl=section_impl
             )
             callable_code_obj_impl = get_effective_impl(
-                callable_code_obj_impl_layering, project_state.codeObjImpls
+                callable_code_obj_impl_layering,
+                callable_code_obj,
+                project_state.codeObjImpls,
             )
 
         if (

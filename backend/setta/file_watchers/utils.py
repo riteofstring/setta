@@ -106,14 +106,20 @@ def get_json_source_impl_layerings(
     p: ProjectStateBackend | ProjectStateSingleConfig, coreUpdate: FileWatcherCoreUpdate
 ):
     implLayeringsToLoad: list[str] = []
-    for layering in p.sectionImplLayerings.values():
-        impl = get_effective_impl(layering, p.sectionImpls)
-        if (
-            not isinstance(impl, BaseDictSectionImpl)
-            or not impl.isJsonSource
-            or layering.name != str(coreUpdate.relPath)
-        ):
-            continue
+    processed = set()
+    for section in p.sections.values():
+        for layering_id in section.implLayerings:
+            if layering_id in implLayeringsToLoad:
+                continue
+            processed.add(layering_id)
+            layering = p.sectionImplLayerings[layering_id]
+            impl = get_effective_impl(layering, section, p.sectionImpls)
+            if (
+                not isinstance(impl, BaseDictSectionImpl)
+                or not impl.isJsonSource
+                or layering.name != str(coreUpdate.relPath)
+            ):
+                continue
 
-        implLayeringsToLoad.append(layering.id)
+            implLayeringsToLoad.append(layering_id)
     return implLayeringsToLoad

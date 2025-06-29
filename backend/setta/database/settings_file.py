@@ -80,7 +80,9 @@ class SettingsFile:
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
             implLayering = get_section_impl_layering(p, sectionId)
-            impl = get_effective_impl(implLayering, p.sectionImpls)
+            impl = get_effective_impl(
+                implLayering, p.sections[sectionId], p.sectionImpls
+            )
             if isinstance(impl, DictSectionImpl):
                 if impl.jsonSourceKeys == [slice]:
                     return Path(implLayering.name)

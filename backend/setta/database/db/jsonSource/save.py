@@ -21,39 +21,44 @@ def save_json_source_data(
     p: ProjectStateSingleConfig, section_impl_layering_ids: list[str] | None = None
 ):
     to_be_saved = defaultdict(dict)
-
-    for layering_id, layering in p.sectionImplLayerings.items():
-        impl = get_effective_impl(layering, p.sectionImpls)
-        if (
-            not isinstance(impl, DictSectionImpl)
-            or not impl.isJsonSource
-            or (
-                section_impl_layering_ids
-                and layering_id not in section_impl_layering_ids
+    processed = set()
+    for section in p.sections.values():
+        for layering_id in section.implLayerings:
+            if layering_id in processed:
+                continue
+            processed.add(layering_id)
+            layering = p.sectionImplLayerings[layering_id]
+            impl = get_effective_impl(layering, section, p.sectionImpls)
+            if (
+                not isinstance(impl, DictSectionImpl)
+                or not impl.isJsonSource
+                or (
+                    section_impl_layering_ids
+                    and layering_id not in section_impl_layering_ids
+                )
+            ):
+                continue
+            ancestor_paths = build_ancestor_paths(
+                p.codeObjs,
+                p.codeObjImpls,
+                p.codeObjImplLayerings,
+                impl.codeObjImplLayeringMap,
+                impl.topLevelParamIds,
             )
-        ):
-            continue
-        ancestor_paths = build_ancestor_paths(
-            p.codeObjs,
-            p.codeObjImpls,
-            p.codeObjImplLayerings,
-            impl.codeObjImplLayeringMap,
-            impl.topLevelParamIds,
-        )
-        filename = layering.name
-        for paramId in impl.topLevelParamIds:
-            recursively_add_keys(
-                p,
-                impl,
-                paramId,
-                impl.jsonSourceKeys,
-                ancestor_paths,
-                to_be_saved[filename],
-            )
+            filename = layering.name
+            for paramId in impl.topLevelParamIds:
+                recursively_add_keys(
+                    p,
+                    impl,
+                    paramId,
+                    impl.jsonSourceKeys,
+                    ancestor_paths,
+                    to_be_saved[filename],
+                )
 
-        # Make sure the jsonSourceKeys are present.
-        # (They might not be because they are completely empty)
-        add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
+            # Make sure the jsonSourceKeys are present.
+            # (They might not be because they are completely empty)
+            add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
     # Save each file
     for filename, data in to_be_saved.items():
@@ -61,6 +66,7 @@ def save_json_source_data(
 
 
 def build_parent_map(
+    codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],
@@ -72,7 +78,7 @@ def build_parent_map(
     def add_children(param_id: str):
         layering_id = codeObjImplLayeringMap[param_id]
         layering = codeObjImplLayerings[layering_id]
-        impl = get_effective_impl(layering, codeObjImpls)
+        impl = get_effective_impl(layering, codeObjs[param_id], codeObjImpls)
 
         if isinstance(impl, NestedParamCodeObjImpl):
             for child_id in impl.children:
@@ -94,7 +100,7 @@ def build_ancestor_paths(
 ) -> dict[str, list[str]]:
     """Build ancestor paths for all nodes in the hierarchy."""
     parent_map = build_parent_map(
-        codeObjImpls, codeObjImplLayerings, codeObjImplLayeringMap, paramIds
+        codeObjs, codeObjImpls, codeObjImplLayerings, codeObjImplLayeringMap, paramIds
     )
 
     ancestor_paths: dict[str, list[str]] = {}
