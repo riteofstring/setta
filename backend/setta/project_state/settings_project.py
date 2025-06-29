@@ -28,7 +28,10 @@ from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,
     create_modifier_for_section_type,
 )
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import (
+    CodeObjImplLayering,
+    SectionImplLayering,
+)
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
@@ -52,9 +55,9 @@ def add_code_obj_details(
     codeObjImpl: BaseCodeObjImplUnion,
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, ImplLayering],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
 ):
-    codeObjImplLayering = ImplLayering(
+    codeObjImplLayering = CodeObjImplLayering(
         impl=codeObjImpl.id,
         modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
@@ -75,7 +78,7 @@ def process_model_fields(
     model_class: type[BaseModel],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, ImplLayering],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
 ):
     child_ids: list[str] = []
     codeObjImplLayeringMap: dict[str, str] = {}
@@ -120,7 +123,7 @@ def create_settings_code_objs(section_names):
     sectionToTopLevelIds: dict[str, list[str]] = {}
     codeObjs: dict[str, BaseCodeObjCoreUnion] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
-    codeObjImplLayerings: dict[str, ImplLayering] = {}
+    codeObjImplLayerings: dict[str, CodeObjImplLayering] = {}
     codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
 
     for s in section_names:
@@ -157,7 +160,7 @@ def create_settings_project_state(settings_path: Path):
 
     sections: dict[str, BaseSectionCoreUnion] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
-    sectionImplLayerings: dict[str, ImplLayering] = {}
+    sectionImplLayerings: dict[str, SectionImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
@@ -168,7 +171,7 @@ def create_settings_project_state(settings_path: Path):
             codeObjImplLayeringMap=codeObjImplLayeringMaps[k],
             topLevelParamIds=sectionToTopLevelIds[k],
         )
-        sectionImplLayering = ImplLayering(
+        sectionImplLayering = SectionImplLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
             modifier=create_modifier_for_section_type(sectionImpl.type),

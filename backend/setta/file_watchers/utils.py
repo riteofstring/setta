@@ -6,7 +6,7 @@ from dotenv import dotenv_values
 
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.types.impl_helpers import get_effective_impl
+from setta.types.generated.impl_helpers import get_effective_impl
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.types.specific_file_watcher import (

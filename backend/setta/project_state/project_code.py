@@ -25,6 +25,10 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl
 from setta.types.generated.creation_functions import createCodeCallableCodeObjImpl
+from setta.types.generated.impl_helpers import (
+    get_effective_impl,
+    set_effective_impl_value,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.helpers import (
@@ -37,7 +41,6 @@ from setta.types.helpers import (
     get_section_impl_layering,
     get_section_path_full_name,
 )
-from setta.types.impl_helpers import get_effective_impl, set_effective_impl_value
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,

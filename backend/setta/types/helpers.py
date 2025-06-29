@@ -26,7 +26,7 @@ from setta.types.generated.type_to_modifier import (
 from setta.types.impl_helpers import (
     update_impl_layerings,
 )
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import CodeObjImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -308,7 +308,7 @@ def add_code_obj(
     )
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
-    code_obj_impl_layering = ImplLayering(
+    code_obj_impl_layering = CodeObjImplLayering(
         impl=code_obj_impl.id,
         modifier=create_modifier_for_code_obj_type(code_obj_impl.type),
     )

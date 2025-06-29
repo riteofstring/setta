@@ -19,6 +19,10 @@ from setta.types.generated.creation_functions import (
     createNestedParamCodeObjImpl,
     createTextParamCodeObjImpl,
 )
+from setta.types.generated.impl_helpers import (
+    get_effective_impl,
+    set_effective_impl_value,
+)
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
@@ -26,11 +30,7 @@ from setta.types.generated.section_type_unions import (
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
-from setta.types.impl_helpers import (
-    get_effective_impl,
-    set_effective_impl_value,
-)
-from setta.types.impl_layering import ImplLayering
+from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -46,16 +46,16 @@ class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
     codeObjs: dict[str, BaseCodeObjCoreUnion] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, BaseSectionCoreUnion]
     sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionImplLayerings: dict[str, ImplLayering]
+    sectionImplLayerings: dict[str, SectionImplLayering]
     codeObjs: dict[str, BaseCodeObjCoreUnion]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjImplLayerings: dict[str, ImplLayering]
+    codeObjImplLayerings: dict[str, CodeObjImplLayering]
 
 
 def load_json_sources_into_data_structures(
@@ -70,7 +70,9 @@ def load_json_sources_into_data_structures(
                 continue
             processed.add(layering_id)
             layering = p.sectionImplLayerings[layering_id]
-            impl = get_effective_impl(layering, section, p.sectionImpls)
+            impl = get_effective_impl(
+                p.sectionImpls[layering.impl], section, layering.modifier
+            )
             if (
                 not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource
@@ -84,7 +86,11 @@ def load_json_sources_into_data_structures(
                 settings, layering.name, impl.jsonSourceKeys
             )
             impl = set_effective_impl_value(
-                layering, section, p.sectionImpls, "jsonSourceMissing", isMissing
+                p.sectionImpls[layering.impl],
+                section,
+                layering.modifier,
+                "jsonSourceMissing",
+                isMissing,
             )
             if isMissing:
                 continue
@@ -106,11 +112,11 @@ def merge_into_existing(
     new_data: ProcessedJSONObject,
     section: BaseSectionCoreUnion,
     section_impl: BaseDictSectionImpl,
-    section_impl_layering: ImplLayering,
+    section_impl_layering: SectionImplLayering,
     section_impls: dict[str, BaseSectionImplUnion],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, ImplLayering],
+    codeObjImplLayerings: dict[str, CodeObjImplLayering],
 ):
     ancestor_paths = build_ancestor_paths(
         codeObjs,
@@ -284,7 +290,7 @@ def add_to_processed_json_object(
         codeObjImpl = createTextParamCodeObjImpl(
             settings.textParamDefault, value=json.dumps(value)
         )
-    codeObjImplLayering = ImplLayering(
+    codeObjImplLayering = CodeObjImplLayering(
         impl=codeObjImpl.id,
         modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
