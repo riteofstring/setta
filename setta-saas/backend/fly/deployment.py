@@ -42,7 +42,7 @@ def create_app(client: FlyClient, app_name: str, org_id: str) -> dict:
     variables = {
         "input": {
             "name": app_name,
-            "organizationId": org_id,  # Use the actual ID, not slug
+            "organizationId": org_id,
         }
     }
 
@@ -78,11 +78,21 @@ def allocate_ips(client: FlyClient, app_name: str) -> tuple[str, str]:
 
 def delete_app(client: FlyClient, app_name: str) -> bool:
     """Delete a Fly.io app."""
-    # First get the app to get its ID
+    # Guard clause for empty app name
+    if not app_name:
+        print("Error: app_name is empty or None")
+        return False
+
+    # First get the app to verify it exists and get its ID
     get_variables = {"appName": app_name}
     get_result = client.execute_graphql(GET_APP, get_variables)
 
-    if "errors" in get_result or not get_result.get("data", {}).get("app"):
+    if "errors" in get_result:
+        print(f"Error getting app: {get_result['errors']}")
+        return False
+
+    if not get_result.get("data", {}).get("app"):
+        print(f"App {app_name} not found")
         return False
 
     app_id = get_result["data"]["app"]["id"]
@@ -99,6 +109,10 @@ def delete_app(client: FlyClient, app_name: str) -> bool:
 
 def delete_app_force(client: FlyClient, app_name: str) -> dict:
     """Delete a Fly.io app using REST API with force (stops machines first)."""
+    # Guard clause for empty app name
+    if not app_name:
+        return {"success": False, "error": "App name is empty or None", "status_code": 400}
+
     return client.delete_app_rest(app_name, force=True)
 
 
@@ -129,11 +143,10 @@ def delete_all_apps_in_org(client: FlyClient, org_slug: str = "personal") -> dic
             deleted_count += 1
             deleted_apps.append(app_name)
             print(f"✓ Deleted: {app_name}")
-            continue
-
-        failed_count += 1
-        failed_apps.append(app_name)
-        print(f"✗ Failed to delete: {app_name}")
+        else:
+            failed_count += 1
+            failed_apps.append(app_name)
+            print(f"✗ Failed to delete: {app_name}")
 
     return {
         "deleted": deleted_count,
@@ -156,6 +169,9 @@ def _try_delete_app(client: FlyClient, app_name: str) -> bool:
 
 def get_app_status(client: FlyClient, app_name: str) -> dict | None:
     """Get app status and details."""
+    if not app_name:
+        return None
+
     variables = {"appName": app_name}
     result = client.execute_graphql(GET_APP, variables)
 
@@ -170,7 +186,7 @@ def create_and_deploy_machine(
     app_name: str,
     image: str = "flyio/hellofly:latest",
     region: str = "ewr",
-    idle_timeout_minutes: int = 5,  # NEW: Configurable idle timeout
+    idle_timeout_minutes: int = 5,
 ) -> str:
     """Create and deploy a machine to the app with hibernation enabled.
 
@@ -185,7 +201,6 @@ def create_and_deploy_machine(
         Machine ID
     """
     # Convert minutes to the format Fly.io expects
-    # Fly.io uses format like "5m" for 5 minutes, "1h" for 1 hour
     if idle_timeout_minutes < 60:
         idle_timeout = f"{idle_timeout_minutes}m"
     else:
@@ -204,28 +219,24 @@ def create_and_deploy_machine(
                 ],
                 "protocol": "tcp",
                 "internal_port": 8080,
-                # HIBERNATION SETTINGS
-                "autostop": "stop",  # Stop machine when idle
-                "autostart": True,  # Start on incoming request
-                "min_machines_running": 0,  # Allow scaling to zero
-                # NEW: Add idle timeout configuration
+                "autostop": "stop",
+                "autostart": True,
+                "min_machines_running": 0,
                 "checks": [
                     {
                         "type": "http",
                         "port": 8080,
-                        "path": "/health",  # Assuming your app has a health endpoint
+                        "path": "/health",
                         "interval": "15s",
                         "timeout": "10s",
                     }
                 ],
             }
         ],
-        # NEW: Machine-level auto stop configuration
-        "auto_destroy": False,  # Don't destroy, just stop
+        "auto_destroy": False,
         "restart": {"policy": "on-failure", "max_retries": 1},
-        # NEW: Stop configuration
         "stop": {
-            "timeout": idle_timeout,  # e.g., "5m" for 5 minutes
+            "timeout": idle_timeout,
             "signal": "SIGTERM",
         },
     }
@@ -241,7 +252,6 @@ def wait_for_app_ready(client: FlyClient, app_name: str, timeout: int = 60) -> b
     while time.time() - start_time < timeout:
         status = get_app_status(client, app_name)
         if status and status.get("hostname"):
-            # Give DNS extra time to propagate after hostname is available
             print(f"App hostname available: {status['hostname']}")
             time.sleep(10)  # DNS can take 5-10 seconds
             return True
@@ -272,11 +282,11 @@ def get_machine_status(client: FlyClient, app_name: str, machine_id: str) -> dic
     """Get current status of a machine."""
     machine = client.get_machine(app_name, machine_id)
     return {
-        "state": machine.get("state"),  # "started", "stopped", etc.
+        "state": machine.get("state"),
         "created_at": machine.get("created_at"),
         "updated_at": machine.get("updated_at"),
         "config": machine.get("config", {}),
-        "checks": machine.get("checks", []),  # Health check status
+        "checks": machine.get("checks", []),
     }
 
 
