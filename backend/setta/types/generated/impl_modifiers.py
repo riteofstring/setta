@@ -19,7 +19,7 @@ class BaseSectionImplModifier(TypedDict):
     visibility: NotRequired[Visibility]
     isInOtherProjectConfigs: NotRequired[bool]
     size: NotRequired[SectionSize]
-    aspectRatio: NotRequired[bool]
+    aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
     isMinimized: NotRequired[bool]

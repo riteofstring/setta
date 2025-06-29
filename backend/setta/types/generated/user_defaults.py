@@ -33,7 +33,7 @@ class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     isFrozen: bool = False
     visibility: Visibility = Field(default_factory=Visibility)
     size: SectionSize = Field(default_factory=SectionSize)
-    aspectRatio: bool = False
+    aspectRatio: bool | float = False
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
 

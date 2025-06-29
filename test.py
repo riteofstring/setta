@@ -66,11 +66,17 @@
 # pprint(p.model_dump()["sectionImplLayerings"])
 
 
-from setta.database.settings_file import SettingsFile
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-from setta.websockets.websocket_manager import WebsocketManager
+# from setta.database.settings_file import SettingsFile
+# from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+# from setta.websockets.websocket_manager import WebsocketManager
 
-wm = WebsocketManager()
-wmh = WMHFrontendSender(wm)
-sf = SettingsFile(wmh)
-print(sf.settings)
+# wm = WebsocketManager()
+# wmh = WMHFrontendSender(wm)
+# sf = SettingsFile(wmh)
+# print(sf.settings)
+
+from setta.project_state.settings_project import create_settings_code_objs
+from setta.types.generated.settings_state import SettingsState
+
+section_names = SettingsState.model_fields.keys()
+create_settings_code_objs(section_names)

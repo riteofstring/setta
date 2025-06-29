@@ -100,7 +100,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     visibility: Visibility = Field(default_factory=Visibility)
     isInOtherProjectConfigs: bool = False
     size: SectionSize = Field(default_factory=SectionSize)
-    aspectRatio: bool = False
+    aspectRatio: bool | float = False
     aspectRatioExtraHeight: int = 0
     aspectRatioExtraWidth: int = 0
     isMinimized: bool = False

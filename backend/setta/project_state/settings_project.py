@@ -1,4 +1,7 @@
+import re
 from pathlib import Path
+
+from pydantic import BaseModel
 
 from setta.types.code_objs import (
     CodeObjCore,
@@ -29,10 +32,13 @@ from setta.types.sections import (
 )
 from setta.types.settings_state import (
     BackgroundVariant,
-    SettingsBackend,
-    SettingsGUI,
 )
 from setta.utils.constants import CWD
+
+
+def is_color_hex(string):
+    pattern = r"^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
+    return bool(re.match(pattern, string))
 
 
 def create_settings_code_objs(section_names):
@@ -77,60 +83,16 @@ def create_settings_code_objs(section_names):
             pan_dropdown,
         )
     )
-    codeObjsAndImpls["gui"].extend(
-        (
-            n,
-            color_picker,
-        )
-        for n in [
-            "gridColor",
-            "gridColorDarkMode",
-        ]
-    )
-    codeObjsAndImpls["gui"].extend(
-        (
-            n,
-            switch,
-        )
-        for n in [
-            "showGridLines",
-            "leftSidePaneShiftsMap",
-            "panOnDrag",
-            "panOnScroll",
-            "zoomOnScroll",
-            "zoomOnPinch",
-            "zoomOnDoubleClick",
-        ]
-    )
 
-    codeObjsAndImpls["backend"].extend(
-        (
-            n,
-            switch,
-        )
-        for n in [
-            "showDefaultConfigOnLoad",
-            "autosave",
-            "autobackup",
-            "clearTerminalBeforeMarkingAsReady",
-            "exportDbRawOnSave",
-            "exportDbReadableOnSave",
-            "exportDbReadableWithVariantsOnSave",
-            "saveRenderedValues",
-        ]
-    )
-
-    settings_fields = {
-        "gui": SettingsGUI.model_fields.keys(),
-        "backend": SettingsBackend.model_fields.keys(),
-    }
-
-    for k, v in settings_fields.items():
-        diff = set(c[0] for c in codeObjsAndImpls[k]) - v
-        if len(diff) > 0:
-            raise KeyError(
-                f"Settings project construction error: codeObjsAndImpls key not valid: {diff}"
-            )
+    for s in section_names:
+        d = SettingsState.model_fields[s].default_factory
+        if issubclass(d, BaseModel):  # type: ignore
+            for k, v in d.model_fields.items():
+                print(v.default)
+                if v.annotation is bool:
+                    codeObjsAndImpls[s].append((k, switch))
+                elif isinstance(v.default, str) and is_color_hex(v.default):
+                    codeObjsAndImpls[s].append((k, color_picker))
 
     return codeObjsAndImpls
 
