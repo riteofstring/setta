@@ -3,15 +3,7 @@ from typing import get_args
 
 from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion
 from setta.types.generated.section_type_unions import BaseSectionImplUnion
-from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
-
-from .generate_cores import (
-    DEFAULT_CODE_OBJ_UNSHARED_KEYS,
-    DEFAULT_SECTION_UNSHARED_KEYS,
-    EXCLUSIONS,
-    get_all_field_names,
-)
 
 
 def get_union_members(union_type):
@@ -34,41 +26,6 @@ def extract_type_value(impl_name):
         raise ValueError(f"Unexpected impl name format: {impl_name}")
 
 
-def generate_overload_params(
-    type_value: str,
-    impl_class,
-    is_section: bool,
-    default_unshared_keys: set[str],
-) -> str:
-    """Generate parameter list for a specific overload."""
-
-    # Get all field names for the impl class
-    field_names = get_all_field_names(impl_class)
-
-    # Sort field names for consistent output
-    sorted_fields = sorted(field_names)
-
-    # Create the Literal type string for unsharedKeys
-    literal_values = ", ".join(
-        f'"{field}"' for field in sorted_fields if field not in EXCLUSIONS
-    )
-
-    modifier_type = f"{impl_class.__name__}Modifier"
-    enum_type = "SectionType" if is_section else "CodeObjType"
-
-    params = f"""
-    type_: Literal[{enum_type}.{type_value}],
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: {modifier_type} | None = None,
-    unsharedKeys: set[Literal[{literal_values}]] | None = None"""
-
-    return params
-
-
 def generate_conversion_functions():
     """Generate type to core conversion functions."""
 
@@ -84,7 +41,7 @@ def generate_conversion_functions():
     code_obj_type_values = [extract_type_value(name) for name in code_obj_impl_names]
 
     # Generate imports using triple quotes
-    imports = """from typing import Union, overload, Literal, set, Any
+    imports = """from typing import Union, overload, Literal
 
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
@@ -124,72 +81,35 @@ from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 """
 
-    # Import the impl classes for introspection
-    import setta.types.code_obj_impls
-    import setta.types.section_impls
-
     # Generate section type to core overloads
     section_overloads = "\n# Overloads for section type to core conversion"
 
-    for type_value, impl_name in zip(section_type_values, section_impl_names):
+    for type_value in section_type_values:
         core_name = type_value + "SectionCore"
-        # Get the impl class
-        impl_class = getattr(setta.types.section_impls, impl_name)
-        default_keys = DEFAULT_SECTION_UNSHARED_KEYS.get(type_value, set())
-
-        params = generate_overload_params(type_value, impl_class, True, default_keys)
         section_overloads += f"""
 @overload
-def create_core_for_section_type({params}
-) -> {core_name}: ..."""
+def create_core_for_section_type(type_: Literal[SectionType.{type_value}], **kwargs) -> {core_name}: ..."""
 
-    # General section overload - using the same signature as implementation
+    # General section overload
     section_overloads += """
 @overload
-def create_core_for_section_type(
-    type_: SectionType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None,
-) -> BaseSectionCoreUnion: ...
+def create_core_for_section_type(type_: SectionType, **kwargs) -> BaseSectionCoreUnion: ...
 """
 
     # Generate section type to core function
     section_function = """
 
-def create_core_for_section_type(
-    type_: SectionType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None,
-) -> BaseSectionCoreUnion:
+def create_core_for_section_type(type_: SectionType, **kwargs) -> BaseSectionCoreUnion:
     \"\"\"Create a SectionCore for the given SectionType.
     
-    The overloaded signatures above provide full type checking for each specific
-    SectionType with properly typed parameters.
+    Args:
+        type_: The SectionType enum value
+        **kwargs: Additional arguments to pass to the core constructor
+            (e.g., id, name, sharedModifier, unsharedKeys)
+    
+    Returns:
+        A new SectionCore instance of the appropriate type
     \"\"\"
-    # Build kwargs dict with only non-None values
-    core_kwargs = {}
-    if id is not None:
-        core_kwargs['id'] = id
-    if name is not None:
-        core_kwargs['name'] = name
-    if implLayerings is not None:
-        core_kwargs['implLayerings'] = implLayerings
-    if defaultImplLayering is not None:
-        core_kwargs['defaultImplLayering'] = defaultImplLayering
-    if sharedModifier is not None:
-        core_kwargs['sharedModifier'] = sharedModifier
-    if unsharedKeys is not None:
-        core_kwargs['unsharedKeys'] = unsharedKeys
 """
 
     # Generate section cases
@@ -213,65 +133,32 @@ def create_core_for_section_type(
     # Generate code obj type to core overloads
     code_obj_overloads = "\n\n\n# Overloads for code obj type to core conversion"
 
-    for type_value, impl_name in zip(code_obj_type_values, code_obj_impl_names):
+    for type_value in code_obj_type_values:
         core_name = type_value + "CodeObjCore"
-        # Get the impl class
-        impl_class = getattr(setta.types.code_obj_impls, impl_name)
-        default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS.get(type_value, set())
-
-        params = generate_overload_params(type_value, impl_class, False, default_keys)
         code_obj_overloads += f"""
 @overload
-def create_core_for_code_obj_type({params}
-) -> {core_name}: ..."""
+def create_core_for_code_obj_type(type_: Literal[CodeObjType.{type_value}], **kwargs) -> {core_name}: ..."""
 
     # General code obj overload
     code_obj_overloads += """
 @overload
-def create_core_for_code_obj_type(
-    type_: CodeObjType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None,
-) -> BaseCodeObjCoreUnion: ...
+def create_core_for_code_obj_type(type_: CodeObjType, **kwargs) -> BaseCodeObjCoreUnion: ...
 """
 
     # Generate code obj type to core function
     code_obj_function = """
 
-def create_core_for_code_obj_type(
-    type_: CodeObjType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None,
-) -> BaseCodeObjCoreUnion:
+def create_core_for_code_obj_type(type_: CodeObjType, **kwargs) -> BaseCodeObjCoreUnion:
     \"\"\"Create a CodeObjCore for the given CodeObjType.
     
-    The overloaded signatures above provide full type checking for each specific
-    CodeObjType with properly typed parameters.
+    Args:
+        type_: The CodeObjType enum value
+        **kwargs: Additional arguments to pass to the core constructor
+            (e.g., id, name, sharedModifier, unsharedKeys)
+    
+    Returns:
+        A new CodeObjCore instance of the appropriate type
     \"\"\"
-    # Build kwargs dict with only non-None values
-    core_kwargs = {}
-    if id is not None:
-        core_kwargs['id'] = id
-    if name is not None:
-        core_kwargs['name'] = name
-    if implLayerings is not None:
-        core_kwargs['implLayerings'] = implLayerings
-    if defaultImplLayering is not None:
-        core_kwargs['defaultImplLayering'] = defaultImplLayering
-    if sharedModifier is not None:
-        core_kwargs['sharedModifier'] = sharedModifier
-    if unsharedKeys is not None:
-        core_kwargs['unsharedKeys'] = unsharedKeys 
 """
 
     # Generate code obj cases
