@@ -11,8 +11,7 @@ EXCLUSIONS = set(["id", "name", "type", "isPreset"])
 
 # Default unsharedKeys for each section type
 # Add or modify entries here to set default unshared keys
-# Example: "Callable": {"hideParams", "callable", "configLanguage"}
-DEFAULT_UNSHARED_KEYS: Dict[str, Set[str]] = {
+DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
     "Callable": {"callable", "codeObjImplLayeringMap"},
     "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
     "ListRoot": set(),
@@ -32,6 +31,19 @@ DEFAULT_UNSHARED_KEYS: Dict[str, Set[str]] = {
     "Browser": set(),
 }
 
+# Default unsharedKeys for each code obj type
+DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
+    "CodeCallable": set(),
+    "CodeParam": set(),
+    "TextParam": set(),
+    "SliderParam": set(),
+    "SwitchParam": set(),
+    "ColorPickerParam": set(),
+    "DropdownParam": set(),
+    "PasswordParam": set(),
+    "NestedParam": set(),
+}
+
 
 def get_all_field_names(impl_class: type[BaseModel]) -> Set[str]:
     """Get all field names for a class, including inherited fields."""
@@ -45,8 +57,14 @@ def get_all_field_names(impl_class: type[BaseModel]) -> Set[str]:
     return field_names
 
 
-def generate_section_core_class(section_type: str, impl_class: type[BaseModel]) -> str:
-    """Generate a single SectionCore class definition."""
+def generate_core_class(
+    type_name: str,
+    impl_class: type[BaseModel],
+    core_class_suffix: str,
+    modifier_suffix: str,
+    default_keys: Set[str],
+) -> str:
+    """Generate a single Core class definition."""
 
     # Get all field names for the impl class
     field_names = get_all_field_names(impl_class)
@@ -59,14 +77,11 @@ def generate_section_core_class(section_type: str, impl_class: type[BaseModel]) 
         f'"{field}"' for field in sorted_fields if field not in EXCLUSIONS
     )
 
-    # Get default unshared keys for this section type
-    default_keys = DEFAULT_UNSHARED_KEYS[section_type]
-
     # Validate that default keys exist in the impl class
     invalid_keys = default_keys - field_names
     if invalid_keys:
         raise ValueError(
-            f"Invalid default unshared keys for {section_type}: {invalid_keys}. "
+            f"Invalid default unshared keys for {type_name}: {invalid_keys}. "
             f"Valid keys are: {sorted_fields}"
         )
 
@@ -81,9 +96,9 @@ def generate_section_core_class(section_type: str, impl_class: type[BaseModel]) 
 
     # Generate the class definition
     class_def = f"""
-class {section_type}SectionCore(BaseSectionCore):
-    \"\"\"Core configuration for {section_type} sections.\"\"\"
-    sharedModifier: {section_type}SectionImplModifier
+class {type_name}{core_class_suffix}(Base{core_class_suffix}):
+    \"\"\"Core configuration for {type_name} {"sections" if "Section" in core_class_suffix else "code objects"}.\"\"\"
+    sharedModifier: {type_name}{modifier_suffix}
     unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
 """
 
@@ -127,7 +142,14 @@ from setta.types.generated.impl_modifiers import (
     class_definitions = []
     for cls in concrete_classes:
         section_type = cls.model_fields["type"].default.value
-        class_def = generate_section_core_class(section_type, cls)
+        default_keys = DEFAULT_SECTION_UNSHARED_KEYS[section_type]
+        class_def = generate_core_class(
+            section_type,
+            cls,
+            "SectionCore",
+            "SectionImplModifier",
+            default_keys,
+        )
         class_definitions.append(class_def)
 
     # Combine all parts
@@ -141,18 +163,81 @@ from setta.types.generated.impl_modifiers import (
     return f"{header}{imports}\n\n{classes_str}"
 
 
+def generate_code_obj_cores() -> str:
+    """Generate all CodeObjCore classes."""
+    import setta.types.code_obj_impls
+
+    # Get all concrete code obj impl classes
+    concrete_classes = find_sub_classes(
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
+        "type",
+        False,  # Only concrete classes
+        False,
+    )
+
+    # Sort classes by their type value for consistent output
+    concrete_classes.sort(key=lambda cls: cls.model_fields["type"].default.value)
+
+    # Generate modifier imports list
+    modifier_imports = []
+    for cls in concrete_classes:
+        code_obj_type = cls.model_fields["type"].default.value
+        modifier_imports.append(f"    {code_obj_type}CodeObjImplModifier,")
+    modifier_imports_str = "\n".join(modifier_imports)
+
+    # Generate imports
+    imports = f"""from typing import Literal
+from pydantic import Field
+
+from setta.types.code_obj_core import BaseCodeObjCore
+
+from setta.types.generated.impl_modifiers import (
+{modifier_imports_str}
+)"""
+
+    # Generate class definitions
+    class_definitions = []
+    for cls in concrete_classes:
+        code_obj_type = cls.model_fields["type"].default.value
+        default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[code_obj_type]
+        class_def = generate_core_class(
+            code_obj_type,
+            cls,
+            "CodeObjCore",
+            "CodeObjImplModifier",
+            default_keys,
+        )
+        class_definitions.append(class_def)
+
+    # Combine all parts
+    header = """# Auto-generated CodeObjCore classes - DO NOT EDIT MANUALLY
+# Generated from code obj implementations
+
+"""
+
+    classes_str = "\n".join(class_definitions)
+
+    return f"{header}{imports}\n\n{classes_str}"
+
+
 def main(output_folder: Path):
-    """Generate all SectionCore classes."""
-    # Generate the code
-    code = generate_section_cores()
+    """Generate all Core classes."""
+    # Generate section cores
+    section_code = generate_section_cores()
+    formatted_section = ruff_format(section_code)
 
-    # Format with ruff
-    formatted = ruff_format(code)
+    section_output_file = output_folder / "section_cores.py"
+    section_output_file.write_text(formatted_section)
+    print(f"Generated SectionCore classes in {section_output_file}")
 
-    # Write output
-    output_file = output_folder / "section_cores.py"
-    output_file.write_text(formatted)
-    print(f"Generated SectionCore classes in {output_file}")
+    # Generate code obj cores
+    code_obj_code = generate_code_obj_cores()
+    formatted_code_obj = ruff_format(code_obj_code)
+
+    code_obj_output_file = output_folder / "code_obj_cores.py"
+    code_obj_output_file.write_text(formatted_code_obj)
+    print(f"Generated CodeObjCore classes in {code_obj_output_file}")
 
 
 if __name__ == "__main__":

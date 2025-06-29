@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from setta.types.code_obj_core import CodeObjCore
+from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -86,7 +86,7 @@ def build_parent_map(
 
 
 def build_ancestor_paths(
-    codeObjs: dict[str, CodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
     codeObjImplLayeringMap: dict[str, str],

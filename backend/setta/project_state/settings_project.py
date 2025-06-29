@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.types.code_obj_core import CodeObjCore
+from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
@@ -43,7 +43,7 @@ def is_color_hex(string):
 def add_code_obj_details(
     codeObjName: str,
     codeObjImpl: BaseCodeObjImplUnion,
-    codeObjs: dict[str, CodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
@@ -53,7 +53,7 @@ def add_code_obj_details(
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
 
-    codeObj = CodeObjCore(
+    codeObj = BaseCodeObjCore(
         name=codeObjName,
         implLayerings=[codeObjImplLayering.id],
         defaultImplLayering=codeObjImplLayering.id,
@@ -64,7 +64,7 @@ def add_code_obj_details(
 
 def process_model_fields(
     model_class: type[BaseModel],
-    codeObjs: dict[str, CodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
@@ -109,7 +109,7 @@ def process_model_fields(
 
 def create_settings_code_objs(section_names):
     sectionToTopLevelIds: dict[str, list[str]] = {}
-    codeObjs: dict[str, CodeObjCore] = {}
+    codeObjs: dict[str, BaseCodeObjCore] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, ImplLayering] = {}
     codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}

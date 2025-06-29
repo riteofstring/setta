@@ -5,7 +5,7 @@ import logging
 from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.types.code_obj_core import CodeObjCore
+from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
-    codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
+    codeObjs: dict[str, BaseCodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
 
@@ -57,7 +57,7 @@ class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, BaseSectionCore]
     sectionImpls: dict[str, BaseSectionImplUnion]
     sectionImplLayerings: dict[str, ImplLayering]
-    codeObjs: dict[str, CodeObjCore]
+    codeObjs: dict[str, BaseCodeObjCore]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
     codeObjImplLayerings: dict[str, ImplLayering]
 
@@ -104,7 +104,7 @@ def merge_into_existing(
     new_data: ProcessedJSONObject,
     section_impl: BaseDictSectionImpl,
     section_impl_modifier: BaseDictSectionImplModifier,
-    codeObjs: dict[str, CodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCore],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
@@ -267,7 +267,7 @@ def add_to_processed_json_object(
         impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
     )
     layeringId = codeObjImplLayering.id
-    codeObj = CodeObjCore(
+    codeObj = BaseCodeObjCore(
         name=key,
         implLayerings=[layeringId],
         defaultImplLayering=layeringId,

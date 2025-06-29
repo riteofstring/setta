@@ -7,7 +7,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_core import CodeObjCore
+from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnionWithDiscriminator,
 )
@@ -58,7 +58,7 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         default_factory=dict
     )
     sectionImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
-    codeObjs: dict[str, CodeObjCore] = Field(default_factory=dict)
+    codeObjs: dict[str, BaseCodeObjCore] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )

@@ -3497,19 +3497,21 @@ export function createImplLayering(
   return ImplLayeringSchema.parse(options);
 }
 
-export const CodeObjCoreSchema = z.object({
+export const BaseCodeObjCoreSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: z.any(),
+  unsharedKeys: z.any(),
 });
 
-export type CodeObjCore = z.infer<typeof CodeObjCoreSchema>;
+export type BaseCodeObjCore = z.infer<typeof BaseCodeObjCoreSchema>;
 
-export function createCodeObjCore(
-  options: Partial<CodeObjCore> = {},
-): CodeObjCore {
-  return CodeObjCoreSchema.parse(options);
+export function createBaseCodeObjCore(
+  options: Partial<BaseCodeObjCore> = {},
+): BaseCodeObjCore {
+  return BaseCodeObjCoreSchema.parse(options);
 }
 
 export const ViewportSchema = z.object({
@@ -3592,7 +3594,7 @@ export const ProjectStateSingleConfigSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
+  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -5336,6 +5338,267 @@ export function createBaseParentCodeObjImpl(
   return BaseParentCodeObjImplSchema.parse(options);
 }
 
+export const CodeCallableCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: CodeCallableCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(z.literal(["children", "description"]))
+    .default(new Set()),
+});
+
+export type CodeCallableCodeObjCore = z.infer<
+  typeof CodeCallableCodeObjCoreSchema
+>;
+
+export function createCodeCallableCodeObjCore(
+  options: Partial<CodeCallableCodeObjCore> = {},
+): CodeCallableCodeObjCore {
+  return CodeCallableCodeObjCoreSchema.parse(options);
+}
+
+export const CodeParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: CodeParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type CodeParamCodeObjCore = z.infer<typeof CodeParamCodeObjCoreSchema>;
+
+export function createCodeParamCodeObjCore(
+  options: Partial<CodeParamCodeObjCore> = {},
+): CodeParamCodeObjCore {
+  return CodeParamCodeObjCoreSchema.parse(options);
+}
+
+export const ColorPickerParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: ColorPickerParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "choices",
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type ColorPickerParamCodeObjCore = z.infer<
+  typeof ColorPickerParamCodeObjCoreSchema
+>;
+
+export function createColorPickerParamCodeObjCore(
+  options: Partial<ColorPickerParamCodeObjCore> = {},
+): ColorPickerParamCodeObjCore {
+  return ColorPickerParamCodeObjCoreSchema.parse(options);
+}
+
+export const DropdownParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: DropdownParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "choices",
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type DropdownParamCodeObjCore = z.infer<
+  typeof DropdownParamCodeObjCoreSchema
+>;
+
+export function createDropdownParamCodeObjCore(
+  options: Partial<DropdownParamCodeObjCore> = {},
+): DropdownParamCodeObjCore {
+  return DropdownParamCodeObjCoreSchema.parse(options);
+}
+
+export const NestedParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: NestedParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "children",
+        "coreNameEditable",
+        "coreNameType",
+        "description",
+        "passingStyle",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type NestedParamCodeObjCore = z.infer<
+  typeof NestedParamCodeObjCoreSchema
+>;
+
+export function createNestedParamCodeObjCore(
+  options: Partial<NestedParamCodeObjCore> = {},
+): NestedParamCodeObjCore {
+  return NestedParamCodeObjCoreSchema.parse(options);
+}
+
+export const PasswordParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: PasswordParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type PasswordParamCodeObjCore = z.infer<
+  typeof PasswordParamCodeObjCoreSchema
+>;
+
+export function createPasswordParamCodeObjCore(
+  options: Partial<PasswordParamCodeObjCore> = {},
+): PasswordParamCodeObjCore {
+  return PasswordParamCodeObjCoreSchema.parse(options);
+}
+
+export const SliderParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: SliderParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "max",
+        "min",
+        "passingStyle",
+        "step",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type SliderParamCodeObjCore = z.infer<
+  typeof SliderParamCodeObjCoreSchema
+>;
+
+export function createSliderParamCodeObjCore(
+  options: Partial<SliderParamCodeObjCore> = {},
+): SliderParamCodeObjCore {
+  return SliderParamCodeObjCoreSchema.parse(options);
+}
+
+export const SwitchParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: SwitchParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type SwitchParamCodeObjCore = z.infer<
+  typeof SwitchParamCodeObjCoreSchema
+>;
+
+export function createSwitchParamCodeObjCore(
+  options: Partial<SwitchParamCodeObjCore> = {},
+): SwitchParamCodeObjCore {
+  return SwitchParamCodeObjCoreSchema.parse(options);
+}
+
+export const TextParamCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: TextParamCodeObjImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "passingStyle",
+        "value",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type TextParamCodeObjCore = z.infer<typeof TextParamCodeObjCoreSchema>;
+
+export function createTextParamCodeObjCore(
+  options: Partial<TextParamCodeObjCore> = {},
+): TextParamCodeObjCore {
+  return TextParamCodeObjCoreSchema.parse(options);
+}
+
 export const BrowserSectionCoreSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -5401,7 +5664,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => new Set(["callable", "codeObjImplLayeringMap"] as const)),
+    .default(() => new Set(["codeObjImplLayeringMap", "callable"] as const)),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
@@ -5581,7 +5844,7 @@ export const DictSectionCoreSchema = z.object({
       ]),
     )
     .default(
-      () => new Set(["codeObjImplLayeringMap", "topLevelParamIds"] as const),
+      () => new Set(["topLevelParamIds", "codeObjImplLayeringMap"] as const),
     ),
 });
 
@@ -6240,7 +6503,7 @@ export const ProjectStateBackendSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
+  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -6325,7 +6588,7 @@ export const ProjectStateCoreSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), CodeObjCoreSchema).default({}),
+  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -7121,7 +7384,7 @@ export const LoadJSONSourceObjectSchema = z.object({
     ]),
   ),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema),
-  codeObjs: z.record(z.string(), CodeObjCoreSchema),
+  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema),
   codeObjImpls: z.record(
     z.string(),
     z.union([
