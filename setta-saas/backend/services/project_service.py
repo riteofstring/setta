@@ -96,8 +96,11 @@ class ProjectService:
         # Delete from Fly.io
         if app_name:
             try:
-                self.fly.delete_app(app_name)
-                print(f"Deleted Fly.io app: {app_name}")
+                destroyed = self.fly.destroy_app(app_name)
+                if destroyed:
+                    print(f"Deleted Fly.io app: {app_name}")
+                else:
+                    print(f"Failed to delete Fly.io app {app_name}")
             except Exception as e:
                 print(f"Failed to delete Fly.io app {app_name}: {str(e)}")
 
@@ -127,7 +130,11 @@ class ProjectService:
 
         try:
             app_name = project.url.split("//")[1].split(".")[0]
-            status = self.fly.check_app_status(app_name)
+
+            # Import get_app_status from deployment module
+            from fly.deployment import get_app_status
+
+            status = await asyncio.to_thread(get_app_status, self.fly.client, app_name)
 
             if status:
                 project.status = "running"
@@ -136,7 +143,9 @@ class ProjectService:
 
                 # Get machine ID if we don't have it
                 if not project.machine_id:
-                    machines = self.fly.list_machines(app_name)
+                    from fly.deployment import list_machines
+
+                    machines = await asyncio.to_thread(list_machines, self.fly.client, app_name)
                     if machines:
                         project.machine_id = machines[0]["id"]
                         self.db.commit()
@@ -160,7 +169,8 @@ class ProjectService:
             app_name = project.url.split("//")[1].split(".")[0]
 
             # Get machine state
-            state = self.fly.get_machine_state(app_name, project.machine_id)
+            status = self.fly.get_machine_status(app_name, project.machine_id)
+            state = status.get("state")
 
             if state:
                 project.machine_state = state
@@ -183,7 +193,13 @@ class ProjectService:
             try:
                 if project.status == "creating" and project.url != "Creating...":
                     app_name = project.url.split("//")[1].split(".")[0]
-                    if self.fly.check_app_status(app_name):
+
+                    # Import get_app_status from deployment module
+                    from fly.deployment import get_app_status
+
+                    status = get_app_status(self.fly.client, app_name)
+
+                    if status:
                         project.status = "running"
                         project.last_checked = datetime.utcnow()
                         updated += 1
@@ -264,59 +280,24 @@ class ProjectService:
             # Step 1: Creating app
             await self._update_progress(project, DeploymentStep.CREATING_APP, 10)
 
-            fly_config = self.fly.create_fly_config(
-                app_name=app_name,
-                github_url=project.github_url,
-            )
-
-            # Step 2: Allocating IPs
+            # Step 2-5: Deploy using FlyService's create_and_deploy_app method
             await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 20)
 
-            success = self.fly.create_app(app_name)
-            if not success:
-                raise Exception("Failed to create Fly.io app")
+            # Deploy the app - this handles app creation, IP allocation, and machine deployment
+            deployment_result = await asyncio.to_thread(self.fly.create_and_deploy_app, app_name)
 
-            # Step 3: Allocating IPs
-            await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 30)
-
-            # Allocate IP addresses
-            self.fly.allocate_ips(app_name)
-            await asyncio.sleep(2)  # Give Fly.io time to allocate
-
-            # Step 4: Deploying machine
+            # Update progress as deployment completes
             await self._update_progress(project, DeploymentStep.DEPLOYING_MACHINE, 50)
-
-            # Deploy the app
-            deploy_success = self.fly.deploy_app(app_name, fly_config)
-            if not deploy_success:
-                raise Exception("Failed to deploy application")
-
-            # Step 5: Waiting for DNS
             await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, 70)
-
-            # Wait for app to be ready
-            max_attempts = 30
-            for attempt in range(max_attempts):
-                if self.fly.check_app_status(app_name):
-                    break
-                await asyncio.sleep(2)
-
-                # Update progress during waiting
-                progress = 70 + (20 * (attempt / max_attempts))
-                await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, int(progress))
 
             # Step 6: Verifying deployment
             await self._update_progress(project, DeploymentStep.VERIFYING_DEPLOYMENT, 90)
 
-            # Get machine ID
-            machines = self.fly.list_machines(app_name)
-            machine_id = machines[0]["id"] if machines else None
-
             # Update project with success
-            project.url = f"https://{app_name}.fly.dev"
+            project.url = deployment_result["url"]
             project.status = "running"
-            project.machine_id = machine_id
-            project.machine_state = "started"
+            project.machine_id = deployment_result.get("machine_id")
+            project.machine_state = deployment_result.get("machine_state", "started")
             db.commit()
 
             # Step 7: Complete
@@ -341,6 +322,12 @@ class ProjectService:
             await self._broadcast_project_event(
                 project, EventType.PROJECT_ERROR, f"Deployment failed: {str(e)}"
             )
+
+            # Try to cleanup if app was partially created
+            try:
+                self.fly.destroy_app(app_name)
+            except Exception:
+                pass  # Ignore cleanup errors
 
         finally:
             db.close()
