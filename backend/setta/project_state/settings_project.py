@@ -1,3 +1,5 @@
+from enum import Enum
+from inspect import isclass
 import re
 from pathlib import Path
 
@@ -44,57 +46,26 @@ def is_color_hex(string):
 
 
 def create_settings_code_objs(section_names):
-    grid_dropdown = DropdownParamCodeObjImpl(
-        name="Grid Patterns",
-        choices=[f'"{b.value}"' for b in BackgroundVariant],
-        isPreset=True,
-    )
-
-    selection_dropdown = DropdownParamCodeObjImpl(
-        name="Selection Modes",
-        choices=[f'"{b.value}"' for b in SelectionMode],
-        isPreset=True,
-    )
-
-    pan_dropdown = DropdownParamCodeObjImpl(
-        name="Pan-On-Scroll Modes",
-        choices=[f'"{b.value}"' for b in PanOnScrollMode],
-        isPreset=True,
-    )
-
     color_picker = ColorPickerParamCodeObjImpl()
-
     switch = SwitchParamCodeObjImpl()
 
     codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImplUnion]]] = {
         s: [] for s in section_names
     }
-    codeObjsAndImpls["gui"].append(
-        (
-            "selectionMode",
-            selection_dropdown,
-        )
-    )
-    codeObjsAndImpls["gui"].append(
-        (
-            "gridPattern",
-            grid_dropdown,
-        )
-    )
-    codeObjsAndImpls["gui"].append(
-        (
-            "panOnScrollMode",
-            pan_dropdown,
-        )
-    )
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
         if issubclass(d, BaseModel):  # type: ignore
             for k, v in d.model_fields.items():
-                print(v.default)
                 if v.annotation is bool:
                     codeObjsAndImpls[s].append((k, switch))
+                elif isclass(v.annotation) and issubclass(v.annotation, Enum):
+                    preset_impl = DropdownParamCodeObjImpl(
+                        name=v.annotation.__name__,
+                        choices=[f'"{b.value}"' for b in v.annotation],
+                        isPreset=True,
+                    )
+                    codeObjsAndImpls[s].append((k, preset_impl))
                 elif isinstance(v.default, str) and is_color_hex(v.default):
                     codeObjsAndImpls[s].append((k, color_picker))
 
