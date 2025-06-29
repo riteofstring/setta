@@ -25,17 +25,17 @@ from typing import (
 
 import setta.routers
 import setta.types
-import setta.types.code_objs
+import setta.types.code_obj_impls
 import setta.types.generated
 import setta.types.generated.impl_modifiers
-import setta.types.sections
+import setta.types.section_impls
 import setta.types.websocket
 from fastapi import WebSocket
 from pydantic import AnyUrl, BaseModel
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
-from setta.types.code_objs import BaseCodeObjImpl
-from setta.types.sections import BaseSectionImpl
+from setta.types.code_obj_impls import BaseCodeObjImpl
+from setta.types.section_impls import BaseSectionImpl
 from setta.types.websocket import WebsocketMsg
 from setta.utils.utils import get_absolute_path
 
@@ -626,9 +626,9 @@ def create_type_predicate_fns_from_sets(all_sets):
     code = ""
     for x_name in all_sets.keys():
         type_name = x_name.rstrip("TypeSet")
-        actual_type = getattr(setta.types.sections, type_name, None)
+        actual_type = getattr(setta.types.section_impls, type_name, None)
         if not actual_type:
-            actual_type = getattr(setta.types.code_objs, type_name, None)
+            actual_type = getattr(setta.types.code_obj_impls, type_name, None)
         if not actual_type:
             actual_type = getattr(setta.types.generated.impl_modifiers, type_name, None)
         if not actual_type:
@@ -661,8 +661,8 @@ export function is{type_name}(x: {input_type}): x is {type_name}{{
 
 def create_default_getter_functions():
     """Generate getSectionDefault and getCodeObjDefault functions."""
-    from setta.types.code_objs import CodeObjType
-    from setta.types.sections import SectionType
+    from setta.types.code_obj_impls import CodeObjType
+    from setta.types.section_impls import SectionType
 
     # Generate getSectionDefault
     section_cases = []

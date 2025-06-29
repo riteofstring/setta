@@ -1,6 +1,6 @@
 from typing import Any, Literal, NotRequired, TypedDict
 
-from setta.types.sections import (
+from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,
@@ -153,7 +153,7 @@ class BrowserSectionImplModifier(BaseSectionImplModifier):
 
 from typing import Any, Literal, NotRequired, TypedDict
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
     ParameterPassingStyle,

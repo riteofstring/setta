@@ -2,7 +2,7 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,

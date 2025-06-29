@@ -6,7 +6,7 @@ from lsprotocol import types as LSPTypes
 from setta.code_gen.dependency_graph import DependencyGraph, GraphKeyType, ParamNode
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import line_col_to_position_batch
-from setta.types.code_objs import ParameterPassingStyle
+from setta.types.code_obj_impls import ParameterPassingStyle
 from setta.types.lsp import SettaGenCodeDiagnostic, SettaLSPPosition
 
 

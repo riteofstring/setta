@@ -32,13 +32,13 @@ def generate_conversion_function():
     imports = ["from typing import Union, overload\n"]
 
     # Section imports
-    imports.append("from setta.types.sections import (")
+    imports.append("from setta.types.section_impls import (")
     for impl_name in section_impl_names:
         imports.append(f"    {impl_name},")
     imports.append(")\n")
 
     # Code obj imports
-    imports.append("from setta.types.code_objs import (")
+    imports.append("from setta.types.code_obj_impls import (")
     for impl_name in code_obj_impl_names:
         imports.append(f"    {impl_name},")
     imports.append(")\n")

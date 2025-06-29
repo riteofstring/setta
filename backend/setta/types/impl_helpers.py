@@ -2,7 +2,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
 )
 from setta.types.generated.impl_modifier_unions import AllImplModifierUnion

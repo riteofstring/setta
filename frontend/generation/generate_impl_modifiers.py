@@ -134,19 +134,27 @@ class {name}Modifier({parent_class}):
 
 
 def section_impl_modifiers():
-    import setta.types.sections
+    import setta.types.section_impls
 
     classes = find_sub_classes(
-        setta.types.sections, setta.types.sections.BaseSectionImpl, "type", True, False
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+        "type",
+        True,
+        False,
     )
     classes += find_sub_classes(
-        setta.types.sections, setta.types.sections.BaseSectionImpl, "type", False, False
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+        "type",
+        False,
+        False,
     )
-    classes = [setta.types.sections.BaseSectionImpl, *classes]
+    classes = [setta.types.section_impls.BaseSectionImpl, *classes]
 
     code = """
 from typing import TypedDict, Literal, Any, NotRequired
-from setta.types.sections import (
+from setta.types.section_impls import (
     ChartSettings,
     DrawAreaCanvasSettings,
     SectionSize,
@@ -161,33 +169,33 @@ from setta.types.sections import (
 
 """
     for c in classes:
-        code += create_typed_dict(c, setta.types.sections.BaseSectionImpl)
+        code += create_typed_dict(c, setta.types.section_impls.BaseSectionImpl)
 
     return code
 
 
 def code_obj_impl_modifiers():
-    import setta.types.code_objs
+    import setta.types.code_obj_impls
 
     classes = find_sub_classes(
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         True,
         False,
     )
     classes += find_sub_classes(
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         False,
         False,
     )
-    classes = [setta.types.code_objs.BaseCodeObjImpl, *classes]
+    classes = [setta.types.code_obj_impls.BaseCodeObjImpl, *classes]
 
     code = """
 from typing import TypedDict, Literal, Any, NotRequired
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
     ColorPickerChoice,
@@ -196,7 +204,7 @@ from setta.types.code_objs import (
 
 """
     for c in classes:
-        code += create_typed_dict(c, setta.types.code_objs.BaseCodeObjImpl)
+        code += create_typed_dict(c, setta.types.code_obj_impls.BaseCodeObjImpl)
 
     return code
 

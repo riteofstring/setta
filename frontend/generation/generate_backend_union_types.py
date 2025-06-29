@@ -101,25 +101,25 @@ from pydantic import Field, TypeAdapter
 
 
 def section_impl_union():
-    import setta.types.sections
+    import setta.types.section_impls
 
     return construct_unions(
-        setta.types.sections,
-        setta.types.sections.BaseSectionImpl,
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
         "type",
-        setta.types.sections,
+        setta.types.section_impls,
         lambda x: x,
     )
 
 
 def code_obj_impl_union():
-    import setta.types.code_objs
+    import setta.types.code_obj_impls
 
     return construct_unions(
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
-        setta.types.code_objs,
+        setta.types.code_obj_impls,
         lambda x: x,
     )
 
@@ -146,13 +146,13 @@ def add_type_predicate_fns(most_base_type, base_class_to_children, class_transfo
 
 
 def impl_modifier_union():
-    import setta.types.code_objs
+    import setta.types.code_obj_impls
     import setta.types.generated.impl_modifiers
-    import setta.types.sections
+    import setta.types.section_impls
 
     code1, base_class_to_children1 = construct_unions(
-        setta.types.sections,
-        setta.types.sections.BaseSectionImpl,
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
         "type",
         setta.types.generated.impl_modifiers,
         lambda x: f"{x}Modifier",
@@ -160,8 +160,8 @@ def impl_modifier_union():
     )
 
     code2, base_class_to_children2 = construct_unions(
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         setta.types.generated.impl_modifiers,
         lambda x: f"{x}Modifier",

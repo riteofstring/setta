@@ -14,8 +14,8 @@ def generate_settings_state() -> str:
     - One attribute for each CodeObjType enum value (e.g., sliderParamDefault)
     """
     # Import the enums
-    from setta.types.code_objs import CodeObjType
-    from setta.types.sections import SectionType
+    from setta.types.code_obj_impls import CodeObjType
+    from setta.types.section_impls import SectionType
 
     # Build imports list
     imports = []

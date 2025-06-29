@@ -246,26 +246,26 @@ def process_module_classes(
 
 def main(output_folder: Path):
     """Generate all UserDefault classes."""
-    import setta.types.code_objs
-    import setta.types.sections
+    import setta.types.code_obj_impls
+    import setta.types.section_impls
 
     # Get source file paths
-    sections_file = Path(inspect.getfile(setta.types.sections))
-    code_objs_file = Path(inspect.getfile(setta.types.code_objs))
+    sections_file = Path(inspect.getfile(setta.types.section_impls))
+    code_objs_file = Path(inspect.getfile(setta.types.code_obj_impls))
 
     # Process both modules
     sections_classes = process_module_classes(
         sections_file,
-        setta.types.sections,
-        setta.types.sections.BaseSectionImpl,
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
         "type",
         SECTION_EXCLUSIONS,
     )
 
     code_objs_classes = process_module_classes(
         code_objs_file,
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         CODE_OBJ_EXCLUSIONS,
     )
@@ -278,7 +278,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 # Section type imports
-from setta.types.sections import (
+from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,
@@ -292,7 +292,7 @@ from setta.types.sections import (
 )
 
 # Code object type imports
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
     ParameterPassingStyle,

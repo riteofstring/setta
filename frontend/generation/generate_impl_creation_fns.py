@@ -31,20 +31,20 @@ def create{class_name}(
 def generate_creation_functions_module() -> str:
     """Generate the module containing all creation functions."""
     # Get all concrete classes
-    import setta.types.code_objs
-    import setta.types.sections
+    import setta.types.code_obj_impls
+    import setta.types.section_impls
 
     section_classes = find_sub_classes(
-        setta.types.sections,
-        setta.types.sections.BaseSectionImpl,
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
         "type",
         False,  # Only concrete classes
         False,
     )
 
     code_obj_classes = find_sub_classes(
-        setta.types.code_objs,
-        setta.types.code_objs.BaseCodeObjImpl,
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         False,  # Only concrete classes
         False,
@@ -90,11 +90,11 @@ def generate_creation_functions_module() -> str:
 # Generated from section and code obj implementations
 
 # Import implementation classes
-from setta.types.sections import (
+from setta.types.section_impls import (
     {section_imports_str}
 )
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     {code_obj_imports_str}
 )
 

@@ -6,13 +6,13 @@ from typing import Literal, Union
 from pydantic import BaseModel, Field
 
 # Code object type imports
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     ColorPickerChoice,
     ParamNameType,
 )
 
 # Section type imports
-from setta.types.sections import (
+from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,

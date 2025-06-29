@@ -12,7 +12,7 @@ from setta.types.impl_helpers import get_effective_impl
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import DictSectionImpl
+from setta.types.section_impls import DictSectionImpl
 from setta.utils.constants import SETTA_FILES_FOLDER
 from setta.utils.utils import save_json_to_file
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender

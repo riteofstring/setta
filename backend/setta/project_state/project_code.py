@@ -23,7 +23,7 @@ from setta.project_state.lsp_response_handlers.diagnostics import (
 from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
-from setta.types.code_objs import CodeCallableCodeObjImpl, CodeObjCore, CodeObjType
+from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjCore, CodeObjType
 from setta.types.generated.creation_functions import createCodeCallableCodeObjImpl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers import (
@@ -41,7 +41,7 @@ from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     CallableSectionImpl,
     CodeSectionImpl,
     SectionType,

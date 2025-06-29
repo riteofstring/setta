@@ -5,7 +5,7 @@ import logging
 from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
     CodeObjCore,
@@ -37,7 +37,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     BaseDictSectionImpl,
     SectionCore,
     SectionType,

@@ -1,6 +1,6 @@
 from typing import Union, overload
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -48,7 +48,7 @@ from setta.types.generated.impl_modifiers import (
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,

@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeObjCore,
@@ -13,7 +13,7 @@ from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import DictSectionImpl
+from setta.types.section_impls import DictSectionImpl
 from setta.utils.utils import save_json_to_file, try_json
 
 

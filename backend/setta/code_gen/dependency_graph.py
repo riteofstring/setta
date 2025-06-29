@@ -7,7 +7,7 @@ from setta.code_gen.utils import (
     create_unique_name,
     sanitize_name,
 )
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     CodeObjType,
     ParameterPassingStyle,
@@ -22,7 +22,7 @@ from setta.types.helpers import (
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     BaseParentSectionImpl,
     CallableSectionImpl,
     DictRootSectionImpl,

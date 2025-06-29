@@ -5,7 +5,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeObjCore,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
@@ -26,7 +26,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     ConfigLanguage,
     DictSectionImpl,
     SectionCore,

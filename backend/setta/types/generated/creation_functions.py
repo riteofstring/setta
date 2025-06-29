@@ -2,7 +2,7 @@
 # Generated from section and code obj implementations
 
 # Import implementation classes
-from setta.types.code_objs import (
+from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -43,7 +43,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
 )
-from setta.types.sections import (
+from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
