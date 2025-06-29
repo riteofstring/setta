@@ -1,15 +1,25 @@
 import asyncio
 import os
 
-from fly.client import Client
-
-from .fly_deployment_config import get_machine_config, validate_github_url
-from .fly_helpers import (
+from fly.client import FlyClient
+from fly.deployment import (
     allocate_ips,
     create_and_deploy_machine,
     create_app,
+    delete_all_apps_in_org,
+    delete_app_force,
+    get_organization_id,
+    list_all_apps,
     wait_for_app_ready,
 )
+from fly.deployment import (
+    start_machine as fly_start_machine,
+)
+from fly.deployment import (
+    stop_machine as fly_stop_machine,
+)
+
+from .fly_deployment_config import get_machine_config, validate_github_url
 from .websocket_service import ConnectionManager
 
 
@@ -19,24 +29,10 @@ class FlyService:
         if not self.api_token:
             raise ValueError("FLY_API_TOKEN environment variable is required")
 
-        self.client = Client(access_token=self.api_token)
-        self.org_id = self._get_org_id()
+        self.client = FlyClient(api_token=self.api_token)
+        self.org_slug = os.getenv("FLY_ORG_SLUG", "personal")
+        self.org_id = get_organization_id(self.client, self.org_slug)
         self.ws_manager = ConnectionManager()
-
-    def _get_org_id(self) -> str:
-        """Get the organization ID from environment or default."""
-        orgs = self.client.list_orgs()
-        if not orgs:
-            raise ValueError("No organizations found for this Fly.io account")
-
-        # Try to use specified org or default to personal
-        org_slug = os.getenv("FLY_ORG_SLUG", "personal")
-        for org in orgs:
-            if org["slug"] == org_slug:
-                return org["id"]
-
-        # Fallback to first org
-        return orgs[0]["id"]
 
     async def create_and_deploy_app_with_progress(
         self, app_name: str, project_id: str, github_url: str | None = None
@@ -194,8 +190,11 @@ class FlyService:
         """Clean up a failed app deployment."""
         try:
             print(f"Cleaning up failed deployment for {app_name}...")
-            self.client.delete_app(app_name)
-            print("✓ Cleanup complete")
+            result = delete_app_force(self.client, app_name)
+            if result.get("success"):
+                print("✓ Cleanup complete")
+            else:
+                print(f"⚠ Cleanup failed: {result.get('error')}")
         except Exception as e:
             print(f"⚠ Cleanup failed: {str(e)}")
 
@@ -203,9 +202,13 @@ class FlyService:
         """Destroy a Fly.io app and all its resources."""
         try:
             print(f"Destroying app '{app_name}'...")
-            self.client.delete_app(app_name)
-            print(f"✓ App '{app_name}' destroyed")
-            return True
+            result = delete_app_force(self.client, app_name)
+            if result.get("success"):
+                print(f"✓ App '{app_name}' destroyed")
+                return True
+            else:
+                print(f"✗ Failed to destroy app: {result.get('error')}")
+                return False
         except Exception as e:
             print(f"✗ Error destroying app: {str(e)}")
             raise
@@ -213,7 +216,7 @@ class FlyService:
     def get_machine_status(self, app_name: str, machine_id: str) -> dict:
         """Get the current status of a machine."""
         try:
-            machine = self.client._api_get(f"/apps/{app_name}/machines/{machine_id}")
+            machine = self.client.get_machine(app_name, machine_id)
             return {
                 "state": machine.get("state", "unknown"),
                 "instance_id": machine.get("instance_id"),
@@ -227,8 +230,7 @@ class FlyService:
     def start_machine(self, app_name: str, machine_id: str) -> bool:
         """Start (wake up) a stopped machine."""
         try:
-            self.client._api_post(f"/apps/{app_name}/machines/{machine_id}/start")
-            return True
+            return fly_start_machine(self.client, app_name, machine_id)
         except Exception as e:
             print(f"Error starting machine: {str(e)}")
             return False
@@ -236,8 +238,7 @@ class FlyService:
     def stop_machine(self, app_name: str, machine_id: str) -> bool:
         """Stop (hibernate) a running machine."""
         try:
-            self.client._api_post(f"/apps/{app_name}/machines/{machine_id}/stop")
-            return True
+            return fly_stop_machine(self.client, app_name, machine_id)
         except Exception as e:
             print(f"Error stopping machine: {str(e)}")
             return False
@@ -245,6 +246,14 @@ class FlyService:
     async def _broadcast_deployment_progress(self, project_id: str, message: str, progress: int):
         """Broadcast deployment progress via WebSocket."""
         await self.ws_manager.broadcast_deployment_progress(project_id, message, progress)
+
+    def list_all_apps(self) -> list[dict]:
+        """List all apps in the organization."""
+        return list_all_apps(self.client, self.org_slug)
+
+    def delete_all_apps(self) -> dict:
+        """Delete ALL apps in the organization. Nuclear option!"""
+        return delete_all_apps_in_org(self.client, self.org_slug)
 
     async def _poll_and_broadcast_events(
         self, app_name: str, machine_id: str, project_id: str
