@@ -59,19 +59,22 @@ def generate_section_cores() -> str:
     # Sort classes by their type value for consistent output
     concrete_classes.sort(key=lambda cls: cls.model_fields["type"].default.value)
 
-    # Generate imports
-    imports = ["from typing import Literal"]
-    imports.append("from pydantic import Field")
-    imports.append("")
-    imports.append("from setta.types.section_core import BaseSectionCore")
-    imports.append("")
-
-    # Import all the modifier types
-    imports.append("from setta.types.generated.impl_modifiers import (")
+    # Generate modifier imports list
+    modifier_imports = []
     for cls in concrete_classes:
         section_type = cls.model_fields["type"].default.value
-        imports.append(f"    {section_type}SectionImplModifier,")
-    imports.append(")")
+        modifier_imports.append(f"    {section_type}SectionImplModifier,")
+    modifier_imports_str = "\n".join(modifier_imports)
+
+    # Generate imports
+    imports = f"""from typing import Literal
+from pydantic import Field
+
+from setta.types.section_core import BaseSectionCore
+
+from setta.types.generated.impl_modifiers import (
+{modifier_imports_str}
+)"""
 
     # Generate class definitions
     class_definitions = []
@@ -86,10 +89,9 @@ def generate_section_cores() -> str:
 
 """
 
-    imports_str = "\n".join(imports)
     classes_str = "\n".join(class_definitions)
 
-    return f"{header}{imports_str}\n\n{classes_str}"
+    return f"{header}{imports}\n\n{classes_str}"
 
 
 def main(output_folder: Path):
