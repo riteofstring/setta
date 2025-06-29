@@ -251,6 +251,32 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
+export const SectionSizeModeEnum = { auto: "auto" } as const;
+
+export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
+
+export const SectionTypeEnum = {
+  Callable: "Callable",
+  Dict: "Dict",
+  ListRoot: "ListRoot",
+  DictRoot: "DictRoot",
+  Group: "Group",
+  Image: "Image",
+  Chart: "Chart",
+  Draw: "Draw",
+  TextBlock: "TextBlock",
+  Social: "Social",
+  GlobalVariables: "GlobalVariables",
+  Code: "Code",
+  GenPythonCode: "GenPythonCode",
+  Terminal: "Terminal",
+  IFrame: "IFrame",
+  Chat: "Chat",
+  Browser: "Browser",
+} as const;
+
+export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
 export const TextBlockDisplayModeEnum = {
   render: "render",
   edit: "edit",
@@ -266,10 +292,6 @@ export const TextBlockFormatEnum = {
 } as const;
 
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const SectionSizeModeEnum = { auto: "auto" } as const;
-
-export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
 
 export const SettaNotificationTypeEnum = {
   success: "success",
@@ -362,28 +384,6 @@ export const RouteEnum = {
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
-
-export const SectionTypeEnum = {
-  Callable: "Callable",
-  Dict: "Dict",
-  ListRoot: "ListRoot",
-  DictRoot: "DictRoot",
-  Group: "Group",
-  Image: "Image",
-  Chart: "Chart",
-  Draw: "Draw",
-  TextBlock: "TextBlock",
-  Social: "Social",
-  GlobalVariables: "GlobalVariables",
-  Code: "Code",
-  GenPythonCode: "GenPythonCode",
-  Terminal: "Terminal",
-  IFrame: "IFrame",
-  Chat: "Chat",
-  Browser: "Browser",
-} as const;
-
-export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
 export const BackgroundVariantEnum = {
   lines: "lines",

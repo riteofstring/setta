@@ -53,7 +53,7 @@ def python_type_to_str(python_type):
         literals = []
         for arg in args:
             if isinstance(arg, Enum):
-                literals.append(f'"{arg.value}"')
+                literals.append(f"{arg.__class__.__name__}.{arg.name}")
             elif isinstance(arg, str):
                 literals.append(f'"{arg}"')
             elif isinstance(arg, bool):
@@ -154,7 +154,9 @@ from setta.types.sections import (
     CodeLanguage,
     ConfigLanguage,
     TextBlockDisplayMode,
-    TextBlockFormat
+    TextBlockFormat,
+    SectionType,
+    SectionSizeMode
 )
 
 """
@@ -188,7 +190,8 @@ from typing import TypedDict, Literal, Any, NotRequired
 from setta.types.code_objs import (
     ParameterPassingStyle,
     ParamNameType,
-    ColorPickerChoice
+    ColorPickerChoice,
+    CodeObjType
 )
 
 """

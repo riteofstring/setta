@@ -6,6 +6,8 @@ from setta.types.sections import (
     ConfigLanguage,
     DrawAreaCanvasSettings,
     SectionSize,
+    SectionSizeMode,
+    SectionType,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
@@ -34,7 +36,7 @@ class BaseSectionWithParamsImplModifier(BaseSectionImplModifier):
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
     pinnedParams: NotRequired[list[str]]
-    pinnedAreaHeight: NotRequired[float | Literal["auto"]]
+    pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[str]]
     ignoreTypeErrors: NotRequired[dict[str, bool]]
 
@@ -68,46 +70,46 @@ class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier):
 
 
 class CallableSectionImplModifier(BaseSectionWithParamsImplModifier):
-    type: Literal["Callable"]
+    type: Literal[SectionType.Callable]
     callable: NotRequired[str | None]
     hideParams: NotRequired[bool]
 
 
 class DictSectionImplModifier(BaseDictSectionImplModifier):
-    type: Literal["Dict"]
+    type: Literal[SectionType.Dict]
 
 
 class ListRootSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal["ListRoot"]
+    type: Literal[SectionType.ListRoot]
 
 
 class DictRootSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal["DictRoot"]
+    type: Literal[SectionType.DictRoot]
 
 
 class GroupSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal["Group"]
+    type: Literal[SectionType.Group]
     isHorizontalOrientation: NotRequired[bool]
 
 
 class ImageSectionImplModifier(BaseArtifactSectionImplModifier):
-    type: Literal["Image"]
+    type: Literal[SectionType.Image]
 
 
 class ChartSectionImplModifier(BaseArtifactSectionImplModifier):
-    type: Literal["Chart"]
+    type: Literal[SectionType.Chart]
     renderedValue: NotRequired[Any]
     chartSettings: NotRequired[ChartSettings]
 
 
 class DrawSectionImplModifier(BaseArtifactSectionImplModifier):
-    type: Literal["Draw"]
+    type: Literal[SectionType.Draw]
     renderedValue: NotRequired[Any]
     canvasSettings: NotRequired[DrawAreaCanvasSettings]
 
 
 class TextBlockSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["TextBlock"]
+    type: Literal[SectionType.TextBlock]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
     displayMode: NotRequired[TextBlockDisplayMode]
@@ -115,43 +117,44 @@ class TextBlockSectionImplModifier(BaseSectionImplModifier):
 
 
 class SocialSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["Social"]
+    type: Literal[SectionType.Social]
     social: NotRequired[str]
 
 
 class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier):
-    type: Literal["GlobalVariables"]
+    type: Literal[SectionType.GlobalVariables]
 
 
 class CodeSectionImplModifier(BaseCodeSectionImplModifier):
-    type: Literal["Code"]
+    type: Literal[SectionType.Code]
     codeLanguage: NotRequired[CodeLanguage]
 
 
 class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier):
-    type: Literal["GenPythonCode"]
+    type: Literal[SectionType.GenPythonCode]
 
 
 class TerminalSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["Terminal"]
+    type: Literal[SectionType.Terminal]
 
 
 class IFrameSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["IFrame"]
+    type: Literal[SectionType.IFrame]
 
 
 class ChatSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["Chat"]
+    type: Literal[SectionType.Chat]
 
 
 class BrowserSectionImplModifier(BaseSectionImplModifier):
-    type: Literal["Browser"]
+    type: Literal[SectionType.Browser]
     hideColumn: NotRequired[bool]
 
 
 from typing import Any, Literal, NotRequired, TypedDict
 
 from setta.types.code_objs import (
+    CodeObjType,
     ColorPickerChoice,
     ParameterPassingStyle,
     ParamNameType,
@@ -182,42 +185,42 @@ class BaseParentCodeObjImplModifier(BaseCodeObjImplModifier):
 
 
 class CodeCallableCodeObjImplModifier(BaseParentCodeObjImplModifier):
-    type: Literal["CodeCallable"]
+    type: Literal[CodeObjType.CodeCallable]
 
 
 class CodeParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["CodeParam"]
+    type: Literal[CodeObjType.CodeParam]
 
 
 class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["TextParam"]
+    type: Literal[CodeObjType.TextParam]
 
 
 class SliderParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["SliderParam"]
+    type: Literal[CodeObjType.SliderParam]
     min: NotRequired[int]
     max: NotRequired[int]
     step: NotRequired[int]
 
 
 class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["SwitchParam"]
+    type: Literal[CodeObjType.SwitchParam]
 
 
 class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["ColorPickerParam"]
+    type: Literal[CodeObjType.ColorPickerParam]
     choices: NotRequired[list[ColorPickerChoice]]
 
 
 class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["DropdownParam"]
+    type: Literal[CodeObjType.DropdownParam]
     choices: NotRequired[list[str]]
 
 
 class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal["PasswordParam"]
+    type: Literal[CodeObjType.PasswordParam]
 
 
 class NestedParamCodeObjImplModifier(BaseParamCodeObjImplModifier):
-    type: Literal["NestedParam"]
+    type: Literal[CodeObjType.NestedParam]
     children: NotRequired[list[str]]
