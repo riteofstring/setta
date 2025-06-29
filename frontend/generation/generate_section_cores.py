@@ -7,12 +7,14 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
 
+EXCLUSIONS = set(["id", "name", "type", "isPreset"])
+
 # Default unsharedKeys for each section type
 # Add or modify entries here to set default unshared keys
 # Example: "Callable": {"hideParams", "callable", "configLanguage"}
 DEFAULT_UNSHARED_KEYS: Dict[str, Set[str]] = {
     "Callable": {"callable", "codeObjImplLayeringMap"},
-    "Dict": set(),
+    "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
     "ListRoot": set(),
     "DictRoot": set(),
     "Group": set(),
@@ -53,7 +55,9 @@ def generate_section_core_class(section_type: str, impl_class: type[BaseModel]) 
     sorted_fields = sorted(field_names)
 
     # Create the Literal type string for unsharedKeys
-    literal_values = ", ".join(f'"{field}"' for field in sorted_fields)
+    literal_values = ", ".join(
+        f'"{field}"' for field in sorted_fields if field not in EXCLUSIONS
+    )
 
     # Get default unshared keys for this section type
     default_keys = DEFAULT_UNSHARED_KEYS[section_type]
