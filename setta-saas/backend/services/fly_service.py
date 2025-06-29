@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from fly import Client
+from fly.client import Client
 
 from .fly_deployment_config import get_machine_config, validate_github_url
 from .fly_helpers import (
