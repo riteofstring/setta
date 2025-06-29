@@ -4,9 +4,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
-from setta.types.generated.impl_modifier_unions import (
-    AllImplModifierUnionWithDiscriminator,
-)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -40,21 +37,11 @@ class ColorPickerChoice(BaseModel):
     description: str
 
 
-class BaseCodeObjCore(BaseModel):
+class CodeObjCore(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str | None = None
-    sharedModifier: AllImplModifierUnionWithDiscriminator
-    unsharedKeys: set[str] = set()
-
-
-class BaseParamCodeObjCore(BaseCodeObjCore):
-    pass
-
-
-class BaseChildlessCodeObjCore(BaseCodeObjCore):
-    unsharedKeys: set[str] = {"value"}
 
 
 class BaseCodeObjImpl(BaseModel):

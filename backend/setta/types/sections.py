@@ -7,15 +7,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.generated.impl_modifier_unions import (
-    AllImplModifierUnionWithDiscriminator,
-)
-from setta.types.generated.impl_modifiers import (
-    BaseSectionWithParamsImplModifier,
-    CallableSectionImplModifier,
-    GenPythonCodeSectionImplModifier,
-    GlobalVariablesSectionImplModifier,
-)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -93,32 +84,11 @@ class ChartSettings(BaseModel, extra="forbid"):
     y2AxisLog: bool = False
 
 
-class BaseSectionCore(BaseModel, extra="forbid"):
+class SectionCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str | None = None
-    sharedModifier: Any
-    unsharedKeys: Any
-
-
-class BaseSectionWithParamsCore(BaseSectionCore, extra="forbid"):
-    pass
-
-
-class CallableSectionCore(BaseSectionWithParamsCore, extra="forbid"):
-    sharedModifier: CallableSectionImplModifier
-    unsharedKeys: set[Literal["type", "id", "callable"]] = set()
-
-
-class GlobalVariablesSectionCore(BaseSectionWithParamsCore, extra="forbid"):
-    name: str = "Global Variables"
-    sharedModifier: GlobalVariablesSectionImplModifier
-
-
-class GenPythonCodeSectionCore(BaseSectionWithParamsCore, extra="forbid"):
-    name: str = "Generated Python Code"
-    sharedModifier: GenPythonCodeSectionImplModifier
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -230,6 +200,7 @@ class SocialSectionImpl(BaseSectionImpl):
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
+    name: str = "Global Variables"
 
 
 class CodeSectionImpl(BaseCodeSectionImpl):
@@ -240,6 +211,7 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
+    name: str = "Generated Python Code"
 
 
 class TerminalSectionImpl(BaseSectionImpl):
