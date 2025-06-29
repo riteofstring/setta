@@ -1721,6 +1721,123 @@ export function createBaseCodeObjCoreUnionWithDiscriminator(
   return BaseCodeObjCoreUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const CodeCallableCodeObjImplFieldsSchema = z.literal([
+  "children",
+  "description",
+]);
+
+export type CodeCallableCodeObjImplFields = z.infer<
+  typeof CodeCallableCodeObjImplFieldsSchema
+>;
+
+export const CodeParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type CodeParamCodeObjImplFields = z.infer<
+  typeof CodeParamCodeObjImplFieldsSchema
+>;
+
+export const ColorPickerParamCodeObjImplFieldsSchema = z.literal([
+  "choices",
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type ColorPickerParamCodeObjImplFields = z.infer<
+  typeof ColorPickerParamCodeObjImplFieldsSchema
+>;
+
+export const DropdownParamCodeObjImplFieldsSchema = z.literal([
+  "choices",
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type DropdownParamCodeObjImplFields = z.infer<
+  typeof DropdownParamCodeObjImplFieldsSchema
+>;
+
+export const NestedParamCodeObjImplFieldsSchema = z.literal([
+  "children",
+  "coreNameEditable",
+  "coreNameType",
+  "description",
+  "passingStyle",
+]);
+
+export type NestedParamCodeObjImplFields = z.infer<
+  typeof NestedParamCodeObjImplFieldsSchema
+>;
+
+export const PasswordParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type PasswordParamCodeObjImplFields = z.infer<
+  typeof PasswordParamCodeObjImplFieldsSchema
+>;
+
+export const SliderParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "max",
+  "min",
+  "passingStyle",
+  "step",
+  "value",
+]);
+
+export type SliderParamCodeObjImplFields = z.infer<
+  typeof SliderParamCodeObjImplFieldsSchema
+>;
+
+export const SwitchParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type SwitchParamCodeObjImplFields = z.infer<
+  typeof SwitchParamCodeObjImplFieldsSchema
+>;
+
+export const TextParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type TextParamCodeObjImplFields = z.infer<
+  typeof TextParamCodeObjImplFieldsSchema
+>;
+
 export const CodeParamCodeObjImplSchema = z.object({
   type: z.literal("CodeParam").default(CodeObjTypeEnum.CodeParam),
   id: z.string().default(create_new_id),
@@ -2084,6 +2201,524 @@ export function createBaseParentCodeObjImplUnionWithDiscriminator(
 ): BaseParentCodeObjImplUnionWithDiscriminator {
   return BaseParentCodeObjImplUnionWithDiscriminatorSchema.parse(options);
 }
+
+export const BaseArtifactSectionImplFieldsSchema = z.literal([
+  "artifactGroupIds",
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type BaseArtifactSectionImplFields = z.infer<
+  typeof BaseArtifactSectionImplFieldsSchema
+>;
+
+export const BaseCanvasSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "renderedValue",
+  "size",
+  "visibility",
+]);
+
+export type BaseCanvasSectionImplFields = z.infer<
+  typeof BaseCanvasSectionImplFieldsSchema
+>;
+
+export const BaseChildlessCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "defaultVal",
+  "description",
+  "passingStyle",
+  "value",
+]);
+
+export type BaseChildlessCodeObjImplFields = z.infer<
+  typeof BaseChildlessCodeObjImplFieldsSchema
+>;
+
+export const BaseCodeObjImplFieldsSchema = z.literal("description");
+
+export type BaseCodeObjImplFields = z.infer<typeof BaseCodeObjImplFieldsSchema>;
+
+export const BaseCodeSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "code",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type BaseCodeSectionImplFields = z.infer<
+  typeof BaseCodeSectionImplFieldsSchema
+>;
+
+export const BaseDictSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "codeObjImplLayeringMap",
+  "columnWidth",
+  "configLanguage",
+  "hideUnpinnedParams",
+  "ignoreTypeErrors",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isJsonSource",
+  "isMinimized",
+  "jsonSourceKeys",
+  "jsonSourceMissing",
+  "paramFilter",
+  "parentId",
+  "pinnedAreaHeight",
+  "pinnedParams",
+  "positionAndSizeLocked",
+  "selectedParams",
+  "size",
+  "topLevelParamIds",
+  "visibility",
+]);
+
+export type BaseDictSectionImplFields = z.infer<
+  typeof BaseDictSectionImplFieldsSchema
+>;
+
+export const BaseParamCodeObjImplFieldsSchema = z.literal([
+  "coreNameEditable",
+  "coreNameType",
+  "description",
+  "passingStyle",
+]);
+
+export type BaseParamCodeObjImplFields = z.infer<
+  typeof BaseParamCodeObjImplFieldsSchema
+>;
+
+export const BaseParentCodeObjImplFieldsSchema = z.literal([
+  "children",
+  "description",
+]);
+
+export type BaseParentCodeObjImplFields = z.infer<
+  typeof BaseParentCodeObjImplFieldsSchema
+>;
+
+export const BaseParentSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "children",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type BaseParentSectionImplFields = z.infer<
+  typeof BaseParentSectionImplFieldsSchema
+>;
+
+export const BaseSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type BaseSectionImplFields = z.infer<typeof BaseSectionImplFieldsSchema>;
+
+export const BaseSectionWithParamsImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "codeObjImplLayeringMap",
+  "columnWidth",
+  "configLanguage",
+  "hideUnpinnedParams",
+  "ignoreTypeErrors",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "paramFilter",
+  "parentId",
+  "pinnedAreaHeight",
+  "pinnedParams",
+  "positionAndSizeLocked",
+  "selectedParams",
+  "size",
+  "visibility",
+]);
+
+export type BaseSectionWithParamsImplFields = z.infer<
+  typeof BaseSectionWithParamsImplFieldsSchema
+>;
+
+export const BrowserSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "hideColumn",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type BrowserSectionImplFields = z.infer<
+  typeof BrowserSectionImplFieldsSchema
+>;
+
+export const CallableSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "callable",
+  "codeObjImplLayeringMap",
+  "columnWidth",
+  "configLanguage",
+  "hideParams",
+  "hideUnpinnedParams",
+  "ignoreTypeErrors",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "paramFilter",
+  "parentId",
+  "pinnedAreaHeight",
+  "pinnedParams",
+  "positionAndSizeLocked",
+  "selectedParams",
+  "size",
+  "visibility",
+]);
+
+export type CallableSectionImplFields = z.infer<
+  typeof CallableSectionImplFieldsSchema
+>;
+
+export const ChartSectionImplFieldsSchema = z.literal([
+  "artifactGroupIds",
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "chartSettings",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "renderedValue",
+  "size",
+  "visibility",
+]);
+
+export type ChartSectionImplFields = z.infer<
+  typeof ChartSectionImplFieldsSchema
+>;
+
+export const ChatSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type ChatSectionImplFields = z.infer<typeof ChatSectionImplFieldsSchema>;
+
+export const CodeSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "code",
+  "codeLanguage",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type CodeSectionImplFields = z.infer<typeof CodeSectionImplFieldsSchema>;
+
+export const DictRootSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "children",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type DictRootSectionImplFields = z.infer<
+  typeof DictRootSectionImplFieldsSchema
+>;
+
+export const DictSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "codeObjImplLayeringMap",
+  "columnWidth",
+  "configLanguage",
+  "hideUnpinnedParams",
+  "ignoreTypeErrors",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isJsonSource",
+  "isMinimized",
+  "jsonSourceKeys",
+  "jsonSourceMissing",
+  "paramFilter",
+  "parentId",
+  "pinnedAreaHeight",
+  "pinnedParams",
+  "positionAndSizeLocked",
+  "selectedParams",
+  "size",
+  "topLevelParamIds",
+  "visibility",
+]);
+
+export type DictSectionImplFields = z.infer<typeof DictSectionImplFieldsSchema>;
+
+export const DrawSectionImplFieldsSchema = z.literal([
+  "artifactGroupIds",
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "canvasSettings",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "renderedValue",
+  "size",
+  "visibility",
+]);
+
+export type DrawSectionImplFields = z.infer<typeof DrawSectionImplFieldsSchema>;
+
+export const GenPythonCodeSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "code",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type GenPythonCodeSectionImplFields = z.infer<
+  typeof GenPythonCodeSectionImplFieldsSchema
+>;
+
+export const GlobalVariablesSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "codeObjImplLayeringMap",
+  "columnWidth",
+  "configLanguage",
+  "hideUnpinnedParams",
+  "ignoreTypeErrors",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isJsonSource",
+  "isMinimized",
+  "jsonSourceKeys",
+  "jsonSourceMissing",
+  "paramFilter",
+  "parentId",
+  "pinnedAreaHeight",
+  "pinnedParams",
+  "positionAndSizeLocked",
+  "selectedParams",
+  "size",
+  "topLevelParamIds",
+  "visibility",
+]);
+
+export type GlobalVariablesSectionImplFields = z.infer<
+  typeof GlobalVariablesSectionImplFieldsSchema
+>;
+
+export const GroupSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "children",
+  "isFrozen",
+  "isHorizontalOrientation",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type GroupSectionImplFields = z.infer<
+  typeof GroupSectionImplFieldsSchema
+>;
+
+export const IFrameSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type IFrameSectionImplFields = z.infer<
+  typeof IFrameSectionImplFieldsSchema
+>;
+
+export const ImageSectionImplFieldsSchema = z.literal([
+  "artifactGroupIds",
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type ImageSectionImplFields = z.infer<
+  typeof ImageSectionImplFieldsSchema
+>;
+
+export const ListRootSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "children",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type ListRootSectionImplFields = z.infer<
+  typeof ListRootSectionImplFieldsSchema
+>;
+
+export const SocialSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "social",
+  "visibility",
+]);
+
+export type SocialSectionImplFields = z.infer<
+  typeof SocialSectionImplFieldsSchema
+>;
+
+export const TerminalSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "visibility",
+]);
+
+export type TerminalSectionImplFields = z.infer<
+  typeof TerminalSectionImplFieldsSchema
+>;
+
+export const TextBlockSectionImplFieldsSchema = z.literal([
+  "aspectRatio",
+  "aspectRatioExtraHeight",
+  "aspectRatioExtraWidth",
+  "displayMode",
+  "format",
+  "headingAsSectionName",
+  "isFrozen",
+  "isInOtherProjectConfigs",
+  "isMinimized",
+  "parentId",
+  "positionAndSizeLocked",
+  "size",
+  "text",
+  "visibility",
+]);
+
+export type TextBlockSectionImplFields = z.infer<
+  typeof TextBlockSectionImplFieldsSchema
+>;
 
 export const VisibilitySchema = z.object({
   DEV: z.boolean().default(true),

@@ -6,11 +6,6 @@ from setta.types.generated.section_type_unions import BaseSectionImplUnion
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-from .generate_cores import (
-    EXCLUSIONS,
-    get_all_field_names,
-)
-
 
 def get_union_members(union_type):
     """Extract member types from a Union type."""
@@ -39,18 +34,8 @@ def generate_overload_params(
 ) -> str:
     """Generate parameter list for a specific overload."""
 
-    # Get all field names for the impl class
-    field_names = get_all_field_names(impl_class)
-
-    # Sort field names for consistent output
-    sorted_fields = sorted(field_names)
-
-    # Create the Literal type string for unsharedKeys
-    literal_values = ", ".join(
-        f'"{field}"' for field in sorted_fields if field not in EXCLUSIONS
-    )
-
     modifier_type = f"{impl_class.__name__}Modifier"
+    field_literal_type = f"{impl_class.__name__}Fields"
     enum_type = "SectionType" if is_section else "CodeObjType"
 
     params = f"""
@@ -61,7 +46,7 @@ def generate_overload_params(
     implLayerings: list[str] | None = None,
     defaultImplLayering: str | None = None,
     sharedModifier: {modifier_type} | None = None,
-    unsharedKeys: set[Literal[{literal_values}]] | None = None"""
+    unsharedKeys: set[{field_literal_type}] | None = None"""
 
     return params
 
@@ -118,16 +103,24 @@ from setta.types.code_obj_impls import CodeObjType
 
     # Modifier imports
     modifier_imports = []
+    field_literal_imports = []
     for impl_name in section_impl_names:
         modifier_name = impl_name + "Modifier"
         modifier_imports.append(f"    {modifier_name},")
+        field_literal_imports.append(f"    {impl_name}Fields,")
     for impl_name in code_obj_impl_names:
         modifier_name = impl_name + "Modifier"
         modifier_imports.append(f"    {modifier_name},")
+        field_literal_imports.append(f"    {impl_name}Fields,")
     modifier_imports_str = "\n".join(modifier_imports)
+    field_literal_imports_str = "\n".join(field_literal_imports)
 
     imports += f"""from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
+)
+
+from setta.types.generated.impl_field_literals import (
+{field_literal_imports_str}
 )
 
 """

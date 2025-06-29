@@ -5,6 +5,25 @@ from typing import Literal
 
 from pydantic import Field
 
+from setta.types.generated.impl_field_literals import (
+    BrowserSectionImplFields,
+    CallableSectionImplFields,
+    ChartSectionImplFields,
+    ChatSectionImplFields,
+    CodeSectionImplFields,
+    DictRootSectionImplFields,
+    DictSectionImplFields,
+    DrawSectionImplFields,
+    GenPythonCodeSectionImplFields,
+    GlobalVariablesSectionImplFields,
+    GroupSectionImplFields,
+    IFrameSectionImplFields,
+    ImageSectionImplFields,
+    ListRootSectionImplFields,
+    SocialSectionImplFields,
+    TerminalSectionImplFields,
+    TextBlockSectionImplFields,
+)
 from setta.types.generated.impl_modifiers import (
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
@@ -34,21 +53,7 @@ class BrowserSectionCore(BaseSectionCore):
     sharedModifier: BrowserSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Browser)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "hideColumn",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[BrowserSectionImplFields] = Field(default_factory=set)
 
 
 class CallableSectionCore(BaseSectionCore):
@@ -56,31 +61,9 @@ class CallableSectionCore(BaseSectionCore):
     sharedModifier: CallableSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Callable)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "callable",
-            "codeObjImplLayeringMap",
-            "columnWidth",
-            "configLanguage",
-            "hideParams",
-            "hideUnpinnedParams",
-            "ignoreTypeErrors",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "paramFilter",
-            "parentId",
-            "pinnedAreaHeight",
-            "pinnedParams",
-            "positionAndSizeLocked",
-            "selectedParams",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=lambda: {"callable", "codeObjImplLayeringMap"})
+    unsharedKeys: set[CallableSectionImplFields] = Field(
+        default_factory=lambda: {"callable", "codeObjImplLayeringMap"}
+    )
 
 
 class ChartSectionCore(BaseSectionCore):
@@ -88,23 +71,7 @@ class ChartSectionCore(BaseSectionCore):
     sharedModifier: ChartSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Chart)
     )
-    unsharedKeys: set[
-        Literal[
-            "artifactGroupIds",
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "chartSettings",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "renderedValue",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[ChartSectionImplFields] = Field(default_factory=set)
 
 
 class ChatSectionCore(BaseSectionCore):
@@ -112,20 +79,7 @@ class ChatSectionCore(BaseSectionCore):
     sharedModifier: ChatSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Chat)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[ChatSectionImplFields] = Field(default_factory=set)
 
 
 class CodeSectionCore(BaseSectionCore):
@@ -133,22 +87,7 @@ class CodeSectionCore(BaseSectionCore):
     sharedModifier: CodeSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Code)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "code",
-            "codeLanguage",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[CodeSectionImplFields] = Field(default_factory=set)
 
 
 class DictSectionCore(BaseSectionCore):
@@ -156,33 +95,9 @@ class DictSectionCore(BaseSectionCore):
     sharedModifier: DictSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Dict)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "codeObjImplLayeringMap",
-            "columnWidth",
-            "configLanguage",
-            "hideUnpinnedParams",
-            "ignoreTypeErrors",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isJsonSource",
-            "isMinimized",
-            "jsonSourceKeys",
-            "jsonSourceMissing",
-            "paramFilter",
-            "parentId",
-            "pinnedAreaHeight",
-            "pinnedParams",
-            "positionAndSizeLocked",
-            "selectedParams",
-            "size",
-            "topLevelParamIds",
-            "visibility",
-        ]
-    ] = Field(default_factory=lambda: {"codeObjImplLayeringMap", "topLevelParamIds"})
+    unsharedKeys: set[DictSectionImplFields] = Field(
+        default_factory=lambda: {"codeObjImplLayeringMap", "topLevelParamIds"}
+    )
 
 
 class DictRootSectionCore(BaseSectionCore):
@@ -190,21 +105,7 @@ class DictRootSectionCore(BaseSectionCore):
     sharedModifier: DictRootSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.DictRoot)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "children",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[DictRootSectionImplFields] = Field(default_factory=set)
 
 
 class DrawSectionCore(BaseSectionCore):
@@ -212,23 +113,7 @@ class DrawSectionCore(BaseSectionCore):
     sharedModifier: DrawSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Draw)
     )
-    unsharedKeys: set[
-        Literal[
-            "artifactGroupIds",
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "canvasSettings",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "renderedValue",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[DrawSectionImplFields] = Field(default_factory=set)
 
 
 class GenPythonCodeSectionCore(BaseSectionCore):
@@ -238,21 +123,7 @@ class GenPythonCodeSectionCore(BaseSectionCore):
             SectionType.GenPythonCode
         )
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "code",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[GenPythonCodeSectionImplFields] = Field(default_factory=set)
 
 
 class GlobalVariablesSectionCore(BaseSectionCore):
@@ -262,33 +133,7 @@ class GlobalVariablesSectionCore(BaseSectionCore):
             SectionType.GlobalVariables
         )
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "codeObjImplLayeringMap",
-            "columnWidth",
-            "configLanguage",
-            "hideUnpinnedParams",
-            "ignoreTypeErrors",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isJsonSource",
-            "isMinimized",
-            "jsonSourceKeys",
-            "jsonSourceMissing",
-            "paramFilter",
-            "parentId",
-            "pinnedAreaHeight",
-            "pinnedParams",
-            "positionAndSizeLocked",
-            "selectedParams",
-            "size",
-            "topLevelParamIds",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[GlobalVariablesSectionImplFields] = Field(default_factory=set)
 
 
 class GroupSectionCore(BaseSectionCore):
@@ -296,22 +141,7 @@ class GroupSectionCore(BaseSectionCore):
     sharedModifier: GroupSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Group)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "children",
-            "isFrozen",
-            "isHorizontalOrientation",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[GroupSectionImplFields] = Field(default_factory=set)
 
 
 class IFrameSectionCore(BaseSectionCore):
@@ -319,20 +149,7 @@ class IFrameSectionCore(BaseSectionCore):
     sharedModifier: IFrameSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.IFrame)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[IFrameSectionImplFields] = Field(default_factory=set)
 
 
 class ImageSectionCore(BaseSectionCore):
@@ -340,21 +157,7 @@ class ImageSectionCore(BaseSectionCore):
     sharedModifier: ImageSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Image)
     )
-    unsharedKeys: set[
-        Literal[
-            "artifactGroupIds",
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[ImageSectionImplFields] = Field(default_factory=set)
 
 
 class ListRootSectionCore(BaseSectionCore):
@@ -362,21 +165,7 @@ class ListRootSectionCore(BaseSectionCore):
     sharedModifier: ListRootSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.ListRoot)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "children",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[ListRootSectionImplFields] = Field(default_factory=set)
 
 
 class SocialSectionCore(BaseSectionCore):
@@ -384,21 +173,7 @@ class SocialSectionCore(BaseSectionCore):
     sharedModifier: SocialSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Social)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "social",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[SocialSectionImplFields] = Field(default_factory=set)
 
 
 class TerminalSectionCore(BaseSectionCore):
@@ -406,20 +181,7 @@ class TerminalSectionCore(BaseSectionCore):
     sharedModifier: TerminalSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Terminal)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[TerminalSectionImplFields] = Field(default_factory=set)
 
 
 class TextBlockSectionCore(BaseSectionCore):
@@ -427,21 +189,4 @@ class TextBlockSectionCore(BaseSectionCore):
     sharedModifier: TextBlockSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.TextBlock)
     )
-    unsharedKeys: set[
-        Literal[
-            "aspectRatio",
-            "aspectRatioExtraHeight",
-            "aspectRatioExtraWidth",
-            "displayMode",
-            "format",
-            "headingAsSectionName",
-            "isFrozen",
-            "isInOtherProjectConfigs",
-            "isMinimized",
-            "parentId",
-            "positionAndSizeLocked",
-            "size",
-            "text",
-            "visibility",
-        ]
-    ] = Field(default_factory=set)
+    unsharedKeys: set[TextBlockSectionImplFields] = Field(default_factory=set)

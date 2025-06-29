@@ -7,8 +7,6 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
 
-EXCLUSIONS = set(["id", "name", "type", "isPreset"])
-
 # Default unsharedKeys for each section type
 # Add or modify entries here to set default unshared keys
 DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
@@ -45,18 +43,6 @@ DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
 }
 
 
-def get_all_field_names(impl_class: type[BaseModel]) -> Set[str]:
-    """Get all field names for a class, including inherited fields."""
-    field_names = set()
-
-    # Get fields from the class and all its parent classes
-    for cls in impl_class.__mro__:
-        if issubclass(cls, BaseModel) and cls is not BaseModel:
-            field_names.update(cls.model_fields.keys())
-
-    return field_names
-
-
 def generate_core_class(
     type_name: str,
     impl_class: type[BaseModel],
@@ -68,25 +54,6 @@ def generate_core_class(
 ) -> str:
     """Generate a single Core class definition."""
 
-    # Get all field names for the impl class
-    field_names = get_all_field_names(impl_class)
-
-    # Sort field names for consistent output
-    sorted_fields = sorted(field_names)
-
-    # Create the Literal type string for unsharedKeys
-    literal_values = ", ".join(
-        f'"{field}"' for field in sorted_fields if field not in EXCLUSIONS
-    )
-
-    # Validate that default keys exist in the impl class
-    invalid_keys = default_keys - field_names
-    if invalid_keys:
-        raise ValueError(
-            f"Invalid default unshared keys for {type_name}: {invalid_keys}. "
-            f"Valid keys are: {sorted_fields}"
-        )
-
     # Generate default factory
     if default_keys:
         # Sort for consistent output
@@ -96,12 +63,15 @@ def generate_core_class(
     else:
         default_factory = "set"
 
+    # Get the field literal type name
+    field_literal_type = f"{impl_class.__name__}Fields"
+
     # Generate the class definition
     class_def = f"""
 class {type_name}{core_class_suffix}(Base{core_class_suffix}):
     type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
     sharedModifier: {type_name}{modifier_suffix} = Field(default_factory=lambda: {modifier_creation_fn_name}({enum_prefix}.{type_name}))
-    unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
+    unsharedKeys: set[{field_literal_type}] = Field(default_factory={default_factory})
 """
 
     return class_def
@@ -125,10 +95,13 @@ def generate_section_cores() -> str:
 
     # Generate modifier imports list
     modifier_imports = []
+    field_literal_imports = []
     for cls in concrete_classes:
         section_type = cls.model_fields["type"].default.value
         modifier_imports.append(f"    {section_type}SectionImplModifier,")
+        field_literal_imports.append(f"    {cls.__name__}Fields,")
     modifier_imports_str = "\n".join(modifier_imports)
+    field_literal_imports_str = "\n".join(field_literal_imports)
 
     # Generate imports
     imports = f"""from typing import Literal
@@ -140,6 +113,9 @@ from setta.types.section_impls import SectionType
 from setta.types.generated.type_to_modifier import create_modifier_for_section_type
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
+)
+from setta.types.generated.impl_field_literals import (
+{field_literal_imports_str}
 )"""
 
     # Generate class definitions
@@ -187,10 +163,13 @@ def generate_code_obj_cores() -> str:
 
     # Generate modifier imports list
     modifier_imports = []
+    field_literal_imports = []
     for cls in concrete_classes:
         code_obj_type = cls.model_fields["type"].default.value
         modifier_imports.append(f"    {code_obj_type}CodeObjImplModifier,")
+        field_literal_imports.append(f"    {cls.__name__}Fields,")
     modifier_imports_str = "\n".join(modifier_imports)
+    field_literal_imports_str = "\n".join(field_literal_imports)
 
     # Generate imports
     imports = f"""from typing import Literal
@@ -201,6 +180,9 @@ from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
+)
+from setta.types.generated.impl_field_literals import (
+{field_literal_imports_str}
 )"""
 
     # Generate class definitions
