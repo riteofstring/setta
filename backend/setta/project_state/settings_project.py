@@ -1,6 +1,6 @@
+import re
 from enum import Enum
 from inspect import isclass
-import re
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -32,11 +32,6 @@ from setta.types.sections import (
     SectionCore,
     SectionSize,
 )
-from setta.types.settings_state import (
-    BackgroundVariant,
-    PanOnScrollMode,
-    SelectionMode,
-)
 from setta.utils.constants import CWD
 
 
@@ -46,12 +41,12 @@ def is_color_hex(string):
 
 
 def create_settings_code_objs(section_names):
-    color_picker = ColorPickerParamCodeObjImpl()
-    switch = SwitchParamCodeObjImpl()
-
     codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImplUnion]]] = {
         s: [] for s in section_names
     }
+
+    color_picker = ColorPickerParamCodeObjImpl()
+    switch = SwitchParamCodeObjImpl()
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
