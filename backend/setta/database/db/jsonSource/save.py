@@ -1,9 +1,9 @@
 from collections import defaultdict
 
+from setta.types.code_obj_core import CodeObjCore
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParentCodeObjImpl,
-    CodeObjCore,
     NestedParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion

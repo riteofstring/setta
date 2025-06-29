@@ -84,13 +84,6 @@ class ChartSettings(BaseModel, extra="forbid"):
     y2AxisLog: bool = False
 
 
-class SectionCore(BaseModel, extra="forbid"):
-    id: str = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    implLayerings: list[str] = Field(default_factory=list)
-    defaultImplLayering: str | None = None
-
-
 class BaseSectionImpl(BaseModel, extra="forbid"):
     type: Any
     id: str = Field(default_factory=create_new_id)

@@ -5,8 +5,8 @@ from typing import Callable
 import docstring_parser
 from lsprotocol import types as LSPTypes
 
+from setta.types.code_obj_core import CodeObjCore
 from setta.types.code_obj_impls import (
-    CodeObjCore,
     ParameterPassingStyle,
 )
 from setta.types.generated.code_obj_type_unions import (

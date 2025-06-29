@@ -37,13 +37,6 @@ class ColorPickerChoice(BaseModel):
     description: str
 
 
-class CodeObjCore(BaseModel):
-    id: str = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    implLayerings: list[str] = Field(default_factory=list)
-    defaultImplLayering: str | None = None
-
-
 class BaseCodeObjImpl(BaseModel):
     type: Any
     id: str = Field(default_factory=create_new_id)

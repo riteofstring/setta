@@ -1,8 +1,8 @@
+from setta.types.code_obj_core import CodeObjCore
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
-    CodeObjCore,
 )
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
@@ -24,13 +24,13 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
+from setta.types.section_core import SectionCore
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
-    SectionCore,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
 
