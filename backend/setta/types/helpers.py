@@ -21,6 +21,7 @@ from setta.types.generated.type_to_modifier import (
 )
 from setta.types.impl_helpers import (
     get_effective_impl,
+    set_effective_impl_value,
     update_impl_layerings,
 )
 from setta.types.impl_layering import ImplLayering
@@ -315,10 +316,16 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
     if isBaseSectionWithParamsImplModifier(section_layering.modifier):
-        m = section_layering.modifier
-        if "codeObjImplLayeringMap" not in m:
-            m["codeObjImplLayeringMap"] = {}
-        m["codeObjImplLayeringMap"][code_obj.id] = code_obj_impl_layering.id
+        set_effective_impl_value(
+            section_layering,
+            p.sections[section_id],
+            p.sectionImpls,
+            "codeObjImplLayeringMap",
+            {
+                **section_impl.codeObjImplLayeringMap,
+                code_obj.id: code_obj_impl_layering.id,
+            },
+        )
     return code_obj_impl_layering
 
 
@@ -354,9 +361,14 @@ def add_children_of_callable(
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    modifier = callable_code_obj_layering.modifier
-    if isBaseParentCodeObjImplModifier(modifier):
-        modifier["children"] = param_ids_in_order
+    if isBaseParentCodeObjImplModifier(callable_code_obj_layering.modifier):
+        set_effective_impl_value(
+            callable_code_obj_layering,
+            p.codeObjs[callable_id],
+            p.codeObjImpls,
+            "children",
+            param_ids_in_order,
+        )
 
 
 def set_param_entered_value(
@@ -368,7 +380,13 @@ def set_param_entered_value(
     code_obj_impl_layering = get_code_obj_impl_layering(p, paramId, sectionId)
     modifier = code_obj_impl_layering.modifier
     if isBaseChildlessCodeObjImplModifier(modifier):
-        modifier["value"] = value
+        set_effective_impl_value(
+            code_obj_impl_layering,
+            p.codeObjs[paramId],
+            p.codeObjImpls,
+            "value",
+            value,
+        )
     raise TypeError
 
 

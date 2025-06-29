@@ -1,6 +1,5 @@
 from typing import TypeVar, overload
 
-from pydantic import BaseModel
 
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
@@ -15,7 +14,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 
-TImpl = TypeVar("TImpl", bound=BaseModel)
+TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
 
 
 def apply_modifier(
@@ -48,6 +47,43 @@ def get_effective_impl(
     return apply_modifier(
         impl_dict[impl_layering.impl], core.sharedModifier, impl_layering.modifier
     )
+
+
+@overload
+def set_effective_impl_value(
+    impl_layering: ImplLayering,
+    core: BaseSectionCoreUnion,
+    impl_dict: dict[str, BaseSectionImplUnion],
+    key: str,
+    value,
+) -> BaseSectionImplUnion: ...
+
+
+@overload
+def set_effective_impl_value(
+    impl_layering: ImplLayering,
+    core: BaseCodeObjCoreUnion,
+    impl_dict: dict[str, BaseCodeObjImplUnion],
+    key: str,
+    value,
+) -> BaseCodeObjImplUnion: ...
+
+
+def set_effective_impl_value(
+    impl_layering: ImplLayering,
+    core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
+    impl_dict: dict[str, TImpl],
+    key: str,
+    value,
+) -> TImpl:
+    impl = impl_dict[impl_layering.impl]
+    if not impl.isPreset:
+        setattr(impl, key, value)
+    elif key in core.unsharedKeys:
+        impl_layering.modifier[key] = value
+    else:
+        core.sharedModifier[key] = value
+    return get_effective_impl(impl_layering, core, impl_dict)
 
 
 def update_impl_layerings(

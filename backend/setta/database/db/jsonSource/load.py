@@ -8,7 +8,6 @@ from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
-    CodeObjType,
     NestedParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
@@ -20,12 +19,6 @@ from setta.types.generated.creation_functions import (
     createNestedParamCodeObjImpl,
     createTextParamCodeObjImpl,
 )
-from setta.types.generated.impl_modifier_unions import (
-    isBaseChildlessCodeObjImplModifier,
-)
-from setta.types.generated.impl_modifiers import (
-    BaseDictSectionImplModifier,
-)
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
@@ -33,7 +26,10 @@ from setta.types.generated.section_type_unions import (
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
-from setta.types.impl_helpers import apply_modifier, get_effective_impl
+from setta.types.impl_helpers import (
+    get_effective_impl,
+    set_effective_impl_value,
+)
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -41,7 +37,6 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseDictSectionImpl,
-    SectionType,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,21 +80,21 @@ def load_json_sources_into_data_structures(
                 )
             ):
                 continue
-
-            if layering.modifier["type"] != SectionType.Dict:
-                continue
             new_data, isMissing = load_json_source(
                 settings, layering.name, impl.jsonSourceKeys
             )
-            layering.modifier["jsonSourceMissing"] = isMissing
-            impl = apply_modifier(impl, layering.modifier)
+            impl = set_effective_impl_value(
+                layering, section, p.sectionImpls, "jsonSourceMissing", isMissing
+            )
             if isMissing:
                 continue
             merge_into_existing(
                 layering.name,
                 new_data,
+                section,
                 impl,
-                layering.modifier,
+                layering,
+                p.sectionImpls,
                 p.codeObjs,
                 p.codeObjImpls,
                 p.codeObjImplLayerings,
@@ -109,8 +104,10 @@ def load_json_sources_into_data_structures(
 def merge_into_existing(
     filename: str,
     new_data: ProcessedJSONObject,
+    section: BaseSectionCoreUnion,
     section_impl: BaseDictSectionImpl,
-    section_impl_modifier: BaseDictSectionImplModifier,
+    section_impl_layering: ImplLayering,
+    section_impls: dict[str, BaseSectionImplUnion],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
@@ -150,12 +147,16 @@ def merge_into_existing(
         newLayering = new_data.codeObjImplLayerings[newLayeringId]
         newImpl = new_data.codeObjImpls[newLayering.impl]
         if not existingCodeObjId:
-            if "codeObjImplLayeringMap" not in section_impl_modifier:
-                section_impl_modifier["codeObjImplLayeringMap"] = copy.deepcopy(
-                    section_impl.codeObjImplLayeringMap
-                )
-            section_impl_modifier["codeObjImplLayeringMap"][newId] = newLayeringId
-            section_impl = apply_modifier(section_impl, section_impl_modifier)
+            section_impl = set_effective_impl_value(
+                section_impl_layering,
+                section,
+                section_impls,
+                "codeObjImplLayeringMap",
+                {
+                    **copy.deepcopy(section_impl.codeObjImplLayeringMap),
+                    newId: newLayeringId,
+                },
+            )
             codeObjImplLayerings[newLayeringId] = newLayering
             codeObjImpls[newImpl.id] = newImpl
             codeObjs[newId] = newCodeObj
@@ -166,22 +167,29 @@ def merge_into_existing(
         layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
         layering = codeObjImplLayerings[layeringId]
         impl = get_effective_impl(layering, codeObjs[existingCodeObjId], codeObjImpls)
-        if (
-            isinstance(impl, NestedParamCodeObjImpl)
-            and isinstance(newImpl, NestedParamCodeObjImpl)
-            and layering.modifier["type"] == CodeObjType.NestedParam
+        if isinstance(impl, NestedParamCodeObjImpl) and isinstance(
+            newImpl, NestedParamCodeObjImpl
         ):
-            layering.modifier["children"] = [
-                replacements[c][0] if c in replacements else c for c in newImpl.children
-            ]
-            impl = apply_modifier(impl, layering.modifier)
-        elif (
-            isinstance(impl, BaseChildlessCodeObjImpl)
-            and isinstance(newImpl, BaseChildlessCodeObjImpl)
-            and isBaseChildlessCodeObjImplModifier(layering.modifier)
+            impl = set_effective_impl_value(
+                layering,
+                codeObjs[existingCodeObjId],
+                codeObjImpls,
+                "children",
+                [
+                    replacements[c][0] if c in replacements else c
+                    for c in newImpl.children
+                ],
+            )
+        elif isinstance(impl, BaseChildlessCodeObjImpl) and isinstance(
+            newImpl, BaseChildlessCodeObjImpl
         ):
-            layering.modifier["value"] = newImpl.value
-            impl = apply_modifier(impl, layering.modifier)
+            impl = set_effective_impl_value(
+                layering,
+                codeObjs[existingCodeObjId],
+                codeObjImpls,
+                "value",
+                newImpl.value,
+            )
         else:
             raise TypeError
 
@@ -196,10 +204,16 @@ def merge_into_existing(
             del codeObjImpls[impl.id]
             del codeObjImplLayerings[layeringId]
 
-    section_impl_modifier["topLevelParamIds"] = [
-        replacements[c][0] if c in replacements else c
-        for c in new_data.sectionImpl.topLevelParamIds
-    ]
+    set_effective_impl_value(
+        section_impl_layering,
+        section,
+        section_impls,
+        "topLevelParamIds",
+        [
+            replacements[c][0] if c in replacements else c
+            for c in new_data.sectionImpl.topLevelParamIds
+        ],
+    )
 
 
 def load_json_source(settings: SettingsState, filename: str, jsonSourceKeys: list[str]):
