@@ -32,7 +32,7 @@ class ProjectService:
         self.ws_manager = get_connection_manager()
 
     def list_projects(self) -> list[ProjectResponse]:
-        """List all projects (admin use)."""
+        """List all projects."""
         projects = self.db.query(Project).all()
         return [self._to_response(p) for p in projects]
 
@@ -41,32 +41,28 @@ class ProjectService:
         projects = self.db.query(Project).filter(Project.user_id == user_id).all()
         return [self._to_response(p) for p in projects]
 
-    def get_project(self, project_id: str, user_id: str) -> ProjectResponse | None:
-        """Get a specific project if owned by the user."""
-        project = (
-            self.db.query(Project)
-            .filter(Project.id == project_id, Project.user_id == user_id)
-            .first()
-        )
-
+    def get_project(self, project_id: str) -> ProjectResponse | None:
+        """Get a specific project."""
+        project = self.db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return None
         return self._to_response(project)
 
-    async def create_project(self, project_data: ProjectCreate, user_id: str) -> ProjectResponse:
-        """Create a new project for a user and deploy to Fly.io."""
+    async def create_project(self, project_data: ProjectCreate) -> ProjectResponse:
+        """Create a new project and deploy to Fly.io."""
         # Generate unique app name
         timestamp = int(time.time())
         base_name = sanitize_app_name(project_data.name)
         app_name = f"setta-{base_name}-{timestamp}"
 
         # Create database record
+        # For now, use a default user_id until auth is fully implemented
         project = Project(
             id=str(uuid4()),
             name=project_data.name,
             url="Creating...",
             status="creating",
-            user_id=user_id,
+            user_id="default-user",  # Temporary until auth is implemented
             github_url=project_data.github_url,
         )
         self.db.add(project)
@@ -82,14 +78,9 @@ class ProjectService:
 
         return self._to_response(project)
 
-    async def delete_project(self, project_id: str, user_id: str) -> bool:
-        """Delete a project if owned by the user and its Fly.io resources."""
-        # Get project and verify ownership
-        project = (
-            self.db.query(Project)
-            .filter(Project.id == project_id, Project.user_id == user_id)
-            .first()
-        )
+    async def delete_project(self, project_id: str) -> bool:
+        """Delete a project and its Fly.io resources."""
+        project = self.db.query(Project).filter(Project.id == project_id).first()
 
         if not project:
             return False
@@ -119,13 +110,9 @@ class ProjectService:
 
         return True
 
-    async def check_project_status(self, project_id: str, user_id: str) -> str | None:
-        """Check and update project status if owned by the user."""
-        project = (
-            self.db.query(Project)
-            .filter(Project.id == project_id, Project.user_id == user_id)
-            .first()
-        )
+    async def check_project_status(self, project_id: str) -> str | None:
+        """Check and update project status."""
+        project = self.db.query(Project).filter(Project.id == project_id).first()
 
         if not project:
             return None
@@ -186,35 +173,8 @@ class ProjectService:
             print(f"Error checking machine state: {str(e)}")
             return project.machine_state
 
-    async def start_machine(self, project_id: str, user_id: str) -> bool:
-        """Start (wake up) a hibernated machine if owned by the user."""
-        project = (
-            self.db.query(Project)
-            .filter(Project.id == project_id, Project.user_id == user_id)
-            .first()
-        )
-
-        if not project or not project.machine_id:
-            return False
-
-        try:
-            app_name = project.url.split("//")[1].split(".")[0]
-
-            # Start the machine
-            self.fly.start_machine(app_name, project.machine_id)
-
-            # Update state
-            project.machine_state = "started"
-            project.last_checked = datetime.utcnow()
-            self.db.commit()
-
-            return True
-        except Exception as e:
-            print(f"Error starting machine: {str(e)}")
-            return False
-
     def sync_all_projects(self) -> dict:
-        """Sync all project statuses with Fly.io (admin use)."""
+        """Sync all project statuses with Fly.io."""
         projects = self.db.query(Project).all()
         updated = 0
         failed = 0
@@ -235,7 +195,7 @@ class ProjectService:
         return {"updated": updated, "failed": failed, "total": len(projects)}
 
     def delete_all_projects(self) -> dict:
-        """Delete all projects and their Fly.io resources (admin use)."""
+        """Delete all projects and their Fly.io resources."""
         projects = self.db.query(Project).all()
         deleted_count = 0
         failed_count = 0
@@ -245,7 +205,7 @@ class ProjectService:
                 # Run async delete in sync context
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(self.delete_project(project.id, project.user_id))
+                success = loop.run_until_complete(self.delete_project(project.id))
                 loop.close()
 
                 if success:
@@ -259,7 +219,7 @@ class ProjectService:
         return {"deleted": deleted_count, "failed": failed_count, "total": len(projects)}
 
     def cleanup_dead_projects(self) -> dict:
-        """Remove projects with error status or failed deployments (admin use)."""
+        """Remove projects with error status or failed deployments."""
         dead_projects = (
             self.db.query(Project).filter(Project.status.in_(["error", "creating"])).all()
         )
@@ -278,7 +238,7 @@ class ProjectService:
                 # Run async delete in sync context
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                success = loop.run_until_complete(self.delete_project(project.id, project.user_id))
+                success = loop.run_until_complete(self.delete_project(project.id))
                 loop.close()
 
                 if success:
