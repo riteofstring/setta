@@ -1,9 +1,9 @@
-from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
 )
+from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
@@ -293,7 +293,7 @@ def callable_has_been_selected_before(
 def add_code_obj(
     p: ProjectStateSingleConfig,
     section_id: str,
-    code_obj: BaseCodeObjCore,
+    code_obj: BaseCodeObjCoreUnion,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_layering = get_section_impl_layering(p, section_id)
@@ -322,7 +322,7 @@ def add_children_of_callable(
     p: ProjectStateSingleConfig,
     section_id: str,
     callable_id: str,
-    new_params: list[BaseCodeObjCore],
+    new_params: list[BaseCodeObjCoreUnion],
     new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
 ):
     callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
@@ -331,7 +331,7 @@ def add_children_of_callable(
     )
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
-    existing_param_core: dict[str, BaseCodeObjCore] = {}
+    existing_param_core: dict[str, BaseCodeObjCoreUnion] = {}
     for c in callable_code_obj_impl.children:
         match = p.codeObjs[c]
         existing_param_core[match.name] = match
@@ -378,7 +378,7 @@ def get_top_level_sections(p: ProjectStateSingleConfig):
 
 def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
     param_ids = get_top_level_param_ids(p, sectionId)
-    output: list[tuple[BaseCodeObjCore, BaseParamCodeObjImpl]] = []
+    output: list[tuple[BaseCodeObjCoreUnion, BaseParamCodeObjImpl]] = []
     for x in param_ids:
         codeObj = p.codeObjs[x]
         codeObjImpl = get_effective_code_obj_impl(p, sectionId, x)

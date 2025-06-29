@@ -3282,7 +3282,7 @@ export const DictSectionCoreSchema = z.object({
       ]),
     )
     .default(
-      () => new Set(["topLevelParamIds", "codeObjImplLayeringMap"] as const),
+      () => new Set(["codeObjImplLayeringMap", "topLevelParamIds"] as const),
     ),
 });
 
