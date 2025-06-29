@@ -4,6 +4,7 @@ Fly.io service for managing apps and deployments.
 
 import asyncio
 import base64
+from pathlib import Path
 
 from config import get_settings
 from fly.client import FlyClient
@@ -210,65 +211,16 @@ class FlyService:
 
     def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
         """Create a machine that clones and runs a GitHub repository."""
-        # Create a startup script that clones and runs the repo
-        startup_script = f"""#!/bin/bash
-set -e
+        # Read the deployment script from file
+        script_path = Path(__file__).parent.parent / "deploy_scripts" / "github_deploy.sh"
 
-echo "=== Starting GitHub deployment ==="
-echo "Repository: {github_url}"
+        if not script_path.exists():
+            raise FileNotFoundError(f"Deployment script not found: {script_path}")
 
-# Update package list and install git
-apt-get update && apt-get install -y git
+        with open(script_path) as f:
+            startup_script = f.read()
 
-# Clone the repository
-cd /
-git clone {github_url} app
-cd /app
-
-# Check for requirements.txt and install dependencies
-if [ -f requirements.txt ]; then
-    echo "Found requirements.txt, installing dependencies..."
-    pip install -r requirements.txt
-else
-    echo "WARNING: No requirements.txt found"
-fi
-
-# For now, try to detect and run the app
-# In the future, this will just be 'setta'
-if [ -f Procfile ]; then
-    echo "Found Procfile"
-    # Extract web command from Procfile
-    WEB_CMD=$(grep "^web:" Procfile | sed 's/^web: //')
-    echo "Running: $WEB_CMD"
-    exec $WEB_CMD
-elif [ -f app.py ]; then
-    echo "Found app.py"
-    # Try to run with gunicorn first (common for production)
-    if pip list | grep -q gunicorn; then
-        exec gunicorn app:app --bind 0.0.0.0:8080
-    elif pip list | grep -q uvicorn; then
-        exec uvicorn app:app --host 0.0.0.0 --port 8080
-    else
-        # Fallback to direct python execution
-        exec python app.py
-    fi
-elif [ -f main.py ]; then
-    echo "Found main.py"
-    if pip list | grep -q uvicorn; then
-        exec uvicorn main:app --host 0.0.0.0 --port 8080
-    else
-        exec python main.py
-    fi
-else
-    echo "ERROR: No app.py or main.py found!"
-    echo "Directory contents:"
-    ls -la
-    # Keep container running for debugging
-    exec sleep infinity
-fi
-"""
-
-        # Write the script to a temporary file to avoid escaping issues
+        # Encode the script
         script_base64 = base64.b64encode(startup_script.encode()).decode()
 
         # Machine configuration using a Python base image
@@ -291,6 +243,7 @@ fi
             "env": {
                 "PORT": "8080",
                 "PYTHONUNBUFFERED": "1",
+                "GITHUB_URL": github_url,  # Pass GitHub URL as environment variable
             },
             # Use CMD instead of init.exec
             "init": {
