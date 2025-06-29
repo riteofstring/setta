@@ -24,6 +24,7 @@ from setta.types.generated.impl_modifiers import (
     TerminalSectionImplModifier,
     TextBlockSectionImplModifier,
 )
+from setta.types.generated.type_to_modifier import create_modifier_for_section_type
 from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import SectionType
 
@@ -31,7 +32,7 @@ from setta.types.section_impls import SectionType
 class BrowserSectionCore(BaseSectionCore):
     type: Literal[SectionType.Browser] = SectionType.Browser
     sharedModifier: BrowserSectionImplModifier = Field(
-        default_factory=BrowserSectionImplModifier(type=SectionType.Browser)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Browser)
     )
     unsharedKeys: set[
         Literal[
@@ -53,7 +54,7 @@ class BrowserSectionCore(BaseSectionCore):
 class CallableSectionCore(BaseSectionCore):
     type: Literal[SectionType.Callable] = SectionType.Callable
     sharedModifier: CallableSectionImplModifier = Field(
-        default_factory=CallableSectionImplModifier(type=SectionType.Callable)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Callable)
     )
     unsharedKeys: set[
         Literal[
@@ -85,7 +86,7 @@ class CallableSectionCore(BaseSectionCore):
 class ChartSectionCore(BaseSectionCore):
     type: Literal[SectionType.Chart] = SectionType.Chart
     sharedModifier: ChartSectionImplModifier = Field(
-        default_factory=ChartSectionImplModifier(type=SectionType.Chart)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Chart)
     )
     unsharedKeys: set[
         Literal[
@@ -109,7 +110,7 @@ class ChartSectionCore(BaseSectionCore):
 class ChatSectionCore(BaseSectionCore):
     type: Literal[SectionType.Chat] = SectionType.Chat
     sharedModifier: ChatSectionImplModifier = Field(
-        default_factory=ChatSectionImplModifier(type=SectionType.Chat)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Chat)
     )
     unsharedKeys: set[
         Literal[
@@ -130,7 +131,7 @@ class ChatSectionCore(BaseSectionCore):
 class CodeSectionCore(BaseSectionCore):
     type: Literal[SectionType.Code] = SectionType.Code
     sharedModifier: CodeSectionImplModifier = Field(
-        default_factory=CodeSectionImplModifier(type=SectionType.Code)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Code)
     )
     unsharedKeys: set[
         Literal[
@@ -153,7 +154,7 @@ class CodeSectionCore(BaseSectionCore):
 class DictSectionCore(BaseSectionCore):
     type: Literal[SectionType.Dict] = SectionType.Dict
     sharedModifier: DictSectionImplModifier = Field(
-        default_factory=DictSectionImplModifier(type=SectionType.Dict)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Dict)
     )
     unsharedKeys: set[
         Literal[
@@ -187,7 +188,7 @@ class DictSectionCore(BaseSectionCore):
 class DictRootSectionCore(BaseSectionCore):
     type: Literal[SectionType.DictRoot] = SectionType.DictRoot
     sharedModifier: DictRootSectionImplModifier = Field(
-        default_factory=DictRootSectionImplModifier(type=SectionType.DictRoot)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.DictRoot)
     )
     unsharedKeys: set[
         Literal[
@@ -209,7 +210,7 @@ class DictRootSectionCore(BaseSectionCore):
 class DrawSectionCore(BaseSectionCore):
     type: Literal[SectionType.Draw] = SectionType.Draw
     sharedModifier: DrawSectionImplModifier = Field(
-        default_factory=DrawSectionImplModifier(type=SectionType.Draw)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Draw)
     )
     unsharedKeys: set[
         Literal[
@@ -233,7 +234,9 @@ class DrawSectionCore(BaseSectionCore):
 class GenPythonCodeSectionCore(BaseSectionCore):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
     sharedModifier: GenPythonCodeSectionImplModifier = Field(
-        default_factory=GenPythonCodeSectionImplModifier(type=SectionType.GenPythonCode)
+        default_factory=lambda: create_modifier_for_section_type(
+            SectionType.GenPythonCode
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -255,8 +258,8 @@ class GenPythonCodeSectionCore(BaseSectionCore):
 class GlobalVariablesSectionCore(BaseSectionCore):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
     sharedModifier: GlobalVariablesSectionImplModifier = Field(
-        default_factory=GlobalVariablesSectionImplModifier(
-            type=SectionType.GlobalVariables
+        default_factory=lambda: create_modifier_for_section_type(
+            SectionType.GlobalVariables
         )
     )
     unsharedKeys: set[
@@ -291,7 +294,7 @@ class GlobalVariablesSectionCore(BaseSectionCore):
 class GroupSectionCore(BaseSectionCore):
     type: Literal[SectionType.Group] = SectionType.Group
     sharedModifier: GroupSectionImplModifier = Field(
-        default_factory=GroupSectionImplModifier(type=SectionType.Group)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Group)
     )
     unsharedKeys: set[
         Literal[
@@ -314,7 +317,7 @@ class GroupSectionCore(BaseSectionCore):
 class IFrameSectionCore(BaseSectionCore):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
     sharedModifier: IFrameSectionImplModifier = Field(
-        default_factory=IFrameSectionImplModifier(type=SectionType.IFrame)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.IFrame)
     )
     unsharedKeys: set[
         Literal[
@@ -335,7 +338,7 @@ class IFrameSectionCore(BaseSectionCore):
 class ImageSectionCore(BaseSectionCore):
     type: Literal[SectionType.Image] = SectionType.Image
     sharedModifier: ImageSectionImplModifier = Field(
-        default_factory=ImageSectionImplModifier(type=SectionType.Image)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Image)
     )
     unsharedKeys: set[
         Literal[
@@ -357,7 +360,7 @@ class ImageSectionCore(BaseSectionCore):
 class ListRootSectionCore(BaseSectionCore):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
     sharedModifier: ListRootSectionImplModifier = Field(
-        default_factory=ListRootSectionImplModifier(type=SectionType.ListRoot)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.ListRoot)
     )
     unsharedKeys: set[
         Literal[
@@ -379,7 +382,7 @@ class ListRootSectionCore(BaseSectionCore):
 class SocialSectionCore(BaseSectionCore):
     type: Literal[SectionType.Social] = SectionType.Social
     sharedModifier: SocialSectionImplModifier = Field(
-        default_factory=SocialSectionImplModifier(type=SectionType.Social)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Social)
     )
     unsharedKeys: set[
         Literal[
@@ -401,7 +404,7 @@ class SocialSectionCore(BaseSectionCore):
 class TerminalSectionCore(BaseSectionCore):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
     sharedModifier: TerminalSectionImplModifier = Field(
-        default_factory=TerminalSectionImplModifier(type=SectionType.Terminal)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.Terminal)
     )
     unsharedKeys: set[
         Literal[
@@ -422,7 +425,7 @@ class TerminalSectionCore(BaseSectionCore):
 class TextBlockSectionCore(BaseSectionCore):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     sharedModifier: TextBlockSectionImplModifier = Field(
-        default_factory=TextBlockSectionImplModifier(type=SectionType.TextBlock)
+        default_factory=lambda: create_modifier_for_section_type(SectionType.TextBlock)
     )
     unsharedKeys: set[
         Literal[

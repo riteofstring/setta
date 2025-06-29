@@ -18,12 +18,15 @@ from setta.types.generated.impl_modifiers import (
     SwitchParamCodeObjImplModifier,
     TextParamCodeObjImplModifier,
 )
+from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 
 
 class CodeCallableCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
     sharedModifier: CodeCallableCodeObjImplModifier = Field(
-        default_factory=CodeCallableCodeObjImplModifier(type=CodeObjType.CodeCallable)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.CodeCallable
+        )
     )
     unsharedKeys: set[Literal["children", "description"]] = Field(default_factory=set)
 
@@ -31,7 +34,7 @@ class CodeCallableCodeObjCore(BaseCodeObjCore):
 class CodeParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
     sharedModifier: CodeParamCodeObjImplModifier = Field(
-        default_factory=CodeParamCodeObjImplModifier(type=CodeObjType.CodeParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(CodeObjType.CodeParam)
     )
     unsharedKeys: set[
         Literal[
@@ -48,8 +51,8 @@ class CodeParamCodeObjCore(BaseCodeObjCore):
 class ColorPickerParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
     sharedModifier: ColorPickerParamCodeObjImplModifier = Field(
-        default_factory=ColorPickerParamCodeObjImplModifier(
-            type=CodeObjType.ColorPickerParam
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.ColorPickerParam
         )
     )
     unsharedKeys: set[
@@ -68,7 +71,9 @@ class ColorPickerParamCodeObjCore(BaseCodeObjCore):
 class DropdownParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
     sharedModifier: DropdownParamCodeObjImplModifier = Field(
-        default_factory=DropdownParamCodeObjImplModifier(type=CodeObjType.DropdownParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.DropdownParam
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -86,7 +91,9 @@ class DropdownParamCodeObjCore(BaseCodeObjCore):
 class NestedParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     sharedModifier: NestedParamCodeObjImplModifier = Field(
-        default_factory=NestedParamCodeObjImplModifier(type=CodeObjType.NestedParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.NestedParam
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -102,7 +109,9 @@ class NestedParamCodeObjCore(BaseCodeObjCore):
 class PasswordParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
     sharedModifier: PasswordParamCodeObjImplModifier = Field(
-        default_factory=PasswordParamCodeObjImplModifier(type=CodeObjType.PasswordParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.PasswordParam
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -119,7 +128,9 @@ class PasswordParamCodeObjCore(BaseCodeObjCore):
 class SliderParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     sharedModifier: SliderParamCodeObjImplModifier = Field(
-        default_factory=SliderParamCodeObjImplModifier(type=CodeObjType.SliderParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.SliderParam
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -139,7 +150,9 @@ class SliderParamCodeObjCore(BaseCodeObjCore):
 class SwitchParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
     sharedModifier: SwitchParamCodeObjImplModifier = Field(
-        default_factory=SwitchParamCodeObjImplModifier(type=CodeObjType.SwitchParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(
+            CodeObjType.SwitchParam
+        )
     )
     unsharedKeys: set[
         Literal[
@@ -156,7 +169,7 @@ class SwitchParamCodeObjCore(BaseCodeObjCore):
 class TextParamCodeObjCore(BaseCodeObjCore):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
     sharedModifier: TextParamCodeObjImplModifier = Field(
-        default_factory=TextParamCodeObjImplModifier(type=CodeObjType.TextParam)
+        default_factory=lambda: create_modifier_for_code_obj_type(CodeObjType.TextParam)
     )
     unsharedKeys: set[
         Literal[

@@ -1,9 +1,9 @@
 #!/bin/bash
 python -m generation.generate_impl_modifiers
+python -m generation.generate_type_to_modifier_fns
 python -m generation.generate_cores
-python -m generation.generate_backend_union_types
-python -m generation.generate_impl_to_modifier_fns
 python -m generation.generate_impl_to_core_fns
+python -m generation.generate_backend_union_types
 python -m generation.generate_user_default_impls
 python -m generation.generate_impl_creation_fns
 python -m generation.generate_settings_state

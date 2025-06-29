@@ -5,7 +5,6 @@ import logging
 from pydantic import BaseModel, Field
 
 from setta.database.db.jsonSource.save import build_ancestor_paths
-from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
@@ -27,12 +26,13 @@ from setta.types.generated.impl_modifier_unions import (
 from setta.types.generated.impl_modifiers import (
     BaseDictSectionImplModifier,
 )
-from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.type_to_core import create_core_for_code_obj_type
+from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 from setta.types.impl_helpers import apply_modifier, get_effective_impl
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
@@ -265,10 +265,12 @@ def add_to_processed_json_object(
             settings.textParamDefault, value=json.dumps(value)
         )
     codeObjImplLayering = ImplLayering(
-        impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
+        impl=codeObjImpl.id,
+        modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
     layeringId = codeObjImplLayering.id
-    codeObj = BaseCodeObjCore(
+    codeObj = create_core_for_code_obj_type(
+        codeObjImpl.type,
         name=key,
         implLayerings=[layeringId],
         defaultImplLayering=layeringId,

@@ -13,9 +13,11 @@ from setta.types.generated.impl_modifier_unions import (
     isBaseParentCodeObjImplModifier,
     isBaseSectionWithParamsImplModifier,
 )
-from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import BaseSectionImplUnion
+from setta.types.generated.type_to_modifier import (
+    create_modifier_for_code_obj_type,
+)
 from setta.types.impl_helpers import (
     get_effective_impl,
     update_impl_layerings,
@@ -299,7 +301,8 @@ def add_code_obj(
     if not isinstance(section_impl, BaseSectionWithParamsImpl):
         raise TypeError
     code_obj_impl_layering = ImplLayering(
-        impl=code_obj_impl.id, modifier=create_modifier_for_impl(code_obj_impl)
+        impl=code_obj_impl.id,
+        modifier=create_modifier_for_code_obj_type(code_obj_impl.type),
     )
     code_obj.implLayerings.append(code_obj_impl_layering.id)
     if not code_obj.defaultImplLayering:

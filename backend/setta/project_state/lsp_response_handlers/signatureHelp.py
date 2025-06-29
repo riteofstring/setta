@@ -5,7 +5,6 @@ from typing import Callable
 import docstring_parser
 from lsprotocol import types as LSPTypes
 
-from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
@@ -15,6 +14,7 @@ from setta.types.generated.code_obj_type_unions import (
 )
 from setta.types.generated.creation_functions import createTextParamCodeObjImpl
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.type_to_core import create_core_for_code_obj_type
 
 
 @dataclass
@@ -115,14 +115,15 @@ def wrapper_parse_signature(
                 description = ""
 
         # Append parsed information to list
-        codeObj = BaseCodeObjCore(name=name.lstrip("*"))
-        codeObjs.append(codeObj)
-        codeObjImplMap[codeObj.id] = createTextParamCodeObjImpl(
+        codeObjImpl = createTextParamCodeObjImpl(
             settings.textParamDefault,
             defaultVal=default,
             description=description,
             passingStyle=passingStyle,
         )
+        codeObj = create_core_for_code_obj_type(codeObjImpl.type, name=name.lstrip("*"))
+        codeObjs.append(codeObj)
+        codeObjImplMap[codeObj.id] = codeObjImpl
 
     return codeObjs, codeObjImplMap
 

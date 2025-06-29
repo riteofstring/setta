@@ -5,7 +5,6 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
@@ -16,19 +15,23 @@ from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
-from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
+from setta.types.generated.section_cores import DictSectionCore
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.type_to_core import create_core_for_code_obj_type
+from setta.types.generated.type_to_modifier import (
+    create_modifier_for_code_obj_type,
+    create_modifier_for_section_type,
+)
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
-from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     ConfigLanguage,
     DictSectionImpl,
@@ -50,12 +53,14 @@ def add_code_obj_details(
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
     codeObjImplLayering = ImplLayering(
-        impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
+        impl=codeObjImpl.id,
+        modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
 
-    codeObj = BaseCodeObjCore(
+    codeObj = create_core_for_code_obj_type(
+        codeObjImpl.type,
         name=codeObjName,
         implLayerings=[codeObjImplLayering.id],
         defaultImplLayering=codeObjImplLayering.id,
@@ -164,9 +169,9 @@ def create_settings_project_state(settings_path: Path):
         sectionImplLayering = ImplLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
-            modifier=create_modifier_for_impl(sectionImpl),
+            modifier=create_modifier_for_section_type(sectionImpl.type),
         )
-        section = BaseSectionCore(
+        section = DictSectionCore(
             name=k,
             implLayerings=[sectionImplLayering.id],
             defaultImplLayering=sectionImplLayering.id,

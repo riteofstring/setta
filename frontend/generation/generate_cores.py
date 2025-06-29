@@ -64,6 +64,7 @@ def generate_core_class(
     modifier_suffix: str,
     default_keys: Set[str],
     enum_prefix: str,
+    modifier_creation_fn_name: str,
 ) -> str:
     """Generate a single Core class definition."""
 
@@ -99,7 +100,7 @@ def generate_core_class(
     class_def = f"""
 class {type_name}{core_class_suffix}(Base{core_class_suffix}):
     type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
-    sharedModifier: {type_name}{modifier_suffix} = Field(default_factory={type_name}{modifier_suffix}(type={enum_prefix}.{type_name}))
+    sharedModifier: {type_name}{modifier_suffix} = Field(default_factory=lambda: {modifier_creation_fn_name}({enum_prefix}.{type_name}))
     unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
 """
 
@@ -136,6 +137,7 @@ from pydantic import Field
 from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import SectionType
 
+from setta.types.generated.type_to_modifier import create_modifier_for_section_type
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
 )"""
@@ -152,6 +154,7 @@ from setta.types.generated.impl_modifiers import (
             "SectionImplModifier",
             default_keys,
             "SectionType",
+            "create_modifier_for_section_type",
         )
         class_definitions.append(class_def)
 
@@ -195,7 +198,7 @@ from pydantic import Field
 
 from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import CodeObjType
-
+from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
 )"""
@@ -212,6 +215,7 @@ from setta.types.generated.impl_modifiers import (
             "CodeObjImplModifier",
             default_keys,
             "CodeObjType",
+            "create_modifier_for_code_obj_type",
         )
         class_definitions.append(class_def)
 
