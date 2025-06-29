@@ -17,11 +17,11 @@ import {
 } from "state/actions/activeSections";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
+import { SelectionModeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
-import { SelectionMode } from "../types";
 import { getEventPosition } from "../utils";
 
 type PaneProps = {
@@ -147,7 +147,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     const selectedNodeIds = getNodesInside(
       nextUserSelectRect,
       transform,
-      useSettings.getState().gui.selectionMode === SelectionMode.Partial,
+      useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
       true,
     );
     // const selectedNodeIds = selectedNodes.map((n) => n.id);

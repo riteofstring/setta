@@ -14,16 +14,12 @@ import { useEffect, useRef } from "react";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { useMisc, useSettings } from "state/definitions";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
+import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { clamp, isMacOs } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import { getViewport } from "../hooks/useViewportHelper";
 import { infiniteExtent } from "../store/initialState";
-import {
-  CoordinateExtent,
-  PanOnScrollMode,
-  type ReactFlowState,
-  type Viewport,
-} from "../types";
+import { CoordinateExtent, type ReactFlowState, type Viewport } from "../types";
 
 const eventToFlowTransform = (eventTransform: ZoomTransform): Viewport => ({
   x: eventTransform.x,
@@ -59,7 +55,7 @@ const ZoomPane = ({
   zoomOnPinch = true,
   panOnScroll = false,
   panOnScrollSpeed = 0.5,
-  panOnScrollMode = PanOnScrollMode.Free,
+  panOnScrollMode = PanOnScrollModeEnum.free,
   zoomOnDoubleClick = true,
   elementsSelectable,
   panOnDrag = true,
@@ -116,11 +112,11 @@ const ZoomPane = ({
             // firefox: deltaMode === 1; chrome: deltaMode === 0
             const deltaNormalize = event.deltaMode === 1 ? 20 : 1;
             let deltaX =
-              panOnScrollMode === PanOnScrollMode.Vertical
+              panOnScrollMode === PanOnScrollModeEnum.vertical
                 ? 0
                 : event.deltaX * deltaNormalize;
             let deltaY =
-              panOnScrollMode === PanOnScrollMode.Horizontal
+              panOnScrollMode === PanOnScrollModeEnum.horizontal
                 ? 0
                 : event.deltaY * deltaNormalize;
 
@@ -128,7 +124,7 @@ const ZoomPane = ({
             if (
               !_isMacOs &&
               event.shiftKey &&
-              panOnScrollMode !== PanOnScrollMode.Vertical
+              panOnScrollMode !== PanOnScrollModeEnum.vertical
             ) {
               deltaX = event.deltaY * deltaNormalize;
               deltaY = 0;

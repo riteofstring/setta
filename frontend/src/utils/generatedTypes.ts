@@ -393,6 +393,14 @@ export const BackgroundVariantEnum = {
 
 export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
 
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+
+export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
+
 export const RenameRefactorModeEnum = {
   ALWAYS_ASK: "ALWAYS_ASK",
   ALWAYS_RENAME: "ALWAYS_RENAME",
@@ -400,6 +408,10 @@ export const RenameRefactorModeEnum = {
 } as const;
 
 export type RenameRefactorMode = ObjectValues<typeof RenameRefactorModeEnum>;
+
+export const SelectionModeEnum = { partial: "partial", full: "full" } as const;
+
+export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
 
 export const FileEventTypeEnum = {
   created: "created",
@@ -4106,11 +4118,13 @@ export const SettingsGUISchema = z.object({
   panOnDrag: z.boolean().default(true),
   panOnScroll: z.boolean().default(true),
   panOnScrollSpeed: z.number().default(1.0),
-  panOnScrollMode: z.string().default("free"),
+  panOnScrollMode: z
+    .enum(PanOnScrollModeEnum)
+    .default(PanOnScrollModeEnum.free),
   zoomOnScroll: z.boolean().default(true),
   zoomOnPinch: z.boolean().default(true),
   zoomOnDoubleClick: z.boolean().default(false),
-  selectionMode: z.string().default("partial"),
+  selectionMode: z.enum(SelectionModeEnum).default(SelectionModeEnum.partial),
   leftSidePaneShiftsMap: z.boolean().default(true),
   transitionDuration: z.int().default(50),
 });

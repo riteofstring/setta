@@ -15,6 +15,17 @@ class BackgroundVariant(str, Enum):
     cross = "cross"
 
 
+class SelectionMode(str, Enum):
+    partial = "partial"
+    full = "full"
+
+
+class PanOnScrollMode(str, Enum):
+    free = "free"
+    vertical = "vertical"
+    horizontal = "horizontal"
+
+
 class SettingsShortcuts(BaseModel):
     newCardShortcut: str = "N"
     newGroupShortcut: str = "G"
@@ -84,11 +95,11 @@ class SettingsGUI(BaseModel):
     panOnDrag: bool = True
     panOnScroll: bool = True
     panOnScrollSpeed: float = 1.0
-    panOnScrollMode: str = "free"
+    panOnScrollMode: PanOnScrollMode = PanOnScrollMode.free
     zoomOnScroll: bool = True
     zoomOnPinch: bool = True
     zoomOnDoubleClick: bool = False
-    selectionMode: str = "partial"
+    selectionMode: SelectionMode = SelectionMode.partial
     leftSidePaneShiftsMap: bool = True
     transitionDuration: int = 50
 

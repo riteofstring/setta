@@ -56,11 +56,6 @@ export type Viewport = {
 
 export type SnapGrid = [number, number];
 
-export enum PanOnScrollMode {
-  Free = "free",
-  Vertical = "vertical",
-  Horizontal = "horizontal",
-}
 
 export type ViewportHelperFunctionOptions = {
   duration?: number;
@@ -143,10 +138,6 @@ export type PanelPosition =
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
 
-export enum SelectionMode {
-  Partial = "partial",
-  Full = "full",
-}
 
 export type SelectionRect = Rect & {
   startX: number;

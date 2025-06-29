@@ -32,6 +32,8 @@ from setta.types.sections import (
 )
 from setta.types.settings_state import (
     BackgroundVariant,
+    PanOnScrollMode,
+    SelectionMode,
 )
 from setta.utils.constants import CWD
 
@@ -49,12 +51,14 @@ def create_settings_code_objs(section_names):
     )
 
     selection_dropdown = DropdownParamCodeObjImpl(
-        name="Selection Modes", choices=['"partial"', '"full"'], isPreset=True
+        name="Selection Modes",
+        choices=[f'"{b.value}"' for b in SelectionMode],
+        isPreset=True,
     )
 
     pan_dropdown = DropdownParamCodeObjImpl(
         name="Pan-On-Scroll Modes",
-        choices=['"free"', '"vertical"', '"horizontal"'],
+        choices=[f'"{b.value}"' for b in PanOnScrollMode],
         isPreset=True,
     )
 
