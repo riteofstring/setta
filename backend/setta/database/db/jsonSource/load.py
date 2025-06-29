@@ -37,7 +37,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_core import SectionCore
+from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     SectionType,
@@ -54,7 +54,7 @@ class ProcessedJSONObject(BaseModel):
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
-    sections: dict[str, SectionCore]
+    sections: dict[str, BaseSectionCore]
     sectionImpls: dict[str, BaseSectionImplUnion]
     sectionImplLayerings: dict[str, ImplLayering]
     codeObjs: dict[str, CodeObjCore]

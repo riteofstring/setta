@@ -26,7 +26,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
-from setta.types.section_core import SectionCore
+from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     ConfigLanguage,
     DictSectionImpl,
@@ -146,7 +146,7 @@ def create_settings_project_state(settings_path: Path):
         codeObjImplLayeringMaps,
     ) = create_settings_code_objs(section_names)
 
-    sections: dict[str, SectionCore] = {}
+    sections: dict[str, BaseSectionCore] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
     sectionImplLayerings: dict[str, ImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
@@ -164,7 +164,7 @@ def create_settings_project_state(settings_path: Path):
             impl=sectionImpl.id,
             modifier=create_modifier_for_impl(sectionImpl),
         )
-        section = SectionCore(
+        section = BaseSectionCore(
             name=k,
             implLayerings=[sectionImplLayering.id],
             defaultImplLayering=sectionImplLayering.id,

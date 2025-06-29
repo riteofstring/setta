@@ -15,7 +15,7 @@ from setta.types.generated.section_type_unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.impl_layering import ImplLayering
-from setta.types.section_core import SectionCore
+from setta.types.section_core import BaseSectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -53,7 +53,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, SectionCore] = Field(default_factory=dict)
+    sections: dict[str, BaseSectionCore] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )

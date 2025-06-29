@@ -24,7 +24,7 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_core import SectionCore
+from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
@@ -365,7 +365,7 @@ def set_param_entered_value(
 
 
 def get_top_level_sections(p: ProjectStateSingleConfig):
-    output: dict[str, SectionCore] = {}
+    output: dict[str, BaseSectionCore] = {}
     projectConfig = p.projectConfig
     for c in projectConfig.topLevelSections.keys():
         output[c] = p.sections[c]
@@ -405,7 +405,7 @@ def create_sections(
     # TODO!
     for s in sections:
         # sectionImpl =
-        sectionCore = SectionCore(name=s.name)
+        sectionCore = BaseSectionCore(name=s.name)
         # p.sections[sectionCore.id] = sectionCore
         # p.sectionImpls[sectionImpl.id] = sectionImpl
         # new_section.variantIds = [new_section_config.variantId]
