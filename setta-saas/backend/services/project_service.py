@@ -269,30 +269,30 @@ class ProjectService:
                 github_url=project.github_url,
             )
 
-            # Step 2: Allocating resources
-            await self._update_progress(project, DeploymentStep.ALLOCATING_RESOURCES, 20)
+            # Step 2: Allocating IPs
+            await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 20)
 
             success = self.fly.create_app(app_name)
             if not success:
                 raise Exception("Failed to create Fly.io app")
 
-            # Step 3: Configuring network
-            await self._update_progress(project, DeploymentStep.CONFIGURING_NETWORK, 30)
+            # Step 3: Allocating IPs
+            await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 30)
 
             # Allocate IP addresses
             self.fly.allocate_ips(app_name)
             await asyncio.sleep(2)  # Give Fly.io time to allocate
 
-            # Step 4: Building application
-            await self._update_progress(project, DeploymentStep.BUILDING_APPLICATION, 50)
+            # Step 4: Deploying machine
+            await self._update_progress(project, DeploymentStep.DEPLOYING_MACHINE, 50)
 
             # Deploy the app
             deploy_success = self.fly.deploy_app(app_name, fly_config)
             if not deploy_success:
                 raise Exception("Failed to deploy application")
 
-            # Step 5: Starting services
-            await self._update_progress(project, DeploymentStep.STARTING_SERVICES, 70)
+            # Step 5: Waiting for DNS
+            await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, 70)
 
             # Wait for app to be ready
             max_attempts = 30
@@ -303,12 +303,10 @@ class ProjectService:
 
                 # Update progress during waiting
                 progress = 70 + (20 * (attempt / max_attempts))
-                await self._update_progress(
-                    project, DeploymentStep.STARTING_SERVICES, int(progress)
-                )
+                await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, int(progress))
 
-            # Step 6: Finalizing
-            await self._update_progress(project, DeploymentStep.FINALIZING, 90)
+            # Step 6: Verifying deployment
+            await self._update_progress(project, DeploymentStep.VERIFYING_DEPLOYMENT, 90)
 
             # Get machine ID
             machines = self.fly.list_machines(app_name)
@@ -321,8 +319,8 @@ class ProjectService:
             project.machine_state = "started"
             db.commit()
 
-            # Step 7: Completed
-            await self._update_progress(project, DeploymentStep.COMPLETED, 100)
+            # Step 7: Complete
+            await self._update_progress(project, DeploymentStep.COMPLETE, 100)
 
             # Send completion event
             await self._broadcast_project_event(
@@ -349,26 +347,22 @@ class ProjectService:
 
     async def _update_progress(self, project: Project, step: DeploymentStep, percentage: int):
         """Update deployment progress and broadcast to clients."""
+        # Calculate current step number based on percentage
+        current_step = int((percentage / 100) * 5)  # Assuming 5 total steps
+
         progress_data = ProgressData(
-            step=step,
-            percentage=percentage,
+            current_step=current_step,
+            total_steps=5,
             message=self._get_step_message(step),
+            percent_complete=percentage,
         )
 
         await self._broadcast_progress(project, progress_data)
 
     def _get_step_message(self, step: DeploymentStep) -> str:
         """Get user-friendly message for deployment step."""
-        messages = {
-            DeploymentStep.CREATING_APP: "Creating your application...",
-            DeploymentStep.ALLOCATING_RESOURCES: "Allocating cloud resources...",
-            DeploymentStep.CONFIGURING_NETWORK: "Configuring network settings...",
-            DeploymentStep.BUILDING_APPLICATION: "Building your application...",
-            DeploymentStep.STARTING_SERVICES: "Starting application services...",
-            DeploymentStep.FINALIZING: "Finalizing deployment...",
-            DeploymentStep.COMPLETED: "Deployment completed successfully!",
-        }
-        return messages.get(step, "Processing...")
+        # The DeploymentStep enum already contains user-friendly messages
+        return step.value
 
     async def _broadcast_project_event(self, project: Project, event_type: EventType, message: str):
         """Broadcast project event to all connected clients."""
@@ -376,11 +370,11 @@ class ProjectService:
             type=event_type,
             data=ProjectEventData(
                 project_id=project.id,
-                name=project.name,
-                url=project.url,
+                project_name=project.name,  # Note: ProjectEventData expects project_name
                 status=project.status,
-                message=message,
-            ),
+                url=project.url,
+                timestamp=datetime.utcnow(),
+            ).model_dump(),  # Convert to dict first
         )
         await self.ws_manager.broadcast(event.model_dump())
 
@@ -392,6 +386,7 @@ class ProjectService:
                 "project_id": project.id,
                 "progress": progress.model_dump(),
             },
+            timestamp=datetime.utcnow(),
         )
         await self.ws_manager.broadcast(event.model_dump())
 
