@@ -33,7 +33,7 @@ DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
 
 # Default unsharedKeys for each code obj type
 DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "CodeCallable": {"value"},
+    "CodeCallable": set(),
     "CodeParam": {"value"},
     "TextParam": {"value"},
     "SliderParam": {"value"},
@@ -41,7 +41,7 @@ DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
     "ColorPickerParam": {"value"},
     "DropdownParam": {"value"},
     "PasswordParam": {"value"},
-    "NestedParam": {"value"},
+    "NestedParam": set(),
 }
 
 
@@ -63,6 +63,7 @@ def generate_core_class(
     core_class_suffix: str,
     modifier_suffix: str,
     default_keys: Set[str],
+    enum_prefix: str,
 ) -> str:
     """Generate a single Core class definition."""
 
@@ -97,7 +98,7 @@ def generate_core_class(
     # Generate the class definition
     class_def = f"""
 class {type_name}{core_class_suffix}(Base{core_class_suffix}):
-    \"\"\"Core configuration for {type_name} {"sections" if "Section" in core_class_suffix else "code objects"}.\"\"\"
+    type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
     sharedModifier: {type_name}{modifier_suffix}
     unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
 """
@@ -133,6 +134,7 @@ def generate_section_cores() -> str:
 from pydantic import Field
 
 from setta.types.section_core import BaseSectionCore
+from setta.types.section_impls import SectionType
 
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
@@ -149,6 +151,7 @@ from setta.types.generated.impl_modifiers import (
             "SectionCore",
             "SectionImplModifier",
             default_keys,
+            "SectionType",
         )
         class_definitions.append(class_def)
 
@@ -191,6 +194,7 @@ def generate_code_obj_cores() -> str:
 from pydantic import Field
 
 from setta.types.code_obj_core import BaseCodeObjCore
+from setta.types.code_obj_impls import CodeObjType
 
 from setta.types.generated.impl_modifiers import (
 {modifier_imports_str}
@@ -207,6 +211,7 @@ from setta.types.generated.impl_modifiers import (
             "CodeObjCore",
             "CodeObjImplModifier",
             default_keys,
+            "CodeObjType",
         )
         class_definitions.append(class_def)
 

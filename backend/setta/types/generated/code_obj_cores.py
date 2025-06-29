@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import Field
 
 from setta.types.code_obj_core import BaseCodeObjCore
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_modifiers import (
     CodeCallableCodeObjImplModifier,
     CodeParamCodeObjImplModifier,
@@ -20,15 +21,13 @@ from setta.types.generated.impl_modifiers import (
 
 
 class CodeCallableCodeObjCore(BaseCodeObjCore):
-    """Core configuration for CodeCallable code objects."""
-
+    type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
     sharedModifier: CodeCallableCodeObjImplModifier
     unsharedKeys: set[Literal["children", "description"]] = Field(default_factory=set)
 
 
 class CodeParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for CodeParam code objects."""
-
+    type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
     sharedModifier: CodeParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -39,12 +38,11 @@ class CodeParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class ColorPickerParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for ColorPickerParam code objects."""
-
+    type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
     sharedModifier: ColorPickerParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -56,12 +54,11 @@ class ColorPickerParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class DropdownParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for DropdownParam code objects."""
-
+    type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
     sharedModifier: DropdownParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -73,12 +70,11 @@ class DropdownParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class NestedParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for NestedParam code objects."""
-
+    type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     sharedModifier: NestedParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -92,8 +88,7 @@ class NestedParamCodeObjCore(BaseCodeObjCore):
 
 
 class PasswordParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for PasswordParam code objects."""
-
+    type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
     sharedModifier: PasswordParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -104,12 +99,11 @@ class PasswordParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class SliderParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for SliderParam code objects."""
-
+    type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     sharedModifier: SliderParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -123,12 +117,11 @@ class SliderParamCodeObjCore(BaseCodeObjCore):
             "step",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class SwitchParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for SwitchParam code objects."""
-
+    type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
     sharedModifier: SwitchParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -139,12 +132,11 @@ class SwitchParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})
 
 
 class TextParamCodeObjCore(BaseCodeObjCore):
-    """Core configuration for TextParam code objects."""
-
+    type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
     sharedModifier: TextParamCodeObjImplModifier
     unsharedKeys: set[
         Literal[
@@ -155,4 +147,4 @@ class TextParamCodeObjCore(BaseCodeObjCore):
             "passingStyle",
             "value",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"value"})

@@ -25,11 +25,11 @@ from setta.types.generated.impl_modifiers import (
     TextBlockSectionImplModifier,
 )
 from setta.types.section_core import BaseSectionCore
+from setta.types.section_impls import SectionType
 
 
 class BrowserSectionCore(BaseSectionCore):
-    """Core configuration for Browser sections."""
-
+    type: Literal[SectionType.Browser] = SectionType.Browser
     sharedModifier: BrowserSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -49,8 +49,7 @@ class BrowserSectionCore(BaseSectionCore):
 
 
 class CallableSectionCore(BaseSectionCore):
-    """Core configuration for Callable sections."""
-
+    type: Literal[SectionType.Callable] = SectionType.Callable
     sharedModifier: CallableSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -80,8 +79,7 @@ class CallableSectionCore(BaseSectionCore):
 
 
 class ChartSectionCore(BaseSectionCore):
-    """Core configuration for Chart sections."""
-
+    type: Literal[SectionType.Chart] = SectionType.Chart
     sharedModifier: ChartSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -103,8 +101,7 @@ class ChartSectionCore(BaseSectionCore):
 
 
 class ChatSectionCore(BaseSectionCore):
-    """Core configuration for Chat sections."""
-
+    type: Literal[SectionType.Chat] = SectionType.Chat
     sharedModifier: ChatSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -123,8 +120,7 @@ class ChatSectionCore(BaseSectionCore):
 
 
 class CodeSectionCore(BaseSectionCore):
-    """Core configuration for Code sections."""
-
+    type: Literal[SectionType.Code] = SectionType.Code
     sharedModifier: CodeSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -145,8 +141,7 @@ class CodeSectionCore(BaseSectionCore):
 
 
 class DictSectionCore(BaseSectionCore):
-    """Core configuration for Dict sections."""
-
+    type: Literal[SectionType.Dict] = SectionType.Dict
     sharedModifier: DictSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -178,8 +173,7 @@ class DictSectionCore(BaseSectionCore):
 
 
 class DictRootSectionCore(BaseSectionCore):
-    """Core configuration for DictRoot sections."""
-
+    type: Literal[SectionType.DictRoot] = SectionType.DictRoot
     sharedModifier: DictRootSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -199,8 +193,7 @@ class DictRootSectionCore(BaseSectionCore):
 
 
 class DrawSectionCore(BaseSectionCore):
-    """Core configuration for Draw sections."""
-
+    type: Literal[SectionType.Draw] = SectionType.Draw
     sharedModifier: DrawSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -222,8 +215,7 @@ class DrawSectionCore(BaseSectionCore):
 
 
 class GenPythonCodeSectionCore(BaseSectionCore):
-    """Core configuration for GenPythonCode sections."""
-
+    type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
     sharedModifier: GenPythonCodeSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -243,8 +235,7 @@ class GenPythonCodeSectionCore(BaseSectionCore):
 
 
 class GlobalVariablesSectionCore(BaseSectionCore):
-    """Core configuration for GlobalVariables sections."""
-
+    type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
     sharedModifier: GlobalVariablesSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -276,8 +267,7 @@ class GlobalVariablesSectionCore(BaseSectionCore):
 
 
 class GroupSectionCore(BaseSectionCore):
-    """Core configuration for Group sections."""
-
+    type: Literal[SectionType.Group] = SectionType.Group
     sharedModifier: GroupSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -298,8 +288,7 @@ class GroupSectionCore(BaseSectionCore):
 
 
 class IFrameSectionCore(BaseSectionCore):
-    """Core configuration for IFrame sections."""
-
+    type: Literal[SectionType.IFrame] = SectionType.IFrame
     sharedModifier: IFrameSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -318,8 +307,7 @@ class IFrameSectionCore(BaseSectionCore):
 
 
 class ImageSectionCore(BaseSectionCore):
-    """Core configuration for Image sections."""
-
+    type: Literal[SectionType.Image] = SectionType.Image
     sharedModifier: ImageSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -339,8 +327,7 @@ class ImageSectionCore(BaseSectionCore):
 
 
 class ListRootSectionCore(BaseSectionCore):
-    """Core configuration for ListRoot sections."""
-
+    type: Literal[SectionType.ListRoot] = SectionType.ListRoot
     sharedModifier: ListRootSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -360,8 +347,7 @@ class ListRootSectionCore(BaseSectionCore):
 
 
 class SocialSectionCore(BaseSectionCore):
-    """Core configuration for Social sections."""
-
+    type: Literal[SectionType.Social] = SectionType.Social
     sharedModifier: SocialSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -381,8 +367,7 @@ class SocialSectionCore(BaseSectionCore):
 
 
 class TerminalSectionCore(BaseSectionCore):
-    """Core configuration for Terminal sections."""
-
+    type: Literal[SectionType.Terminal] = SectionType.Terminal
     sharedModifier: TerminalSectionImplModifier
     unsharedKeys: set[
         Literal[
@@ -401,8 +386,7 @@ class TerminalSectionCore(BaseSectionCore):
 
 
 class TextBlockSectionCore(BaseSectionCore):
-    """Core configuration for TextBlock sections."""
-
+    type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     sharedModifier: TextBlockSectionImplModifier
     unsharedKeys: set[
         Literal[

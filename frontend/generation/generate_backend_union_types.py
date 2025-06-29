@@ -124,6 +124,32 @@ def code_obj_impl_union():
     )
 
 
+def section_core_union():
+    import setta.types.generated.section_cores
+    import setta.types.section_core
+
+    return construct_unions(
+        setta.types.generated.section_cores,
+        setta.types.section_core.BaseSectionCore,
+        "type",
+        setta.types.generated.section_cores,
+        lambda x: x,
+    )
+
+
+def code_obj_core_union():
+    import setta.types.code_obj_core
+    import setta.types.generated.code_obj_cores
+
+    return construct_unions(
+        setta.types.generated.code_obj_cores,
+        setta.types.code_obj_core.BaseCodeObjCore,
+        "type",
+        setta.types.generated.code_obj_cores,
+        lambda x: x,
+    )
+
+
 def create_type_predicate_fns(
     most_base_type_names, set_name, transformed_base_class_name
 ):
@@ -256,6 +282,8 @@ def main(output_folder):
     # order matters! (because of imports)
     gen_write(section_impl_union, output_folder / "section_type_unions.py")
     gen_write(code_obj_impl_union, output_folder / "code_obj_type_unions.py")
+    gen_write(section_core_union, output_folder / "section_core_unions.py")
+    gen_write(code_obj_core_union, output_folder / "code_obj_core_unions.py")
     gen_write(
         impl_modifier_union,
         output_folder / "impl_modifier_unions.py",

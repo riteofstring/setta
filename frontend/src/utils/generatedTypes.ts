@@ -3443,6 +3443,7 @@ export const BaseSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.any(),
   sharedModifier: z.any(),
   unsharedKeys: z.any(),
 });
@@ -5347,6 +5348,7 @@ export const CodeCallableCodeObjCoreSchema = z.object({
   unsharedKeys: z
     .set(z.literal(["children", "description"]))
     .default(new Set()),
+  type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
 });
 
 export type CodeCallableCodeObjCore = z.infer<
@@ -5376,7 +5378,8 @@ export const CodeParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("CodeParam").default(CodeObjTypeEnum.CodeParam),
 });
 
 export type CodeParamCodeObjCore = z.infer<typeof CodeParamCodeObjCoreSchema>;
@@ -5405,7 +5408,8 @@ export const ColorPickerParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("ColorPickerParam").default(CodeObjTypeEnum.ColorPickerParam),
 });
 
 export type ColorPickerParamCodeObjCore = z.infer<
@@ -5436,7 +5440,8 @@ export const DropdownParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("DropdownParam").default(CodeObjTypeEnum.DropdownParam),
 });
 
 export type DropdownParamCodeObjCore = z.infer<
@@ -5466,6 +5471,7 @@ export const NestedParamCodeObjCoreSchema = z.object({
       ]),
     )
     .default(new Set()),
+  type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
 });
 
 export type NestedParamCodeObjCore = z.infer<
@@ -5495,7 +5501,8 @@ export const PasswordParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("PasswordParam").default(CodeObjTypeEnum.PasswordParam),
 });
 
 export type PasswordParamCodeObjCore = z.infer<
@@ -5528,7 +5535,8 @@ export const SliderParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("SliderParam").default(CodeObjTypeEnum.SliderParam),
 });
 
 export type SliderParamCodeObjCore = z.infer<
@@ -5558,7 +5566,8 @@ export const SwitchParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("SwitchParam").default(CodeObjTypeEnum.SwitchParam),
 });
 
 export type SwitchParamCodeObjCore = z.infer<
@@ -5588,7 +5597,8 @@ export const TextParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(new Set()),
+    .default(() => new Set(["value"] as const)),
+  type: z.literal("TextParam").default(CodeObjTypeEnum.TextParam),
 });
 
 export type TextParamCodeObjCore = z.infer<typeof TextParamCodeObjCoreSchema>;
@@ -5604,6 +5614,7 @@ export const BrowserSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Browser").default(SectionTypeEnum.Browser),
   sharedModifier: BrowserSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5637,6 +5648,7 @@ export const CallableSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Callable").default(SectionTypeEnum.Callable),
   sharedModifier: CallableSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5664,7 +5676,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => new Set(["callable", "codeObjImplLayeringMap"] as const)),
+    .default(() => new Set(["codeObjImplLayeringMap", "callable"] as const)),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
@@ -5680,6 +5692,7 @@ export const ChartSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Chart").default(SectionTypeEnum.Chart),
   sharedModifier: ChartSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5715,6 +5728,7 @@ export const ChatSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Chat").default(SectionTypeEnum.Chat),
   sharedModifier: ChatSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5747,6 +5761,7 @@ export const CodeSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Code").default(SectionTypeEnum.Code),
   sharedModifier: CodeSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5781,6 +5796,7 @@ export const DictRootSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
   sharedModifier: DictRootSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5814,6 +5830,7 @@ export const DictSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Dict").default(SectionTypeEnum.Dict),
   sharedModifier: DictSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5844,7 +5861,7 @@ export const DictSectionCoreSchema = z.object({
       ]),
     )
     .default(
-      () => new Set(["topLevelParamIds", "codeObjImplLayeringMap"] as const),
+      () => new Set(["codeObjImplLayeringMap", "topLevelParamIds"] as const),
     ),
 });
 
@@ -5861,6 +5878,7 @@ export const DrawSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Draw").default(SectionTypeEnum.Draw),
   sharedModifier: DrawSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5896,6 +5914,7 @@ export const GenPythonCodeSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
   sharedModifier: GenPythonCodeSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5931,6 +5950,7 @@ export const GlobalVariablesSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
   sharedModifier: GlobalVariablesSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -5978,6 +5998,7 @@ export const GroupSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Group").default(SectionTypeEnum.Group),
   sharedModifier: GroupSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6012,6 +6033,7 @@ export const IFrameSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("IFrame").default(SectionTypeEnum.IFrame),
   sharedModifier: IFrameSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6044,6 +6066,7 @@ export const ImageSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Image").default(SectionTypeEnum.Image),
   sharedModifier: ImageSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6077,6 +6100,7 @@ export const ListRootSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("ListRoot").default(SectionTypeEnum.ListRoot),
   sharedModifier: ListRootSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6110,6 +6134,7 @@ export const SocialSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Social").default(SectionTypeEnum.Social),
   sharedModifier: SocialSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6143,6 +6168,7 @@ export const TerminalSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("Terminal").default(SectionTypeEnum.Terminal),
   sharedModifier: TerminalSectionImplModifierSchema,
   unsharedKeys: z
     .set(
@@ -6175,6 +6201,7 @@ export const TextBlockSectionCoreSchema = z.object({
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.literal("TextBlock").default(SectionTypeEnum.TextBlock),
   sharedModifier: TextBlockSectionImplModifierSchema,
   unsharedKeys: z
     .set(

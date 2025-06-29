@@ -11,5 +11,6 @@ class BaseSectionCore(BaseModel, extra="forbid"):
     name: str = Field(default_factory=generate_memorable_string)
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str | None = None
+    type: Any
     sharedModifier: Any
     unsharedKeys: Any
