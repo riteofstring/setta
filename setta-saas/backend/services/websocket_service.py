@@ -1,107 +1,114 @@
 """
-WebSocket service for real-time updates.
+WebSocket service for managing connections and broadcasting events.
 """
 
+import asyncio
 import json
+from datetime import datetime
 
 from fastapi import WebSocket
 
-# Import event types and models from the models module
+from models.websocket import EventType, WebSocketEvent
 
 
 class ConnectionManager:
-    """Manages WebSocket connections."""
+    """Manages WebSocket connections and broadcasts."""
 
     def __init__(self):
-        self.active_connections: dict[str, list[WebSocket]] = {}
-        self.user_connections: dict[str, WebSocket] = {}
-        self.anonymous_connections: list[WebSocket] = []
+        self.active_connections: set[WebSocket] = set()
+        self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket, user_id: str = None):
-        """Connect a WebSocket (with or without user ID)."""
+    async def connect(self, websocket: WebSocket):
+        """Accept and store a new WebSocket connection."""
         await websocket.accept()
+        async with self._lock:
+            self.active_connections.add(websocket)
 
-        if user_id:
-            self.user_connections[user_id] = websocket
-            return
+        # Send connection established event
+        event = WebSocketEvent(
+            type=EventType.CONNECTION_ESTABLISHED,
+            data={"message": "Connected to real-time updates"},
+        )
 
-        self.anonymous_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket = None, user_id: str = None):
-        """Disconnect a WebSocket."""
-        # Handle user_id disconnect
-        if user_id and user_id in self.user_connections:
-            del self.user_connections[user_id]
-            return
-
-        # Handle websocket disconnect
-        if not websocket:
-            return
-
-        # Remove from anonymous connections
-        if websocket in self.anonymous_connections:
-            self.anonymous_connections.remove(websocket)
-            return
-
-        # Check if it's in user connections
-        for uid, ws in list(self.user_connections.items()):
-            if ws != websocket:
-                continue
-            del self.user_connections[uid]
-            break
-
-    async def send_personal_message(self, message: dict, user_id: str):
-        """Send a message to a specific user."""
-        if user_id not in self.user_connections:
-            return
-
-        websocket = self.user_connections[user_id]
         try:
-            # Convert to JSON with datetime handling
-            await websocket.send_text(json.dumps(message, default=str))
+            # Send as JSON string directly
+            await websocket.send_text(event.json())
+            print("Sent connection message to new WebSocket client")
         except Exception as e:
-            print(f"Error sending to user {user_id}: {e}")
-            self.disconnect(user_id=user_id)
+            print(f"Error sending initial connection message: {e}")
 
-    async def broadcast(self, event: dict):
-        """Broadcast an event to all connected users."""
-        # Convert event to JSON string once
-        # Handle datetime serialization by converting to ISO format
-        event_json = json.dumps(event, default=str)
+    async def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection."""
+        async with self._lock:
+            self.active_connections.discard(websocket)
+        print(f"WebSocket disconnected. Active connections: {len(self.active_connections)}")
 
-        # Broadcast to authenticated users
-        for user_id, websocket in list(self.user_connections.items()):
+    async def send_to_websocket(self, websocket: WebSocket, event: WebSocketEvent):
+        """Send an event to a specific WebSocket connection."""
+        try:
+            # Use send_text with JSON string instead of send_json
+            await websocket.send_text(event.json())
+        except Exception as e:
+            print(f"Error sending to websocket: {e}")
+            await self.disconnect(websocket)
+
+    async def broadcast(self, event: WebSocketEvent):
+        """Broadcast an event to all connected clients."""
+        if not self.active_connections:
+            return
+
+        # Create list of connections to avoid modification during iteration
+        async with self._lock:
+            connections = list(self.active_connections)
+
+        # Send to all connections concurrently
+        tasks = []
+        for ws in connections:
+            tasks.append(self.send_to_websocket(ws, event))
+
+        await asyncio.gather(*tasks, return_exceptions=True)
+        print(f"Broadcasted {event.type} to {len(connections)} clients")
+
+    async def broadcast_json(self, data: dict):
+        """Broadcast raw JSON data to all connections."""
+        if not self.active_connections:
+            return
+
+        message = json.dumps(data)
+        disconnected = set()
+
+        async with self._lock:
+            connections = list(self.active_connections)
+
+        for websocket in connections:
             try:
-                await websocket.send_text(event_json)
-            except Exception as e:
-                print(f"Error broadcasting to user {user_id}: {e}")
-                self.disconnect(user_id=user_id)
+                await websocket.send_text(message)
+            except Exception:
+                disconnected.add(websocket)
 
-        # Broadcast to anonymous connections
-        disconnected = []
-        for websocket in self.anonymous_connections:
-            try:
-                await websocket.send_text(event_json)
-            except Exception as e:
-                print(f"Error broadcasting to anonymous connection: {e}")
-                disconnected.append(websocket)
-
-        # Remove disconnected websockets
-        for ws in disconnected:
-            self.disconnect(websocket=ws)
+        # Clean up disconnected clients
+        if disconnected:
+            async with self._lock:
+                self.active_connections -= disconnected
+            print(f"Removed {len(disconnected)} disconnected clients")
 
     def get_connection_count(self) -> int:
         """Get the number of active connections."""
-        return len(self.user_connections) + len(self.anonymous_connections)
+        return len(self.active_connections)
+
+    async def send_heartbeat(self):
+        """Send periodic heartbeat to all connections."""
+        event = WebSocketEvent(
+            type=EventType.HEARTBEAT,
+            data={"timestamp": datetime.utcnow().isoformat()},
+        )
+        await self.broadcast(event)
 
 
-# Singleton instance
-_connection_manager = None
+# Global connection manager instance
+manager = ConnectionManager()
 
 
 def get_connection_manager() -> ConnectionManager:
-    """Get the singleton ConnectionManager instance."""
-    global _connection_manager
-    if _connection_manager is None:
-        _connection_manager = ConnectionManager()
-    return _connection_manager
+    """Get the global connection manager instance."""
+    return manager

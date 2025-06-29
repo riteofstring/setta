@@ -1,10 +1,11 @@
 """
-Fly.io service for managing cloud deployments.
+Fly.io service for managing apps and deployments.
 """
 
 import asyncio
-import os
+import base64
 
+from config import get_settings
 from fly.client import FlyClient
 from fly.deployment import (
     allocate_ips,
@@ -12,85 +13,156 @@ from fly.deployment import (
     create_app,
     delete_all_apps_in_org,
     delete_app_force,
+    get_app_status,
     get_organization_id,
     list_all_apps,
     wait_for_app_ready,
 )
-from fly.deployment import (
-    start_machine as fly_start_machine,
-)
-from fly.deployment import (
-    stop_machine as fly_stop_machine,
-)
 from models.websocket import EventType, ProgressData, WebSocketEvent
-
-from .fly_deployment_config import get_machine_config, validate_github_url
-from .websocket_service import get_connection_manager
+from services.deployment_events import DeploymentEventPoller
+from services.websocket_service import get_connection_manager
 
 
 class FlyService:
-    def __init__(self):
-        self.api_token = os.getenv("FLY_API_TOKEN")
-        if not self.api_token:
-            raise ValueError("FLY_API_TOKEN environment variable is required")
+    """Service for managing Fly.io operations."""
 
-        self.client = FlyClient(api_token=self.api_token)
-        self.org_slug = os.getenv("FLY_ORG_SLUG", "personal")
-        self.org_id = get_organization_id(self.client, self.org_slug)
+    def __init__(self):
+        settings = get_settings()
+        self.client = FlyClient(settings.fly_api_token)
+        self.org_slug = settings.fly_org_slug or "personal"
+        self._org_id = None
         self.ws_manager = get_connection_manager()
+        self.event_poller = DeploymentEventPoller(self.client)
+
+    @property
+    def org_id(self) -> str:
+        """Get organization ID (cached)."""
+        if not self._org_id:
+            self._org_id = get_organization_id(self.client, self.org_slug)
+            print(f"Using organization: {self.org_slug} (ID: {self._org_id})")
+        return self._org_id
+
+    async def _broadcast_deployment_progress(self, project_id: str, message: str, percent: int):
+        """Broadcast deployment progress."""
+        progress_data = ProgressData(
+            current_step=percent // 20,
+            total_steps=5,
+            message=message,
+            percent_complete=percent,
+        )
+
+        event = WebSocketEvent(
+            type=EventType.DEPLOYMENT_PROGRESS,
+            data={
+                "project_id": project_id,
+                "progress": progress_data.dict(),
+            },
+        )
+        await self.ws_manager.broadcast(event)
+
+    async def _poll_and_broadcast_events(self, app_name: str, machine_id: str, project_id: str):
+        """Poll for deployment events and broadcast progress."""
+
+        async def broadcast_callback(message: str, progress: int):
+            await self._broadcast_deployment_progress(project_id, message, progress)
+
+        # Poll for events with timeout
+        success = await self.event_poller.poll_deployment_progress(
+            app_name, machine_id, broadcast_callback, timeout=60
+        )
+
+        return success
 
     async def create_and_deploy_app_with_progress(
         self, app_name: str, project_id: str, github_url: str | None = None
     ) -> dict:
-        """Create app with real-time progress updates via WebSocket."""
+        """Create app with progress updates (async wrapper for project service)."""
         try:
-            # Initial progress
-            await self._broadcast_deployment_progress(project_id, "Creating Fly.io app...", 10)
+            # Reset event poller for new deployment
+            self.event_poller.reset()
+
+            # Send initial progress
+            await self._broadcast_deployment_progress(project_id, "Connecting to Fly.io...", 5)
+            await asyncio.sleep(0.2)
 
             # Create the app
+            await self._broadcast_deployment_progress(
+                project_id, "Creating Fly.io application...", 10
+            )
             app = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
-            await self._broadcast_deployment_progress(project_id, "App created successfully", 20)
+            print(f"✓ App created: {app['hostname']}")
 
             # Allocate IP addresses
-            await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 25)
+            await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 20)
             ipv4, ipv6 = await asyncio.to_thread(allocate_ips, self.client, app_name)
-            await self._broadcast_deployment_progress(project_id, "IP addresses allocated", 30)
+            print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
-            # Deploy based on whether we have a GitHub URL
+            # Start machine deployment (non-blocking)
+            await self._broadcast_deployment_progress(
+                project_id, "Starting container deployment...", 30
+            )
+
+            # Deploy machine and poll events concurrently
+            deploy_task = asyncio.create_task(self._deploy_machine(app_name, github_url))
+
+            # Show progress while waiting for machine creation
+            machine_result = None
+
             if github_url:
-                deploy_task = asyncio.create_task(self._deploy_github_machine(app_name, github_url))
-                await self._broadcast_deployment_progress(
-                    project_id, "Configuring GitHub deployment...", 35
-                )
+                wait_messages = [
+                    ("Preparing GitHub deployment script...", 31),
+                    ("Configuring Python environment...", 32),
+                    ("Setting up container...", 33),
+                    ("Initializing deployment...", 34),
+                ]
             else:
-                deploy_task = asyncio.create_task(self._deploy_default_machine(app_name))
-                await self._broadcast_deployment_progress(
-                    project_id, "Deploying default container...", 35
-                )
+                wait_messages = [
+                    ("Requesting new machine from Fly.io...", 31),
+                    ("Allocating resources (CPU, memory)...", 32),
+                    ("Setting up machine configuration...", 33),
+                    ("Initializing container runtime...", 34),
+                ]
 
-            # Wait for deployment with periodic updates
-            progress = 35
+            for i, (msg, progress) in enumerate(wait_messages):
+                if deploy_task.done():
+                    break
+                await self._broadcast_deployment_progress(project_id, msg, progress)
+                await asyncio.sleep(3)  # Show each message for 3 seconds
+
+            # If still not done, show a waiting message
             while not deploy_task.done():
-                progress = min(progress + 5, 75)
                 await self._broadcast_deployment_progress(
-                    project_id, "Building and deploying...", progress
+                    project_id, "Waiting for Fly.io to provision machine...", 35
                 )
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
 
             # Get machine ID from deployment
             machine_result = await deploy_task
             machine_id = machine_result["machine_id"]
 
-            # Poll for machine status
-            await self._broadcast_deployment_progress(project_id, "Verifying deployment...", 80)
+            # Now poll for detailed progress
+            poll_task = asyncio.create_task(
+                self._poll_and_broadcast_events(app_name, machine_id, project_id)
+            )
 
-            # Wait for app to be ready
+            # Wait for polling to complete or timeout
+            poll_success = await poll_task
+
+            # Only show DNS/verification if we didn't get complete events
+            if not poll_success:
+                await self._broadcast_deployment_progress(
+                    project_id, "Waiting for DNS propagation...", 80
+                )
+
             is_ready = await asyncio.to_thread(wait_for_app_ready, self.client, app_name)
 
             if is_ready:
+                await self._broadcast_deployment_progress(project_id, "Verifying deployment...", 90)
+                await asyncio.sleep(0.5)
                 await self._broadcast_deployment_progress(project_id, "Deployment complete!", 100)
                 print("✓ App is ready!")
             else:
+                print("⚠ App deployment may still be in progress")
                 await self._broadcast_deployment_progress(
                     project_id, "Deployment in progress...", 85
                 )
@@ -112,35 +184,131 @@ class FlyService:
             await asyncio.to_thread(self._cleanup_failed_app, app_name)
             raise
 
-    async def _deploy_default_machine(self, app_name: str) -> dict:
-        """Deploy the default hello world machine."""
-        machine_id = await asyncio.to_thread(
-            create_and_deploy_machine,
-            self.client,
-            app_name,
-            idle_timeout_minutes=5,
-        )
+    async def _deploy_machine(self, app_name: str, github_url: str | None = None) -> dict:
+        """Deploy machine and return result."""
+        if github_url:
+            print(f"Deploying from GitHub: {github_url}")
+            # Deploy from GitHub repository
+            machine_id = await asyncio.to_thread(
+                self._create_machine_from_github,
+                app_name,
+                github_url,
+            )
+        else:
+            print("Deploying with default hello world image...")
+            machine_id = await asyncio.to_thread(
+                create_and_deploy_machine,
+                self.client,
+                app_name,
+                idle_timeout_minutes=5,
+            )
+
+        print(f"✓ Machine created: {machine_id}")
+        print("✓ Hibernation enabled (5 minute idle timeout)")
+
         return {"machine_id": machine_id}
 
-    async def _deploy_github_machine(self, app_name: str, github_url: str) -> dict:
-        """Deploy a machine from a GitHub repository."""
-        machine_id = await asyncio.to_thread(
-            self._create_github_machine,
-            app_name,
-            github_url,
-        )
-        return {"machine_id": machine_id}
+    def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
+        """Create a machine that clones and runs a GitHub repository."""
+        # Create a startup script that clones and runs the repo
+        startup_script = f"""#!/bin/bash
+set -e
 
-    def _create_github_machine(self, app_name: str, github_url: str) -> str:
-        """Create a machine that builds from GitHub and runs Python code."""
-        # Validate GitHub URL
-        if not validate_github_url(github_url):
-            raise ValueError("Only GitHub URLs are supported")
+echo "=== Starting GitHub deployment ==="
+echo "Repository: {github_url}"
 
-        # Get machine configuration from centralized config
-        config = get_machine_config(github_url)
+# Update package list and install git
+apt-get update && apt-get install -y git
 
-        # Create machine with configuration
+# Clone the repository
+cd /
+git clone {github_url} app
+cd /app
+
+# Check for requirements.txt and install dependencies
+if [ -f requirements.txt ]; then
+    echo "Found requirements.txt, installing dependencies..."
+    pip install -r requirements.txt
+else
+    echo "WARNING: No requirements.txt found"
+fi
+
+# For now, try to detect and run the app
+# In the future, this will just be 'setta'
+if [ -f Procfile ]; then
+    echo "Found Procfile"
+    # Extract web command from Procfile
+    WEB_CMD=$(grep "^web:" Procfile | sed 's/^web: //')
+    echo "Running: $WEB_CMD"
+    exec $WEB_CMD
+elif [ -f app.py ]; then
+    echo "Found app.py"
+    # Try to run with gunicorn first (common for production)
+    if pip list | grep -q gunicorn; then
+        exec gunicorn app:app --bind 0.0.0.0:8080
+    elif pip list | grep -q uvicorn; then
+        exec uvicorn app:app --host 0.0.0.0 --port 8080
+    else
+        # Fallback to direct python execution
+        exec python app.py
+    fi
+elif [ -f main.py ]; then
+    echo "Found main.py"
+    if pip list | grep -q uvicorn; then
+        exec uvicorn main:app --host 0.0.0.0 --port 8080
+    else
+        exec python main.py
+    fi
+else
+    echo "ERROR: No app.py or main.py found!"
+    echo "Directory contents:"
+    ls -la
+    # Keep container running for debugging
+    exec sleep infinity
+fi
+"""
+
+        # Write the script to a temporary file to avoid escaping issues
+        script_base64 = base64.b64encode(startup_script.encode()).decode()
+
+        # Machine configuration using a Python base image
+        config = {
+            "image": "python:3.11-slim",
+            "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 512},
+            "services": [
+                {
+                    "ports": [
+                        {"port": 80, "handlers": ["http"], "force_https": True},
+                        {"port": 443, "handlers": ["http", "tls"]},
+                    ],
+                    "protocol": "tcp",
+                    "internal_port": 8080,
+                    "autostop": "stop",
+                    "autostart": True,
+                    "min_machines_running": 0,
+                }
+            ],
+            "env": {
+                "PORT": "8080",
+                "PYTHONUNBUFFERED": "1",
+            },
+            # Use CMD instead of init.exec
+            "init": {
+                "cmd": [
+                    "/bin/bash",
+                    "-c",
+                    f"echo '{script_base64}' | base64 -d > /start.sh && chmod +x /start.sh && /start.sh",
+                ]
+            },
+            "auto_destroy": False,
+            "restart": {"policy": "on-failure", "max_retries": 1},
+            "stop": {
+                "timeout": "5m",
+                "signal": "SIGTERM",
+            },
+        }
+
+        # Create machine
         machine = self.client.create_machine(app_name, config, region="ewr")
         return machine["id"]
 
@@ -163,7 +331,7 @@ class FlyService:
             machine_id = create_and_deploy_machine(
                 self.client,
                 app_name,
-                idle_timeout_minutes=5,
+                idle_timeout_minutes=5,  # Hibernate after 5 minutes of inactivity
             )
             print(f"✓ Machine created: {machine_id}")
             print("✓ Hibernation enabled (5 minute idle timeout)")
@@ -173,7 +341,10 @@ class FlyService:
             is_ready = wait_for_app_ready(self.client, app_name)
             if is_ready:
                 print("✓ App is ready!")
+            else:
+                print("⚠ App deployment may still be in progress")
 
+            # Return deployment info
             return {
                 "app_name": app_name,
                 "hostname": app["hostname"],
@@ -182,93 +353,50 @@ class FlyService:
                 "ipv4": ipv4,
                 "ipv6": ipv6,
                 "status": "deployed",
-                "machine_state": "started",
+                "machine_state": "started",  # Initial state
             }
 
         except Exception as e:
             print(f"✗ Error during deployment: {str(e)}")
-            # Try to clean up on failure
+            # Try to clean up if deployment failed
             self._cleanup_failed_app(app_name)
             raise
 
-    def _cleanup_failed_app(self, app_name: str):
+    def _cleanup_failed_app(self, app_name: str) -> None:
         """Clean up a failed app deployment."""
         try:
-            print(f"Cleaning up failed deployment for {app_name}...")
+            print(f"Cleaning up failed app: {app_name}")
             result = delete_app_force(self.client, app_name)
             if result.get("success"):
-                print("✓ Cleanup complete")
+                print(f"✓ Cleanup successful for {app_name}")
             else:
-                print(f"⚠ Cleanup failed: {result.get('error')}")
+                print(f"✗ Cleanup failed for {app_name}: {result.get('error')}")
         except Exception as e:
-            print(f"⚠ Cleanup failed: {str(e)}")
+            print(f"Failed to cleanup app: {e}")
 
-    def destroy_app(self, app_name: str) -> bool:
-        """Destroy a Fly.io app and all its resources."""
+    def delete_app(self, app_name: str) -> bool:
+        """Delete a Fly.io app and all its resources."""
+        print(f"Force deleting app '{app_name}'...")
+
         try:
-            print(f"Destroying app '{app_name}'...")
             result = delete_app_force(self.client, app_name)
+
             if result.get("success"):
-                print(f"✓ App '{app_name}' destroyed")
+                print(f"✓ App '{app_name}' deleted successfully")
                 return True
             else:
-                print(f"✗ Failed to destroy app: {result.get('error')}")
+                print(
+                    f"✗ Failed to delete '{app_name}': {result.get('status_code')} - {result.get('error')}"
+                )
                 return False
+
         except Exception as e:
-            print(f"✗ Error destroying app: {str(e)}")
+            print(f"✗ Error deleting app: {str(e)}")
             raise
 
-    def get_machine_status(self, app_name: str, machine_id: str) -> dict:
-        """Get the current status of a machine."""
-        try:
-            machine = self.client.get_machine(app_name, machine_id)
-            return {
-                "state": machine.get("state", "unknown"),
-                "instance_id": machine.get("instance_id"),
-                "updated_at": machine.get("updated_at"),
-                "region": machine.get("region"),
-            }
-        except Exception as e:
-            print(f"Error getting machine status: {str(e)}")
-            return {"state": "error", "error": str(e)}
-
-    def start_machine(self, app_name: str, machine_id: str) -> bool:
-        """Start (wake up) a stopped machine."""
-        try:
-            return fly_start_machine(self.client, app_name, machine_id)
-        except Exception as e:
-            print(f"Error starting machine: {str(e)}")
-            return False
-
-    def stop_machine(self, app_name: str, machine_id: str) -> bool:
-        """Stop (hibernate) a running machine."""
-        try:
-            return fly_stop_machine(self.client, app_name, machine_id)
-        except Exception as e:
-            print(f"Error stopping machine: {str(e)}")
-            return False
-
-    async def _broadcast_deployment_progress(self, project_id: str, message: str, progress: int):
-        """Broadcast deployment progress via WebSocket."""
-        # Create progress data
-        progress_data = ProgressData(
-            current_step=progress // 20,  # Convert percentage to step (0-5)
-            total_steps=5,
-            message=message,
-            percent_complete=progress,
-        )
-
-        # Create WebSocket event
-        event = WebSocketEvent(
-            type=EventType.DEPLOYMENT_PROGRESS,
-            data={
-                "project_id": project_id,
-                "progress": progress_data.model_dump(mode="json"),
-            },
-        )
-
-        # Broadcast using the generic broadcast method
-        await self.ws_manager.broadcast(event.model_dump(mode="json"))
+    def get_app_status(self, app_name: str) -> dict | None:
+        """Get current status of a Fly.io app."""
+        return get_app_status(self.client, app_name)
 
     def list_all_apps(self) -> list[dict]:
         """List all apps in the organization."""
@@ -276,4 +404,5 @@ class FlyService:
 
     def delete_all_apps(self) -> dict:
         """Delete ALL apps in the organization. Nuclear option!"""
+        print(f"⚠️  WARNING: This will delete ALL apps in organization '{self.org_slug}'")
         return delete_all_apps_in_org(self.client, self.org_slug)
