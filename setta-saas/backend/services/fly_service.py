@@ -1,3 +1,7 @@
+"""
+Fly.io service for managing cloud deployments.
+"""
+
 import asyncio
 import os
 
@@ -18,9 +22,10 @@ from fly.deployment import (
 from fly.deployment import (
     stop_machine as fly_stop_machine,
 )
+from models.websocket import EventType, ProgressData, WebSocketEvent
 
 from .fly_deployment_config import get_machine_config, validate_github_url
-from .websocket_service import ConnectionManager
+from .websocket_service import get_connection_manager
 
 
 class FlyService:
@@ -32,7 +37,7 @@ class FlyService:
         self.client = FlyClient(api_token=self.api_token)
         self.org_slug = os.getenv("FLY_ORG_SLUG", "personal")
         self.org_id = get_organization_id(self.client, self.org_slug)
-        self.ws_manager = ConnectionManager()
+        self.ws_manager = get_connection_manager()
 
     async def create_and_deploy_app_with_progress(
         self, app_name: str, project_id: str, github_url: str | None = None
@@ -245,7 +250,25 @@ class FlyService:
 
     async def _broadcast_deployment_progress(self, project_id: str, message: str, progress: int):
         """Broadcast deployment progress via WebSocket."""
-        await self.ws_manager.broadcast_deployment_progress(project_id, message, progress)
+        # Create progress data
+        progress_data = ProgressData(
+            current_step=progress // 20,  # Convert percentage to step (0-5)
+            total_steps=5,
+            message=message,
+            percent_complete=progress,
+        )
+
+        # Create WebSocket event
+        event = WebSocketEvent(
+            type=EventType.DEPLOYMENT_PROGRESS,
+            data={
+                "project_id": project_id,
+                "progress": progress_data.model_dump(mode="json"),
+            },
+        )
+
+        # Broadcast using the generic broadcast method
+        await self.ws_manager.broadcast(event.model_dump(mode="json"))
 
     def list_all_apps(self) -> list[dict]:
         """List all apps in the organization."""
@@ -254,38 +277,3 @@ class FlyService:
     def delete_all_apps(self) -> dict:
         """Delete ALL apps in the organization. Nuclear option!"""
         return delete_all_apps_in_org(self.client, self.org_slug)
-
-    async def _poll_and_broadcast_events(
-        self, app_name: str, machine_id: str, project_id: str
-    ) -> bool:
-        """Poll machine events and broadcast them. Returns True if we got useful events."""
-        max_polls = 30  # 30 seconds max
-        got_useful_events = False
-
-        for i in range(max_polls):
-            try:
-                status = await asyncio.to_thread(self.get_machine_status, app_name, machine_id)
-                state = status.get("state", "unknown")
-
-                # Map states to progress
-                if state == "created":
-                    await self._broadcast_deployment_progress(
-                        project_id, "Machine created, preparing environment...", 40
-                    )
-                elif state == "starting":
-                    await self._broadcast_deployment_progress(project_id, "Starting machine...", 50)
-                    got_useful_events = True
-                elif state == "started":
-                    await self._broadcast_deployment_progress(
-                        project_id, "Machine started, configuring services...", 70
-                    )
-                    got_useful_events = True
-                    # Once started, we can stop polling
-                    break
-
-                await asyncio.sleep(1)
-            except Exception as e:
-                print(f"Error polling machine events: {str(e)}")
-                break
-
-        return got_useful_events
