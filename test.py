@@ -75,8 +75,16 @@
 # sf = SettingsFile(wmh)
 # print(sf.settings)
 
-from setta.project_state.settings_project import create_settings_code_objs
-from setta.types.generated.settings_state import SettingsState
 
-section_names = SettingsState.model_fields.keys()
-create_settings_code_objs(section_names)
+from setta.database.db.jsonSource.load import (
+    load_json_sources_into_data_structures,
+)
+from setta.project_state.settings_project import (
+    create_settings_project_state,
+)
+from setta.types.generated.settings_state import SettingsState
+from setta.utils.constants import SETTA_FILES_FOLDER
+
+settings = SettingsState()
+p = create_settings_project_state(SETTA_FILES_FOLDER / "setta-settings.json")
+load_json_sources_into_data_structures(settings, p)

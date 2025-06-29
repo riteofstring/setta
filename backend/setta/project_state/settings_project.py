@@ -9,11 +9,11 @@ from setta.types.code_objs import (
     CodeObjCore,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
+    NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
-    BaseParamCodeObjImplUnion,
 )
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
 from setta.types.generated.section_type_unions import (
@@ -40,68 +40,124 @@ def is_color_hex(string):
     return bool(re.match(pattern, string))
 
 
-def create_settings_code_objs(section_names):
-    codeObjsAndImpls: dict[str, list[tuple[str, BaseParamCodeObjImplUnion]]] = {
-        s: [] for s in section_names
-    }
+def add_code_obj_details(
+    codeObjName: str,
+    codeObjImpl: BaseCodeObjImplUnion,
+    codeObjs: dict[str, CodeObjCore],
+    codeObjImpls: dict[str, BaseCodeObjImplUnion],
+    codeObjImplLayerings: dict[str, ImplLayering],
+):
+    codeObjImplLayering = ImplLayering(
+        impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
+    )
+    codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
+    codeObjImpls[codeObjImpl.id] = codeObjImpl
 
-    color_picker = ColorPickerParamCodeObjImpl()
-    switch = SwitchParamCodeObjImpl()
+    codeObj = CodeObjCore(
+        name=codeObjName,
+        implLayerings=[codeObjImplLayering.id],
+        defaultImplLayering=codeObjImplLayering.id,
+    )
+    codeObjs[codeObj.id] = codeObj
+    return codeObj.id
+
+
+def process_model_fields(
+    model_class: type[BaseModel],
+    codeObjs: dict[str, CodeObjCore],
+    codeObjImpls: dict[str, BaseCodeObjImplUnion],
+    codeObjImplLayerings: dict[str, ImplLayering],
+):
+    child_ids: list[str] = []
+    codeObjImplLayeringMap: dict[str, str] = {}
+    for k, v in model_class.model_fields.items():
+        codeObjName, codeObjImpl = None, None
+        if isclass(v.annotation) and issubclass(v.annotation, BaseModel):
+            nested_child_ids, nestedCodeObjImplLayeringMap = process_model_fields(
+                v.annotation, codeObjs, codeObjImpls, codeObjImplLayerings
+            )
+            codeObjName, codeObjImpl = (
+                k,
+                NestedParamCodeObjImpl(children=nested_child_ids),
+            )
+            codeObjImplLayeringMap.update(nestedCodeObjImplLayeringMap)
+        elif v.annotation is bool:
+            codeObjName, codeObjImpl = k, SwitchParamCodeObjImpl()
+        elif isclass(v.annotation) and issubclass(v.annotation, Enum):
+            codeObjName, codeObjImpl = (
+                k,
+                DropdownParamCodeObjImpl(
+                    name=v.annotation.__name__,
+                    choices=[f'"{b.value}"' for b in v.annotation],
+                    isPreset=True,
+                ),
+            )
+        elif isinstance(v.default, str) and is_color_hex(v.default):
+            codeObjName, codeObjImpl = k, ColorPickerParamCodeObjImpl()
+
+        if codeObjName and codeObjImpl:
+            codeObjId = add_code_obj_details(
+                codeObjName, codeObjImpl, codeObjs, codeObjImpls, codeObjImplLayerings
+            )
+            child_ids.append(codeObjId)
+            defaultImplLayering = codeObjs[codeObjId].defaultImplLayering
+            if defaultImplLayering:
+                codeObjImplLayeringMap[codeObjId] = defaultImplLayering
+
+    return child_ids, codeObjImplLayeringMap
+
+
+def create_settings_code_objs(section_names):
+    sectionToTopLevelIds: dict[str, list[str]] = {}
+    codeObjs: dict[str, CodeObjCore] = {}
+    codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
+    codeObjImplLayerings: dict[str, ImplLayering] = {}
+    codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
-        if issubclass(d, BaseModel):  # type: ignore
-            for k, v in d.model_fields.items():
-                if v.annotation is bool:
-                    codeObjsAndImpls[s].append((k, switch))
-                elif isclass(v.annotation) and issubclass(v.annotation, Enum):
-                    preset_impl = DropdownParamCodeObjImpl(
-                        name=v.annotation.__name__,
-                        choices=[f'"{b.value}"' for b in v.annotation],
-                        isPreset=True,
-                    )
-                    codeObjsAndImpls[s].append((k, preset_impl))
-                elif isinstance(v.default, str) and is_color_hex(v.default):
-                    codeObjsAndImpls[s].append((k, color_picker))
+        if isclass(d) and issubclass(d, BaseModel):
+            sectionToTopLevelIds[s], codeObjImplLayeringMaps[s] = process_model_fields(
+                d,
+                codeObjs,
+                codeObjImpls,
+                codeObjImplLayerings,
+            )
+        else:
+            sectionToTopLevelIds[s] = []
+            codeObjImplLayeringMaps[s] = {}
 
-    return codeObjsAndImpls
+    return (
+        sectionToTopLevelIds,
+        codeObjs,
+        codeObjImpls,
+        codeObjImplLayerings,
+        codeObjImplLayeringMaps,
+    )
 
 
 def create_settings_project_state(settings_path: Path):
     section_names = SettingsState.model_fields.keys()
-    codeObjsAndImpls = create_settings_code_objs(section_names)
+    (
+        sectionToTopLevelIds,
+        codeObjs,
+        codeObjImpls,
+        codeObjImplLayerings,
+        codeObjImplLayeringMaps,
+    ) = create_settings_code_objs(section_names)
 
     sections: dict[str, SectionCore] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
     sectionImplLayerings: dict[str, ImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}
-    codeObjs: dict[str, CodeObjCore] = {}
-    codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
-    codeObjImplLayerings: dict[str, ImplLayering] = {}
     for k in section_names:
-        codeObjImplLayeringMap = {}
-        for codeObjName, codeObjImpl in codeObjsAndImpls[k]:
-            codeObjImplLayering = ImplLayering(
-                impl=codeObjImpl.id, modifier=create_modifier_for_impl(codeObjImpl)
-            )
-            codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
-            codeObjImpls[codeObjImpl.id] = codeObjImpl
-
-            codeObj = CodeObjCore(
-                name=codeObjName,
-                implLayerings=[codeObjImplLayering.id],
-                defaultImplLayering=codeObjImplLayering.id,
-            )
-            codeObjs[codeObj.id] = codeObj
-            codeObjImplLayeringMap[codeObj.id] = codeObjImplLayering.id
-
         sectionImpl = DictSectionImpl(
             size=SectionSize(width=550),
             isJsonSource=True,
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
-            codeObjImplLayeringMap=codeObjImplLayeringMap,
-            topLevelParamIds=list(codeObjImplLayeringMap.keys()),
+            codeObjImplLayeringMap=codeObjImplLayeringMaps[k],
+            topLevelParamIds=sectionToTopLevelIds[k],
         )
         sectionImplLayering = ImplLayering(
             name=str(settings_path.relative_to(CWD)),
