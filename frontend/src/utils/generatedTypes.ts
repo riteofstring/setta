@@ -3438,19 +3438,21 @@ export function createWebsocketMsgCurrentAddressUpdate(
   return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
-export const SectionCoreSchema = z.object({
+export const BaseSectionCoreSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: z.any(),
+  unsharedKeys: z.any(),
 });
 
-export type SectionCore = z.infer<typeof SectionCoreSchema>;
+export type BaseSectionCore = z.infer<typeof BaseSectionCoreSchema>;
 
-export function createSectionCore(
-  options: Partial<SectionCore> = {},
-): SectionCore {
-  return SectionCoreSchema.parse(options);
+export function createBaseSectionCore(
+  options: Partial<BaseSectionCore> = {},
+): BaseSectionCore {
+  return BaseSectionCoreSchema.parse(options);
 }
 
 export const ImplLayeringSchema = z.object({
@@ -3564,7 +3566,7 @@ export function createProjectConfig(
 }
 
 export const ProjectStateSingleConfigSchema = z.object({
-  sections: z.record(z.string(), SectionCoreSchema).default({}),
+  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -5334,6 +5336,679 @@ export function createBaseParentCodeObjImpl(
   return BaseParentCodeObjImplSchema.parse(options);
 }
 
+export const BrowserSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: BrowserSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "hideColumn",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type BrowserSectionCore = z.infer<typeof BrowserSectionCoreSchema>;
+
+export function createBrowserSectionCore(
+  options: Partial<BrowserSectionCore> = {},
+): BrowserSectionCore {
+  return BrowserSectionCoreSchema.parse(options);
+}
+
+export const CallableSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: CallableSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "callable",
+        "codeObjImplLayeringMap",
+        "columnWidth",
+        "configLanguage",
+        "hideParams",
+        "hideUnpinnedParams",
+        "id",
+        "ignoreTypeErrors",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "paramFilter",
+        "parentId",
+        "pinnedAreaHeight",
+        "pinnedParams",
+        "positionAndSizeLocked",
+        "selectedParams",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(() => new Set(["codeObjImplLayeringMap", "callable"] as const)),
+});
+
+export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
+
+export function createCallableSectionCore(
+  options: Partial<CallableSectionCore> = {},
+): CallableSectionCore {
+  return CallableSectionCoreSchema.parse(options);
+}
+
+export const ChartSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: ChartSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "artifactGroupIds",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "chartSettings",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "renderedValue",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type ChartSectionCore = z.infer<typeof ChartSectionCoreSchema>;
+
+export function createChartSectionCore(
+  options: Partial<ChartSectionCore> = {},
+): ChartSectionCore {
+  return ChartSectionCoreSchema.parse(options);
+}
+
+export const ChatSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: ChatSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type ChatSectionCore = z.infer<typeof ChatSectionCoreSchema>;
+
+export function createChatSectionCore(
+  options: Partial<ChatSectionCore> = {},
+): ChatSectionCore {
+  return ChatSectionCoreSchema.parse(options);
+}
+
+export const CodeSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: CodeSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "code",
+        "codeLanguage",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type CodeSectionCore = z.infer<typeof CodeSectionCoreSchema>;
+
+export function createCodeSectionCore(
+  options: Partial<CodeSectionCore> = {},
+): CodeSectionCore {
+  return CodeSectionCoreSchema.parse(options);
+}
+
+export const DictRootSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: DictRootSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "children",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type DictRootSectionCore = z.infer<typeof DictRootSectionCoreSchema>;
+
+export function createDictRootSectionCore(
+  options: Partial<DictRootSectionCore> = {},
+): DictRootSectionCore {
+  return DictRootSectionCoreSchema.parse(options);
+}
+
+export const DictSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: DictSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "codeObjImplLayeringMap",
+        "columnWidth",
+        "configLanguage",
+        "hideUnpinnedParams",
+        "id",
+        "ignoreTypeErrors",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isJsonSource",
+        "isMinimized",
+        "isPreset",
+        "jsonSourceKeys",
+        "jsonSourceMissing",
+        "name",
+        "paramFilter",
+        "parentId",
+        "pinnedAreaHeight",
+        "pinnedParams",
+        "positionAndSizeLocked",
+        "selectedParams",
+        "size",
+        "topLevelParamIds",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type DictSectionCore = z.infer<typeof DictSectionCoreSchema>;
+
+export function createDictSectionCore(
+  options: Partial<DictSectionCore> = {},
+): DictSectionCore {
+  return DictSectionCoreSchema.parse(options);
+}
+
+export const DrawSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: DrawSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "artifactGroupIds",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "canvasSettings",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "renderedValue",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type DrawSectionCore = z.infer<typeof DrawSectionCoreSchema>;
+
+export function createDrawSectionCore(
+  options: Partial<DrawSectionCore> = {},
+): DrawSectionCore {
+  return DrawSectionCoreSchema.parse(options);
+}
+
+export const GenPythonCodeSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: GenPythonCodeSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "code",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type GenPythonCodeSectionCore = z.infer<
+  typeof GenPythonCodeSectionCoreSchema
+>;
+
+export function createGenPythonCodeSectionCore(
+  options: Partial<GenPythonCodeSectionCore> = {},
+): GenPythonCodeSectionCore {
+  return GenPythonCodeSectionCoreSchema.parse(options);
+}
+
+export const GlobalVariablesSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: GlobalVariablesSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "codeObjImplLayeringMap",
+        "columnWidth",
+        "configLanguage",
+        "hideUnpinnedParams",
+        "id",
+        "ignoreTypeErrors",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isJsonSource",
+        "isMinimized",
+        "isPreset",
+        "jsonSourceKeys",
+        "jsonSourceMissing",
+        "name",
+        "paramFilter",
+        "parentId",
+        "pinnedAreaHeight",
+        "pinnedParams",
+        "positionAndSizeLocked",
+        "selectedParams",
+        "size",
+        "topLevelParamIds",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type GlobalVariablesSectionCore = z.infer<
+  typeof GlobalVariablesSectionCoreSchema
+>;
+
+export function createGlobalVariablesSectionCore(
+  options: Partial<GlobalVariablesSectionCore> = {},
+): GlobalVariablesSectionCore {
+  return GlobalVariablesSectionCoreSchema.parse(options);
+}
+
+export const GroupSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: GroupSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "children",
+        "id",
+        "isFrozen",
+        "isHorizontalOrientation",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type GroupSectionCore = z.infer<typeof GroupSectionCoreSchema>;
+
+export function createGroupSectionCore(
+  options: Partial<GroupSectionCore> = {},
+): GroupSectionCore {
+  return GroupSectionCoreSchema.parse(options);
+}
+
+export const IFrameSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: IFrameSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type IFrameSectionCore = z.infer<typeof IFrameSectionCoreSchema>;
+
+export function createIFrameSectionCore(
+  options: Partial<IFrameSectionCore> = {},
+): IFrameSectionCore {
+  return IFrameSectionCoreSchema.parse(options);
+}
+
+export const ImageSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: ImageSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "artifactGroupIds",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type ImageSectionCore = z.infer<typeof ImageSectionCoreSchema>;
+
+export function createImageSectionCore(
+  options: Partial<ImageSectionCore> = {},
+): ImageSectionCore {
+  return ImageSectionCoreSchema.parse(options);
+}
+
+export const ListRootSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: ListRootSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "children",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type ListRootSectionCore = z.infer<typeof ListRootSectionCoreSchema>;
+
+export function createListRootSectionCore(
+  options: Partial<ListRootSectionCore> = {},
+): ListRootSectionCore {
+  return ListRootSectionCoreSchema.parse(options);
+}
+
+export const SocialSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: SocialSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "social",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type SocialSectionCore = z.infer<typeof SocialSectionCoreSchema>;
+
+export function createSocialSectionCore(
+  options: Partial<SocialSectionCore> = {},
+): SocialSectionCore {
+  return SocialSectionCoreSchema.parse(options);
+}
+
+export const TerminalSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: TerminalSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type TerminalSectionCore = z.infer<typeof TerminalSectionCoreSchema>;
+
+export function createTerminalSectionCore(
+  options: Partial<TerminalSectionCore> = {},
+): TerminalSectionCore {
+  return TerminalSectionCoreSchema.parse(options);
+}
+
+export const TextBlockSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: TextBlockSectionImplModifierSchema,
+  unsharedKeys: z
+    .set(
+      z.literal([
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "displayMode",
+        "format",
+        "headingAsSectionName",
+        "id",
+        "isFrozen",
+        "isInOtherProjectConfigs",
+        "isMinimized",
+        "isPreset",
+        "name",
+        "parentId",
+        "positionAndSizeLocked",
+        "size",
+        "text",
+        "type",
+        "visibility",
+      ]),
+    )
+    .default(new Set()),
+});
+
+export type TextBlockSectionCore = z.infer<typeof TextBlockSectionCoreSchema>;
+
+export function createTextBlockSectionCore(
+  options: Partial<TextBlockSectionCore> = {},
+): TextBlockSectionCore {
+  return TextBlockSectionCoreSchema.parse(options);
+}
+
 export const UserDefaultBaseArtifactSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -5605,7 +6280,7 @@ export function createBaseSectionWithParamsImpl(
 }
 
 export const ProjectStateBackendSchema = z.object({
-  sections: z.record(z.string(), SectionCoreSchema).default({}),
+  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -5690,7 +6365,7 @@ export function createSimplifiedSectionCreation(
 }
 
 export const ProjectStateCoreSchema = z.object({
-  sections: z.record(z.string(), SectionCoreSchema).default({}),
+  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -6488,7 +7163,7 @@ export function createGetJSONSourcePathToBeDeleted(
 }
 
 export const LoadJSONSourceObjectSchema = z.object({
-  sections: z.record(z.string(), SectionCoreSchema),
+  sections: z.record(z.string(), BaseSectionCoreSchema),
   sectionImpls: z.record(
     z.string(),
     z.union([

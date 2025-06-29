@@ -4,6 +4,7 @@
 from typing import Literal
 
 from pydantic import Field
+
 from setta.types.generated.impl_modifiers import (
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
@@ -83,7 +84,7 @@ class CallableSectionCore(BaseSectionCore):
             "type",
             "visibility",
         ]
-    ] = Field(default_factory=set)
+    ] = Field(default_factory=lambda: {"callable", "codeObjImplLayeringMap"})
 
 
 class ChartSectionCore(BaseSectionCore):

@@ -472,6 +472,9 @@ def python_value_to_ts(value):
     elif isinstance(value, (list, tuple)):
         items = [python_value_to_ts(item) for item in value]
         return f"[{', '.join(items)}]"
+    elif isinstance(value, set):
+        items = [python_value_to_ts(item) for item in value]
+        return f"new Set([{', '.join(items)}] as const)"
     elif isinstance(value, BaseModel):
         # For Pydantic models, use their creation function
         model_name = value.__class__.__name__
@@ -519,6 +522,8 @@ def pydantic_model_to_zod(model: type[BaseModel], processed_types: set):
                 zod_schema = f"{zod_schema}.default({{}})"
             elif field_info.default_factory is list:
                 zod_schema = f"{zod_schema}.default([])"
+            elif field_info.default_factory is set:
+                zod_schema = f"{zod_schema}.default(new Set())"
             elif (
                 hasattr(field_info.default_factory, "__name__")
                 and field_info.default_factory.__name__ == "<lambda>"

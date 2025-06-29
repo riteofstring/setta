@@ -1,11 +1,34 @@
 from pathlib import Path
-from typing import Set
+from typing import Dict, Set
 
 from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 from .generate_backend_union_types import find_sub_classes
+
+# Default unsharedKeys for each section type
+# Add or modify entries here to set default unshared keys
+# Example: "Callable": {"hideParams", "callable", "configLanguage"}
+DEFAULT_UNSHARED_KEYS: Dict[str, Set[str]] = {
+    "Callable": {"callable", "codeObjImplLayeringMap"},
+    "Dict": set(),
+    "ListRoot": set(),
+    "DictRoot": set(),
+    "Group": set(),
+    "Image": set(),
+    "Chart": set(),
+    "Draw": set(),
+    "TextBlock": set(),
+    "Social": set(),
+    "GlobalVariables": set(),
+    "Code": set(),
+    "GenPythonCode": set(),
+    "Terminal": set(),
+    "IFrame": set(),
+    "Chat": set(),
+    "Browser": set(),
+}
 
 
 def get_all_field_names(impl_class: type[BaseModel]) -> Set[str]:
@@ -32,12 +55,32 @@ def generate_section_core_class(section_type: str, impl_class: type[BaseModel]) 
     # Create the Literal type string for unsharedKeys
     literal_values = ", ".join(f'"{field}"' for field in sorted_fields)
 
+    # Get default unshared keys for this section type
+    default_keys = DEFAULT_UNSHARED_KEYS[section_type]
+
+    # Validate that default keys exist in the impl class
+    invalid_keys = default_keys - field_names
+    if invalid_keys:
+        raise ValueError(
+            f"Invalid default unshared keys for {section_type}: {invalid_keys}. "
+            f"Valid keys are: {sorted_fields}"
+        )
+
+    # Generate default factory
+    if default_keys:
+        # Sort for consistent output
+        sorted_default_keys = sorted(default_keys)
+        default_values = ", ".join(f'"{key}"' for key in sorted_default_keys)
+        default_factory = f"lambda: {{{default_values}}}"
+    else:
+        default_factory = "set"
+
     # Generate the class definition
     class_def = f"""
 class {section_type}SectionCore(BaseSectionCore):
     \"\"\"Core configuration for {section_type} sections.\"\"\"
     sharedModifier: {section_type}SectionImplModifier
-    unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory=set)
+    unsharedKeys: set[Literal[{literal_values}]] = Field(default_factory={default_factory})
 """
 
     return class_def
