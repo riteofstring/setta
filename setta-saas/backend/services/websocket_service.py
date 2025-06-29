@@ -3,36 +3,10 @@ WebSocket service for real-time updates.
 """
 
 import json
-from enum import Enum
 
 from fastapi import WebSocket
 
-
-class EventType(str, Enum):
-    """WebSocket event types."""
-
-    PROJECT_CREATING = "project_creating"
-    PROJECT_CREATED = "project_created"
-    PROJECT_UPDATED = "project_updated"
-    PROJECT_DELETED = "project_deleted"
-    PROJECT_DEPLOYING = "project_deploying"
-    PROJECT_READY = "project_ready"
-    PROJECT_ERROR = "project_error"
-    PROJECT_STATUS_CHANGED = "project_status_changed"
-    DEPLOYMENT_PROGRESS = "deployment_progress"
-    MACHINE_STATE_CHANGED = "machine_state_changed"
-
-
-class DeploymentStep(str, Enum):
-    """Deployment steps for progress tracking."""
-
-    CREATING_APP = "creating_app"
-    ALLOCATING_RESOURCES = "allocating_resources"
-    CONFIGURING_NETWORK = "configuring_network"
-    BUILDING_APPLICATION = "building_application"
-    STARTING_SERVICES = "starting_services"
-    FINALIZING = "finalizing"
-    COMPLETED = "completed"
+# Import event types and models from the models module
 
 
 class ConnectionManager:
@@ -83,7 +57,8 @@ class ConnectionManager:
 
         websocket = self.user_connections[user_id]
         try:
-            await websocket.send_json(message)
+            # Convert to JSON with datetime handling
+            await websocket.send_text(json.dumps(message, default=str))
         except Exception as e:
             print(f"Error sending to user {user_id}: {e}")
             self.disconnect(user_id=user_id)
@@ -91,7 +66,8 @@ class ConnectionManager:
     async def broadcast(self, event: dict):
         """Broadcast an event to all connected users."""
         # Convert event to JSON string once
-        event_json = json.dumps(event)
+        # Handle datetime serialization by converting to ISO format
+        event_json = json.dumps(event, default=str)
 
         # Broadcast to authenticated users
         for user_id, websocket in list(self.user_connections.items()):

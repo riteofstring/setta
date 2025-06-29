@@ -366,17 +366,23 @@ class ProjectService:
 
     async def _broadcast_project_event(self, project: Project, event_type: EventType, message: str):
         """Broadcast project event to all connected clients."""
+        event_data = ProjectEventData(
+            project_id=project.id,
+            project_name=project.name,
+            status=project.status,
+            url=project.url if project.url != "Creating..." else None,
+            timestamp=datetime.utcnow(),
+        )
+
         event = WebSocketEvent(
             type=event_type,
-            data=ProjectEventData(
-                project_id=project.id,
-                project_name=project.name,  # Note: ProjectEventData expects project_name
-                status=project.status,
-                url=project.url,
-                timestamp=datetime.utcnow(),
-            ).model_dump(),  # Convert to dict first
+            data=event_data.model_dump(mode="json"),  # Serialize to JSON-compatible format
+            timestamp=datetime.utcnow(),
         )
-        await self.ws_manager.broadcast(event.model_dump())
+
+        await self.ws_manager.broadcast(
+            event.model_dump(mode="json")
+        )  # Serialize to JSON-compatible format
 
     async def _broadcast_progress(self, project: Project, progress: ProgressData):
         """Broadcast deployment progress to all connected clients."""
@@ -384,11 +390,13 @@ class ProjectService:
             type=EventType.DEPLOYMENT_PROGRESS,
             data={
                 "project_id": project.id,
-                "progress": progress.model_dump(),
+                "progress": progress.model_dump(mode="json"),  # Serialize to JSON-compatible format
             },
             timestamp=datetime.utcnow(),
         )
-        await self.ws_manager.broadcast(event.model_dump())
+        await self.ws_manager.broadcast(
+            event.model_dump(mode="json")
+        )  # Serialize to JSON-compatible format
 
     def _to_response(self, project: Project) -> ProjectResponse:
         """Convert database model to response model."""
