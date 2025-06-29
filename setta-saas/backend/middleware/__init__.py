@@ -1,7 +1,7 @@
 """
-Authentication middleware package.
+Middleware package for the application.
 """
 
-from .auth import get_current_user, get_current_user_optional, require_auth
+from .auth import AuthError, CurrentUser, CurrentUserData, get_current_user_id
 
-__all__ = ["get_current_user", "get_current_user_optional", "require_auth"]
+__all__ = ["AuthError", "CurrentUser", "CurrentUserData", "get_current_user_id"]

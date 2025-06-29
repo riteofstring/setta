@@ -3,6 +3,7 @@ Fly.io service for managing apps and deployments.
 """
 
 import asyncio
+import base64
 
 from config import get_settings
 from fly.client import FlyClient
@@ -44,7 +45,7 @@ class FlyService:
     async def _broadcast_deployment_progress(self, project_id: str, message: str, percent: int):
         """Broadcast deployment progress."""
         progress_data = ProgressData(
-            current_step=min(percent // 20, 4),  # Ensure we don't exceed 4 (0-4 range)
+            current_step=percent // 20,
             total_steps=5,
             message=message,
             percent_complete=percent,
@@ -105,38 +106,49 @@ class FlyService:
             deploy_task = asyncio.create_task(self._deploy_machine(app_name, github_url))
 
             # Show progress while waiting for machine creation
+            machine_result = None
+
             if github_url:
                 wait_messages = [
-                    ("Cloning repository from GitHub...", 35),
-                    ("Installing Python dependencies...", 40),
-                    ("Building application with buildpacks...", 45),
-                    ("Configuring runtime environment...", 50),
+                    ("Preparing GitHub deployment script...", 31),
+                    ("Configuring Python environment...", 32),
+                    ("Setting up container...", 33),
+                    ("Initializing deployment...", 34),
                 ]
             else:
                 wait_messages = [
-                    ("Requesting new machine from Fly.io...", 35),
-                    ("Allocating resources (CPU, memory)...", 40),
-                    ("Setting up machine configuration...", 45),
-                    ("Initializing container runtime...", 50),
+                    ("Requesting new machine from Fly.io...", 31),
+                    ("Allocating resources (CPU, memory)...", 32),
+                    ("Setting up machine configuration...", 33),
+                    ("Initializing container runtime...", 34),
                 ]
 
             for i, (msg, progress) in enumerate(wait_messages):
                 if deploy_task.done():
                     break
                 await self._broadcast_deployment_progress(project_id, msg, progress)
-                await asyncio.sleep(3)
+                await asyncio.sleep(3)  # Show each message for 3 seconds
 
-            # Wait for deployment to complete
+            # If still not done, show a waiting message
+            while not deploy_task.done():
+                await self._broadcast_deployment_progress(
+                    project_id, "Waiting for Fly.io to provision machine...", 35
+                )
+                await asyncio.sleep(2)
+
+            # Get machine ID from deployment
             machine_result = await deploy_task
             machine_id = machine_result["machine_id"]
 
-            # Poll for deployment completion
+            # Now poll for detailed progress
             poll_task = asyncio.create_task(
                 self._poll_and_broadcast_events(app_name, machine_id, project_id)
             )
+
+            # Wait for polling to complete or timeout
             poll_success = await poll_task
 
-            # Final steps
+            # Only show DNS/verification if we didn't get complete events
             if not poll_success:
                 await self._broadcast_deployment_progress(
                     project_id, "Waiting for DNS propagation...", 80
@@ -176,6 +188,7 @@ class FlyService:
         """Deploy machine and return result."""
         if github_url:
             print(f"Deploying from GitHub: {github_url}")
+            # Deploy from GitHub repository
             machine_id = await asyncio.to_thread(
                 self._create_machine_from_github,
                 app_name,
@@ -196,11 +209,71 @@ class FlyService:
         return {"machine_id": machine_id}
 
     def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
-        """Create a machine that deploys from GitHub using buildpacks."""
-        # Machine configuration for buildpack deployment
+        """Create a machine that clones and runs a GitHub repository."""
+        # Create a startup script that clones and runs the repo
+        startup_script = f"""#!/bin/bash
+set -e
+
+echo "=== Starting GitHub deployment ==="
+echo "Repository: {github_url}"
+
+# Update package list and install git
+apt-get update && apt-get install -y git
+
+# Clone the repository
+cd /
+git clone {github_url} app
+cd /app
+
+# Check for requirements.txt and install dependencies
+if [ -f requirements.txt ]; then
+    echo "Found requirements.txt, installing dependencies..."
+    pip install -r requirements.txt
+else
+    echo "WARNING: No requirements.txt found"
+fi
+
+# For now, try to detect and run the app
+# In the future, this will just be 'setta'
+if [ -f Procfile ]; then
+    echo "Found Procfile"
+    # Extract web command from Procfile
+    WEB_CMD=$(grep "^web:" Procfile | sed 's/^web: //')
+    echo "Running: $WEB_CMD"
+    exec $WEB_CMD
+elif [ -f app.py ]; then
+    echo "Found app.py"
+    # Try to run with gunicorn first (common for production)
+    if pip list | grep -q gunicorn; then
+        exec gunicorn app:app --bind 0.0.0.0:8080
+    elif pip list | grep -q uvicorn; then
+        exec uvicorn app:app --host 0.0.0.0 --port 8080
+    else
+        # Fallback to direct python execution
+        exec python app.py
+    fi
+elif [ -f main.py ]; then
+    echo "Found main.py"
+    if pip list | grep -q uvicorn; then
+        exec uvicorn main:app --host 0.0.0.0 --port 8080
+    else
+        exec python main.py
+    fi
+else
+    echo "ERROR: No app.py or main.py found!"
+    echo "Directory contents:"
+    ls -la
+    # Keep container running for debugging
+    exec sleep infinity
+fi
+"""
+
+        # Write the script to a temporary file to avoid escaping issues
+        script_base64 = base64.b64encode(startup_script.encode()).decode()
+
+        # Machine configuration using a Python base image
         config = {
-            # Use buildpacks builder image
-            "image": "paketobuildpacks/builder:base",
+            "image": "python:3.11-slim",
             "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 512},
             "services": [
                 {
@@ -217,15 +290,15 @@ class FlyService:
             ],
             "env": {
                 "PORT": "8080",
-                "BP_GIT_URL": github_url,  # Tell buildpacks where to get the code
+                "PYTHONUNBUFFERED": "1",
             },
-            # Enable buildpack build
-            "build": {
-                "builder": "paketobuildpacks/builder:base",
-                "buildpacks": ["paketo-buildpacks/python"],
-                "env": {
-                    "BP_GIT_URL": github_url,
-                },
+            # Use CMD instead of init.exec
+            "init": {
+                "cmd": [
+                    "/bin/bash",
+                    "-c",
+                    f"echo '{script_base64}' | base64 -d > /start.sh && chmod +x /start.sh && /start.sh",
+                ]
             },
             "auto_destroy": False,
             "restart": {"policy": "on-failure", "max_retries": 1},
@@ -235,7 +308,7 @@ class FlyService:
             },
         }
 
-        # Create machine with buildpack configuration
+        # Create machine
         machine = self.client.create_machine(app_name, config, region="ewr")
         return machine["id"]
 
@@ -258,7 +331,7 @@ class FlyService:
             machine_id = create_and_deploy_machine(
                 self.client,
                 app_name,
-                idle_timeout_minutes=5,
+                idle_timeout_minutes=5,  # Hibernate after 5 minutes of inactivity
             )
             print(f"✓ Machine created: {machine_id}")
             print("✓ Hibernation enabled (5 minute idle timeout)")
@@ -280,19 +353,17 @@ class FlyService:
                 "ipv4": ipv4,
                 "ipv6": ipv6,
                 "status": "deployed",
-                "machine_state": "started",
+                "machine_state": "started",  # Initial state
             }
 
         except Exception as e:
             print(f"✗ Error during deployment: {str(e)}")
+            # Try to clean up if deployment failed
             self._cleanup_failed_app(app_name)
             raise
 
     def _cleanup_failed_app(self, app_name: str) -> None:
         """Clean up a failed app deployment."""
-        if not app_name:
-            return
-
         try:
             print(f"Cleaning up failed app: {app_name}")
             result = delete_app_force(self.client, app_name)
@@ -305,10 +376,6 @@ class FlyService:
 
     def delete_app(self, app_name: str) -> bool:
         """Delete a Fly.io app and all its resources."""
-        if not app_name:
-            print("Error: Cannot delete app with empty name")
-            return False
-
         print(f"Force deleting app '{app_name}'...")
 
         try:
@@ -329,8 +396,6 @@ class FlyService:
 
     def get_app_status(self, app_name: str) -> dict | None:
         """Get current status of a Fly.io app."""
-        if not app_name:
-            return None
         return get_app_status(self.client, app_name)
 
     def list_all_apps(self) -> list[dict]:
