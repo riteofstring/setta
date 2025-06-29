@@ -1,154 +1,87 @@
 """
-Authentication middleware for Clerk integration.
-Handles JWT verification and user extraction.
+Authentication middleware for JWT verification.
 """
 
-from functools import lru_cache
-
-import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import get_settings
 
-# Security scheme for FastAPI docs
-security = HTTPBearer()
+# Security scheme
+security = HTTPBearer(auto_error=False)
 
 
-class AuthError(HTTPException):
-    """Custom auth exception for cleaner error handling."""
-
-    def __init__(self, detail: str):
-        super().__init__(status_code=401, detail=detail)
-
-
-@lru_cache
-def get_clerk_public_key() -> str:
-    """Get Clerk public key from settings."""
+def decode_jwt(token: str) -> dict:
+    """Decode and verify JWT token."""
     settings = get_settings()
-    key = settings.clerk_jwt_public_key
 
-    if not key:
-        raise ValueError("CLERK_JWT_PUBLIC_KEY not configured")
+    if not settings.clerk_jwt_public_key:
+        print("Warning: CLERK_JWT_PUBLIC_KEY not set")
+        return {}
 
-    return key
-
-
-def extract_token(request: Request) -> str:
-    """Extract Bearer token from request headers."""
-    auth_header = request.headers.get("Authorization", "")
-
-    if not auth_header:
-        raise AuthError("Missing authorization header")
-
-    if not auth_header.startswith("Bearer "):
-        raise AuthError("Invalid authorization header format")
-
-    token = auth_header.replace("Bearer ", "")
-    if not token:
-        raise AuthError("Empty token")
-
-    return token
-
-
-def verify_jwt_token(token: str) -> dict:
-    """Verify JWT token and return payload."""
     try:
-        public_key = get_clerk_public_key()
+        # Decode the JWT
         payload = jwt.decode(
             token,
-            public_key,
+            settings.clerk_jwt_public_key,
             algorithms=["RS256"],
             options={"verify_aud": False},  # Clerk doesn't always set audience
         )
         return payload
-
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError as e:
-        raise AuthError(f"Invalid token: {str(e)}")
+        print(f"JWT decode error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
-        raise AuthError(f"Token verification failed: {str(e)}")
+        print(f"Unexpected error decoding JWT: {e}")
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
 
 
-async def verify_with_clerk_api(token: str) -> str:
-    """Fallback: Verify token with Clerk API if JWT verification fails."""
-    settings = get_settings()
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Get current user ID from JWT token (required)."""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not settings.clerk_api_key:
-        raise AuthError("Clerk API key not configured")
+    payload = decode_jwt(credentials.credentials)
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                "https://api.clerk.com/v1/sessions/verify",
-                headers={
-                    "Authorization": f"Bearer {settings.clerk_api_key}",
-                    "Content-Type": "application/json",
-                },
-                params={"token": token},
-                timeout=5.0,
-            )
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token: no user ID")
 
-            if response.status_code != 200:
-                raise AuthError("Invalid session")
-
-            data = response.json()
-            return data.get("user_id")
-
-        except httpx.RequestError:
-            raise AuthError("Could not verify token with Clerk")
+    return user_id
 
 
-async def get_current_user_id(request: Request) -> str:
-    """Get current user ID from request token."""
-    token = extract_token(request)
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str | None:
+    """Get current user ID from JWT token (optional)."""
+    if not credentials:
+        return None
 
-    # Try local JWT verification first (faster)
     try:
-        payload = verify_jwt_token(token)
-        user_id = payload.get("sub")
-
-        if not user_id:
-            raise AuthError("No user ID in token")
-
-        return user_id
-
-    except AuthError:
-        # If local verification fails, try Clerk API
-        # This handles cases where JWT might be in different format
-        return await verify_with_clerk_api(token)
+        payload = decode_jwt(credentials.credentials)
+        return payload.get("sub")
+    except HTTPException:
+        # If token is invalid, return None instead of raising
+        return None
+    except Exception as e:
+        print(f"Error in get_current_user_optional: {e}")
+        return None
 
 
-# Dependency for FastAPI routes
-CurrentUser = Depends(get_current_user_id)
+def require_auth(request: Request):
+    """Dependency to require authentication for routes."""
+    auth_header = request.headers.get("Authorization")
 
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-# Optional: Get full user data if needed
-async def get_current_user_data(user_id: str = CurrentUser) -> dict:
-    """Get full user data from Clerk API."""
-    settings = get_settings()
+    token = auth_header.split(" ")[1]
+    payload = decode_jwt(token)
 
-    if not settings.clerk_api_key:
-        return {"id": user_id}  # Return minimal data if no API key
+    if not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"https://api.clerk.com/v1/users/{user_id}",
-                headers={
-                    "Authorization": f"Bearer {settings.clerk_api_key}",
-                },
-                timeout=5.0,
-            )
-
-            if response.status_code == 200:
-                return response.json()
-
-            return {"id": user_id}
-
-        except httpx.RequestError:
-            return {"id": user_id}
-
-
-# Dependency for getting full user data
-CurrentUserData = Depends(get_current_user_data)
+    return payload.get("sub")
