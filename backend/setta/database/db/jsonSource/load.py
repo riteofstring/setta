@@ -33,7 +33,11 @@ from setta.types.generated.section_type_unions import (
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
-from setta.types.impl_helpers import apply_modifier, get_effective_impl
+from setta.types.generated.impl_helpers import (
+    apply_modifier,
+    get_effective_impl,
+    set_effective_impl_value,
+)
 from setta.types.impl_layering import ImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -86,13 +90,12 @@ def load_json_sources_into_data_structures(
             ):
                 continue
 
-            if layering.modifier["type"] != SectionType.Dict:
-                continue
             new_data, isMissing = load_json_source(
                 settings, layering.name, impl.jsonSourceKeys
             )
-            layering.modifier["jsonSourceMissing"] = isMissing
-            impl = apply_modifier(impl, layering.modifier)
+            impl = set_effective_impl_value(
+                layering, section, p.sectionImpls, "jsonSourceMissing", isMissing
+            )
             if isMissing:
                 continue
             merge_into_existing(
