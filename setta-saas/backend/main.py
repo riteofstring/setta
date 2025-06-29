@@ -13,8 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from config import get_settings
-from database import Project, SessionLocal
-from middleware import CurrentUser
+from database import SessionLocal
 from models.project import ProjectCreate, ProjectResponse
 from services.fly_service import FlyService
 from services.project_service import ProjectService
@@ -24,46 +23,14 @@ from services.websocket_service import get_connection_manager
 settings = get_settings()
 
 
-async def check_machine_states_once():
-    """Check machine states once and return result."""
-    db = SessionLocal()
-    try:
-        service = ProjectService(db)
-        return await service.check_all_machine_states()
-    finally:
-        db.close()
-
-
-async def periodic_machine_state_check():
-    """Periodically check machine states for all projects."""
-    while True:
-        try:
-            await asyncio.sleep(60)
-            result = await check_machine_states_once()
-            print(f"Machine state check: {result}")
-        except asyncio.CancelledError:
-            print("Stopping periodic machine state checks")
-            break
-        except Exception as e:
-            print(f"Error in periodic machine state check: {e}")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
+    # Startup
     print("Starting up...")
-
-    # Start background task for checking machine states
-    task = asyncio.create_task(periodic_machine_state_check())
-
     yield
-
+    # Shutdown
     print("Shutting down...")
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
 
 
 # Create FastAPI app
@@ -131,24 +98,29 @@ async def health():
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""
     manager = get_connection_manager()
+
+    # Accept the connection
     await manager.connect(websocket)
     print(f"New WebSocket connected. Total connections: {manager.get_connection_count()}")
 
     try:
         while True:
+            # Wait for messages from the client
             data = await websocket.receive_text()
             print(f"Received from client: {data}")
 
+            # Try to parse as JSON
             try:
                 message = json.loads(data)
             except json.JSONDecodeError:
                 print(f"Received non-JSON message: {data}")
                 continue
 
-            # Handle ping messages
+            # Only handle ping messages
             if message.get("type") != "ping":
                 continue
 
+            # Send pong response
             pong_response = {
                 "type": "pong",
                 "data": message.get("data", ""),
@@ -157,62 +129,33 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_text(json.dumps(pong_response))
             print("Sent pong response")
 
-    except WebSocketDisconnect:
-        await manager.disconnect(websocket)
-        print(f"Client disconnected. Active connections: {manager.get_connection_count()}")
+    except WebSocketDisconnect as e:
+        print(f"Client disconnected: code={e.code}, reason={e.reason}")
     except Exception as e:
-        print(f"WebSocket error: {e}")
-        await manager.disconnect(websocket)
-
-
-async def check_project_machine_states(projects: list[ProjectResponse], service: ProjectService):
-    """Check machine states for a list of projects."""
-    for project in projects:
-        # Skip if not running or no machine ID
-        if project.status != "running":
-            continue
-        if not project.machine_id:
-            continue
-
-        try:
-            await service.check_machine_state(project.id)
-        except Exception as e:
-            print(f"Failed to check machine state for {project.id}: {e}")
+        print(f"WebSocket error: {type(e).__name__}: {e}")
+    finally:
+        manager.disconnect(websocket=websocket)
+        print(f"Client cleanup done. Active connections: {manager.get_connection_count()}")
 
 
 @app.get("/api/projects", response_model=list[ProjectResponse])
-async def list_projects(
-    user_id: str = CurrentUser, service: ProjectService = Depends(get_async_project_service)
-):
-    """List all projects for the authenticated user."""
-    # Get projects
-    projects = service.list_user_projects(user_id)
-
-    # Check machine states
-    await check_project_machine_states(projects, service)
-
-    # Return updated project list
-    return service.list_user_projects(user_id)
+async def list_projects(service: ProjectService = Depends(get_project_service)):
+    """List all projects."""
+    return service.list_projects()
 
 
 @app.post("/api/projects", response_model=ProjectResponse)
 async def create_project(
-    project_data: ProjectCreate,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
+    project_data: ProjectCreate, service: ProjectService = Depends(get_async_project_service)
 ):
-    """Create a new project for the authenticated user."""
-    return await service.create_project(project_data, user_id)
+    """Create a new project."""
+    return await service.create_project(project_data)
 
 
 @app.get("/api/projects/{project_id}", response_model=ProjectResponse)
-async def get_project(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_project_service),
-):
-    """Get a specific project if owned by the authenticated user."""
-    project = service.get_project(project_id, user_id)
+async def get_project(project_id: str, service: ProjectService = Depends(get_project_service)):
+    """Get a specific project."""
+    project = service.get_project(project_id)
     if not project:
         raise HTTPException(404, "Project not found")
     return project
@@ -220,154 +163,24 @@ async def get_project(
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
+    project_id: str, service: ProjectService = Depends(get_async_project_service)
 ):
-    """Delete a project if owned by the authenticated user."""
-    success = await service.delete_project(project_id, user_id)
+    """Delete a project."""
+    success = await service.delete_project(project_id)
     if not success:
-        raise HTTPException(404, "Project not found or not authorized")
+        raise HTTPException(404, "Project not found")
     return {"message": "Project deleted"}
 
 
 @app.post("/api/projects/{project_id}/check-status")
 async def check_project_status(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
+    project_id: str, service: ProjectService = Depends(get_async_project_service)
 ):
-    """Check and update project status if owned by the authenticated user."""
-    status = await service.check_project_status(project_id, user_id)
+    """Check and update project status."""
+    status = await service.check_project_status(project_id)
     if status is None:
-        raise HTTPException(404, "Project not found or not authorized")
+        raise HTTPException(404, "Project not found")
     return {"status": status}
-
-
-@app.post("/api/projects/{project_id}/check-machine-state")
-async def check_project_machine_state(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
-):
-    """Check and update machine state for a specific project."""
-    # Get the project to verify ownership
-    project = service.get_project(project_id, user_id)
-    if not project:
-        raise HTTPException(404, "Project not found or not authorized")
-
-    # Check machine state
-    state = await service.check_machine_state(project_id)
-    if state is None:
-        return {"message": "No machine state available", "state": None}
-
-    return {"state": state, "project_id": project_id}
-
-
-@app.post("/api/projects/{project_id}/machine/start")
-async def start_project_machine(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
-):
-    """Start (wake up) a hibernated project machine."""
-    # Verify ownership
-    project = service.get_project(project_id, user_id)
-    if not project:
-        raise HTTPException(404, "Project not found or not authorized")
-
-    if not project.machine_id:
-        raise HTTPException(400, "Project has no machine")
-
-    # Extract app name from URL
-    if not project.url or "fly.dev" not in project.url:
-        raise HTTPException(400, "Invalid project URL")
-
-    app_name = project.url.split("//")[1].split(".")[0]
-
-    # Start the machine
-    try:
-        from fly.deployment import start_machine
-
-        success = await asyncio.to_thread(
-            start_machine, service.fly.client, app_name, project.machine_id
-        )
-
-        if not success:
-            raise HTTPException(500, "Failed to start machine")
-
-        # Update state
-        project = service.db.query(Project).filter(Project.id == project_id).first()
-        project.machine_state = "starting"
-        service.db.commit()
-
-        # Check state after a moment
-        await asyncio.sleep(2)
-        await service.check_machine_state(project_id)
-
-        return {"message": "Machine start requested", "status": "starting"}
-
-    except Exception as e:
-        print(f"Error starting machine: {e}")
-        raise HTTPException(500, f"Failed to start machine: {str(e)}")
-
-
-@app.post("/api/projects/{project_id}/machine/stop")
-async def stop_project_machine(
-    project_id: str,
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
-):
-    """Stop (hibernate) a running project machine."""
-    # Verify ownership
-    project = service.get_project(project_id, user_id)
-    if not project:
-        raise HTTPException(404, "Project not found or not authorized")
-
-    if not project.machine_id:
-        raise HTTPException(400, "Project has no machine")
-
-    # Extract app name from URL
-    if not project.url or "fly.dev" not in project.url:
-        raise HTTPException(400, "Invalid project URL")
-
-    app_name = project.url.split("//")[1].split(".")[0]
-
-    # Stop the machine
-    try:
-        from fly.deployment import stop_machine
-
-        success = await asyncio.to_thread(
-            stop_machine, service.fly.client, app_name, project.machine_id
-        )
-
-        if not success:
-            raise HTTPException(500, "Failed to stop machine")
-
-        # Update state
-        project = service.db.query(Project).filter(Project.id == project_id).first()
-        project.machine_state = "stopping"
-        service.db.commit()
-
-        # Check state after a moment
-        await asyncio.sleep(2)
-        await service.check_machine_state(project_id)
-
-        return {"message": "Machine stop requested", "status": "stopping"}
-
-    except Exception as e:
-        print(f"Error stopping machine: {e}")
-        raise HTTPException(500, f"Failed to stop machine: {str(e)}")
-
-
-@app.post("/api/projects/check-all-machine-states")
-async def check_all_machine_states(
-    user_id: str = CurrentUser,
-    service: ProjectService = Depends(get_async_project_service),
-):
-    """Check machine states for all user's projects."""
-    result = await service.check_all_machine_states()
-    return {"message": "Machine state check completed", "result": result}
 
 
 # Project management endpoints
@@ -433,13 +246,6 @@ async def websocket_status():
         "active_connections": manager.get_connection_count(),
         "status": "active",
     }
-
-
-# User endpoints
-@app.get("/api/me")
-async def get_current_user(user_id: str = CurrentUser):
-    """Get current user info."""
-    return {"user_id": user_id}
 
 
 if __name__ == "__main__":
