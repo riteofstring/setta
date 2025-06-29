@@ -280,18 +280,29 @@ class ProjectService:
             # Step 1: Creating app
             await self._update_progress(project, DeploymentStep.CREATING_APP, 10)
 
-            # Step 2-5: Deploy using FlyService's create_and_deploy_app method
-            await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 20)
+            # Check if we have a GitHub URL to deploy from
+            if project.github_url:
+                # Use the progress-enabled method that supports GitHub deployment
+                deployment_result = await self.fly.create_and_deploy_app_with_progress(
+                    app_name, project.id, project.github_url
+                )
 
-            # Deploy the app - this handles app creation, IP allocation, and machine deployment
-            deployment_result = await asyncio.to_thread(self.fly.create_and_deploy_app, app_name)
+                # Progress updates are handled by the method itself
+                # Just update to complete
+                await self._update_progress(project, DeploymentStep.COMPLETE, 100)
+            else:
+                # Use the simpler method for default deployment
+                await self._update_progress(project, DeploymentStep.ALLOCATING_IPS, 20)
 
-            # Update progress as deployment completes
-            await self._update_progress(project, DeploymentStep.DEPLOYING_MACHINE, 50)
-            await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, 70)
+                deployment_result = await asyncio.to_thread(
+                    self.fly.create_and_deploy_app, app_name
+                )
 
-            # Step 6: Verifying deployment
-            await self._update_progress(project, DeploymentStep.VERIFYING_DEPLOYMENT, 90)
+                # Update progress as deployment completes
+                await self._update_progress(project, DeploymentStep.DEPLOYING_MACHINE, 50)
+                await self._update_progress(project, DeploymentStep.WAITING_FOR_DNS, 70)
+                await self._update_progress(project, DeploymentStep.VERIFYING_DEPLOYMENT, 90)
+                await self._update_progress(project, DeploymentStep.COMPLETE, 100)
 
             # Update project with success
             project.url = deployment_result["url"]
@@ -299,9 +310,6 @@ class ProjectService:
             project.machine_id = deployment_result.get("machine_id")
             project.machine_state = deployment_result.get("machine_state", "started")
             db.commit()
-
-            # Step 7: Complete
-            await self._update_progress(project, DeploymentStep.COMPLETE, 100)
 
             # Send completion event
             await self._broadcast_project_event(
