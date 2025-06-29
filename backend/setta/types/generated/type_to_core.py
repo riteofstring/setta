@@ -1,4 +1,4 @@
-from typing import Literal, overload
+from typing import Any, Literal, overload, set
 
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
@@ -39,123 +39,563 @@ from setta.types.section_impls import SectionType
 # Overloads for section type to core conversion
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Callable], **kwargs
+    type_: Literal[SectionType.Callable],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: CallableSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "callable",
+            "codeObjImplLayeringMap",
+            "columnWidth",
+            "configLanguage",
+            "hideParams",
+            "hideUnpinnedParams",
+            "ignoreTypeErrors",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "paramFilter",
+            "parentId",
+            "pinnedAreaHeight",
+            "pinnedParams",
+            "positionAndSizeLocked",
+            "selectedParams",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> CallableSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Dict], **kwargs
+    type_: Literal[SectionType.Dict],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: DictSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "codeObjImplLayeringMap",
+            "columnWidth",
+            "configLanguage",
+            "hideUnpinnedParams",
+            "ignoreTypeErrors",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isJsonSource",
+            "isMinimized",
+            "jsonSourceKeys",
+            "jsonSourceMissing",
+            "paramFilter",
+            "parentId",
+            "pinnedAreaHeight",
+            "pinnedParams",
+            "positionAndSizeLocked",
+            "selectedParams",
+            "size",
+            "topLevelParamIds",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> DictSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.ListRoot], **kwargs
+    type_: Literal[SectionType.ListRoot],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: ListRootSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "children",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> ListRootSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.DictRoot], **kwargs
+    type_: Literal[SectionType.DictRoot],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: DictRootSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "children",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> DictRootSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Group], **kwargs
+    type_: Literal[SectionType.Group],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: GroupSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "children",
+            "isFrozen",
+            "isHorizontalOrientation",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> GroupSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Image], **kwargs
+    type_: Literal[SectionType.Image],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: ImageSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "artifactGroupIds",
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> ImageSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Chart], **kwargs
+    type_: Literal[SectionType.Chart],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: ChartSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "artifactGroupIds",
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "chartSettings",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "renderedValue",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> ChartSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Draw], **kwargs
+    type_: Literal[SectionType.Draw],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: DrawSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "artifactGroupIds",
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "canvasSettings",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "renderedValue",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> DrawSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.TextBlock], **kwargs
+    type_: Literal[SectionType.TextBlock],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: TextBlockSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "displayMode",
+            "format",
+            "headingAsSectionName",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "text",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> TextBlockSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Social], **kwargs
+    type_: Literal[SectionType.Social],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: SocialSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "social",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> SocialSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.GlobalVariables], **kwargs
+    type_: Literal[SectionType.GlobalVariables],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: GlobalVariablesSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "codeObjImplLayeringMap",
+            "columnWidth",
+            "configLanguage",
+            "hideUnpinnedParams",
+            "ignoreTypeErrors",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isJsonSource",
+            "isMinimized",
+            "jsonSourceKeys",
+            "jsonSourceMissing",
+            "paramFilter",
+            "parentId",
+            "pinnedAreaHeight",
+            "pinnedParams",
+            "positionAndSizeLocked",
+            "selectedParams",
+            "size",
+            "topLevelParamIds",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> GlobalVariablesSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Code], **kwargs
+    type_: Literal[SectionType.Code],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: CodeSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "code",
+            "codeLanguage",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> CodeSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.GenPythonCode], **kwargs
+    type_: Literal[SectionType.GenPythonCode],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: GenPythonCodeSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "code",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> GenPythonCodeSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Terminal], **kwargs
+    type_: Literal[SectionType.Terminal],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: TerminalSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> TerminalSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.IFrame], **kwargs
+    type_: Literal[SectionType.IFrame],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: IFrameSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> IFrameSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Chat], **kwargs
+    type_: Literal[SectionType.Chat],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: ChatSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> ChatSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: Literal[SectionType.Browser], **kwargs
+    type_: Literal[SectionType.Browser],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: BrowserSectionImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "aspectRatio",
+            "aspectRatioExtraHeight",
+            "aspectRatioExtraWidth",
+            "hideColumn",
+            "isFrozen",
+            "isInOtherProjectConfigs",
+            "isMinimized",
+            "parentId",
+            "positionAndSizeLocked",
+            "size",
+            "visibility",
+        ]
+    ]
+    | None = None,
 ) -> BrowserSectionCore: ...
 @overload
 def create_core_for_section_type(
-    type_: SectionType, **kwargs
+    type_: SectionType,
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: Any | None = None,
+    unsharedKeys: Any | None = None,
 ) -> BaseSectionCoreUnion: ...
 
 
-def create_core_for_section_type(type_: SectionType, **kwargs) -> BaseSectionCoreUnion:
+def create_core_for_section_type(
+    type_: SectionType,
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: Any | None = None,
+    unsharedKeys: Any | None = None,
+) -> BaseSectionCoreUnion:
     """Create a SectionCore for the given SectionType.
 
-    Args:
-        type_: The SectionType enum value
-        **kwargs: Additional arguments to pass to the core constructor
-            (e.g., id, name, sharedModifier, unsharedKeys)
-
-    Returns:
-        A new SectionCore instance of the appropriate type
+    The overloaded signatures above provide full type checking for each specific
+    SectionType with properly typed parameters.
     """
+    # Build kwargs dict with only non-None values
+    core_kwargs = {}
+    if id is not None:
+        core_kwargs["id"] = id
+    if name is not None:
+        core_kwargs["name"] = name
+    if implLayerings is not None:
+        core_kwargs["implLayerings"] = implLayerings
+    if defaultImplLayering is not None:
+        core_kwargs["defaultImplLayering"] = defaultImplLayering
+    if sharedModifier is not None:
+        core_kwargs["sharedModifier"] = sharedModifier
+    if unsharedKeys is not None:
+        core_kwargs["unsharedKeys"] = unsharedKeys
+
     if type_ == SectionType.Callable:
-        return CallableSectionCore(**kwargs)
+        return CallableSectionCore(**core_kwargs)
     elif type_ == SectionType.Dict:
-        return DictSectionCore(**kwargs)
+        return DictSectionCore(**core_kwargs)
     elif type_ == SectionType.ListRoot:
-        return ListRootSectionCore(**kwargs)
+        return ListRootSectionCore(**core_kwargs)
     elif type_ == SectionType.DictRoot:
-        return DictRootSectionCore(**kwargs)
+        return DictRootSectionCore(**core_kwargs)
     elif type_ == SectionType.Group:
-        return GroupSectionCore(**kwargs)
+        return GroupSectionCore(**core_kwargs)
     elif type_ == SectionType.Image:
-        return ImageSectionCore(**kwargs)
+        return ImageSectionCore(**core_kwargs)
     elif type_ == SectionType.Chart:
-        return ChartSectionCore(**kwargs)
+        return ChartSectionCore(**core_kwargs)
     elif type_ == SectionType.Draw:
-        return DrawSectionCore(**kwargs)
+        return DrawSectionCore(**core_kwargs)
     elif type_ == SectionType.TextBlock:
-        return TextBlockSectionCore(**kwargs)
+        return TextBlockSectionCore(**core_kwargs)
     elif type_ == SectionType.Social:
-        return SocialSectionCore(**kwargs)
+        return SocialSectionCore(**core_kwargs)
     elif type_ == SectionType.GlobalVariables:
-        return GlobalVariablesSectionCore(**kwargs)
+        return GlobalVariablesSectionCore(**core_kwargs)
     elif type_ == SectionType.Code:
-        return CodeSectionCore(**kwargs)
+        return CodeSectionCore(**core_kwargs)
     elif type_ == SectionType.GenPythonCode:
-        return GenPythonCodeSectionCore(**kwargs)
+        return GenPythonCodeSectionCore(**core_kwargs)
     elif type_ == SectionType.Terminal:
-        return TerminalSectionCore(**kwargs)
+        return TerminalSectionCore(**core_kwargs)
     elif type_ == SectionType.IFrame:
-        return IFrameSectionCore(**kwargs)
+        return IFrameSectionCore(**core_kwargs)
     elif type_ == SectionType.Chat:
-        return ChatSectionCore(**kwargs)
+        return ChatSectionCore(**core_kwargs)
     elif type_ == SectionType.Browser:
-        return BrowserSectionCore(**kwargs)
+        return BrowserSectionCore(**core_kwargs)
     else:
         raise ValueError(f"Unknown section type: {type_}")
 
@@ -163,74 +603,247 @@ def create_core_for_section_type(type_: SectionType, **kwargs) -> BaseSectionCor
 # Overloads for code obj type to core conversion
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.CodeCallable], **kwargs
+    type_: Literal[CodeObjType.CodeCallable],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: CodeCallableCodeObjImplModifier | None = None,
+    unsharedKeys: set[Literal["children", "description"]] | None = None,
 ) -> CodeCallableCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.CodeParam], **kwargs
+    type_: Literal[CodeObjType.CodeParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: CodeParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> CodeParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.TextParam], **kwargs
+    type_: Literal[CodeObjType.TextParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: TextParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> TextParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.SliderParam], **kwargs
+    type_: Literal[CodeObjType.SliderParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: SliderParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "max",
+            "min",
+            "passingStyle",
+            "step",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> SliderParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.SwitchParam], **kwargs
+    type_: Literal[CodeObjType.SwitchParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: SwitchParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> SwitchParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.ColorPickerParam], **kwargs
+    type_: Literal[CodeObjType.ColorPickerParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: ColorPickerParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "choices",
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> ColorPickerParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.DropdownParam], **kwargs
+    type_: Literal[CodeObjType.DropdownParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: DropdownParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "choices",
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> DropdownParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.PasswordParam], **kwargs
+    type_: Literal[CodeObjType.PasswordParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: PasswordParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "coreNameEditable",
+            "coreNameType",
+            "defaultVal",
+            "description",
+            "passingStyle",
+            "value",
+        ]
+    ]
+    | None = None,
 ) -> PasswordParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.NestedParam], **kwargs
+    type_: Literal[CodeObjType.NestedParam],
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: NestedParamCodeObjImplModifier | None = None,
+    unsharedKeys: set[
+        Literal[
+            "children",
+            "coreNameEditable",
+            "coreNameType",
+            "description",
+            "passingStyle",
+        ]
+    ]
+    | None = None,
 ) -> NestedParamCodeObjCore: ...
 @overload
 def create_core_for_code_obj_type(
-    type_: CodeObjType, **kwargs
+    type_: CodeObjType,
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: Any | None = None,
+    unsharedKeys: Any | None = None,
 ) -> BaseCodeObjCoreUnion: ...
 
 
-def create_core_for_code_obj_type(type_: CodeObjType, **kwargs) -> BaseCodeObjCoreUnion:
+def create_core_for_code_obj_type(
+    type_: CodeObjType,
+    *,
+    id: str | None = None,
+    name: str | None = None,
+    implLayerings: list[str] | None = None,
+    defaultImplLayering: str | None = None,
+    sharedModifier: Any | None = None,
+    unsharedKeys: Any | None = None,
+) -> BaseCodeObjCoreUnion:
     """Create a CodeObjCore for the given CodeObjType.
 
-    Args:
-        type_: The CodeObjType enum value
-        **kwargs: Additional arguments to pass to the core constructor
-            (e.g., id, name, sharedModifier, unsharedKeys)
-
-    Returns:
-        A new CodeObjCore instance of the appropriate type
+    The overloaded signatures above provide full type checking for each specific
+    CodeObjType with properly typed parameters.
     """
+    # Build kwargs dict with only non-None values
+    core_kwargs = {}
+    if id is not None:
+        core_kwargs["id"] = id
+    if name is not None:
+        core_kwargs["name"] = name
+    if implLayerings is not None:
+        core_kwargs["implLayerings"] = implLayerings
+    if defaultImplLayering is not None:
+        core_kwargs["defaultImplLayering"] = defaultImplLayering
+    if sharedModifier is not None:
+        core_kwargs["sharedModifier"] = sharedModifier
+    if unsharedKeys is not None:
+        core_kwargs["unsharedKeys"] = unsharedKeys
+
     if type_ == CodeObjType.CodeCallable:
-        return CodeCallableCodeObjCore(**kwargs)
+        return CodeCallableCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.CodeParam:
-        return CodeParamCodeObjCore(**kwargs)
+        return CodeParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.TextParam:
-        return TextParamCodeObjCore(**kwargs)
+        return TextParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.SliderParam:
-        return SliderParamCodeObjCore(**kwargs)
+        return SliderParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.SwitchParam:
-        return SwitchParamCodeObjCore(**kwargs)
+        return SwitchParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.ColorPickerParam:
-        return ColorPickerParamCodeObjCore(**kwargs)
+        return ColorPickerParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.DropdownParam:
-        return DropdownParamCodeObjCore(**kwargs)
+        return DropdownParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.PasswordParam:
-        return PasswordParamCodeObjCore(**kwargs)
+        return PasswordParamCodeObjCore(**core_kwargs)
     elif type_ == CodeObjType.NestedParam:
-        return NestedParamCodeObjCore(**kwargs)
+        return NestedParamCodeObjCore(**core_kwargs)
     else:
         raise ValueError(f"Unknown code obj type: {type_}")
