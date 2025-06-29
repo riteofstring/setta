@@ -10,14 +10,17 @@ from fly.deployment import (
     allocate_ips,
     create_and_deploy_machine,
     create_app,
-    get_machine_state,
+    delete_all_apps_in_org,
+    get_app_status,
+    get_machine_status,
+    list_all_apps,
     start_machine,
     stop_machine,
     wait_for_app_ready,
 )
 from fly.queries import GET_APP, GET_LATEST_DEPLOYMENT
 from models.fly import FlyAppInfo, FlyDeploymentStatus, FlyMachineInfo
-from services.fly_event_poller import FlyEventPoller
+from services.deployment_events import DeploymentEventPoller
 
 
 class FlyService:
@@ -25,8 +28,9 @@ class FlyService:
 
     def __init__(self):
         self.client = FlyClient(os.getenv("FLY_API_TOKEN"))
+        self.org_slug = os.getenv("FLY_ORG_SLUG", "personal")
         self.org_id = os.getenv("FLY_ORG_ID")
-        self.event_poller = FlyEventPoller(self.client)
+        self.event_poller = DeploymentEventPoller(self.client)
 
     async def _broadcast_deployment_progress(self, project_id: str, message: str, progress: int):
         """Helper to broadcast deployment progress via websocket."""
@@ -370,6 +374,10 @@ class FlyService:
             print(f"Error destroying app: {e}")
             raise
 
+    def delete_app(self, app_name: str) -> bool:
+        """Alias for destroy_app for compatibility."""
+        return self.destroy_app(app_name)
+
     def get_app_info(self, app_name: str) -> FlyAppInfo | None:
         """Get detailed information about a Fly.io app."""
         try:
@@ -428,7 +436,8 @@ class FlyService:
 
     async def get_machine_state(self, app_name: str, machine_id: str) -> str | None:
         """Get the current state of a machine."""
-        return await asyncio.to_thread(get_machine_state, self.client, app_name, machine_id)
+        status = await asyncio.to_thread(get_machine_status, self.client, app_name, machine_id)
+        return status.get("state") if status else None
 
     async def start_app_machine(self, app_name: str, machine_id: str) -> bool:
         """Start a stopped machine."""
@@ -437,3 +446,16 @@ class FlyService:
     async def stop_app_machine(self, app_name: str, machine_id: str) -> bool:
         """Stop a running machine."""
         return await asyncio.to_thread(stop_machine, self.client, app_name, machine_id)
+
+    def get_app_status(self, app_name: str) -> dict | None:
+        """Get app status (sync method for compatibility)."""
+        return get_app_status(self.client, app_name)
+
+    def list_all_apps(self) -> list[dict]:
+        """List all apps in the organization."""
+        return list_all_apps(self.client, self.org_slug)
+
+    def delete_all_apps(self) -> dict:
+        """Delete ALL apps in the organization. Nuclear option!"""
+        print(f"⚠️  WARNING: This will delete ALL apps in organization '{self.org_slug}'")
+        return delete_all_apps_in_org(self.client, self.org_slug)
