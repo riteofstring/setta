@@ -16,12 +16,14 @@ from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
-from setta.types.generated.section_cores import DictSectionCore
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.type_to_core import create_core_for_code_obj_type
+from setta.types.generated.type_to_core import (
+    create_core_for_code_obj_type,
+    create_core_for_section_type,
+)
 from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,
     create_modifier_for_section_type,
@@ -171,7 +173,8 @@ def create_settings_project_state(settings_path: Path):
             impl=sectionImpl.id,
             modifier=create_modifier_for_section_type(sectionImpl.type),
         )
-        section = DictSectionCore(
+        section = create_core_for_section_type(
+            sectionImpl.type,
             name=k,
             implLayerings=[sectionImplLayering.id],
             defaultImplLayering=sectionImplLayering.id,

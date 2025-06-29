@@ -53,7 +53,7 @@ class BrowserSectionCore(BaseSectionCore):
     sharedModifier: BrowserSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Browser)
     )
-    unsharedKeys: set[BrowserSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[BrowserSectionImplFields] = Field(default_factory=list)
 
 
 class CallableSectionCore(BaseSectionCore):
@@ -61,8 +61,8 @@ class CallableSectionCore(BaseSectionCore):
     sharedModifier: CallableSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Callable)
     )
-    unsharedKeys: set[CallableSectionImplFields] = Field(
-        default_factory=lambda: {"callable", "codeObjImplLayeringMap"}
+    unsharedKeys: list[CallableSectionImplFields] = Field(
+        default_factory=lambda: ["callable", "codeObjImplLayeringMap"]
     )
 
 
@@ -71,7 +71,7 @@ class ChartSectionCore(BaseSectionCore):
     sharedModifier: ChartSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Chart)
     )
-    unsharedKeys: set[ChartSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[ChartSectionImplFields] = Field(default_factory=list)
 
 
 class ChatSectionCore(BaseSectionCore):
@@ -79,7 +79,7 @@ class ChatSectionCore(BaseSectionCore):
     sharedModifier: ChatSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Chat)
     )
-    unsharedKeys: set[ChatSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[ChatSectionImplFields] = Field(default_factory=list)
 
 
 class CodeSectionCore(BaseSectionCore):
@@ -87,7 +87,7 @@ class CodeSectionCore(BaseSectionCore):
     sharedModifier: CodeSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Code)
     )
-    unsharedKeys: set[CodeSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[CodeSectionImplFields] = Field(default_factory=list)
 
 
 class DictSectionCore(BaseSectionCore):
@@ -95,8 +95,8 @@ class DictSectionCore(BaseSectionCore):
     sharedModifier: DictSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Dict)
     )
-    unsharedKeys: set[DictSectionImplFields] = Field(
-        default_factory=lambda: {"codeObjImplLayeringMap", "topLevelParamIds"}
+    unsharedKeys: list[DictSectionImplFields] = Field(
+        default_factory=lambda: ["codeObjImplLayeringMap", "topLevelParamIds"]
     )
 
 
@@ -105,7 +105,7 @@ class DictRootSectionCore(BaseSectionCore):
     sharedModifier: DictRootSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.DictRoot)
     )
-    unsharedKeys: set[DictRootSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[DictRootSectionImplFields] = Field(default_factory=list)
 
 
 class DrawSectionCore(BaseSectionCore):
@@ -113,7 +113,7 @@ class DrawSectionCore(BaseSectionCore):
     sharedModifier: DrawSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Draw)
     )
-    unsharedKeys: set[DrawSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[DrawSectionImplFields] = Field(default_factory=list)
 
 
 class GenPythonCodeSectionCore(BaseSectionCore):
@@ -123,7 +123,7 @@ class GenPythonCodeSectionCore(BaseSectionCore):
             SectionType.GenPythonCode
         )
     )
-    unsharedKeys: set[GenPythonCodeSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[GenPythonCodeSectionImplFields] = Field(default_factory=list)
 
 
 class GlobalVariablesSectionCore(BaseSectionCore):
@@ -133,7 +133,7 @@ class GlobalVariablesSectionCore(BaseSectionCore):
             SectionType.GlobalVariables
         )
     )
-    unsharedKeys: set[GlobalVariablesSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[GlobalVariablesSectionImplFields] = Field(default_factory=list)
 
 
 class GroupSectionCore(BaseSectionCore):
@@ -141,7 +141,7 @@ class GroupSectionCore(BaseSectionCore):
     sharedModifier: GroupSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Group)
     )
-    unsharedKeys: set[GroupSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[GroupSectionImplFields] = Field(default_factory=list)
 
 
 class IFrameSectionCore(BaseSectionCore):
@@ -149,7 +149,7 @@ class IFrameSectionCore(BaseSectionCore):
     sharedModifier: IFrameSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.IFrame)
     )
-    unsharedKeys: set[IFrameSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[IFrameSectionImplFields] = Field(default_factory=list)
 
 
 class ImageSectionCore(BaseSectionCore):
@@ -157,7 +157,7 @@ class ImageSectionCore(BaseSectionCore):
     sharedModifier: ImageSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Image)
     )
-    unsharedKeys: set[ImageSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[ImageSectionImplFields] = Field(default_factory=list)
 
 
 class ListRootSectionCore(BaseSectionCore):
@@ -165,7 +165,7 @@ class ListRootSectionCore(BaseSectionCore):
     sharedModifier: ListRootSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.ListRoot)
     )
-    unsharedKeys: set[ListRootSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[ListRootSectionImplFields] = Field(default_factory=list)
 
 
 class SocialSectionCore(BaseSectionCore):
@@ -173,7 +173,7 @@ class SocialSectionCore(BaseSectionCore):
     sharedModifier: SocialSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Social)
     )
-    unsharedKeys: set[SocialSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[SocialSectionImplFields] = Field(default_factory=list)
 
 
 class TerminalSectionCore(BaseSectionCore):
@@ -181,7 +181,7 @@ class TerminalSectionCore(BaseSectionCore):
     sharedModifier: TerminalSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Terminal)
     )
-    unsharedKeys: set[TerminalSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[TerminalSectionImplFields] = Field(default_factory=list)
 
 
 class TextBlockSectionCore(BaseSectionCore):
@@ -189,4 +189,4 @@ class TextBlockSectionCore(BaseSectionCore):
     sharedModifier: TextBlockSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.TextBlock)
     )
-    unsharedKeys: set[TextBlockSectionImplFields] = Field(default_factory=set)
+    unsharedKeys: list[TextBlockSectionImplFields] = Field(default_factory=list)

@@ -1226,9 +1226,7 @@ export const CodeCallableCodeObjCoreSchema = z.object({
   sharedModifier: CodeCallableCodeObjImplModifierSchema.default(() => ({
     type: CodeObjTypeEnum.CodeCallable,
   })),
-  unsharedKeys: z
-    .set(z.literal(["children", "description"]))
-    .default(new Set()),
+  unsharedKeys: z.array(z.literal(["children", "description"])).default([]),
 });
 
 export type CodeCallableCodeObjCore = z.infer<
@@ -1271,7 +1269,7 @@ export const CodeParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.CodeParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "coreNameEditable",
         "coreNameType",
@@ -1281,7 +1279,7 @@ export const CodeParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type CodeParamCodeObjCore = z.infer<typeof CodeParamCodeObjCoreSchema>;
@@ -1336,7 +1334,7 @@ export const ColorPickerParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.ColorPickerParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "choices",
         "coreNameEditable",
@@ -1347,7 +1345,7 @@ export const ColorPickerParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type ColorPickerParamCodeObjCore = z.infer<
@@ -1391,7 +1389,7 @@ export const DropdownParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.DropdownParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "choices",
         "coreNameEditable",
@@ -1402,7 +1400,7 @@ export const DropdownParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type DropdownParamCodeObjCore = z.infer<
@@ -1444,7 +1442,7 @@ export const NestedParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.NestedParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "children",
         "coreNameEditable",
@@ -1453,7 +1451,7 @@ export const NestedParamCodeObjCoreSchema = z.object({
         "passingStyle",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type NestedParamCodeObjCore = z.infer<
@@ -1496,7 +1494,7 @@ export const PasswordParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.PasswordParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "coreNameEditable",
         "coreNameType",
@@ -1506,7 +1504,7 @@ export const PasswordParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type PasswordParamCodeObjCore = z.infer<
@@ -1552,7 +1550,7 @@ export const SliderParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.SliderParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "coreNameEditable",
         "coreNameType",
@@ -1565,7 +1563,7 @@ export const SliderParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type SliderParamCodeObjCore = z.infer<
@@ -1608,7 +1606,7 @@ export const SwitchParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.SwitchParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "coreNameEditable",
         "coreNameType",
@@ -1618,7 +1616,7 @@ export const SwitchParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type SwitchParamCodeObjCore = z.infer<
@@ -1661,7 +1659,7 @@ export const TextParamCodeObjCoreSchema = z.object({
     type: CodeObjTypeEnum.TextParam,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "coreNameEditable",
         "coreNameType",
@@ -1671,7 +1669,7 @@ export const TextParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => new Set(["value"] as const)),
+    .default(() => ["value"]),
 });
 
 export type TextParamCodeObjCore = z.infer<typeof TextParamCodeObjCoreSchema>;
@@ -3697,7 +3695,7 @@ export const BrowserSectionCoreSchema = z.object({
     type: SectionTypeEnum.Browser,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3712,7 +3710,7 @@ export const BrowserSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type BrowserSectionCore = z.infer<typeof BrowserSectionCoreSchema>;
@@ -3733,7 +3731,7 @@ export const CallableSectionCoreSchema = z.object({
     type: SectionTypeEnum.Callable,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3758,7 +3756,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => new Set(["callable", "codeObjImplLayeringMap"] as const)),
+    .default(() => ["callable", "codeObjImplLayeringMap"]),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
@@ -3779,7 +3777,7 @@ export const ChartSectionCoreSchema = z.object({
     type: SectionTypeEnum.Chart,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "artifactGroupIds",
         "aspectRatio",
@@ -3796,7 +3794,7 @@ export const ChartSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type ChartSectionCore = z.infer<typeof ChartSectionCoreSchema>;
@@ -3817,7 +3815,7 @@ export const ChatSectionCoreSchema = z.object({
     type: SectionTypeEnum.Chat,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3831,7 +3829,7 @@ export const ChatSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type ChatSectionCore = z.infer<typeof ChatSectionCoreSchema>;
@@ -3852,7 +3850,7 @@ export const CodeSectionCoreSchema = z.object({
     type: SectionTypeEnum.Code,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3868,7 +3866,7 @@ export const CodeSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type CodeSectionCore = z.infer<typeof CodeSectionCoreSchema>;
@@ -3889,7 +3887,7 @@ export const DictSectionCoreSchema = z.object({
     type: SectionTypeEnum.Dict,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3916,9 +3914,7 @@ export const DictSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(
-      () => new Set(["codeObjImplLayeringMap", "topLevelParamIds"] as const),
-    ),
+    .default(() => ["codeObjImplLayeringMap", "topLevelParamIds"]),
 });
 
 export type DictSectionCore = z.infer<typeof DictSectionCoreSchema>;
@@ -3939,7 +3935,7 @@ export const DictRootSectionCoreSchema = z.object({
     type: SectionTypeEnum.DictRoot,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -3954,7 +3950,7 @@ export const DictRootSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type DictRootSectionCore = z.infer<typeof DictRootSectionCoreSchema>;
@@ -3975,7 +3971,7 @@ export const DrawSectionCoreSchema = z.object({
     type: SectionTypeEnum.Draw,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "artifactGroupIds",
         "aspectRatio",
@@ -3992,7 +3988,7 @@ export const DrawSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type DrawSectionCore = z.infer<typeof DrawSectionCoreSchema>;
@@ -4013,7 +4009,7 @@ export const GenPythonCodeSectionCoreSchema = z.object({
     type: SectionTypeEnum.GenPythonCode,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4028,7 +4024,7 @@ export const GenPythonCodeSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type GenPythonCodeSectionCore = z.infer<
@@ -4051,7 +4047,7 @@ export const GlobalVariablesSectionCoreSchema = z.object({
     type: SectionTypeEnum.GlobalVariables,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4078,7 +4074,7 @@ export const GlobalVariablesSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type GlobalVariablesSectionCore = z.infer<
@@ -4101,7 +4097,7 @@ export const GroupSectionCoreSchema = z.object({
     type: SectionTypeEnum.Group,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4117,7 +4113,7 @@ export const GroupSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type GroupSectionCore = z.infer<typeof GroupSectionCoreSchema>;
@@ -4138,7 +4134,7 @@ export const IFrameSectionCoreSchema = z.object({
     type: SectionTypeEnum.IFrame,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4152,7 +4148,7 @@ export const IFrameSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type IFrameSectionCore = z.infer<typeof IFrameSectionCoreSchema>;
@@ -4173,7 +4169,7 @@ export const ImageSectionCoreSchema = z.object({
     type: SectionTypeEnum.Image,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "artifactGroupIds",
         "aspectRatio",
@@ -4188,7 +4184,7 @@ export const ImageSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type ImageSectionCore = z.infer<typeof ImageSectionCoreSchema>;
@@ -4209,7 +4205,7 @@ export const ListRootSectionCoreSchema = z.object({
     type: SectionTypeEnum.ListRoot,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4224,7 +4220,7 @@ export const ListRootSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type ListRootSectionCore = z.infer<typeof ListRootSectionCoreSchema>;
@@ -4245,7 +4241,7 @@ export const SocialSectionCoreSchema = z.object({
     type: SectionTypeEnum.Social,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4260,7 +4256,7 @@ export const SocialSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type SocialSectionCore = z.infer<typeof SocialSectionCoreSchema>;
@@ -4281,7 +4277,7 @@ export const TerminalSectionCoreSchema = z.object({
     type: SectionTypeEnum.Terminal,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4295,7 +4291,7 @@ export const TerminalSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type TerminalSectionCore = z.infer<typeof TerminalSectionCoreSchema>;
@@ -4316,7 +4312,7 @@ export const TextBlockSectionCoreSchema = z.object({
     type: SectionTypeEnum.TextBlock,
   })),
   unsharedKeys: z
-    .set(
+    .array(
       z.literal([
         "aspectRatio",
         "aspectRatioExtraHeight",
@@ -4334,7 +4330,7 @@ export const TextBlockSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(new Set()),
+    .default([]),
 });
 
 export type TextBlockSectionCore = z.infer<typeof TextBlockSectionCoreSchema>;

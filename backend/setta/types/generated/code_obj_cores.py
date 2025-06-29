@@ -39,7 +39,7 @@ class CodeCallableCodeObjCore(BaseCodeObjCore):
             CodeObjType.CodeCallable
         )
     )
-    unsharedKeys: set[CodeCallableCodeObjImplFields] = Field(default_factory=set)
+    unsharedKeys: list[CodeCallableCodeObjImplFields] = Field(default_factory=list)
 
 
 class CodeParamCodeObjCore(BaseCodeObjCore):
@@ -47,8 +47,8 @@ class CodeParamCodeObjCore(BaseCodeObjCore):
     sharedModifier: CodeParamCodeObjImplModifier = Field(
         default_factory=lambda: create_modifier_for_code_obj_type(CodeObjType.CodeParam)
     )
-    unsharedKeys: set[CodeParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[CodeParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -59,8 +59,8 @@ class ColorPickerParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.ColorPickerParam
         )
     )
-    unsharedKeys: set[ColorPickerParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -71,8 +71,8 @@ class DropdownParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.DropdownParam
         )
     )
-    unsharedKeys: set[DropdownParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -83,7 +83,7 @@ class NestedParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.NestedParam
         )
     )
-    unsharedKeys: set[NestedParamCodeObjImplFields] = Field(default_factory=set)
+    unsharedKeys: list[NestedParamCodeObjImplFields] = Field(default_factory=list)
 
 
 class PasswordParamCodeObjCore(BaseCodeObjCore):
@@ -93,8 +93,8 @@ class PasswordParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.PasswordParam
         )
     )
-    unsharedKeys: set[PasswordParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -105,8 +105,8 @@ class SliderParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.SliderParam
         )
     )
-    unsharedKeys: set[SliderParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[SliderParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -117,8 +117,8 @@ class SwitchParamCodeObjCore(BaseCodeObjCore):
             CodeObjType.SwitchParam
         )
     )
-    unsharedKeys: set[SwitchParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[SwitchParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )
 
 
@@ -127,6 +127,6 @@ class TextParamCodeObjCore(BaseCodeObjCore):
     sharedModifier: TextParamCodeObjImplModifier = Field(
         default_factory=lambda: create_modifier_for_code_obj_type(CodeObjType.TextParam)
     )
-    unsharedKeys: set[TextParamCodeObjImplFields] = Field(
-        default_factory=lambda: {"value"}
+    unsharedKeys: list[TextParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
     )

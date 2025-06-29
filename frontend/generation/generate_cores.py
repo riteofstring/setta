@@ -59,9 +59,9 @@ def generate_core_class(
         # Sort for consistent output
         sorted_default_keys = sorted(default_keys)
         default_values = ", ".join(f'"{key}"' for key in sorted_default_keys)
-        default_factory = f"lambda: {{{default_values}}}"
+        default_factory = f"lambda: [{default_values}]"
     else:
-        default_factory = "set"
+        default_factory = "list"
 
     # Get the field literal type name
     field_literal_type = f"{impl_class.__name__}Fields"
@@ -71,7 +71,7 @@ def generate_core_class(
 class {type_name}{core_class_suffix}(Base{core_class_suffix}):
     type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
     sharedModifier: {type_name}{modifier_suffix} = Field(default_factory=lambda: {modifier_creation_fn_name}({enum_prefix}.{type_name}))
-    unsharedKeys: set[{field_literal_type}] = Field(default_factory={default_factory})
+    unsharedKeys: list[{field_literal_type}] = Field(default_factory={default_factory})
 """
 
     return class_def
