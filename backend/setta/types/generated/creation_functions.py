@@ -70,136 +70,119 @@ def createCallableSectionImpl(
     defaults: UserDefaultCallableSectionImpl, **overrides
 ) -> CallableSectionImpl:
     """Create CallableSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return CallableSectionImpl(**data.model_dump())
+    return CallableSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createDictSectionImpl(
     defaults: UserDefaultDictSectionImpl, **overrides
 ) -> DictSectionImpl:
     """Create DictSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return DictSectionImpl(**data.model_dump())
+    return DictSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createListRootSectionImpl(
     defaults: UserDefaultListRootSectionImpl, **overrides
 ) -> ListRootSectionImpl:
     """Create ListRootSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return ListRootSectionImpl(**data.model_dump())
+    return ListRootSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createDictRootSectionImpl(
     defaults: UserDefaultDictRootSectionImpl, **overrides
 ) -> DictRootSectionImpl:
     """Create DictRootSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return DictRootSectionImpl(**data.model_dump())
+    return DictRootSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createGroupSectionImpl(
     defaults: UserDefaultGroupSectionImpl, **overrides
 ) -> GroupSectionImpl:
     """Create GroupSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return GroupSectionImpl(**data.model_dump())
+    return GroupSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createImageSectionImpl(
     defaults: UserDefaultImageSectionImpl, **overrides
 ) -> ImageSectionImpl:
     """Create ImageSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return ImageSectionImpl(**data.model_dump())
+    return ImageSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createChartSectionImpl(
     defaults: UserDefaultChartSectionImpl, **overrides
 ) -> ChartSectionImpl:
     """Create ChartSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return ChartSectionImpl(**data.model_dump())
+    return ChartSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createDrawSectionImpl(
     defaults: UserDefaultDrawSectionImpl, **overrides
 ) -> DrawSectionImpl:
     """Create DrawSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return DrawSectionImpl(**data.model_dump())
+    return DrawSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createTextBlockSectionImpl(
     defaults: UserDefaultTextBlockSectionImpl, **overrides
 ) -> TextBlockSectionImpl:
     """Create TextBlockSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return TextBlockSectionImpl(**data.model_dump())
+    return TextBlockSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createSocialSectionImpl(
     defaults: UserDefaultSocialSectionImpl, **overrides
 ) -> SocialSectionImpl:
     """Create SocialSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return SocialSectionImpl(**data.model_dump())
+    return SocialSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createGlobalVariablesSectionImpl(
     defaults: UserDefaultGlobalVariablesSectionImpl, **overrides
 ) -> GlobalVariablesSectionImpl:
     """Create GlobalVariablesSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return GlobalVariablesSectionImpl(**data.model_dump())
+    return GlobalVariablesSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createCodeSectionImpl(
     defaults: UserDefaultCodeSectionImpl, **overrides
 ) -> CodeSectionImpl:
     """Create CodeSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return CodeSectionImpl(**data.model_dump())
+    return CodeSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createGenPythonCodeSectionImpl(
     defaults: UserDefaultGenPythonCodeSectionImpl, **overrides
 ) -> GenPythonCodeSectionImpl:
     """Create GenPythonCodeSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return GenPythonCodeSectionImpl(**data.model_dump())
+    return GenPythonCodeSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createTerminalSectionImpl(
     defaults: UserDefaultTerminalSectionImpl, **overrides
 ) -> TerminalSectionImpl:
     """Create TerminalSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return TerminalSectionImpl(**data.model_dump())
+    return TerminalSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createIFrameSectionImpl(
     defaults: UserDefaultIFrameSectionImpl, **overrides
 ) -> IFrameSectionImpl:
     """Create IFrameSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return IFrameSectionImpl(**data.model_dump())
+    return IFrameSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createChatSectionImpl(
     defaults: UserDefaultChatSectionImpl, **overrides
 ) -> ChatSectionImpl:
     """Create ChatSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return ChatSectionImpl(**data.model_dump())
+    return ChatSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createBrowserSectionImpl(
     defaults: UserDefaultBrowserSectionImpl, **overrides
 ) -> BrowserSectionImpl:
     """Create BrowserSectionImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return BrowserSectionImpl(**data.model_dump())
+    return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 # ============== Code Object Creation Functions ==============
@@ -209,69 +192,60 @@ def createCodeCallableCodeObjImpl(
     defaults: UserDefaultCodeCallableCodeObjImpl, **overrides
 ) -> CodeCallableCodeObjImpl:
     """Create CodeCallableCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return CodeCallableCodeObjImpl(**data.model_dump())
+    return CodeCallableCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createCodeParamCodeObjImpl(
     defaults: UserDefaultCodeParamCodeObjImpl, **overrides
 ) -> CodeParamCodeObjImpl:
     """Create CodeParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return CodeParamCodeObjImpl(**data.model_dump())
+    return CodeParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createTextParamCodeObjImpl(
     defaults: UserDefaultTextParamCodeObjImpl, **overrides
 ) -> TextParamCodeObjImpl:
     """Create TextParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return TextParamCodeObjImpl(**data.model_dump())
+    return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createSliderParamCodeObjImpl(
     defaults: UserDefaultSliderParamCodeObjImpl, **overrides
 ) -> SliderParamCodeObjImpl:
     """Create SliderParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return SliderParamCodeObjImpl(**data.model_dump())
+    return SliderParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createSwitchParamCodeObjImpl(
     defaults: UserDefaultSwitchParamCodeObjImpl, **overrides
 ) -> SwitchParamCodeObjImpl:
     """Create SwitchParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return SwitchParamCodeObjImpl(**data.model_dump())
+    return SwitchParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createColorPickerParamCodeObjImpl(
     defaults: UserDefaultColorPickerParamCodeObjImpl, **overrides
 ) -> ColorPickerParamCodeObjImpl:
     """Create ColorPickerParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return ColorPickerParamCodeObjImpl(**data.model_dump())
+    return ColorPickerParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createDropdownParamCodeObjImpl(
     defaults: UserDefaultDropdownParamCodeObjImpl, **overrides
 ) -> DropdownParamCodeObjImpl:
     """Create DropdownParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return DropdownParamCodeObjImpl(**data.model_dump())
+    return DropdownParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createPasswordParamCodeObjImpl(
     defaults: UserDefaultPasswordParamCodeObjImpl, **overrides
 ) -> PasswordParamCodeObjImpl:
     """Create PasswordParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return PasswordParamCodeObjImpl(**data.model_dump())
+    return PasswordParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
 
 def createNestedParamCodeObjImpl(
     defaults: UserDefaultNestedParamCodeObjImpl, **overrides
 ) -> NestedParamCodeObjImpl:
     """Create NestedParamCodeObjImpl with user defaults."""
-    data = defaults.model_copy(update=overrides, deep=True)
-    return NestedParamCodeObjImpl(**data.model_dump())
+    return NestedParamCodeObjImpl(**{**defaults.model_dump(), **overrides})

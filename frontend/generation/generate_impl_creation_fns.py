@@ -21,8 +21,7 @@ def create{class_name}(
     **overrides
 ) -> {class_name}:
     \"\"\"Create {class_name} with user defaults.\"\"\"
-    data = defaults.model_copy(update=overrides, deep=True)
-    return {class_name}(**data.model_dump())
+    return {class_name}(**{{**defaults.model_dump(), **overrides}})
 """
 
     return function

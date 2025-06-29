@@ -34,23 +34,24 @@ class ParamProposal:
 
 
 def process_signature_help_response(
+    settings: SettingsState,
     response: LSPTypes.TextDocumentSignatureHelpResponse,
 ):
     content = None
     if response.result:
-        content = parse_signature(response.result.signatures[0])
+        content = parse_signature(settings, response.result.signatures[0])
     return content
 
 
-def parse_signature(signature: LSPTypes.SignatureInformation):
+def parse_signature(settings: SettingsState, signature: LSPTypes.SignatureInformation):
     documentation = lsp_documentation_to_str(signature.documentation)
     var_docstrings = process_docstring(documentation)
     codeObjs, codeObjImplMap = wrapper_parse_signature(
-        signature, var_docstrings, get_pyright_param_proposals
+        settings, signature, var_docstrings, get_pyright_param_proposals
     )
     if len(codeObjs) == 0:
         codeObjs, codeObjImplMap = wrapper_parse_signature(
-            signature, var_docstrings, get_docstring_parser_param_proposals
+            settings, signature, var_docstrings, get_docstring_parser_param_proposals
         )
     return documentation, codeObjs, codeObjImplMap
 

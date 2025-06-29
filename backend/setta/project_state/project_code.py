@@ -189,7 +189,7 @@ class ProjectGenPythonCode(PythonCode):
         ):
             raise TypeError
 
-        result = process_signature_help_response(response)
+        result = process_signature_help_response(settings, response)
         if result is None:
             return
 
