@@ -94,6 +94,8 @@ def extract_class_info(
                 parent_class = parent_part.split(",")[0].strip()
 
         elif in_class:
+            if indent_level is None:
+                raise ValueError
             if line.strip() == "":
                 class_lines.append(line)
             elif len(line) - len(line.lstrip()) > indent_level:
@@ -102,6 +104,8 @@ def extract_class_info(
                 # End of class
                 break
 
+    if parent_class is None:
+        raise ValueError
     return class_lines, parent_class
 
 
