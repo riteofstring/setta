@@ -8,6 +8,10 @@ set -e
 echo "=== Starting GitHub deployment ==="
 echo "Repository: $GITHUB_URL"
 
+# Get the PORT from environment, default to 8080
+PORT=${PORT:-8080}
+echo "Using PORT: $PORT"
+
 # Update package list and install git
 apt-get update && apt-get install -y git
 
@@ -36,9 +40,9 @@ elif [ -f app.py ]; then
     echo "Found app.py"
     # Try to run with gunicorn first (common for production)
     if pip list | grep -q gunicorn; then
-        exec gunicorn app:app --bind 0.0.0.0:8080
+        exec gunicorn app:app --bind 0.0.0.0:$PORT
     elif pip list | grep -q uvicorn; then
-        exec uvicorn app:app --host 0.0.0.0 --port 8080
+        exec uvicorn app:app --host 0.0.0.0 --port $PORT
     else
         # Fallback to direct python execution
         exec python app.py
@@ -46,7 +50,7 @@ elif [ -f app.py ]; then
 elif [ -f main.py ]; then
     echo "Found main.py"
     if pip list | grep -q uvicorn; then
-        exec uvicorn main:app --host 0.0.0.0 --port 8080
+        exec uvicorn main:app --host 0.0.0.0 --port $PORT
     else
         exec python main.py
     fi
