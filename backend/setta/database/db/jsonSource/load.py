@@ -39,7 +39,6 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     SectionType,
@@ -50,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
-    codeObjs: dict[str, BaseCodeObjCore] = Field(default_factory=dict)
+    codeObjs: dict[str, BaseCodeObjCoreUnion] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
     codeObjImplLayerings: dict[str, ImplLayering] = Field(default_factory=dict)
 

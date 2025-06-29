@@ -12,10 +12,12 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
+from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
+from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
@@ -43,7 +45,7 @@ def is_color_hex(string):
 def add_code_obj_details(
     codeObjName: str,
     codeObjImpl: BaseCodeObjImplUnion,
-    codeObjs: dict[str, BaseCodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
@@ -64,7 +66,7 @@ def add_code_obj_details(
 
 def process_model_fields(
     model_class: type[BaseModel],
-    codeObjs: dict[str, BaseCodeObjCore],
+    codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, ImplLayering],
 ):
@@ -109,7 +111,7 @@ def process_model_fields(
 
 def create_settings_code_objs(section_names):
     sectionToTopLevelIds: dict[str, list[str]] = {}
-    codeObjs: dict[str, BaseCodeObjCore] = {}
+    codeObjs: dict[str, BaseCodeObjCoreUnion] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, ImplLayering] = {}
     codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
@@ -146,7 +148,7 @@ def create_settings_project_state(settings_path: Path):
         codeObjImplLayeringMaps,
     ) = create_settings_code_objs(section_names)
 
-    sections: dict[str, BaseSectionCore] = {}
+    sections: dict[str, BaseSectionCoreUnion] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
     sectionImplLayerings: dict[str, ImplLayering] = {}
     sectionImplLayeringMap: dict[str, str] = {}

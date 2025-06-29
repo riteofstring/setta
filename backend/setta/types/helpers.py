@@ -14,6 +14,7 @@ from setta.types.generated.impl_modifier_unions import (
     isBaseSectionWithParamsImplModifier,
 )
 from setta.types.generated.impl_to_modifier import create_modifier_for_impl
+from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import BaseSectionImplUnion
 from setta.types.impl_helpers import (
     get_effective_impl,
@@ -365,7 +366,7 @@ def set_param_entered_value(
 
 
 def get_top_level_sections(p: ProjectStateSingleConfig):
-    output: dict[str, BaseSectionCore] = {}
+    output: dict[str, BaseSectionCoreUnion] = {}
     projectConfig = p.projectConfig
     for c in projectConfig.topLevelSections.keys():
         output[c] = p.sections[c]

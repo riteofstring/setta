@@ -193,7 +193,6 @@ class SocialSectionImpl(BaseSectionImpl):
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
-    name: str = "Global Variables"
 
 
 class CodeSectionImpl(BaseCodeSectionImpl):
@@ -204,7 +203,6 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-    name: str = "Generated Python Code"
 
 
 class TerminalSectionImpl(BaseSectionImpl):

@@ -9,6 +9,7 @@ from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
+from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
 from setta.types.generated.code_obj_type_unions import (
     BaseParamCodeObjImplUnion,
 )
@@ -78,7 +79,7 @@ def wrapper_parse_signature(
     ],
 ):
     params = get_proposed_params(signature, docstring)
-    codeObjs: list[BaseCodeObjCore] = []
+    codeObjs: list[BaseCodeObjCoreUnion] = []
     codeObjImplMap: dict[str, BaseParamCodeObjImplUnion] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1

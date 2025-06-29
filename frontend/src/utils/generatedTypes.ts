@@ -3347,7 +3347,7 @@ export function createSocialSectionImpl(
 export const GlobalVariablesSectionImplSchema = z.object({
   type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
   id: z.string().default(create_new_id),
-  name: z.string().default("Global Variables"),
+  name: z.string().default(generate_memorable_string),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -3418,7 +3418,7 @@ export function createCodeSectionImpl(
 export const GenPythonCodeSectionImplSchema = z.object({
   type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
   id: z.string().default(create_new_id),
-  name: z.string().default("Generated Python Code"),
+  name: z.string().default(generate_memorable_string),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -3642,7 +3642,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => new Set(["callable", "codeObjImplLayeringMap"] as const)),
+    .default(() => new Set(["codeObjImplLayeringMap", "callable"] as const)),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
@@ -4458,24 +4458,6 @@ export function createWebsocketMsgCurrentAddressUpdate(
   return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
 }
 
-export const BaseSectionCoreSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  implLayerings: z.array(z.string()).default([]),
-  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
-  type: z.any(),
-  sharedModifier: z.any(),
-  unsharedKeys: z.any(),
-});
-
-export type BaseSectionCore = z.infer<typeof BaseSectionCoreSchema>;
-
-export function createBaseSectionCore(
-  options: Partial<BaseSectionCore> = {},
-): BaseSectionCore {
-  return BaseSectionCoreSchema.parse(options);
-}
-
 export const ImplLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -4516,24 +4498,6 @@ export function createImplLayering(
   options: Partial<ImplLayering> = {},
 ): ImplLayering {
   return ImplLayeringSchema.parse(options);
-}
-
-export const BaseCodeObjCoreSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  implLayerings: z.array(z.string()).default([]),
-  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
-  type: z.any(),
-  sharedModifier: z.any(),
-  unsharedKeys: z.any(),
-});
-
-export type BaseCodeObjCore = z.infer<typeof BaseCodeObjCoreSchema>;
-
-export function createBaseCodeObjCore(
-  options: Partial<BaseCodeObjCore> = {},
-): BaseCodeObjCore {
-  return BaseCodeObjCoreSchema.parse(options);
 }
 
 export const ViewportSchema = z.object({
@@ -4590,7 +4554,30 @@ export function createProjectConfig(
 }
 
 export const ProjectStateSingleConfigSchema = z.object({
-  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
+  sections: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        BrowserSectionCoreSchema,
+        CallableSectionCoreSchema,
+        ChartSectionCoreSchema,
+        ChatSectionCoreSchema,
+        CodeSectionCoreSchema,
+        DictSectionCoreSchema,
+        DictRootSectionCoreSchema,
+        DrawSectionCoreSchema,
+        GenPythonCodeSectionCoreSchema,
+        GlobalVariablesSectionCoreSchema,
+        GroupSectionCoreSchema,
+        IFrameSectionCoreSchema,
+        ImageSectionCoreSchema,
+        ListRootSectionCoreSchema,
+        SocialSectionCoreSchema,
+        TerminalSectionCoreSchema,
+        TextBlockSectionCoreSchema,
+      ]),
+    )
+    .default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -4616,7 +4603,22 @@ export const ProjectStateSingleConfigSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
+  codeObjs: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjCoreSchema,
+        CodeParamCodeObjCoreSchema,
+        ColorPickerParamCodeObjCoreSchema,
+        DropdownParamCodeObjCoreSchema,
+        NestedParamCodeObjCoreSchema,
+        PasswordParamCodeObjCoreSchema,
+        SliderParamCodeObjCoreSchema,
+        SwitchParamCodeObjCoreSchema,
+        TextParamCodeObjCoreSchema,
+      ]),
+    )
+    .default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -6281,6 +6283,24 @@ export function createChatMetadata(
   return ChatMetadataSchema.parse(options);
 }
 
+export const BaseCodeObjCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.any(),
+  sharedModifier: z.any(),
+  unsharedKeys: z.any(),
+});
+
+export type BaseCodeObjCore = z.infer<typeof BaseCodeObjCoreSchema>;
+
+export function createBaseCodeObjCore(
+  options: Partial<BaseCodeObjCore> = {},
+): BaseCodeObjCore {
+  return BaseCodeObjCoreSchema.parse(options);
+}
+
 export const BaseChildlessCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -6358,6 +6378,24 @@ export function createBaseParentCodeObjImpl(
   options: Partial<BaseParentCodeObjImpl> = {},
 ): BaseParentCodeObjImpl {
   return BaseParentCodeObjImplSchema.parse(options);
+}
+
+export const BaseSectionCoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  implLayerings: z.array(z.string()).default([]),
+  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  type: z.any(),
+  sharedModifier: z.any(),
+  unsharedKeys: z.any(),
+});
+
+export type BaseSectionCore = z.infer<typeof BaseSectionCoreSchema>;
+
+export function createBaseSectionCore(
+  options: Partial<BaseSectionCore> = {},
+): BaseSectionCore {
+  return BaseSectionCoreSchema.parse(options);
 }
 
 export const UserDefaultBaseArtifactSectionImplSchema = z.object({
@@ -6631,7 +6669,30 @@ export function createBaseSectionWithParamsImpl(
 }
 
 export const ProjectStateBackendSchema = z.object({
-  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
+  sections: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        BrowserSectionCoreSchema,
+        CallableSectionCoreSchema,
+        ChartSectionCoreSchema,
+        ChatSectionCoreSchema,
+        CodeSectionCoreSchema,
+        DictSectionCoreSchema,
+        DictRootSectionCoreSchema,
+        DrawSectionCoreSchema,
+        GenPythonCodeSectionCoreSchema,
+        GlobalVariablesSectionCoreSchema,
+        GroupSectionCoreSchema,
+        IFrameSectionCoreSchema,
+        ImageSectionCoreSchema,
+        ListRootSectionCoreSchema,
+        SocialSectionCoreSchema,
+        TerminalSectionCoreSchema,
+        TextBlockSectionCoreSchema,
+      ]),
+    )
+    .default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -6657,7 +6718,22 @@ export const ProjectStateBackendSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
+  codeObjs: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjCoreSchema,
+        CodeParamCodeObjCoreSchema,
+        ColorPickerParamCodeObjCoreSchema,
+        DropdownParamCodeObjCoreSchema,
+        NestedParamCodeObjCoreSchema,
+        PasswordParamCodeObjCoreSchema,
+        SliderParamCodeObjCoreSchema,
+        SwitchParamCodeObjCoreSchema,
+        TextParamCodeObjCoreSchema,
+      ]),
+    )
+    .default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -6716,7 +6792,30 @@ export function createSimplifiedSectionCreation(
 }
 
 export const ProjectStateCoreSchema = z.object({
-  sections: z.record(z.string(), BaseSectionCoreSchema).default({}),
+  sections: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        BrowserSectionCoreSchema,
+        CallableSectionCoreSchema,
+        ChartSectionCoreSchema,
+        ChatSectionCoreSchema,
+        CodeSectionCoreSchema,
+        DictSectionCoreSchema,
+        DictRootSectionCoreSchema,
+        DrawSectionCoreSchema,
+        GenPythonCodeSectionCoreSchema,
+        GlobalVariablesSectionCoreSchema,
+        GroupSectionCoreSchema,
+        IFrameSectionCoreSchema,
+        ImageSectionCoreSchema,
+        ListRootSectionCoreSchema,
+        SocialSectionCoreSchema,
+        TerminalSectionCoreSchema,
+        TextBlockSectionCoreSchema,
+      ]),
+    )
+    .default({}),
   sectionImpls: z
     .record(
       z.string(),
@@ -6742,7 +6841,22 @@ export const ProjectStateCoreSchema = z.object({
     )
     .default({}),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema).default({}),
-  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema).default({}),
+  codeObjs: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjCoreSchema,
+        CodeParamCodeObjCoreSchema,
+        ColorPickerParamCodeObjCoreSchema,
+        DropdownParamCodeObjCoreSchema,
+        NestedParamCodeObjCoreSchema,
+        PasswordParamCodeObjCoreSchema,
+        SliderParamCodeObjCoreSchema,
+        SwitchParamCodeObjCoreSchema,
+        TextParamCodeObjCoreSchema,
+      ]),
+    )
+    .default({}),
   codeObjImpls: z
     .record(
       z.string(),
@@ -7514,7 +7628,28 @@ export function createGetJSONSourcePathToBeDeleted(
 }
 
 export const LoadJSONSourceObjectSchema = z.object({
-  sections: z.record(z.string(), BaseSectionCoreSchema),
+  sections: z.record(
+    z.string(),
+    z.union([
+      BrowserSectionCoreSchema,
+      CallableSectionCoreSchema,
+      ChartSectionCoreSchema,
+      ChatSectionCoreSchema,
+      CodeSectionCoreSchema,
+      DictSectionCoreSchema,
+      DictRootSectionCoreSchema,
+      DrawSectionCoreSchema,
+      GenPythonCodeSectionCoreSchema,
+      GlobalVariablesSectionCoreSchema,
+      GroupSectionCoreSchema,
+      IFrameSectionCoreSchema,
+      ImageSectionCoreSchema,
+      ListRootSectionCoreSchema,
+      SocialSectionCoreSchema,
+      TerminalSectionCoreSchema,
+      TextBlockSectionCoreSchema,
+    ]),
+  ),
   sectionImpls: z.record(
     z.string(),
     z.union([
@@ -7538,7 +7673,20 @@ export const LoadJSONSourceObjectSchema = z.object({
     ]),
   ),
   sectionImplLayerings: z.record(z.string(), ImplLayeringSchema),
-  codeObjs: z.record(z.string(), BaseCodeObjCoreSchema),
+  codeObjs: z.record(
+    z.string(),
+    z.union([
+      CodeCallableCodeObjCoreSchema,
+      CodeParamCodeObjCoreSchema,
+      ColorPickerParamCodeObjCoreSchema,
+      DropdownParamCodeObjCoreSchema,
+      NestedParamCodeObjCoreSchema,
+      PasswordParamCodeObjCoreSchema,
+      SliderParamCodeObjCoreSchema,
+      SwitchParamCodeObjCoreSchema,
+      TextParamCodeObjCoreSchema,
+    ]),
+  ),
   codeObjImpls: z.record(
     z.string(),
     z.union([

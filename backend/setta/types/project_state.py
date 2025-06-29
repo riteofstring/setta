@@ -7,7 +7,6 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.generated.code_obj_core_unions import (
     BaseCodeObjCoreUnionWithDiscriminator,
 )
@@ -21,7 +20,6 @@ from setta.types.generated.section_type_unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.impl_layering import ImplLayering
-from setta.types.section_core import BaseSectionCore
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
