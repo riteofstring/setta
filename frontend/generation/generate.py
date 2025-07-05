@@ -1,5 +1,6 @@
 import inspect
 import types
+from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
 from enum import Enum
 from pathlib import Path
@@ -388,6 +389,148 @@ from typing import Literal
     output_file.write_text(code)
 
 
+def get_parent_classes_up_to_base_model(x):
+    if x.__base__ is BaseModel:
+        return []
+    output = []
+    for b in x.__bases__:
+        output.append(b)
+        output.extend(get_parent_classes_up_to_base_model(b))
+    return output
+
+
+def generate_user_defaults(output_file, classes):
+    DEFAULT_EXCLUSIONS = {"id", "name", "type"}
+
+    SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
+        "BaseSectionImpl": DEFAULT_EXCLUSIONS.union(
+            {
+                "parentId",
+                "isInOtherProjectConfigs",
+                "isPreset",
+                "aspectRatioExtraHeight",
+                "aspectRatioExtraWidth",
+            }
+        ),
+        "BaseSectionWithParamsImpl": DEFAULT_EXCLUSIONS.union(
+            {
+                "codeObjImplLayeringMap",
+                "pinnedParams",
+                "selectedParams",
+                "ignoreTypeErrors",
+            }
+        ),
+        "BaseArtifactSectionImpl": DEFAULT_EXCLUSIONS.union({"artifactGroupIds"}),
+        "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS.union({"renderedValue"}),
+        "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
+        "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
+        "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
+            {"topLevelParamIds", "jsonSourceMissing"}
+        ),
+        "CallableSectionImpl": DEFAULT_EXCLUSIONS.union({"callable"}),
+        "DictSectionImpl": DEFAULT_EXCLUSIONS,
+        "ListRootSectionImpl": DEFAULT_EXCLUSIONS,
+        "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
+        "GroupSectionImpl": DEFAULT_EXCLUSIONS,
+        "ImageSectionImpl": DEFAULT_EXCLUSIONS,
+        "ChartSectionImpl": DEFAULT_EXCLUSIONS,
+        "DrawSectionImpl": DEFAULT_EXCLUSIONS,
+        "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
+        "SocialSectionImpl": DEFAULT_EXCLUSIONS,
+        "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,
+        "CodeSectionImpl": DEFAULT_EXCLUSIONS,
+        "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,
+        "TerminalSectionImpl": DEFAULT_EXCLUSIONS,
+        "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
+        "ChatSectionImpl": DEFAULT_EXCLUSIONS,
+        "BrowserSectionImpl": DEFAULT_EXCLUSIONS,
+    }
+
+    CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
+        "BaseCodeObjImpl": DEFAULT_EXCLUSIONS.union({"description", "isPreset"}),
+        "BaseParamCodeObjImpl": DEFAULT_EXCLUSIONS.union({"passingStyle"}),
+        "BaseChildlessCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "BaseParentCodeObjImpl": DEFAULT_EXCLUSIONS.union({"children"}),
+        "CodeCallableCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "CodeParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "TextParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "SliderParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "SwitchParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "ColorPickerParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "DropdownParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "PasswordParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+        "NestedParamCodeObjImpl": DEFAULT_EXCLUSIONS,
+    }
+
+    code = """
+from typing import Literal, Union
+
+from pydantic import BaseModel, Field
+
+# Code object type imports
+from setta.types.code_obj_impls import (
+    ColorPickerChoice,
+    ParamNameType,
+)
+
+# Section type imports
+from setta.types.section_impls import (
+    ChartSettings,
+    CodeLanguage,
+    ConfigLanguage,
+    DrawAreaCanvasSettings,
+    SectionSize,
+    SectionSizeMode,
+    TextBlockDisplayMode,
+    TextBlockFormat,
+    Visibility,
+)
+"""
+    class_to_attributes = defaultdict(set)
+    for c in classes:
+        parent_class_names = ", ".join(
+            f"UserDefault{b.__name__}" for b in c.__bases__ if b is not BaseModel
+        )
+        if parent_class_names == "":
+            parent_class_names = "BaseModel"
+        class_name = f"UserDefault{c.__name__}"
+        all_parent_class_names = get_parent_classes_up_to_base_model(c)
+        all_user_default_parent_class_names = [
+            f"UserDefault{b.__name__}" for b in all_parent_class_names
+        ]
+        print(all_user_default_parent_class_names)
+        code += f"""
+class {class_name}({parent_class_names}):
+"""
+        exclusions = set()
+        if "Section" in class_name:
+            for n in [c.__name__] + [b.__name__ for b in all_parent_class_names]:
+                exclusions.update(SECTION_EXCLUSIONS[n])
+        elif "CodeObj" in class_name:
+            for n in [c.__name__] + [b.__name__ for b in all_parent_class_names]:
+                exclusions.update(CODE_OBJ_EXCLUSIONS[n])
+        else:
+            raise ValueError
+        has_attribute = False
+        for field_name, field_info in c.model_fields.items():
+            if field_name in exclusions or any(
+                field_name in class_to_attributes[b]
+                for b in all_user_default_parent_class_names
+            ):
+                continue
+            class_to_attributes[class_name].add(field_name)
+            has_attribute = True
+            code += f"""
+{field_name}: {python_type_to_str(field_info.annotation)}
+"""
+        if not has_attribute:
+            code += """
+    pass
+"""
+    code = ruff_format(code)
+    output_file.write_text(code)
+
+
 def create_modifier(impl_class: type[BaseModel], base_classes):
     name = impl_class.__name__
     attributes = []
@@ -765,11 +908,12 @@ def main(output_folder):
         setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
     )
 
-    generate_impl_field_literals(output_folder / "impl_field_literals.py", classes)
-    generate_modifiers(output_folder / "modifiers.py", classes)
-    generate_layerings(output_folder / "layerings.py", classes)
-    generate_cores(output_folder / "cores.py", classes)
-    generate_unions(output_folder / "unions.py")
+    # generate_impl_field_literals(output_folder / "impl_field_literals.py", classes)
+    generate_user_defaults(output_folder / "user_defaults.py", classes)
+    # generate_modifiers(output_folder / "modifiers.py", classes)
+    # generate_layerings(output_folder / "layerings.py", classes)
+    # generate_cores(output_folder / "cores.py", classes)
+    # generate_unions(output_folder / "unions.py")
 
 
 if __name__ == "__main__":
