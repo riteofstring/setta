@@ -216,45 +216,24 @@ def impl_layering_union():
     import setta.types.generated.impl_layerings
 
     # Generate unions for section layerings
-    code1, base_class_to_children1 = construct_unions(
+    code1 = construct_unions(
         setta.types.generated.impl_layerings,
         setta.types.generated.impl_layerings.BaseSectionImplLayering,
         "type",
         setta.types.generated.impl_layerings,
         lambda x: x,
-        True,
     )
 
     # Generate unions for code obj layerings
-    code2, base_class_to_children2 = construct_unions(
+    code2 = construct_unions(
         setta.types.generated.impl_layerings,
         setta.types.generated.impl_layerings.BaseCodeObjImplLayering,
         "type",
         setta.types.generated.impl_layerings,
         lambda x: x,
-        True,
     )
 
-    code = code1 + code2
-    base_class_to_children = {**base_class_to_children1, **base_class_to_children2}  # type: ignore
-
-    # Add the AllImplLayeringUnion
-    code += """
-AllImplLayeringUnion = BaseSectionImplLayeringUnion | BaseCodeObjImplLayeringUnion
-
-AllImplLayeringUnionWithDiscriminator = Annotated[
-    AllImplLayeringUnion, Field(discriminator="type")
-]
-
-AllImplLayeringUnionTypeAdapter = TypeAdapter(AllImplLayeringUnionWithDiscriminator)
-"""
-
-    # Add type predicate functions
-    code += add_type_predicate_fns(
-        "AllImplLayeringUnion",
-        base_class_to_children,
-        lambda x: x,
-    )
+    code = code1 + code2  # type: ignore
 
     return ruff_format(code)
 

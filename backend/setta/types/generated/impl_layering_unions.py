@@ -1,15 +1,8 @@
-from typing import Annotated, TypeGuard, Union
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
 from setta.types.generated.impl_layerings import (
-    BaseArtifactSectionImplLayering,
-    BaseCanvasSectionImplLayering,
-    BaseCodeSectionImplLayering,
-    BaseDictSectionImplLayering,
-    BaseParentSectionImplLayering,
-    BaseSectionImplLayering,
-    BaseSectionWithParamsImplLayering,
     BrowserSectionImplLayering,
     CallableSectionImplLayering,
     ChartSectionImplLayering,
@@ -164,17 +157,11 @@ BaseDictSectionImplLayeringTypeAdapter = TypeAdapter(
 )
 
 BaseDictSectionImplLayeringTypeSet = set(["Dict", "GlobalVariables"])
-
-
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
 from setta.types.generated.impl_layerings import (
-    BaseChildlessCodeObjImplLayering,
-    BaseCodeObjImplLayering,
-    BaseParamCodeObjImplLayering,
-    BaseParentCodeObjImplLayering,
     CodeCallableCodeObjImplLayering,
     CodeParamCodeObjImplLayering,
     ColorPickerParamCodeObjImplLayering,
@@ -295,78 +282,3 @@ BaseParentCodeObjImplLayeringTypeAdapter = TypeAdapter(
 )
 
 BaseParentCodeObjImplLayeringTypeSet = set(["CodeCallable", "NestedParam"])
-
-
-AllImplLayeringUnion = BaseSectionImplLayeringUnion | BaseCodeObjImplLayeringUnion
-
-AllImplLayeringUnionWithDiscriminator = Annotated[
-    AllImplLayeringUnion, Field(discriminator="type")
-]
-
-AllImplLayeringUnionTypeAdapter = TypeAdapter(AllImplLayeringUnionWithDiscriminator)
-
-
-def isBaseSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseSectionImplLayering]:
-    return x["type"] in BaseSectionImplLayeringTypeSet
-
-
-def isBaseSectionWithParamsImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseSectionWithParamsImplLayering]:
-    return x["type"] in BaseSectionWithParamsImplLayeringTypeSet
-
-
-def isBaseArtifactSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseArtifactSectionImplLayering]:
-    return x["type"] in BaseArtifactSectionImplLayeringTypeSet
-
-
-def isBaseCanvasSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseCanvasSectionImplLayering]:
-    return x["type"] in BaseCanvasSectionImplLayeringTypeSet
-
-
-def isBaseCodeSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseCodeSectionImplLayering]:
-    return x["type"] in BaseCodeSectionImplLayeringTypeSet
-
-
-def isBaseParentSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseParentSectionImplLayering]:
-    return x["type"] in BaseParentSectionImplLayeringTypeSet
-
-
-def isBaseDictSectionImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseDictSectionImplLayering]:
-    return x["type"] in BaseDictSectionImplLayeringTypeSet
-
-
-def isBaseCodeObjImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseCodeObjImplLayering]:
-    return x["type"] in BaseCodeObjImplLayeringTypeSet
-
-
-def isBaseParamCodeObjImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseParamCodeObjImplLayering]:
-    return x["type"] in BaseParamCodeObjImplLayeringTypeSet
-
-
-def isBaseChildlessCodeObjImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseChildlessCodeObjImplLayering]:
-    return x["type"] in BaseChildlessCodeObjImplLayeringTypeSet
-
-
-def isBaseParentCodeObjImplLayering(
-    x: AllImplLayeringUnion,
-) -> TypeGuard[BaseParentCodeObjImplLayering]:
-    return x["type"] in BaseParentCodeObjImplLayeringTypeSet
