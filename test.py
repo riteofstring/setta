@@ -124,9 +124,9 @@
 # pprint(layering.modifier)
 # pprint(impl.model_dump())
 
+from pprint import pprint
 
-from setta.types.generated.impl_layerings import BaseDictSectionImplLayering
+from frontend.generation.utils import get_impl_classes
 
-x = BaseDictSectionImplLayering(type=None, impl="123", modifier={"type": None})
-
-x.modifier
+x = get_impl_classes()
+pprint(x)

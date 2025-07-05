@@ -3,6 +3,7 @@ import os
 import subprocess
 import types
 from collections.abc import Sequence as ABCSequence
+from dataclasses import dataclass
 from enum import Enum
 from typing import (
     Annotated,
@@ -24,6 +25,39 @@ import setta.types.generated.layerings
 import setta.types.generated.modifiers
 import setta.types.section_impls
 from pydantic import BaseModel
+from pydantic_core import PydanticUndefined
+
+DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
+    "Callable": {"callable", "codeObjImplLayeringMap"},
+    "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
+    "ListRoot": set(),
+    "DictRoot": set(),
+    "Group": set(),
+    "Image": set(),
+    "Chart": set(),
+    "Draw": set(),
+    "TextBlock": set(),
+    "Social": set(),
+    "GlobalVariables": set(),
+    "Code": set(),
+    "GenPythonCode": set(),
+    "Terminal": set(),
+    "IFrame": set(),
+    "Chat": set(),
+    "Browser": set(),
+}
+
+DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
+    "CodeCallable": set(),
+    "CodeParam": {"value"},
+    "TextParam": {"value"},
+    "SliderParam": {"value"},
+    "SwitchParam": {"value"},
+    "ColorPickerParam": {"value"},
+    "DropdownParam": {"value"},
+    "PasswordParam": {"value"},
+    "NestedParam": set(),
+}
 
 
 def format_generated_code(output_file):
@@ -60,17 +94,6 @@ def find_sub_classes(
 
     classes.sort(key=get_line_number)
 
-    return classes
-
-
-def get_impl_classes():
-    classes = find_sub_classes(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-    )
-    classes += find_sub_classes(
-        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
-    )
     return classes
 
 
@@ -157,16 +180,123 @@ def python_type_to_str(python_type):
     return python_type.__name__
 
 
-def get_name_without_impl(x):
-    return x.rstrip("Impl")
+def get_class_to_children_mapping(module, c):
+    return [x for x in find_sub_classes(module, c) if x is not c]
 
 
-def get_class_to_children_mapping(module, base_class):
-    classes = find_sub_classes(module, base_class)
-    class_to_children = {}
+@dataclass
+class ImplClassInfoForGeneration:
+    class_obj: Any
+    children: list
+    base_name: str
+
+    @property
+    def modifier_name(self):
+        return self.base_name + "Modifier"
+
+    @property
+    def core_name(self):
+        return self.base_name + "Core"
+
+    @property
+    def layering_name(self):
+        return self.base_name + "Layering"
+
+    @property
+    def impl_fields_name(self):
+        return self.base_name + "ImplFields"
+
+    @property
+    def parents(self):
+        return self.class_obj.__bases__
+
+    @property
+    def parent_core_class_names(self):
+        return [p.__name__.rstrip("Impl") + "Core" for p in self.parents]
+
+    @property
+    def type_field(self):
+        return self.class_obj.model_fields["type"]
+
+    @property
+    def type_value(self):
+        return f"{self.type_field.default.__class__.__name__}.{self.type_field.default.value}"
+
+    @property
+    def type_has_default(self):
+        return self.type_field.default is not PydanticUndefined
+
+    @property
+    def type_type_annotation(self):
+        return python_type_to_str(self.type_field.annotation)
+
+    @property
+    def type_type_annotation_and_value(self):
+        if self.type_has_default:
+            return f"{self.type_type_annotation} = {self.type_value}"
+        return self.type_type_annotation
+
+    @property
+    def shared_modifier(self):
+        shared_modifier = self.modifier_name
+        if self.type_has_default:
+            shared_modifier = f"""{shared_modifier} = Field( # type: ignore
+    default_factory = lambda: create_modifier({self.type_value})
+)
+"""
+        else:
+            shared_modifier = f"{shared_modifier} # type: ignore"
+        return shared_modifier
+
+    @property
+    def unshared_keys(self):
+        unshared_keys = f"list[{self.impl_fields_name}]"
+        if self.type_has_default:
+            if self.is_section_impl:
+                default_keys = DEFAULT_SECTION_UNSHARED_KEYS[
+                    self.type_field.default.value
+                ]
+            elif self.is_code_obj_impl:
+                default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[
+                    self.type_field.default.value
+                ]
+            else:
+                raise ValueError
+            default_keys = [f'"{v}"' for v in sorted(default_keys)]
+            unshared_keys = f"""{unshared_keys} = Field( # type: ignore
+    default_factory = lambda: [{", ".join(default_keys)}]
+)
+"""
+        else:
+            unshared_keys = f"{unshared_keys} # type: ignore"
+        return unshared_keys
+
+    @property
+    def is_section_impl(self):
+        return issubclass(self.class_obj, setta.types.section_impls.BaseSectionImpl)
+
+    @property
+    def is_code_obj_impl(self):
+        return issubclass(self.class_obj, setta.types.code_obj_impls.BaseCodeObjImpl)
+
+
+def get_impl_classes():
+    classes = find_sub_classes(
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+    )
+    classes += find_sub_classes(
+        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
+    )
+    output: dict[str, ImplClassInfoForGeneration] = {}
     for c in classes:
-        child_classes = find_sub_classes(module, c)
-        children = [x for x in child_classes if c is not x]
-        if len(children) > 0:
-            class_to_children[c] = children
-    return class_to_children
+        children = get_class_to_children_mapping(setta.types.section_impls, c)
+        children += get_class_to_children_mapping(setta.types.code_obj_impls, c)
+        base_name = c.__name__.rstrip("Impl")
+        output[c.__name__] = ImplClassInfoForGeneration(
+            class_obj=c,
+            children=children,
+            base_name=base_name,
+        )
+
+    return output
