@@ -18,6 +18,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
+from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 
@@ -127,7 +128,11 @@ def python_type_to_str(python_type):
     return python_type.__name__
 
 
-def create_typed_dict(impl_class: type[BaseModel], base_class):
+def get_name_without_impl(x):
+    return x.rstrip("Impl")
+
+
+def create_modifier(impl_class: type[BaseModel], base_class):
     name = impl_class.__name__
     attributes = []
     for field_name, field_info in impl_class.model_fields.items():
@@ -163,9 +168,12 @@ def create_typed_dict(impl_class: type[BaseModel], base_class):
         parent_classes = []
         for parent in impl_class.__bases__:
             if hasattr(parent, "model_fields"):  # Only include Pydantic model parents
-                parent_classes.append(f"{parent.__name__}Modifier")
+                parent_classes.append(
+                    f"{get_name_without_impl(parent.__name__)}Modifier"
+                )
         parent_class = ", ".join(parent_classes)
 
+    name = get_name_without_impl(name)
     code = f"""
 class {name}Modifier({parent_class}):
 {attributes}
@@ -173,7 +181,7 @@ class {name}Modifier({parent_class}):
     return code
 
 
-def generate_modifiers(output_folder):
+def generate_modifiers(output_file):
     import setta.types.section_impls
 
     classes = find_sub_classes(
@@ -198,14 +206,13 @@ from setta.types.section_impls import (
 
 """
     for c in classes:
-        code += create_typed_dict(c, setta.types.section_impls.BaseSectionImpl)
+        code += create_modifier(c, setta.types.section_impls.BaseSectionImpl)
 
-    print(code)
+    code = ruff_format(code)
+    output_file.write_text(code)
 
-    return code
 
-
-def generate_cores(output_folder):
+def generate_cores(output_file):
     import setta.types.section_impls
 
     classes = find_sub_classes(
@@ -238,11 +245,11 @@ class BaseSectionCore(BaseModel, extra="forbid"):
 
 """
         else:
-            class_name = c.__name__.rstrip("Impl") + "Core"
+            class_name = get_name_without_impl(c.__name__) + "Core"
             parent_class_names = ", ".join(
-                b.__name__.rstrip("Impl") + "Core" for b in c.__bases__
+                get_name_without_impl(b.__name__) + "Core" for b in c.__bases__
             )
-            modifier_name = c.__name__.rstrip("Impl") + "Modifier"
+            modifier_name = get_name_without_impl(c.__name__) + "Modifier"
             modifier_names.append(modifier_name)
 
             code += f"""
@@ -257,12 +264,14 @@ from setta.types.generated.impl_modifiers import {", ".join(modifier_names)}
 """
         + code
     )
-    print(code)
+
+    code = ruff_format(code)
+    output_file.write_text(code)
 
 
 def main(output_folder):
-    generate_modifiers(output_folder)
-    generate_cores(output_folder)
+    generate_modifiers(output_folder / "impl_modifiers.py")
+    generate_cores(output_folder / "cores.py")
 
 
 if __name__ == "__main__":
