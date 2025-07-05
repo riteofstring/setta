@@ -215,6 +215,10 @@ class ImplClassInfoForGeneration:
         return [p.__name__.rstrip("Impl") + "Core" for p in self.parents]
 
     @property
+    def parent_layering_class_names(self):
+        return [p.__name__.rstrip("Impl") + "Layering" for p in self.parents]
+
+    @property
     def type_field(self):
         return self.class_obj.model_fields["type"]
 
@@ -237,19 +241,19 @@ class ImplClassInfoForGeneration:
         return self.type_type_annotation
 
     @property
-    def shared_modifier(self):
-        shared_modifier = self.modifier_name
+    def modifier_annotation_and_value(self):
+        modifier = self.modifier_name
         if self.type_has_default:
-            shared_modifier = f"""{shared_modifier} = Field( # type: ignore
+            modifier = f"""{modifier} = Field( # type: ignore
     default_factory = lambda: create_modifier({self.type_value})
 )
 """
         else:
-            shared_modifier = f"{shared_modifier} # type: ignore"
-        return shared_modifier
+            modifier = f"{modifier} # type: ignore"
+        return modifier
 
     @property
-    def unshared_keys(self):
+    def unshared_keys_annotation_and_value(self):
         unshared_keys = f"list[{self.impl_fields_name}]"
         if self.type_has_default:
             if self.is_section_impl:

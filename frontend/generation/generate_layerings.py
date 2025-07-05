@@ -1,17 +1,17 @@
 from pathlib import Path
 
-from pydantic_core import PydanticUndefined
+from setta.types.code_obj_impls import BaseCodeObjImpl
+from setta.types.section_impls import BaseSectionImpl
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 from .utils import (
+    ImplClassInfoForGeneration,
     get_impl_classes,
-    get_name_without_impl,
-    python_type_to_str,
 )
 
 
-def generate_layerings(output_file, classes):
+def generate_layerings(output_file, classes: dict[str, ImplClassInfoForGeneration]):
     code = """
 from typing import Any, Literal, overload
 
@@ -21,76 +21,62 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string  
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
+from setta.types.generated.modifiers import create_modifier
 """
 
     modifier_names = []
 
-    for c in classes:
-        modifier_name = get_name_without_impl(c.__name__) + "Modifier"
-        modifier_names.append(modifier_name)
-        if c.__name__ == "BaseSectionImpl":
+    for c in classes.values():
+        modifier_names.append(c.modifier_name)
+        if c.class_obj is BaseSectionImpl:
             code += f"""
 class BaseSectionLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
     type: Any
-    modifier: {modifier_name}
+    modifier: {c.modifier_name}
 
 """
-        elif c.__name__ == "BaseCodeObjImpl":
+        elif c.class_obj is BaseCodeObjImpl:
             code += f"""
 class BaseCodeObjLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
     type: Any
-    modifier: {modifier_name}
+    modifier: {c.modifier_name}
 
 """
         else:
-            class_name = get_name_without_impl(c.__name__) + "Layering"
-            parent_class_names = ", ".join(
-                get_name_without_impl(b.__name__) + "Layering" for b in c.__bases__
-            )
-            type_attribute = python_type_to_str(c.model_fields["type"].annotation)
-            if c.model_fields["type"].default is not PydanticUndefined:
-                default_val = c.model_fields["type"].default
-                type_attribute += (
-                    f" = {default_val.__class__.__name__}.{default_val.value}"
-                )
-
             code += f"""
-class {class_name}({parent_class_names}):
-    type: {type_attribute}
-    modifier: {modifier_name} # type: ignore
+class {c.layering_name}({", ".join(c.parent_layering_class_names)}):
+    type: {c.type_type_annotation_and_value}
+    modifier: {c.modifier_annotation_and_value}
 
 """
 
-    cases = {}
-    for c in classes:
-        if c.model_fields["type"].default is PydanticUndefined:
+    layering_cases = {}
+    for c in classes.values():
+        if not c.type_has_default:
             continue
-        layering_name = f"{get_name_without_impl(c.__name__)}Layering"
-        type_attribute = python_type_to_str(c.model_fields["type"].annotation)
-        default_val = c.model_fields["type"].default
-        cases[f"{default_val.__class__.__name__}.{default_val.value}"] = layering_name
+        layering_cases[c.type_value] = c.layering_name
         code += f"""
 @overload
-def create_layering(type_: {type_attribute}) -> {layering_name}:
+def create_layering(type_: {c.type_type_annotation}, impl:str) -> {c.layering_name}:
     ...
 """
 
     cases_str = []
-    for type_name, modifier_name in cases.items():
+    for type_name, layering_name in layering_cases.items():
         curr_case = f"""
         case {type_name}:
-            return {modifier_name}(type=type_)
+            return {layering_name}(type=type_, impl=impl)
         """
         cases_str.append(curr_case)
 
     code += f"""
-def create_layering(type_: SectionType | CodeObjType):
+def create_layering(type_: SectionType | CodeObjType, impl:str):
     match type_:
 {"\n".join(cases_str)}
 """
