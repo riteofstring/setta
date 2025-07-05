@@ -252,33 +252,6 @@ from setta.types.generated.user_defaults import (
 """
 
 
-# ============== Additional Utilities ==============
-
-
-class UtilityCodeGenerator:
-    """Generates additional utility code as needed."""
-
-    def generate_format_utils(self) -> str:
-        """Generate formatting utilities."""
-        return """import os
-import subprocess
-
-
-def format_generated_code(output_file):
-    # Suppress Node warnings
-    env = os.environ.copy()
-    env["NODE_NO_WARNINGS"] = "1"
-
-    try:
-        subprocess.run(
-            ["npx", "prettier", str(output_file), "--write"], check=True, env=env
-        )
-        print(f"Formatted {output_file} with Prettier")
-    except subprocess.CalledProcessError:
-        print("Warning: Prettier formatting failed.")
-"""
-
-
 # ============== Main Generator ==============
 
 
@@ -289,7 +262,6 @@ class AppUtilitiesGenerator:
         self.output_folder = output_folder
         self.settings_gen = SettingsStateGenerator()
         self.creation_gen = CreationFunctionsGenerator()
-        self.utility_gen = UtilityCodeGenerator()
 
     def write_output(self, content: str, filename: str, description: str):
         """Write formatted content to file."""
@@ -309,11 +281,6 @@ class AppUtilitiesGenerator:
         print("Generating creation functions...")
         creation_code = self.creation_gen.generate()
         self.write_output(creation_code, "creation_functions.py", "creation functions")
-
-        # Generate format utils
-        print("Generating format utilities...")
-        format_utils_code = self.utility_gen.generate_format_utils()
-        self.write_output(format_utils_code, "utils.py", "format utilities")
 
         print("Application utilities generation complete!")
 
