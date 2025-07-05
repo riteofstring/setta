@@ -18,6 +18,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
+import setta.types.code_obj_impls
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
@@ -132,16 +133,16 @@ def get_name_without_impl(x):
     return x.rstrip("Impl")
 
 
-def create_modifier(impl_class: type[BaseModel], base_class):
+def create_modifier(impl_class: type[BaseModel], base_classes):
     name = impl_class.__name__
     attributes = []
     for field_name, field_info in impl_class.model_fields.items():
         # Skip if field is in exclusions for base class
-        if impl_class is base_class and field_name in ["id", "name", "isPreset"]:
+        if impl_class in base_classes and field_name in ["id", "name", "isPreset"]:
             continue
 
         # For non-base classes, skip if field is defined in ANY parent class (except type)
-        if impl_class is not base_class and field_name != "type":
+        if impl_class not in base_classes and field_name != "type":
             field_in_parent = False
             for parent in impl_class.__bases__:
                 if (
@@ -161,7 +162,7 @@ def create_modifier(impl_class: type[BaseModel], base_class):
     attributes = "\n\t".join(attributes)
     attributes = f"\t{attributes}"
 
-    if impl_class is base_class:
+    if impl_class in base_classes:
         parent_class = "TypedDict"
     else:
         # Handle multiple inheritance
@@ -183,10 +184,14 @@ class {name}Modifier({parent_class}):
 
 def generate_modifiers(output_file):
     import setta.types.section_impls
+    import setta.types.code_obj_impls
 
     classes = find_sub_classes(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
+    )
+    classes += find_sub_classes(
+        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
     )
 
     code = """
@@ -203,10 +208,22 @@ from setta.types.section_impls import (
     SectionType,
     SectionSizeMode
 )
+from setta.types.code_obj_impls import (
+    ParameterPassingStyle,
+    ParamNameType,
+    ColorPickerChoice,
+    CodeObjType
+)
 
 """
     for c in classes:
-        code += create_modifier(c, setta.types.section_impls.BaseSectionImpl)
+        code += create_modifier(
+            c,
+            [
+                setta.types.section_impls.BaseSectionImpl,
+                setta.types.code_obj_impls.BaseCodeObjImpl,
+            ],
+        )
 
     code = ruff_format(code)
     output_file.write_text(code)
@@ -214,10 +231,14 @@ from setta.types.section_impls import (
 
 def generate_cores(output_file):
     import setta.types.section_impls
+    import setta.types.code_obj_impls
 
     classes = find_sub_classes(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
+    )
+    classes += find_sub_classes(
+        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
     )
 
     code = """
@@ -244,6 +265,18 @@ class BaseSectionCore(BaseModel, extra="forbid"):
     unsharedKeys: Any
 
 """
+        elif c.__name__ == "BaseCodeObjImpl":
+            code += """
+class BaseCodeObjCore(BaseModel, extra="forbid"):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str | None = None
+    type: Any
+    sharedModifier: Any
+    unsharedKeys: Any
+
+"""
         else:
             class_name = get_name_without_impl(c.__name__) + "Core"
             parent_class_names = ", ".join(
@@ -254,13 +287,13 @@ class BaseSectionCore(BaseModel, extra="forbid"):
 
             code += f"""
 class {class_name}({parent_class_names}):
-    sharedModifier: {modifier_name}
+    sharedModifier: {modifier_name} # type: ignore
 
 """
 
     code = (
         f"""
-from setta.types.generated.impl_modifiers import {", ".join(modifier_names)}
+from setta.types.generated.modifiers import {", ".join(modifier_names)}
 """
         + code
     )
@@ -270,7 +303,7 @@ from setta.types.generated.impl_modifiers import {", ".join(modifier_names)}
 
 
 def main(output_folder):
-    generate_modifiers(output_folder / "impl_modifiers.py")
+    generate_modifiers(output_folder / "modifiers.py")
     generate_cores(output_folder / "cores.py")
 
 

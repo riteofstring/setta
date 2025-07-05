@@ -1,5 +1,11 @@
 from typing import Any, Literal, NotRequired, TypedDict
 
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    ColorPickerChoice,
+    ParameterPassingStyle,
+    ParamNameType,
+)
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
@@ -147,3 +153,67 @@ class ChatSectionModifier(BaseSectionModifier):
 class BrowserSectionModifier(BaseSectionModifier):
     type: Literal[SectionType.Browser]
     hideColumn: NotRequired[bool]
+
+
+class BaseCodeObjModifier(TypedDict):
+    type: Any
+    description: NotRequired[str]
+
+
+class BaseParamCodeObjModifier(BaseCodeObjModifier):
+    type: Any
+    coreNameType: NotRequired[ParamNameType]
+    coreNameEditable: NotRequired[bool]
+    passingStyle: NotRequired[ParameterPassingStyle]
+
+
+class BaseChildlessCodeObjModifier(BaseParamCodeObjModifier):
+    type: Any
+    defaultVal: NotRequired[str]
+    value: NotRequired[str]
+
+
+class BaseParentCodeObjModifier(BaseCodeObjModifier):
+    type: Any
+    children: NotRequired[list[str]]
+
+
+class CodeCallableCodeObjModifier(BaseParentCodeObjModifier):
+    type: Literal[CodeObjType.CodeCallable]
+
+
+class CodeParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.CodeParam]
+
+
+class TextParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.TextParam]
+
+
+class SliderParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.SliderParam]
+    min: NotRequired[int]
+    max: NotRequired[int]
+    step: NotRequired[int]
+
+
+class SwitchParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.SwitchParam]
+
+
+class ColorPickerParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.ColorPickerParam]
+    choices: NotRequired[list[ColorPickerChoice]]
+
+
+class DropdownParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.DropdownParam]
+    choices: NotRequired[list[str]]
+
+
+class PasswordParamCodeObjModifier(BaseChildlessCodeObjModifier):
+    type: Literal[CodeObjType.PasswordParam]
+
+
+class NestedParamCodeObjModifier(BaseParamCodeObjModifier, BaseParentCodeObjModifier):
+    type: Literal[CodeObjType.NestedParam]
