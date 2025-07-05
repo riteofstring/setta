@@ -2,25 +2,25 @@
 Simple Cloudflare R2 storage for user projects
 """
 
-import os
-
 import boto3
 from botocore.exceptions import ClientError
 
-# Get config from environment
-ACCESS_KEY = os.getenv("STORAGE_ACCESS_KEY")
-SECRET_KEY = os.getenv("STORAGE_SECRET_KEY")
-BUCKET_NAME = os.getenv("STORAGE_BUCKET_NAME", "user-projects")
-R2_ENDPOINT = os.getenv("R2_ENDPOINT")
+from config import get_settings
+
+# Get settings
+settings = get_settings()
 
 # Initialize S3 client for R2
 s3 = boto3.client(
     "s3",
-    endpoint_url=R2_ENDPOINT,
-    aws_access_key_id=ACCESS_KEY,
-    aws_secret_access_key=SECRET_KEY,
+    endpoint_url=settings.r2_endpoint,
+    aws_access_key_id=settings.storage_access_key,
+    aws_secret_access_key=settings.storage_secret_key,
     region_name="auto",
 )
+
+# Use bucket name from settings
+BUCKET_NAME = settings.storage_bucket_name
 
 
 def save_file(user_id: str, project_id: str, file_path: str, content: bytes) -> bool:

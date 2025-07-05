@@ -4,9 +4,10 @@ Fly.io service for managing apps and deployments.
 
 import asyncio
 import base64
+import os
 
 from config import get_settings
-from deployment_script import GITHUB_DEPLOY_SCRIPT
+from deployment_script import STORAGE_DEPLOY_SCRIPT
 from fly.client import FlyClient
 from fly.deployment import (
     allocate_ips,
@@ -21,6 +22,7 @@ from fly.deployment import (
 )
 from models.websocket import EventType, ProgressData, WebSocketEvent
 from services.deployment_events import DeploymentEventPoller
+from services.git_storage_service import clone_github_to_storage
 from services.websocket_service import get_connection_manager
 
 
@@ -103,18 +105,33 @@ class FlyService:
                 project_id, "Starting container deployment...", 30
             )
 
+            # Extract user_id from project_id query
+            from database import Project, SessionLocal
+
+            db = SessionLocal()
+            try:
+                project = db.query(Project).filter(Project.id == project_id).first()
+                user_id = project.user_id if project else None
+            finally:
+                db.close()
+
+            if not user_id:
+                raise Exception("Could not find user_id for project")
+
             # Deploy machine and poll events concurrently
-            deploy_task = asyncio.create_task(self._deploy_machine(app_name, github_url))
+            deploy_task = asyncio.create_task(
+                self._deploy_machine(app_name, github_url, user_id, project_id)
+            )
 
             # Show progress while waiting for machine creation
             machine_result = None
 
             if github_url:
                 wait_messages = [
-                    ("Preparing GitHub deployment script...", 31),
-                    ("Configuring Python environment...", 32),
-                    ("Setting up container...", 33),
-                    ("Initializing deployment...", 34),
+                    ("Cloning repository from GitHub...", 31),
+                    ("Uploading files to storage...", 32),
+                    ("Preparing deployment container...", 33),
+                    ("Initializing container...", 34),
                 ]
             else:
                 wait_messages = [
@@ -185,15 +202,27 @@ class FlyService:
             await asyncio.to_thread(self._cleanup_failed_app, app_name)
             raise
 
-    async def _deploy_machine(self, app_name: str, github_url: str | None = None) -> dict:
+    async def _deploy_machine(
+        self, app_name: str, github_url: str | None, user_id: str, project_id: str
+    ) -> dict:
         """Deploy machine and return result."""
         if github_url:
             print(f"Deploying from GitHub: {github_url}")
-            # Deploy from GitHub repository
+
+            # Clone to R2 storage first
+            success = await asyncio.to_thread(
+                clone_github_to_storage, github_url, user_id, project_id
+            )
+
+            if not success:
+                raise Exception("Failed to clone repository to storage")
+
+            # Deploy minimal container with R2 mount
             machine_id = await asyncio.to_thread(
-                self._create_machine_from_github,
+                self._create_machine_with_storage,
                 app_name,
-                github_url,
+                user_id,
+                project_id,
             )
         else:
             print("Deploying with default hello world image...")
@@ -209,15 +238,18 @@ class FlyService:
 
         return {"machine_id": machine_id}
 
-    def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
-        """Create a machine that clones and runs a GitHub repository."""
-        # Use the imported deployment script
-        startup_script = GITHUB_DEPLOY_SCRIPT
+    def _create_machine_with_storage(self, app_name: str, user_id: str, project_id: str) -> str:
+        """Create a machine that syncs from R2 storage and runs user code."""
+        # Get storage settings from environment
+        storage_bucket = os.getenv("STORAGE_BUCKET_NAME", "user-projects")
+        r2_endpoint = os.getenv("R2_ENDPOINT")
+        storage_access_key = os.getenv("STORAGE_ACCESS_KEY")
+        storage_secret_key = os.getenv("STORAGE_SECRET_KEY")
 
-        # Encode the script
-        script_base64 = base64.b64encode(startup_script.encode()).decode()
+        # Encode the startup script
+        script_base64 = base64.b64encode(STORAGE_DEPLOY_SCRIPT.encode()).decode()
 
-        # Machine configuration using a Python base image
+        # Machine configuration using minimal Python image
         config = {
             "image": "python:3.11-slim",
             "guest": {"cpu_kind": "shared", "cpus": 1, "memory_mb": 512},
@@ -237,9 +269,15 @@ class FlyService:
             "env": {
                 "PORT": "8080",
                 "PYTHONUNBUFFERED": "1",
-                "GITHUB_URL": github_url,  # Pass GitHub URL as environment variable
+                "USER_ID": user_id,
+                "PROJECT_ID": project_id,
+                # R2 credentials
+                "STORAGE_BUCKET": storage_bucket,
+                "R2_ENDPOINT": r2_endpoint,
+                "AWS_ACCESS_KEY_ID": storage_access_key,
+                "AWS_SECRET_ACCESS_KEY": storage_secret_key,
             },
-            # Use CMD instead of init.exec
+            # Use init.cmd to run startup script
             "init": {
                 "cmd": [
                     "/bin/bash",
@@ -258,6 +296,11 @@ class FlyService:
         # Create machine
         machine = self.client.create_machine(app_name, config, region="ewr")
         return machine["id"]
+
+    def _create_machine_from_github(self, app_name: str, github_url: str) -> str:
+        """DEPRECATED: Use _create_machine_with_storage instead."""
+        # This method is kept for backward compatibility but should not be used
+        raise NotImplementedError("Use _create_machine_with_storage instead")
 
     def create_and_deploy_app(self, app_name: str) -> dict:
         """Create app, allocate IPs, and deploy a machine (sync version for compatibility)."""

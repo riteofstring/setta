@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     clerk_jwt_public_key: str | None = None
     clerk_api_key: str | None = None  # Optional: for API verification fallback
 
+    # Storage (R2)
+    storage_access_key: str | None = None
+    storage_secret_key: str | None = None
+    storage_bucket_name: str = "user-projects"
+    r2_endpoint: str | None = None
+
     class Config:
         env_file = ".env"
         case_sensitive = False

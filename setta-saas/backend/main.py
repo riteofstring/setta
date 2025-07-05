@@ -20,6 +20,7 @@ from routes import storage_router
 from services.fly_service import FlyService
 from services.project_service import ProjectService
 from services.websocket_service import get_connection_manager
+from utils.storage_init import init_storage
 
 # Initialize settings
 settings = get_settings()
@@ -53,6 +54,9 @@ async def periodic_machine_state_check():
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
     print("Starting up...")
+
+    # Initialize storage
+    init_storage()
 
     # Start background task for checking machine states
     task = asyncio.create_task(periodic_machine_state_check())

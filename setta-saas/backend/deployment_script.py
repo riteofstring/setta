@@ -2,7 +2,58 @@
 Deployment scripts for Fly.io containers.
 """
 
-# Main deployment script used in production
+# Storage-based deployment script (NEW)
+STORAGE_DEPLOY_SCRIPT = """#!/bin/bash
+set -e
+
+echo "=== Starting storage-based deployment ==="
+echo "User ID: $USER_ID"
+echo "Project ID: $PROJECT_ID"
+
+# Install required tools
+apt-get update && apt-get install -y python3-pip curl
+
+# Install AWS CLI for S3/R2 operations
+pip install awscli
+
+# Create app directory
+mkdir -p /app
+cd /app
+
+# Sync from R2 storage
+echo "Syncing project from storage..."
+aws s3 sync s3://$STORAGE_BUCKET/$USER_ID/$PROJECT_ID/ /app \
+  --endpoint-url $R2_ENDPOINT \
+  --region auto
+
+echo "Files synced:"
+ls -la
+
+# Install dependencies if requirements.txt exists
+if [ -f requirements.txt ]; then
+    echo "Found requirements.txt, installing..."
+    pip install -r requirements.txt
+else
+    echo "No requirements.txt found"
+fi
+
+# Find and run the application
+if [ -f app.py ]; then
+    echo "Running app.py..."
+    exec python app.py
+elif [ -f main.py ]; then
+    echo "Running main.py..."
+    exec python main.py
+else
+    echo "ERROR: No app.py or main.py found!"
+    echo "Directory contents:"
+    ls -la
+    # Keep container running for debugging
+    exec sleep infinity
+fi
+"""
+
+# Main deployment script used in production (OLD - for direct GitHub clone)
 GITHUB_DEPLOY_SCRIPT = """#!/bin/bash
 set -e
 
