@@ -1,6 +1,7 @@
 #!/bin/bash
 python -m generation.generate_impl_field_literals
 python -m generation.generate_impl_modifiers
+python -m generation.generate_impl_layerings
 python -m generation.generate_type_to_modifier_fns
 python -m generation.generate_cores
 python -m generation.generate_type_to_core_fns

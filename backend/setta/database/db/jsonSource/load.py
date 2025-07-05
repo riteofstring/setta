@@ -23,6 +23,11 @@ from setta.types.generated.impl_helpers import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_layerings import (
+    BaseDictSectionImplLayering,
+    CodeObjImplLayeringUnion,
+    SectionImplLayeringUnion,
+)
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
@@ -30,7 +35,6 @@ from setta.types.generated.section_type_unions import (
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
-from setta.types.impl_layering import CodeObjImplLayering, SectionImplLayering
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -46,16 +50,18 @@ class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
     codeObjs: dict[str, BaseCodeObjCoreUnion] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion] = Field(
+        default_factory=dict
+    )
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, BaseSectionCoreUnion]
     sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionImplLayerings: dict[str, SectionImplLayering]
+    sectionImplLayerings: dict[str, SectionImplLayeringUnion]
     codeObjs: dict[str, BaseCodeObjCoreUnion]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjImplLayerings: dict[str, CodeObjImplLayering]
+    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion]
 
 
 def load_json_sources_into_data_structures(
@@ -112,11 +118,11 @@ def merge_into_existing(
     new_data: ProcessedJSONObject,
     section: BaseSectionCoreUnion,
     section_impl: BaseDictSectionImpl,
-    section_impl_layering: SectionImplLayering,
+    section_impl_layering: BaseDictSectionImplLayering,
     section_impls: dict[str, BaseSectionImplUnion],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, CodeObjImplLayering],
+    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion],
 ):
     ancestor_paths = build_ancestor_paths(
         codeObjs,
@@ -154,9 +160,9 @@ def merge_into_existing(
         newImpl = new_data.codeObjImpls[newLayering.impl]
         if not existingCodeObjId:
             section_impl = set_effective_impl_value(
-                section_impl_layering,
+                section_impls[section_impl_layering.impl],
                 section,
-                section_impls,
+                section_impl_layering.modifier,
                 "codeObjImplLayeringMap",
                 {
                     **copy.deepcopy(section_impl.codeObjImplLayeringMap),
@@ -177,9 +183,9 @@ def merge_into_existing(
             newImpl, NestedParamCodeObjImpl
         ):
             impl = set_effective_impl_value(
-                layering,
+                codeObjImpls[layering.impl],
                 codeObjs[existingCodeObjId],
-                codeObjImpls,
+                layering.modifier,
                 "children",
                 [
                     replacements[c][0] if c in replacements else c
