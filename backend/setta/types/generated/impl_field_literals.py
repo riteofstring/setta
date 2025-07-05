@@ -114,6 +114,19 @@ BaseDictSectionImplFields = Literal[
     "topLevelParamIds",
     "visibility",
 ]
+BrowserSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "hideColumn",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "size",
+    "visibility",
+]
 CallableSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
@@ -134,6 +147,47 @@ CallableSectionImplFields = Literal[
     "pinnedParams",
     "positionAndSizeLocked",
     "selectedParams",
+    "size",
+    "visibility",
+]
+ChartSectionImplFields = Literal[
+    "artifactGroupIds",
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "chartSettings",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "renderedValue",
+    "size",
+    "visibility",
+]
+ChatSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "size",
+    "visibility",
+]
+CodeSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "code",
+    "codeLanguage",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
     "size",
     "visibility",
 ]
@@ -162,19 +216,6 @@ DictSectionImplFields = Literal[
     "topLevelParamIds",
     "visibility",
 ]
-ListRootSectionImplFields = Literal[
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "children",
-    "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
 DictRootSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
@@ -185,48 +226,6 @@ DictRootSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
-GroupSectionImplFields = Literal[
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "children",
-    "isFrozen",
-    "isHorizontalOrientation",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
-ImageSectionImplFields = Literal[
-    "artifactGroupIds",
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
-ChartSectionImplFields = Literal[
-    "artifactGroupIds",
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "chartSettings",
-    "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "renderedValue",
     "size",
     "visibility",
 ]
@@ -245,33 +244,17 @@ DrawSectionImplFields = Literal[
     "size",
     "visibility",
 ]
-TextBlockSectionImplFields = Literal[
+GenPythonCodeSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
-    "displayMode",
-    "format",
-    "headingAsSectionName",
+    "code",
     "isFrozen",
     "isInOtherProjectConfigs",
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
     "size",
-    "text",
-    "visibility",
-]
-SocialSectionImplFields = Literal[
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "social",
     "visibility",
 ]
 GlobalVariablesSectionImplFields = Literal[
@@ -299,38 +282,13 @@ GlobalVariablesSectionImplFields = Literal[
     "topLevelParamIds",
     "visibility",
 ]
-CodeSectionImplFields = Literal[
+GroupSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
-    "code",
-    "codeLanguage",
+    "children",
     "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
-GenPythonCodeSectionImplFields = Literal[
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "code",
-    "isFrozen",
-    "isInOtherProjectConfigs",
-    "isMinimized",
-    "parentId",
-    "positionAndSizeLocked",
-    "size",
-    "visibility",
-]
-TerminalSectionImplFields = Literal[
-    "aspectRatio",
-    "aspectRatioExtraHeight",
-    "aspectRatioExtraWidth",
-    "isFrozen",
+    "isHorizontalOrientation",
     "isInOtherProjectConfigs",
     "isMinimized",
     "parentId",
@@ -350,7 +308,8 @@ IFrameSectionImplFields = Literal[
     "size",
     "visibility",
 ]
-ChatSectionImplFields = Literal[
+ImageSectionImplFields = Literal[
+    "artifactGroupIds",
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
@@ -362,17 +321,58 @@ ChatSectionImplFields = Literal[
     "size",
     "visibility",
 ]
-BrowserSectionImplFields = Literal[
+ListRootSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
-    "hideColumn",
+    "children",
     "isFrozen",
     "isInOtherProjectConfigs",
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
     "size",
+    "visibility",
+]
+SocialSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "size",
+    "social",
+    "visibility",
+]
+TerminalSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "size",
+    "visibility",
+]
+TextBlockSectionImplFields = Literal[
+    "aspectRatio",
+    "aspectRatioExtraHeight",
+    "aspectRatioExtraWidth",
+    "displayMode",
+    "format",
+    "headingAsSectionName",
+    "isFrozen",
+    "isInOtherProjectConfigs",
+    "isMinimized",
+    "parentId",
+    "positionAndSizeLocked",
+    "size",
+    "text",
     "visibility",
 ]
 
@@ -399,7 +399,28 @@ CodeParamCodeObjImplFields = Literal[
     "passingStyle",
     "value",
 ]
-TextParamCodeObjImplFields = Literal[
+ColorPickerParamCodeObjImplFields = Literal[
+    "choices",
+    "coreNameEditable",
+    "coreNameType",
+    "defaultVal",
+    "description",
+    "passingStyle",
+    "value",
+]
+DropdownParamCodeObjImplFields = Literal[
+    "choices",
+    "coreNameEditable",
+    "coreNameType",
+    "defaultVal",
+    "description",
+    "passingStyle",
+    "value",
+]
+NestedParamCodeObjImplFields = Literal[
+    "children", "coreNameEditable", "coreNameType", "description", "passingStyle"
+]
+PasswordParamCodeObjImplFields = Literal[
     "coreNameEditable",
     "coreNameType",
     "defaultVal",
@@ -426,32 +447,11 @@ SwitchParamCodeObjImplFields = Literal[
     "passingStyle",
     "value",
 ]
-ColorPickerParamCodeObjImplFields = Literal[
-    "choices",
+TextParamCodeObjImplFields = Literal[
     "coreNameEditable",
     "coreNameType",
     "defaultVal",
     "description",
     "passingStyle",
     "value",
-]
-DropdownParamCodeObjImplFields = Literal[
-    "choices",
-    "coreNameEditable",
-    "coreNameType",
-    "defaultVal",
-    "description",
-    "passingStyle",
-    "value",
-]
-PasswordParamCodeObjImplFields = Literal[
-    "coreNameEditable",
-    "coreNameType",
-    "defaultVal",
-    "description",
-    "passingStyle",
-    "value",
-]
-NestedParamCodeObjImplFields = Literal[
-    "children", "coreNameEditable", "coreNameType", "description", "passingStyle"
 ]

@@ -24,9 +24,8 @@ from setta.types.section_impls import (
     Visibility,
 )
 
+
 # ============== Section UserDefault Classes ==============
-
-
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseSectionImpl"""
 
@@ -81,42 +80,19 @@ class UserDefaultBaseDictSectionImpl(
     jsonSourceKeys: list[str] = Field(default_factory=list)
 
 
+class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    """User-configurable defaults for BrowserSectionImpl"""
+
+    hideColumn: bool = False
+
+
 class UserDefaultCallableSectionImpl(
     UserDefaultBaseSectionWithParamsImpl, extra="forbid"
 ):
     """User-configurable defaults for CallableSectionImpl"""
 
+    callable: str | None = None
     hideParams: bool = False
-
-
-class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl, extra="forbid"):
-    """User-configurable defaults for DictSectionImpl"""
-
-    pass
-
-
-class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    """User-configurable defaults for ListRootSectionImpl"""
-
-    pass
-
-
-class UserDefaultDictRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    """User-configurable defaults for DictRootSectionImpl"""
-
-    pass
-
-
-class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
-    """User-configurable defaults for GroupSectionImpl"""
-
-    isHorizontalOrientation: bool = False
-
-
-class UserDefaultImageSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
-    """User-configurable defaults for ImageSectionImpl"""
-
-    pass
 
 
 class UserDefaultChartSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
@@ -128,11 +104,92 @@ class UserDefaultChartSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="for
     )
 
 
+class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    """User-configurable defaults for ChatSectionImpl"""
+
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=405, height=405)
+    )
+
+
+class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
+    """User-configurable defaults for CodeSectionImpl"""
+
+    codeLanguage: CodeLanguage = CodeLanguage.python
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
+
+
+class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl, extra="forbid"):
+    """User-configurable defaults for DictSectionImpl"""
+
+    pass
+
+
+class UserDefaultDictRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
+    """User-configurable defaults for DictRootSectionImpl"""
+
+    pass
+
+
 class UserDefaultDrawSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
     """User-configurable defaults for DrawSectionImpl"""
 
     canvasSettings: DrawAreaCanvasSettings = Field(
         default_factory=DrawAreaCanvasSettings
+    )
+
+
+class UserDefaultGenPythonCodeSectionImpl(
+    UserDefaultBaseCodeSectionImpl, extra="forbid"
+):
+    """User-configurable defaults for GenPythonCodeSectionImpl"""
+
+    pass
+
+
+class UserDefaultGlobalVariablesSectionImpl(
+    UserDefaultBaseDictSectionImpl, extra="forbid"
+):
+    """User-configurable defaults for GlobalVariablesSectionImpl"""
+
+    pass
+
+
+class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
+    """User-configurable defaults for GroupSectionImpl"""
+
+    isHorizontalOrientation: bool = False
+
+
+class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    """User-configurable defaults for IFrameSectionImpl"""
+
+    pass
+
+
+class UserDefaultImageSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
+    """User-configurable defaults for ImageSectionImpl"""
+
+    pass
+
+
+class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbid"):
+    """User-configurable defaults for ListRootSectionImpl"""
+
+    pass
+
+
+class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    """User-configurable defaults for SocialSectionImpl"""
+
+    social: str = ""
+
+
+class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    """User-configurable defaults for TerminalSectionImpl"""
+
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=700, height=300)
     )
 
 
@@ -145,66 +202,7 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
     text: str = ""
 
 
-class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    """User-configurable defaults for SocialSectionImpl"""
-
-    social: str = ""
-
-
-class UserDefaultGlobalVariablesSectionImpl(
-    UserDefaultBaseDictSectionImpl, extra="forbid"
-):
-    """User-configurable defaults for GlobalVariablesSectionImpl"""
-
-    pass
-
-
-class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
-    """User-configurable defaults for CodeSectionImpl"""
-
-    codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
-
-
-class UserDefaultGenPythonCodeSectionImpl(
-    UserDefaultBaseCodeSectionImpl, extra="forbid"
-):
-    """User-configurable defaults for GenPythonCodeSectionImpl"""
-
-    pass
-
-
-class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    """User-configurable defaults for TerminalSectionImpl"""
-
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=700, height=300)
-    )
-
-
-class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    """User-configurable defaults for IFrameSectionImpl"""
-
-    pass
-
-
-class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    """User-configurable defaults for ChatSectionImpl"""
-
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=405, height=405)
-    )
-
-
-class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    """User-configurable defaults for BrowserSectionImpl"""
-
-    hideColumn: bool = False
-
-
 # ============== Code Object UserDefault Classes ==============
-
-
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseCodeObjImpl"""
 
@@ -249,10 +247,34 @@ class UserDefaultCodeParamCodeObjImpl(
     pass
 
 
-class UserDefaultTextParamCodeObjImpl(
+class UserDefaultColorPickerParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    """User-configurable defaults for TextParamCodeObjImpl"""
+    """User-configurable defaults for ColorPickerParamCodeObjImpl"""
+
+    choices: list[ColorPickerChoice] = Field(default_factory=list)
+
+
+class UserDefaultDropdownParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    """User-configurable defaults for DropdownParamCodeObjImpl"""
+
+    choices: list[str] = Field(default_factory=list)
+
+
+class UserDefaultNestedParamCodeObjImpl(
+    UserDefaultBaseParamCodeObjImpl, extra="forbid"
+):
+    """User-configurable defaults for NestedParamCodeObjImpl"""
+
+    pass
+
+
+class UserDefaultPasswordParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    """User-configurable defaults for PasswordParamCodeObjImpl"""
 
     pass
 
@@ -275,33 +297,9 @@ class UserDefaultSwitchParamCodeObjImpl(
     pass
 
 
-class UserDefaultColorPickerParamCodeObjImpl(
+class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    """User-configurable defaults for ColorPickerParamCodeObjImpl"""
-
-    choices: list[ColorPickerChoice] = Field(default_factory=list)
-
-
-class UserDefaultDropdownParamCodeObjImpl(
-    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
-):
-    """User-configurable defaults for DropdownParamCodeObjImpl"""
-
-    choices: list[str] = Field(default_factory=list)
-
-
-class UserDefaultPasswordParamCodeObjImpl(
-    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
-):
-    """User-configurable defaults for PasswordParamCodeObjImpl"""
-
-    pass
-
-
-class UserDefaultNestedParamCodeObjImpl(
-    UserDefaultBaseParamCodeObjImpl, extra="forbid"
-):
-    """User-configurable defaults for NestedParamCodeObjImpl"""
+    """User-configurable defaults for TextParamCodeObjImpl"""
 
     pass

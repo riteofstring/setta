@@ -8,6 +8,7 @@ from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_field_literals import (
     BaseChildlessCodeObjImplFields,
+    BaseCodeObjImplFields,
     BaseParamCodeObjImplFields,
     BaseParentCodeObjImplFields,
     CodeCallableCodeObjImplFields,
@@ -22,6 +23,7 @@ from setta.types.generated.impl_field_literals import (
 )
 from setta.types.generated.impl_modifiers import (
     BaseChildlessCodeObjImplModifier,
+    BaseCodeObjImplModifier,
     BaseParamCodeObjImplModifier,
     BaseParentCodeObjImplModifier,
     CodeCallableCodeObjImplModifier,
@@ -36,7 +38,13 @@ from setta.types.generated.impl_modifiers import (
 )
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 
-# Base Code Object Core Classes
+# ============== Base Code Object Core Classes ==============
+
+
+class BaseCodeObjCore(BaseCodeObjCore):
+    type: Any
+    sharedModifier: BaseCodeObjImplModifier
+    unsharedKeys: list[BaseCodeObjImplFields] = Field(default_factory=list)
 
 
 class BaseParamCodeObjCore(BaseCodeObjCore):
@@ -45,7 +53,7 @@ class BaseParamCodeObjCore(BaseCodeObjCore):
     unsharedKeys: list[BaseParamCodeObjImplFields] = Field(default_factory=list)
 
 
-class BaseChildlessCodeObjCore(BaseCodeObjCore):
+class BaseChildlessCodeObjCore(BaseParamCodeObjCore):
     type: Any
     sharedModifier: BaseChildlessCodeObjImplModifier
     unsharedKeys: list[BaseChildlessCodeObjImplFields] = Field(default_factory=list)
@@ -57,7 +65,7 @@ class BaseParentCodeObjCore(BaseCodeObjCore):
     unsharedKeys: list[BaseParentCodeObjImplFields] = Field(default_factory=list)
 
 
-# Concrete Code Object Core Classes
+# ============== Concrete Code Object Core Classes ==============
 
 
 class CodeCallableCodeObjCore(BaseParentCodeObjCore):

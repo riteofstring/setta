@@ -10,6 +10,7 @@ from setta.types.generated.impl_field_literals import (
     BaseCodeSectionImplFields,
     BaseDictSectionImplFields,
     BaseParentSectionImplFields,
+    BaseSectionImplFields,
     BaseSectionWithParamsImplFields,
     BrowserSectionImplFields,
     CallableSectionImplFields,
@@ -35,6 +36,7 @@ from setta.types.generated.impl_modifiers import (
     BaseCodeSectionImplModifier,
     BaseDictSectionImplModifier,
     BaseParentSectionImplModifier,
+    BaseSectionImplModifier,
     BaseSectionWithParamsImplModifier,
     BrowserSectionImplModifier,
     CallableSectionImplModifier,
@@ -58,7 +60,13 @@ from setta.types.generated.type_to_modifier import create_modifier_for_section_t
 from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import SectionType
 
-# Base Section Core Classes
+# ============== Base Section Core Classes ==============
+
+
+class BaseSectionCore(BaseSectionCore):
+    type: Any
+    sharedModifier: BaseSectionImplModifier
+    unsharedKeys: list[BaseSectionImplFields] = Field(default_factory=list)
 
 
 class BaseSectionWithParamsSectionCore(BaseSectionCore):
@@ -91,13 +99,13 @@ class BaseParentSectionCore(BaseSectionCore):
     unsharedKeys: list[BaseParentSectionImplFields] = Field(default_factory=list)
 
 
-class BaseDictSectionCore(BaseSectionCore):
+class BaseDictSectionCore(BaseSectionWithParamsSectionCore):
     type: Any
     sharedModifier: BaseDictSectionImplModifier
     unsharedKeys: list[BaseDictSectionImplFields] = Field(default_factory=list)
 
 
-# Concrete Section Core Classes
+# ============== Concrete Section Core Classes ==============
 
 
 class BrowserSectionCore(BaseSectionCore):
