@@ -17,8 +17,10 @@ from typing import (
     get_origin,
 )
 
-from pydantic import BaseModel
 import setta.types.code_obj_impls
+import setta.types.section_impls
+from pydantic import BaseModel
+from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
@@ -182,18 +184,7 @@ class {name}Modifier({parent_class}):
     return code
 
 
-def generate_modifiers(output_file):
-    import setta.types.section_impls
-    import setta.types.code_obj_impls
-
-    classes = find_sub_classes(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-    )
-    classes += find_sub_classes(
-        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
-    )
-
+def generate_modifiers(output_file, classes):
     code = """
 from typing import TypedDict, Literal, Any, NotRequired
 from setta.types.section_impls import (
@@ -229,25 +220,16 @@ from setta.types.code_obj_impls import (
     output_file.write_text(code)
 
 
-def generate_cores(output_file):
-    import setta.types.section_impls
-    import setta.types.code_obj_impls
-
-    classes = find_sub_classes(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-    )
-    classes += find_sub_classes(
-        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
-    )
-
+def generate_cores(output_file, classes):
     code = """
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string  
+from setta.types.section_impls import SectionType
+from setta.types.code_obj_impls import CodeObjType
 """
 
     modifier_names = []
@@ -284,9 +266,16 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
             )
             modifier_name = get_name_without_impl(c.__name__) + "Modifier"
             modifier_names.append(modifier_name)
+            type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+            if c.model_fields["type"].default != PydanticUndefined:
+                default_val = c.model_fields["type"].default
+                type_attribute += (
+                    f" = {default_val.__class__.__name__}.{default_val.value}"
+                )
 
             code += f"""
 class {class_name}({parent_class_names}):
+    type: {type_attribute}
     sharedModifier: {modifier_name} # type: ignore
 
 """
@@ -303,8 +292,16 @@ from setta.types.generated.modifiers import {", ".join(modifier_names)}
 
 
 def main(output_folder):
-    generate_modifiers(output_folder / "modifiers.py")
-    generate_cores(output_folder / "cores.py")
+    classes = find_sub_classes(
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+    )
+    classes += find_sub_classes(
+        setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
+    )
+
+    generate_modifiers(output_folder / "modifiers.py", classes)
+    generate_cores(output_folder / "cores.py", classes)
 
 
 if __name__ == "__main__":
