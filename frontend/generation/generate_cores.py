@@ -43,6 +43,40 @@ DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
 }
 
 
+def generate_base_core_class(
+    impl_class: type[BaseModel],
+    core_class_suffix: str,
+    modifier_suffix: str,
+) -> str:
+    """Generate a base Core class definition."""
+
+    # Get the base type name (e.g., "BaseSectionImpl" -> "BaseSection")
+    base_type_name = impl_class.__name__[:-4]  # Remove "Impl"
+
+    # Avoid double "Section" or "CodeObj" in the name
+    if core_class_suffix == "SectionCore" and base_type_name.endswith("Section"):
+        # Don't add "Section" again
+        core_class_name = base_type_name + "Core"
+    elif core_class_suffix == "CodeObjCore" and base_type_name.endswith("CodeObj"):
+        # Don't add "CodeObj" again
+        core_class_name = base_type_name + "Core"
+    else:
+        core_class_name = base_type_name + core_class_suffix
+
+    # Get the field literal type name
+    field_literal_type = f"{impl_class.__name__}Fields"
+
+    # Generate the class definition
+    class_def = f"""
+class {core_class_name}(Base{core_class_suffix}):
+    type: Any
+    sharedModifier: {base_type_name}{modifier_suffix}
+    unsharedKeys: list[{field_literal_type}] = Field(default_factory=list)
+"""
+
+    return class_def
+
+
 def generate_core_class(
     type_name: str,
     impl_class: type[BaseModel],
@@ -51,6 +85,7 @@ def generate_core_class(
     default_keys: Set[str],
     enum_prefix: str,
     modifier_creation_fn_name: str,
+    root_base_class: type[BaseModel],
 ) -> str:
     """Generate a single Core class definition."""
 
@@ -66,9 +101,30 @@ def generate_core_class(
     # Get the field literal type name
     field_literal_type = f"{impl_class.__name__}Fields"
 
+    # Determine the parent core class
+    parent_impl = impl_class.__bases__[
+        0
+    ]  # Get first parent (handles multiple inheritance)
+    if parent_impl == root_base_class:
+        # Direct child of BaseSectionImpl/BaseCodeObjImpl
+        parent_core_class = f"Base{core_class_suffix}"
+    else:
+        # Child of another base class
+        parent_base_name = parent_impl.__name__[:-4]  # Remove "Impl"
+
+        # Handle the same double naming issue as in generate_base_core_class
+        if core_class_suffix == "SectionCore" and parent_base_name.endswith("Section"):
+            parent_core_class = parent_base_name + "Core"
+        elif core_class_suffix == "CodeObjCore" and parent_base_name.endswith(
+            "CodeObj"
+        ):
+            parent_core_class = parent_base_name + "Core"
+        else:
+            parent_core_class = parent_base_name + core_class_suffix
+
     # Generate the class definition
     class_def = f"""
-class {type_name}{core_class_suffix}(Base{core_class_suffix}):
+class {type_name}{core_class_suffix}({parent_core_class}):
     type: Literal[{enum_prefix}.{type_name}] = {enum_prefix}.{type_name}
     sharedModifier: {type_name}{modifier_suffix} = Field(default_factory=lambda: {modifier_creation_fn_name}({enum_prefix}.{type_name}))
     unsharedKeys: list[{field_literal_type}] = Field(default_factory={default_factory})
@@ -80,6 +136,15 @@ class {type_name}{core_class_suffix}(Base{core_class_suffix}):
 def generate_section_cores() -> str:
     """Generate all SectionCore classes."""
     import setta.types.section_impls
+
+    # Get all base section impl classes
+    base_classes = find_sub_classes(
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+        "type",
+        True,  # Base classes
+        False,
+    )
 
     # Get all concrete section impl classes
     concrete_classes = find_sub_classes(
@@ -93,18 +158,27 @@ def generate_section_cores() -> str:
     # Sort classes by their type value for consistent output
     concrete_classes.sort(key=lambda cls: cls.model_fields["type"].default.value)
 
-    # Generate modifier imports list
+    # Generate modifier imports list for all classes
     modifier_imports = []
     field_literal_imports = []
+
+    # Add base class imports
+    for cls in base_classes:
+        base_name = cls.__name__[:-4]  # Remove "Impl"
+        modifier_imports.append(f"    {base_name}ImplModifier,")
+        field_literal_imports.append(f"    {cls.__name__}Fields,")
+
+    # Add concrete class imports
     for cls in concrete_classes:
         section_type = cls.model_fields["type"].default.value
         modifier_imports.append(f"    {section_type}SectionImplModifier,")
         field_literal_imports.append(f"    {cls.__name__}Fields,")
+
     modifier_imports_str = "\n".join(modifier_imports)
     field_literal_imports_str = "\n".join(field_literal_imports)
 
     # Generate imports
-    imports = f"""from typing import Literal
+    imports = f"""from typing import Literal, Any
 from pydantic import Field
 
 from setta.types.section_core import BaseSectionCore
@@ -118,8 +192,18 @@ from setta.types.generated.impl_field_literals import (
 {field_literal_imports_str}
 )"""
 
-    # Generate class definitions
-    class_definitions = []
+    # Generate base class definitions
+    base_class_definitions = []
+    for cls in base_classes:
+        class_def = generate_base_core_class(
+            cls,
+            "SectionCore",
+            "ImplModifier",
+        )
+        base_class_definitions.append(class_def)
+
+    # Generate concrete class definitions
+    concrete_class_definitions = []
     for cls in concrete_classes:
         section_type = cls.model_fields["type"].default.value
         default_keys = DEFAULT_SECTION_UNSHARED_KEYS[section_type]
@@ -131,8 +215,9 @@ from setta.types.generated.impl_field_literals import (
             default_keys,
             "SectionType",
             "create_modifier_for_section_type",
+            setta.types.section_impls.BaseSectionImpl,
         )
-        class_definitions.append(class_def)
+        concrete_class_definitions.append(class_def)
 
     # Combine all parts
     header = """# Auto-generated SectionCore classes - DO NOT EDIT MANUALLY
@@ -140,14 +225,24 @@ from setta.types.generated.impl_field_literals import (
 
 """
 
-    classes_str = "\n".join(class_definitions)
+    base_classes_str = "\n".join(base_class_definitions)
+    concrete_classes_str = "\n".join(concrete_class_definitions)
 
-    return f"{header}{imports}\n\n{classes_str}"
+    return f"{header}{imports}\n\n# Base Section Core Classes\n{base_classes_str}\n\n# Concrete Section Core Classes\n{concrete_classes_str}"
 
 
 def generate_code_obj_cores() -> str:
     """Generate all CodeObjCore classes."""
     import setta.types.code_obj_impls
+
+    # Get all base code obj impl classes
+    base_classes = find_sub_classes(
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
+        "type",
+        True,  # Base classes
+        False,
+    )
 
     # Get all concrete code obj impl classes
     concrete_classes = find_sub_classes(
@@ -161,18 +256,27 @@ def generate_code_obj_cores() -> str:
     # Sort classes by their type value for consistent output
     concrete_classes.sort(key=lambda cls: cls.model_fields["type"].default.value)
 
-    # Generate modifier imports list
+    # Generate modifier imports list for all classes
     modifier_imports = []
     field_literal_imports = []
+
+    # Add base class imports
+    for cls in base_classes:
+        base_name = cls.__name__[:-4]  # Remove "Impl"
+        modifier_imports.append(f"    {base_name}ImplModifier,")
+        field_literal_imports.append(f"    {cls.__name__}Fields,")
+
+    # Add concrete class imports
     for cls in concrete_classes:
         code_obj_type = cls.model_fields["type"].default.value
         modifier_imports.append(f"    {code_obj_type}CodeObjImplModifier,")
         field_literal_imports.append(f"    {cls.__name__}Fields,")
+
     modifier_imports_str = "\n".join(modifier_imports)
     field_literal_imports_str = "\n".join(field_literal_imports)
 
     # Generate imports
-    imports = f"""from typing import Literal
+    imports = f"""from typing import Literal, Any
 from pydantic import Field
 
 from setta.types.code_obj_core import BaseCodeObjCore
@@ -185,8 +289,18 @@ from setta.types.generated.impl_field_literals import (
 {field_literal_imports_str}
 )"""
 
-    # Generate class definitions
-    class_definitions = []
+    # Generate base class definitions
+    base_class_definitions = []
+    for cls in base_classes:
+        class_def = generate_base_core_class(
+            cls,
+            "CodeObjCore",
+            "ImplModifier",
+        )
+        base_class_definitions.append(class_def)
+
+    # Generate concrete class definitions
+    concrete_class_definitions = []
     for cls in concrete_classes:
         code_obj_type = cls.model_fields["type"].default.value
         default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[code_obj_type]
@@ -198,8 +312,9 @@ from setta.types.generated.impl_field_literals import (
             default_keys,
             "CodeObjType",
             "create_modifier_for_code_obj_type",
+            setta.types.code_obj_impls.BaseCodeObjImpl,
         )
-        class_definitions.append(class_def)
+        concrete_class_definitions.append(class_def)
 
     # Combine all parts
     header = """# Auto-generated CodeObjCore classes - DO NOT EDIT MANUALLY
@@ -207,9 +322,10 @@ from setta.types.generated.impl_field_literals import (
 
 """
 
-    classes_str = "\n".join(class_definitions)
+    base_classes_str = "\n".join(base_class_definitions)
+    concrete_classes_str = "\n".join(concrete_class_definitions)
 
-    return f"{header}{imports}\n\n{classes_str}"
+    return f"{header}{imports}\n\n# Base Code Object Core Classes\n{base_classes_str}\n\n# Concrete Code Object Core Classes\n{concrete_classes_str}"
 
 
 def main(output_folder: Path):

@@ -33,6 +33,9 @@ from setta.types.generated.impl_layerings import (
     TextParamCodeObjImplLayering,
 )
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
+from setta.types.generated.section_cores import (
+    BaseDictSectionCore,
+)
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
@@ -85,6 +88,8 @@ def load_json_sources_into_data_structures(
             )
             if (
                 not isinstance(impl, BaseDictSectionImpl)
+                or not isinstance(layering, BaseDictSectionImplLayering)
+                or not isinstance(section, BaseDictSectionCore)
                 or not impl.isJsonSource
                 or (
                     section_impl_layering_ids
