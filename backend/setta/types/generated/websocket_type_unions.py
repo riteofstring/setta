@@ -1,3 +1,6 @@
+# Auto-generated WebSocket type unions - DO NOT EDIT MANUALLY
+# Generated from WebSocket message types
+
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter

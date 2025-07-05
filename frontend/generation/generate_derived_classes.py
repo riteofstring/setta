@@ -360,10 +360,9 @@ class {name}Modifier({parent_class}):
 class CoreGenerator:
     """Generates Core classes."""
 
-    def __init__(self, enum_type: str, core_suffix: str, creation_fn: str):
+    def __init__(self, enum_type: str, core_suffix: str):
         self.enum_type = enum_type
         self.core_suffix = core_suffix
-        self.creation_fn = creation_fn
 
     def generate(
         self,
@@ -477,7 +476,7 @@ class {core_class_name}({parent_core_class_str}):
             return f"""
 class {core_class_name}({parent_core_class_str}):
     type: Literal[{self.enum_type}.{type_value}] = {self.enum_type}.{type_value}
-    sharedModifier: {modifier_type} = Field(default_factory=lambda: {self.creation_fn}({self.enum_type}.{type_value}))
+    sharedModifier: {modifier_type} = Field(default_factory=lambda: {modifier_type}(type={self.enum_type}.{type_value}))
     unsharedKeys: list[{field_literal_type}] = Field(default_factory={default_factory})
 """
 
@@ -658,7 +657,6 @@ class DerivedClassGenerator:
         default_unshared_keys: Dict[str, Set[str]],
         enum_type: str,
         core_suffix: str,
-        creation_fn: str,
     ) -> Dict[str, Any]:
         """Generate all derived classes for a module."""
 
@@ -666,7 +664,7 @@ class DerivedClassGenerator:
         all_classes = [base_class] + base_classes + concrete_classes
 
         # Build generators
-        core_gen = CoreGenerator(enum_type, core_suffix, creation_fn)
+        core_gen = CoreGenerator(enum_type, core_suffix)
         layering_gen = LayeringGenerator(enum_type)
         user_default_gen = UserDefaultGenerator(source_file)
 
@@ -779,7 +777,6 @@ class DerivedClassGenerator:
             DEFAULT_SECTION_UNSHARED_KEYS,
             "SectionType",
             "SectionCore",
-            "create_modifier_for_section_type",
         )
 
         # Generate code objs
@@ -793,7 +790,6 @@ class DerivedClassGenerator:
             DEFAULT_CODE_OBJ_UNSHARED_KEYS,
             "CodeObjType",
             "CodeObjCore",
-            "create_modifier_for_code_obj_type",
         )
 
         # Write modifiers
@@ -828,7 +824,6 @@ from pydantic import BaseModel, Field
 from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.section_impls import SectionType
-from setta.types.generated.type_to_modifier import create_modifier_for_section_type
 from setta.types.generated.impl_modifiers import (
 {self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_section_classes())))}
 )
@@ -854,7 +849,6 @@ from pydantic import BaseModel, Field
 from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 from setta.types.generated.impl_modifiers import (
 {self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_code_obj_classes())))}
 )

@@ -8,6 +8,7 @@ The generators have dependencies:
 3. generate_app_utilities.py depends on generated user defaults from step 1
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -24,11 +25,20 @@ def run_generator(script_name: str, output_folder: Path) -> bool:
     print(f"{'=' * 60}\n")
 
     try:
+        # Add the parent directory to Python path to ensure imports work
+        parent_dir = str(Path(__file__).parent.parent)
+        env = os.environ.copy()
+        if "PYTHONPATH" in env:
+            env["PYTHONPATH"] = f"{parent_dir}{os.pathsep}{env['PYTHONPATH']}"
+        else:
+            env["PYTHONPATH"] = parent_dir
+
         result = subprocess.run(
             [sys.executable, str(script_path), str(output_folder)],
             check=True,
             capture_output=True,
             text=True,
+            env=env,
         )
         print(result.stdout)
         if result.stderr:
@@ -48,6 +58,12 @@ def main(output_folder: Path):
 
     # Ensure output folder exists
     output_folder.mkdir(parents=True, exist_ok=True)
+
+    # Create __init__.py if it doesn't exist
+    init_file = output_folder / "__init__.py"
+    if not init_file.exists():
+        init_file.write_text('"""Auto-generated type system modules."""\n')
+        print(f"Created {init_file}")
 
     # Run generators in order
     generators = [
@@ -99,5 +115,6 @@ if __name__ == "__main__":
         for file in output_folder.glob("*.py"):
             if file.name != "__init__.py":  # Preserve __init__.py
                 file.unlink()
+        print("Cleaned generated files (preserved __init__.py)")
 
     main(output_folder)

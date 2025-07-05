@@ -5,7 +5,8 @@ Application utilities generator.
 This script generates:
 1. SettingsState class - Main settings state with all user defaults
 2. Creation functions - Functions to create impl instances with user defaults
-3. Additional application-specific utilities as needed
+3. WebSocket message unions - Union types for WebSocket messages
+4. Additional application-specific utilities as needed
 """
 
 from pathlib import Path
@@ -252,6 +253,96 @@ from setta.types.generated.user_defaults import (
 """
 
 
+# ============== WebSocket Union Generator ==============
+
+
+class WebSocketUnionGenerator:
+    """Generates WebSocket message unions."""
+
+    def generate(self) -> str:
+        """Generate WebSocket message unions by inspecting the websocket module."""
+        from setta.types.websocket import (
+            WebsocketMsgTypeForBackend,
+            WebsocketMsgTypeForFrontend,
+        )
+
+        code = """# Auto-generated WebSocket type unions - DO NOT EDIT MANUALLY
+# Generated from WebSocket message types
+
+from typing import Annotated, Union
+from pydantic import Field, TypeAdapter
+
+"""
+
+        # Generate for backend messages
+        backend_names = []
+        for msg_type in WebsocketMsgTypeForBackend:
+            assert msg_type.name == msg_type.value
+            backend_names.append(f"WebsocketMsg{msg_type.name}")
+
+        code += f"from setta.types.websocket import {', '.join(backend_names)}\n"
+
+        # Generate for frontend messages
+        frontend_names = []
+        for msg_type in WebsocketMsgTypeForFrontend:
+            assert msg_type.name == msg_type.value
+            frontend_names.append(f"WebsocketMsg{msg_type.name}")
+
+        code += f"from setta.types.websocket import {', '.join(frontend_names)}\n\n"
+
+        # Backend union
+        code += f"""
+WebsocketMsgForBackendUnion = Union[{", ".join(backend_names)}]
+
+WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
+
+WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
+
+WebsocketMsgForBackendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForBackend)}])
+"""
+
+        # Frontend union
+        code += f"""
+
+WebsocketMsgForFrontendUnion = Union[{", ".join(frontend_names)}]
+
+WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
+
+WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
+
+WebsocketMsgForFrontendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForFrontend)}])
+"""
+
+        return code
+
+
+# ============== Additional Utilities ==============
+
+
+class UtilityCodeGenerator:
+    """Generates additional utility code as needed."""
+
+    def generate_format_utils(self) -> str:
+        """Generate formatting utilities."""
+        return """import os
+import subprocess
+
+
+def format_generated_code(output_file):
+    # Suppress Node warnings
+    env = os.environ.copy()
+    env["NODE_NO_WARNINGS"] = "1"
+
+    try:
+        subprocess.run(
+            ["npx", "prettier", str(output_file), "--write"], check=True, env=env
+        )
+        print(f"Formatted {output_file} with Prettier")
+    except subprocess.CalledProcessError:
+        print("Warning: Prettier formatting failed.")
+"""
+
+
 # ============== Main Generator ==============
 
 
@@ -262,6 +353,8 @@ class AppUtilitiesGenerator:
         self.output_folder = output_folder
         self.settings_gen = SettingsStateGenerator()
         self.creation_gen = CreationFunctionsGenerator()
+        self.websocket_gen = WebSocketUnionGenerator()
+        self.utility_gen = UtilityCodeGenerator()
 
     def write_output(self, content: str, filename: str, description: str):
         """Write formatted content to file."""
@@ -281,6 +374,18 @@ class AppUtilitiesGenerator:
         print("Generating creation functions...")
         creation_code = self.creation_gen.generate()
         self.write_output(creation_code, "creation_functions.py", "creation functions")
+
+        # Generate WebSocket unions (must be after other generated files exist)
+        print("Generating WebSocket unions...")
+        websocket_code = self.websocket_gen.generate()
+        self.write_output(
+            websocket_code, "websocket_type_unions.py", "WebSocket unions"
+        )
+
+        # Generate format utils
+        print("Generating format utilities...")
+        format_utils_code = self.utility_gen.generate_format_utils()
+        self.write_output(format_utils_code, "utils.py", "format utilities")
 
         print("Application utilities generation complete!")
 

@@ -6,7 +6,6 @@ This script generates:
 1. Union types for all generated classes
 2. Type conversion functions (type_to_core, type_to_modifier)
 3. Helper functions with overloads (get_effective_impl, set_effective_impl_value)
-4. WebSocket message unions
 """
 
 import inspect
@@ -129,6 +128,11 @@ from pydantic import Field, TypeAdapter
             union_name = f"{class_transformer(base.__name__)}Union"
             child_names = [class_transformer(c.__name__) for c in child_classes]
 
+            if not child_names:
+                # Generate a comment for empty unions
+                code += f"# {union_name} is empty - {base.__name__} has no concrete implementations\n\n"
+                continue
+
             # Union type
             code += f"{union_name} = Union[{', '.join(child_names)}]\n\n"
 
@@ -150,66 +154,16 @@ from pydantic import Field, TypeAdapter
         # Add type predicates if requested
         if add_type_predicates:
             most_base_type = f"{class_transformer(base_class.__name__)}Union"
-            for base in base_class_to_children.keys():
+            for base, child_classes in base_class_to_children.items():
+                # Skip empty unions
+                if not child_classes:
+                    continue
                 transformed_name = class_transformer(base.__name__)
                 set_name = f"{transformed_name}TypeSet"
                 code += f"""
 def is{transformed_name}(x: {most_base_type}) -> TypeGuard[{transformed_name}]:
     return x["type"] in {set_name}
 
-"""
-
-        return code
-
-    def generate_websocket_unions(self) -> str:
-        """Generate WebSocket message unions."""
-        from setta.types.websocket import (
-            WebsocketMsgTypeForBackend,
-            WebsocketMsgTypeForFrontend,
-        )
-
-        code = """from typing import Annotated, Union
-from pydantic import Field, TypeAdapter
-
-"""
-
-        # Generate for backend messages
-        backend_names = []
-        for msg_type in WebsocketMsgTypeForBackend:
-            assert msg_type.name == msg_type.value
-            backend_names.append(f"WebsocketMsg{msg_type.name}")
-
-        code += f"from setta.types.websocket import {', '.join(backend_names)}\n"
-
-        # Generate for frontend messages
-        frontend_names = []
-        for msg_type in WebsocketMsgTypeForFrontend:
-            assert msg_type.name == msg_type.value
-            frontend_names.append(f"WebsocketMsg{msg_type.name}")
-
-        code += f"from setta.types.websocket import {', '.join(frontend_names)}\n\n"
-
-        # Backend union
-        code += f"""
-WebsocketMsgForBackendUnion = Union[{", ".join(backend_names)}]
-
-WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
-
-WebsocketMsgForBackendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForBackend)}])
-"""
-
-        # Frontend union
-        code += f"""
-
-WebsocketMsgForFrontendUnion = Union[{", ".join(frontend_names)}]
-
-WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
-
-WebsocketMsgForFrontendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForFrontend)}])
 """
 
         return code
@@ -377,10 +331,12 @@ from setta.types.code_obj_impls import CodeObjType
         code_obj_core_imports = [f"    {tv}CodeObjCore," for tv in code_obj_type_values]
 
         imports += f"""from setta.types.generated.section_cores import (
+    BaseSectionCore,
 {chr(10).join(section_core_imports)}
 )
 
 from setta.types.generated.code_obj_cores import (
+    BaseCodeObjCore,
 {chr(10).join(code_obj_core_imports)}
 )
 
@@ -404,6 +360,8 @@ from setta.types.generated.impl_field_literals import (
 
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
+from setta.types.generated.section_cores import BaseSectionCore
+from setta.types.generated.code_obj_cores import BaseCodeObjCore
 """
 
         # Generate section overloads
@@ -679,11 +637,13 @@ from setta.types.generated.section_core_unions import (
     BaseSectionCoreUnion,
 {section_core_imports}
 )
+from setta.types.generated.section_cores import BaseSectionCore
 
 from setta.types.generated.code_obj_core_unions import (
     BaseCodeObjCoreUnion,
 {code_obj_core_imports}
 )
+from setta.types.generated.code_obj_cores import BaseCodeObjCore
 
 from setta.types.generated.impl_modifier_unions import (
     AllImplModifierUnion,
@@ -998,7 +958,10 @@ AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscrimina
             **base_class_to_children_code_obj,
         }
 
-        for base_class in all_base_classes.keys():
+        for base_class, child_classes in all_base_classes.items():
+            # Skip empty unions
+            if not child_classes:
+                continue
             transformed_name = f"{base_class.__name__}Modifier"
             set_name = f"{transformed_name}TypeSet"
             modifier_union_code += f"""
@@ -1015,9 +978,17 @@ def is{transformed_name}(x: AllImplModifierUnion) -> TypeGuard[{transformed_name
         print("Generating layering unions...")
         import setta.types.generated.impl_layerings
 
+        # Get the base classes from the generated module
+        base_section_impl_layering = getattr(
+            setta.types.generated.impl_layerings, "BaseSectionImplLayering"
+        )
+        base_code_obj_impl_layering = getattr(
+            setta.types.generated.impl_layerings, "BaseCodeObjImplLayering"
+        )
+
         section_layering_union_code = self.union_gen.generate_unions(
             setta.types.generated.impl_layerings,
-            setta.types.generated.impl_layerings.BaseSectionImplLayering,
+            base_section_impl_layering,
             "type",
             setta.types.generated.impl_layerings,
             lambda x: x,
@@ -1025,7 +996,7 @@ def is{transformed_name}(x: AllImplModifierUnion) -> TypeGuard[{transformed_name
 
         code_obj_layering_union_code = self.union_gen.generate_unions(
             setta.types.generated.impl_layerings,
-            setta.types.generated.impl_layerings.BaseCodeObjImplLayering,
+            base_code_obj_impl_layering,
             "type",
             setta.types.generated.impl_layerings,
             lambda x: x,
@@ -1034,13 +1005,6 @@ def is{transformed_name}(x: AllImplModifierUnion) -> TypeGuard[{transformed_name
         layering_union_code = section_layering_union_code + code_obj_layering_union_code
         self.write_output(
             layering_union_code, "impl_layering_unions.py", "layering unions"
-        )
-
-        # Generate WebSocket unions
-        print("Generating WebSocket unions...")
-        websocket_union_code = self.union_gen.generate_websocket_unions()
-        self.write_output(
-            websocket_union_code, "websocket_type_unions.py", "WebSocket unions"
         )
 
         # Generate type conversion functions
