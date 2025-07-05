@@ -3,8 +3,9 @@
 
 from typing import Any, Literal
 
-from pydantic import Field
-from setta.types.code_obj_core import BaseCodeObjCore
+from pydantic import BaseModel, Field
+
+from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_field_literals import (
     BaseChildlessCodeObjImplFields,
@@ -37,11 +38,17 @@ from setta.types.generated.impl_modifiers import (
     TextParamCodeObjImplModifier,
 )
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
+from setta.utils.generate_memorable_string import generate_memorable_string
 
 # ============== Base Code Object Core Classes ==============
 
 
-class BaseCodeObjCore(BaseCodeObjCore):
+class BaseCodeObjCore(BaseModel):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    impl: str
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str = ""
     type: Any
     sharedModifier: BaseCodeObjImplModifier
     unsharedKeys: list[BaseCodeObjImplFields] = Field(default_factory=list)
@@ -112,7 +119,7 @@ class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
 
-class NestedParamCodeObjCore(BaseParamCodeObjCore):
+class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     sharedModifier: NestedParamCodeObjImplModifier = Field(
         default_factory=lambda: create_modifier_for_code_obj_type(

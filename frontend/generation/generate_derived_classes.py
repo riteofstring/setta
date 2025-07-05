@@ -35,7 +35,6 @@ from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-
 # ============== Configuration ==============
 
 # Exclusions for modifiers
@@ -390,33 +389,76 @@ class CoreGenerator:
         else:
             core_class_name = type_value + self.core_suffix
 
-        # Determine parent core class
+        # Determine parent core classes (handle multiple inheritance)
+        parent_core_classes = []
+
         if impl_class == base_class:
-            parent_core_class = f"Base{self.core_suffix}"
+            # The root base class inherits from BaseModel
+            parent_core_classes = ["BaseModel"]
         else:
-            parent_impl = impl_class.__bases__[0]
-            if parent_impl == base_class:
-                parent_core_class = f"Base{self.core_suffix}"
-            else:
-                parent_base_name = parent_impl.__name__[:-4]
-                if self.core_suffix == "SectionCore" and parent_base_name.endswith(
-                    "Section"
-                ):
-                    parent_core_class = parent_base_name + "Core"
-                elif self.core_suffix == "CodeObjCore" and parent_base_name.endswith(
-                    "CodeObj"
-                ):
-                    parent_core_class = parent_base_name + "Core"
-                else:
-                    parent_core_class = parent_base_name + self.core_suffix
+            # Get all parent classes that are Pydantic models
+            for parent_impl in impl_class.__bases__:
+                if hasattr(parent_impl, "model_fields"):
+                    if parent_impl == base_class:
+                        # Parent is the root base class
+                        base_type_name = parent_impl.__name__[:-4]  # Remove "Impl"
+                        if (
+                            self.core_suffix == "SectionCore"
+                            and base_type_name.endswith("Section")
+                        ):
+                            parent_core_classes.append(base_type_name + "Core")
+                        elif (
+                            self.core_suffix == "CodeObjCore"
+                            and base_type_name.endswith("CodeObj")
+                        ):
+                            parent_core_classes.append(base_type_name + "Core")
+                        else:
+                            parent_core_classes.append(
+                                base_type_name + self.core_suffix
+                            )
+                    else:
+                        parent_base_name = parent_impl.__name__[:-4]  # Remove "Impl"
+                        if (
+                            self.core_suffix == "SectionCore"
+                            and parent_base_name.endswith("Section")
+                        ):
+                            parent_core_classes.append(parent_base_name + "Core")
+                        elif (
+                            self.core_suffix == "CodeObjCore"
+                            and parent_base_name.endswith("CodeObj")
+                        ):
+                            parent_core_classes.append(parent_base_name + "Core")
+                        else:
+                            parent_core_classes.append(
+                                parent_base_name + self.core_suffix
+                            )
+
+        parent_core_class_str = (
+            ", ".join(parent_core_classes) if parent_core_classes else "BaseModel"
+        )
 
         # Generate fields
         field_literal_type = f"{impl_class.__name__}Fields"
 
         if is_base_class:
             modifier_type = impl_class.__name__[:-4] + "ImplModifier"
-            return f"""
-class {core_class_name}({parent_core_class}):
+
+            # Add extra fields for root base class
+            if impl_class == base_class:
+                return f"""
+class {core_class_name}({parent_core_class_str}):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    impl: str
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str = ""
+    type: Any
+    sharedModifier: {modifier_type}
+    unsharedKeys: list[{field_literal_type}] = Field(default_factory=list)
+"""
+            else:
+                return f"""
+class {core_class_name}({parent_core_class_str}):
     type: Any
     sharedModifier: {modifier_type}
     unsharedKeys: list[{field_literal_type}] = Field(default_factory=list)
@@ -433,7 +475,7 @@ class {core_class_name}({parent_core_class}):
                 default_factory = "list"
 
             return f"""
-class {core_class_name}({parent_core_class}):
+class {core_class_name}({parent_core_class_str}):
     type: Literal[{self.enum_type}.{type_value}] = {self.enum_type}.{type_value}
     sharedModifier: {modifier_type} = Field(default_factory=lambda: {self.creation_fn}({self.enum_type}.{type_value}))
     unsharedKeys: list[{field_literal_type}] = Field(default_factory={default_factory})
@@ -461,23 +503,26 @@ class LayeringGenerator:
         )  # Remove "Impl", add "ImplLayering"
         modifier_name = impl_class_name + "Modifier"
 
-        # Determine parent class
+        # Determine parent classes (handle multiple inheritance)
+        parent_classes = []
+
         if impl_class == base_class:
-            parent_class = "BaseImplLayering"
+            # Root base class inherits from BaseImplLayering
+            parent_classes = ["BaseImplLayering"]
         else:
-            parent_classes = []
             for parent in impl_class.__bases__:
                 if hasattr(parent, "model_fields"):
                     parent_layering_name = parent.__name__[:-4] + "ImplLayering"
                     parent_classes.append(parent_layering_name)
-            parent_class = (
-                ", ".join(parent_classes) if parent_classes else "BaseImplLayering"
-            )
+
+        parent_class = (
+            ", ".join(parent_classes) if parent_classes else "BaseImplLayering"
+        )
 
         if is_base_class:
             return f"""
 class {layering_name}({parent_class}):
-    \"\"\"Base class for {layering_name.replace("BaseImplLayering", "").replace("Base", "")} types.\"\"\"
+    \"\"\"Base class for {layering_name.replace("ImplLayering", "").replace("Base", "")} layering types.\"\"\"
     type: Any
     modifier: {modifier_name}  # type: ignore[assignment]
 """
@@ -642,11 +687,11 @@ class DerivedClassGenerator:
             modifier = self.modifier_gen.generate(cls, base_class)
             results["modifiers"].append(modifier)
 
-            # Core
+            # Core - generate for all base classes including root
             core = core_gen.generate(cls, base_class, "", set(), True)
             results["cores"].append(core)
 
-            # Layering
+            # Layering - generate for all base classes including root
             layering = layering_gen.generate(cls, base_class, "", True)
             results["layerings"].append(layering)
 
@@ -716,8 +761,8 @@ class DerivedClassGenerator:
 
     def run(self):
         """Run the complete generation process."""
-        import setta.types.section_impls
         import setta.types.code_obj_impls
+        import setta.types.section_impls
 
         # Get source files
         section_file = Path(inspect.getfile(setta.types.section_impls))
@@ -778,13 +823,14 @@ from setta.types.code_obj_impls import (
 # Generated from section implementations
 
 from typing import Literal, Any
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from setta.types.section_core import BaseSectionCore
+from setta.database.utils import create_new_id
+from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.section_impls import SectionType
 from setta.types.generated.type_to_modifier import create_modifier_for_section_type
 from setta.types.generated.impl_modifiers import (
-{self._format_imports([f"{cls.__name__}Modifier" for cls in self._get_all_section_classes()])}
+{self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_section_classes())))}
 )
 from setta.types.generated.impl_field_literals import (
 {self._format_imports([f"{cls.__name__}Fields" for cls in self._get_all_section_classes()])}
@@ -803,13 +849,14 @@ from setta.types.generated.impl_field_literals import (
 # Generated from code obj implementations
 
 from typing import Literal, Any
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from setta.types.code_obj_core import BaseCodeObjCore
+from setta.database.utils import create_new_id
+from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.type_to_modifier import create_modifier_for_code_obj_type
 from setta.types.generated.impl_modifiers import (
-{self._format_imports([f"{cls.__name__}Modifier" for cls in self._get_all_code_obj_classes()])}
+{self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_code_obj_classes())))}
 )
 from setta.types.generated.impl_field_literals import (
 {self._format_imports([f"{cls.__name__}Fields" for cls in self._get_all_code_obj_classes()])}

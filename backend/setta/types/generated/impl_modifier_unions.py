@@ -165,7 +165,6 @@ BaseDictSectionImplModifierTypeAdapter = TypeAdapter(
 
 BaseDictSectionImplModifierTypeSet = set(["Dict", "GlobalVariables"])
 
-
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter

@@ -3,7 +3,9 @@
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field
+
+from setta.database.utils import create_new_id
 from setta.types.generated.impl_field_literals import (
     BaseArtifactSectionImplFields,
     BaseCanvasSectionImplFields,
@@ -57,13 +59,18 @@ from setta.types.generated.impl_modifiers import (
     TextBlockSectionImplModifier,
 )
 from setta.types.generated.type_to_modifier import create_modifier_for_section_type
-from setta.types.section_core import BaseSectionCore
 from setta.types.section_impls import SectionType
+from setta.utils.generate_memorable_string import generate_memorable_string
 
 # ============== Base Section Core Classes ==============
 
 
-class BaseSectionCore(BaseSectionCore):
+class BaseSectionCore(BaseModel):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    impl: str
+    implLayerings: list[str] = Field(default_factory=list)
+    defaultImplLayering: str = ""
     type: Any
     sharedModifier: BaseSectionImplModifier
     unsharedKeys: list[BaseSectionImplFields] = Field(default_factory=list)
@@ -126,7 +133,7 @@ class CallableSectionCore(BaseSectionWithParamsSectionCore):
     )
 
 
-class ChartSectionCore(BaseArtifactSectionCore):
+class ChartSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     type: Literal[SectionType.Chart] = SectionType.Chart
     sharedModifier: ChartSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Chart)
@@ -168,7 +175,7 @@ class DictRootSectionCore(BaseParentSectionCore):
     unsharedKeys: list[DictRootSectionImplFields] = Field(default_factory=list)
 
 
-class DrawSectionCore(BaseArtifactSectionCore):
+class DrawSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     type: Literal[SectionType.Draw] = SectionType.Draw
     sharedModifier: DrawSectionImplModifier = Field(
         default_factory=lambda: create_modifier_for_section_type(SectionType.Draw)

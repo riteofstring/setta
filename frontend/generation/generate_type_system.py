@@ -11,13 +11,12 @@ This script generates:
 
 import inspect
 from pathlib import Path
-from typing import Any, Dict, List, Set, Type, get_args
+from typing import Any, List, Type, get_args
 
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
-
 
 # ============== Common Utilities ==============
 
@@ -100,6 +99,7 @@ class UnionGenerator:
         module_to_import,
         class_transformer,
         add_type_predicates=False,
+        is_core=False,
     ) -> str:
         """Generate union types for a module's classes."""
         base_class_to_children = get_base_child_mapping(
@@ -113,7 +113,13 @@ from pydantic import Field, TypeAdapter
 
         # Add imports
         for base, child_classes in base_class_to_children.items():
-            code += f"from {module_to_import.__name__} import {class_transformer(base.__name__)}\n"
+            # For cores, we need to check if it's the root base class
+            if is_core and base.__name__ in ["BaseSectionCore", "BaseCodeObjCore"]:
+                # Root base core is in the same module as children
+                code += f"from {module_to_import.__name__} import {class_transformer(base.__name__)}\n"
+            else:
+                code += f"from {module_to_import.__name__} import {class_transformer(base.__name__)}\n"
+
             for child_class in child_classes:
                 code += f"from {module_to_import.__name__} import {class_transformer(child_class.__name__)}\n"
         code += "\n"
@@ -404,8 +410,8 @@ from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
         section_overloads = "\n# Overloads for section type to core conversion"
 
         # Import actual impl classes to introspect
-        import setta.types.section_impls
         import setta.types.code_obj_impls
+        import setta.types.section_impls
 
         for type_value, impl_name in zip(section_type_values, section_impl_names):
             core_name = type_value + "SectionCore"
@@ -871,8 +877,8 @@ class TypeSystemGenerator:
 
     def run(self):
         """Run the complete generation process."""
-        import setta.types.section_impls
         import setta.types.code_obj_impls
+        import setta.types.section_impls
 
         # Generate section impl unions
         print("Generating section type unions...")
@@ -903,14 +909,19 @@ class TypeSystemGenerator:
         # Generate section core unions (requires cores to be generated first)
         print("Generating section core unions...")
         import setta.types.generated.section_cores
-        import setta.types.section_core
+
+        # Get the base class from the generated module
+        base_section_core = getattr(
+            setta.types.generated.section_cores, "BaseSectionCore"
+        )
 
         section_core_union_code = self.union_gen.generate_unions(
             setta.types.generated.section_cores,
-            setta.types.section_core.BaseSectionCore,
+            base_section_core,
             "type",
             setta.types.generated.section_cores,
             lambda x: x,
+            is_core=True,
         )
         self.write_output(
             section_core_union_code, "section_core_unions.py", "section core unions"
@@ -918,15 +929,20 @@ class TypeSystemGenerator:
 
         # Generate code obj core unions
         print("Generating code obj core unions...")
-        import setta.types.code_obj_core
         import setta.types.generated.code_obj_cores
+
+        # Get the base class from the generated module
+        base_code_obj_core = getattr(
+            setta.types.generated.code_obj_cores, "BaseCodeObjCore"
+        )
 
         code_obj_core_union_code = self.union_gen.generate_unions(
             setta.types.generated.code_obj_cores,
-            setta.types.code_obj_core.BaseCodeObjCore,
+            base_code_obj_core,
             "type",
             setta.types.generated.code_obj_cores,
             lambda x: x,
+            is_core=True,
         )
         self.write_output(
             code_obj_core_union_code, "code_obj_core_unions.py", "code obj core unions"

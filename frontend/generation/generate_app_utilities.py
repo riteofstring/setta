@@ -16,7 +16,6 @@ from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-
 # ============== Common Utilities ==============
 
 
@@ -69,8 +68,8 @@ class SettingsStateGenerator:
 
     def generate(self) -> str:
         """Generate the SettingsState class."""
-        from setta.types.section_impls import SectionType
         from setta.types.code_obj_impls import CodeObjType
+        from setta.types.section_impls import SectionType
 
         # Build imports list
         imports = []
@@ -171,8 +170,8 @@ def create{class_name}(
 
     def generate(self) -> str:
         """Generate all creation functions."""
-        import setta.types.section_impls
         import setta.types.code_obj_impls
+        import setta.types.section_impls
 
         # Get all concrete classes
         section_classes = find_sub_classes(

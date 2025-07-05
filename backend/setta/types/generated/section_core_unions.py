@@ -69,3 +69,77 @@ BaseSectionCoreTypeSet = set(
         "TextBlock",
     ]
 )
+
+BaseSectionWithParamsSectionCoreUnion = Union[
+    CallableSectionCore, DictSectionCore, GlobalVariablesSectionCore
+]
+
+BaseSectionWithParamsSectionCoreUnionWithDiscriminator = Annotated[
+    BaseSectionWithParamsSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseSectionWithParamsSectionCoreTypeAdapter = TypeAdapter(
+    BaseSectionWithParamsSectionCoreUnionWithDiscriminator
+)
+
+BaseSectionWithParamsSectionCoreTypeSet = set(["Callable", "Dict", "GlobalVariables"])
+
+BaseArtifactSectionCoreUnion = Union[
+    ChartSectionCore, DrawSectionCore, ImageSectionCore
+]
+
+BaseArtifactSectionCoreUnionWithDiscriminator = Annotated[
+    BaseArtifactSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseArtifactSectionCoreTypeAdapter = TypeAdapter(
+    BaseArtifactSectionCoreUnionWithDiscriminator
+)
+
+BaseArtifactSectionCoreTypeSet = set(["Chart", "Draw", "Image"])
+
+BaseCanvasSectionCoreUnion = Union[ChartSectionCore, DrawSectionCore]
+
+BaseCanvasSectionCoreUnionWithDiscriminator = Annotated[
+    BaseCanvasSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseCanvasSectionCoreTypeAdapter = TypeAdapter(
+    BaseCanvasSectionCoreUnionWithDiscriminator
+)
+
+BaseCanvasSectionCoreTypeSet = set(["Chart", "Draw"])
+
+BaseCodeSectionCoreUnion = Union[CodeSectionCore, GenPythonCodeSectionCore]
+
+BaseCodeSectionCoreUnionWithDiscriminator = Annotated[
+    BaseCodeSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseCodeSectionCoreTypeAdapter = TypeAdapter(BaseCodeSectionCoreUnionWithDiscriminator)
+
+BaseCodeSectionCoreTypeSet = set(["Code", "GenPythonCode"])
+
+BaseParentSectionCoreUnion = Union[
+    DictRootSectionCore, GroupSectionCore, ListRootSectionCore
+]
+
+BaseParentSectionCoreUnionWithDiscriminator = Annotated[
+    BaseParentSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseParentSectionCoreTypeAdapter = TypeAdapter(
+    BaseParentSectionCoreUnionWithDiscriminator
+)
+
+BaseParentSectionCoreTypeSet = set(["DictRoot", "Group", "ListRoot"])
+
+BaseDictSectionCoreUnion = Union[DictSectionCore, GlobalVariablesSectionCore]
+
+BaseDictSectionCoreUnionWithDiscriminator = Annotated[
+    BaseDictSectionCoreUnion, Field(discriminator="type")
+]
+
+BaseDictSectionCoreTypeAdapter = TypeAdapter(BaseDictSectionCoreUnionWithDiscriminator)
+
+BaseDictSectionCoreTypeSet = set(["Dict", "GlobalVariables"])

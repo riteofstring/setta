@@ -23,23 +23,23 @@ from setta.types.generated.impl_layerings import (
 )
 
 BaseSectionImplLayeringUnion = Union[
-    CallableSectionImplLayering,
-    DictSectionImplLayering,
-    ListRootSectionImplLayering,
-    DictRootSectionImplLayering,
-    GroupSectionImplLayering,
-    ImageSectionImplLayering,
-    ChartSectionImplLayering,
-    DrawSectionImplLayering,
-    TextBlockSectionImplLayering,
-    SocialSectionImplLayering,
-    GlobalVariablesSectionImplLayering,
-    CodeSectionImplLayering,
-    GenPythonCodeSectionImplLayering,
-    TerminalSectionImplLayering,
-    IFrameSectionImplLayering,
-    ChatSectionImplLayering,
     BrowserSectionImplLayering,
+    CallableSectionImplLayering,
+    ChartSectionImplLayering,
+    ChatSectionImplLayering,
+    CodeSectionImplLayering,
+    DictSectionImplLayering,
+    DictRootSectionImplLayering,
+    DrawSectionImplLayering,
+    GenPythonCodeSectionImplLayering,
+    GlobalVariablesSectionImplLayering,
+    GroupSectionImplLayering,
+    IFrameSectionImplLayering,
+    ImageSectionImplLayering,
+    ListRootSectionImplLayering,
+    SocialSectionImplLayering,
+    TerminalSectionImplLayering,
+    TextBlockSectionImplLayering,
 ]
 
 BaseSectionImplLayeringUnionWithDiscriminator = Annotated[
@@ -52,23 +52,23 @@ BaseSectionImplLayeringTypeAdapter = TypeAdapter(
 
 BaseSectionImplLayeringTypeSet = set(
     [
-        "Callable",
-        "Dict",
-        "ListRoot",
-        "DictRoot",
-        "Group",
-        "Image",
-        "Chart",
-        "Draw",
-        "TextBlock",
-        "Social",
-        "GlobalVariables",
-        "Code",
-        "GenPythonCode",
-        "Terminal",
-        "IFrame",
-        "Chat",
         "Browser",
+        "Callable",
+        "Chart",
+        "Chat",
+        "Code",
+        "Dict",
+        "DictRoot",
+        "Draw",
+        "GenPythonCode",
+        "GlobalVariables",
+        "Group",
+        "IFrame",
+        "Image",
+        "ListRoot",
+        "Social",
+        "Terminal",
+        "TextBlock",
     ]
 )
 
@@ -89,7 +89,7 @@ BaseSectionWithParamsImplLayeringTypeAdapter = TypeAdapter(
 BaseSectionWithParamsImplLayeringTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
 BaseArtifactSectionImplLayeringUnion = Union[
-    ImageSectionImplLayering, ChartSectionImplLayering, DrawSectionImplLayering
+    ChartSectionImplLayering, DrawSectionImplLayering, ImageSectionImplLayering
 ]
 
 BaseArtifactSectionImplLayeringUnionWithDiscriminator = Annotated[
@@ -100,7 +100,7 @@ BaseArtifactSectionImplLayeringTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplLayeringUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplLayeringTypeSet = set(["Image", "Chart", "Draw"])
+BaseArtifactSectionImplLayeringTypeSet = set(["Chart", "Draw", "Image"])
 
 BaseCanvasSectionImplLayeringUnion = Union[
     ChartSectionImplLayering, DrawSectionImplLayering
@@ -131,7 +131,7 @@ BaseCodeSectionImplLayeringTypeAdapter = TypeAdapter(
 BaseCodeSectionImplLayeringTypeSet = set(["Code", "GenPythonCode"])
 
 BaseParentSectionImplLayeringUnion = Union[
-    ListRootSectionImplLayering, DictRootSectionImplLayering, GroupSectionImplLayering
+    DictRootSectionImplLayering, GroupSectionImplLayering, ListRootSectionImplLayering
 ]
 
 BaseParentSectionImplLayeringUnionWithDiscriminator = Annotated[
@@ -142,7 +142,7 @@ BaseParentSectionImplLayeringTypeAdapter = TypeAdapter(
     BaseParentSectionImplLayeringUnionWithDiscriminator
 )
 
-BaseParentSectionImplLayeringTypeSet = set(["ListRoot", "DictRoot", "Group"])
+BaseParentSectionImplLayeringTypeSet = set(["DictRoot", "Group", "ListRoot"])
 
 BaseDictSectionImplLayeringUnion = Union[
     DictSectionImplLayering, GlobalVariablesSectionImplLayering
@@ -157,6 +157,7 @@ BaseDictSectionImplLayeringTypeAdapter = TypeAdapter(
 )
 
 BaseDictSectionImplLayeringTypeSet = set(["Dict", "GlobalVariables"])
+
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
@@ -176,13 +177,13 @@ from setta.types.generated.impl_layerings import (
 BaseCodeObjImplLayeringUnion = Union[
     CodeCallableCodeObjImplLayering,
     CodeParamCodeObjImplLayering,
-    TextParamCodeObjImplLayering,
-    SliderParamCodeObjImplLayering,
-    SwitchParamCodeObjImplLayering,
     ColorPickerParamCodeObjImplLayering,
     DropdownParamCodeObjImplLayering,
-    PasswordParamCodeObjImplLayering,
     NestedParamCodeObjImplLayering,
+    PasswordParamCodeObjImplLayering,
+    SliderParamCodeObjImplLayering,
+    SwitchParamCodeObjImplLayering,
+    TextParamCodeObjImplLayering,
 ]
 
 BaseCodeObjImplLayeringUnionWithDiscriminator = Annotated[
@@ -197,25 +198,25 @@ BaseCodeObjImplLayeringTypeSet = set(
     [
         "CodeCallable",
         "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
         "ColorPickerParam",
         "DropdownParam",
-        "PasswordParam",
         "NestedParam",
+        "PasswordParam",
+        "SliderParam",
+        "SwitchParam",
+        "TextParam",
     ]
 )
 
 BaseParamCodeObjImplLayeringUnion = Union[
     CodeParamCodeObjImplLayering,
-    TextParamCodeObjImplLayering,
-    SliderParamCodeObjImplLayering,
-    SwitchParamCodeObjImplLayering,
     ColorPickerParamCodeObjImplLayering,
     DropdownParamCodeObjImplLayering,
-    PasswordParamCodeObjImplLayering,
     NestedParamCodeObjImplLayering,
+    PasswordParamCodeObjImplLayering,
+    SliderParamCodeObjImplLayering,
+    SwitchParamCodeObjImplLayering,
+    TextParamCodeObjImplLayering,
 ]
 
 BaseParamCodeObjImplLayeringUnionWithDiscriminator = Annotated[
@@ -229,24 +230,24 @@ BaseParamCodeObjImplLayeringTypeAdapter = TypeAdapter(
 BaseParamCodeObjImplLayeringTypeSet = set(
     [
         "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
         "ColorPickerParam",
         "DropdownParam",
-        "PasswordParam",
         "NestedParam",
+        "PasswordParam",
+        "SliderParam",
+        "SwitchParam",
+        "TextParam",
     ]
 )
 
 BaseChildlessCodeObjImplLayeringUnion = Union[
     CodeParamCodeObjImplLayering,
-    TextParamCodeObjImplLayering,
-    SliderParamCodeObjImplLayering,
-    SwitchParamCodeObjImplLayering,
     ColorPickerParamCodeObjImplLayering,
     DropdownParamCodeObjImplLayering,
     PasswordParamCodeObjImplLayering,
+    SliderParamCodeObjImplLayering,
+    SwitchParamCodeObjImplLayering,
+    TextParamCodeObjImplLayering,
 ]
 
 BaseChildlessCodeObjImplLayeringUnionWithDiscriminator = Annotated[
@@ -260,12 +261,12 @@ BaseChildlessCodeObjImplLayeringTypeAdapter = TypeAdapter(
 BaseChildlessCodeObjImplLayeringTypeSet = set(
     [
         "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
         "ColorPickerParam",
         "DropdownParam",
         "PasswordParam",
+        "SliderParam",
+        "SwitchParam",
+        "TextParam",
     ]
 )
 
