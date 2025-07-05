@@ -220,6 +220,73 @@ from setta.types.code_obj_impls import (
     output_file.write_text(code)
 
 
+def generate_layerings(output_file, classes):
+    code = """
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
+
+from setta.database.utils import create_new_id
+from setta.utils.generate_memorable_string import generate_memorable_string  
+from setta.types.section_impls import SectionType
+from setta.types.code_obj_impls import CodeObjType
+"""
+
+    modifier_names = []
+
+    for c in classes:
+        modifier_name = get_name_without_impl(c.__name__) + "Modifier"
+        modifier_names.append(modifier_name)
+        if c.__name__ == "BaseSectionImpl":
+            code += f"""
+class BaseSectionLayering(BaseModel, extra="forbid"):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    impl: str
+    type: Any
+    modifier: {modifier_name}
+
+"""
+        elif c.__name__ == "BaseCodeObjImpl":
+            code += f"""
+class BaseCodeObjLayering(BaseModel, extra="forbid"):
+    id: str = Field(default_factory=create_new_id)
+    name: str = Field(default_factory=generate_memorable_string)
+    impl: str
+    type: Any
+    modifier: {modifier_name}
+
+"""
+        else:
+            class_name = get_name_without_impl(c.__name__) + "Layering"
+            parent_class_names = ", ".join(
+                get_name_without_impl(b.__name__) + "Layering" for b in c.__bases__
+            )
+            type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+            if c.model_fields["type"].default != PydanticUndefined:
+                default_val = c.model_fields["type"].default
+                type_attribute += (
+                    f" = {default_val.__class__.__name__}.{default_val.value}"
+                )
+
+            code += f"""
+class {class_name}({parent_class_names}):
+    type: {type_attribute}
+    modifier: {modifier_name} # type: ignore
+
+"""
+
+    code = (
+        f"""
+from setta.types.generated.modifiers import {", ".join(modifier_names)}
+"""
+        + code
+    )
+
+    code = ruff_format(code)
+    output_file.write_text(code)
+
+
 def generate_cores(output_file, classes):
     code = """
 from typing import Any, Literal
@@ -235,27 +302,30 @@ from setta.types.code_obj_impls import CodeObjType
     modifier_names = []
 
     for c in classes:
+        modifier_name = get_name_without_impl(c.__name__) + "Modifier"
+        modifier_names.append(modifier_name)
+
         if c.__name__ == "BaseSectionImpl":
-            code += """
+            code += f"""
 class BaseSectionCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str | None = None
     type: Any
-    sharedModifier: Any
+    sharedModifier: {modifier_name}
     unsharedKeys: Any
 
 """
         elif c.__name__ == "BaseCodeObjImpl":
-            code += """
+            code += f"""
 class BaseCodeObjCore(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str | None = None
     type: Any
-    sharedModifier: Any
+    sharedModifier: {modifier_name}
     unsharedKeys: Any
 
 """
@@ -264,8 +334,6 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
             parent_class_names = ", ".join(
                 get_name_without_impl(b.__name__) + "Core" for b in c.__bases__
             )
-            modifier_name = get_name_without_impl(c.__name__) + "Modifier"
-            modifier_names.append(modifier_name)
             type_attribute = python_type_to_str(c.model_fields["type"].annotation)
             if c.model_fields["type"].default != PydanticUndefined:
                 default_val = c.model_fields["type"].default
@@ -276,7 +344,7 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
             code += f"""
 class {class_name}({parent_class_names}):
     type: {type_attribute}
-    sharedModifier: {modifier_name} # type: ignore
+    sharedModifier: {modifier_name} # type: ignore[assignment]
 
 """
 
@@ -301,6 +369,7 @@ def main(output_folder):
     )
 
     generate_modifiers(output_folder / "modifiers.py", classes)
+    generate_layerings(output_folder / "layerings.py", classes)
     generate_cores(output_folder / "cores.py", classes)
 
 
