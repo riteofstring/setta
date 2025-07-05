@@ -96,56 +96,6 @@ from pydantic import Field, TypeAdapter
     return ruff_format(code)
 
 
-def section_impl_union():
-    import setta.types.section_impls
-
-    return construct_unions(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        setta.types.section_impls,
-        lambda x: x,
-    )
-
-
-def code_obj_impl_union():
-    import setta.types.code_obj_impls
-
-    return construct_unions(
-        setta.types.code_obj_impls,
-        setta.types.code_obj_impls.BaseCodeObjImpl,
-        "type",
-        setta.types.code_obj_impls,
-        lambda x: x,
-    )
-
-
-def section_core_union():
-    import setta.types.generated.section_cores
-    import setta.types.section_core
-
-    return construct_unions(
-        setta.types.generated.section_cores,
-        setta.types.section_core.BaseSectionCore,
-        "type",
-        setta.types.generated.section_cores,
-        lambda x: x,
-    )
-
-
-def code_obj_core_union():
-    import setta.types.code_obj_core
-    import setta.types.generated.code_obj_cores
-
-    return construct_unions(
-        setta.types.generated.code_obj_cores,
-        setta.types.code_obj_core.BaseCodeObjCore,
-        "type",
-        setta.types.generated.code_obj_cores,
-        lambda x: x,
-    )
-
-
 def create_type_predicate_fns(
     most_base_type_names, set_name, transformed_base_class_name
 ):
@@ -212,87 +162,6 @@ AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscrimina
     return ruff_format(code)
 
 
-def impl_layering_union():
-    import setta.types.generated.impl_layerings
-
-    # Generate unions for section layerings
-    code1 = construct_unions(
-        setta.types.generated.impl_layerings,
-        setta.types.generated.impl_layerings.BaseSectionImplLayering,
-        "type",
-        setta.types.generated.impl_layerings,
-        lambda x: x,
-    )
-
-    # Generate unions for code obj layerings
-    code2 = construct_unions(
-        setta.types.generated.impl_layerings,
-        setta.types.generated.impl_layerings.BaseCodeObjImplLayering,
-        "type",
-        setta.types.generated.impl_layerings,
-        lambda x: x,
-    )
-
-    code = code1 + code2  # type: ignore
-
-    return ruff_format(code)
-
-
-# This function differs from the section_impl and code_obj_impl functions above
-# because all websocket msgs extend WebsocketMsg, so we differentiate based on enum alone
-def generate_websocket_union_code(
-    enum_type, direction_name, discriminator="messageType"
-):
-    enum_names = []
-    for e in enum_type:
-        # assert enum name and value are the same for simplicity
-        assert e.name == e.value
-        enum_names.append(e.name)
-
-    class_names = [f"WebsocketMsg{e}" for e in enum_names]
-    classes_str = ",".join(class_names)
-
-    imports = f"from setta.types.websocket import {classes_str}"
-
-    enum_names_quoted = [f'"{e}"' for e in enum_names]
-
-    union_code = f"""
-WebsocketMsg{direction_name}Union = Union[{classes_str}]
-
-WebsocketMsg{direction_name}UnionWithDiscriminator = Annotated[WebsocketMsg{direction_name}Union, Field(discriminator="{discriminator}")]
-
-WebsocketMsg{direction_name}TypeAdapter = TypeAdapter(WebsocketMsg{direction_name}UnionWithDiscriminator)
-
-WebsocketMsg{direction_name}TypeSet = set([{",".join(enum_names_quoted)}])
-"""
-
-    return imports, union_code, enum_names
-
-
-def websocket_msg_union():
-    from setta.types.websocket import (
-        WebsocketMsgTypeForBackend,
-        WebsocketMsgTypeForFrontend,
-    )
-
-    # Generate code for both directions
-    backend_imports, backend_code, _ = generate_websocket_union_code(
-        WebsocketMsgTypeForBackend, "ForBackend"
-    )
-    frontend_imports, frontend_code, _ = generate_websocket_union_code(
-        WebsocketMsgTypeForFrontend, "ForFrontend"
-    )
-
-    return f"""
-from typing import Annotated,Union
-from pydantic import Field, TypeAdapter
-{backend_imports}
-{frontend_imports}
-{backend_code}
-{frontend_code}
-"""
-
-
 def gen_write(fn, output_path):
     code = fn()
     with open(output_path, "w") as f:
@@ -302,21 +171,9 @@ def gen_write(fn, output_path):
 
 def main(output_folder):
     # order matters! (because of imports)
-    gen_write(section_impl_union, output_folder / "section_type_unions.py")
-    gen_write(code_obj_impl_union, output_folder / "code_obj_type_unions.py")
-    gen_write(section_core_union, output_folder / "section_core_unions.py")
-    gen_write(code_obj_core_union, output_folder / "code_obj_core_unions.py")
     gen_write(
         impl_modifier_union,
         output_folder / "impl_modifier_unions.py",
-    )
-    gen_write(
-        impl_layering_union,
-        output_folder / "impl_layering_unions.py",
-    )
-    gen_write(
-        websocket_msg_union,
-        output_folder / "websocket_type_unions.py",
     )
 
 
