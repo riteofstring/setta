@@ -102,7 +102,6 @@ function WebSocketDebug() {
 
           <div className="text-setta-400">
             Subscribed to: {Object.keys(subscriptionStatus).length} event types
-            }
           </div>
         </div>
 
