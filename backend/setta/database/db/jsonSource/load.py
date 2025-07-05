@@ -23,10 +23,14 @@ from setta.types.generated.impl_helpers import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_layering_unions import (
+    BaseCodeObjImplLayeringUnion,
+    BaseSectionImplLayeringUnion,
+)
 from setta.types.generated.impl_layerings import (
     BaseDictSectionImplLayering,
-    CodeObjImplLayeringUnion,
-    SectionImplLayeringUnion,
+    NestedParamCodeObjImplLayering,
+    TextParamCodeObjImplLayering,
 )
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_type_unions import (
@@ -50,7 +54,7 @@ class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
     codeObjs: dict[str, BaseCodeObjCoreUnion] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion] = Field(
+    codeObjImplLayerings: dict[str, BaseCodeObjImplLayeringUnion] = Field(
         default_factory=dict
     )
 
@@ -58,10 +62,10 @@ class ProcessedJSONObject(BaseModel):
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, BaseSectionCoreUnion]
     sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionImplLayerings: dict[str, SectionImplLayeringUnion]
+    sectionImplLayerings: dict[str, BaseSectionImplLayeringUnion]
     codeObjs: dict[str, BaseCodeObjCoreUnion]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion]
+    codeObjImplLayerings: dict[str, BaseCodeObjImplLayeringUnion]
 
 
 def load_json_sources_into_data_structures(
@@ -122,7 +126,7 @@ def merge_into_existing(
     section_impls: dict[str, BaseSectionImplUnion],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, CodeObjImplLayeringUnion],
+    codeObjImplLayerings: dict[str, BaseCodeObjImplLayeringUnion],
 ):
     ancestor_paths = build_ancestor_paths(
         codeObjs,
@@ -292,14 +296,18 @@ def add_to_processed_json_object(
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = createNestedParamCodeObjImpl(settings.nestedParamDefault)
+        codeObjImplLayering = NestedParamCodeObjImplLayering(
+            impl=codeObjImpl.id,
+            modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
+        )
     else:
         codeObjImpl = createTextParamCodeObjImpl(
             settings.textParamDefault, value=json.dumps(value)
         )
-    codeObjImplLayering = CodeObjImplLayering(
-        impl=codeObjImpl.id,
-        modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
-    )
+        codeObjImplLayering = TextParamCodeObjImplLayering(
+            impl=codeObjImpl.id,
+            modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
+        )
     layeringId = codeObjImplLayering.id
     codeObj = create_core_for_code_obj_type(
         codeObjImpl.type,
