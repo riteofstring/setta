@@ -212,6 +212,55 @@ AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscrimina
     return ruff_format(code)
 
 
+def impl_layering_union():
+    import setta.types.generated.impl_layerings
+
+    # Generate unions for section layerings
+    code1, base_class_to_children1 = construct_unions(
+        setta.types.generated.impl_layerings,
+        setta.types.generated.impl_layerings.BaseSectionImplLayering,
+        "type",
+        setta.types.generated.impl_layerings,
+        lambda x: x,
+        True,
+    )
+
+    # Generate unions for code obj layerings
+    code2, base_class_to_children2 = construct_unions(
+        setta.types.generated.impl_layerings,
+        setta.types.generated.impl_layerings.BaseCodeObjImplLayering,
+        "type",
+        setta.types.generated.impl_layerings,
+        lambda x: x,
+        True,
+    )
+
+    code = code1 + code2
+    base_class_to_children = {**base_class_to_children1, **base_class_to_children2}  # type: ignore
+
+    # Add the AllImplLayeringUnion
+    code += """
+AllImplLayeringUnion = BaseSectionImplLayeringUnion | BaseCodeObjImplLayeringUnion
+
+AllImplLayeringUnionWithDiscriminator = Annotated[
+    AllImplLayeringUnion, Field(discriminator="type")
+]
+
+AllImplLayeringUnionTypeAdapter = TypeAdapter(AllImplLayeringUnionWithDiscriminator)
+"""
+
+    # Add type predicate functions
+    code += add_type_predicate_fns(
+        "AllImplLayeringUnion",
+        base_class_to_children,
+        lambda x: x,
+    )
+
+    print(code)
+
+    return ruff_format(code)
+
+
 # This function differs from the section_impl and code_obj_impl functions above
 # because all websocket msgs extend WebsocketMsg, so we differentiate based on enum alone
 def generate_websocket_union_code(
@@ -283,6 +332,10 @@ def main(output_folder):
     gen_write(
         impl_modifier_union,
         output_folder / "impl_modifier_unions.py",
+    )
+    gen_write(
+        impl_layering_union,
+        output_folder / "impl_layering_unions.py",
     )
     gen_write(
         websocket_msg_union,

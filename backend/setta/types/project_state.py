@@ -13,15 +13,15 @@ from setta.types.generated.code_obj_core_unions import (
 from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnionWithDiscriminator,
 )
+from setta.types.generated.impl_layerings import (
+    BaseCodeObjImplLayering,
+    BaseSectionImplLayering,
+)
 from setta.types.generated.section_core_unions import (
     BaseSectionCoreUnionWithDiscriminator,
 )
 from setta.types.generated.section_type_unions import (
     BaseSectionImplUnionWithDiscriminator,
-)
-from setta.types.impl_layering import (
-    CodeObjImplLayering,
-    SectionImplLayering,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -66,14 +66,18 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    sectionImplLayerings: dict[str, SectionImplLayering] = Field(default_factory=dict)
+    sectionImplLayerings: dict[str, BaseSectionImplLayering] = Field(
+        default_factory=dict
+    )
     codeObjs: dict[str, BaseCodeObjCoreUnionWithDiscriminator] = Field(
         default_factory=dict
     )
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, CodeObjImplLayering] = Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering] = Field(
+        default_factory=dict
+    )
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):
