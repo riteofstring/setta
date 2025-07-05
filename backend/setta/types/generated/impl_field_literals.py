@@ -3,7 +3,6 @@
 
 from typing import Literal
 
-# Section implementation field literals
 BaseSectionImplFields = Literal[
     "aspectRatio",
     "aspectRatioExtraHeight",
@@ -375,8 +374,6 @@ BrowserSectionImplFields = Literal[
     "size",
     "visibility",
 ]
-
-# Code object implementation field literals
 BaseCodeObjImplFields = Literal["description"]
 BaseParamCodeObjImplFields = Literal[
     "coreNameEditable", "coreNameType", "description", "passingStyle"
