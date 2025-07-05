@@ -29,6 +29,11 @@ export default function ProjectsList() {
 
   const { isConnected, subscribe, EventType } = useWebSocket();
 
+  // Debug deployment progress state
+  useEffect(() => {
+    console.log("📊 Current deployment progress state:", deploymentProgress);
+  }, [deploymentProgress]);
+
   // Warm up the backend on mount
   useEffect(() => {
     // Fire and forget health check to wake up Railway
@@ -41,6 +46,8 @@ export default function ProjectsList() {
 
   // Improved notification system with deduplication
   const showNotification = useCallback((type, message) => {
+    console.log(`🔔 Notification: [${type}] ${message}`);
+
     // Check if we've shown this exact message recently (within 2 seconds)
     const now = Date.now();
     const lastShown = recentNotifications.current.get(message);
@@ -68,6 +75,7 @@ export default function ProjectsList() {
 
   // Improved fetch with retry logic
   const fetchProjects = useCallback(async () => {
+    console.log("📥 Fetching projects...");
     try {
       setFetchError(null);
       const response = await authenticatedFetch("/api/projects");
@@ -77,11 +85,12 @@ export default function ProjectsList() {
       }
 
       const data = await response.json();
+      console.log("✅ Fetched projects:", data);
       setProjects(data);
       fetchAttempts.current = 0; // Reset attempts on success
       return true;
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("❌ Error fetching projects:", error);
       setFetchError(error.message);
 
       // Only show notification after initial attempts or if it's been a while
@@ -127,14 +136,24 @@ export default function ProjectsList() {
     };
   }, [fetchProjects]);
 
-  // WebSocket subscriptions with better error handling
+  // WebSocket subscriptions with better error handling and debugging
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      console.log("⚠️ WebSocket not connected, skipping subscriptions");
+      return;
+    }
+
+    console.log("🔌 Setting up WebSocket subscriptions in ProjectsList");
 
     const updateProjectInList = (projectData) => {
+      console.log("📝 Updating project in list:", projectData);
+
       setProjects((prev) => {
         const index = prev.findIndex((p) => p.id === projectData.project_id);
-        if (index === -1) return prev;
+        if (index === -1) {
+          console.log("⚠️ Project not found in list:", projectData.project_id);
+          return prev;
+        }
 
         const updated = [...prev];
         updated[index] = {
@@ -147,11 +166,14 @@ export default function ProjectsList() {
             machine_state: projectData.machine_state,
           }),
         };
+        console.log("✅ Updated project:", updated[index]);
         return updated;
       });
     };
 
     const updateMachineState = (machineData) => {
+      console.log("🖥️ Updating machine state:", machineData);
+
       setProjects((prev) => {
         const index = prev.findIndex((p) => p.id === machineData.project_id);
         if (index === -1) return prev;
@@ -174,6 +196,7 @@ export default function ProjectsList() {
 
     const unsubscribers = [
       subscribe(EventType.PROJECT_CREATING, (event) => {
+        console.log("🏗️ PROJECT_CREATING event:", event);
         updateProjectInList(event.data);
         showNotification(
           "info",
@@ -181,11 +204,16 @@ export default function ProjectsList() {
         );
       }),
       subscribe(EventType.PROJECT_READY, (event) => {
+        console.log("✅ PROJECT_READY event:", event);
         // PROJECT_READY now includes full project data with machine info
         updateProjectInList(event.data);
         setDeploymentProgress((prev) => {
           const updated = { ...prev };
           delete updated[event.data.project_id];
+          console.log(
+            "🗑️ Removed progress for project:",
+            event.data.project_id,
+          );
           return updated;
         });
         showNotification(
@@ -194,6 +222,7 @@ export default function ProjectsList() {
         );
       }),
       subscribe(EventType.PROJECT_ERROR, (event) => {
+        console.log("❌ PROJECT_ERROR event:", event);
         updateProjectInList(event.data);
         setDeploymentProgress((prev) => {
           const updated = { ...prev };
@@ -206,6 +235,7 @@ export default function ProjectsList() {
         );
       }),
       subscribe(EventType.PROJECT_DELETED, (event) => {
+        console.log("🗑️ PROJECT_DELETED event:", event);
         setProjects((prev) =>
           prev.filter((p) => p.id !== event.data.project_id),
         );
@@ -217,31 +247,53 @@ export default function ProjectsList() {
         showNotification("info", `Project deleted: ${event.data.project_name}`);
       }),
       subscribe(EventType.PROJECT_STATUS_CHANGED, (event) => {
+        console.log("🔄 PROJECT_STATUS_CHANGED event:", event);
         updateProjectInList(event.data);
       }),
       subscribe(EventType.MACHINE_STATE_CHANGED, (event) => {
+        console.log("🖥️ MACHINE_STATE_CHANGED event:", event);
         updateMachineState(event.data);
         const stateText =
           event.data.new_state === "stopped" ? "hibernated" : "resumed";
         showNotification("info", `${event.data.project_name} ${stateText}`);
       }),
       subscribe(EventType.DEPLOYMENT_PROGRESS, (event) => {
-        setDeploymentProgress((prev) => ({
-          ...prev,
-          [event.data.project_id]: event.data.progress,
-        }));
+        console.log("📈 DEPLOYMENT_PROGRESS event:", event);
+        console.log("Progress data:", {
+          project_id: event.data.project_id,
+          progress: event.data.progress,
+          message: event.data.message,
+        });
+
+        setDeploymentProgress((prev) => {
+          const updated = {
+            ...prev,
+            [event.data.project_id]: event.data.progress, // Store the full progress object
+          };
+          console.log("📊 Updated deployment progress state:", updated);
+          return updated;
+        });
       }),
     ];
 
-    return () => unsubscribers.forEach((unsub) => unsub());
+    console.log(`✅ Subscribed to ${unsubscribers.length} WebSocket events`);
+
+    return () => {
+      console.log("🧹 Cleaning up WebSocket subscriptions");
+      unsubscribers.forEach((unsub) => unsub());
+    };
   }, [isConnected, subscribe, EventType, showNotification]);
 
   const handleCreateProject = async (projectName, githubUrl) => {
+    console.log("🚀 Creating project:", { projectName, githubUrl });
+
     try {
       const payload = { name: projectName };
       if (githubUrl && githubUrl.trim()) {
         payload.github_url = githubUrl.trim();
       }
+
+      console.log("📤 Sending create request with payload:", payload);
 
       const response = await authenticatedFetch("/api/projects", {
         method: "POST",
@@ -254,9 +306,27 @@ export default function ProjectsList() {
       }
 
       const newProject = await response.json();
+      console.log("✅ Project created:", newProject);
+
       setProjects([...projects, newProject]);
       setShowNewProjectForm(false);
+
+      // Initialize deployment progress for this project
+      if (
+        newProject.status === "creating" ||
+        newProject.status === "deploying"
+      ) {
+        console.log(
+          "🏗️ Initializing deployment progress for project:",
+          newProject.id,
+        );
+        setDeploymentProgress((prev) => ({
+          ...prev,
+          [newProject.id]: 0,
+        }));
+      }
     } catch (error) {
+      console.error("❌ Failed to create project:", error);
       showNotification("error", `Failed to create project: ${error.message}`);
       throw error; // Re-throw to let form handle it
     }
@@ -294,6 +364,7 @@ export default function ProjectsList() {
       return;
     }
 
+    console.log(`🗑️ Deleting ${count} selected projects`);
     const projectsToDelete = Array.from(selectedProjects);
     let deletedCount = 0;
     let failedCount = 0;
@@ -310,7 +381,7 @@ export default function ProjectsList() {
         if (!response.ok) throw new Error("Failed to delete project");
         deletedCount++;
       } catch (error) {
-        console.error("Error deleting project:", error);
+        console.error("❌ Error deleting project:", error);
         failedCount++;
       }
     }
@@ -326,6 +397,7 @@ export default function ProjectsList() {
   };
 
   const handleToggleMachineState = async (projectId, action) => {
+    console.log("🖥️ Toggling machine state:", { projectId, action });
     setTogglingStates((prev) => new Set(prev).add(projectId));
 
     try {
@@ -341,9 +413,10 @@ export default function ProjectsList() {
         throw new Error(error || `Failed to ${action} machine`);
       }
 
+      console.log(`✅ Machine ${action} initiated`);
       showNotification("info", `Machine ${action} requested`);
     } catch (error) {
-      console.error(`Error ${action} machine:`, error);
+      console.error(`❌ Error ${action} machine:`, error);
       showNotification("error", error.message);
       setTogglingStates((prev) => {
         const newSet = new Set(prev);

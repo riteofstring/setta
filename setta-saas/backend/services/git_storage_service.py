@@ -16,84 +16,201 @@ def clone_github_to_storage(github_url: str, user_id: str, project_id: str) -> b
         print("Missing required parameters")
         return False
 
-    if not github_url.startswith(("https://github.com/", "git@github.com:")):
-        print(f"Invalid GitHub URL: {github_url}")
+    # Normalize GitHub URL - accept various formats
+    github_url = normalize_github_url(github_url)
+    if not github_url:
+        print("Invalid GitHub URL format")
         return False
 
-    temp_dir = Path(tempfile.mkdtemp(prefix=f"setta-{project_id}-"))
+    temp_dir = None
+    try:
+        # Create temporary directory
+        temp_dir = Path(tempfile.mkdtemp(prefix=f"setta-{project_id}-"))
+        print(f"Created temp directory: {temp_dir}")
 
-    # Clone repository
-    success = run_git_clone(github_url, temp_dir)
-    if not success:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        # Clone repository
+        success = run_git_clone(github_url, temp_dir)
+        if not success:
+            return False
+
+        # Find the cloned directory (git creates a subdirectory)
+        cloned_dirs = [d for d in temp_dir.iterdir() if d.is_dir() and d.name != ".git"]
+        if not cloned_dirs:
+            print("No cloned directory found")
+            return False
+
+        repo_dir = cloned_dirs[0]
+        print(f"Found cloned repo at: {repo_dir}")
+
+        # Remove .git directory to save space
+        git_dir = repo_dir / ".git"
+        if git_dir.exists():
+            shutil.rmtree(git_dir, ignore_errors=True)
+            print("Removed .git directory")
+
+        # Upload files from the repo directory
+        result = upload_directory_to_storage(repo_dir, user_id, project_id)
+        return result
+
+    except Exception as e:
+        print(f"Error in clone_github_to_storage: {e}")
         return False
+    finally:
+        # Cleanup
+        if temp_dir and temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print("Cleaned up temp directory")
 
-    # Remove .git directory
-    shutil.rmtree(temp_dir / ".git", ignore_errors=True)
 
-    # Upload files
-    result = upload_directory_to_storage(temp_dir, user_id, project_id)
+def normalize_github_url(url: str) -> str:
+    """Normalize GitHub URL to HTTPS format."""
+    url = url.strip()
 
-    # Cleanup
-    shutil.rmtree(temp_dir, ignore_errors=True)
+    # Handle common GitHub URL formats
+    if url.startswith("git@github.com:"):
+        # Convert SSH to HTTPS: git@github.com:user/repo.git -> https://github.com/user/repo.git
+        url = url.replace("git@github.com:", "https://github.com/")
+    elif url.startswith("github.com/"):
+        # Add https:// if missing
+        url = f"https://{url}"
+    elif not url.startswith("https://github.com/"):
+        # Invalid format
+        return None
 
-    return result
+    # Ensure .git suffix
+    if not url.endswith(".git"):
+        url += ".git"
+
+    print(f"Normalized GitHub URL: {url}")
+    return url
 
 
 def run_git_clone(github_url: str, target_dir: Path) -> bool:
     """Run git clone command."""
     try:
+        # Clone into the target directory (not a subdirectory)
+        cmd = ["git", "clone", "--depth", "1", github_url]
+
+        print(f"Running command: {' '.join(cmd)}")
+        print(f"In directory: {target_dir}")
+
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", github_url, str(target_dir)],
+            cmd,
+            cwd=str(target_dir),  # Run in target directory
             capture_output=True,
             text=True,
             timeout=300,
         )
 
         if result.returncode != 0:
-            print(f"Git clone failed: {result.stderr}")
+            print(f"Git clone failed with return code {result.returncode}")
+            print(f"STDOUT: {result.stdout}")
+            print(f"STDERR: {result.stderr}")
+
+            # Check for common errors
+            if "could not read Username" in result.stderr:
+                print(
+                    "ERROR: Repository appears to be private. Public repositories only are supported."
+                )
+            elif "Repository not found" in result.stderr:
+                print("ERROR: Repository not found. Check the URL.")
+            elif "fatal: unable to access" in result.stderr:
+                print("ERROR: Network error accessing repository.")
+
             return False
 
+        print("Git clone successful")
         return True
 
     except subprocess.TimeoutExpired:
-        print("Git clone timed out")
+        print("Git clone timed out after 5 minutes")
+        return False
+    except FileNotFoundError:
+        print("ERROR: git command not found. Is git installed?")
         return False
     except Exception as e:
-        print(f"Error running git: {e}")
+        print(f"Error running git clone: {type(e).__name__}: {e}")
         return False
 
 
 def upload_directory_to_storage(source_dir: Path, user_id: str, project_id: str) -> bool:
     """Upload all files from a directory to R2 storage."""
-    files = list(source_dir.rglob("*"))
-    files = [f for f in files if f.is_file()]
+    try:
+        files = list(source_dir.rglob("*"))
+        files = [f for f in files if f.is_file()]
 
-    if not files:
-        print("No files to upload")
+        if not files:
+            print("No files to upload")
+            return False
+
+        print(f"Found {len(files)} files to upload")
+        uploaded = 0
+        failed = []
+
+        for file_path in files:
+            relative_path = file_path.relative_to(source_dir)
+
+            # Skip certain files
+            if should_skip_file(relative_path):
+                print(f"Skipping: {relative_path}")
+                continue
+
+            if upload_single_file(file_path, relative_path, user_id, project_id):
+                uploaded += 1
+                print(f"Uploaded: {relative_path}")
+            else:
+                failed.append(str(relative_path))
+
+        print(f"Upload complete: {uploaded}/{len(files)} files uploaded successfully")
+        if failed:
+            print(f"Failed uploads: {', '.join(failed)}")
+
+        return uploaded > 0
+
+    except Exception as e:
+        print(f"Error uploading directory: {e}")
         return False
 
-    uploaded = 0
 
-    for file_path in files:
-        relative_path = file_path.relative_to(source_dir)
+def should_skip_file(file_path: Path) -> bool:
+    """Check if file should be skipped during upload."""
+    skip_patterns = [
+        "__pycache__",
+        ".pyc",
+        ".pyo",
+        ".DS_Store",
+        "Thumbs.db",
+        ".env.local",
+        ".env.*.local",
+        "node_modules",
+        ".pytest_cache",
+        ".coverage",
+        "*.log",
+    ]
 
-        if upload_single_file(file_path, relative_path, user_id, project_id):
-            uploaded += 1
+    path_str = str(file_path)
+    for pattern in skip_patterns:
+        if pattern in path_str:
+            return True
 
-    print(f"Uploaded {uploaded}/{len(files)} files")
-    return uploaded > 0
+    return False
 
 
 def upload_single_file(file_path: Path, relative_path: Path, user_id: str, project_id: str) -> bool:
     """Upload a single file to storage."""
     try:
+        # Check file size
+        file_size = file_path.stat().st_size
+        if file_size > 50 * 1024 * 1024:  # 50MB limit
+            print(f"File too large ({file_size} bytes): {relative_path}")
+            return False
+
         content = file_path.read_bytes()
+        return storage_service.save_file(user_id, project_id, str(relative_path), content)
+
     except Exception as e:
         print(f"Cannot read {relative_path}: {e}")
         return False
-
-    return storage_service.save_file(user_id, project_id, str(relative_path), content)
 
 
 def sync_storage_to_directory(user_id: str, project_id: str, target_dir: str) -> bool:
