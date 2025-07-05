@@ -27,7 +27,7 @@ import setta.routers
 import setta.types
 import setta.types.code_obj_impls
 import setta.types.generated
-import setta.types.generated.impl_modifiers
+import setta.types.generated.modifiers
 import setta.types.section_impls
 import setta.types.websocket
 from fastapi import WebSocket
@@ -635,7 +635,7 @@ def create_type_predicate_fns_from_sets(all_sets):
         if not actual_type:
             actual_type = getattr(setta.types.code_obj_impls, type_name, None)
         if not actual_type:
-            actual_type = getattr(setta.types.generated.impl_modifiers, type_name, None)
+            actual_type = getattr(setta.types.generated.modifiers, type_name, None)
         if not actual_type:
             actual_type = getattr(setta.types.websocket, type_name, None)
         if not actual_type:

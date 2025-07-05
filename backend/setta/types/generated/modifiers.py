@@ -1,4 +1,4 @@
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict, overload
 
 from setta.types.code_obj_impls import (
     CodeObjType,
@@ -217,3 +217,220 @@ class PasswordParamCodeObjModifier(BaseChildlessCodeObjModifier):
 
 class NestedParamCodeObjModifier(BaseParamCodeObjModifier, BaseParentCodeObjModifier):
     type: Literal[CodeObjType.NestedParam]
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.Callable],
+) -> CallableSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Dict]) -> DictSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.ListRoot],
+) -> ListRootSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.DictRoot],
+) -> DictRootSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Group]) -> GroupSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Image]) -> ImageSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Chart]) -> ChartSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Draw]) -> DrawSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.TextBlock],
+) -> TextBlockSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Social]) -> SocialSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.GlobalVariables],
+) -> GlobalVariablesSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Code]) -> CodeSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.GenPythonCode],
+) -> GenPythonCodeSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[SectionType.Terminal],
+) -> TerminalSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.IFrame]) -> IFrameSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Chat]) -> ChatSectionModifier: ...
+
+
+@overload
+def create_modifier(type_: Literal[SectionType.Browser]) -> BrowserSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.CodeCallable],
+) -> CodeCallableCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.CodeParam],
+) -> CodeParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.TextParam],
+) -> TextParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.SliderParam],
+) -> SliderParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.SwitchParam],
+) -> SwitchParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.ColorPickerParam],
+) -> ColorPickerParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.DropdownParam],
+) -> DropdownParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.PasswordParam],
+) -> PasswordParamCodeObjModifier: ...
+
+
+@overload
+def create_modifier(
+    type_: Literal[CodeObjType.NestedParam],
+) -> NestedParamCodeObjModifier: ...
+
+
+def create_modifier(type_: SectionType | CodeObjType):
+    match type_:
+        case SectionType.Callable:
+            return CallableSectionModifier(type=type_)
+
+        case SectionType.Dict:
+            return DictSectionModifier(type=type_)
+
+        case SectionType.ListRoot:
+            return ListRootSectionModifier(type=type_)
+
+        case SectionType.DictRoot:
+            return DictRootSectionModifier(type=type_)
+
+        case SectionType.Group:
+            return GroupSectionModifier(type=type_)
+
+        case SectionType.Image:
+            return ImageSectionModifier(type=type_)
+
+        case SectionType.Chart:
+            return ChartSectionModifier(type=type_)
+
+        case SectionType.Draw:
+            return DrawSectionModifier(type=type_)
+
+        case SectionType.TextBlock:
+            return TextBlockSectionModifier(type=type_)
+
+        case SectionType.Social:
+            return SocialSectionModifier(type=type_)
+
+        case SectionType.GlobalVariables:
+            return GlobalVariablesSectionModifier(type=type_)
+
+        case SectionType.Code:
+            return CodeSectionModifier(type=type_)
+
+        case SectionType.GenPythonCode:
+            return GenPythonCodeSectionModifier(type=type_)
+
+        case SectionType.Terminal:
+            return TerminalSectionModifier(type=type_)
+
+        case SectionType.IFrame:
+            return IFrameSectionModifier(type=type_)
+
+        case SectionType.Chat:
+            return ChatSectionModifier(type=type_)
+
+        case SectionType.Browser:
+            return BrowserSectionModifier(type=type_)
+
+        case CodeObjType.CodeCallable:
+            return CodeCallableCodeObjModifier(type=type_)
+
+        case CodeObjType.CodeParam:
+            return CodeParamCodeObjModifier(type=type_)
+
+        case CodeObjType.TextParam:
+            return TextParamCodeObjModifier(type=type_)
+
+        case CodeObjType.SliderParam:
+            return SliderParamCodeObjModifier(type=type_)
+
+        case CodeObjType.SwitchParam:
+            return SwitchParamCodeObjModifier(type=type_)
+
+        case CodeObjType.ColorPickerParam:
+            return ColorPickerParamCodeObjModifier(type=type_)
+
+        case CodeObjType.DropdownParam:
+            return DropdownParamCodeObjModifier(type=type_)
+
+        case CodeObjType.PasswordParam:
+            return PasswordParamCodeObjModifier(type=type_)
+
+        case CodeObjType.NestedParam:
+            return NestedParamCodeObjModifier(type=type_)

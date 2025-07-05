@@ -20,8 +20,8 @@ from typing import (
 import setta.types.code_obj_impls
 import setta.types.generated.cores
 import setta.types.generated.layerings
-import setta.types.section_impls
 import setta.types.generated.modifiers
+import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
@@ -439,7 +439,7 @@ class {name}Modifier({parent_class}):
 
 def generate_modifiers(output_file, classes):
     code = """
-from typing import TypedDict, Literal, Any, NotRequired
+from typing import TypedDict, Literal, Any, NotRequired, overload
 from setta.types.section_impls import (
     ChartSettings,
     DrawAreaCanvasSettings,
@@ -469,6 +469,33 @@ from setta.types.code_obj_impls import (
             ],
         )
 
+    cases = {}
+    for c in classes:
+        if c.model_fields["type"].default is PydanticUndefined:
+            continue
+        modifier_name = f"{get_name_without_impl(c.__name__)}Modifier"
+        type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+        default_val = c.model_fields["type"].default
+        cases[f"{default_val.__class__.__name__}.{default_val.value}"] = modifier_name
+        code += f"""
+@overload
+def create_modifier(type_: {type_attribute}) -> {modifier_name}:
+    ...
+"""
+
+    cases_str = []
+    for type_name, modifier_name in cases.items():
+        curr_case = f"""
+        case {type_name}:
+            return {modifier_name}(type=type_)
+        """
+        cases_str.append(curr_case)
+
+    code += f"""
+def create_modifier(type_: SectionType | CodeObjType):
+    match type_:
+{"\n".join(cases_str)}
+"""
     code = ruff_format(code)
     output_file.write_text(code)
 
@@ -550,6 +577,7 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string  
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
+from setta.types.generated.modifiers import create_modifier
 """
 
     modifier_names = []
@@ -591,18 +619,22 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
             parent_class_names = ", ".join(
                 get_name_without_impl(b.__name__) + "Core" for b in c.__bases__
             )
-            type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+            type_annotation = python_type_to_str(c.model_fields["type"].annotation)
+            shared_modifier = modifier_name
             if c.model_fields["type"].default is not PydanticUndefined:
                 default_val = c.model_fields["type"].default
-                type_attribute += (
-                    f" = {default_val.__class__.__name__}.{default_val.value}"
-                )
+                type_value = f"{default_val.__class__.__name__}.{default_val.value}"
+                type_annotation = f"{type_annotation} = {type_value}"
+                shared_modifier = f"""{shared_modifier} = Field( # type: ignore
+    default_factory = lambda: create_modifier({type_value})
+)
+"""
 
             code += f"""
 class {class_name}({parent_class_names}):
-    type: {type_attribute}
-    sharedModifier: {modifier_name} # type: ignore
-    unsharedKeys: {impl_fields_name} # type: ignore
+    type: {type_annotation}
+    sharedModifier: {shared_modifier} # type: ignore
+    unsharedKeys: set[{impl_fields_name}] # type: ignore
 
 """
 
