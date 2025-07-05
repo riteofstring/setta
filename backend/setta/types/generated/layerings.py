@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
@@ -236,3 +236,220 @@ class PasswordParamCodeObjLayering(BaseChildlessCodeObjLayering):
 class NestedParamCodeObjLayering(BaseParamCodeObjLayering, BaseParentCodeObjLayering):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     modifier: NestedParamCodeObjModifier  # type: ignore
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.Callable],
+) -> CallableSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Dict]) -> DictSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.ListRoot],
+) -> ListRootSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.DictRoot],
+) -> DictRootSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Group]) -> GroupSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Image]) -> ImageSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Chart]) -> ChartSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Draw]) -> DrawSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.TextBlock],
+) -> TextBlockSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Social]) -> SocialSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.GlobalVariables],
+) -> GlobalVariablesSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Code]) -> CodeSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.GenPythonCode],
+) -> GenPythonCodeSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[SectionType.Terminal],
+) -> TerminalSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.IFrame]) -> IFrameSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Chat]) -> ChatSectionLayering: ...
+
+
+@overload
+def create_layering(type_: Literal[SectionType.Browser]) -> BrowserSectionLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.CodeCallable],
+) -> CodeCallableCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.CodeParam],
+) -> CodeParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.TextParam],
+) -> TextParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.SliderParam],
+) -> SliderParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.SwitchParam],
+) -> SwitchParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.ColorPickerParam],
+) -> ColorPickerParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.DropdownParam],
+) -> DropdownParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.PasswordParam],
+) -> PasswordParamCodeObjLayering: ...
+
+
+@overload
+def create_layering(
+    type_: Literal[CodeObjType.NestedParam],
+) -> NestedParamCodeObjLayering: ...
+
+
+def create_layering(type_: SectionType | CodeObjType):
+    match type_:
+        case SectionType.Callable:
+            return CallableSectionLayering(type=type_)
+
+        case SectionType.Dict:
+            return DictSectionLayering(type=type_)
+
+        case SectionType.ListRoot:
+            return ListRootSectionLayering(type=type_)
+
+        case SectionType.DictRoot:
+            return DictRootSectionLayering(type=type_)
+
+        case SectionType.Group:
+            return GroupSectionLayering(type=type_)
+
+        case SectionType.Image:
+            return ImageSectionLayering(type=type_)
+
+        case SectionType.Chart:
+            return ChartSectionLayering(type=type_)
+
+        case SectionType.Draw:
+            return DrawSectionLayering(type=type_)
+
+        case SectionType.TextBlock:
+            return TextBlockSectionLayering(type=type_)
+
+        case SectionType.Social:
+            return SocialSectionLayering(type=type_)
+
+        case SectionType.GlobalVariables:
+            return GlobalVariablesSectionLayering(type=type_)
+
+        case SectionType.Code:
+            return CodeSectionLayering(type=type_)
+
+        case SectionType.GenPythonCode:
+            return GenPythonCodeSectionLayering(type=type_)
+
+        case SectionType.Terminal:
+            return TerminalSectionLayering(type=type_)
+
+        case SectionType.IFrame:
+            return IFrameSectionLayering(type=type_)
+
+        case SectionType.Chat:
+            return ChatSectionLayering(type=type_)
+
+        case SectionType.Browser:
+            return BrowserSectionLayering(type=type_)
+
+        case CodeObjType.CodeCallable:
+            return CodeCallableCodeObjLayering(type=type_)
+
+        case CodeObjType.CodeParam:
+            return CodeParamCodeObjLayering(type=type_)
+
+        case CodeObjType.TextParam:
+            return TextParamCodeObjLayering(type=type_)
+
+        case CodeObjType.SliderParam:
+            return SliderParamCodeObjLayering(type=type_)
+
+        case CodeObjType.SwitchParam:
+            return SwitchParamCodeObjLayering(type=type_)
+
+        case CodeObjType.ColorPickerParam:
+            return ColorPickerParamCodeObjLayering(type=type_)
+
+        case CodeObjType.DropdownParam:
+            return DropdownParamCodeObjLayering(type=type_)
+
+        case CodeObjType.PasswordParam:
+            return PasswordParamCodeObjLayering(type=type_)
+
+        case CodeObjType.NestedParam:
+            return NestedParamCodeObjLayering(type=type_)

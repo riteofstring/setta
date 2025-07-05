@@ -502,7 +502,7 @@ def create_modifier(type_: SectionType | CodeObjType):
 
 def generate_layerings(output_file, classes):
     code = """
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
@@ -556,6 +556,34 @@ class {class_name}({parent_class_names}):
 
 """
 
+    cases = {}
+    for c in classes:
+        if c.model_fields["type"].default is PydanticUndefined:
+            continue
+        layering_name = f"{get_name_without_impl(c.__name__)}Layering"
+        type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+        default_val = c.model_fields["type"].default
+        cases[f"{default_val.__class__.__name__}.{default_val.value}"] = layering_name
+        code += f"""
+@overload
+def create_layering(type_: {type_attribute}) -> {layering_name}:
+    ...
+"""
+
+    cases_str = []
+    for type_name, modifier_name in cases.items():
+        curr_case = f"""
+        case {type_name}:
+            return {modifier_name}(type=type_)
+        """
+        cases_str.append(curr_case)
+
+    code += f"""
+def create_layering(type_: SectionType | CodeObjType):
+    match type_:
+{"\n".join(cases_str)}
+"""
+
     code = (
         f"""
 from setta.types.generated.modifiers import {", ".join(modifier_names)}
@@ -604,7 +632,7 @@ def generate_cores(output_file, classes):
     }
 
     code = """
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
@@ -671,7 +699,7 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
                     default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[default_val.value]
                 else:
                     raise ValueError
-                default_keys = [f'"{v}"' for v in default_keys]
+                default_keys = [f'"{v}"' for v in sorted(default_keys)]
                 unshared_keys = f"""{unshared_keys} = Field( # type: ignore
     default_factory = lambda: [{", ".join(default_keys)}]
 )
@@ -686,6 +714,34 @@ class {class_name}({parent_class_names}):
     sharedModifier: {shared_modifier}
     unsharedKeys: {unshared_keys}
 
+"""
+
+    cases = {}
+    for c in classes:
+        if c.model_fields["type"].default is PydanticUndefined:
+            continue
+        core_name = f"{get_name_without_impl(c.__name__)}Core"
+        type_attribute = python_type_to_str(c.model_fields["type"].annotation)
+        default_val = c.model_fields["type"].default
+        cases[f"{default_val.__class__.__name__}.{default_val.value}"] = core_name
+        code += f"""
+@overload
+def create_core(type_: {type_attribute}) -> {core_name}:
+    ...
+"""
+
+    cases_str = []
+    for type_name, modifier_name in cases.items():
+        curr_case = f"""
+        case {type_name}:
+            return {modifier_name}(type=type_)
+        """
+        cases_str.append(curr_case)
+
+    code += f"""
+def create_core(type_: SectionType | CodeObjType):
+    match type_:
+{"\n".join(cases_str)}
 """
 
     code = (

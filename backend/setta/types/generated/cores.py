@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any, Literal, overload
 
 from pydantic import BaseModel, Field
 
@@ -140,7 +140,7 @@ class CallableSectionCore(BaseSectionWithParamsCore):
     )
 
     unsharedKeys: list[CallableSectionImplFields] = Field(  # type: ignore
-        default_factory=lambda: ["codeObjImplLayeringMap", "callable"]
+        default_factory=lambda: ["callable", "codeObjImplLayeringMap"]
     )
 
 
@@ -445,3 +445,200 @@ class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
     unsharedKeys: list[NestedParamCodeObjImplFields] = Field(  # type: ignore
         default_factory=lambda: []
     )
+
+
+@overload
+def create_core(type_: Literal[SectionType.Callable]) -> CallableSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Dict]) -> DictSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.ListRoot]) -> ListRootSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.DictRoot]) -> DictRootSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Group]) -> GroupSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Image]) -> ImageSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Chart]) -> ChartSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Draw]) -> DrawSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.TextBlock]) -> TextBlockSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Social]) -> SocialSectionCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[SectionType.GlobalVariables],
+) -> GlobalVariablesSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Code]) -> CodeSectionCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[SectionType.GenPythonCode],
+) -> GenPythonCodeSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Terminal]) -> TerminalSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.IFrame]) -> IFrameSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Chat]) -> ChatSectionCore: ...
+
+
+@overload
+def create_core(type_: Literal[SectionType.Browser]) -> BrowserSectionCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[CodeObjType.CodeCallable],
+) -> CodeCallableCodeObjCore: ...
+
+
+@overload
+def create_core(type_: Literal[CodeObjType.CodeParam]) -> CodeParamCodeObjCore: ...
+
+
+@overload
+def create_core(type_: Literal[CodeObjType.TextParam]) -> TextParamCodeObjCore: ...
+
+
+@overload
+def create_core(type_: Literal[CodeObjType.SliderParam]) -> SliderParamCodeObjCore: ...
+
+
+@overload
+def create_core(type_: Literal[CodeObjType.SwitchParam]) -> SwitchParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[CodeObjType.ColorPickerParam],
+) -> ColorPickerParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[CodeObjType.DropdownParam],
+) -> DropdownParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type_: Literal[CodeObjType.PasswordParam],
+) -> PasswordParamCodeObjCore: ...
+
+
+@overload
+def create_core(type_: Literal[CodeObjType.NestedParam]) -> NestedParamCodeObjCore: ...
+
+
+def create_core(type_: SectionType | CodeObjType):
+    match type_:
+        case SectionType.Callable:
+            return CallableSectionCore(type=type_)
+
+        case SectionType.Dict:
+            return DictSectionCore(type=type_)
+
+        case SectionType.ListRoot:
+            return ListRootSectionCore(type=type_)
+
+        case SectionType.DictRoot:
+            return DictRootSectionCore(type=type_)
+
+        case SectionType.Group:
+            return GroupSectionCore(type=type_)
+
+        case SectionType.Image:
+            return ImageSectionCore(type=type_)
+
+        case SectionType.Chart:
+            return ChartSectionCore(type=type_)
+
+        case SectionType.Draw:
+            return DrawSectionCore(type=type_)
+
+        case SectionType.TextBlock:
+            return TextBlockSectionCore(type=type_)
+
+        case SectionType.Social:
+            return SocialSectionCore(type=type_)
+
+        case SectionType.GlobalVariables:
+            return GlobalVariablesSectionCore(type=type_)
+
+        case SectionType.Code:
+            return CodeSectionCore(type=type_)
+
+        case SectionType.GenPythonCode:
+            return GenPythonCodeSectionCore(type=type_)
+
+        case SectionType.Terminal:
+            return TerminalSectionCore(type=type_)
+
+        case SectionType.IFrame:
+            return IFrameSectionCore(type=type_)
+
+        case SectionType.Chat:
+            return ChatSectionCore(type=type_)
+
+        case SectionType.Browser:
+            return BrowserSectionCore(type=type_)
+
+        case CodeObjType.CodeCallable:
+            return CodeCallableCodeObjCore(type=type_)
+
+        case CodeObjType.CodeParam:
+            return CodeParamCodeObjCore(type=type_)
+
+        case CodeObjType.TextParam:
+            return TextParamCodeObjCore(type=type_)
+
+        case CodeObjType.SliderParam:
+            return SliderParamCodeObjCore(type=type_)
+
+        case CodeObjType.SwitchParam:
+            return SwitchParamCodeObjCore(type=type_)
+
+        case CodeObjType.ColorPickerParam:
+            return ColorPickerParamCodeObjCore(type=type_)
+
+        case CodeObjType.DropdownParam:
+            return DropdownParamCodeObjCore(type=type_)
+
+        case CodeObjType.PasswordParam:
+            return PasswordParamCodeObjCore(type=type_)
+
+        case CodeObjType.NestedParam:
+            return NestedParamCodeObjCore(type=type_)
