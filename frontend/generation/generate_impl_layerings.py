@@ -36,12 +36,17 @@ def generate_layering_class(impl_class: type, base_class: type, enum_type: str) 
     layering_name = impl_to_layering_name(impl_class_name)
     modifier_name = impl_class_name + "Modifier"
 
-    # Determine parent class
+    # Determine parent class(es)
     if impl_class is base_class:
         parent_class = "BaseImplLayering"
     else:
-        parent_impl_name = impl_class.__base__.__name__
-        parent_class = impl_to_layering_name(parent_impl_name)
+        # Handle multiple inheritance
+        parent_classes = []
+        for parent in impl_class.__bases__:
+            if hasattr(parent, "model_fields"):  # Only include Pydantic model parents
+                parent_layering_name = impl_to_layering_name(parent.__name__)
+                parent_classes.append(parent_layering_name)
+        parent_class = ", ".join(parent_classes)
 
     # Check if it's a base class (no type field) or concrete class
     is_base_class = impl_class.model_fields["type"].default is PydanticUndefined

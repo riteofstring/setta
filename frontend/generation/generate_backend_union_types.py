@@ -256,8 +256,6 @@ AllImplLayeringUnionTypeAdapter = TypeAdapter(AllImplLayeringUnionWithDiscrimina
         lambda x: x,
     )
 
-    print(code)
-
     return ruff_format(code)
 
 

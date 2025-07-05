@@ -96,15 +96,17 @@ class ImageSectionImplModifier(BaseArtifactSectionImplModifier):
     type: Literal[SectionType.Image]
 
 
-class ChartSectionImplModifier(BaseArtifactSectionImplModifier):
+class ChartSectionImplModifier(
+    BaseArtifactSectionImplModifier, BaseCanvasSectionImplModifier
+):
     type: Literal[SectionType.Chart]
-    renderedValue: NotRequired[Any]
     chartSettings: NotRequired[ChartSettings]
 
 
-class DrawSectionImplModifier(BaseArtifactSectionImplModifier):
+class DrawSectionImplModifier(
+    BaseArtifactSectionImplModifier, BaseCanvasSectionImplModifier
+):
     type: Literal[SectionType.Draw]
-    renderedValue: NotRequired[Any]
     canvasSettings: NotRequired[DrawAreaCanvasSettings]
 
 
@@ -221,6 +223,7 @@ class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal[CodeObjType.PasswordParam]
 
 
-class NestedParamCodeObjImplModifier(BaseParamCodeObjImplModifier):
+class NestedParamCodeObjImplModifier(
+    BaseParamCodeObjImplModifier, BaseParentCodeObjImplModifier
+):
     type: Literal[CodeObjType.NestedParam]
-    children: NotRequired[list[str]]

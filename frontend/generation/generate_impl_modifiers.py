@@ -110,22 +110,41 @@ def create_typed_dict(impl_class: type[BaseModel], base_class):
     name = impl_class.__name__
     attributes = []
     for field_name, field_info in impl_class.model_fields.items():
-        if (impl_class is base_class and field_name in exclusions) or (
-            impl_class is not base_class
-            and field_name in impl_class.__base__.model_fields  # type: ignore
-            and field_name != "type"
-        ):
+        # Skip if field is in exclusions for base class
+        if impl_class is base_class and field_name in exclusions:
             continue
+
+        # For non-base classes, skip if field is defined in ANY parent class (except type)
+        if impl_class is not base_class and field_name != "type":
+            field_in_parent = False
+            for parent in impl_class.__bases__:
+                if (
+                    hasattr(parent, "model_fields")
+                    and field_name in parent.model_fields
+                ):
+                    field_in_parent = True
+                    break
+            if field_in_parent:
+                continue
+
         annotation = python_type_to_str(field_info.annotation)
         if field_name != "type":
             annotation = f"NotRequired[{annotation}]"
         attributes.append(f"{field_name}: {annotation}")
+
     attributes = "\n\t".join(attributes)
     attributes = f"\t{attributes}"
+
     if impl_class is base_class:
         parent_class = "TypedDict"
     else:
-        parent_class = f"{python_type_to_str(impl_class.__base__)}Modifier"
+        # Handle multiple inheritance
+        parent_classes = []
+        for parent in impl_class.__bases__:
+            if hasattr(parent, "model_fields"):  # Only include Pydantic model parents
+                parent_classes.append(f"{parent.__name__}Modifier")
+        parent_class = ", ".join(parent_classes)
+
     code = f"""
 class {name}Modifier({parent_class}):
 {attributes}

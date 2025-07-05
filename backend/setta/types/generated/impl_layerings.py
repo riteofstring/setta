@@ -140,12 +140,16 @@ class ImageSectionImplLayering(BaseArtifactSectionImplLayering):
     modifier: ImageSectionImplModifier  # type: ignore[assignment]
 
 
-class ChartSectionImplLayering(BaseArtifactSectionImplLayering):
+class ChartSectionImplLayering(
+    BaseArtifactSectionImplLayering, BaseCanvasSectionImplLayering
+):
     type: Literal[SectionType.Chart] = SectionType.Chart
     modifier: ChartSectionImplModifier  # type: ignore[assignment]
 
 
-class DrawSectionImplLayering(BaseArtifactSectionImplLayering):
+class DrawSectionImplLayering(
+    BaseArtifactSectionImplLayering, BaseCanvasSectionImplLayering
+):
     type: Literal[SectionType.Draw] = SectionType.Draw
     modifier: DrawSectionImplModifier  # type: ignore[assignment]
 
@@ -264,6 +268,8 @@ class PasswordParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     modifier: PasswordParamCodeObjImplModifier  # type: ignore[assignment]
 
 
-class NestedParamCodeObjImplLayering(BaseParamCodeObjImplLayering):
+class NestedParamCodeObjImplLayering(
+    BaseParamCodeObjImplLayering, BaseParentCodeObjImplLayering
+):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     modifier: NestedParamCodeObjImplModifier  # type: ignore[assignment]
