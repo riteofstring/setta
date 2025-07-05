@@ -2,7 +2,7 @@
 Storage API routes
 """
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from middleware import CurrentUser
@@ -32,7 +32,7 @@ async def upload_file(
     project_id: str,
     file: UploadFile = File(...),
     path: str | None = None,
-    current_user: CurrentUser = Depends(),
+    current_user: str = CurrentUser,
 ):
     """Upload file to user's project"""
     if not file.filename:
@@ -48,7 +48,7 @@ async def upload_file(
         raise HTTPException(400, "Empty file")
 
     # Save to storage
-    success = storage_service.save_file(current_user.id, project_id, file_path, content)
+    success = storage_service.save_file(current_user, project_id, file_path, content)
 
     if not success:
         raise HTTPException(500, "Failed to save file")
@@ -57,16 +57,16 @@ async def upload_file(
 
 
 @router.get("/projects/{project_id}/files")
-async def list_files(project_id: str, current_user: CurrentUser = Depends()):
+async def list_files(project_id: str, current_user: str = CurrentUser):
     """List all files in a project"""
-    files = storage_service.list_files(current_user.id, project_id)
+    files = storage_service.list_files(current_user, project_id)
     return FileListResponse(files=files, count=len(files))
 
 
 @router.get("/projects/{project_id}/download/{file_path:path}")
-async def get_download_url(project_id: str, file_path: str, current_user: CurrentUser = Depends()):
+async def get_download_url(project_id: str, file_path: str, current_user: str = CurrentUser):
     """Get download URL for a file"""
-    url = storage_service.get_download_url(current_user.id, project_id, file_path)
+    url = storage_service.get_download_url(current_user, project_id, file_path)
 
     if not url:
         raise HTTPException(404, "File not found")
@@ -75,9 +75,9 @@ async def get_download_url(project_id: str, file_path: str, current_user: Curren
 
 
 @router.delete("/projects/{project_id}/files/{file_path:path}")
-async def delete_file(project_id: str, file_path: str, current_user: CurrentUser = Depends()):
+async def delete_file(project_id: str, file_path: str, current_user: str = CurrentUser):
     """Delete a file"""
-    success = storage_service.delete_file(current_user.id, project_id, file_path)
+    success = storage_service.delete_file(current_user, project_id, file_path)
 
     if not success:
         raise HTTPException(404, "File not found")
@@ -86,9 +86,9 @@ async def delete_file(project_id: str, file_path: str, current_user: CurrentUser
 
 
 @router.delete("/projects/{project_id}/all-files")
-async def delete_project_files(project_id: str, current_user: CurrentUser = Depends()):
+async def delete_project_files(project_id: str, current_user: str = CurrentUser):
     """Delete all files in a project"""
-    success = storage_service.delete_project(current_user.id, project_id)
+    success = storage_service.delete_project(current_user, project_id)
 
     if not success:
         raise HTTPException(500, "Failed to delete project files")
@@ -97,12 +97,12 @@ async def delete_project_files(project_id: str, current_user: CurrentUser = Depe
 
 
 @router.post("/projects/{project_id}/upload-url")
-async def get_upload_url(project_id: str, file_path: str, current_user: CurrentUser = Depends()):
+async def get_upload_url(project_id: str, file_path: str, current_user: str = CurrentUser):
     """Get presigned URL for direct browser upload"""
     if not file_path:
         raise HTTPException(400, "file_path is required")
 
-    result = storage_service.get_upload_url(current_user.id, project_id, file_path)
+    result = storage_service.get_upload_url(current_user, project_id, file_path)
 
     if not result:
         raise HTTPException(500, "Failed to generate upload URL")
