@@ -100,37 +100,37 @@ class BaseSectionCore(BaseModel, extra="forbid"):
 class BaseSectionWithParamsCore(BaseSectionCore):
     type: Any
     sharedModifier: BaseSectionWithParamsModifier  # type: ignore
-    unsharedKeys: set[BaseSectionWithParamsImplFields]  # type: ignore
+    unsharedKeys: list[BaseSectionWithParamsImplFields]  # type: ignore
 
 
 class BaseArtifactSectionCore(BaseSectionCore):
     type: Any
     sharedModifier: BaseArtifactSectionModifier  # type: ignore
-    unsharedKeys: set[BaseArtifactSectionImplFields]  # type: ignore
+    unsharedKeys: list[BaseArtifactSectionImplFields]  # type: ignore
 
 
 class BaseCanvasSectionCore(BaseSectionCore):
     type: Any
     sharedModifier: BaseCanvasSectionModifier  # type: ignore
-    unsharedKeys: set[BaseCanvasSectionImplFields]  # type: ignore
+    unsharedKeys: list[BaseCanvasSectionImplFields]  # type: ignore
 
 
 class BaseCodeSectionCore(BaseSectionCore):
     type: Any
     sharedModifier: BaseCodeSectionModifier  # type: ignore
-    unsharedKeys: set[BaseCodeSectionImplFields]  # type: ignore
+    unsharedKeys: list[BaseCodeSectionImplFields]  # type: ignore
 
 
 class BaseParentSectionCore(BaseSectionCore):
     type: Any
     sharedModifier: BaseParentSectionModifier  # type: ignore
-    unsharedKeys: set[BaseParentSectionImplFields]  # type: ignore
+    unsharedKeys: list[BaseParentSectionImplFields]  # type: ignore
 
 
 class BaseDictSectionCore(BaseSectionWithParamsCore):
     type: Any
     sharedModifier: BaseDictSectionModifier  # type: ignore
-    unsharedKeys: set[BaseDictSectionImplFields]  # type: ignore
+    unsharedKeys: list[BaseDictSectionImplFields]  # type: ignore
 
 
 class CallableSectionCore(BaseSectionWithParamsCore):
@@ -138,8 +138,10 @@ class CallableSectionCore(BaseSectionWithParamsCore):
     sharedModifier: CallableSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Callable)
     )
-    # type: ignore
-    unsharedKeys: set[CallableSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[CallableSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["codeObjImplLayeringMap", "callable"]
+    )
 
 
 class DictSectionCore(BaseDictSectionCore):
@@ -147,8 +149,10 @@ class DictSectionCore(BaseDictSectionCore):
     sharedModifier: DictSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Dict)
     )
-    # type: ignore
-    unsharedKeys: set[DictSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[DictSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["codeObjImplLayeringMap", "topLevelParamIds"]
+    )
 
 
 class ListRootSectionCore(BaseParentSectionCore):
@@ -156,8 +160,10 @@ class ListRootSectionCore(BaseParentSectionCore):
     sharedModifier: ListRootSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.ListRoot)
     )
-    # type: ignore
-    unsharedKeys: set[ListRootSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[ListRootSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class DictRootSectionCore(BaseParentSectionCore):
@@ -165,8 +171,10 @@ class DictRootSectionCore(BaseParentSectionCore):
     sharedModifier: DictRootSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.DictRoot)
     )
-    # type: ignore
-    unsharedKeys: set[DictRootSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[DictRootSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class GroupSectionCore(BaseParentSectionCore):
@@ -174,8 +182,10 @@ class GroupSectionCore(BaseParentSectionCore):
     sharedModifier: GroupSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Group)
     )
-    # type: ignore
-    unsharedKeys: set[GroupSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[GroupSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class ImageSectionCore(BaseArtifactSectionCore):
@@ -183,8 +193,10 @@ class ImageSectionCore(BaseArtifactSectionCore):
     sharedModifier: ImageSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Image)
     )
-    # type: ignore
-    unsharedKeys: set[ImageSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[ImageSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class ChartSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
@@ -192,8 +204,10 @@ class ChartSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     sharedModifier: ChartSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Chart)
     )
-    # type: ignore
-    unsharedKeys: set[ChartSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[ChartSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class DrawSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
@@ -201,8 +215,10 @@ class DrawSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     sharedModifier: DrawSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Draw)
     )
-    # type: ignore
-    unsharedKeys: set[DrawSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[DrawSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class TextBlockSectionCore(BaseSectionCore):
@@ -210,8 +226,10 @@ class TextBlockSectionCore(BaseSectionCore):
     sharedModifier: TextBlockSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.TextBlock)
     )
-    # type: ignore
-    unsharedKeys: set[TextBlockSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[TextBlockSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class SocialSectionCore(BaseSectionCore):
@@ -219,8 +237,10 @@ class SocialSectionCore(BaseSectionCore):
     sharedModifier: SocialSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Social)
     )
-    # type: ignore
-    unsharedKeys: set[SocialSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[SocialSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class GlobalVariablesSectionCore(BaseDictSectionCore):
@@ -228,8 +248,10 @@ class GlobalVariablesSectionCore(BaseDictSectionCore):
     sharedModifier: GlobalVariablesSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.GlobalVariables)
     )
-    # type: ignore
-    unsharedKeys: set[GlobalVariablesSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[GlobalVariablesSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class CodeSectionCore(BaseCodeSectionCore):
@@ -237,8 +259,10 @@ class CodeSectionCore(BaseCodeSectionCore):
     sharedModifier: CodeSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Code)
     )
-    # type: ignore
-    unsharedKeys: set[CodeSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[CodeSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class GenPythonCodeSectionCore(BaseCodeSectionCore):
@@ -246,8 +270,10 @@ class GenPythonCodeSectionCore(BaseCodeSectionCore):
     sharedModifier: GenPythonCodeSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.GenPythonCode)
     )
-    # type: ignore
-    unsharedKeys: set[GenPythonCodeSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[GenPythonCodeSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class TerminalSectionCore(BaseSectionCore):
@@ -255,8 +281,10 @@ class TerminalSectionCore(BaseSectionCore):
     sharedModifier: TerminalSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Terminal)
     )
-    # type: ignore
-    unsharedKeys: set[TerminalSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[TerminalSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class IFrameSectionCore(BaseSectionCore):
@@ -264,8 +292,10 @@ class IFrameSectionCore(BaseSectionCore):
     sharedModifier: IFrameSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.IFrame)
     )
-    # type: ignore
-    unsharedKeys: set[IFrameSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[IFrameSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class ChatSectionCore(BaseSectionCore):
@@ -273,8 +303,10 @@ class ChatSectionCore(BaseSectionCore):
     sharedModifier: ChatSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Chat)
     )
-    # type: ignore
-    unsharedKeys: set[ChatSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[ChatSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class BrowserSectionCore(BaseSectionCore):
@@ -282,8 +314,10 @@ class BrowserSectionCore(BaseSectionCore):
     sharedModifier: BrowserSectionModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(SectionType.Browser)
     )
-    # type: ignore
-    unsharedKeys: set[BrowserSectionImplFields]  # type: ignore
+
+    unsharedKeys: list[BrowserSectionImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class BaseCodeObjCore(BaseModel, extra="forbid"):
@@ -299,19 +333,19 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
 class BaseParamCodeObjCore(BaseCodeObjCore):
     type: Any
     sharedModifier: BaseParamCodeObjModifier  # type: ignore
-    unsharedKeys: set[BaseParamCodeObjImplFields]  # type: ignore
+    unsharedKeys: list[BaseParamCodeObjImplFields]  # type: ignore
 
 
 class BaseChildlessCodeObjCore(BaseParamCodeObjCore):
     type: Any
     sharedModifier: BaseChildlessCodeObjModifier  # type: ignore
-    unsharedKeys: set[BaseChildlessCodeObjImplFields]  # type: ignore
+    unsharedKeys: list[BaseChildlessCodeObjImplFields]  # type: ignore
 
 
 class BaseParentCodeObjCore(BaseCodeObjCore):
     type: Any
     sharedModifier: BaseParentCodeObjModifier  # type: ignore
-    unsharedKeys: set[BaseParentCodeObjImplFields]  # type: ignore
+    unsharedKeys: list[BaseParentCodeObjImplFields]  # type: ignore
 
 
 class CodeCallableCodeObjCore(BaseParentCodeObjCore):
@@ -319,8 +353,10 @@ class CodeCallableCodeObjCore(BaseParentCodeObjCore):
     sharedModifier: CodeCallableCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.CodeCallable)
     )
-    # type: ignore
-    unsharedKeys: set[CodeCallableCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[CodeCallableCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )
 
 
 class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -328,8 +364,10 @@ class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: CodeParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.CodeParam)
     )
-    # type: ignore
-    unsharedKeys: set[CodeParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[CodeParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class TextParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -337,8 +375,10 @@ class TextParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: TextParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.TextParam)
     )
-    # type: ignore
-    unsharedKeys: set[TextParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[TextParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class SliderParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -346,8 +386,10 @@ class SliderParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: SliderParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.SliderParam)
     )
-    # type: ignore
-    unsharedKeys: set[SliderParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[SliderParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -355,8 +397,10 @@ class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: SwitchParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.SwitchParam)
     )
-    # type: ignore
-    unsharedKeys: set[SwitchParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[SwitchParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -364,8 +408,10 @@ class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: ColorPickerParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.ColorPickerParam)
     )
-    # type: ignore
-    unsharedKeys: set[ColorPickerParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -373,8 +419,10 @@ class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: DropdownParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.DropdownParam)
     )
-    # type: ignore
-    unsharedKeys: set[DropdownParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
@@ -382,8 +430,10 @@ class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
     sharedModifier: PasswordParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.PasswordParam)
     )
-    # type: ignore
-    unsharedKeys: set[PasswordParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: ["value"]
+    )
 
 
 class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
@@ -391,5 +441,7 @@ class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
     sharedModifier: NestedParamCodeObjModifier = Field(  # type: ignore
         default_factory=lambda: create_modifier(CodeObjType.NestedParam)
     )
-    # type: ignore
-    unsharedKeys: set[NestedParamCodeObjImplFields]  # type: ignore
+
+    unsharedKeys: list[NestedParamCodeObjImplFields] = Field(  # type: ignore
+        default_factory=lambda: []
+    )

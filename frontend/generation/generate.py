@@ -568,6 +568,41 @@ from setta.types.generated.modifiers import {", ".join(modifier_names)}
 
 
 def generate_cores(output_file, classes):
+    # Default unsharedKeys for each section type
+    # Add or modify entries here to set default unshared keys
+    DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
+        "Callable": {"callable", "codeObjImplLayeringMap"},
+        "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
+        "ListRoot": set(),
+        "DictRoot": set(),
+        "Group": set(),
+        "Image": set(),
+        "Chart": set(),
+        "Draw": set(),
+        "TextBlock": set(),
+        "Social": set(),
+        "GlobalVariables": set(),
+        "Code": set(),
+        "GenPythonCode": set(),
+        "Terminal": set(),
+        "IFrame": set(),
+        "Chat": set(),
+        "Browser": set(),
+    }
+
+    # Default unsharedKeys for each code obj type
+    DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
+        "CodeCallable": set(),
+        "CodeParam": {"value"},
+        "TextParam": {"value"},
+        "SliderParam": {"value"},
+        "SwitchParam": {"value"},
+        "ColorPickerParam": {"value"},
+        "DropdownParam": {"value"},
+        "PasswordParam": {"value"},
+        "NestedParam": set(),
+    }
+
     code = """
 from typing import Any, Literal
 
@@ -621,6 +656,7 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
             )
             type_annotation = python_type_to_str(c.model_fields["type"].annotation)
             shared_modifier = modifier_name
+            unshared_keys = f"list[{impl_fields_name}]"
             if c.model_fields["type"].default is not PydanticUndefined:
                 default_val = c.model_fields["type"].default
                 type_value = f"{default_val.__class__.__name__}.{default_val.value}"
@@ -629,12 +665,26 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
     default_factory = lambda: create_modifier({type_value})
 )
 """
+                if "Section" in class_name:
+                    default_keys = DEFAULT_SECTION_UNSHARED_KEYS[default_val.value]
+                elif "CodeObj" in class_name:
+                    default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[default_val.value]
+                else:
+                    raise ValueError
+                default_keys = [f'"{v}"' for v in default_keys]
+                unshared_keys = f"""{unshared_keys} = Field( # type: ignore
+    default_factory = lambda: [{", ".join(default_keys)}]
+)
+"""
+            else:
+                shared_modifier += " # type: ignore"
+                unshared_keys += " # type: ignore"
 
             code += f"""
 class {class_name}({parent_class_names}):
     type: {type_annotation}
-    sharedModifier: {shared_modifier} # type: ignore
-    unsharedKeys: set[{impl_fields_name}] # type: ignore
+    sharedModifier: {shared_modifier}
+    unsharedKeys: {unshared_keys}
 
 """
 
