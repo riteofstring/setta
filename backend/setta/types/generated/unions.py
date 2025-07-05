@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.section_impls import (
@@ -874,3 +874,365 @@ BaseParentCodeObjLayeringTypeAdapter = TypeAdapter(
 )
 
 BaseParentCodeObjLayeringTypeSet = set(["CodeCallable", "NestedParam"])
+
+
+from typing import Annotated, Union
+
+from pydantic import Field, TypeAdapter
+from setta.types.generated.modifiers import (
+    BaseArtifactSectionModifier,
+    BaseCanvasSectionModifier,
+    BaseCodeSectionModifier,
+    BaseDictSectionModifier,
+    BaseParentSectionModifier,
+    BaseSectionModifier,
+    BaseSectionWithParamsModifier,
+    BrowserSectionModifier,
+    CallableSectionModifier,
+    ChartSectionModifier,
+    ChatSectionModifier,
+    CodeSectionModifier,
+    DictRootSectionModifier,
+    DictSectionModifier,
+    DrawSectionModifier,
+    GenPythonCodeSectionModifier,
+    GlobalVariablesSectionModifier,
+    GroupSectionModifier,
+    IFrameSectionModifier,
+    ImageSectionModifier,
+    ListRootSectionModifier,
+    SocialSectionModifier,
+    TerminalSectionModifier,
+    TextBlockSectionModifier,
+)
+
+BaseSectionModifierUnion = Union[
+    BaseSectionWithParamsModifier,
+    BaseArtifactSectionModifier,
+    BaseCanvasSectionModifier,
+    BaseCodeSectionModifier,
+    BaseParentSectionModifier,
+    BaseDictSectionModifier,
+    CallableSectionModifier,
+    DictSectionModifier,
+    ListRootSectionModifier,
+    DictRootSectionModifier,
+    GroupSectionModifier,
+    ImageSectionModifier,
+    ChartSectionModifier,
+    DrawSectionModifier,
+    TextBlockSectionModifier,
+    SocialSectionModifier,
+    GlobalVariablesSectionModifier,
+    CodeSectionModifier,
+    GenPythonCodeSectionModifier,
+    TerminalSectionModifier,
+    IFrameSectionModifier,
+    ChatSectionModifier,
+    BrowserSectionModifier,
+]
+
+BaseSectionModifierUnionWithDiscriminator = Annotated[
+    BaseSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseSectionModifierTypeAdapter = TypeAdapter(BaseSectionModifierUnionWithDiscriminator)
+
+BaseSectionModifierTypeSet = set(
+    [
+        "Callable",
+        "Dict",
+        "ListRoot",
+        "DictRoot",
+        "Group",
+        "Image",
+        "Chart",
+        "Draw",
+        "TextBlock",
+        "Social",
+        "GlobalVariables",
+        "Code",
+        "GenPythonCode",
+        "Terminal",
+        "IFrame",
+        "Chat",
+        "Browser",
+    ]
+)
+
+BaseSectionWithParamsModifierUnion = Union[
+    BaseDictSectionModifier,
+    CallableSectionModifier,
+    DictSectionModifier,
+    GlobalVariablesSectionModifier,
+]
+
+BaseSectionWithParamsModifierUnionWithDiscriminator = Annotated[
+    BaseSectionWithParamsModifierUnion, Field(discriminator="type")
+]
+
+BaseSectionWithParamsModifierTypeAdapter = TypeAdapter(
+    BaseSectionWithParamsModifierUnionWithDiscriminator
+)
+
+BaseSectionWithParamsModifierTypeSet = set(["Callable", "Dict", "GlobalVariables"])
+
+BaseArtifactSectionModifierUnion = Union[
+    ImageSectionModifier, ChartSectionModifier, DrawSectionModifier
+]
+
+BaseArtifactSectionModifierUnionWithDiscriminator = Annotated[
+    BaseArtifactSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseArtifactSectionModifierTypeAdapter = TypeAdapter(
+    BaseArtifactSectionModifierUnionWithDiscriminator
+)
+
+BaseArtifactSectionModifierTypeSet = set(["Image", "Chart", "Draw"])
+
+BaseCanvasSectionModifierUnion = Union[ChartSectionModifier, DrawSectionModifier]
+
+BaseCanvasSectionModifierUnionWithDiscriminator = Annotated[
+    BaseCanvasSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseCanvasSectionModifierTypeAdapter = TypeAdapter(
+    BaseCanvasSectionModifierUnionWithDiscriminator
+)
+
+BaseCanvasSectionModifierTypeSet = set(["Chart", "Draw"])
+
+BaseCodeSectionModifierUnion = Union[CodeSectionModifier, GenPythonCodeSectionModifier]
+
+BaseCodeSectionModifierUnionWithDiscriminator = Annotated[
+    BaseCodeSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseCodeSectionModifierTypeAdapter = TypeAdapter(
+    BaseCodeSectionModifierUnionWithDiscriminator
+)
+
+BaseCodeSectionModifierTypeSet = set(["Code", "GenPythonCode"])
+
+BaseParentSectionModifierUnion = Union[
+    ListRootSectionModifier, DictRootSectionModifier, GroupSectionModifier
+]
+
+BaseParentSectionModifierUnionWithDiscriminator = Annotated[
+    BaseParentSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseParentSectionModifierTypeAdapter = TypeAdapter(
+    BaseParentSectionModifierUnionWithDiscriminator
+)
+
+BaseParentSectionModifierTypeSet = set(["ListRoot", "DictRoot", "Group"])
+
+BaseDictSectionModifierUnion = Union[
+    DictSectionModifier, GlobalVariablesSectionModifier
+]
+
+BaseDictSectionModifierUnionWithDiscriminator = Annotated[
+    BaseDictSectionModifierUnion, Field(discriminator="type")
+]
+
+BaseDictSectionModifierTypeAdapter = TypeAdapter(
+    BaseDictSectionModifierUnionWithDiscriminator
+)
+
+BaseDictSectionModifierTypeSet = set(["Dict", "GlobalVariables"])
+
+
+from typing import Annotated, Union
+
+from pydantic import Field, TypeAdapter
+from setta.types.generated.modifiers import (
+    BaseChildlessCodeObjModifier,
+    BaseCodeObjModifier,
+    BaseParamCodeObjModifier,
+    BaseParentCodeObjModifier,
+    CodeCallableCodeObjModifier,
+    CodeParamCodeObjModifier,
+    ColorPickerParamCodeObjModifier,
+    DropdownParamCodeObjModifier,
+    NestedParamCodeObjModifier,
+    PasswordParamCodeObjModifier,
+    SliderParamCodeObjModifier,
+    SwitchParamCodeObjModifier,
+    TextParamCodeObjModifier,
+)
+
+BaseCodeObjModifierUnion = Union[
+    BaseParamCodeObjModifier,
+    BaseChildlessCodeObjModifier,
+    BaseParentCodeObjModifier,
+    CodeCallableCodeObjModifier,
+    CodeParamCodeObjModifier,
+    TextParamCodeObjModifier,
+    SliderParamCodeObjModifier,
+    SwitchParamCodeObjModifier,
+    ColorPickerParamCodeObjModifier,
+    DropdownParamCodeObjModifier,
+    PasswordParamCodeObjModifier,
+    NestedParamCodeObjModifier,
+]
+
+BaseCodeObjModifierUnionWithDiscriminator = Annotated[
+    BaseCodeObjModifierUnion, Field(discriminator="type")
+]
+
+BaseCodeObjModifierTypeAdapter = TypeAdapter(BaseCodeObjModifierUnionWithDiscriminator)
+
+BaseCodeObjModifierTypeSet = set(
+    [
+        "CodeCallable",
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
+    ]
+)
+
+BaseParamCodeObjModifierUnion = Union[
+    BaseChildlessCodeObjModifier,
+    CodeParamCodeObjModifier,
+    TextParamCodeObjModifier,
+    SliderParamCodeObjModifier,
+    SwitchParamCodeObjModifier,
+    ColorPickerParamCodeObjModifier,
+    DropdownParamCodeObjModifier,
+    PasswordParamCodeObjModifier,
+    NestedParamCodeObjModifier,
+]
+
+BaseParamCodeObjModifierUnionWithDiscriminator = Annotated[
+    BaseParamCodeObjModifierUnion, Field(discriminator="type")
+]
+
+BaseParamCodeObjModifierTypeAdapter = TypeAdapter(
+    BaseParamCodeObjModifierUnionWithDiscriminator
+)
+
+BaseParamCodeObjModifierTypeSet = set(
+    [
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "NestedParam",
+    ]
+)
+
+BaseChildlessCodeObjModifierUnion = Union[
+    CodeParamCodeObjModifier,
+    TextParamCodeObjModifier,
+    SliderParamCodeObjModifier,
+    SwitchParamCodeObjModifier,
+    ColorPickerParamCodeObjModifier,
+    DropdownParamCodeObjModifier,
+    PasswordParamCodeObjModifier,
+]
+
+BaseChildlessCodeObjModifierUnionWithDiscriminator = Annotated[
+    BaseChildlessCodeObjModifierUnion, Field(discriminator="type")
+]
+
+BaseChildlessCodeObjModifierTypeAdapter = TypeAdapter(
+    BaseChildlessCodeObjModifierUnionWithDiscriminator
+)
+
+BaseChildlessCodeObjModifierTypeSet = set(
+    [
+        "CodeParam",
+        "TextParam",
+        "SliderParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+    ]
+)
+
+BaseParentCodeObjModifierUnion = Union[
+    CodeCallableCodeObjModifier, NestedParamCodeObjModifier
+]
+
+BaseParentCodeObjModifierUnionWithDiscriminator = Annotated[
+    BaseParentCodeObjModifierUnion, Field(discriminator="type")
+]
+
+BaseParentCodeObjModifierTypeAdapter = TypeAdapter(
+    BaseParentCodeObjModifierUnionWithDiscriminator
+)
+
+BaseParentCodeObjModifierTypeSet = set(["CodeCallable", "NestedParam"])
+
+
+def isBaseSectionModifier(x: BaseSectionModifier) -> TypeGuard[BaseSectionModifier]:
+    return x["type"] in BaseSectionModifierTypeSet
+
+
+def isBaseSectionWithParamsModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseSectionWithParamsModifier]:
+    return x["type"] in BaseSectionWithParamsModifierTypeSet
+
+
+def isBaseArtifactSectionModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseArtifactSectionModifier]:
+    return x["type"] in BaseArtifactSectionModifierTypeSet
+
+
+def isBaseCanvasSectionModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseCanvasSectionModifier]:
+    return x["type"] in BaseCanvasSectionModifierTypeSet
+
+
+def isBaseCodeSectionModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseCodeSectionModifier]:
+    return x["type"] in BaseCodeSectionModifierTypeSet
+
+
+def isBaseParentSectionModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseParentSectionModifier]:
+    return x["type"] in BaseParentSectionModifierTypeSet
+
+
+def isBaseDictSectionModifier(
+    x: BaseSectionModifier,
+) -> TypeGuard[BaseDictSectionModifier]:
+    return x["type"] in BaseDictSectionModifierTypeSet
+
+
+def isBaseCodeObjModifier(x: BaseCodeObjModifier) -> TypeGuard[BaseCodeObjModifier]:
+    return x["type"] in BaseCodeObjModifierTypeSet
+
+
+def isBaseParamCodeObjModifier(
+    x: BaseCodeObjModifier,
+) -> TypeGuard[BaseParamCodeObjModifier]:
+    return x["type"] in BaseParamCodeObjModifierTypeSet
+
+
+def isBaseChildlessCodeObjModifier(
+    x: BaseCodeObjModifier,
+) -> TypeGuard[BaseChildlessCodeObjModifier]:
+    return x["type"] in BaseChildlessCodeObjModifierTypeSet
+
+
+def isBaseParentCodeObjModifier(
+    x: BaseCodeObjModifier,
+) -> TypeGuard[BaseParentCodeObjModifier]:
+    return x["type"] in BaseParentCodeObjModifierTypeSet
