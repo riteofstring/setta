@@ -1,6 +1,7 @@
-from typing import Literal
 
-from pydantic import BaseModel
+from typing import Literal, Union
+
+from pydantic import BaseModel, Field
 
 # Code object type imports
 from setta.types.code_obj_impls import (
@@ -21,190 +22,150 @@ from setta.types.section_impls import (
     Visibility,
 )
 
-
 class UserDefaultBaseSectionImpl(BaseModel):
-    isFrozen: bool
 
-    visibility: Visibility
-
-    size: SectionSize
-
-    aspectRatio: bool | float
-
-    isMinimized: bool
-
-    positionAndSizeLocked: bool
-
-
+    isFrozen: bool = False
+    visibility: Visibility = Field(default_factory = Visibility)
+    size: SectionSize = Field(default_factory = SectionSize)
+    aspectRatio: bool | float = False
+    isMinimized: bool = False
+    positionAndSizeLocked: bool = False
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl):
-    hideUnpinnedParams: bool
 
-    paramFilter: str
-
-    columnWidth: float | None
-
-    configLanguage: ConfigLanguage
-
-    pinnedAreaHeight: float | Literal[SectionSizeMode.auto]
-
-
+    hideUnpinnedParams: bool = False
+    paramFilter: str = ""
+    columnWidth: float | None = None
+    configLanguage: ConfigLanguage = ConfigLanguage.python
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
 class UserDefaultBaseArtifactSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl):
-    code: str
 
-
+    code: str = ""
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultBaseDictSectionImpl(UserDefaultBaseSectionWithParamsImpl):
-    isJsonSource: bool
 
-    jsonSourceKeys: list[str]
-
-
+    isJsonSource: bool = False
+    jsonSourceKeys: list[str] = Field(default_factory = list[Any])
 class UserDefaultCallableSectionImpl(UserDefaultBaseSectionWithParamsImpl):
-    hideParams: bool
 
-
+    hideParams: bool = False
 class UserDefaultDictSectionImpl(UserDefaultBaseDictSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultListRootSectionImpl(UserDefaultBaseParentSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultDictRootSectionImpl(UserDefaultBaseParentSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl):
-    isHorizontalOrientation: bool
 
-
+    isHorizontalOrientation: bool = False
 class UserDefaultImageSectionImpl(UserDefaultBaseArtifactSectionImpl):
+
     pass
 
+class UserDefaultChartSectionImpl(UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl):
 
-class UserDefaultChartSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl
-):
-    chartSettings: ChartSettings
+    size: SectionSize = Field(default_factory = lambda: SectionSize(width=400, height=400))
+    chartSettings: ChartSettings = Field(default_factory = ChartSettings)
+class UserDefaultDrawSectionImpl(UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl):
 
-
-class UserDefaultDrawSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl
-):
-    canvasSettings: DrawAreaCanvasSettings
-
-
+    canvasSettings: DrawAreaCanvasSettings = Field(default_factory = DrawAreaCanvasSettings)
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl):
-    format: TextBlockFormat
 
-    headingAsSectionName: bool
-
-    displayMode: TextBlockDisplayMode
-
-    text: str
-
-
+    format: TextBlockFormat = TextBlockFormat.Plaintext
+    headingAsSectionName: bool = False
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
+    text: str = ""
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl):
-    social: str
 
-
+    social: str = ""
 class UserDefaultGlobalVariablesSectionImpl(UserDefaultBaseDictSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl):
-    codeLanguage: CodeLanguage
 
-
+    size: SectionSize = Field(default_factory = lambda: SectionSize(width=500)))
+    codeLanguage: CodeLanguage = CodeLanguage.python
 class UserDefaultGenPythonCodeSectionImpl(UserDefaultBaseCodeSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultTerminalSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
-
+    size: SectionSize = Field(default_factory = lambda: SectionSize(width=700, height=300))
 class UserDefaultIFrameSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
+    pass
 
 class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl):
-    pass
 
-
+    size: SectionSize = Field(default_factory = lambda: SectionSize(width=405, height=405))
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl):
-    hideColumn: bool
 
-
+    hideColumn: bool = False
 class UserDefaultBaseCodeObjImpl(BaseModel):
-    pass
 
+    pass
 
 class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl):
-    coreNameType: ParamNameType
 
-    coreNameEditable: bool
-
-
+    coreNameType: ParamNameType = ParamNameType.TEXT
+    coreNameEditable: bool = False
 class UserDefaultBaseChildlessCodeObjImpl(UserDefaultBaseParamCodeObjImpl):
-    defaultVal: str
 
-    value: str
-
-
+    defaultVal: str = ""
+    value: str = ""
 class UserDefaultBaseParentCodeObjImpl(UserDefaultBaseCodeObjImpl):
-    pass
 
+    pass
 
 class UserDefaultCodeCallableCodeObjImpl(UserDefaultBaseParentCodeObjImpl):
-    pass
 
+    pass
 
 class UserDefaultCodeParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    pass
 
+    pass
 
 class UserDefaultTextParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    pass
 
+    pass
 
 class UserDefaultSliderParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    min: int
 
-    max: int
-
-    step: int
-
-
+    min: int = 0
+    max: int = 100
+    step: int = 1
 class UserDefaultSwitchParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    pass
 
+    pass
 
 class UserDefaultColorPickerParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    choices: list[ColorPickerChoice]
 
-
+    choices: list[ColorPickerChoice] = Field(default_factory = list[Any])
 class UserDefaultDropdownParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
-    choices: list[str]
 
-
+    choices: list[str] = Field(default_factory = list[Any])
 class UserDefaultPasswordParamCodeObjImpl(UserDefaultBaseChildlessCodeObjImpl):
+
     pass
 
+class UserDefaultNestedParamCodeObjImpl(UserDefaultBaseParamCodeObjImpl, UserDefaultBaseParentCodeObjImpl):
 
-class UserDefaultNestedParamCodeObjImpl(
-    UserDefaultBaseParamCodeObjImpl, UserDefaultBaseParentCodeObjImpl
-):
     pass
