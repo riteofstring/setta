@@ -1,73 +1,105 @@
 #!/usr/bin/env python3
-"""
-Application utilities generator.
-
-This script generates:
-1. SettingsState class - Main settings state with all user defaults
-2. Creation functions - Functions to create impl instances with user defaults
-3. WebSocket message unions - Union types for WebSocket messages
-4. Additional application-specific utilities as needed
-"""
+"""Simplified app utilities generator."""
 
 from pathlib import Path
-from typing import List, Type
 
-from pydantic import BaseModel
-from pydantic_core import PydanticUndefined
-from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-# ============== Common Utilities ==============
+# When running as a script, use local import
+if __name__ == "__main__":
+    from generation_base_generator import BaseGenerator, UnionGenerator
+else:
+    from .generation_base_generator import BaseGenerator, UnionGenerator
+
+import setta.types.code_obj_impls
+import setta.types.section_impls
+from setta.types.websocket import (
+    WebsocketMsgTypeForBackend,
+    WebsocketMsgTypeForFrontend,
+)
 
 
-def find_sub_classes(
-    module,
-    base_class: Type[BaseModel],
-    discriminator: str,
-    return_base_classes: bool,
-    return_input_base_class: bool,
-) -> List[Type[BaseModel]]:
-    """Find subclasses of a base class in a module."""
-    import inspect
+class AppUtilitiesGenerator(BaseGenerator):
+    """Generates application utilities."""
 
-    classes = []
+    SETTINGS_STATE_TEMPLATE = """# Auto-generated SettingsState class - DO NOT EDIT MANUALLY
+# Generated from SectionType and CodeObjType enums
 
-    for _, obj in inspect.getmembers(module, inspect.isclass):
-        if issubclass(obj, base_class):
-            fields = obj.model_fields
-            if not return_input_base_class and obj is base_class:
-                continue
-            if (
-                return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is PydanticUndefined
-            ):
-                classes.append(obj)
-            elif (
-                not return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is not PydanticUndefined
-            ):
-                classes.append(obj)
+from pydantic import BaseModel, Field
 
-    # Sort by line number where the class is defined
-    def get_line_number(cls):
-        try:
-            return inspect.getsourcelines(cls)[1]
-        except (OSError, TypeError):
-            return float("inf")
+from setta.types.settings_state import SettingsShortcuts, SettingsGUI, SettingsBackend
 
-    classes.sort(key=get_line_number)
-    return classes
+# Import all UserDefault classes
+from setta.types.generated.user_defaults import (
+{imports}
+)
 
 
-# ============== Settings State Generator ==============
+class SettingsState(BaseModel, extra="forbid"):
+    \"\"\"Application settings state including all user defaults.\"\"\"
+    
+    # Core settings
+    shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
+    gui: SettingsGUI = Field(default_factory=SettingsGUI)
+    backend: SettingsBackend = Field(default_factory=SettingsBackend)
+    languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
+    
+    # Section defaults
+{section_defaults}
+    
+    # Code object defaults
+{code_obj_defaults}
+"""
 
+    CREATION_FUNCTION_TEMPLATE = """
+def create{class_name}(
+    defaults: UserDefault{class_name},
+    **overrides
+) -> {class_name}:
+    \"\"\"Create {class_name} with user defaults.\"\"\"
+    return {class_name}(**{{**defaults.model_dump(), **overrides}})
+"""
 
-class SettingsStateGenerator:
-    """Generates the SettingsState class with all user defaults."""
+    CREATION_FUNCTIONS_HEADER = """# Auto-generated creation functions - DO NOT EDIT MANUALLY
+# Generated from section and code obj implementations
 
-    def generate(self) -> str:
+# Import implementation classes
+from setta.types.section_impls import (
+{section_imports}
+)
+
+from setta.types.code_obj_impls import (
+{code_obj_imports}
+)
+
+# Import user default classes
+from setta.types.generated.user_defaults import (
+{user_default_imports}
+)
+
+"""
+
+    def __init__(self, output_folder: Path):
+        super().__init__(output_folder)
+        self.union_gen = UnionGenerator()
+
+    def run(self):
+        """Run the generation process."""
+        # Generate SettingsState
+        self._generate_settings_state()
+
+        # Generate creation functions
+        self._generate_creation_functions()
+
+        # Generate WebSocket unions
+        self._generate_websocket_unions()
+
+        # Generate format utils (if needed)
+        self._generate_format_utils()
+
+        print("Application utilities generation complete!")
+
+    def _generate_settings_state(self):
         """Generate the SettingsState class."""
         from setta.types.code_obj_impls import CodeObjType
         from setta.types.section_impls import SectionType
@@ -100,8 +132,6 @@ class SettingsStateGenerator:
         default_factory={class_name}
     )""")
 
-        section_defaults_str = "\n".join(section_defaults)
-
         # Build code obj defaults
         code_obj_defaults = []
         for code_obj_type in sorted(CodeObjType, key=lambda x: x.value):
@@ -113,160 +143,66 @@ class SettingsStateGenerator:
         default_factory={class_name}
     )""")
 
-        code_obj_defaults_str = "\n".join(code_obj_defaults)
-
-        # Generate the complete class
-        return f"""# Auto-generated SettingsState class - DO NOT EDIT MANUALLY
-# Generated from SectionType and CodeObjType enums
-
-from pydantic import BaseModel, Field
-
-from setta.types.settings_state import SettingsShortcuts, SettingsGUI, SettingsBackend
-
-# Import all UserDefault classes
-from setta.types.generated.user_defaults import (
-{imports_str}
-)
-
-
-class SettingsState(BaseModel, extra="forbid"):
-    \"\"\"Application settings state including all user defaults.\"\"\"
-    
-    # Core settings
-    shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
-    gui: SettingsGUI = Field(default_factory=SettingsGUI)
-    backend: SettingsBackend = Field(default_factory=SettingsBackend)
-    languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
-    
-    # Section defaults
-{section_defaults_str}
-    
-    # Code object defaults
-{code_obj_defaults_str}
-"""
-
-
-# ============== Creation Functions Generator ==============
-
-
-class CreationFunctionsGenerator:
-    """Generates creation functions for impl instances."""
-
-    def generate_function(self, class_name: str) -> str:
-        """Generate a creation function for a specific class."""
-        # Skip base classes - they're abstract
-        if class_name.startswith("Base"):
-            return ""
-
-        user_default_class = f"UserDefault{class_name}"
-
-        return f"""
-def create{class_name}(
-    defaults: {user_default_class},
-    **overrides
-) -> {class_name}:
-    \"\"\"Create {class_name} with user defaults.\"\"\"
-    return {class_name}(**{{**defaults.model_dump(), **overrides}})
-"""
-
-    def generate(self) -> str:
-        """Generate all creation functions."""
-        import setta.types.code_obj_impls
-        import setta.types.section_impls
-
-        # Get all concrete classes
-        section_classes = find_sub_classes(
-            setta.types.section_impls,
-            setta.types.section_impls.BaseSectionImpl,
-            "type",
-            False,  # Only concrete classes
-            False,
+        content = self.SETTINGS_STATE_TEMPLATE.format(
+            imports=imports_str,
+            section_defaults="\n".join(section_defaults),
+            code_obj_defaults="\n".join(code_obj_defaults),
         )
 
-        code_obj_classes = find_sub_classes(
+        self.write_output(content, "settings_state.py", "SettingsState class")
+
+    def _generate_creation_functions(self):
+        """Generate creation functions for impl classes."""
+        # Get concrete classes
+        section_classes = self.find_subclasses(
+            setta.types.section_impls,
+            setta.types.section_impls.BaseSectionImpl,
+            concrete_only=True,
+        )
+
+        code_obj_classes = self.find_subclasses(
             setta.types.code_obj_impls,
             setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
-            False,  # Only concrete classes
-            False,
+            concrete_only=True,
         )
 
         # Build imports
-        section_imports = [cls.__name__ for cls in section_classes]
-        code_obj_imports = [cls.__name__ for cls in code_obj_classes]
-
-        section_imports_str = ",\n    ".join(section_imports)
-        code_obj_imports_str = ",\n    ".join(code_obj_imports)
-
-        # Build user default imports
-        user_default_section_imports = [
-            f"UserDefault{cls.__name__}" for cls in section_classes
-        ]
-        user_default_code_obj_imports = [
-            f"UserDefault{cls.__name__}" for cls in code_obj_classes
+        section_imports = [f"    {cls.__name__}," for cls in section_classes]
+        code_obj_imports = [f"    {cls.__name__}," for cls in code_obj_classes]
+        user_default_imports = [
+            f"    UserDefault{cls.__name__},"
+            for cls in section_classes + code_obj_classes
         ]
 
-        user_default_imports_str = ",\n    ".join(
-            user_default_section_imports + user_default_code_obj_imports
+        header = self.CREATION_FUNCTIONS_HEADER.format(
+            section_imports="\n".join(section_imports),
+            code_obj_imports="\n".join(code_obj_imports),
+            user_default_imports="\n".join(user_default_imports),
         )
 
         # Generate functions
-        section_functions = []
+        functions = []
+
+        functions.append("\n# ============== Section Creation Functions ==============")
         for cls in section_classes:
-            func = self.generate_function(cls.__name__)
-            if func:
-                section_functions.append(func)
+            functions.append(
+                self.CREATION_FUNCTION_TEMPLATE.format(class_name=cls.__name__)
+            )
 
-        code_obj_functions = []
-        for cls in code_obj_classes:
-            func = self.generate_function(cls.__name__)
-            if func:
-                code_obj_functions.append(func)
-
-        section_functions_str = "\n".join(section_functions)
-        code_obj_functions_str = "\n".join(code_obj_functions)
-
-        # Build the complete module
-        return f"""# Auto-generated creation functions - DO NOT EDIT MANUALLY
-# Generated from section and code obj implementations
-
-# Import implementation classes
-from setta.types.section_impls import (
-    {section_imports_str}
-)
-
-from setta.types.code_obj_impls import (
-    {code_obj_imports_str}
-)
-
-# Import user default classes
-from setta.types.generated.user_defaults import (
-    {user_default_imports_str}
-)
-
-
-# ============== Section Creation Functions ==============
-{section_functions_str}
-
-# ============== Code Object Creation Functions ==============
-{code_obj_functions_str}
-"""
-
-
-# ============== WebSocket Union Generator ==============
-
-
-class WebSocketUnionGenerator:
-    """Generates WebSocket message unions."""
-
-    def generate(self) -> str:
-        """Generate WebSocket message unions by inspecting the websocket module."""
-        from setta.types.websocket import (
-            WebsocketMsgTypeForBackend,
-            WebsocketMsgTypeForFrontend,
+        functions.append(
+            "\n# ============== Code Object Creation Functions =============="
         )
+        for cls in code_obj_classes:
+            functions.append(
+                self.CREATION_FUNCTION_TEMPLATE.format(class_name=cls.__name__)
+            )
 
-        code = """# Auto-generated WebSocket type unions - DO NOT EDIT MANUALLY
+        content = header + "\n".join(functions)
+        self.write_output(content, "creation_functions.py", "creation functions")
+
+    def _generate_websocket_unions(self):
+        """Generate WebSocket message unions."""
+        content = """# Auto-generated WebSocket type unions - DO NOT EDIT MANUALLY
 # Generated from WebSocket message types
 
 from typing import Annotated, Union
@@ -274,57 +210,43 @@ from pydantic import Field, TypeAdapter
 
 """
 
-        # Generate for backend messages
-        backend_names = []
-        for msg_type in WebsocketMsgTypeForBackend:
-            assert msg_type.name == msg_type.value
-            backend_names.append(f"WebsocketMsg{msg_type.name}")
+        # Import message classes
+        backend_msg_names = [
+            f"WebsocketMsg{msg_type.name}" for msg_type in WebsocketMsgTypeForBackend
+        ]
+        frontend_msg_names = [
+            f"WebsocketMsg{msg_type.name}" for msg_type in WebsocketMsgTypeForFrontend
+        ]
 
-        code += f"from setta.types.websocket import {', '.join(backend_names)}\n"
+        all_msg_names = sorted(set(backend_msg_names + frontend_msg_names))
+        content += f"from setta.types.websocket import {', '.join(all_msg_names)}\n"
 
-        # Generate for frontend messages
-        frontend_names = []
-        for msg_type in WebsocketMsgTypeForFrontend:
-            assert msg_type.name == msg_type.value
-            frontend_names.append(f"WebsocketMsg{msg_type.name}")
+        # Generate backend union
+        backend_type_values = [msg_type.name for msg_type in WebsocketMsgTypeForBackend]
+        content += self.union_gen.generate_union(
+            "WebsocketMsgForBackendUnion",
+            backend_msg_names,
+            "messageType",
+            backend_type_values,
+        )
+        content += "\n"
 
-        code += f"from setta.types.websocket import {', '.join(frontend_names)}\n\n"
+        # Generate frontend union
+        frontend_type_values = [
+            msg_type.name for msg_type in WebsocketMsgTypeForFrontend
+        ]
+        content += self.union_gen.generate_union(
+            "WebsocketMsgForFrontendUnion",
+            frontend_msg_names,
+            "messageType",
+            frontend_type_values,
+        )
 
-        # Backend union
-        code += f"""
-WebsocketMsgForBackendUnion = Union[{", ".join(backend_names)}]
+        self.write_output(content, "websocket_type_unions.py", "WebSocket unions")
 
-WebsocketMsgForBackendUnionWithDiscriminator = Annotated[WebsocketMsgForBackendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForBackendTypeAdapter = TypeAdapter(WebsocketMsgForBackendUnionWithDiscriminator)
-
-WebsocketMsgForBackendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForBackend)}])
-"""
-
-        # Frontend union
-        code += f"""
-
-WebsocketMsgForFrontendUnion = Union[{", ".join(frontend_names)}]
-
-WebsocketMsgForFrontendUnionWithDiscriminator = Annotated[WebsocketMsgForFrontendUnion, Field(discriminator="messageType")]
-
-WebsocketMsgForFrontendTypeAdapter = TypeAdapter(WebsocketMsgForFrontendUnionWithDiscriminator)
-
-WebsocketMsgForFrontendTypeSet = set([{", ".join(f'"{t.name}"' for t in WebsocketMsgTypeForFrontend)}])
-"""
-
-        return code
-
-
-# ============== Additional Utilities ==============
-
-
-class UtilityCodeGenerator:
-    """Generates additional utility code as needed."""
-
-    def generate_format_utils(self) -> str:
+    def _generate_format_utils(self):
         """Generate formatting utilities."""
-        return """import os
+        content = """import os
 import subprocess
 
 
@@ -342,52 +264,7 @@ def format_generated_code(output_file):
         print("Warning: Prettier formatting failed.")
 """
 
-
-# ============== Main Generator ==============
-
-
-class AppUtilitiesGenerator:
-    """Main generator for application utilities."""
-
-    def __init__(self, output_folder: Path):
-        self.output_folder = output_folder
-        self.settings_gen = SettingsStateGenerator()
-        self.creation_gen = CreationFunctionsGenerator()
-        self.websocket_gen = WebSocketUnionGenerator()
-        self.utility_gen = UtilityCodeGenerator()
-
-    def write_output(self, content: str, filename: str, description: str):
-        """Write formatted content to file."""
-        formatted = ruff_format(content)
-        output_file = self.output_folder / filename
-        output_file.write_text(formatted)
-        print(f"Generated {description} in {output_file}")
-
-    def run(self):
-        """Run the complete generation process."""
-        # Generate SettingsState
-        print("Generating SettingsState class...")
-        settings_code = self.settings_gen.generate()
-        self.write_output(settings_code, "settings_state.py", "SettingsState class")
-
-        # Generate creation functions
-        print("Generating creation functions...")
-        creation_code = self.creation_gen.generate()
-        self.write_output(creation_code, "creation_functions.py", "creation functions")
-
-        # Generate WebSocket unions (must be after other generated files exist)
-        print("Generating WebSocket unions...")
-        websocket_code = self.websocket_gen.generate()
-        self.write_output(
-            websocket_code, "websocket_type_unions.py", "WebSocket unions"
-        )
-
-        # Generate format utils
-        print("Generating format utilities...")
-        format_utils_code = self.utility_gen.generate_format_utils()
-        self.write_output(format_utils_code, "utils.py", "format utilities")
-
-        print("Application utilities generation complete!")
+        self.write_output(content, "utils.py", "format utilities")
 
 
 def main(output_folder: Path):

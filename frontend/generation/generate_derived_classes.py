@@ -1,558 +1,374 @@
 #!/usr/bin/env python3
-"""
-Consolidated generator for derived classes from impl classes.
-
-This script generates:
-1. Modifier TypedDicts - For partial updates to impl classes
-2. Core classes - For managing shared/unshared state
-3. Layering classes - For managing impl layering configurations
-4. User default classes - For user-configurable defaults
-
-All generated classes follow the same hierarchy as their source impl classes.
-"""
+"""Simplified derived class generator."""
 
 import inspect
-import types
-from collections.abc import Sequence as ABCSequence
-from enum import Enum
 from pathlib import Path
-from typing import (
-    Annotated,
-    Any,
-    Dict,
-    List,
-    Literal,
-    Set,
-    Tuple,
-    Type,
-    Union,
-    get_args,
-    get_origin,
-)
+from typing import Any, Dict, List, Set, Type
 
 from pydantic import BaseModel
-from pydantic_core import PydanticUndefined
-from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-# ============== Configuration ==============
+# When running as a script, use local import
+if __name__ == "__main__":
+    from generation_base_generator import BaseGenerator, UnionGenerator
+else:
+    from .generation_base_generator import BaseGenerator, UnionGenerator
 
-# Exclusions for modifiers
-MODIFIER_EXCLUSIONS = {"id", "name", "isPreset"}
-
-# Exclusions for user defaults - class-specific
-SECTION_USER_DEFAULT_EXCLUSIONS: Dict[str, Set[str]] = {
-    "BaseSectionImpl": {
-        "id",
-        "name",
-        "type",
-        "parentId",
-        "isInOtherProjectConfigs",
-        "isPreset",
-        "aspectRatioExtraHeight",
-        "aspectRatioExtraWidth",
-    },
-    "BaseSectionWithParamsImpl": {
-        "id",
-        "name",
-        "type",
-        "codeObjImplLayeringMap",
-        "pinnedParams",
-        "selectedParams",
-        "ignoreTypeErrors",
-    },
-    "BaseArtifactSectionImpl": {"id", "name", "type", "artifactGroupIds"},
-    "BaseCanvasSectionImpl": {"id", "name", "type", "renderedValue"},
-    "BaseCodeSectionImpl": {"id", "name", "type"},
-    "BaseParentSectionImpl": {"id", "name", "type", "children"},
-    "BaseDictSectionImpl": {
-        "id",
-        "name",
-        "type",
-        "topLevelParamIds",
-        "jsonSourceMissing",
-    },
-}
-
-CODE_OBJ_USER_DEFAULT_EXCLUSIONS: Dict[str, Set[str]] = {
-    "BaseCodeObjImpl": {"id", "name", "type", "description", "isPreset"},
-    "BaseParamCodeObjImpl": {"id", "name", "type", "passingStyle"},
-    "BaseChildlessCodeObjImpl": {"id", "name", "type"},
-    "BaseParentCodeObjImpl": {"id", "name", "type", "children"},
-}
-
-DEFAULT_USER_DEFAULT_EXCLUSIONS = {"id", "name", "type"}
-
-# Default unsharedKeys for cores
-DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "Callable": {"callable", "codeObjImplLayeringMap"},
-    "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
-    "ListRoot": set(),
-    "DictRoot": set(),
-    "Group": set(),
-    "Image": set(),
-    "Chart": set(),
-    "Draw": set(),
-    "TextBlock": set(),
-    "Social": set(),
-    "GlobalVariables": set(),
-    "Code": set(),
-    "GenPythonCode": set(),
-    "Terminal": set(),
-    "IFrame": set(),
-    "Chat": set(),
-    "Browser": set(),
-}
-
-DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "CodeCallable": set(),
-    "CodeParam": {"value"},
-    "TextParam": {"value"},
-    "SliderParam": {"value"},
-    "SwitchParam": {"value"},
-    "ColorPickerParam": {"value"},
-    "DropdownParam": {"value"},
-    "PasswordParam": {"value"},
-    "NestedParam": set(),
-}
+import setta.types.code_obj_impls
+import setta.types.section_impls
 
 
-# ============== Common Utilities ==============
+class DerivedClassGenerator(BaseGenerator):
+    """Generates derived classes from impl classes."""
 
-
-def find_sub_classes(
-    module: Any,
-    base_class: Type[BaseModel],
-    discriminator: str,
-    return_base_classes: bool,
-    return_input_base_class: bool,
-) -> List[Type[BaseModel]]:
-    """Find subclasses of a base class in a module."""
-    classes = []
-
-    for _, obj in inspect.getmembers(module, inspect.isclass):
-        if issubclass(obj, base_class):
-            fields = obj.model_fields
-            if not return_input_base_class and obj is base_class:
-                continue
-            if (
-                return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is PydanticUndefined
-            ):
-                classes.append(obj)
-            elif (
-                not return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is not PydanticUndefined
-            ):
-                classes.append(obj)
-
-    # Sort by line number where the class is defined
-    def get_line_number(cls):
-        try:
-            return inspect.getsourcelines(cls)[1]
-        except (OSError, TypeError):
-            return float("inf")
-
-    classes.sort(key=get_line_number)
-    return classes
-
-
-def get_all_classes(
-    module, base_class: Type[BaseModel], discriminator: str
-) -> Tuple[List[Type[BaseModel]], List[Type[BaseModel]]]:
-    """Get all base and concrete classes from a module."""
-    base_classes = find_sub_classes(module, base_class, discriminator, True, False)
-    concrete_classes = find_sub_classes(module, base_class, discriminator, False, False)
-
-    # Sort concrete classes by type value
-    concrete_classes.sort(key=lambda cls: cls.model_fields[discriminator].default.value)
-
-    return base_classes, concrete_classes
-
-
-def extract_type_value(impl_name: str) -> str:
-    """Extract the enum value from impl class name."""
-    if impl_name.endswith("SectionImpl"):
-        return impl_name[:-11]  # Remove "SectionImpl"
-    elif impl_name.endswith("CodeObjImpl"):
-        return impl_name[:-11]  # Remove "CodeObjImpl"
-    else:
-        raise ValueError(f"Unexpected impl name format: {impl_name}")
-
-
-def build_parent_mapping(all_classes: List[Type[BaseModel]]) -> Dict[str, str]:
-    """Build a mapping of class names to their parent class names."""
-    parent_mapping = {}
-    all_class_names = {cls.__name__ for cls in all_classes}
-
-    for cls in all_classes:
-        for parent in cls.__bases__:
-            if hasattr(parent, "model_fields") and parent.__name__ in all_class_names:
-                parent_mapping[cls.__name__] = parent.__name__
-                break
-
-    return parent_mapping
-
-
-def extract_class_source_info(
-    source_lines: List[str], class_name: str
-) -> Tuple[List[str], str]:
-    """Extract source lines for a specific class and its parent class name."""
-    class_lines = []
-    parent_class = None
-    in_class = False
-    indent_level = None
-
-    for line in source_lines:
-        if line.strip().startswith(f"class {class_name}"):
-            in_class = True
-            indent_level = len(line) - len(line.lstrip())
-            class_lines.append(line)
-
-            # Extract parent class from the line
-            if "(" in line and ")" in line:
-                parent_part = line.split("(")[1].split(")")[0]
-                parent_class = parent_part.split(",")[0].strip()
-
-        elif in_class:
-            if indent_level is None:
-                raise ValueError(f"Could not determine indent level for {class_name}")
-            if line.strip() == "":
-                class_lines.append(line)
-            elif len(line) - len(line.lstrip()) > indent_level:
-                class_lines.append(line)
-            else:
-                # End of class
-                break
-
-    if parent_class is None and class_lines:
-        # Try to extract from first line
-        first_line = class_lines[0]
-        if "(" in first_line and ")" in first_line:
-            parent_part = first_line.split("(")[1].split(")")[0]
-            parent_class = parent_part.split(",")[0].strip()
-
-    return class_lines, parent_class or ""
-
-
-def python_type_to_str(python_type) -> str:
-    """Convert Python type to string representation."""
-    if python_type is type(None):
-        return "None"
-
-    origin = get_origin(python_type)
-
-    if origin is None:
-        if python_type in (list, dict, set, tuple):
-            origin = python_type
-
-    if origin is Annotated:
-        args = get_args(python_type)
-        if args:
-            return f"Annotated[{python_type_to_str(args[0])}, {python_type_to_str(args[1])}]"
-        return "Any"
-
-    if origin is Literal:
-        args = get_args(python_type)
-        literals = []
-        for arg in args:
-            if isinstance(arg, Enum):
-                literals.append(f"{arg.__class__.__name__}.{arg.name}")
-            elif isinstance(arg, str):
-                literals.append(f'"{arg}"')
-            elif isinstance(arg, bool):
-                literals.append(str(arg))
-            else:
-                literals.append(str(arg))
-        return f"Literal[{' | '.join(literals)}]"
-
-    if origin in (Union, types.UnionType):
-        args = get_args(python_type)
-        types_str = [python_type_to_str(t) for t in args]
-        return " | ".join(types_str)
-
-    if origin in (list, List, ABCSequence):
-        args = get_args(python_type)
-        if args:
-            element_type = python_type_to_str(args[0])
-            return f"list[{element_type}]"
-        return "list[Any]"
-
-    if origin in (dict, Dict):
-        args = get_args(python_type)
-        if args and len(args) >= 2:
-            key_type = python_type_to_str(args[0])
-            value_type = python_type_to_str(args[1])
-            return f"dict[{key_type}, {value_type}]"
-        return "dict[str, Any]"
-
-    if origin in (set, Set):
-        args = get_args(python_type)
-        if args:
-            element_type = python_type_to_str(args[0])
-            return f"set[{element_type}]"
-        return "set[Any]"
-
-    if origin in (tuple, Tuple):
-        args = get_args(python_type)
-        types_str = [python_type_to_str(t) for t in args]
-        return f"tuple[{', '.join(types_str)}]"
-
-    if hasattr(python_type, "__name__"):
-        return python_type.__name__
-
-    return str(python_type)
-
-
-# ============== Generator Classes ==============
-
-
-class ModifierGenerator:
-    """Generates TypedDict modifier classes."""
-
-    def generate(self, impl_class: Type[BaseModel], base_class: Type[BaseModel]) -> str:
-        """Generate a TypedDict modifier for an impl class."""
-        name = impl_class.__name__
-        attributes = []
-
-        for field_name, field_info in impl_class.model_fields.items():
-            # Skip if field is in exclusions for base class
-            if impl_class is base_class and field_name in MODIFIER_EXCLUSIONS:
-                continue
-
-            # For non-base classes, skip if field is defined in ANY parent class (except type)
-            if impl_class is not base_class and field_name != "type":
-                field_in_parent = False
-                for parent in impl_class.__bases__:
-                    if (
-                        hasattr(parent, "model_fields")
-                        and field_name in parent.model_fields
-                    ):
-                        field_in_parent = True
-                        break
-                if field_in_parent:
-                    continue
-
-            annotation = python_type_to_str(field_info.annotation)
-            if field_name != "type":
-                annotation = f"NotRequired[{annotation}]"
-            attributes.append(f"    {field_name}: {annotation}")
-
-        attributes_str = "\n".join(attributes) if attributes else "    pass"
-
-        if impl_class is base_class:
-            parent_class = "TypedDict"
-        else:
-            parent_classes = []
-            for parent in impl_class.__bases__:
-                if hasattr(parent, "model_fields"):
-                    parent_classes.append(f"{parent.__name__}Modifier")
-            parent_class = ", ".join(parent_classes) if parent_classes else "TypedDict"
-
-        return f"""
-class {name}Modifier({parent_class}):
-{attributes_str}
+    # Templates for different class types
+    MODIFIER_TEMPLATE = """
+class {name}Modifier({parent}):
+{fields}
 """
 
+    CORE_TEMPLATE = """
+class {name}({parent}):
+    {type_field}
+    sharedModifier: {modifier_type}{modifier_default}
+    unsharedKeys: list[{field_literal}] = Field(default_factory={unshared_default})
+"""
 
-class CoreGenerator:
-    """Generates Core classes."""
+    LAYERING_TEMPLATE = """
+class {name}({parent}):
+    {docstring}type: {type_annotation}
+    modifier: {modifier_type}  # type: ignore[assignment]
+"""
 
-    def __init__(self, enum_type: str, core_suffix: str):
-        self.enum_type = enum_type
-        self.core_suffix = core_suffix
+    USER_DEFAULT_TEMPLATE = """
+class UserDefault{name}({parent}, extra="forbid"):
+    \"\"\"User-configurable defaults for {name}\"\"\"
+{fields}
+"""
 
-    def generate(
+    def __init__(self, output_folder: Path):
+        super().__init__(output_folder)
+        self.union_gen = UnionGenerator()
+
+        # Configuration for what to exclude
+        self.modifier_exclusions = {"id", "name", "isPreset"}
+
+        # Default user default exclusions
+        self.user_default_exclusions = {
+            "default": {"id", "name", "type", "isPreset"},
+            "BaseSectionImpl": {
+                "id",
+                "name",
+                "type",
+                "parentId",
+                "isInOtherProjectConfigs",
+                "isPreset",
+                "aspectRatioExtraHeight",
+                "aspectRatioExtraWidth",
+            },
+            "BaseSectionWithParamsImpl": {
+                "id",
+                "name",
+                "type",
+                "codeObjImplLayeringMap",
+                "pinnedParams",
+                "selectedParams",
+                "ignoreTypeErrors",
+            },
+            "BaseArtifactSectionImpl": {"id", "name", "type", "artifactGroupIds"},
+            "BaseCanvasSectionImpl": {"id", "name", "type", "renderedValue"},
+            "BaseCodeSectionImpl": {"id", "name", "type"},
+            "BaseParentSectionImpl": {"id", "name", "type", "children"},
+            "BaseDictSectionImpl": {
+                "id",
+                "name",
+                "type",
+                "topLevelParamIds",
+                "jsonSourceMissing",
+            },
+        }
+
+        # Code obj user default exclusions
+        self.code_obj_user_default_exclusions = {
+            "default": {"id", "name", "type", "isPreset"},
+            "BaseCodeObjImpl": {"id", "name", "type", "description", "isPreset"},
+            "BaseParamCodeObjImpl": {"id", "name", "type", "passingStyle"},
+            "BaseChildlessCodeObjImpl": {"id", "name", "type"},
+            "BaseParentCodeObjImpl": {"id", "name", "type", "children"},
+        }
+
+        # Default unshared keys configuration
+        self.default_unshared_keys = {
+            "SectionCore": {
+                "Callable": {"callable", "codeObjImplLayeringMap"},
+                "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
+                "ListRoot": set(),
+                "DictRoot": set(),
+                "Group": set(),
+                "Image": set(),
+                "Chart": set(),
+                "Draw": set(),
+                "TextBlock": set(),
+                "Social": set(),
+                "GlobalVariables": set(),
+                "Code": set(),
+                "GenPythonCode": set(),
+                "Terminal": set(),
+                "IFrame": set(),
+                "Chat": set(),
+                "Browser": set(),
+            },
+            "CodeObjCore": {
+                "CodeCallable": set(),
+                "CodeParam": {"value"},
+                "TextParam": {"value"},
+                "SliderParam": {"value"},
+                "SwitchParam": {"value"},
+                "ColorPickerParam": {"value"},
+                "DropdownParam": {"value"},
+                "PasswordParam": {"value"},
+                "NestedParam": set(),
+            },
+        }
+
+    def generate_for_module(
         self,
-        impl_class: Type[BaseModel],
+        module_name: str,
+        module: Any,
         base_class: Type[BaseModel],
-        type_value: str,
-        default_unshared_keys: Set[str],
-        is_base_class: bool,
+        source_file: Path,
+    ) -> Dict[str, List[str]]:
+        """Generate all derived classes for a module."""
+        # Get all classes
+        base_classes = self.find_subclasses(module, base_class)
+        concrete_classes = self.find_subclasses(module, base_class, concrete_only=True)
+        all_classes = [base_class] + base_classes + concrete_classes
+
+        # Determine core suffix based on module
+        core_suffix = "SectionCore" if "section" in module_name else "CodeObjCore"
+
+        results = {
+            "modifiers": [],
+            "cores": [],
+            "layerings": [],
+            "user_defaults": [],
+            "field_literals": [],
+        }
+
+        # Generate for each class
+        for cls in all_classes:
+            is_base = cls == base_class or cls in base_classes
+            is_concrete = cls in concrete_classes
+            type_value = self.extract_type_value(cls.__name__) if is_concrete else ""
+
+            # Generate modifier
+            results["modifiers"].append(self._generate_modifier(cls, base_class))
+
+            # Generate core
+            results["cores"].append(
+                self._generate_core(
+                    cls, base_class, type_value, is_concrete, core_suffix
+                )
+            )
+
+            # Generate layering
+            results["layerings"].append(
+                self._generate_layering(cls, type_value, is_concrete, is_base)
+            )
+
+            # Generate user default
+            exclusions = (
+                self.user_default_exclusions
+                if "section" in module_name
+                else self.code_obj_user_default_exclusions
+            )
+            user_default = self._generate_user_default(cls, source_file, exclusions)
+            if user_default:
+                results["user_defaults"].append(user_default)
+
+            # Generate field literal
+            field_literal = self._generate_field_literal(cls)
+            if field_literal:
+                results["field_literals"].append(field_literal)
+
+        return results
+
+    def _generate_modifier(
+        self, cls: Type[BaseModel], base_class: Type[BaseModel]
     ) -> str:
-        """Generate a Core class for an impl class."""
+        """Generate a modifier class."""
+        # Get fields to include
+        fields = []
+        for field_name, field_info in cls.model_fields.items():
+            # Skip excluded fields for base class
+            if cls == base_class and field_name in self.modifier_exclusions:
+                continue
 
-        # Determine core class name
-        if is_base_class:
-            base_type_name = impl_class.__name__[:-4]  # Remove "Impl"
-            if self.core_suffix == "SectionCore" and base_type_name.endswith("Section"):
-                core_class_name = base_type_name + "Core"
-            elif self.core_suffix == "CodeObjCore" and base_type_name.endswith(
-                "CodeObj"
-            ):
-                core_class_name = base_type_name + "Core"
-            else:
-                core_class_name = base_type_name + self.core_suffix
+            # For non-base classes, skip inherited fields (except type)
+            if cls != base_class and field_name != "type":
+                if any(
+                    hasattr(parent, "model_fields")
+                    and field_name in parent.model_fields
+                    for parent in cls.__bases__
+                ):
+                    continue
+
+            # Add field
+            field_type = self.python_type_to_str(field_info.annotation)
+            if field_name != "type":
+                field_type = f"NotRequired[{field_type}]"
+            fields.append(f"    {field_name}: {field_type}")
+
+        # Determine parent(s)
+        if cls == base_class:
+            parent = "TypedDict"
         else:
-            core_class_name = type_value + self.core_suffix
+            parent_modifiers = []
+            for parent_cls in cls.__bases__:
+                if hasattr(parent_cls, "model_fields"):
+                    parent_modifiers.append(f"{parent_cls.__name__}Modifier")
+            parent = ", ".join(parent_modifiers) if parent_modifiers else "TypedDict"
 
-        # Determine parent core classes (handle multiple inheritance)
-        parent_core_classes = []
+        fields_str = "\n".join(fields) if fields else "    pass"
 
-        if impl_class == base_class:
-            # The root base class inherits from BaseModel
-            parent_core_classes = ["BaseModel"]
-        else:
-            # Get all parent classes that are Pydantic models
-            for parent_impl in impl_class.__bases__:
-                if hasattr(parent_impl, "model_fields"):
-                    if parent_impl == base_class:
-                        # Parent is the root base class
-                        base_type_name = parent_impl.__name__[:-4]  # Remove "Impl"
-                        if (
-                            self.core_suffix == "SectionCore"
-                            and base_type_name.endswith("Section")
-                        ):
-                            parent_core_classes.append(base_type_name + "Core")
-                        elif (
-                            self.core_suffix == "CodeObjCore"
-                            and base_type_name.endswith("CodeObj")
-                        ):
-                            parent_core_classes.append(base_type_name + "Core")
-                        else:
-                            parent_core_classes.append(
-                                base_type_name + self.core_suffix
-                            )
-                    else:
-                        parent_base_name = parent_impl.__name__[:-4]  # Remove "Impl"
-                        if (
-                            self.core_suffix == "SectionCore"
-                            and parent_base_name.endswith("Section")
-                        ):
-                            parent_core_classes.append(parent_base_name + "Core")
-                        elif (
-                            self.core_suffix == "CodeObjCore"
-                            and parent_base_name.endswith("CodeObj")
-                        ):
-                            parent_core_classes.append(parent_base_name + "Core")
-                        else:
-                            parent_core_classes.append(
-                                parent_base_name + self.core_suffix
-                            )
-
-        parent_core_class_str = (
-            ", ".join(parent_core_classes) if parent_core_classes else "BaseModel"
+        return self.MODIFIER_TEMPLATE.format(
+            name=cls.__name__, parent=parent, fields=fields_str
         )
 
-        # Generate fields
-        field_literal_type = f"{impl_class.__name__}Fields"
+    def _generate_core(
+        self,
+        cls: Type[BaseModel],
+        base_class: Type[BaseModel],
+        type_value: str,
+        is_concrete: bool,
+        core_suffix: str,
+    ) -> str:
+        """Generate a core class."""
+        # Determine core class name
+        if not is_concrete:
+            base_name = cls.__name__[:-4]  # Remove "Impl"
+            if base_name.endswith("Section") or base_name.endswith("CodeObj"):
+                core_name = base_name + "Core"
+            else:
+                core_name = base_name + core_suffix
+        else:
+            core_name = type_value + core_suffix
 
-        if is_base_class:
-            modifier_type = impl_class.__name__[:-4] + "ImplModifier"
+        # Determine parent(s)
+        parent_names = []
+        if cls == base_class:
+            parent_names = ["BaseModel"]
+        else:
+            for parent in cls.__bases__:
+                if hasattr(parent, "model_fields"):
+                    parent_base = parent.__name__[:-4]
+                    if parent_base.endswith("Section") or parent_base.endswith(
+                        "CodeObj"
+                    ):
+                        parent_names.append(parent_base + "Core")
+                    else:
+                        parent_names.append(parent_base + core_suffix)
+
+        parent = ", ".join(parent_names) if parent_names else "BaseModel"
+
+        # Determine modifier type
+        modifier_type = cls.__name__ + "Modifier"
+
+        # Build core class
+        if is_concrete:
+            # Get enum type
+            enum_type = "SectionType" if "Section" in core_suffix else "CodeObjType"
+            type_field = (
+                f"type: Literal[{enum_type}.{type_value}] = {enum_type}.{type_value}"
+            )
+
+            # Get unshared keys
+            unshared_keys = self.default_unshared_keys.get(core_suffix, {}).get(
+                type_value, set()
+            )
+            if unshared_keys:
+                unshared_default = (
+                    f"lambda: [{', '.join(f'"{k}"' for k in sorted(unshared_keys))}]"
+                )
+            else:
+                unshared_default = "list"
+
+            modifier_default = f" = Field(default_factory=lambda: {modifier_type}(type={enum_type}.{type_value}))"
+        else:
+            type_field = "type: Any"
+            unshared_default = "list"
+            modifier_default = ""
 
             # Add extra fields for root base class
-            if impl_class == base_class:
-                return f"""
-class {core_class_name}({parent_core_class_str}):
-    id: str = Field(default_factory=create_new_id)
+            if cls == base_class:
+                type_field = """id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
     implLayerings: list[str] = Field(default_factory=list)
     defaultImplLayering: str = ""
-    type: Any
-    sharedModifier: {modifier_type}
-    unsharedKeys: list[{field_literal_type}] = Field(default_factory=list)
-"""
-            else:
-                return f"""
-class {core_class_name}({parent_core_class_str}):
-    type: Any
-    sharedModifier: {modifier_type}
-    unsharedKeys: list[{field_literal_type}] = Field(default_factory=list)
-"""
-        else:
-            modifier_type = type_value + f"{self.core_suffix[:-4]}ImplModifier"
+    type: Any"""
 
-            # Generate default factory for unsharedKeys
-            if default_unshared_keys:
-                sorted_keys = sorted(default_unshared_keys)
-                default_values = ", ".join(f'"{key}"' for key in sorted_keys)
-                default_factory = f"lambda: [{default_values}]"
-            else:
-                default_factory = "list"
+        field_literal = f"{cls.__name__}Fields"
 
-            return f"""
-class {core_class_name}({parent_core_class_str}):
-    type: Literal[{self.enum_type}.{type_value}] = {self.enum_type}.{type_value}
-    sharedModifier: {modifier_type} = Field(default_factory=lambda: {modifier_type}(type={self.enum_type}.{type_value}))
-    unsharedKeys: list[{field_literal_type}] = Field(default_factory={default_factory})
-"""
-
-
-class LayeringGenerator:
-    """Generates Layering classes."""
-
-    def __init__(self, enum_type: str):
-        self.enum_type = enum_type
-
-    def generate(
-        self,
-        impl_class: Type[BaseModel],
-        base_class: Type[BaseModel],
-        type_value: str,
-        is_base_class: bool,
-    ) -> str:
-        """Generate a Layering class for an impl class."""
-
-        impl_class_name = impl_class.__name__
-        layering_name = (
-            impl_class_name[:-4] + "ImplLayering"
-        )  # Remove "Impl", add "ImplLayering"
-        modifier_name = impl_class_name + "Modifier"
-
-        # Determine parent classes (handle multiple inheritance)
-        parent_classes = []
-
-        if impl_class == base_class:
-            # Root base class inherits from BaseImplLayering
-            parent_classes = ["BaseImplLayering"]
-        else:
-            for parent in impl_class.__bases__:
-                if hasattr(parent, "model_fields"):
-                    parent_layering_name = parent.__name__[:-4] + "ImplLayering"
-                    parent_classes.append(parent_layering_name)
-
-        parent_class = (
-            ", ".join(parent_classes) if parent_classes else "BaseImplLayering"
+        return self.CORE_TEMPLATE.format(
+            name=core_name,
+            parent=parent,
+            type_field=type_field,
+            modifier_type=modifier_type,
+            modifier_default=modifier_default,
+            field_literal=field_literal,
+            unshared_default=unshared_default,
         )
 
-        if is_base_class:
-            return f"""
-class {layering_name}({parent_class}):
-    \"\"\"Base class for {layering_name.replace("ImplLayering", "").replace("Base", "")} layering types.\"\"\"
-    type: Any
-    modifier: {modifier_name}  # type: ignore[assignment]
-"""
-        else:
-            return f"""
-class {layering_name}({parent_class}):
-    type: Literal[{self.enum_type}.{type_value}] = {self.enum_type}.{type_value}
-    modifier: {modifier_name}  # type: ignore[assignment]
-"""
-
-
-class UserDefaultGenerator:
-    """Generates UserDefault classes."""
-
-    def __init__(self, source_file: Path):
-        self.source_lines = source_file.read_text().splitlines(keepends=True)
-
-    def generate(
-        self,
-        impl_class: Type[BaseModel],
-        base_class: Type[BaseModel],
-        exclusions_map: Dict[str, Set[str]],
-        parent_mapping: Dict[str, str],
+    def _generate_layering(
+        self, cls: Type[BaseModel], type_value: str, is_concrete: bool, is_base: bool
     ) -> str:
-        """Generate a UserDefault class by transforming source."""
+        """Generate a layering class."""
+        layering_name = cls.__name__[:-4] + "ImplLayering"
+        modifier_name = cls.__name__ + "Modifier"
 
-        class_name = impl_class.__name__
-        exclusions = exclusions_map.get(class_name, DEFAULT_USER_DEFAULT_EXCLUSIONS)
+        # Determine parent
+        parent_names = []
+        for parent in cls.__bases__:
+            if hasattr(parent, "model_fields") and parent.__name__.endswith("Impl"):
+                parent_names.append(parent.__name__[:-4] + "ImplLayering")
+
+        parent = ", ".join(parent_names) if parent_names else "BaseImplLayering"
+        
+        # Determine type annotation and docstring
+        if is_concrete:
+            enum_type = "SectionType" if "Section" in cls.__name__ else "CodeObjType"
+            type_annotation = (
+                f"Literal[{enum_type}.{type_value}] = {enum_type}.{type_value}"
+            )
+            docstring = ""
+        else:
+            type_annotation = "Any"
+            # Add docstring for base classes
+            type_name = layering_name.replace("ImplLayering", "").replace("Base", "")
+            docstring = f'"""Base class for {type_name} layering types."""\n    '
+
+        return self.LAYERING_TEMPLATE.format(
+            name=layering_name,
+            parent=parent,
+            type_annotation=type_annotation,
+            modifier_type=modifier_name,
+            docstring=docstring,
+        )
+
+    def _generate_user_default(
+        self,
+        cls: Type[BaseModel],
+        source_file: Path,
+        exclusions_map: Dict[str, Set[str]],
+    ) -> str:
+        """Generate a user default class by transforming source."""
+        class_name = cls.__name__
+        exclusions = exclusions_map.get(class_name, exclusions_map["default"])
 
         # Extract class source
-        class_lines, _ = extract_class_source_info(self.source_lines, class_name)
+        source_lines = source_file.read_text().splitlines(keepends=True)
+        class_lines, _ = self._extract_class_source_info(source_lines, class_name)
         if not class_lines:
             return ""
 
@@ -565,15 +381,17 @@ class UserDefaultGenerator:
 
             if line.strip().startswith(f"class {class_name}"):
                 # Determine parent
-                parent = parent_mapping.get(class_name)
-                if parent:
-                    new_parent = f"UserDefault{parent}"
-                else:
-                    new_parent = "BaseModel"
+                parent = None
+                for parent_cls in cls.__bases__:
+                    if hasattr(parent_cls, "model_fields") and parent_cls.__name__.endswith("Impl"):
+                        parent = f"UserDefault{parent_cls.__name__}"
+                        break
+                if not parent:
+                    parent = "BaseModel"
 
                 # Create new class definition
                 indent = " " * (len(line) - len(line.lstrip()))
-                new_class_def = f'{indent}class UserDefault{class_name}({new_parent}, extra="forbid"):\n'
+                new_class_def = f'{indent}class UserDefault{class_name}({parent}, extra="forbid"):\n'
                 new_lines.append(new_class_def)
 
                 # Add docstring
@@ -636,164 +454,81 @@ class UserDefaultGenerator:
 
         return "".join(new_lines)
 
+    def _extract_class_source_info(
+        self, source_lines: List[str], class_name: str
+    ) -> tuple[List[str], str]:
+        """Extract source lines for a specific class."""
+        class_lines = []
+        parent_class = None
+        in_class = False
+        indent_level = None
 
-# ============== Main Generation Logic ==============
+        for line in source_lines:
+            if line.strip().startswith(f"class {class_name}"):
+                in_class = True
+                indent_level = len(line) - len(line.lstrip())
+                class_lines.append(line)
 
+                # Extract parent class from the line
+                if "(" in line and ")" in line:
+                    parent_part = line.split("(")[1].split(")")[0]
+                    parent_class = parent_part.split(",")[0].strip()
 
-class DerivedClassGenerator:
-    """Main generator that coordinates all derived class generation."""
+            elif in_class:
+                if indent_level is None:
+                    raise ValueError(
+                        f"Could not determine indent level for {class_name}"
+                    )
+                if line.strip() == "":
+                    class_lines.append(line)
+                elif len(line) - len(line.lstrip()) > indent_level:
+                    class_lines.append(line)
+                else:
+                    # End of class
+                    break
 
-    def __init__(self, output_folder: Path):
-        self.output_folder = output_folder
-        self.modifier_gen = ModifierGenerator()
+        return class_lines, parent_class or ""
 
-    def generate_for_module(
-        self,
-        module_name: str,
-        module,
-        base_class: Type[BaseModel],
-        source_file: Path,
-        user_default_exclusions: Dict[str, Set[str]],
-        default_unshared_keys: Dict[str, Set[str]],
-        enum_type: str,
-        core_suffix: str,
-    ) -> Dict[str, Any]:
-        """Generate all derived classes for a module."""
+    def _generate_field_literal(self, cls: Type[BaseModel]) -> str:
+        """Generate field literal type."""
+        field_names = set(cls.model_fields.keys())
+        excluded = {"id", "name", "type", "isPreset"}
 
-        base_classes, concrete_classes = get_all_classes(module, base_class, "type")
-        all_classes = [base_class] + base_classes + concrete_classes
+        relevant_fields = field_names - excluded
+        if not relevant_fields:
+            return ""
 
-        # Build generators
-        core_gen = CoreGenerator(enum_type, core_suffix)
-        layering_gen = LayeringGenerator(enum_type)
-        user_default_gen = UserDefaultGenerator(source_file)
-
-        # Build parent mapping
-        parent_mapping = build_parent_mapping(all_classes)
-
-        results = {
-            "modifiers": [],
-            "cores": [],
-            "layerings": [],
-            "user_defaults": [],
-            "field_literals": [],
-        }
-
-        # Generate for base classes
-        for cls in [base_class] + base_classes:
-            # Modifier
-            modifier = self.modifier_gen.generate(cls, base_class)
-            results["modifiers"].append(modifier)
-
-            # Core - generate for all base classes including root
-            core = core_gen.generate(cls, base_class, "", set(), True)
-            results["cores"].append(core)
-
-            # Layering - generate for all base classes including root
-            layering = layering_gen.generate(cls, base_class, "", True)
-            results["layerings"].append(layering)
-
-            # User Default
-            user_default = user_default_gen.generate(
-                cls, base_class, user_default_exclusions, parent_mapping
-            )
-            if user_default:
-                results["user_defaults"].append(user_default)
-
-            # Field Literal
-            field_names = set(cls.model_fields.keys())
-            if field_names - {"id", "name", "type", "isPreset"}:
-                literal_values = ", ".join(
-                    f'"{f}"'
-                    for f in sorted(field_names)
-                    if f not in {"id", "name", "type", "isPreset"}
-                )
-                results["field_literals"].append(
-                    f"{cls.__name__}Fields = Literal[{literal_values}]"
-                )
-
-        # Generate for concrete classes
-        for cls in concrete_classes:
-            type_value = cls.model_fields["type"].default.value
-
-            # Modifier
-            modifier = self.modifier_gen.generate(cls, base_class)
-            results["modifiers"].append(modifier)
-
-            # Core
-            unshared_keys = default_unshared_keys.get(type_value, set())
-            core = core_gen.generate(cls, base_class, type_value, unshared_keys, False)
-            results["cores"].append(core)
-
-            # Layering
-            layering = layering_gen.generate(cls, base_class, type_value, False)
-            results["layerings"].append(layering)
-
-            # User Default
-            user_default = user_default_gen.generate(
-                cls, base_class, user_default_exclusions, parent_mapping
-            )
-            if user_default:
-                results["user_defaults"].append(user_default)
-
-            # Field Literal
-            field_names = set(cls.model_fields.keys())
-            if field_names - {"id", "name", "type", "isPreset"}:
-                literal_values = ", ".join(
-                    f'"{f}"'
-                    for f in sorted(field_names)
-                    if f not in {"id", "name", "type", "isPreset"}
-                )
-                results["field_literals"].append(
-                    f"{cls.__name__}Fields = Literal[{literal_values}]"
-                )
-
-        return results
-
-    def write_output(self, content: str, filename: str, description: str):
-        """Write formatted content to file."""
-        formatted = ruff_format(content)
-        output_file = self.output_folder / filename
-        output_file.write_text(formatted)
-        print(f"Generated {description} in {output_file}")
+        literal_values = ", ".join(f'"{f}"' for f in sorted(relevant_fields))
+        return f"{cls.__name__}Fields = Literal[{literal_values}]"
 
     def run(self):
-        """Run the complete generation process."""
-        import setta.types.code_obj_impls
-        import setta.types.section_impls
-
-        # Get source files
-        section_file = Path(inspect.getfile(setta.types.section_impls))
-        code_obj_file = Path(inspect.getfile(setta.types.code_obj_impls))
-
-        # Generate sections
-        print("Generating section derived classes...")
+        """Run the generation process."""
+        # Generate for sections
         section_results = self.generate_for_module(
             "section",
             setta.types.section_impls,
             setta.types.section_impls.BaseSectionImpl,
-            section_file,
-            SECTION_USER_DEFAULT_EXCLUSIONS,
-            DEFAULT_SECTION_UNSHARED_KEYS,
-            "SectionType",
-            "SectionCore",
+            Path(inspect.getfile(setta.types.section_impls)),
         )
 
-        # Generate code objs
-        print("Generating code obj derived classes...")
+        # Generate for code objs
         code_obj_results = self.generate_for_module(
             "code_obj",
             setta.types.code_obj_impls,
             setta.types.code_obj_impls.BaseCodeObjImpl,
-            code_obj_file,
-            CODE_OBJ_USER_DEFAULT_EXCLUSIONS,
-            DEFAULT_CODE_OBJ_UNSHARED_KEYS,
-            "CodeObjType",
-            "CodeObjCore",
+            Path(inspect.getfile(setta.types.code_obj_impls)),
         )
 
-        # Write modifiers
-        modifier_content = f"""# Auto-generated modifier classes - DO NOT EDIT MANUALLY
+        # Write output files
+        self._write_modifiers(section_results, code_obj_results)
+        self._write_cores(section_results, code_obj_results)
+        self._write_layerings(section_results, code_obj_results)
+        self._write_user_defaults(section_results, code_obj_results)
+        self._write_field_literals(section_results, code_obj_results)
+
+    def _write_modifiers(self, section_results, code_obj_results):
+        """Write modifier classes."""
+        content = """# Auto-generated modifier classes - DO NOT EDIT MANUALLY
 # Generated from impl classes
 
 from typing import TypedDict, Literal, Any, NotRequired
@@ -807,14 +542,37 @@ from setta.types.code_obj_impls import (
 )
 
 # ============== Section Modifiers ==============
-{"".join(section_results["modifiers"])}
+{section_modifiers}
 
 # ============== Code Object Modifiers ==============
-{"".join(code_obj_results["modifiers"])}
-"""
-        self.write_output(modifier_content, "impl_modifiers.py", "modifiers")
+{code_obj_modifiers}
+""".format(
+            section_modifiers="".join(section_results["modifiers"]),
+            code_obj_modifiers="".join(code_obj_results["modifiers"]),
+        )
 
-        # Write section cores
+        self.write_output(content, "impl_modifiers.py", "modifiers")
+
+    def _write_cores(self, section_results, code_obj_results):
+        """Write core classes."""
+        # Extract base and concrete core classes
+        base_section_cores = []
+        concrete_section_cores = []
+        for core in section_results["cores"]:
+            if "Literal[SectionType." in core:
+                concrete_section_cores.append(core)
+            else:
+                base_section_cores.append(core)
+
+        base_code_obj_cores = []
+        concrete_code_obj_cores = []
+        for core in code_obj_results["cores"]:
+            if "Literal[CodeObjType." in core:
+                concrete_code_obj_cores.append(core)
+            else:
+                base_code_obj_cores.append(core)
+
+        # Generate section cores
         section_core_content = f"""# Auto-generated SectionCore classes - DO NOT EDIT MANUALLY
 # Generated from section implementations
 
@@ -825,21 +583,21 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.section_impls import SectionType
 from setta.types.generated.impl_modifiers import (
-{self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_section_classes())))}
+{self._format_core_imports([cls.__name__ + "Modifier" for cls in self._get_all_section_classes()])}
 )
 from setta.types.generated.impl_field_literals import (
-{self._format_imports([f"{cls.__name__}Fields" for cls in self._get_all_section_classes()])}
+{self._format_core_imports([cls.__name__ + "Fields" for cls in self._get_all_section_classes()])}
 )
 
 # ============== Base Section Core Classes ==============
-{"".join(section_results["cores"][: len(self._get_section_base_classes()) + 1])}
+{"".join(base_section_cores)}
 
 # ============== Concrete Section Core Classes ==============
-{"".join(section_results["cores"][len(self._get_section_base_classes()) + 1 :])}
+{"".join(concrete_section_cores)}
 """
         self.write_output(section_core_content, "section_cores.py", "section cores")
 
-        # Write code obj cores
+        # Generate code obj cores
         code_obj_core_content = f"""# Auto-generated CodeObjCore classes - DO NOT EDIT MANUALLY
 # Generated from code obj implementations
 
@@ -850,22 +608,23 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_modifiers import (
-{self._format_imports(sorted(set(f"{cls.__name__}Modifier" for cls in self._get_all_code_obj_classes())))}
+{self._format_core_imports([cls.__name__ + "Modifier" for cls in self._get_all_code_obj_classes()])}
 )
 from setta.types.generated.impl_field_literals import (
-{self._format_imports([f"{cls.__name__}Fields" for cls in self._get_all_code_obj_classes()])}
+{self._format_core_imports([cls.__name__ + "Fields" for cls in self._get_all_code_obj_classes()])}
 )
 
 # ============== Base Code Object Core Classes ==============
-{"".join(code_obj_results["cores"][: len(self._get_code_obj_base_classes()) + 1])}
+{"".join(base_code_obj_cores)}
 
 # ============== Concrete Code Object Core Classes ==============
-{"".join(code_obj_results["cores"][len(self._get_code_obj_base_classes()) + 1 :])}
+{"".join(concrete_code_obj_cores)}
 """
         self.write_output(code_obj_core_content, "code_obj_cores.py", "code obj cores")
 
-        # Write layerings
-        layering_content = f"""# Auto-generated ImplLayering classes - DO NOT EDIT MANUALLY
+    def _write_layerings(self, section_results, code_obj_results):
+        """Write layering classes."""
+        content = f"""# Auto-generated ImplLayering classes - DO NOT EDIT MANUALLY
 # Generated from impl modifier classes
 
 from typing import Any, Literal
@@ -876,22 +635,7 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_modifiers import (
-{
-            self._format_imports(
-                sorted(
-                    set(
-                        [
-                            f"{cls.__name__}Modifier"
-                            for cls in self._get_all_section_classes()
-                        ]
-                        + [
-                            f"{cls.__name__}Modifier"
-                            for cls in self._get_all_code_obj_classes()
-                        ]
-                    )
-                )
-            )
-        }
+{self._format_core_imports(sorted(set([cls.__name__ + "Modifier" for cls in self._get_all_section_classes() + self._get_all_code_obj_classes()])))}
 )
 
 # Base layering class
@@ -909,10 +653,11 @@ class BaseImplLayering(BaseModel):
 # ============== Code Object Layering Classes ==============
 {"".join(code_obj_results["layerings"])}
 """
-        self.write_output(layering_content, "impl_layerings.py", "impl layerings")
+        self.write_output(content, "impl_layerings.py", "impl layerings")
 
-        # Write user defaults
-        user_default_content = f"""# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
+    def _write_user_defaults(self, section_results, code_obj_results):
+        """Write user default classes."""
+        content = f"""# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -936,10 +681,11 @@ from setta.types.code_obj_impls import (
 # ============== Code Object UserDefault Classes ==============
 {"".join(code_obj_results["user_defaults"])}
 """
-        self.write_output(user_default_content, "user_defaults.py", "user defaults")
+        self.write_output(content, "user_defaults.py", "user defaults")
 
-        # Write field literals
-        field_literal_content = f"""# Auto-generated Literal type aliases for impl fields - DO NOT EDIT MANUALLY
+    def _write_field_literals(self, section_results, code_obj_results):
+        """Write field literal types."""
+        content = f"""# Auto-generated Literal type aliases for impl fields - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
 from typing import Literal
@@ -950,41 +696,23 @@ from typing import Literal
 # Code object implementation field literals
 {chr(10).join(code_obj_results["field_literals"])}
 """
-        self.write_output(
-            field_literal_content, "impl_field_literals.py", "field literals"
-        )
+        self.write_output(content, "impl_field_literals.py", "field literals")
 
-    def _format_imports(self, imports: List[str]) -> str:
+    def _format_core_imports(self, imports: List[str]) -> str:
         """Format a list of imports with proper indentation."""
         return "\n".join(f"    {imp}," for imp in imports)
-
-    def _get_section_base_classes(self):
-        import setta.types.section_impls
-
-        return find_sub_classes(
-            setta.types.section_impls,
-            setta.types.section_impls.BaseSectionImpl,
-            "type",
-            True,
-            False,
-        )
-
-    def _get_code_obj_base_classes(self):
-        import setta.types.code_obj_impls
-
-        return find_sub_classes(
-            setta.types.code_obj_impls,
-            setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
-            True,
-            False,
-        )
 
     def _get_all_section_classes(self):
         import setta.types.section_impls
 
-        base_classes, concrete_classes = get_all_classes(
-            setta.types.section_impls, setta.types.section_impls.BaseSectionImpl, "type"
+        base_classes = self.find_subclasses(
+            setta.types.section_impls,
+            setta.types.section_impls.BaseSectionImpl,
+        )
+        concrete_classes = self.find_subclasses(
+            setta.types.section_impls,
+            setta.types.section_impls.BaseSectionImpl,
+            concrete_only=True,
         )
         return (
             [setta.types.section_impls.BaseSectionImpl]
@@ -995,10 +723,14 @@ from typing import Literal
     def _get_all_code_obj_classes(self):
         import setta.types.code_obj_impls
 
-        base_classes, concrete_classes = get_all_classes(
+        base_classes = self.find_subclasses(
             setta.types.code_obj_impls,
             setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
+        )
+        concrete_classes = self.find_subclasses(
+            setta.types.code_obj_impls,
+            setta.types.code_obj_impls.BaseCodeObjImpl,
+            concrete_only=True,
         )
         return (
             [setta.types.code_obj_impls.BaseCodeObjImpl]

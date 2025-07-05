@@ -80,15 +80,31 @@ class BaseDictSectionImplModifier(BaseSectionWithParamsImplModifier):
     jsonSourceMissing: NotRequired[bool]
 
 
-class BrowserSectionImplModifier(BaseSectionImplModifier):
-    type: Literal[SectionType.Browser]
-    hideColumn: NotRequired[bool]
-
-
 class CallableSectionImplModifier(BaseSectionWithParamsImplModifier):
     type: Literal[SectionType.Callable]
     callable: NotRequired[str | None]
     hideParams: NotRequired[bool]
+
+
+class DictSectionImplModifier(BaseDictSectionImplModifier):
+    type: Literal[SectionType.Dict]
+
+
+class ListRootSectionImplModifier(BaseParentSectionImplModifier):
+    type: Literal[SectionType.ListRoot]
+
+
+class DictRootSectionImplModifier(BaseParentSectionImplModifier):
+    type: Literal[SectionType.DictRoot]
+
+
+class GroupSectionImplModifier(BaseParentSectionImplModifier):
+    type: Literal[SectionType.Group]
+    isHorizontalOrientation: NotRequired[bool]
+
+
+class ImageSectionImplModifier(BaseArtifactSectionImplModifier):
+    type: Literal[SectionType.Image]
 
 
 class ChartSectionImplModifier(
@@ -98,62 +114,11 @@ class ChartSectionImplModifier(
     chartSettings: NotRequired[ChartSettings]
 
 
-class ChatSectionImplModifier(BaseSectionImplModifier):
-    type: Literal[SectionType.Chat]
-
-
-class CodeSectionImplModifier(BaseCodeSectionImplModifier):
-    type: Literal[SectionType.Code]
-    codeLanguage: NotRequired[CodeLanguage]
-
-
-class DictSectionImplModifier(BaseDictSectionImplModifier):
-    type: Literal[SectionType.Dict]
-
-
-class DictRootSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal[SectionType.DictRoot]
-
-
 class DrawSectionImplModifier(
     BaseArtifactSectionImplModifier, BaseCanvasSectionImplModifier
 ):
     type: Literal[SectionType.Draw]
     canvasSettings: NotRequired[DrawAreaCanvasSettings]
-
-
-class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier):
-    type: Literal[SectionType.GenPythonCode]
-
-
-class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier):
-    type: Literal[SectionType.GlobalVariables]
-
-
-class GroupSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal[SectionType.Group]
-    isHorizontalOrientation: NotRequired[bool]
-
-
-class IFrameSectionImplModifier(BaseSectionImplModifier):
-    type: Literal[SectionType.IFrame]
-
-
-class ImageSectionImplModifier(BaseArtifactSectionImplModifier):
-    type: Literal[SectionType.Image]
-
-
-class ListRootSectionImplModifier(BaseParentSectionImplModifier):
-    type: Literal[SectionType.ListRoot]
-
-
-class SocialSectionImplModifier(BaseSectionImplModifier):
-    type: Literal[SectionType.Social]
-    social: NotRequired[str]
-
-
-class TerminalSectionImplModifier(BaseSectionImplModifier):
-    type: Literal[SectionType.Terminal]
 
 
 class TextBlockSectionImplModifier(BaseSectionImplModifier):
@@ -162,6 +127,41 @@ class TextBlockSectionImplModifier(BaseSectionImplModifier):
     headingAsSectionName: NotRequired[bool]
     displayMode: NotRequired[TextBlockDisplayMode]
     text: NotRequired[str]
+
+
+class SocialSectionImplModifier(BaseSectionImplModifier):
+    type: Literal[SectionType.Social]
+    social: NotRequired[str]
+
+
+class GlobalVariablesSectionImplModifier(BaseDictSectionImplModifier):
+    type: Literal[SectionType.GlobalVariables]
+
+
+class CodeSectionImplModifier(BaseCodeSectionImplModifier):
+    type: Literal[SectionType.Code]
+    codeLanguage: NotRequired[CodeLanguage]
+
+
+class GenPythonCodeSectionImplModifier(BaseCodeSectionImplModifier):
+    type: Literal[SectionType.GenPythonCode]
+
+
+class TerminalSectionImplModifier(BaseSectionImplModifier):
+    type: Literal[SectionType.Terminal]
+
+
+class IFrameSectionImplModifier(BaseSectionImplModifier):
+    type: Literal[SectionType.IFrame]
+
+
+class ChatSectionImplModifier(BaseSectionImplModifier):
+    type: Literal[SectionType.Chat]
+
+
+class BrowserSectionImplModifier(BaseSectionImplModifier):
+    type: Literal[SectionType.Browser]
+    hideColumn: NotRequired[bool]
 
 
 # ============== Code Object Modifiers ==============
@@ -198,24 +198,8 @@ class CodeParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal[CodeObjType.CodeParam]
 
 
-class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal[CodeObjType.ColorPickerParam]
-    choices: NotRequired[list[ColorPickerChoice]]
-
-
-class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal[CodeObjType.DropdownParam]
-    choices: NotRequired[list[str]]
-
-
-class NestedParamCodeObjImplModifier(
-    BaseParamCodeObjImplModifier, BaseParentCodeObjImplModifier
-):
-    type: Literal[CodeObjType.NestedParam]
-
-
-class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal[CodeObjType.PasswordParam]
+class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
+    type: Literal[CodeObjType.TextParam]
 
 
 class SliderParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
@@ -229,5 +213,21 @@ class SwitchParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
     type: Literal[CodeObjType.SwitchParam]
 
 
-class TextParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
-    type: Literal[CodeObjType.TextParam]
+class ColorPickerParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
+    type: Literal[CodeObjType.ColorPickerParam]
+    choices: NotRequired[list[ColorPickerChoice]]
+
+
+class DropdownParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
+    type: Literal[CodeObjType.DropdownParam]
+    choices: NotRequired[list[str]]
+
+
+class PasswordParamCodeObjImplModifier(BaseChildlessCodeObjImplModifier):
+    type: Literal[CodeObjType.PasswordParam]
+
+
+class NestedParamCodeObjImplModifier(
+    BaseParamCodeObjImplModifier, BaseParentCodeObjImplModifier
+):
+    type: Literal[CodeObjType.NestedParam]

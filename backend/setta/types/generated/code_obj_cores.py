@@ -4,7 +4,6 @@
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
-
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_field_literals import (
@@ -94,48 +93,12 @@ class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
 
-class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
-    type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    sharedModifier: ColorPickerParamCodeObjImplModifier = Field(
-        default_factory=lambda: ColorPickerParamCodeObjImplModifier(
-            type=CodeObjType.ColorPickerParam
-        )
+class TextParamCodeObjCore(BaseChildlessCodeObjCore):
+    type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
+    sharedModifier: TextParamCodeObjImplModifier = Field(
+        default_factory=lambda: TextParamCodeObjImplModifier(type=CodeObjType.TextParam)
     )
-    unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(
-        default_factory=lambda: ["value"]
-    )
-
-
-class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
-    type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    sharedModifier: DropdownParamCodeObjImplModifier = Field(
-        default_factory=lambda: DropdownParamCodeObjImplModifier(
-            type=CodeObjType.DropdownParam
-        )
-    )
-    unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(
-        default_factory=lambda: ["value"]
-    )
-
-
-class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
-    type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
-    sharedModifier: NestedParamCodeObjImplModifier = Field(
-        default_factory=lambda: NestedParamCodeObjImplModifier(
-            type=CodeObjType.NestedParam
-        )
-    )
-    unsharedKeys: list[NestedParamCodeObjImplFields] = Field(default_factory=list)
-
-
-class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
-    type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
-    sharedModifier: PasswordParamCodeObjImplModifier = Field(
-        default_factory=lambda: PasswordParamCodeObjImplModifier(
-            type=CodeObjType.PasswordParam
-        )
-    )
-    unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(
+    unsharedKeys: list[TextParamCodeObjImplFields] = Field(
         default_factory=lambda: ["value"]
     )
 
@@ -164,11 +127,47 @@ class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
 
-class TextParamCodeObjCore(BaseChildlessCodeObjCore):
-    type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
-    sharedModifier: TextParamCodeObjImplModifier = Field(
-        default_factory=lambda: TextParamCodeObjImplModifier(type=CodeObjType.TextParam)
+class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
+    type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
+    sharedModifier: ColorPickerParamCodeObjImplModifier = Field(
+        default_factory=lambda: ColorPickerParamCodeObjImplModifier(
+            type=CodeObjType.ColorPickerParam
+        )
     )
-    unsharedKeys: list[TextParamCodeObjImplFields] = Field(
+    unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(
         default_factory=lambda: ["value"]
     )
+
+
+class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
+    type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
+    sharedModifier: DropdownParamCodeObjImplModifier = Field(
+        default_factory=lambda: DropdownParamCodeObjImplModifier(
+            type=CodeObjType.DropdownParam
+        )
+    )
+    unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
+    )
+
+
+class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
+    type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
+    sharedModifier: PasswordParamCodeObjImplModifier = Field(
+        default_factory=lambda: PasswordParamCodeObjImplModifier(
+            type=CodeObjType.PasswordParam
+        )
+    )
+    unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(
+        default_factory=lambda: ["value"]
+    )
+
+
+class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
+    type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
+    sharedModifier: NestedParamCodeObjImplModifier = Field(
+        default_factory=lambda: NestedParamCodeObjImplModifier(
+            type=CodeObjType.NestedParam
+        )
+    )
+    unsharedKeys: list[NestedParamCodeObjImplFields] = Field(default_factory=list)

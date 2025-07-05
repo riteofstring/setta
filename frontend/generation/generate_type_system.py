@@ -1,535 +1,614 @@
 #!/usr/bin/env python3
-"""
-Type system utilities generator.
+"""Simplified type system generator."""
 
-This script generates:
-1. Union types for all generated classes
-2. Type conversion functions (type_to_core, type_to_modifier)
-3. Helper functions with overloads (get_effective_impl, set_effective_impl_value)
-"""
-
-import inspect
 from pathlib import Path
-from typing import Any, List, Type, get_args
+from typing import Any, Dict
 
-from pydantic import BaseModel
-from pydantic_core import PydanticUndefined
-from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-# ============== Common Utilities ==============
+# When running as a script, use local import
+if __name__ == "__main__":
+    from generation_base_generator import (
+        BaseGenerator,
+        OverloadGenerator,
+        UnionGenerator,
+    )
+else:
+    from .generation_base_generator import (
+        BaseGenerator,
+        OverloadGenerator,
+        UnionGenerator,
+    )
+
+import setta.types.code_obj_impls
+import setta.types.section_impls
 
 
-def find_sub_classes(
-    module: Any,
-    base_class: Type[BaseModel],
-    discriminator: str,
-    return_base_classes: bool,
-    return_input_base_class: bool,
-) -> List[Type[BaseModel]]:
-    """Find subclasses of a base class in a module."""
-    classes = []
+class TypeSystemGenerator(BaseGenerator):
+    """Generates type system utilities."""
 
-    for _, obj in inspect.getmembers(module, inspect.isclass):
-        if issubclass(obj, base_class):
-            fields = obj.model_fields
-            if not return_input_base_class and obj is base_class:
-                continue
-            if (
-                return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is PydanticUndefined
-            ):
-                classes.append(obj)
-            elif (
-                not return_base_classes
-                and discriminator in fields
-                and fields[discriminator].default is not PydanticUndefined
-            ):
-                classes.append(obj)
+    def __init__(self, output_folder: Path):
+        super().__init__(output_folder)
+        self.union_gen = UnionGenerator()
+        self.overload_gen = OverloadGenerator()
 
-    # Sort by line number where the class is defined
-    def get_line_number(cls):
-        try:
-            return inspect.getsourcelines(cls)[1]
-        except (OSError, TypeError):
-            return float("inf")
+    def run(self):
+        """Run the generation process."""
+        # Generate unions for impls
+        self._generate_impl_unions()
 
-    classes.sort(key=get_line_number)
-    return classes
+        # Generate unions for generated types (cores, modifiers, layerings)
+        self._generate_derived_unions()
 
+        # Generate type conversion functions
+        self._generate_type_conversions()
 
-def get_base_child_mapping(module, base_class, discriminator):
-    """Get mapping of base classes to their children."""
-    base_classes = find_sub_classes(module, base_class, discriminator, True, True)
-    base_class_to_children = {}
-    for base in base_classes:
-        child_classes = find_sub_classes(module, base, discriminator, False, True)
-        base_class_to_children[base] = child_classes
-    return base_class_to_children
+        # Generate helper functions
+        self._generate_helpers()
 
-
-def extract_type_value(impl_name: str) -> str:
-    """Extract the enum value from impl class name."""
-    if impl_name.endswith("SectionImpl"):
-        return impl_name[:-11]  # Remove "SectionImpl"
-    elif impl_name.endswith("CodeObjImpl"):
-        return impl_name[:-11]  # Remove "CodeObjImpl"
-    else:
-        raise ValueError(f"Unexpected impl name format: {impl_name}")
-
-
-def get_union_members(union_type):
-    """Extract member types from a Union type."""
-    return get_args(union_type)
-
-
-# ============== Union Generation ==============
-
-
-class UnionGenerator:
-    """Generates union types and related utilities."""
-
-    def generate_unions(
-        self,
-        module,
-        base_class,
-        discriminator,
-        module_to_import,
-        class_transformer,
-        add_type_predicates=False,
-        is_core=False,
-    ) -> str:
-        """Generate union types for a module's classes."""
-        base_class_to_children = get_base_child_mapping(
-            module, base_class, discriminator
+    def _generate_impl_unions(self):
+        """Generate unions for impl classes."""
+        # Section impls
+        self._generate_unions_for_module(
+            setta.types.section_impls,
+            setta.types.section_impls.BaseSectionImpl,
+            "section_impl_unions.py",
         )
 
-        code = """from typing import Annotated, Union, TypeGuard
+        # Code obj impls
+        self._generate_unions_for_module(
+            setta.types.code_obj_impls,
+            setta.types.code_obj_impls.BaseCodeObjImpl,
+            "code_obj_impl_unions.py",
+        )
+
+    def _generate_unions_for_module(
+        self, module: Any, base_class: Any, output_file: str
+    ) -> str:
+        """Generate all unions for a module."""
+        content = """from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 """
 
-        # Add imports
-        for base, child_classes in base_class_to_children.items():
-            # For cores, we need to check if it's the root base class
-            if is_core and base.__name__ in ["BaseSectionCore", "BaseCodeObjCore"]:
-                # Root base core is in the same module as children
-                code += f"from {module_to_import.__name__} import {class_transformer(base.__name__)}\n"
-            else:
-                code += f"from {module_to_import.__name__} import {class_transformer(base.__name__)}\n"
+        # Get base and concrete classes
+        base_classes = self.find_subclasses(module, base_class)
+        concrete_classes = self.find_subclasses(module, base_class, concrete_only=True)
+        all_classes = [base_class] + base_classes + concrete_classes
 
-            for child_class in child_classes:
-                code += f"from {module_to_import.__name__} import {class_transformer(child_class.__name__)}\n"
-        code += "\n"
+        # Import classes
+        all_class_names = [cls.__name__ for cls in all_classes]
+        content += self.build_imports(all_class_names, module.__name__, indent=0)
+        content += "\n"
 
-        # Generate unions
-        for base, child_classes in base_class_to_children.items():
-            union_name = f"{class_transformer(base.__name__)}Union"
-            child_names = [class_transformer(c.__name__) for c in child_classes]
+        # Generate union for each base class (including the root base)
+        classes_to_process = [base_class] + base_classes
+        for base in classes_to_process:
+            # Find concrete implementations
+            implementations = [cls for cls in concrete_classes if issubclass(cls, base)]
 
-            if not child_names:
-                # Generate a comment for empty unions
-                code += f"# {union_name} is empty - {base.__name__} has no concrete implementations\n\n"
-                continue
+            if implementations:
+                union_name = f"{base.__name__}Union"
+                member_names = [cls.__name__ for cls in implementations]
+                type_values = [
+                    cls.model_fields["type"].default.value for cls in implementations
+                ]
 
-            # Union type
-            code += f"{union_name} = Union[{', '.join(child_names)}]\n\n"
+                content += self.union_gen.generate_union(
+                    union_name, member_names, "type", type_values
+                )
+                content += "\n"
 
-            # Discriminated union
-            code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
+        self.write_output(content, output_file, f"unions for {module.__name__}")
+        return content
 
-            # Type adapter
-            code += f"{class_transformer(base.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
+    def _generate_derived_unions(self):
+        """Generate unions for derived types."""
+        # Generate core unions
+        self._generate_core_unions()
 
-            # Type set
-            defaults = []
-            for c in child_classes:
-                d = c.model_fields[discriminator].default
-                # assert enum name and value are the same
-                assert d.name == d.value
-                defaults.append(f'"{d.name}"')
-            code += f"{class_transformer(base.__name__)}TypeSet = set([{', '.join(defaults)}])\n\n"
+        # Generate modifier unions
+        self._generate_modifier_unions()
 
-        # Add type predicates if requested
-        if add_type_predicates:
-            most_base_type = f"{class_transformer(base_class.__name__)}Union"
-            for base, child_classes in base_class_to_children.items():
-                # Skip empty unions
-                if not child_classes:
-                    continue
-                transformed_name = class_transformer(base.__name__)
-                set_name = f"{transformed_name}TypeSet"
-                code += f"""
-def is{transformed_name}(x: {most_base_type}) -> TypeGuard[{transformed_name}]:
-    return x["type"] in {set_name}
+        # Generate layering unions
+        self._generate_layering_unions()
+
+    def _generate_core_unions(self):
+        """Generate unions for core classes."""
+        # Section cores
+        import setta.types.generated.section_cores
+
+        base_section_core = getattr(
+            setta.types.generated.section_cores, "BaseSectionCore"
+        )
+
+        self._generate_unions_for_generated_module(
+            setta.types.generated.section_cores,
+            base_section_core,
+            "section_core_unions.py",
+            lambda cls: cls.__name__,
+        )
+
+        # Code obj cores
+        import setta.types.generated.code_obj_cores
+
+        base_code_obj_core = getattr(
+            setta.types.generated.code_obj_cores, "BaseCodeObjCore"
+        )
+
+        self._generate_unions_for_generated_module(
+            setta.types.generated.code_obj_cores,
+            base_code_obj_core,
+            "code_obj_core_unions.py",
+            lambda cls: cls.__name__,
+        )
+
+    def _generate_modifier_unions(self):
+        """Generate unions for modifier classes."""
+        import setta.types.code_obj_impls
+        import setta.types.generated.impl_modifiers
+        import setta.types.section_impls
+
+        content = """from typing import Annotated, Union, TypeGuard
+from pydantic import Field, TypeAdapter
 
 """
 
-        return code
+        # Get section modifier union
+        section_content = self._generate_modifier_union_for_type(
+            setta.types.section_impls,
+            setta.types.section_impls.BaseSectionImpl,
+            setta.types.generated.impl_modifiers,
+            "Section",
+        )
+
+        # Get code obj modifier union
+        code_obj_content = self._generate_modifier_union_for_type(
+            setta.types.code_obj_impls,
+            setta.types.code_obj_impls.BaseCodeObjImpl,
+            setta.types.generated.impl_modifiers,
+            "CodeObj",
+        )
+
+        content += section_content + "\n" + code_obj_content
+
+        # Add AllImplModifierUnion
+        content += """
+
+AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
+
+AllImplModifierUnionWithDiscriminator = Annotated[
+    AllImplModifierUnion, Field(discriminator="type")
+]
+
+AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscriminator)
 
 
-# ============== Type Conversion Functions ==============
+def isBaseSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseSectionImplModifier]:
+    return x["type"] in BaseSectionImplModifierTypeSet
 
 
-class TypeConversionGenerator:
-    """Generates type conversion functions."""
+def isBaseSectionWithParamsImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseSectionWithParamsImplModifier]:
+    return x["type"] in BaseSectionWithParamsImplModifierTypeSet
 
-    def generate_type_to_modifier(self) -> str:
+
+def isBaseArtifactSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseArtifactSectionImplModifier]:
+    return x["type"] in BaseArtifactSectionImplModifierTypeSet
+
+
+def isBaseCanvasSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseCanvasSectionImplModifier]:
+    return x["type"] in BaseCanvasSectionImplModifierTypeSet
+
+
+def isBaseCodeSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseCodeSectionImplModifier]:
+    return x["type"] in BaseCodeSectionImplModifierTypeSet
+
+
+def isBaseParentSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseParentSectionImplModifier]:
+    return x["type"] in BaseParentSectionImplModifierTypeSet
+
+
+def isBaseDictSectionImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseDictSectionImplModifier]:
+    return x["type"] in BaseDictSectionImplModifierTypeSet
+
+
+def isBaseCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseCodeObjImplModifier]:
+    return x["type"] in BaseCodeObjImplModifierTypeSet
+
+
+def isBaseParamCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseParamCodeObjImplModifier]:
+    return x["type"] in BaseParamCodeObjImplModifierTypeSet
+
+
+def isBaseChildlessCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseChildlessCodeObjImplModifier]:
+    return x["type"] in BaseChildlessCodeObjImplModifierTypeSet
+
+
+def isBaseParentCodeObjImplModifier(
+    x: AllImplModifierUnion,
+) -> TypeGuard[BaseParentCodeObjImplModifier]:
+    return x["type"] in BaseParentCodeObjImplModifierTypeSet
+"""
+
+        self.write_output(content, "impl_modifier_unions.py", "modifier unions")
+
+    def _generate_modifier_union_for_type(
+        self, source_module: Any, base_class: Any, modifier_module: Any, type_name: str
+    ) -> str:
+        """Generate modifier unions for a specific type."""
+        content = ""
+
+        # Get base and concrete classes
+        base_classes = self.find_subclasses(source_module, base_class)
+        concrete_classes = self.find_subclasses(
+            source_module, base_class, concrete_only=True
+        )
+        all_classes = [base_class] + base_classes + concrete_classes
+
+        # Import modifiers
+        modifier_names = [f"{cls.__name__}Modifier" for cls in all_classes]
+        content += self.build_imports(
+            modifier_names, modifier_module.__name__, indent=0
+        )
+        content += "\n"
+
+        # Generate union for each base class
+        classes_to_process = [base_class] + base_classes
+        for base in classes_to_process:
+            # Find concrete implementations
+            implementations = [cls for cls in concrete_classes if issubclass(cls, base)]
+
+            if implementations:
+                union_name = f"{base.__name__}ModifierUnion"
+                member_names = [f"{cls.__name__}Modifier" for cls in implementations]
+                type_values = [
+                    cls.model_fields["type"].default.value for cls in implementations
+                ]
+
+                content += self.union_gen.generate_union(
+                    union_name, member_names, "type", type_values
+                )
+                content += "\n"
+
+        return content
+
+    def _generate_layering_unions(self):
+        """Generate unions for layering classes."""
+        import setta.types.generated.impl_layerings
+
+        # Get base layering classes
+        base_section_layering = getattr(
+            setta.types.generated.impl_layerings, "BaseSectionImplLayering"
+        )
+        base_code_obj_layering = getattr(
+            setta.types.generated.impl_layerings, "BaseCodeObjImplLayering"
+        )
+
+        content = """from typing import Annotated, Union
+from pydantic import Field, TypeAdapter
+
+"""
+
+        # Section layerings
+        section_content = self._generate_unions_for_generated_module(
+            setta.types.generated.impl_layerings,
+            base_section_layering,
+            None,  # Don't write yet
+            lambda cls: cls.__name__,
+        )
+
+        # Code obj layerings
+        code_obj_content = self._generate_unions_for_generated_module(
+            setta.types.generated.impl_layerings,
+            base_code_obj_layering,
+            None,  # Don't write yet
+            lambda cls: cls.__name__,
+        )
+
+        # Combine and write
+        self.write_output(
+            content + section_content + code_obj_content,
+            "impl_layering_unions.py",
+            "layering unions",
+        )
+
+    def _generate_unions_for_generated_module(
+        self, module: Any, base_class: Any, output_file: str | None, class_transformer
+    ) -> str:
+        """Generate unions for a generated module."""
+        content = ""
+
+        # Get base and concrete classes
+        base_classes = self.find_subclasses(module, base_class)
+        concrete_classes = self.find_subclasses(module, base_class, concrete_only=True)
+
+        # Import classes if not already imported
+        all_classes = [base_class] + base_classes + concrete_classes
+        all_class_names = [class_transformer(cls) for cls in all_classes]
+
+        if output_file:  # Only add imports if writing to a new file
+            # Add typing/pydantic imports first
+            content += """from typing import Annotated, Union
+from pydantic import Field, TypeAdapter
+
+"""
+            content += self.build_imports(all_class_names, module.__name__, indent=0)
+            content += "\n"
+
+        # Generate union for each base class
+        classes_to_process = [base_class] + base_classes
+        for base in classes_to_process:
+            # Find concrete implementations
+            implementations = [cls for cls in concrete_classes if issubclass(cls, base)]
+
+            if implementations:
+                union_name = f"{class_transformer(base)}Union"
+                member_names = [class_transformer(cls) for cls in implementations]
+                type_values = [
+                    cls.model_fields["type"].default.value for cls in implementations
+                ]
+
+                content += self.union_gen.generate_union(
+                    union_name, member_names, "type", type_values
+                )
+                content += "\n"
+
+        if output_file:
+            self.write_output(content, output_file, f"unions for {module.__name__}")
+
+        return content
+
+    def _generate_type_conversions(self):
+        """Generate type to modifier/core conversion functions."""
+        # Type to modifier
+        self._generate_type_to_modifier()
+
+        # Type to core
+        self._generate_type_to_core()
+
+    def _generate_type_to_modifier(self):
         """Generate type to modifier conversion functions."""
-        # Import to get union types
-        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
-
-        # Extract types from unions
-        section_impl_types = get_union_members(BaseSectionImplUnion)
-        code_obj_impl_types = get_union_members(BaseCodeObjImplUnion)
-
-        section_impl_names = [t.__name__ for t in section_impl_types]
-        code_obj_impl_names = [t.__name__ for t in code_obj_impl_types]
-
-        # Extract type values
-        section_type_values = [extract_type_value(name) for name in section_impl_names]
-        code_obj_type_values = [
-            extract_type_value(name) for name in code_obj_impl_names
-        ]
-
-        # Generate imports
-        imports = """from typing import Union, overload, Literal
+        content = """from typing import overload, Literal
 
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
 
 """
 
-        # Modifier imports
+        # Get concrete classes
+        section_classes = self.get_all_concrete_classes(
+            setta.types.section_impls, setta.types.section_impls.BaseSectionImpl
+        )
+
+        code_obj_classes = self.get_all_concrete_classes(
+            setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
+        )
+
+        # Build modifier imports
         modifier_imports = []
-        for impl_name in section_impl_names + code_obj_impl_names:
-            modifier_imports.append(f"    {impl_name}Modifier,")
+        for cls_map in [section_classes, code_obj_classes]:
+            for _, cls in cls_map.items():
+                modifier_imports.append(f"{cls.__name__}Modifier")
 
-        imports += f"""from setta.types.generated.impl_modifiers import (
-{chr(10).join(sorted(set(modifier_imports)))}
-)
-
-from setta.types.generated.impl_modifier_unions import (
-    BaseSectionImplModifierUnion,
-    BaseCodeObjImplModifierUnion,
-)
-"""
-
-        # Generate section overloads
-        section_overloads = "\n# Overloads for section type to modifier conversion"
-        for type_value, impl_name in zip(section_type_values, section_impl_names):
-            modifier_name = impl_name + "Modifier"
-            section_overloads += f"""
-@overload
-def create_modifier_for_section_type(type_: Literal[SectionType.{type_value}]) -> {modifier_name}: ..."""
-
-        section_overloads += """
-@overload
-def create_modifier_for_section_type(type_: SectionType) -> BaseSectionImplModifierUnion: ...
-"""
-
-        # Generate section function
-        section_function = """
-
-def create_modifier_for_section_type(type_: SectionType) -> BaseSectionImplModifierUnion:
-    \"\"\"Create a SectionImplModifier for the given SectionType.\"\"\"
-"""
-
-        first = True
-        for type_value, impl_name in zip(section_type_values, section_impl_names):
-            modifier_name = impl_name + "Modifier"
-            if first:
-                section_function += f"""    if type_ == SectionType.{type_value}:
-        return {modifier_name}(type=type_)"""
-                first = False
-            else:
-                section_function += f"""
-    elif type_ == SectionType.{type_value}:
-        return {modifier_name}(type=type_)"""
-
-        section_function += """
-    else:
-        raise ValueError(f"Unknown section type: {type_}")"""
-
-        # Generate code obj overloads
-        code_obj_overloads = (
-            "\n\n\n# Overloads for code obj type to modifier conversion"
+        content += self.build_imports(
+            sorted(modifier_imports), "setta.types.generated.impl_modifiers", indent=0
         )
-        for type_value, impl_name in zip(code_obj_type_values, code_obj_impl_names):
-            modifier_name = impl_name + "Modifier"
-            code_obj_overloads += f"""
-@overload
-def create_modifier_for_code_obj_type(type_: Literal[CodeObjType.{type_value}]) -> {modifier_name}: ..."""
+        content += "\n"
 
-        code_obj_overloads += """
-@overload
-def create_modifier_for_code_obj_type(type_: CodeObjType) -> BaseCodeObjImplModifierUnion: ...
-"""
+        content += self.build_imports(
+            ["BaseSectionImplModifierUnion", "BaseCodeObjImplModifierUnion"],
+            "setta.types.generated.impl_modifier_unions",
+            indent=0,
+        )
+        content += "\n"
 
-        # Generate code obj function
-        code_obj_function = """
-
-def create_modifier_for_code_obj_type(type_: CodeObjType) -> BaseCodeObjImplModifierUnion:
-    \"\"\"Create a CodeObjImplModifier for the given CodeObjType.\"\"\"
-"""
-
-        first = True
-        for type_value, impl_name in zip(code_obj_type_values, code_obj_impl_names):
-            modifier_name = impl_name + "Modifier"
-            if first:
-                code_obj_function += f"""    if type_ == CodeObjType.{type_value}:
-        return {modifier_name}(type=type_)"""
-                first = False
-            else:
-                code_obj_function += f"""
-    elif type_ == CodeObjType.{type_value}:
-        return {modifier_name}(type=type_)"""
-
-        code_obj_function += """
-    else:
-        raise ValueError(f"Unknown code obj type: {type_}")"""
-
-        return (
-            imports
-            + section_overloads
-            + section_function
-            + code_obj_overloads
-            + code_obj_function
+        # Generate section overloads and function
+        content += self._generate_conversion_function(
+            "create_modifier_for_section_type",
+            "SectionType",
+            section_classes,
+            "Modifier",
+            "BaseSectionImplModifierUnion",
         )
 
-    def generate_type_to_core(self) -> str:
+        content += "\n\n"
+
+        # Generate code obj overloads and function
+        content += self._generate_conversion_function(
+            "create_modifier_for_code_obj_type",
+            "CodeObjType",
+            code_obj_classes,
+            "Modifier",
+            "BaseCodeObjImplModifierUnion",
+        )
+
+        self.write_output(content, "type_to_modifier.py", "type to modifier functions")
+
+    def _generate_type_to_core(self):
         """Generate type to core conversion functions."""
-        # Import to get union types
-        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
-
-        # Extract types from unions
-        section_impl_types = get_union_members(BaseSectionImplUnion)
-        code_obj_impl_types = get_union_members(BaseCodeObjImplUnion)
-
-        section_impl_names = [t.__name__ for t in section_impl_types]
-        code_obj_impl_names = [t.__name__ for t in code_obj_impl_types]
-
-        # Extract type values
-        section_type_values = [extract_type_value(name) for name in section_impl_names]
-        code_obj_type_values = [
-            extract_type_value(name) for name in code_obj_impl_names
-        ]
-
-        # Generate imports
-        imports = """from typing import Union, overload, Literal, Any
+        content = """from typing import overload, Literal, Any
 
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
 
 """
 
-        # Core imports
-        section_core_imports = [f"    {tv}SectionCore," for tv in section_type_values]
-        code_obj_core_imports = [f"    {tv}CodeObjCore," for tv in code_obj_type_values]
+        # Get concrete classes
+        section_classes = self.get_all_concrete_classes(
+            setta.types.section_impls, setta.types.section_impls.BaseSectionImpl
+        )
 
-        imports += f"""from setta.types.generated.section_cores import (
-    BaseSectionCore,
-{chr(10).join(section_core_imports)}
-)
+        code_obj_classes = self.get_all_concrete_classes(
+            setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
+        )
 
-from setta.types.generated.code_obj_cores import (
-    BaseCodeObjCore,
-{chr(10).join(code_obj_core_imports)}
-)
+        # Build core imports
+        section_core_imports = ["BaseSectionCore"] + [
+            f"{type_value}SectionCore" for type_value in section_classes.keys()
+        ]
+        code_obj_core_imports = ["BaseCodeObjCore"] + [
+            f"{type_value}CodeObjCore" for type_value in code_obj_classes.keys()
+        ]
 
-"""
+        content += self.build_imports(
+            section_core_imports, "setta.types.generated.section_cores", indent=0
+        )
+        content += "\n"
 
-        # Modifier and field literal imports
+        content += self.build_imports(
+            code_obj_core_imports, "setta.types.generated.code_obj_cores", indent=0
+        )
+        content += "\n"
+
+        # Build modifier and field literal imports
         modifier_imports = []
         field_literal_imports = []
 
-        for impl_name in section_impl_names + code_obj_impl_names:
-            modifier_imports.append(f"    {impl_name}Modifier,")
-            field_literal_imports.append(f"    {impl_name}Fields,")
+        for cls_map in [section_classes, code_obj_classes]:
+            for _, cls in cls_map.items():
+                modifier_imports.append(f"{cls.__name__}Modifier")
+                field_literal_imports.append(f"{cls.__name__}Fields")
 
-        imports += f"""from setta.types.generated.impl_modifiers import (
-{chr(10).join(sorted(set(modifier_imports)))}
-)
+        content += self.build_imports(
+            sorted(modifier_imports), "setta.types.generated.impl_modifiers", indent=0
+        )
+        content += "\n"
 
-from setta.types.generated.impl_field_literals import (
-{chr(10).join(sorted(set(field_literal_imports)))}
-)
+        content += self.build_imports(
+            sorted(field_literal_imports),
+            "setta.types.generated.impl_field_literals",
+            indent=0,
+        )
+        content += "\n"
 
-from setta.types.generated.section_core_unions import BaseSectionCoreUnion
-from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.section_cores import BaseSectionCore
-from setta.types.generated.code_obj_cores import BaseCodeObjCore
-"""
-
-        # Generate section overloads
-        section_overloads = "\n# Overloads for section type to core conversion"
-
-        # Import actual impl classes to introspect
-        import setta.types.code_obj_impls
-        import setta.types.section_impls
-
-        for type_value, impl_name in zip(section_type_values, section_impl_names):
-            core_name = type_value + "SectionCore"
-            impl_class = getattr(setta.types.section_impls, impl_name)
-            modifier_type = f"{impl_name}Modifier"
-            field_literal_type = f"{impl_name}Fields"
-
-            section_overloads += f"""
-@overload
-def create_core_for_section_type(
-    type_: Literal[SectionType.{type_value}],
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: {modifier_type} | None = None,
-    unsharedKeys: set[{field_literal_type}] | None = None
-) -> {core_name}: ..."""
-
-        section_overloads += """
-@overload
-def create_core_for_section_type(
-    type_: SectionType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None
-) -> BaseSectionCoreUnion: ...
-"""
+        content += self.build_imports(
+            ["BaseSectionCoreUnion"],
+            "setta.types.generated.section_core_unions",
+            indent=0,
+        )
+        content += self.build_imports(
+            ["BaseCodeObjCoreUnion"],
+            "setta.types.generated.code_obj_core_unions",
+            indent=0,
+        )
+        content += "\n"
 
         # Generate section function
-        section_function = """
+        content += self._generate_core_conversion_function(
+            "create_core_for_section_type",
+            "SectionType",
+            section_classes,
+            "SectionCore",
+            "BaseSectionCoreUnion",
+        )
 
-def create_core_for_section_type(
-    type_: SectionType,
-    *,
-    id: str | None = None,
-    name: str | None = None,
-    implLayerings: list[str] | None = None,
-    defaultImplLayering: str | None = None,
-    sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None
-) -> BaseSectionCoreUnion:
-    \"\"\"Create a SectionCore for the given SectionType.
-    
-    Args:
-        type_: The SectionType enum value
-        id: Optional custom ID for the core
-        name: Optional custom name for the core
-        implLayerings: Optional implementation layering IDs
-        defaultImplLayering: Optional default layering ID
-        sharedModifier: Optional modifier (must match the type)
-        unsharedKeys: Optional set of keys to exclude from sharing
-    
-    The overloaded signatures above provide full type checking for each specific
-    SectionType with properly typed parameters.
-    \"\"\"
-    # Build kwargs dict with only non-None values
-    core_kwargs = {}
-    
-    if id is not None:
-        core_kwargs['id'] = id
-    if name is not None:
-        core_kwargs['name'] = name
-    if implLayerings is not None:
-        core_kwargs['implLayerings'] = implLayerings
-    if defaultImplLayering is not None:
-        core_kwargs['defaultImplLayering'] = defaultImplLayering
-    if sharedModifier is not None:
-        core_kwargs['sharedModifier'] = sharedModifier
-    if unsharedKeys is not None:
-        core_kwargs['unsharedKeys'] = unsharedKeys
-"""
+        content += "\n\n"
 
-        first = True
-        for type_value in section_type_values:
-            core_name = type_value + "SectionCore"
-            if first:
-                section_function += f"""
-    if type_ == SectionType.{type_value}:
-        return {core_name}(**core_kwargs)"""
-                first = False
-            else:
-                section_function += f"""
-    elif type_ == SectionType.{type_value}:
-        return {core_name}(**core_kwargs)"""
+        # Generate code obj function
+        content += self._generate_core_conversion_function(
+            "create_core_for_code_obj_type",
+            "CodeObjType",
+            code_obj_classes,
+            "CodeObjCore",
+            "BaseCodeObjCoreUnion",
+        )
 
-        section_function += """
-    else:
-        raise ValueError(f"Unknown section type: {type_}")"""
+        self.write_output(content, "type_to_core.py", "type to core functions")
 
-        # Generate code obj overloads
-        code_obj_overloads = "\n\n\n# Overloads for code obj type to core conversion"
+    def _generate_core_conversion_function(
+        self,
+        func_name: str,
+        enum_type: str,
+        type_map: Dict[str, Any],
+        suffix: str,
+        base_return: str,
+    ) -> str:
+        """Generate a core conversion function with overloads."""
+        # Generate overloads
+        overloads = f"\n# Overloads for {func_name.replace('_', ' ')}"
 
-        for type_value, impl_name in zip(code_obj_type_values, code_obj_impl_names):
-            core_name = type_value + "CodeObjCore"
-            impl_class = getattr(setta.types.code_obj_impls, impl_name)
-            modifier_type = f"{impl_name}Modifier"
-            field_literal_type = f"{impl_name}Fields"
+        for type_value, cls in type_map.items():
+            core_name = f"{type_value}{suffix}"
+            modifier_type = f"{cls.__name__}Modifier"
+            field_literal_type = f"{cls.__name__}Fields"
 
-            code_obj_overloads += f"""
+            overloads += f"""
 @overload
-def create_core_for_code_obj_type(
-    type_: Literal[CodeObjType.{type_value}],
+def {func_name}(
+    type_: Literal[{enum_type}.{type_value}],
     *,
     id: str | None = None,
     name: str | None = None,
     implLayerings: list[str] | None = None,
     defaultImplLayering: str | None = None,
     sharedModifier: {modifier_type} | None = None,
-    unsharedKeys: set[{field_literal_type}] | None = None
+    unsharedKeys: set[{field_literal_type}] | None = None,
 ) -> {core_name}: ..."""
 
-        code_obj_overloads += """
+        # Base overload
+        overloads += f"""
 @overload
-def create_core_for_code_obj_type(
-    type_: CodeObjType,
+def {func_name}(
+    type_: {enum_type},
     *,
     id: str | None = None,
     name: str | None = None,
     implLayerings: list[str] | None = None,
     defaultImplLayering: str | None = None,
     sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None
-) -> BaseCodeObjCoreUnion: ...
+    unsharedKeys: Any | None = None,
+) -> {base_return}: ...
 """
 
-        # Generate code obj function
-        code_obj_function = """
+        # Generate function implementation
+        implementation = f"""
 
-def create_core_for_code_obj_type(
-    type_: CodeObjType,
+def {func_name}(
+    type_: {enum_type},
     *,
     id: str | None = None,
     name: str | None = None,
     implLayerings: list[str] | None = None,
     defaultImplLayering: str | None = None,
     sharedModifier: Any | None = None,
-    unsharedKeys: Any | None = None
-) -> BaseCodeObjCoreUnion:
-    \"\"\"Create a CodeObjCore for the given CodeObjType.
+    unsharedKeys: Any | None = None,
+) -> {base_return}:
+    \"\"\"Create a {suffix} for the given {enum_type}.
     
     Args:
-        type_: The CodeObjType enum value
+        type_: The {enum_type} enum value
         id: Optional custom ID for the core
         name: Optional custom name for the core
         implLayerings: Optional implementation layering IDs
         defaultImplLayering: Optional default layering ID
         sharedModifier: Optional modifier (must match the type)
         unsharedKeys: Optional set of keys to exclude from sharing
-    
+        
     The overloaded signatures above provide full type checking for each specific
-    CodeObjType with properly typed parameters.
+    {enum_type} with properly typed parameters.
     \"\"\"
     # Build kwargs dict with only non-None values
-    core_kwargs = {}
+    core_kwargs = {{}}
     
     if id is not None:
         core_kwargs['id'] = id
@@ -545,120 +624,158 @@ def create_core_for_code_obj_type(
         core_kwargs['unsharedKeys'] = unsharedKeys
 """
 
+        # Add cases
         first = True
-        for type_value in code_obj_type_values:
-            core_name = type_value + "CodeObjCore"
+        for type_value in type_map.keys():
+            core_name = f"{type_value}{suffix}"
             if first:
-                code_obj_function += f"""
-    if type_ == CodeObjType.{type_value}:
+                implementation += f"""
+    if type_ == {enum_type}.{type_value}:
         return {core_name}(**core_kwargs)"""
                 first = False
             else:
-                code_obj_function += f"""
-    elif type_ == CodeObjType.{type_value}:
+                implementation += f"""
+    elif type_ == {enum_type}.{type_value}:
         return {core_name}(**core_kwargs)"""
 
-        code_obj_function += """
+        implementation += """
     else:
-        raise ValueError(f"Unknown code obj type: {type_}")"""
+        raise ValueError(f"Unknown {'section' if 'Section' in enum_type else 'code obj'} type: {type_}")"""
 
-        return (
-            imports
-            + section_overloads
-            + section_function
-            + code_obj_overloads
-            + code_obj_function
+        return overloads + implementation
+
+    def _generate_conversion_function(
+        self,
+        func_name: str,
+        enum_type: str,
+        type_map: Dict[str, Any],
+        suffix: str,
+        base_return: str,
+    ) -> str:
+        """Generate a conversion function with overloads."""
+        # Generate overloads
+        overload_specs = []
+        for type_value, cls in type_map.items():
+            class_name = cls.__name__ + suffix
+            overload_specs.append(
+                {
+                    "params": f"type_: Literal[{enum_type}.{type_value}]",
+                    "return_type": class_name,
+                }
+            )
+
+        base_overload = {"params": f"type_: {enum_type}", "return_type": base_return}
+
+        overloads = self.overload_gen.generate_overloads(
+            func_name, overload_specs, base_overload
         )
 
+        # Generate function implementation
+        implementation = f"""
+def {func_name}(type_: {enum_type}) -> {base_return}:
+    \"\"\"Create a {suffix} for the given {enum_type}.\"\"\"
+"""
 
-# ============== Helper Functions ==============
+        # Add cases
+        first = True
+        for type_value, cls in type_map.items():
+            class_name = cls.__name__ + suffix
+            if first:
+                implementation += f"    if type_ == {enum_type}.{type_value}:\n"
+                implementation += f"        return {class_name}(type=type_)\n"
+                first = False
+            else:
+                implementation += f"    elif type_ == {enum_type}.{type_value}:\n"
+                implementation += f"        return {class_name}(type=type_)\n"
 
+        implementation += "    else:\n"
+        implementation += f'        raise ValueError(f"Unknown {"section" if "Section" in enum_type else "code obj"} type: {{type_}}")\n'
 
-class HelperGenerator:
-    """Generates helper functions with overloads."""
+        return overloads + implementation
 
-    def generate_impl_helpers(self) -> str:
-        """Generate effective impl helper functions."""
-        # Import to get union types
-        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
-
-        # Extract types from unions
-        section_impl_types = get_union_members(BaseSectionImplUnion)
-        code_obj_impl_types = get_union_members(BaseCodeObjImplUnion)
-
-        section_impl_names = [t.__name__ for t in section_impl_types]
-        code_obj_impl_names = [t.__name__ for t in code_obj_impl_types]
-
-        # Extract type values
-        section_type_values = [extract_type_value(name) for name in section_impl_names]
-        code_obj_type_values = [
-            extract_type_value(name) for name in code_obj_impl_names
-        ]
-
-        # Build imports
-        section_impl_imports = "\n".join(f"    {name}," for name in section_impl_names)
-        code_obj_impl_imports = "\n".join(
-            f"    {name}," for name in code_obj_impl_names
-        )
-
-        section_core_imports = "\n".join(
-            f"    {type_value}SectionCore," for type_value in section_type_values
-        )
-        code_obj_core_imports = "\n".join(
-            f"    {type_value}CodeObjCore," for type_value in code_obj_type_values
-        )
-
-        modifier_imports = "\n".join(
-            f"    {name}Modifier," for name in section_impl_names + code_obj_impl_names
-        )
-
-        field_literal_imports = "\n".join(
-            f"    {name}Fields," for name in section_impl_names + code_obj_impl_names
-        )
-
-        # Generate imports
-        imports = f"""# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
+    def _generate_helpers(self):
+        """Generate helper functions with overloads."""
+        content = """# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
 from typing import overload, Any, TypeVar
 
-from setta.types.generated.section_impl_unions import (
-    BaseSectionImplUnion,
-{section_impl_imports}
-)
-
-from setta.types.generated.code_obj_impl_unions import (
-    BaseCodeObjImplUnion,
-{code_obj_impl_imports}
-)
-
-from setta.types.generated.section_core_unions import (
-    BaseSectionCoreUnion,
-{section_core_imports}
-)
-from setta.types.generated.section_cores import BaseSectionCore
-
-from setta.types.generated.code_obj_core_unions import (
-    BaseCodeObjCoreUnion,
-{code_obj_core_imports}
-)
-from setta.types.generated.code_obj_cores import BaseCodeObjCore
-
-from setta.types.generated.impl_modifier_unions import (
-    AllImplModifierUnion,
-    BaseSectionImplModifierUnion,
-    BaseCodeObjImplModifierUnion,
-{modifier_imports}
-)
-
-from setta.types.generated.impl_field_literals import (
-{field_literal_imports}
-)
 """
 
+        # Get concrete classes
+        section_classes = self.get_all_concrete_classes(
+            setta.types.section_impls, setta.types.section_impls.BaseSectionImpl
+        )
+        code_obj_classes = self.get_all_concrete_classes(
+            setta.types.code_obj_impls, setta.types.code_obj_impls.BaseCodeObjImpl
+        )
+
+        # Build imports
+        section_impl_imports = [cls.__name__ for _, cls in section_classes.items()]
+        code_obj_impl_imports = [cls.__name__ for _, cls in code_obj_classes.items()]
+
+        content += self.build_imports(
+            ["BaseSectionImplUnion"] + section_impl_imports,
+            "setta.types.generated.section_impl_unions",
+            indent=0,
+        )
+        content += "\n"
+
+        content += self.build_imports(
+            ["BaseCodeObjImplUnion"] + code_obj_impl_imports,
+            "setta.types.generated.code_obj_impl_unions",
+            indent=0,
+        )
+        content += "\n"
+
+        # Core imports
+        section_core_imports = ["BaseSectionCoreUnion"] + [
+            f"{type_value}SectionCore" for type_value in section_classes.keys()
+        ]
+        code_obj_core_imports = ["BaseCodeObjCoreUnion"] + [
+            f"{type_value}CodeObjCore" for type_value in code_obj_classes.keys()
+        ]
+
+        content += self.build_imports(
+            section_core_imports, "setta.types.generated.section_core_unions", indent=0
+        )
+        content += "\n"
+
+        content += self.build_imports(
+            code_obj_core_imports,
+            "setta.types.generated.code_obj_core_unions",
+            indent=0,
+        )
+        content += "\n"
+
+        # Modifier imports
+        modifier_imports = [
+            "AllImplModifierUnion",
+            "BaseSectionImplModifierUnion",
+            "BaseCodeObjImplModifierUnion",
+        ]
+        for cls_map in [section_classes, code_obj_classes]:
+            for _, cls in cls_map.items():
+                modifier_imports.append(f"{cls.__name__}Modifier")
+
+        content += self.build_imports(
+            modifier_imports, "setta.types.generated.impl_modifier_unions", indent=0
+        )
+        content += "\n"
+
+        # Field literal imports
+        field_literal_imports = []
+        for cls_map in [section_classes, code_obj_classes]:
+            for _, cls in cls_map.items():
+                field_literal_imports.append(f"{cls.__name__}Fields")
+
+        content += self.build_imports(
+            field_literal_imports, "setta.types.generated.impl_field_literals", indent=0
+        )
+        content += "\n"
+
         # TypeVar and helper
-        type_var_def = """
+        content += """
 TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
 
 
@@ -669,35 +786,52 @@ def apply_modifier(
 """
 
         # Generate get_effective_impl overloads
-        get_overloads = [
-            "\n\n# ============== get_effective_impl overloads ==============\n"
-        ]
+        content += self._generate_get_effective_impl_overloads(
+            section_classes, code_obj_classes
+        )
 
-        # Specific overloads
-        for impl_name, type_value in zip(section_impl_names, section_type_values):
+        # Generate set_effective_impl_value overloads
+        content += self._generate_set_effective_impl_value_overloads(
+            section_classes, code_obj_classes
+        )
+
+        self.write_output(content, "impl_helpers.py", "impl helper functions")
+
+    def _generate_get_effective_impl_overloads(
+        self, section_classes: Dict[str, Any], code_obj_classes: Dict[str, Any]
+    ) -> str:
+        """Generate overloads for get_effective_impl."""
+        content = "\n\n# ============== get_effective_impl overloads ==============\n"
+
+        # Specific overloads for sections
+        for type_value, cls in section_classes.items():
+            impl_name = cls.__name__
             core_name = f"{type_value}SectionCore"
             modifier_name = f"{impl_name}Modifier"
-            get_overloads.append(f"""
+            content += f"""
 @overload
 def get_effective_impl(
     impl: {impl_name},
     core: {core_name},
     modifier: {modifier_name},
-) -> {impl_name}: ...""")
+) -> {impl_name}: ..."""
 
-        for impl_name, type_value in zip(code_obj_impl_names, code_obj_type_values):
+        # Specific overloads for code objs
+        for type_value, cls in code_obj_classes.items():
+            impl_name = cls.__name__
             core_name = f"{type_value}CodeObjCore"
             modifier_name = f"{impl_name}Modifier"
-            get_overloads.append(f"""
+            content += f"""
 @overload
 def get_effective_impl(
     impl: {impl_name},
     core: {core_name},
     modifier: {modifier_name},
-) -> {impl_name}: ...""")
+) -> {impl_name}: ..."""
 
-        # Base overloads
-        get_overloads.append("""
+        # Base overloads and implementation
+        content += """
+
 
 # Base overloads for union types
 @overload
@@ -727,19 +861,24 @@ def get_effective_impl(
     impl/core/modifier combination.
     \"\"\"
     return apply_modifier(impl, core.sharedModifier, modifier)
-""")
+"""
+        return content
 
-        # Generate set_effective_impl_value overloads
-        set_overloads = [
+    def _generate_set_effective_impl_value_overloads(
+        self, section_classes: Dict[str, Any], code_obj_classes: Dict[str, Any]
+    ) -> str:
+        """Generate overloads for set_effective_impl_value."""
+        content = (
             "\n\n# ============== set_effective_impl_value overloads ==============\n"
-        ]
+        )
 
-        # Specific overloads
-        for impl_name, type_value in zip(section_impl_names, section_type_values):
+        # Specific overloads for sections
+        for type_value, cls in section_classes.items():
+            impl_name = cls.__name__
             core_name = f"{type_value}SectionCore"
             modifier_name = f"{impl_name}Modifier"
             field_literal_name = f"{impl_name}Fields"
-            set_overloads.append(f"""
+            content += f"""
 @overload
 def set_effective_impl_value(
     impl: {impl_name},
@@ -747,13 +886,15 @@ def set_effective_impl_value(
     modifier: {modifier_name},
     key: {field_literal_name},
     value: Any,
-) -> {impl_name}: ...""")
+) -> {impl_name}: ..."""
 
-        for impl_name, type_value in zip(code_obj_impl_names, code_obj_type_values):
+        # Specific overloads for code objs
+        for type_value, cls in code_obj_classes.items():
+            impl_name = cls.__name__
             core_name = f"{type_value}CodeObjCore"
             modifier_name = f"{impl_name}Modifier"
             field_literal_name = f"{impl_name}Fields"
-            set_overloads.append(f"""
+            content += f"""
 @overload
 def set_effective_impl_value(
     impl: {impl_name},
@@ -761,10 +902,11 @@ def set_effective_impl_value(
     modifier: {modifier_name},
     key: {field_literal_name},
     value: Any,
-) -> {impl_name}: ...""")
+) -> {impl_name}: ..."""
 
         # Base overloads and implementation
-        set_overloads.append("""
+        content += """
+
 
 # Base overloads for union types
 @overload
@@ -811,220 +953,8 @@ def set_effective_impl_value(
     else:
         core.sharedModifier[key] = value
     return get_effective_impl(impl, core, modifier)
-""")
-
-        return imports + type_var_def + "".join(get_overloads) + "".join(set_overloads)
-
-
-# ============== Main Generator ==============
-
-
-class TypeSystemGenerator:
-    """Main generator for type system utilities."""
-
-    def __init__(self, output_folder: Path):
-        self.output_folder = output_folder
-        self.union_gen = UnionGenerator()
-        self.conversion_gen = TypeConversionGenerator()
-        self.helper_gen = HelperGenerator()
-
-    def write_output(self, content: str, filename: str, description: str):
-        """Write formatted content to file."""
-        formatted = ruff_format(content)
-        output_file = self.output_folder / filename
-        output_file.write_text(formatted)
-        print(f"Generated {description} in {output_file}")
-
-    def run(self):
-        """Run the complete generation process."""
-        import setta.types.code_obj_impls
-        import setta.types.section_impls
-
-        # Generate section impl unions
-        print("Generating section type unions...")
-        section_union_code = self.union_gen.generate_unions(
-            setta.types.section_impls,
-            setta.types.section_impls.BaseSectionImpl,
-            "type",
-            setta.types.section_impls,
-            lambda x: x,
-        )
-        self.write_output(
-            section_union_code, "section_impl_unions.py", "section type unions"
-        )
-
-        # Generate code obj impl unions
-        print("Generating code obj type unions...")
-        code_obj_union_code = self.union_gen.generate_unions(
-            setta.types.code_obj_impls,
-            setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
-            setta.types.code_obj_impls,
-            lambda x: x,
-        )
-        self.write_output(
-            code_obj_union_code, "code_obj_impl_unions.py", "code obj type unions"
-        )
-
-        # Generate section core unions (requires cores to be generated first)
-        print("Generating section core unions...")
-        import setta.types.generated.section_cores
-
-        # Get the base class from the generated module
-        base_section_core = getattr(
-            setta.types.generated.section_cores, "BaseSectionCore"
-        )
-
-        section_core_union_code = self.union_gen.generate_unions(
-            setta.types.generated.section_cores,
-            base_section_core,
-            "type",
-            setta.types.generated.section_cores,
-            lambda x: x,
-            is_core=True,
-        )
-        self.write_output(
-            section_core_union_code, "section_core_unions.py", "section core unions"
-        )
-
-        # Generate code obj core unions
-        print("Generating code obj core unions...")
-        import setta.types.generated.code_obj_cores
-
-        # Get the base class from the generated module
-        base_code_obj_core = getattr(
-            setta.types.generated.code_obj_cores, "BaseCodeObjCore"
-        )
-
-        code_obj_core_union_code = self.union_gen.generate_unions(
-            setta.types.generated.code_obj_cores,
-            base_code_obj_core,
-            "type",
-            setta.types.generated.code_obj_cores,
-            lambda x: x,
-            is_core=True,
-        )
-        self.write_output(
-            code_obj_core_union_code, "code_obj_core_unions.py", "code obj core unions"
-        )
-
-        # Generate modifier unions
-        print("Generating modifier unions...")
-        import setta.types.generated.impl_modifiers
-
-        section_modifier_union_code = self.union_gen.generate_unions(
-            setta.types.section_impls,
-            setta.types.section_impls.BaseSectionImpl,
-            "type",
-            setta.types.generated.impl_modifiers,
-            lambda x: f"{x}Modifier",
-        )
-
-        code_obj_modifier_union_code = self.union_gen.generate_unions(
-            setta.types.code_obj_impls,
-            setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
-            setta.types.generated.impl_modifiers,
-            lambda x: f"{x}Modifier",
-        )
-
-        # Combine modifier unions and add AllImplModifierUnion
-        modifier_union_code = (
-            section_modifier_union_code
-            + code_obj_modifier_union_code
-            + """
-AllImplModifierUnion = BaseSectionImplModifierUnion | BaseCodeObjImplModifierUnion
-
-AllImplModifierUnionWithDiscriminator = Annotated[
-    AllImplModifierUnion, Field(discriminator="type")
-]
-
-AllImplModifierUnionTypeAdapter = TypeAdapter(AllImplModifierUnionWithDiscriminator)
 """
-        )
-
-        # Add type predicates
-        base_class_to_children_section = get_base_child_mapping(
-            setta.types.section_impls, setta.types.section_impls.BaseSectionImpl, "type"
-        )
-        base_class_to_children_code_obj = get_base_child_mapping(
-            setta.types.code_obj_impls,
-            setta.types.code_obj_impls.BaseCodeObjImpl,
-            "type",
-        )
-
-        all_base_classes = {
-            **base_class_to_children_section,
-            **base_class_to_children_code_obj,
-        }
-
-        for base_class, child_classes in all_base_classes.items():
-            # Skip empty unions
-            if not child_classes:
-                continue
-            transformed_name = f"{base_class.__name__}Modifier"
-            set_name = f"{transformed_name}TypeSet"
-            modifier_union_code += f"""
-def is{transformed_name}(x: AllImplModifierUnion) -> TypeGuard[{transformed_name}]:
-    return x["type"] in {set_name}
-
-"""
-
-        self.write_output(
-            modifier_union_code, "impl_modifier_unions.py", "modifier unions"
-        )
-
-        # Generate layering unions
-        print("Generating layering unions...")
-        import setta.types.generated.impl_layerings
-
-        # Get the base classes from the generated module
-        base_section_impl_layering = getattr(
-            setta.types.generated.impl_layerings, "BaseSectionImplLayering"
-        )
-        base_code_obj_impl_layering = getattr(
-            setta.types.generated.impl_layerings, "BaseCodeObjImplLayering"
-        )
-
-        section_layering_union_code = self.union_gen.generate_unions(
-            setta.types.generated.impl_layerings,
-            base_section_impl_layering,
-            "type",
-            setta.types.generated.impl_layerings,
-            lambda x: x,
-        )
-
-        code_obj_layering_union_code = self.union_gen.generate_unions(
-            setta.types.generated.impl_layerings,
-            base_code_obj_impl_layering,
-            "type",
-            setta.types.generated.impl_layerings,
-            lambda x: x,
-        )
-
-        layering_union_code = section_layering_union_code + code_obj_layering_union_code
-        self.write_output(
-            layering_union_code, "impl_layering_unions.py", "layering unions"
-        )
-
-        # Generate type conversion functions
-        print("Generating type conversion functions...")
-        type_to_modifier_code = self.conversion_gen.generate_type_to_modifier()
-        self.write_output(
-            type_to_modifier_code, "type_to_modifier.py", "type to modifier functions"
-        )
-
-        type_to_core_code = self.conversion_gen.generate_type_to_core()
-        self.write_output(
-            type_to_core_code, "type_to_core.py", "type to core functions"
-        )
-
-        # Generate helper functions
-        print("Generating helper functions...")
-        impl_helpers_code = self.helper_gen.generate_impl_helpers()
-        self.write_output(impl_helpers_code, "impl_helpers.py", "impl helper functions")
-
-        print("Type system generation complete!")
+        return content
 
 
 def main(output_folder: Path):
@@ -1041,6 +971,4 @@ if __name__ == "__main__":
         if len(sys.argv) > 1
         else Path("../../backend/setta/types/generated")
     )
-    # Note: This script should be run AFTER generate_derived_classes.py
-    # since it depends on generated cores, modifiers, and layerings
     main(get_absolute_path(__file__, output_folder))
