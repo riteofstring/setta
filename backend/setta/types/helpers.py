@@ -4,7 +4,7 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
 )
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.code_obj_impl_unions import (
+from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
 )
@@ -18,7 +18,7 @@ from setta.types.generated.impl_modifier_unions import (
     isBaseSectionWithParamsImplModifier,
 )
 from setta.types.generated.section_core_unions import BaseSectionCoreUnion
-from setta.types.generated.section_impl_unions import BaseSectionImplUnion
+from setta.types.generated.section_type_unions import BaseSectionImplUnion
 from setta.types.generated.type_to_core import create_core_for_section_type
 from setta.types.generated.type_to_modifier import (
     create_modifier_for_code_obj_type,

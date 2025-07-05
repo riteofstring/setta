@@ -1,6 +1,7 @@
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.code_obj_cores import (
     CodeCallableCodeObjCore,
     CodeParamCodeObjCore,
@@ -16,108 +17,31 @@ from setta.types.generated.code_obj_cores import (
 BaseCodeObjCoreUnion = Union[
     CodeCallableCodeObjCore,
     CodeParamCodeObjCore,
-    TextParamCodeObjCore,
-    SliderParamCodeObjCore,
-    SwitchParamCodeObjCore,
     ColorPickerParamCodeObjCore,
     DropdownParamCodeObjCore,
-    PasswordParamCodeObjCore,
     NestedParamCodeObjCore,
+    PasswordParamCodeObjCore,
+    SliderParamCodeObjCore,
+    SwitchParamCodeObjCore,
+    TextParamCodeObjCore,
 ]
 
 BaseCodeObjCoreUnionWithDiscriminator = Annotated[
     BaseCodeObjCoreUnion, Field(discriminator="type")
 ]
 
-BaseCodeObjCoreUnionTypeAdapter = TypeAdapter(BaseCodeObjCoreUnionWithDiscriminator)
+BaseCodeObjCoreTypeAdapter = TypeAdapter(BaseCodeObjCoreUnionWithDiscriminator)
 
-BaseCodeObjCoreUnionTypeSet = set(
+BaseCodeObjCoreTypeSet = set(
     [
         "CodeCallable",
         "CodeParam",
-        "TextParam",
-        "SliderParam",
-        "SwitchParam",
         "ColorPickerParam",
         "DropdownParam",
-        "PasswordParam",
         "NestedParam",
-    ]
-)
-
-
-BaseParamCodeObjCoreUnion = Union[
-    CodeParamCodeObjCore,
-    TextParamCodeObjCore,
-    SliderParamCodeObjCore,
-    SwitchParamCodeObjCore,
-    ColorPickerParamCodeObjCore,
-    DropdownParamCodeObjCore,
-    PasswordParamCodeObjCore,
-    NestedParamCodeObjCore,
-]
-
-BaseParamCodeObjCoreUnionWithDiscriminator = Annotated[
-    BaseParamCodeObjCoreUnion, Field(discriminator="type")
-]
-
-BaseParamCodeObjCoreUnionTypeAdapter = TypeAdapter(
-    BaseParamCodeObjCoreUnionWithDiscriminator
-)
-
-BaseParamCodeObjCoreUnionTypeSet = set(
-    [
-        "CodeParam",
-        "TextParam",
+        "PasswordParam",
         "SliderParam",
         "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
-        "NestedParam",
-    ]
-)
-
-
-BaseChildlessCodeObjCoreUnion = Union[
-    CodeParamCodeObjCore,
-    TextParamCodeObjCore,
-    SliderParamCodeObjCore,
-    SwitchParamCodeObjCore,
-    ColorPickerParamCodeObjCore,
-    DropdownParamCodeObjCore,
-    PasswordParamCodeObjCore,
-]
-
-BaseChildlessCodeObjCoreUnionWithDiscriminator = Annotated[
-    BaseChildlessCodeObjCoreUnion, Field(discriminator="type")
-]
-
-BaseChildlessCodeObjCoreUnionTypeAdapter = TypeAdapter(
-    BaseChildlessCodeObjCoreUnionWithDiscriminator
-)
-
-BaseChildlessCodeObjCoreUnionTypeSet = set(
-    [
-        "CodeParam",
         "TextParam",
-        "SliderParam",
-        "SwitchParam",
-        "ColorPickerParam",
-        "DropdownParam",
-        "PasswordParam",
     ]
 )
-
-
-BaseParentCodeObjCoreUnion = Union[CodeCallableCodeObjCore, NestedParamCodeObjCore]
-
-BaseParentCodeObjCoreUnionWithDiscriminator = Annotated[
-    BaseParentCodeObjCoreUnion, Field(discriminator="type")
-]
-
-BaseParentCodeObjCoreUnionTypeAdapter = TypeAdapter(
-    BaseParentCodeObjCoreUnionWithDiscriminator
-)
-
-BaseParentCodeObjCoreUnionTypeSet = set(["CodeCallable", "NestedParam"])

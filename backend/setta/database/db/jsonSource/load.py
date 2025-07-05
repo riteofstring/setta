@@ -11,7 +11,7 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
 )
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.code_obj_impl_unions import (
+from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnion,
 )
 from setta.types.generated.creation_functions import (
@@ -36,7 +36,7 @@ from setta.types.generated.section_core_unions import BaseSectionCoreUnion
 from setta.types.generated.section_cores import (
     BaseDictSectionCore,
 )
-from setta.types.generated.section_impl_unions import (
+from setta.types.generated.section_type_unions import (
     BaseSectionImplUnion,
 )
 from setta.types.generated.settings_state import SettingsState

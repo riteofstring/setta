@@ -1,6 +1,7 @@
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
@@ -29,9 +30,9 @@ BaseCodeObjImplUnionWithDiscriminator = Annotated[
     BaseCodeObjImplUnion, Field(discriminator="type")
 ]
 
-BaseCodeObjImplUnionTypeAdapter = TypeAdapter(BaseCodeObjImplUnionWithDiscriminator)
+BaseCodeObjImplTypeAdapter = TypeAdapter(BaseCodeObjImplUnionWithDiscriminator)
 
-BaseCodeObjImplUnionTypeSet = set(
+BaseCodeObjImplTypeSet = set(
     [
         "CodeCallable",
         "CodeParam",
@@ -44,7 +45,6 @@ BaseCodeObjImplUnionTypeSet = set(
         "NestedParam",
     ]
 )
-
 
 BaseParamCodeObjImplUnion = Union[
     CodeParamCodeObjImpl,
@@ -61,11 +61,11 @@ BaseParamCodeObjImplUnionWithDiscriminator = Annotated[
     BaseParamCodeObjImplUnion, Field(discriminator="type")
 ]
 
-BaseParamCodeObjImplUnionTypeAdapter = TypeAdapter(
+BaseParamCodeObjImplTypeAdapter = TypeAdapter(
     BaseParamCodeObjImplUnionWithDiscriminator
 )
 
-BaseParamCodeObjImplUnionTypeSet = set(
+BaseParamCodeObjImplTypeSet = set(
     [
         "CodeParam",
         "TextParam",
@@ -77,7 +77,6 @@ BaseParamCodeObjImplUnionTypeSet = set(
         "NestedParam",
     ]
 )
-
 
 BaseChildlessCodeObjImplUnion = Union[
     CodeParamCodeObjImpl,
@@ -93,11 +92,11 @@ BaseChildlessCodeObjImplUnionWithDiscriminator = Annotated[
     BaseChildlessCodeObjImplUnion, Field(discriminator="type")
 ]
 
-BaseChildlessCodeObjImplUnionTypeAdapter = TypeAdapter(
+BaseChildlessCodeObjImplTypeAdapter = TypeAdapter(
     BaseChildlessCodeObjImplUnionWithDiscriminator
 )
 
-BaseChildlessCodeObjImplUnionTypeSet = set(
+BaseChildlessCodeObjImplTypeSet = set(
     [
         "CodeParam",
         "TextParam",
@@ -109,15 +108,14 @@ BaseChildlessCodeObjImplUnionTypeSet = set(
     ]
 )
 
-
 BaseParentCodeObjImplUnion = Union[CodeCallableCodeObjImpl, NestedParamCodeObjImpl]
 
 BaseParentCodeObjImplUnionWithDiscriminator = Annotated[
     BaseParentCodeObjImplUnion, Field(discriminator="type")
 ]
 
-BaseParentCodeObjImplUnionTypeAdapter = TypeAdapter(
+BaseParentCodeObjImplTypeAdapter = TypeAdapter(
     BaseParentCodeObjImplUnionWithDiscriminator
 )
 
-BaseParentCodeObjImplUnionTypeSet = set(["CodeCallable", "NestedParam"])
+BaseParentCodeObjImplTypeSet = set(["CodeCallable", "NestedParam"])

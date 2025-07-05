@@ -50,7 +50,6 @@ from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-# Base layering class
 class BaseImplLayering(BaseModel):
     """Base class for all ImplLayering types."""
 
@@ -62,52 +61,50 @@ class BaseImplLayering(BaseModel):
 
 
 # ============== Section Layering Classes ==============
-
-
 class BaseSectionImplLayering(BaseImplLayering):
-    """Base class for Section layering types."""
+    """Base class for SectionImplLayering types."""
 
     type: Any
     modifier: BaseSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseSectionWithParamsImplLayering(BaseSectionImplLayering):
-    """Base class for SectionWithParams layering types."""
+    """Base class for SectionWithParamsImplLayering types."""
 
     type: Any
     modifier: BaseSectionWithParamsImplModifier  # type: ignore[assignment]
 
 
 class BaseArtifactSectionImplLayering(BaseSectionImplLayering):
-    """Base class for ArtifactSection layering types."""
+    """Base class for ArtifactSectionImplLayering types."""
 
     type: Any
     modifier: BaseArtifactSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseCanvasSectionImplLayering(BaseSectionImplLayering):
-    """Base class for CanvasSection layering types."""
+    """Base class for CanvasSectionImplLayering types."""
 
     type: Any
     modifier: BaseCanvasSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseCodeSectionImplLayering(BaseSectionImplLayering):
-    """Base class for CodeSection layering types."""
+    """Base class for CodeSectionImplLayering types."""
 
     type: Any
     modifier: BaseCodeSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseParentSectionImplLayering(BaseSectionImplLayering):
-    """Base class for ParentSection layering types."""
+    """Base class for ParentSectionImplLayering types."""
 
     type: Any
     modifier: BaseParentSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseDictSectionImplLayering(BaseSectionWithParamsImplLayering):
-    """Base class for DictSection layering types."""
+    """Base class for DictSectionImplLayering types."""
 
     type: Any
     modifier: BaseDictSectionImplModifier  # type: ignore[assignment]
@@ -203,31 +200,29 @@ class BrowserSectionImplLayering(BaseSectionImplLayering):
 
 
 # ============== Code Object Layering Classes ==============
-
-
 class BaseCodeObjImplLayering(BaseImplLayering):
-    """Base class for CodeObj layering types."""
+    """Base class for CodeObjImplLayering types."""
 
     type: Any
     modifier: BaseCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseParamCodeObjImplLayering(BaseCodeObjImplLayering):
-    """Base class for ParamCodeObj layering types."""
+    """Base class for ParamCodeObjImplLayering types."""
 
     type: Any
     modifier: BaseParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseChildlessCodeObjImplLayering(BaseParamCodeObjImplLayering):
-    """Base class for ChildlessCodeObj layering types."""
+    """Base class for ChildlessCodeObjImplLayering types."""
 
     type: Any
     modifier: BaseChildlessCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseParentCodeObjImplLayering(BaseCodeObjImplLayering):
-    """Base class for ParentCodeObj layering types."""
+    """Base class for ParentCodeObjImplLayering types."""
 
     type: Any
     modifier: BaseParentCodeObjImplModifier  # type: ignore[assignment]

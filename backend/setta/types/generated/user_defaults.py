@@ -24,8 +24,9 @@ from setta.types.section_impls import (
     Visibility,
 )
 
-
 # ============== Section UserDefault Classes ==============
+
+
 class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseSectionImpl"""
 
@@ -85,7 +86,6 @@ class UserDefaultCallableSectionImpl(
 ):
     """User-configurable defaults for CallableSectionImpl"""
 
-    callable: str | None = None
     hideParams: bool = False
 
 
@@ -203,6 +203,8 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 
 # ============== Code Object UserDefault Classes ==============
+
+
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
     """User-configurable defaults for BaseCodeObjImpl"""
 

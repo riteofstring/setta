@@ -1,14 +1,5 @@
-# Auto-generated modifier classes - DO NOT EDIT MANUALLY
-# Generated from impl classes
-
 from typing import Any, Literal, NotRequired, TypedDict
 
-from setta.types.code_obj_impls import (
-    CodeObjType,
-    ColorPickerChoice,
-    ParameterPassingStyle,
-    ParamNameType,
-)
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
@@ -21,8 +12,6 @@ from setta.types.section_impls import (
     TextBlockFormat,
     Visibility,
 )
-
-# ============== Section Modifiers ==============
 
 
 class BaseSectionImplModifier(TypedDict):
@@ -164,7 +153,14 @@ class BrowserSectionImplModifier(BaseSectionImplModifier):
     hideColumn: NotRequired[bool]
 
 
-# ============== Code Object Modifiers ==============
+from typing import Any, Literal, NotRequired, TypedDict
+
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    ColorPickerChoice,
+    ParameterPassingStyle,
+    ParamNameType,
+)
 
 
 class BaseCodeObjImplModifier(TypedDict):
