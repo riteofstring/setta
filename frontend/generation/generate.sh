@@ -1,15 +1,5 @@
 #!/bin/bash
-python -m generation.generate_impl_field_literals
-python -m generation.generate_impl_modifiers
-python -m generation.generate_impl_layerings
-python -m generation.generate_type_to_modifier_fns
-python -m generation.generate_cores
-python -m generation.generate_type_to_core_fns
-python -m generation.generate_backend_union_types
-python -m generation.generate_user_default_impls
-python -m generation.generate_impl_creation_fns
-python -m generation.generate_settings_state
-python -m generation.generate_impl_helpers
+python -m generation.generate_all
 python -m generation.convert_pydantic_to_js
 python -m generation.convert_constants_to_js
 python -m generation.convert_endpoints
