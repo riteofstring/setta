@@ -5,6 +5,7 @@ Fly.io service for managing apps and deployments.
 import asyncio
 import base64
 import os
+import traceback
 
 from config import get_settings
 from deployment_script import STORAGE_DEPLOY_SCRIPT
@@ -47,6 +48,8 @@ class FlyService:
 
     async def _broadcast_deployment_progress(self, project_id: str, message: str, percent: int):
         """Broadcast deployment progress."""
+        print(f"[PROGRESS] {percent}% - {message}")
+
         progress_data = ProgressData(
             current_step=percent // 20,
             total_steps=5,
@@ -61,6 +64,10 @@ class FlyService:
                 "progress": progress_data.dict(),
             },
         )
+
+        print(f"[WS] Broadcasting DEPLOYMENT_PROGRESS: {event.data}")
+        print(f"[WS] Active connections: {self.ws_manager.get_connection_count()}")
+
         await self.ws_manager.broadcast(event)
 
     async def _poll_and_broadcast_events(self, app_name: str, machine_id: str, project_id: str):
@@ -80,25 +87,30 @@ class FlyService:
         self, app_name: str, project_id: str, github_url: str | None = None
     ) -> dict:
         """Create app with progress updates (async wrapper for project service)."""
+        print(f"[FLY] Starting deployment for app: {app_name}, project: {project_id}")
+        print(f"[FLY] GitHub URL: {github_url}")
+
         try:
             # Reset event poller for new deployment
             self.event_poller.reset()
 
             # Send initial progress
             await self._broadcast_deployment_progress(project_id, "Connecting to Fly.io...", 5)
-            await asyncio.sleep(0.2)
+            await asyncio.sleep(0.5)  # Give time for UI to update
 
             # Create the app
             await self._broadcast_deployment_progress(
                 project_id, "Creating Fly.io application...", 10
             )
+
+            print(f"[FLY] Creating app with org_id: {self.org_id}")
             app = await asyncio.to_thread(create_app, self.client, app_name, self.org_id)
-            print(f"✓ App created: {app['hostname']}")
+            print(f"[FLY] ✓ App created: {app['hostname']}")
 
             # Allocate IP addresses
             await self._broadcast_deployment_progress(project_id, "Allocating IP addresses...", 20)
             ipv4, ipv6 = await asyncio.to_thread(allocate_ips, self.client, app_name)
-            print(f"✓ IPv4: {ipv4}, IPv6: {ipv6}")
+            print(f"[FLY] ✓ IPv4: {ipv4}, IPv6: {ipv6}")
 
             # Start machine deployment (non-blocking)
             await self._broadcast_deployment_progress(
@@ -117,6 +129,8 @@ class FlyService:
 
             if not user_id:
                 raise Exception("Could not find user_id for project")
+
+            print(f"[FLY] User ID: {user_id}")
 
             # Deploy machine and poll events concurrently
             deploy_task = asyncio.create_task(
@@ -157,6 +171,7 @@ class FlyService:
             # Get machine ID from deployment
             machine_result = await deploy_task
             machine_id = machine_result["machine_id"]
+            print(f"[FLY] Machine deployed: {machine_id}")
 
             # Now poll for detailed progress
             poll_task = asyncio.create_task(
@@ -178,15 +193,15 @@ class FlyService:
                 await self._broadcast_deployment_progress(project_id, "Verifying deployment...", 90)
                 await asyncio.sleep(0.5)
                 await self._broadcast_deployment_progress(project_id, "Deployment complete!", 100)
-                print("✓ App is ready!")
+                print("[FLY] ✓ App is ready!")
             else:
-                print("⚠ App deployment may still be in progress")
+                print("[FLY] ⚠ App deployment may still be in progress")
                 await self._broadcast_deployment_progress(
                     project_id, "Deployment in progress...", 85
                 )
 
             # Return deployment info
-            return {
+            deployment_info = {
                 "app_name": app_name,
                 "hostname": app["hostname"],
                 "url": f"https://{app['hostname']}",
@@ -197,8 +212,16 @@ class FlyService:
                 "machine_state": "started",
             }
 
+            print(f"[FLY] Deployment complete: {deployment_info}")
+            return deployment_info
+
         except Exception as e:
-            print(f"✗ Error during deployment: {str(e)}")
+            print(f"[FLY] ✗ Error during deployment: {type(e).__name__}: {str(e)}")
+            print("[FLY] Full traceback:")
+            traceback.print_exc()
+
+            await self._broadcast_deployment_progress(project_id, f"Deployment failed: {str(e)}", 0)
+
             await asyncio.to_thread(self._cleanup_failed_app, app_name)
             raise
 
@@ -206,8 +229,10 @@ class FlyService:
         self, app_name: str, github_url: str | None, user_id: str, project_id: str
     ) -> dict:
         """Deploy machine and return result."""
+        print(f"[FLY] Deploying machine for app: {app_name}")
+
         if github_url:
-            print(f"Deploying from GitHub: {github_url}")
+            print(f"[FLY] Deploying from GitHub: {github_url}")
 
             # Clone to R2 storage first
             success = await asyncio.to_thread(
@@ -225,7 +250,7 @@ class FlyService:
                 project_id,
             )
         else:
-            print("Deploying with default hello world image...")
+            print("[FLY] Deploying with default hello world image...")
             machine_id = await asyncio.to_thread(
                 create_and_deploy_machine,
                 self.client,
@@ -233,13 +258,15 @@ class FlyService:
                 idle_timeout_minutes=5,
             )
 
-        print(f"✓ Machine created: {machine_id}")
-        print("✓ Hibernation enabled (5 minute idle timeout)")
+        print(f"[FLY] ✓ Machine created: {machine_id}")
+        print("[FLY] ✓ Hibernation enabled (5 minute idle timeout)")
 
         return {"machine_id": machine_id}
 
     def _create_machine_with_storage(self, app_name: str, user_id: str, project_id: str) -> str:
         """Create a machine that syncs from R2 storage and runs user code."""
+        print(f"[FLY] Creating machine with storage for app: {app_name}")
+
         # Get storage settings from environment
         storage_bucket = os.getenv("STORAGE_BUCKET_NAME", "user-projects")
         r2_endpoint = os.getenv("R2_ENDPOINT")
@@ -294,7 +321,9 @@ class FlyService:
         }
 
         # Create machine
+        print("[FLY] Creating machine with config...")
         machine = self.client.create_machine(app_name, config, region="ewr")
+        print(f"[FLY] Machine created with ID: {machine['id']}")
         return machine["id"]
 
     def _create_machine_from_github(self, app_name: str, github_url: str) -> str:

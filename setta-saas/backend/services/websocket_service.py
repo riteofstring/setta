@@ -33,45 +33,58 @@ class ConnectionManager:
         try:
             # Send as JSON string directly
             await websocket.send_text(event.json())
-            print("Sent connection message to new WebSocket client")
+            print("[WS] Sent connection message to new WebSocket client")
         except Exception as e:
-            print(f"Error sending initial connection message: {e}")
+            print(f"[WS] Error sending initial connection message: {e}")
 
     async def disconnect(self, websocket: WebSocket):
         """Remove a WebSocket connection."""
         async with self._lock:
             self.active_connections.discard(websocket)
-        print(f"WebSocket disconnected. Active connections: {len(self.active_connections)}")
+        print(f"[WS] WebSocket disconnected. Active connections: {len(self.active_connections)}")
 
     async def send_to_websocket(self, websocket: WebSocket, event: WebSocketEvent):
         """Send an event to a specific WebSocket connection."""
         try:
             # Use send_text with JSON string instead of send_json
-            await websocket.send_text(event.json())
+            json_data = event.json()
+            print(f"[WS] Sending to individual websocket: {event.type}")
+            await websocket.send_text(json_data)
         except Exception as e:
-            print(f"Error sending to websocket: {e}")
+            print(f"[WS] Error sending to websocket: {e}")
             await self.disconnect(websocket)
 
     async def broadcast(self, event: WebSocketEvent):
         """Broadcast an event to all connected clients."""
         if not self.active_connections:
+            print("[WS] No active connections to broadcast to")
             return
 
         # Create list of connections to avoid modification during iteration
         async with self._lock:
             connections = list(self.active_connections)
 
+        print(f"[WS] Broadcasting {event.type} to {len(connections)} clients")
+        print(f"[WS] Event data: {event.data}")
+
         # Send to all connections concurrently
         tasks = []
         for ws in connections:
             tasks.append(self.send_to_websocket(ws, event))
 
-        await asyncio.gather(*tasks, return_exceptions=True)
-        print(f"Broadcasted {event.type} to {len(connections)} clients")
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Log any errors
+        error_count = sum(1 for r in results if isinstance(r, Exception))
+        if error_count > 0:
+            print(f"[WS] {error_count} errors during broadcast")
+        else:
+            print(f"[WS] Successfully broadcasted {event.type} to all {len(connections)} clients")
 
     async def broadcast_json(self, data: dict):
         """Broadcast raw JSON data to all connections."""
         if not self.active_connections:
+            print("[WS] No active connections for broadcast_json")
             return
 
         message = json.dumps(data)
@@ -80,17 +93,20 @@ class ConnectionManager:
         async with self._lock:
             connections = list(self.active_connections)
 
+        print(f"[WS] Broadcasting raw JSON to {len(connections)} clients: {data}")
+
         for websocket in connections:
             try:
                 await websocket.send_text(message)
-            except Exception:
+            except Exception as e:
+                print(f"[WS] Error sending to websocket: {e}")
                 disconnected.add(websocket)
 
         # Clean up disconnected clients
         if disconnected:
             async with self._lock:
                 self.active_connections -= disconnected
-            print(f"Removed {len(disconnected)} disconnected clients")
+            print(f"[WS] Removed {len(disconnected)} disconnected clients")
 
     def get_connection_count(self) -> int:
         """Get the number of active connections."""

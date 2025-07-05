@@ -50,20 +50,95 @@ async def periodic_machine_state_check():
             print(f"Error in periodic machine state check: {e}")
 
 
+def check_fly_config():
+    """Check Fly.io configuration on startup."""
+    print("\n=== Checking Fly.io Configuration ===")
+
+    if not settings.fly_api_token:
+        print("❌ ERROR: FLY_API_TOKEN not set!")
+        return False
+
+    print(f"✓ FLY_API_TOKEN: {'*' * 10}{settings.fly_api_token[-6:]}")
+    print(f"✓ FLY_ORG_SLUG: {settings.fly_org_slug}")
+
+    # Test Fly.io connection
+    try:
+        fly_service = FlyService()
+        apps = fly_service.list_all_apps()
+        print(f"✓ Connected to Fly.io - found {len(apps)} existing apps")
+        return True
+    except Exception as e:
+        print(f"❌ Failed to connect to Fly.io: {e}")
+        return False
+
+
+def check_storage_config():
+    """Check storage configuration on startup."""
+    print("\n=== Checking Storage Configuration ===")
+
+    if not settings.storage_access_key or not settings.storage_secret_key:
+        print("⚠ Storage not configured (optional)")
+        return False
+
+    print("✓ Storage provider: R2")
+    print(f"✓ Bucket: {settings.storage_bucket_name}")
+    print(f"✓ Endpoint: {settings.r2_endpoint}")
+    return True
+
+
+def check_clerk_config():
+    """Check Clerk configuration on startup."""
+    print("\n=== Checking Clerk Configuration ===")
+
+    if not settings.clerk_jwt_public_key:
+        print("❌ ERROR: CLERK_JWT_PUBLIC_KEY not set!")
+        return False
+
+    print(f"✓ CLERK_JWT_PUBLIC_KEY: Set ({len(settings.clerk_jwt_public_key)} chars)")
+
+    if settings.clerk_api_key:
+        print("✓ CLERK_API_KEY: Set (optional)")
+    else:
+        print("⚠ CLERK_API_KEY: Not set (optional)")
+
+    return True
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan."""
-    print("Starting up...")
+    print("\n" + "=" * 50)
+    print(f"Starting {settings.app_name}...")
+    print(f"Environment: {settings.environment}")
+    print("=" * 50)
+
+    # Run configuration checks
+    fly_ok = check_fly_config()
+    storage_ok = check_storage_config()
+    clerk_ok = check_clerk_config()
+
+    print("\n=== Configuration Summary ===")
+    print(f"Fly.io: {'✓' if fly_ok else '❌'}")
+    print(f"Storage: {'✓' if storage_ok else '⚠'}")
+    print(f"Clerk: {'✓' if clerk_ok else '❌'}")
+
+    if not fly_ok or not clerk_ok:
+        print("\n❌ CRITICAL: Required configuration missing!")
+        print("Please check your environment variables.")
 
     # Initialize storage
-    init_storage()
+    if storage_ok:
+        init_storage()
 
     # Start background task for checking machine states
     task = asyncio.create_task(periodic_machine_state_check())
 
+    print("\n✓ Application started successfully!")
+    print("=" * 50 + "\n")
+
     yield
 
-    print("Shutting down...")
+    print("\nShutting down...")
     task.cancel()
     try:
         await task
@@ -137,17 +212,17 @@ async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for real-time updates."""
     manager = get_connection_manager()
     await manager.connect(websocket)
-    print(f"New WebSocket connected. Total connections: {manager.get_connection_count()}")
+    print(f"[WS] New WebSocket connected. Total connections: {manager.get_connection_count()}")
 
     try:
         while True:
             data = await websocket.receive_text()
-            print(f"Received from client: {data}")
+            print(f"[WS] Received from client: {data}")
 
             try:
                 message = json.loads(data)
             except json.JSONDecodeError:
-                print(f"Received non-JSON message: {data}")
+                print(f"[WS] Received non-JSON message: {data}")
                 continue
 
             # Handle ping messages
@@ -160,13 +235,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 "timestamp": datetime.utcnow().isoformat(),
             }
             await websocket.send_text(json.dumps(pong_response))
-            print("Sent pong response")
+            print("[WS] Sent pong response")
 
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
-        print(f"Client disconnected. Active connections: {manager.get_connection_count()}")
+        print(f"[WS] Client disconnected. Active connections: {manager.get_connection_count()}")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"[WS] WebSocket error: {e}")
         await manager.disconnect(websocket)
 
 
@@ -207,6 +282,7 @@ async def create_project(
     service: ProjectService = Depends(get_async_project_service),
 ):
     """Create a new project for the authenticated user."""
+    print(f"\n[API] Creating project: {project_data.name} for user: {user_id}")
     return await service.create_project(project_data, user_id)
 
 

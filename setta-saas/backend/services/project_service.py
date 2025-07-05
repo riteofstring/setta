@@ -4,6 +4,7 @@ Project service for managing user projects.
 
 import asyncio
 import time
+import traceback
 from datetime import datetime
 from uuid import uuid4
 
@@ -65,17 +66,22 @@ class ProjectService:
         base_name = sanitize_app_name(project_data.name)
         app_name = f"setta-{base_name}-{timestamp}"
 
+        print(f"Creating project '{project_data.name}' as app '{app_name}' for user {user_id}")
+
         # Create database record
         project = Project(
             id=str(uuid4()),
             name=project_data.name,
             url="Creating...",
             status="creating",
-            user_id=user_id,  # Set the user who owns this project
-            github_url=project_data.github_url,  # Store GitHub URL if provided
+            user_id=user_id,
+            github_url=project_data.github_url,
         )
         self.db.add(project)
         self.db.commit()
+
+        # Log WebSocket status
+        print(f"WebSocket connections before broadcast: {self.ws_manager.get_connection_count()}")
 
         # Broadcast project creating event
         await self._broadcast_project_event(
@@ -89,14 +95,18 @@ class ProjectService:
 
     async def _deploy_project_with_progress(self, project_id: str, app_name: str):
         """Deploy project to Fly.io with real progress updates."""
+        print(f"[DEPLOY] Starting deployment for project {project_id}, app {app_name}")
+
         # Get a fresh database session for this async task
         db = SessionLocal()
         try:
             # Get the project from the database
             project = db.query(Project).filter(Project.id == project_id).first()
             if not project:
-                print(f"Project {project_id} not found")
+                print(f"[DEPLOY] ERROR: Project {project_id} not found")
                 return
+
+            print(f"[DEPLOY] Project found: {project.name}, GitHub URL: {project.github_url}")
 
             # Update status to deploying
             project.status = "deploying"
@@ -107,34 +117,40 @@ class ProjectService:
             )
 
             # Deploy with progress updates
+            print("[DEPLOY] Calling fly service to deploy app...")
             deployment = await self.fly.create_and_deploy_app_with_progress(
                 app_name, project_id, project.github_url
             )
+
+            print(f"[DEPLOY] Deployment successful: {deployment}")
 
             # Update project with deployment info INCLUDING machine data
             project.url = deployment["url"]
             project.status = "running"
             project.last_checked = datetime.utcnow()
-            project.machine_id = deployment["machine_id"]  # Store machine ID
-            project.machine_state = deployment["machine_state"]  # Store initial state
+            project.machine_id = deployment["machine_id"]
+            project.machine_state = deployment["machine_state"]
             db.commit()
 
             # Broadcast success with full project data including machine info
             await self._broadcast_project_ready(project)
 
         except Exception as e:
+            print(f"[DEPLOY] ERROR during deployment: {type(e).__name__}: {str(e)}")
+            print("[DEPLOY] Full traceback:")
+            traceback.print_exc()
+
             # Update status on failure
             if project:
                 project.url = "Failed to create"
                 project.status = "error"
-                project.machine_state = "error"  # Set machine state to error
+                project.machine_state = "error"
                 db.commit()
 
             # Broadcast error
             await self._broadcast_project_event(
                 project, EventType.PROJECT_ERROR, f"Deployment failed: {str(e)}"
             )
-            print(f"Deployment error for {app_name}: {str(e)}")
         finally:
             db.close()
 
@@ -175,14 +191,6 @@ class ProjectService:
         except Exception as e:
             print(f"Warning: Failed to delete storage files: {str(e)}")
             # Continue with deletion even if storage cleanup fails
-
-        if project.url and "fly.dev" in project.url:
-            try:
-                app_name = project.url.split("//")[1].split(".")[0]
-                print(f"Deleting Fly.io app: {app_name}")
-                await asyncio.to_thread(self.fly.delete_app, app_name)
-            except Exception as e:
-                print(f"Error deleting Fly.io app: {e}")
 
         # Delete from database
         self.db.delete(project)
@@ -312,6 +320,8 @@ class ProjectService:
         )
 
         event = WebSocketEvent(type=event_type, data=event_data.dict())
+
+        print(f"[WS] Broadcasting {event_type} event for project {project.name}")
         await self.ws_manager.broadcast(event)
 
     async def _broadcast_project_ready(self, project: Project):
@@ -329,6 +339,8 @@ class ProjectService:
         }
 
         event = WebSocketEvent(type=EventType.PROJECT_READY, data=event_data)
+
+        print(f"[WS] Broadcasting PROJECT_READY event for project {project.name}")
         await self.ws_manager.broadcast(event)
 
     async def _broadcast_machine_state_change(
