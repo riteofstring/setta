@@ -4,6 +4,7 @@
 from typing import Any, Literal
 
 from pydantic import Field
+
 from setta.types.generated.impl_field_literals import (
     BaseArtifactSectionImplFields,
     BaseCanvasSectionImplFields,

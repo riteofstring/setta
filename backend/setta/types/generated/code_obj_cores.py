@@ -4,6 +4,7 @@
 from typing import Any, Literal
 
 from pydantic import Field
+
 from setta.types.code_obj_core import BaseCodeObjCore
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.impl_field_literals import (
