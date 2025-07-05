@@ -10,7 +10,7 @@ from setta.database.utils import create_new_id
 from setta.types.generated.code_obj_core_unions import (
     BaseCodeObjCoreUnionWithDiscriminator,
 )
-from setta.types.generated.code_obj_type_unions import (
+from setta.types.generated.code_obj_impl_unions import (
     BaseCodeObjImplUnionWithDiscriminator,
 )
 from setta.types.generated.impl_layering_unions import (
@@ -20,7 +20,7 @@ from setta.types.generated.impl_layering_unions import (
 from setta.types.generated.section_core_unions import (
     BaseSectionCoreUnionWithDiscriminator,
 )
-from setta.types.generated.section_type_unions import (
+from setta.types.generated.section_impl_unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string

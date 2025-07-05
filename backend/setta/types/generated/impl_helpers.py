@@ -15,7 +15,7 @@ from setta.types.generated.code_obj_core_unions import (
     SwitchParamCodeObjCore,
     TextParamCodeObjCore,
 )
-from setta.types.generated.code_obj_type_unions import (
+from setta.types.generated.code_obj_impl_unions import (
     BaseCodeObjImplUnion,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
@@ -106,7 +106,7 @@ from setta.types.generated.section_core_unions import (
     TerminalSectionCore,
     TextBlockSectionCore,
 )
-from setta.types.generated.section_type_unions import (
+from setta.types.generated.section_impl_unions import (
     BaseSectionImplUnion,
     BrowserSectionImpl,
     CallableSectionImpl,

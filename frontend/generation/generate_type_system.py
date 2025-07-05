@@ -224,8 +224,8 @@ class TypeConversionGenerator:
     def generate_type_to_modifier(self) -> str:
         """Generate type to modifier conversion functions."""
         # Import to get union types
-        from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_type_unions import BaseSectionImplUnion
+        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
+        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
 
         # Extract types from unions
         section_impl_types = get_union_members(BaseSectionImplUnion)
@@ -348,8 +348,8 @@ def create_modifier_for_code_obj_type(type_: CodeObjType) -> BaseCodeObjImplModi
     def generate_type_to_core(self) -> str:
         """Generate type to core conversion functions."""
         # Import to get union types
-        from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_type_unions import BaseSectionImplUnion
+        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
+        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
 
         # Extract types from unions
         section_impl_types = get_union_members(BaseSectionImplUnion)
@@ -622,8 +622,8 @@ class HelperGenerator:
     def generate_impl_helpers(self) -> str:
         """Generate effective impl helper functions."""
         # Import to get union types
-        from setta.types.generated.code_obj_type_unions import BaseCodeObjImplUnion
-        from setta.types.generated.section_type_unions import BaseSectionImplUnion
+        from setta.types.generated.code_obj_impl_unions import BaseCodeObjImplUnion
+        from setta.types.generated.section_impl_unions import BaseSectionImplUnion
 
         # Extract types from unions
         section_impl_types = get_union_members(BaseSectionImplUnion)
@@ -665,12 +665,12 @@ class HelperGenerator:
 
 from typing import overload, Any, TypeVar
 
-from setta.types.generated.section_type_unions import (
+from setta.types.generated.section_impl_unions import (
     BaseSectionImplUnion,
 {section_impl_imports}
 )
 
-from setta.types.generated.code_obj_type_unions import (
+from setta.types.generated.code_obj_impl_unions import (
     BaseCodeObjImplUnion,
 {code_obj_impl_imports}
 )
@@ -890,7 +890,7 @@ class TypeSystemGenerator:
             lambda x: x,
         )
         self.write_output(
-            section_union_code, "section_type_unions.py", "section type unions"
+            section_union_code, "section_impl_unions.py", "section type unions"
         )
 
         # Generate code obj impl unions
@@ -903,7 +903,7 @@ class TypeSystemGenerator:
             lambda x: x,
         )
         self.write_output(
-            code_obj_union_code, "code_obj_type_unions.py", "code obj type unions"
+            code_obj_union_code, "code_obj_impl_unions.py", "code obj type unions"
         )
 
         # Generate section core unions (requires cores to be generated first)

@@ -9,7 +9,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.code_obj_type_unions import (
+from setta.types.generated.code_obj_impl_unions import (
     BaseParamCodeObjImplUnion,
 )
 from setta.types.generated.creation_functions import createTextParamCodeObjImpl
