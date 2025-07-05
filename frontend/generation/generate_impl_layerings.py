@@ -52,7 +52,7 @@ def generate_layering_class(impl_class: type, base_class: type, enum_type: str) 
 class {layering_name}({parent_class}):
     \"\"\"Base class for {layering_name.replace("BaseImplLayering", "").replace("Base", "")} types.\"\"\"
     type: Any
-    modifier: {modifier_name}
+    modifier: {modifier_name}  # type: ignore[assignment]
 """
     else:
         # Concrete classes have specific types
@@ -60,7 +60,7 @@ class {layering_name}({parent_class}):
         return f"""
 class {layering_name}({parent_class}):
     type: Literal[{enum_type}.{type_value}] = {enum_type}.{type_value}
-    modifier: {modifier_name}
+    modifier: {modifier_name}  # type: ignore[assignment]
 """
 
 

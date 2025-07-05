@@ -65,134 +65,134 @@ class BaseSectionImplLayering(BaseImplLayering):
     """Base class for SectionImplLayering types."""
 
     type: Any
-    modifier: BaseSectionImplModifier
+    modifier: BaseSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseSectionWithParamsImplLayering(BaseSectionImplLayering):
     """Base class for SectionWithParamsImplLayering types."""
 
     type: Any
-    modifier: BaseSectionWithParamsImplModifier
+    modifier: BaseSectionWithParamsImplModifier  # type: ignore[assignment]
 
 
 class BaseArtifactSectionImplLayering(BaseSectionImplLayering):
     """Base class for ArtifactSectionImplLayering types."""
 
     type: Any
-    modifier: BaseArtifactSectionImplModifier
+    modifier: BaseArtifactSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseCanvasSectionImplLayering(BaseSectionImplLayering):
     """Base class for CanvasSectionImplLayering types."""
 
     type: Any
-    modifier: BaseCanvasSectionImplModifier
+    modifier: BaseCanvasSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseCodeSectionImplLayering(BaseSectionImplLayering):
     """Base class for CodeSectionImplLayering types."""
 
     type: Any
-    modifier: BaseCodeSectionImplModifier
+    modifier: BaseCodeSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseParentSectionImplLayering(BaseSectionImplLayering):
     """Base class for ParentSectionImplLayering types."""
 
     type: Any
-    modifier: BaseParentSectionImplModifier
+    modifier: BaseParentSectionImplModifier  # type: ignore[assignment]
 
 
 class BaseDictSectionImplLayering(BaseSectionWithParamsImplLayering):
     """Base class for DictSectionImplLayering types."""
 
     type: Any
-    modifier: BaseDictSectionImplModifier
+    modifier: BaseDictSectionImplModifier  # type: ignore[assignment]
 
 
 class CallableSectionImplLayering(BaseSectionWithParamsImplLayering):
     type: Literal[SectionType.Callable] = SectionType.Callable
-    modifier: CallableSectionImplModifier
+    modifier: CallableSectionImplModifier  # type: ignore[assignment]
 
 
 class DictSectionImplLayering(BaseDictSectionImplLayering):
     type: Literal[SectionType.Dict] = SectionType.Dict
-    modifier: DictSectionImplModifier
+    modifier: DictSectionImplModifier  # type: ignore[assignment]
 
 
 class ListRootSectionImplLayering(BaseParentSectionImplLayering):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
-    modifier: ListRootSectionImplModifier
+    modifier: ListRootSectionImplModifier  # type: ignore[assignment]
 
 
 class DictRootSectionImplLayering(BaseParentSectionImplLayering):
     type: Literal[SectionType.DictRoot] = SectionType.DictRoot
-    modifier: DictRootSectionImplModifier
+    modifier: DictRootSectionImplModifier  # type: ignore[assignment]
 
 
 class GroupSectionImplLayering(BaseParentSectionImplLayering):
     type: Literal[SectionType.Group] = SectionType.Group
-    modifier: GroupSectionImplModifier
+    modifier: GroupSectionImplModifier  # type: ignore[assignment]
 
 
 class ImageSectionImplLayering(BaseArtifactSectionImplLayering):
     type: Literal[SectionType.Image] = SectionType.Image
-    modifier: ImageSectionImplModifier
+    modifier: ImageSectionImplModifier  # type: ignore[assignment]
 
 
 class ChartSectionImplLayering(BaseArtifactSectionImplLayering):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    modifier: ChartSectionImplModifier
+    modifier: ChartSectionImplModifier  # type: ignore[assignment]
 
 
 class DrawSectionImplLayering(BaseArtifactSectionImplLayering):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    modifier: DrawSectionImplModifier
+    modifier: DrawSectionImplModifier  # type: ignore[assignment]
 
 
 class TextBlockSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    modifier: TextBlockSectionImplModifier
+    modifier: TextBlockSectionImplModifier  # type: ignore[assignment]
 
 
 class SocialSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.Social] = SectionType.Social
-    modifier: SocialSectionImplModifier
+    modifier: SocialSectionImplModifier  # type: ignore[assignment]
 
 
 class GlobalVariablesSectionImplLayering(BaseDictSectionImplLayering):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
-    modifier: GlobalVariablesSectionImplModifier
+    modifier: GlobalVariablesSectionImplModifier  # type: ignore[assignment]
 
 
 class CodeSectionImplLayering(BaseCodeSectionImplLayering):
     type: Literal[SectionType.Code] = SectionType.Code
-    modifier: CodeSectionImplModifier
+    modifier: CodeSectionImplModifier  # type: ignore[assignment]
 
 
 class GenPythonCodeSectionImplLayering(BaseCodeSectionImplLayering):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-    modifier: GenPythonCodeSectionImplModifier
+    modifier: GenPythonCodeSectionImplModifier  # type: ignore[assignment]
 
 
 class TerminalSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
-    modifier: TerminalSectionImplModifier
+    modifier: TerminalSectionImplModifier  # type: ignore[assignment]
 
 
 class IFrameSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
-    modifier: IFrameSectionImplModifier
+    modifier: IFrameSectionImplModifier  # type: ignore[assignment]
 
 
 class ChatSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.Chat] = SectionType.Chat
-    modifier: ChatSectionImplModifier
+    modifier: ChatSectionImplModifier  # type: ignore[assignment]
 
 
 class BrowserSectionImplLayering(BaseSectionImplLayering):
     type: Literal[SectionType.Browser] = SectionType.Browser
-    modifier: BrowserSectionImplModifier
+    modifier: BrowserSectionImplModifier  # type: ignore[assignment]
 
 
 # ============== Code Object Layering Classes ==============
@@ -200,70 +200,70 @@ class BaseCodeObjImplLayering(BaseImplLayering):
     """Base class for CodeObjImplLayering types."""
 
     type: Any
-    modifier: BaseCodeObjImplModifier
+    modifier: BaseCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseParamCodeObjImplLayering(BaseCodeObjImplLayering):
     """Base class for ParamCodeObjImplLayering types."""
 
     type: Any
-    modifier: BaseParamCodeObjImplModifier
+    modifier: BaseParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseChildlessCodeObjImplLayering(BaseParamCodeObjImplLayering):
     """Base class for ChildlessCodeObjImplLayering types."""
 
     type: Any
-    modifier: BaseChildlessCodeObjImplModifier
+    modifier: BaseChildlessCodeObjImplModifier  # type: ignore[assignment]
 
 
 class BaseParentCodeObjImplLayering(BaseCodeObjImplLayering):
     """Base class for ParentCodeObjImplLayering types."""
 
     type: Any
-    modifier: BaseParentCodeObjImplModifier
+    modifier: BaseParentCodeObjImplModifier  # type: ignore[assignment]
 
 
 class CodeCallableCodeObjImplLayering(BaseParentCodeObjImplLayering):
     type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
-    modifier: CodeCallableCodeObjImplModifier
+    modifier: CodeCallableCodeObjImplModifier  # type: ignore[assignment]
 
 
 class CodeParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
-    modifier: CodeParamCodeObjImplModifier
+    modifier: CodeParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class TextParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
-    modifier: TextParamCodeObjImplModifier
+    modifier: TextParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class SliderParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
-    modifier: SliderParamCodeObjImplModifier
+    modifier: SliderParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class SwitchParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
-    modifier: SwitchParamCodeObjImplModifier
+    modifier: SwitchParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class ColorPickerParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    modifier: ColorPickerParamCodeObjImplModifier
+    modifier: ColorPickerParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class DropdownParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    modifier: DropdownParamCodeObjImplModifier
+    modifier: DropdownParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class PasswordParamCodeObjImplLayering(BaseChildlessCodeObjImplLayering):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
-    modifier: PasswordParamCodeObjImplModifier
+    modifier: PasswordParamCodeObjImplModifier  # type: ignore[assignment]
 
 
 class NestedParamCodeObjImplLayering(BaseParamCodeObjImplLayering):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
-    modifier: NestedParamCodeObjImplModifier
+    modifier: NestedParamCodeObjImplModifier  # type: ignore[assignment]
