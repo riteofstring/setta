@@ -90,19 +90,16 @@ class SettingsState(BaseModel, extra="forbid"):
     return output
 
 
-def main(output_folder: Path):
+def main(output_file: Path):
     """Generate the SettingsState class."""
-    # Generate the code
     code = generate_settings_state()
-
-    # Format with ruff
     formatted = ruff_format(code)
-
-    # Write output
-    output_file = output_folder / "settings_state.py"
     output_file.write_text(formatted)
     print(f"Generated SettingsState class in {output_file}")
 
 
 if __name__ == "__main__":
-    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))
+    main(
+        get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+        / "settings_state.py"
+    )
