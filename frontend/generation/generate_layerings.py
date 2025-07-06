@@ -22,7 +22,7 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string  
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
-from setta.types.generated.modifiers import create_modifier
+from setta.types.generated.modifiers import create_section_modifier, create_code_obj_modifier
 """
 
     modifier_names = []

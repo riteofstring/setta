@@ -80,7 +80,8 @@ from setta.types.generated.modifiers import (
     TerminalSectionModifier,
     TextBlockSectionModifier,
     TextParamCodeObjModifier,
-    create_modifier,
+    create_code_obj_modifier,
+    create_section_modifier,
 )
 from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
@@ -135,7 +136,7 @@ class BaseDictSectionCore(BaseSectionWithParamsCore):
 class CallableSectionCore(BaseSectionWithParamsCore):
     type: Literal[SectionType.Callable] = SectionType.Callable
     sharedModifier: CallableSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Callable)
+        default_factory=lambda: create_section_modifier(SectionType.Callable)
     )
 
     unsharedKeys: list[CallableSectionImplFields] = Field(  # type: ignore[override]
@@ -146,7 +147,7 @@ class CallableSectionCore(BaseSectionWithParamsCore):
 class DictSectionCore(BaseDictSectionCore):
     type: Literal[SectionType.Dict] = SectionType.Dict
     sharedModifier: DictSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Dict)
+        default_factory=lambda: create_section_modifier(SectionType.Dict)
     )
 
     unsharedKeys: list[DictSectionImplFields] = Field(  # type: ignore[override]
@@ -157,7 +158,7 @@ class DictSectionCore(BaseDictSectionCore):
 class ListRootSectionCore(BaseParentSectionCore):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
     sharedModifier: ListRootSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.ListRoot)
+        default_factory=lambda: create_section_modifier(SectionType.ListRoot)
     )
 
     unsharedKeys: list[ListRootSectionImplFields] = Field(  # type: ignore[override]
@@ -168,7 +169,7 @@ class ListRootSectionCore(BaseParentSectionCore):
 class DictRootSectionCore(BaseParentSectionCore):
     type: Literal[SectionType.DictRoot] = SectionType.DictRoot
     sharedModifier: DictRootSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.DictRoot)
+        default_factory=lambda: create_section_modifier(SectionType.DictRoot)
     )
 
     unsharedKeys: list[DictRootSectionImplFields] = Field(  # type: ignore[override]
@@ -179,7 +180,7 @@ class DictRootSectionCore(BaseParentSectionCore):
 class GroupSectionCore(BaseParentSectionCore):
     type: Literal[SectionType.Group] = SectionType.Group
     sharedModifier: GroupSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Group)
+        default_factory=lambda: create_section_modifier(SectionType.Group)
     )
 
     unsharedKeys: list[GroupSectionImplFields] = Field(  # type: ignore[override]
@@ -190,7 +191,7 @@ class GroupSectionCore(BaseParentSectionCore):
 class ImageSectionCore(BaseArtifactSectionCore):
     type: Literal[SectionType.Image] = SectionType.Image
     sharedModifier: ImageSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Image)
+        default_factory=lambda: create_section_modifier(SectionType.Image)
     )
 
     unsharedKeys: list[ImageSectionImplFields] = Field(  # type: ignore[override]
@@ -201,7 +202,7 @@ class ImageSectionCore(BaseArtifactSectionCore):
 class ChartSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     type: Literal[SectionType.Chart] = SectionType.Chart
     sharedModifier: ChartSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Chart)
+        default_factory=lambda: create_section_modifier(SectionType.Chart)
     )
 
     unsharedKeys: list[ChartSectionImplFields] = Field(  # type: ignore[override]
@@ -212,7 +213,7 @@ class ChartSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
 class DrawSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
     type: Literal[SectionType.Draw] = SectionType.Draw
     sharedModifier: DrawSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Draw)
+        default_factory=lambda: create_section_modifier(SectionType.Draw)
     )
 
     unsharedKeys: list[DrawSectionImplFields] = Field(  # type: ignore[override]
@@ -223,7 +224,7 @@ class DrawSectionCore(BaseArtifactSectionCore, BaseCanvasSectionCore):
 class TextBlockSectionCore(BaseSectionCore):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     sharedModifier: TextBlockSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.TextBlock)
+        default_factory=lambda: create_section_modifier(SectionType.TextBlock)
     )
 
     unsharedKeys: list[TextBlockSectionImplFields] = Field(  # type: ignore[override]
@@ -234,7 +235,7 @@ class TextBlockSectionCore(BaseSectionCore):
 class SocialSectionCore(BaseSectionCore):
     type: Literal[SectionType.Social] = SectionType.Social
     sharedModifier: SocialSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Social)
+        default_factory=lambda: create_section_modifier(SectionType.Social)
     )
 
     unsharedKeys: list[SocialSectionImplFields] = Field(  # type: ignore[override]
@@ -245,7 +246,7 @@ class SocialSectionCore(BaseSectionCore):
 class GlobalVariablesSectionCore(BaseDictSectionCore):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
     sharedModifier: GlobalVariablesSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.GlobalVariables)
+        default_factory=lambda: create_section_modifier(SectionType.GlobalVariables)
     )
 
     unsharedKeys: list[GlobalVariablesSectionImplFields] = Field(  # type: ignore[override]
@@ -256,7 +257,7 @@ class GlobalVariablesSectionCore(BaseDictSectionCore):
 class CodeSectionCore(BaseCodeSectionCore):
     type: Literal[SectionType.Code] = SectionType.Code
     sharedModifier: CodeSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Code)
+        default_factory=lambda: create_section_modifier(SectionType.Code)
     )
 
     unsharedKeys: list[CodeSectionImplFields] = Field(  # type: ignore[override]
@@ -267,7 +268,7 @@ class CodeSectionCore(BaseCodeSectionCore):
 class GenPythonCodeSectionCore(BaseCodeSectionCore):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
     sharedModifier: GenPythonCodeSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.GenPythonCode)
+        default_factory=lambda: create_section_modifier(SectionType.GenPythonCode)
     )
 
     unsharedKeys: list[GenPythonCodeSectionImplFields] = Field(  # type: ignore[override]
@@ -278,7 +279,7 @@ class GenPythonCodeSectionCore(BaseCodeSectionCore):
 class TerminalSectionCore(BaseSectionCore):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
     sharedModifier: TerminalSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Terminal)
+        default_factory=lambda: create_section_modifier(SectionType.Terminal)
     )
 
     unsharedKeys: list[TerminalSectionImplFields] = Field(  # type: ignore[override]
@@ -289,7 +290,7 @@ class TerminalSectionCore(BaseSectionCore):
 class IFrameSectionCore(BaseSectionCore):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
     sharedModifier: IFrameSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.IFrame)
+        default_factory=lambda: create_section_modifier(SectionType.IFrame)
     )
 
     unsharedKeys: list[IFrameSectionImplFields] = Field(  # type: ignore[override]
@@ -300,7 +301,7 @@ class IFrameSectionCore(BaseSectionCore):
 class ChatSectionCore(BaseSectionCore):
     type: Literal[SectionType.Chat] = SectionType.Chat
     sharedModifier: ChatSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Chat)
+        default_factory=lambda: create_section_modifier(SectionType.Chat)
     )
 
     unsharedKeys: list[ChatSectionImplFields] = Field(  # type: ignore[override]
@@ -311,7 +312,7 @@ class ChatSectionCore(BaseSectionCore):
 class BrowserSectionCore(BaseSectionCore):
     type: Literal[SectionType.Browser] = SectionType.Browser
     sharedModifier: BrowserSectionModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(SectionType.Browser)
+        default_factory=lambda: create_section_modifier(SectionType.Browser)
     )
 
     unsharedKeys: list[BrowserSectionImplFields] = Field(  # type: ignore[override]
@@ -350,7 +351,7 @@ class BaseParentCodeObjCore(BaseCodeObjCore):
 class CodeCallableCodeObjCore(BaseParentCodeObjCore):
     type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
     sharedModifier: CodeCallableCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.CodeCallable)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.CodeCallable)
     )
 
     unsharedKeys: list[CodeCallableCodeObjImplFields] = Field(  # type: ignore[override]
@@ -361,7 +362,7 @@ class CodeCallableCodeObjCore(BaseParentCodeObjCore):
 class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
     sharedModifier: CodeParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.CodeParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.CodeParam)
     )
 
     unsharedKeys: list[CodeParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -372,7 +373,7 @@ class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
 class TextParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
     sharedModifier: TextParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.TextParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.TextParam)
     )
 
     unsharedKeys: list[TextParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -383,7 +384,7 @@ class TextParamCodeObjCore(BaseChildlessCodeObjCore):
 class SliderParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
     sharedModifier: SliderParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.SliderParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.SliderParam)
     )
 
     unsharedKeys: list[SliderParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -394,7 +395,7 @@ class SliderParamCodeObjCore(BaseChildlessCodeObjCore):
 class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
     sharedModifier: SwitchParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.SwitchParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.SwitchParam)
     )
 
     unsharedKeys: list[SwitchParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -405,7 +406,7 @@ class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
 class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
     sharedModifier: ColorPickerParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.ColorPickerParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.ColorPickerParam)
     )
 
     unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -416,7 +417,7 @@ class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
 class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
     sharedModifier: DropdownParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.DropdownParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.DropdownParam)
     )
 
     unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -427,7 +428,7 @@ class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
 class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
     sharedModifier: PasswordParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.PasswordParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.PasswordParam)
     )
 
     unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -438,7 +439,7 @@ class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
 class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
     sharedModifier: NestedParamCodeObjModifier = Field(  # type: ignore[override]
-        default_factory=lambda: create_modifier(CodeObjType.NestedParam)
+        default_factory=lambda: create_code_obj_modifier(CodeObjType.NestedParam)
     )
 
     unsharedKeys: list[NestedParamCodeObjImplFields] = Field(  # type: ignore[override]
@@ -447,163 +448,163 @@ class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Callable],
 ) -> CallableSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Dict],
 ) -> DictSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.ListRoot],
 ) -> ListRootSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.DictRoot],
 ) -> DictRootSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Group],
 ) -> GroupSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Image],
 ) -> ImageSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Chart],
 ) -> ChartSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Draw],
 ) -> DrawSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.TextBlock],
 ) -> TextBlockSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Social],
 ) -> SocialSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.GlobalVariables],
 ) -> GlobalVariablesSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Code],
 ) -> CodeSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.GenPythonCode],
 ) -> GenPythonCodeSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Terminal],
 ) -> TerminalSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.IFrame],
 ) -> IFrameSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Chat],
 ) -> ChatSectionCore: ...
 
 
 @overload
-def create_core(
+def create_section_core(
     type: Literal[SectionType.Browser],
 ) -> BrowserSectionCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.CodeCallable],
 ) -> CodeCallableCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.CodeParam],
 ) -> CodeParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.TextParam],
 ) -> TextParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.SliderParam],
 ) -> SliderParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.SwitchParam],
 ) -> SwitchParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.ColorPickerParam],
 ) -> ColorPickerParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.DropdownParam],
 ) -> DropdownParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.PasswordParam],
 ) -> PasswordParamCodeObjCore: ...
 
 
 @overload
-def create_core(
+def create_code_obj_core(
     type: Literal[CodeObjType.NestedParam],
 ) -> NestedParamCodeObjCore: ...
 
 
-def create_core(
-    type: SectionType | CodeObjType,
+def create_section_core(
+    type: SectionType,
 ):
     match type:
         case SectionType.Callable:
@@ -691,6 +692,11 @@ def create_core(
                 type=type,
             )
 
+
+def create_code_obj_core(
+    type: CodeObjType,
+):
+    match type:
         case CodeObjType.CodeCallable:
             return CodeCallableCodeObjCore(
                 type=type,

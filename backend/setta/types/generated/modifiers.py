@@ -220,163 +220,163 @@ class NestedParamCodeObjModifier(BaseParamCodeObjModifier, BaseParentCodeObjModi
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Callable],
 ) -> CallableSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Dict],
 ) -> DictSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.ListRoot],
 ) -> ListRootSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.DictRoot],
 ) -> DictRootSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Group],
 ) -> GroupSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Image],
 ) -> ImageSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Chart],
 ) -> ChartSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Draw],
 ) -> DrawSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.TextBlock],
 ) -> TextBlockSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Social],
 ) -> SocialSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.GlobalVariables],
 ) -> GlobalVariablesSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Code],
 ) -> CodeSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.GenPythonCode],
 ) -> GenPythonCodeSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Terminal],
 ) -> TerminalSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.IFrame],
 ) -> IFrameSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Chat],
 ) -> ChatSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_section_modifier(
     type: Literal[SectionType.Browser],
 ) -> BrowserSectionModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.CodeCallable],
 ) -> CodeCallableCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.CodeParam],
 ) -> CodeParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.TextParam],
 ) -> TextParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.SliderParam],
 ) -> SliderParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.SwitchParam],
 ) -> SwitchParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.ColorPickerParam],
 ) -> ColorPickerParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.DropdownParam],
 ) -> DropdownParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.PasswordParam],
 ) -> PasswordParamCodeObjModifier: ...
 
 
 @overload
-def create_modifier(
+def create_code_obj_modifier(
     type: Literal[CodeObjType.NestedParam],
 ) -> NestedParamCodeObjModifier: ...
 
 
-def create_modifier(
-    type: SectionType | CodeObjType,
+def create_section_modifier(
+    type: SectionType,
 ):
     match type:
         case SectionType.Callable:
@@ -464,6 +464,11 @@ def create_modifier(
                 type=type,
             )
 
+
+def create_code_obj_modifier(
+    type: CodeObjType,
+):
+    match type:
         case CodeObjType.CodeCallable:
             return CodeCallableCodeObjModifier(
                 type=type,

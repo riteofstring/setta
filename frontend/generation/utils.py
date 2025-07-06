@@ -1,3 +1,4 @@
+from collections import defaultdict
 import inspect
 import os
 import subprocess
@@ -289,8 +290,13 @@ class ImplClassInfoForGeneration:
     def modifier_annotation_and_value(self):
         modifier = self.modifier_name
         if self.type_has_default:
+            modifier_fn_name = (
+                "create_section_modifier"
+                if self.is_section_impl
+                else "create_code_obj_modifier"
+            )
             modifier = f"""{modifier} = Field( # type: ignore[override]
-    default_factory = lambda: create_modifier({self.type_full_enum_name})
+    default_factory = lambda: {modifier_fn_name}({self.type_full_enum_name})
 )
 """
         else:
@@ -371,29 +377,34 @@ def get_creation_fns(
     for k, v in additional_args.items():
         additional_args_types_str += f"{k}: {v},"
         additional_args_input_str += f"{k}={k}"
-    cases = {}
+    cases = defaultdict(dict)
     code = ""
     for c in classes.values():
         if not c.type_has_default:
             continue
-        cases[c.type_full_enum_name] = getattr(c, f"{fn_type}_name")
+        suffix_prefix = "section" if c.is_section_impl else "code_obj"
+        cases[suffix_prefix][c.type_full_enum_name] = getattr(c, f"{fn_type}_name")
+        fn_name_suffix = f"{suffix_prefix}_{fn_type}"
         code += f"""
 @overload
-def create_{fn_type}(type: {c.type_type_annotation}, {additional_args_types_str}) -> {getattr(c, f"{fn_type}_name")}:
+def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args_types_str}) -> {getattr(c, f"{fn_type}_name")}:
     ...
 """
 
-    cases_str = []
-    for type_name, name in cases.items():
-        curr_case = f"""
-        case {type_name}:
-            return {name}(type=type, {additional_args_input_str})
-        """
-        cases_str.append(curr_case)
+    for impl_category, details in cases.items():
+        cases_str = []
+        for type_name, name in details.items():
+            curr_case = f"""
+            case {type_name}:
+                return {name}(type=type, {additional_args_input_str})
+            """
+            cases_str.append(curr_case)
 
-    code += f"""
-def create_{fn_type}(type: SectionType | CodeObjType, {additional_args_types_str}):
+        input_type = "SectionType" if impl_category == "section" else "CodeObjType"
+        code += f"""
+def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args_types_str}):
     match type:
 {"\n".join(cases_str)}
 """
+
     return code
