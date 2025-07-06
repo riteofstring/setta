@@ -24,54 +24,36 @@ import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
-DEFAULT_UNSHARED_KEYS = set()
-
-# Class-specific exclusions (can override defaults)
 DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "BaseSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseSectionWithParamsImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseArtifactSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseCanvasSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseCodeSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseParentSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseDictSectionImpl": DEFAULT_UNSHARED_KEYS.union(
-        {"topLevelParamIds", "codeObjImplLayeringMap"}
-    ),
-    "CallableSectionImpl": DEFAULT_UNSHARED_KEYS.union(
-        {"callable", "codeObjImplLayeringMap"}
-    ),
-    "DictSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "ListRootSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "DictRootSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "GroupSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "ImageSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "ChartSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "DrawSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "TextBlockSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "SocialSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "GlobalVariablesSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "CodeSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "GenPythonCodeSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "TerminalSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "IFrameSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "ChatSectionImpl": DEFAULT_UNSHARED_KEYS,
-    "BrowserSectionImpl": DEFAULT_UNSHARED_KEYS,
+    "Callable": {"callable", "codeObjImplLayeringMap"},
+    "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
+    "ListRoot": set(),
+    "DictRoot": set(),
+    "Group": set(),
+    "Image": set(),
+    "Chart": set(),
+    "Draw": set(),
+    "TextBlock": set(),
+    "Social": set(),
+    "GlobalVariables": set(),
+    "Code": set(),
+    "GenPythonCode": set(),
+    "Terminal": set(),
+    "IFrame": set(),
+    "Chat": set(),
+    "Browser": set(),
 }
 
 DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "BaseCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "BaseChildlessCodeObjImpl": DEFAULT_UNSHARED_KEYS.union({"value"}),
-    "BaseParentCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "CodeCallableCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "CodeParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "TextParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "SliderParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "SwitchParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "ColorPickerParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "DropdownParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "PasswordParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
-    "NestedParamCodeObjImpl": DEFAULT_UNSHARED_KEYS,
+    "CodeCallable": set(),
+    "CodeParam": {"value"},
+    "TextParam": {"value"},
+    "SliderParam": {"value"},
+    "SwitchParam": {"value"},
+    "ColorPickerParam": {"value"},
+    "DropdownParam": {"value"},
+    "PasswordParam": {"value"},
+    "NestedParam": set(),
 }
 
 
@@ -292,9 +274,13 @@ class ImplClassInfoForGeneration:
         unshared_keys = f"list[{self.impl_fields_name}]"
         if self.type_has_default:
             if self.is_section_impl:
-                default_keys = DEFAULT_SECTION_UNSHARED_KEYS[self.original_name]
+                default_keys = DEFAULT_SECTION_UNSHARED_KEYS[
+                    self.type_field.default.value
+                ]
             elif self.is_code_obj_impl:
-                default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[self.original_name]
+                default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[
+                    self.type_field.default.value
+                ]
             else:
                 raise ValueError
             default_keys = [f'"{v}"' for v in sorted(default_keys)]
