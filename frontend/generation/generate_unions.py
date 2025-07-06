@@ -132,18 +132,22 @@ def generate_websocket_unions(output_file: Path):
         lambda x: x,
     )
 
-    existing_code = output_file.read_text()
-    code = existing_code + code
     code = ruff_format(code)
     output_file.write_text(code)
     print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":
-    output_file = (
-        get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-        / "unions.py"
+    generate_unions(
+        output_file=(
+            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+            / "unions.py"
+        )
     )
-    generate_unions(output_file)
     # has to be done separately due to import dependencies
-    generate_websocket_unions(output_file)
+    generate_websocket_unions(
+        output_file=(
+            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+            / "websocket_unions.py"
+        )
+    )

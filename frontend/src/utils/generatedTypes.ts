@@ -9,11 +9,6 @@ export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
 export type ObjectValues<T> = T[keyof T];
-export const BackendWebsocketMsgTypeSet = new Set([
-  "CurrentAddressUpdate",
-  "UpdateBackendProjectState",
-]);
-
 export const BaseArtifactSectionCoreTypeSet = new Set([
   "Chart",
   "Draw",
@@ -352,6 +347,11 @@ export const BaseSectionWithParamsModifierTypeSet = new Set([
   "Callable",
   "Dict",
   "GlobalVariables",
+]);
+
+export const BackendWebsocketMsgTypeSet = new Set([
+  "CurrentAddressUpdate",
+  "UpdateBackendProjectState",
 ]);
 
 export const FrontendWebsocketMsgTypeSet = new Set([
@@ -5293,271 +5293,6 @@ export type BaseSectionWithParamsLayeringUnion = z.infer<
   typeof BaseSectionWithParamsLayeringUnionSchema
 >;
 
-export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.string(),
-  messageType: z
-    .literal("CurrentAddressUpdate")
-    .default(WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate),
-});
-
-export type WebsocketMsgCurrentAddressUpdate = z.infer<
-  typeof WebsocketMsgCurrentAddressUpdateSchema
->;
-
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
-}
-
-export const ViewportSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zoom: z.number().default(1),
-});
-
-export type Viewport = z.infer<typeof ViewportSchema>;
-
-export function createViewport(options: Partial<Viewport> = {}): Viewport {
-  return ViewportSchema.parse(options);
-}
-
-export const TopLevelSectionLayoutSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-  zIndex: z.int().default(0),
-  w: z.number().default(1),
-  h: z.number().default(1),
-});
-
-export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
-
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return TopLevelSectionLayoutSchema.parse(options);
-}
-
-export const ProjectConfigSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  previewImgColor: z
-    .string()
-    .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
-  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
-  viewingEditingMode: z
-    .enum(ViewingEditingModeEnum)
-    .default(ViewingEditingModeEnum.DEV),
-  genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("" as const),
-  entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
-  topLevelSections: z
-    .record(z.string(), TopLevelSectionLayoutSchema)
-    .default({}),
-  sectionImplLayeringMap: z.record(z.string(), z.string()).default({}),
-});
-
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
-
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return ProjectConfigSchema.parse(options);
-}
-
-export const ProjectStateSingleConfigSchema = z.object({
-  sections: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CallableSectionCoreSchema,
-        DictSectionCoreSchema,
-        ListRootSectionCoreSchema,
-        DictRootSectionCoreSchema,
-        GroupSectionCoreSchema,
-        ImageSectionCoreSchema,
-        ChartSectionCoreSchema,
-        DrawSectionCoreSchema,
-        TextBlockSectionCoreSchema,
-        SocialSectionCoreSchema,
-        GlobalVariablesSectionCoreSchema,
-        CodeSectionCoreSchema,
-        GenPythonCodeSectionCoreSchema,
-        TerminalSectionCoreSchema,
-        IFrameSectionCoreSchema,
-        ChatSectionCoreSchema,
-        BrowserSectionCoreSchema,
-      ]),
-    )
-    .default({}),
-  sectionImpls: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CallableSectionImplSchema,
-        DictSectionImplSchema,
-        ListRootSectionImplSchema,
-        DictRootSectionImplSchema,
-        GroupSectionImplSchema,
-        ImageSectionImplSchema,
-        ChartSectionImplSchema,
-        DrawSectionImplSchema,
-        TextBlockSectionImplSchema,
-        SocialSectionImplSchema,
-        GlobalVariablesSectionImplSchema,
-        CodeSectionImplSchema,
-        GenPythonCodeSectionImplSchema,
-        TerminalSectionImplSchema,
-        IFrameSectionImplSchema,
-        ChatSectionImplSchema,
-        BrowserSectionImplSchema,
-      ]),
-    )
-    .default({}),
-  sectionImplLayerings: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CallableSectionLayeringSchema,
-        DictSectionLayeringSchema,
-        ListRootSectionLayeringSchema,
-        DictRootSectionLayeringSchema,
-        GroupSectionLayeringSchema,
-        ImageSectionLayeringSchema,
-        ChartSectionLayeringSchema,
-        DrawSectionLayeringSchema,
-        TextBlockSectionLayeringSchema,
-        SocialSectionLayeringSchema,
-        GlobalVariablesSectionLayeringSchema,
-        CodeSectionLayeringSchema,
-        GenPythonCodeSectionLayeringSchema,
-        TerminalSectionLayeringSchema,
-        IFrameSectionLayeringSchema,
-        ChatSectionLayeringSchema,
-        BrowserSectionLayeringSchema,
-      ]),
-    )
-    .default({}),
-  codeObjs: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CodeCallableCodeObjCoreSchema,
-        CodeParamCodeObjCoreSchema,
-        TextParamCodeObjCoreSchema,
-        SliderParamCodeObjCoreSchema,
-        SwitchParamCodeObjCoreSchema,
-        ColorPickerParamCodeObjCoreSchema,
-        DropdownParamCodeObjCoreSchema,
-        PasswordParamCodeObjCoreSchema,
-        NestedParamCodeObjCoreSchema,
-      ]),
-    )
-    .default({}),
-  codeObjImpls: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CodeCallableCodeObjImplSchema,
-        CodeParamCodeObjImplSchema,
-        TextParamCodeObjImplSchema,
-        SliderParamCodeObjImplSchema,
-        SwitchParamCodeObjImplSchema,
-        ColorPickerParamCodeObjImplSchema,
-        DropdownParamCodeObjImplSchema,
-        PasswordParamCodeObjImplSchema,
-        NestedParamCodeObjImplSchema,
-      ]),
-    )
-    .default({}),
-  codeObjImplLayerings: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CodeCallableCodeObjLayeringSchema,
-        CodeParamCodeObjLayeringSchema,
-        TextParamCodeObjLayeringSchema,
-        SliderParamCodeObjLayeringSchema,
-        SwitchParamCodeObjLayeringSchema,
-        ColorPickerParamCodeObjLayeringSchema,
-        DropdownParamCodeObjLayeringSchema,
-        PasswordParamCodeObjLayeringSchema,
-        NestedParamCodeObjLayeringSchema,
-      ]),
-    )
-    .default({}),
-  projectConfig: ProjectConfigSchema,
-});
-
-export type ProjectStateSingleConfig = z.infer<
-  typeof ProjectStateSingleConfigSchema
->;
-
-export function createProjectStateSingleConfig(
-  options: Partial<ProjectStateSingleConfig> = {},
-): ProjectStateSingleConfig {
-  return ProjectStateSingleConfigSchema.parse(options);
-}
-
-export const WebsocketMsgUpdateBackendProjectStateContentSchema = z.object({
-  projectState: ProjectStateSingleConfigSchema,
-  requestRenameRefactor: z.boolean(),
-});
-
-export type WebsocketMsgUpdateBackendProjectStateContent = z.infer<
-  typeof WebsocketMsgUpdateBackendProjectStateContentSchema
->;
-
-export function createWebsocketMsgUpdateBackendProjectStateContent(
-  options: Partial<WebsocketMsgUpdateBackendProjectStateContent> = {},
-): WebsocketMsgUpdateBackendProjectStateContent {
-  return WebsocketMsgUpdateBackendProjectStateContentSchema.parse(options);
-}
-
-export const WebsocketMsgUpdateBackendProjectStateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: WebsocketMsgUpdateBackendProjectStateContentSchema,
-  messageType: z
-    .literal("UpdateBackendProjectState")
-    .default(WebsocketMsgTypeForBackendEnum.UpdateBackendProjectState),
-});
-
-export type WebsocketMsgUpdateBackendProjectState = z.infer<
-  typeof WebsocketMsgUpdateBackendProjectStateSchema
->;
-
-export function createWebsocketMsgUpdateBackendProjectState(
-  options: Partial<WebsocketMsgUpdateBackendProjectState> = {},
-): WebsocketMsgUpdateBackendProjectState {
-  return WebsocketMsgUpdateBackendProjectStateSchema.parse(options);
-}
-
-export const BackendWebsocketMsgUnionSchema = z.union([
-  WebsocketMsgCurrentAddressUpdateSchema,
-  WebsocketMsgUpdateBackendProjectStateSchema,
-]);
-
-export type BackendWebsocketMsgUnion = z.infer<
-  typeof BackendWebsocketMsgUnionSchema
->;
-
-export const BackendWebsocketMsgUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("messageType", [
-    WebsocketMsgCurrentAddressUpdateSchema,
-    WebsocketMsgUpdateBackendProjectStateSchema,
-  ]);
-
-export type BackendWebsocketMsgUnionWithDiscriminator = z.infer<
-  typeof BackendWebsocketMsgUnionWithDiscriminatorSchema
->;
-
-export function createBackendWebsocketMsgUnionWithDiscriminator(
-  options: Partial<BackendWebsocketMsgUnionWithDiscriminator> = {},
-): BackendWebsocketMsgUnionWithDiscriminator {
-  return BackendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
-}
-
 export const BaseArtifactSectionCoreUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
     ImageSectionCoreSchema,
@@ -6549,6 +6284,271 @@ export function createBaseSectionWithParamsModifierUnionWithDiscriminator(
   return BaseSectionWithParamsModifierUnionWithDiscriminatorSchema.parse(
     options,
   );
+}
+
+export const WebsocketMsgCurrentAddressUpdateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.string(),
+  messageType: z
+    .literal("CurrentAddressUpdate")
+    .default(WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate),
+});
+
+export type WebsocketMsgCurrentAddressUpdate = z.infer<
+  typeof WebsocketMsgCurrentAddressUpdateSchema
+>;
+
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
+  return WebsocketMsgCurrentAddressUpdateSchema.parse(options);
+}
+
+export const ViewportSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zoom: z.number().default(1),
+});
+
+export type Viewport = z.infer<typeof ViewportSchema>;
+
+export function createViewport(options: Partial<Viewport> = {}): Viewport {
+  return ViewportSchema.parse(options);
+}
+
+export const TopLevelSectionLayoutSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+  zIndex: z.int().default(0),
+  w: z.number().default(1),
+  h: z.number().default(1),
+});
+
+export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
+
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return TopLevelSectionLayoutSchema.parse(options);
+}
+
+export const ProjectConfigSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  previewImgColor: z
+    .string()
+    .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
+  viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
+  viewingEditingMode: z
+    .enum(ViewingEditingModeEnum)
+    .default(ViewingEditingModeEnum.DEV),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("" as const),
+  entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
+  topLevelSections: z
+    .record(z.string(), TopLevelSectionLayoutSchema)
+    .default({}),
+  sectionImplLayeringMap: z.record(z.string(), z.string()).default({}),
+});
+
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  return ProjectConfigSchema.parse(options);
+}
+
+export const ProjectStateSingleConfigSchema = z.object({
+  sections: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionCoreSchema,
+        DictSectionCoreSchema,
+        ListRootSectionCoreSchema,
+        DictRootSectionCoreSchema,
+        GroupSectionCoreSchema,
+        ImageSectionCoreSchema,
+        ChartSectionCoreSchema,
+        DrawSectionCoreSchema,
+        TextBlockSectionCoreSchema,
+        SocialSectionCoreSchema,
+        GlobalVariablesSectionCoreSchema,
+        CodeSectionCoreSchema,
+        GenPythonCodeSectionCoreSchema,
+        TerminalSectionCoreSchema,
+        IFrameSectionCoreSchema,
+        ChatSectionCoreSchema,
+        BrowserSectionCoreSchema,
+      ]),
+    )
+    .default({}),
+  sectionImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionImplSchema,
+        DictSectionImplSchema,
+        ListRootSectionImplSchema,
+        DictRootSectionImplSchema,
+        GroupSectionImplSchema,
+        ImageSectionImplSchema,
+        ChartSectionImplSchema,
+        DrawSectionImplSchema,
+        TextBlockSectionImplSchema,
+        SocialSectionImplSchema,
+        GlobalVariablesSectionImplSchema,
+        CodeSectionImplSchema,
+        GenPythonCodeSectionImplSchema,
+        TerminalSectionImplSchema,
+        IFrameSectionImplSchema,
+        ChatSectionImplSchema,
+        BrowserSectionImplSchema,
+      ]),
+    )
+    .default({}),
+  sectionImplLayerings: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionLayeringSchema,
+        DictSectionLayeringSchema,
+        ListRootSectionLayeringSchema,
+        DictRootSectionLayeringSchema,
+        GroupSectionLayeringSchema,
+        ImageSectionLayeringSchema,
+        ChartSectionLayeringSchema,
+        DrawSectionLayeringSchema,
+        TextBlockSectionLayeringSchema,
+        SocialSectionLayeringSchema,
+        GlobalVariablesSectionLayeringSchema,
+        CodeSectionLayeringSchema,
+        GenPythonCodeSectionLayeringSchema,
+        TerminalSectionLayeringSchema,
+        IFrameSectionLayeringSchema,
+        ChatSectionLayeringSchema,
+        BrowserSectionLayeringSchema,
+      ]),
+    )
+    .default({}),
+  codeObjs: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjCoreSchema,
+        CodeParamCodeObjCoreSchema,
+        TextParamCodeObjCoreSchema,
+        SliderParamCodeObjCoreSchema,
+        SwitchParamCodeObjCoreSchema,
+        ColorPickerParamCodeObjCoreSchema,
+        DropdownParamCodeObjCoreSchema,
+        PasswordParamCodeObjCoreSchema,
+        NestedParamCodeObjCoreSchema,
+      ]),
+    )
+    .default({}),
+  codeObjImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjImplSchema,
+        CodeParamCodeObjImplSchema,
+        TextParamCodeObjImplSchema,
+        SliderParamCodeObjImplSchema,
+        SwitchParamCodeObjImplSchema,
+        ColorPickerParamCodeObjImplSchema,
+        DropdownParamCodeObjImplSchema,
+        PasswordParamCodeObjImplSchema,
+        NestedParamCodeObjImplSchema,
+      ]),
+    )
+    .default({}),
+  codeObjImplLayerings: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjLayeringSchema,
+        CodeParamCodeObjLayeringSchema,
+        TextParamCodeObjLayeringSchema,
+        SliderParamCodeObjLayeringSchema,
+        SwitchParamCodeObjLayeringSchema,
+        ColorPickerParamCodeObjLayeringSchema,
+        DropdownParamCodeObjLayeringSchema,
+        PasswordParamCodeObjLayeringSchema,
+        NestedParamCodeObjLayeringSchema,
+      ]),
+    )
+    .default({}),
+  projectConfig: ProjectConfigSchema,
+});
+
+export type ProjectStateSingleConfig = z.infer<
+  typeof ProjectStateSingleConfigSchema
+>;
+
+export function createProjectStateSingleConfig(
+  options: Partial<ProjectStateSingleConfig> = {},
+): ProjectStateSingleConfig {
+  return ProjectStateSingleConfigSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateBackendProjectStateContentSchema = z.object({
+  projectState: ProjectStateSingleConfigSchema,
+  requestRenameRefactor: z.boolean(),
+});
+
+export type WebsocketMsgUpdateBackendProjectStateContent = z.infer<
+  typeof WebsocketMsgUpdateBackendProjectStateContentSchema
+>;
+
+export function createWebsocketMsgUpdateBackendProjectStateContent(
+  options: Partial<WebsocketMsgUpdateBackendProjectStateContent> = {},
+): WebsocketMsgUpdateBackendProjectStateContent {
+  return WebsocketMsgUpdateBackendProjectStateContentSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateBackendProjectStateSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: WebsocketMsgUpdateBackendProjectStateContentSchema,
+  messageType: z
+    .literal("UpdateBackendProjectState")
+    .default(WebsocketMsgTypeForBackendEnum.UpdateBackendProjectState),
+});
+
+export type WebsocketMsgUpdateBackendProjectState = z.infer<
+  typeof WebsocketMsgUpdateBackendProjectStateSchema
+>;
+
+export function createWebsocketMsgUpdateBackendProjectState(
+  options: Partial<WebsocketMsgUpdateBackendProjectState> = {},
+): WebsocketMsgUpdateBackendProjectState {
+  return WebsocketMsgUpdateBackendProjectStateSchema.parse(options);
+}
+
+export const BackendWebsocketMsgUnionSchema = z.union([
+  WebsocketMsgCurrentAddressUpdateSchema,
+  WebsocketMsgUpdateBackendProjectStateSchema,
+]);
+
+export type BackendWebsocketMsgUnion = z.infer<
+  typeof BackendWebsocketMsgUnionSchema
+>;
+
+export const BackendWebsocketMsgUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("messageType", [
+    WebsocketMsgCurrentAddressUpdateSchema,
+    WebsocketMsgUpdateBackendProjectStateSchema,
+  ]);
+
+export type BackendWebsocketMsgUnionWithDiscriminator = z.infer<
+  typeof BackendWebsocketMsgUnionWithDiscriminatorSchema
+>;
+
+export function createBackendWebsocketMsgUnionWithDiscriminator(
+  options: Partial<BackendWebsocketMsgUnionWithDiscriminator> = {},
+): BackendWebsocketMsgUnionWithDiscriminator {
+  return BackendWebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
 export const WebsocketConnectionInfoSchema = z.object({
@@ -11408,12 +11408,6 @@ export function createCodeMirrorCompletion(
   return CodeMirrorCompletionSchema.parse(options);
 }
 
-export function isBackendWebsocketMsg(
-  x: WebsocketMsg,
-): x is BackendWebsocketMsg {
-  return BackendWebsocketMsgTypeSet.has(x.messageType);
-}
-
 export function isBaseArtifactSectionImpl(
   x: BaseSectionImpl,
 ): x is BaseArtifactSectionImpl {
@@ -11474,6 +11468,12 @@ export function isBaseSectionWithParamsImpl(
   x: BaseSectionImpl,
 ): x is BaseSectionWithParamsImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
+
+export function isBackendWebsocketMsg(
+  x: WebsocketMsg,
+): x is BackendWebsocketMsg {
+  return BackendWebsocketMsgTypeSet.has(x.messageType);
 }
 
 export function isFrontendWebsocketMsg(
