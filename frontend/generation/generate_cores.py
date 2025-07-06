@@ -40,7 +40,7 @@ class BaseSectionCore(BaseModel, extra="forbid"):
     defaultImplLayering: str | None = None
     type: Any
     sharedModifier: {c.modifier_name}
-    unsharedKeys: {c.impl_fields_name}
+    unsharedKeys: list[{c.impl_fields_name}]
 
 """
         elif c.class_obj is BaseCodeObjImpl:
@@ -52,7 +52,7 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
     defaultImplLayering: str | None = None
     type: Any
     sharedModifier: {c.modifier_name}
-    unsharedKeys: {c.impl_fields_name}
+    unsharedKeys: list[{c.impl_fields_name}]
 
 """
         else:

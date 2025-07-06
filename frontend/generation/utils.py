@@ -244,12 +244,12 @@ class ImplClassInfoForGeneration:
     def modifier_annotation_and_value(self):
         modifier = self.modifier_name
         if self.type_has_default:
-            modifier = f"""{modifier} = Field( # type: ignore
+            modifier = f"""{modifier} = Field( # type: ignore[override]
     default_factory = lambda: create_modifier({self.type_value})
 )
 """
         else:
-            modifier = f"{modifier} # type: ignore"
+            modifier = f"{modifier} # type: ignore[override]"
         return modifier
 
     @property
@@ -267,12 +267,12 @@ class ImplClassInfoForGeneration:
             else:
                 raise ValueError
             default_keys = [f'"{v}"' for v in sorted(default_keys)]
-            unshared_keys = f"""{unshared_keys} = Field( # type: ignore
+            unshared_keys = f"""{unshared_keys} = Field( # type: ignore[override]
     default_factory = lambda: [{", ".join(default_keys)}]
 )
 """
         else:
-            unshared_keys = f"{unshared_keys} # type: ignore"
+            unshared_keys = f"{unshared_keys} # type: ignore[override]"
         return unshared_keys
 
     @property

@@ -57,149 +57,149 @@ class BaseSectionLayering(BaseModel, extra="forbid"):
 
 class BaseSectionWithParamsLayering(BaseSectionLayering):
     type: Any
-    modifier: BaseSectionWithParamsModifier  # type: ignore
+    modifier: BaseSectionWithParamsModifier  # type: ignore[override]
 
 
 class BaseArtifactSectionLayering(BaseSectionLayering):
     type: Any
-    modifier: BaseArtifactSectionModifier  # type: ignore
+    modifier: BaseArtifactSectionModifier  # type: ignore[override]
 
 
 class BaseCanvasSectionLayering(BaseSectionLayering):
     type: Any
-    modifier: BaseCanvasSectionModifier  # type: ignore
+    modifier: BaseCanvasSectionModifier  # type: ignore[override]
 
 
 class BaseCodeSectionLayering(BaseSectionLayering):
     type: Any
-    modifier: BaseCodeSectionModifier  # type: ignore
+    modifier: BaseCodeSectionModifier  # type: ignore[override]
 
 
 class BaseParentSectionLayering(BaseSectionLayering):
     type: Any
-    modifier: BaseParentSectionModifier  # type: ignore
+    modifier: BaseParentSectionModifier  # type: ignore[override]
 
 
 class BaseDictSectionLayering(BaseSectionWithParamsLayering):
     type: Any
-    modifier: BaseDictSectionModifier  # type: ignore
+    modifier: BaseDictSectionModifier  # type: ignore[override]
 
 
 class CallableSectionLayering(BaseSectionWithParamsLayering):
     type: Literal[SectionType.Callable] = SectionType.Callable
-    modifier: CallableSectionModifier = Field(  # type: ignore
+    modifier: CallableSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Callable)
     )
 
 
 class DictSectionLayering(BaseDictSectionLayering):
     type: Literal[SectionType.Dict] = SectionType.Dict
-    modifier: DictSectionModifier = Field(  # type: ignore
+    modifier: DictSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Dict)
     )
 
 
 class ListRootSectionLayering(BaseParentSectionLayering):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
-    modifier: ListRootSectionModifier = Field(  # type: ignore
+    modifier: ListRootSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.ListRoot)
     )
 
 
 class DictRootSectionLayering(BaseParentSectionLayering):
     type: Literal[SectionType.DictRoot] = SectionType.DictRoot
-    modifier: DictRootSectionModifier = Field(  # type: ignore
+    modifier: DictRootSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.DictRoot)
     )
 
 
 class GroupSectionLayering(BaseParentSectionLayering):
     type: Literal[SectionType.Group] = SectionType.Group
-    modifier: GroupSectionModifier = Field(  # type: ignore
+    modifier: GroupSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Group)
     )
 
 
 class ImageSectionLayering(BaseArtifactSectionLayering):
     type: Literal[SectionType.Image] = SectionType.Image
-    modifier: ImageSectionModifier = Field(  # type: ignore
+    modifier: ImageSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Image)
     )
 
 
 class ChartSectionLayering(BaseArtifactSectionLayering, BaseCanvasSectionLayering):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    modifier: ChartSectionModifier = Field(  # type: ignore
+    modifier: ChartSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Chart)
     )
 
 
 class DrawSectionLayering(BaseArtifactSectionLayering, BaseCanvasSectionLayering):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    modifier: DrawSectionModifier = Field(  # type: ignore
+    modifier: DrawSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Draw)
     )
 
 
 class TextBlockSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
-    modifier: TextBlockSectionModifier = Field(  # type: ignore
+    modifier: TextBlockSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.TextBlock)
     )
 
 
 class SocialSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.Social] = SectionType.Social
-    modifier: SocialSectionModifier = Field(  # type: ignore
+    modifier: SocialSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Social)
     )
 
 
 class GlobalVariablesSectionLayering(BaseDictSectionLayering):
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
-    modifier: GlobalVariablesSectionModifier = Field(  # type: ignore
+    modifier: GlobalVariablesSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.GlobalVariables)
     )
 
 
 class CodeSectionLayering(BaseCodeSectionLayering):
     type: Literal[SectionType.Code] = SectionType.Code
-    modifier: CodeSectionModifier = Field(  # type: ignore
+    modifier: CodeSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Code)
     )
 
 
 class GenPythonCodeSectionLayering(BaseCodeSectionLayering):
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
-    modifier: GenPythonCodeSectionModifier = Field(  # type: ignore
+    modifier: GenPythonCodeSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.GenPythonCode)
     )
 
 
 class TerminalSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.Terminal] = SectionType.Terminal
-    modifier: TerminalSectionModifier = Field(  # type: ignore
+    modifier: TerminalSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Terminal)
     )
 
 
 class IFrameSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.IFrame] = SectionType.IFrame
-    modifier: IFrameSectionModifier = Field(  # type: ignore
+    modifier: IFrameSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.IFrame)
     )
 
 
 class ChatSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.Chat] = SectionType.Chat
-    modifier: ChatSectionModifier = Field(  # type: ignore
+    modifier: ChatSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Chat)
     )
 
 
 class BrowserSectionLayering(BaseSectionLayering):
     type: Literal[SectionType.Browser] = SectionType.Browser
-    modifier: BrowserSectionModifier = Field(  # type: ignore
+    modifier: BrowserSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(SectionType.Browser)
     )
 
@@ -214,78 +214,78 @@ class BaseCodeObjLayering(BaseModel, extra="forbid"):
 
 class BaseParamCodeObjLayering(BaseCodeObjLayering):
     type: Any
-    modifier: BaseParamCodeObjModifier  # type: ignore
+    modifier: BaseParamCodeObjModifier  # type: ignore[override]
 
 
 class BaseChildlessCodeObjLayering(BaseParamCodeObjLayering):
     type: Any
-    modifier: BaseChildlessCodeObjModifier  # type: ignore
+    modifier: BaseChildlessCodeObjModifier  # type: ignore[override]
 
 
 class BaseParentCodeObjLayering(BaseCodeObjLayering):
     type: Any
-    modifier: BaseParentCodeObjModifier  # type: ignore
+    modifier: BaseParentCodeObjModifier  # type: ignore[override]
 
 
 class CodeCallableCodeObjLayering(BaseParentCodeObjLayering):
     type: Literal[CodeObjType.CodeCallable] = CodeObjType.CodeCallable
-    modifier: CodeCallableCodeObjModifier = Field(  # type: ignore
+    modifier: CodeCallableCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.CodeCallable)
     )
 
 
 class CodeParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.CodeParam] = CodeObjType.CodeParam
-    modifier: CodeParamCodeObjModifier = Field(  # type: ignore
+    modifier: CodeParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.CodeParam)
     )
 
 
 class TextParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
-    modifier: TextParamCodeObjModifier = Field(  # type: ignore
+    modifier: TextParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.TextParam)
     )
 
 
 class SliderParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.SliderParam] = CodeObjType.SliderParam
-    modifier: SliderParamCodeObjModifier = Field(  # type: ignore
+    modifier: SliderParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.SliderParam)
     )
 
 
 class SwitchParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
-    modifier: SwitchParamCodeObjModifier = Field(  # type: ignore
+    modifier: SwitchParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.SwitchParam)
     )
 
 
 class ColorPickerParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
-    modifier: ColorPickerParamCodeObjModifier = Field(  # type: ignore
+    modifier: ColorPickerParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.ColorPickerParam)
     )
 
 
 class DropdownParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.DropdownParam] = CodeObjType.DropdownParam
-    modifier: DropdownParamCodeObjModifier = Field(  # type: ignore
+    modifier: DropdownParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.DropdownParam)
     )
 
 
 class PasswordParamCodeObjLayering(BaseChildlessCodeObjLayering):
     type: Literal[CodeObjType.PasswordParam] = CodeObjType.PasswordParam
-    modifier: PasswordParamCodeObjModifier = Field(  # type: ignore
+    modifier: PasswordParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.PasswordParam)
     )
 
 
 class NestedParamCodeObjLayering(BaseParamCodeObjLayering, BaseParentCodeObjLayering):
     type: Literal[CodeObjType.NestedParam] = CodeObjType.NestedParam
-    modifier: NestedParamCodeObjModifier = Field(  # type: ignore
+    modifier: NestedParamCodeObjModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_modifier(CodeObjType.NestedParam)
     )
 
