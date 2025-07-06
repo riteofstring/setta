@@ -21,7 +21,6 @@ def construct_unions(
     discriminator,
     module_to_import_in_gen_file,
     class_transformer,
-    return_class_mapping=False,
 ):
     class_to_children = get_class_to_children_mapping(
         module, base_class, exclude_empty=True, required_discriminator=discriminator
@@ -55,21 +54,6 @@ from pydantic import Field, TypeAdapter
             f"{class_transformer(base_class.__name__)}TypeSet = set([{defaults}])\n\n"
         )
 
-    if return_class_mapping:
-        return code, class_to_children
-    return code
-
-
-def add_type_predicate_fns(most_base_type, base_class_to_children, class_transformer):
-    code = ""
-    for base_class in base_class_to_children.keys():
-        transformed_base_class_name = class_transformer(base_class.__name__)
-        set_name = f"{transformed_base_class_name}TypeSet"
-        code += f"""
-def is{transformed_base_class_name}(x: {most_base_type})->TypeGuard[{transformed_base_class_name}]:
-    return x["type"] in {set_name}
-
-"""
     return code
 
 
@@ -87,7 +71,7 @@ def generate_unions(output_file):
         "type",
         setta.types.code_obj_impls,
         lambda x: x,
-    )  # type: ignore
+    )
 
     code += construct_unions(
         setta.types.generated.cores,
@@ -95,57 +79,41 @@ def generate_unions(output_file):
         "type",
         setta.types.generated.cores,
         lambda x: x,
-    )  # type: ignore
+    )
     code += construct_unions(
         setta.types.generated.cores,
         setta.types.generated.cores.BaseCodeObjCore,
         "type",
         setta.types.generated.cores,
         lambda x: x,
-    )  # type: ignore
+    )
     code += construct_unions(
         setta.types.generated.layerings,
         setta.types.generated.layerings.BaseSectionLayering,
         "type",
         setta.types.generated.layerings,
         lambda x: x,
-    )  # type: ignore
+    )
     code += construct_unions(
         setta.types.generated.layerings,
         setta.types.generated.layerings.BaseCodeObjLayering,
         "type",
         setta.types.generated.layerings,
         lambda x: x,
-    )  # type: ignore
-    modifier_code1, modifier_class_mapping1 = construct_unions(
+    )
+    code += construct_unions(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
         "type",
         setta.types.generated.modifiers,
         lambda x: f"{get_name_without_impl(x)}Modifier",
-        True,
     )
 
-    modifier_code2, modifier_class_mapping2 = construct_unions(
+    code += construct_unions(
         setta.types.code_obj_impls,
         setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         setta.types.generated.modifiers,
-        lambda x: f"{get_name_without_impl(x)}Modifier",
-        True,
-    )
-
-    code += modifier_code1 + modifier_code2  # type: ignore
-
-    code += add_type_predicate_fns(
-        "BaseSectionModifier",
-        modifier_class_mapping1,
-        lambda x: f"{get_name_without_impl(x)}Modifier",
-    )
-
-    code += add_type_predicate_fns(
-        "BaseCodeObjModifier",
-        modifier_class_mapping2,
         lambda x: f"{get_name_without_impl(x)}Modifier",
     )
 
@@ -162,10 +130,10 @@ def generate_websocket_unions(output_file: Path):
         "messageType",
         setta.types.websocket,
         lambda x: x,
-    )  # type: ignore
+    )
 
     existing_code = output_file.read_text()
-    code = existing_code + code  # type: ignore
+    code = existing_code + code
     code = ruff_format(code)
     output_file.write_text(code)
     print(f"wrote to {output_file}")

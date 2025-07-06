@@ -1,4 +1,4 @@
-from typing import Annotated, TypeGuard, Union
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 
@@ -821,13 +821,6 @@ from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 from setta.types.generated.modifiers import (
-    BaseArtifactSectionModifier,
-    BaseCanvasSectionModifier,
-    BaseCodeSectionModifier,
-    BaseDictSectionModifier,
-    BaseParentSectionModifier,
-    BaseSectionModifier,
-    BaseSectionWithParamsModifier,
     BrowserSectionModifier,
     CallableSectionModifier,
     ChartSectionModifier,
@@ -981,10 +974,6 @@ from typing import Annotated, Union
 from pydantic import Field, TypeAdapter
 
 from setta.types.generated.modifiers import (
-    BaseChildlessCodeObjModifier,
-    BaseCodeObjModifier,
-    BaseParamCodeObjModifier,
-    BaseParentCodeObjModifier,
     CodeCallableCodeObjModifier,
     CodeParamCodeObjModifier,
     ColorPickerParamCodeObjModifier,
@@ -1104,70 +1093,7 @@ BaseParentCodeObjModifierTypeAdapter = TypeAdapter(
 
 BaseParentCodeObjModifierTypeSet = set(["CodeCallable", "NestedParam"])
 
-
-def isBaseSectionModifier(x: BaseSectionModifier) -> TypeGuard[BaseSectionModifier]:
-    return x["type"] in BaseSectionModifierTypeSet
-
-
-def isBaseSectionWithParamsModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseSectionWithParamsModifier]:
-    return x["type"] in BaseSectionWithParamsModifierTypeSet
-
-
-def isBaseArtifactSectionModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseArtifactSectionModifier]:
-    return x["type"] in BaseArtifactSectionModifierTypeSet
-
-
-def isBaseCanvasSectionModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseCanvasSectionModifier]:
-    return x["type"] in BaseCanvasSectionModifierTypeSet
-
-
-def isBaseCodeSectionModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseCodeSectionModifier]:
-    return x["type"] in BaseCodeSectionModifierTypeSet
-
-
-def isBaseParentSectionModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseParentSectionModifier]:
-    return x["type"] in BaseParentSectionModifierTypeSet
-
-
-def isBaseDictSectionModifier(
-    x: BaseSectionModifier,
-) -> TypeGuard[BaseDictSectionModifier]:
-    return x["type"] in BaseDictSectionModifierTypeSet
-
-
-def isBaseCodeObjModifier(x: BaseCodeObjModifier) -> TypeGuard[BaseCodeObjModifier]:
-    return x["type"] in BaseCodeObjModifierTypeSet
-
-
-def isBaseParamCodeObjModifier(
-    x: BaseCodeObjModifier,
-) -> TypeGuard[BaseParamCodeObjModifier]:
-    return x["type"] in BaseParamCodeObjModifierTypeSet
-
-
-def isBaseChildlessCodeObjModifier(
-    x: BaseCodeObjModifier,
-) -> TypeGuard[BaseChildlessCodeObjModifier]:
-    return x["type"] in BaseChildlessCodeObjModifierTypeSet
-
-
-def isBaseParentCodeObjModifier(
-    x: BaseCodeObjModifier,
-) -> TypeGuard[BaseParentCodeObjModifier]:
-    return x["type"] in BaseParentCodeObjModifierTypeSet
-
-
-from typing import Annotated, TypeGuard, Union
+from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 

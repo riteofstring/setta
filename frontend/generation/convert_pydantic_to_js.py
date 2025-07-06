@@ -631,6 +631,7 @@ def create_type_predicate_fns_from_sets(all_sets):
     code = ""
     for x_name in all_sets.keys():
         type_name = x_name.rstrip("TypeSet")
+        discriminator = "type"
         actual_type = getattr(setta.types.section_impls, type_name, None)
         if not actual_type:
             actual_type = getattr(setta.types.code_obj_impls, type_name, None)
@@ -644,20 +645,15 @@ def create_type_predicate_fns_from_sets(all_sets):
             input_type = "BaseSectionImpl"
         elif issubclass(actual_type, BaseCodeObjImpl):
             input_type = "BaseCodeObjImpl"
-        # can't do subclass check with typeddict
-        elif "Impl" in actual_type.__name__ and "Section" in actual_type.__name__:
-            input_type = "BaseSectionImplModifier"
-        # can't do subclass check with typeddict
-        elif "Impl" in actual_type.__name__ and "CodeObj" in actual_type.__name__:
-            input_type = "BaseCodeObjImplModifier"
         elif issubclass(actual_type, WebsocketMsg):
             input_type = "WebsocketMsg"
+            discriminator = "messageType"
         else:
-            raise TypeError(actual_type)
+            continue
 
         code += f"""
 export function is{type_name}(x: {input_type}): x is {type_name}{{
-    return {x_name}.has(x.type)
+    return {x_name}.has(x.{discriminator})
 }}
 
 """
@@ -684,7 +680,7 @@ def create_default_getter_functions():
     code_obj_cases = []
     for code_obj_type in CodeObjType:
         field_name = (
-            code_obj_type.value[0].lower() + code_obj_type.value[1:] + "Default"
+            code_obj_type.value[0].lower() + code_obj_type.value[1:] + "CodeObjDefault"
         )
         code_obj_cases.append(f"""    case CodeObjTypeEnum.{code_obj_type.value}:
       return settings.{field_name};""")
