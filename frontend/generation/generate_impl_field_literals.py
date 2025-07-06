@@ -1,22 +1,9 @@
 from pathlib import Path
 
-from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 from .utils import ImplClassInfoForGeneration, get_impl_classes
-
-
-def get_all_field_names(impl_class: type[BaseModel]) -> set[str]:
-    """Get all field names for a class, including inherited fields."""
-    field_names = set()
-
-    # Get fields from the class and all its parent classes
-    for cls in impl_class.__mro__:
-        if issubclass(cls, BaseModel) and cls is not BaseModel:
-            field_names.update(cls.model_fields.keys())
-
-    return field_names
 
 
 def generate_field_literal_type(impl_class_name: str, field_names: set[str]) -> str:
@@ -48,7 +35,9 @@ from typing import Literal
 
     literals = []
     for cls_name, cls_info in classes.items():
-        field_names = get_all_field_names(cls_info.class_obj)
+        field_names = set()
+        for parent in cls_info.parent_classes_up_to_base_model:
+            field_names.update(parent.model_fields.keys())
         literal_def = generate_field_literal_type(cls_name, field_names)
         literals.append(literal_def)
     literals = "\n".join(literals)

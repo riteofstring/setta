@@ -300,6 +300,14 @@ class ImplClassInfoForGeneration:
     def is_code_obj_impl(self):
         return issubclass(self.class_obj, setta.types.code_obj_impls.BaseCodeObjImpl)
 
+    @property
+    def parent_classes_up_to_base_model(self):
+        output = []
+        for cls in self.class_obj.__mro__:
+            if cls not in (BaseModel, object):
+                output.append(cls)
+        return output
+
 
 def get_impl_classes():
     classes = find_sub_classes(
