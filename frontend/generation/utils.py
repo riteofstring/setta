@@ -225,6 +225,10 @@ class ImplClassInfoForGeneration:
         return self.base_name + "Modifier"
 
     @property
+    def args_name(self):
+        return self.original_name + "Args"
+
+    @property
     def core_name(self):
         return self.base_name + "Core"
 
@@ -255,6 +259,10 @@ class ImplClassInfoForGeneration:
     @property
     def parent_modifier_class_names(self):
         return [get_name_without_impl(p.__name__) + "Modifier" for p in self.parents]
+
+    @property
+    def parent_args_class_names(self):
+        return [p.__name__ + "Args" for p in self.parents]
 
     @property
     def parent_is_base_model(self):

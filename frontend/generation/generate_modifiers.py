@@ -13,15 +13,19 @@ from .utils import (
 )
 
 
-def create_modifier(class_info: ImplClassInfoForGeneration, base_classes):
+def create_model_args_as_typed_dict(
+    class_info: ImplClassInfoForGeneration,
+    base_classes,
+    typed_dict_name,
+    typed_dict_parent_names,
+    exclusions: list[str] | None = None,
+):
+    if exclusions is None:
+        exclusions = []
     attributes = []
     for field_name, field_info in class_info.class_obj.model_fields.items():
         # Skip if field is in exclusions for base class
-        if class_info.class_obj in base_classes and field_name in [
-            "id",
-            "name",
-            "isPreset",
-        ]:
+        if class_info.class_obj in base_classes and field_name in exclusions:
             continue
 
         # For non-base classes, skip if field is defined in ANY parent class (except type)
@@ -48,17 +52,17 @@ def create_modifier(class_info: ImplClassInfoForGeneration, base_classes):
     if class_info.class_obj in base_classes:
         parent_class = "TypedDict"
     else:
-        parent_class = ", ".join(class_info.parent_modifier_class_names)
+        parent_class = ", ".join(typed_dict_parent_names)
 
     code = f"""
-class {class_info.modifier_name}({parent_class}):
+class {typed_dict_name}({parent_class}):
 {attributes}
 """
     return code
 
 
-def generate_modifiers(output_file, classes: dict[str, ImplClassInfoForGeneration]):
-    code = """
+def get_imports_str():
+    return """
 from typing import TypedDict, Literal, Any, NotRequired, overload
 from setta.types.section_impls import (
     ChartSettings,
@@ -80,13 +84,20 @@ from setta.types.code_obj_impls import (
 )
 
 """
+
+
+def generate_modifiers(output_file, classes: dict[str, ImplClassInfoForGeneration]):
+    code = get_imports_str()
     for c in classes.values():
-        code += create_modifier(
+        code += create_model_args_as_typed_dict(
             c,
             [
                 setta.types.section_impls.BaseSectionImpl,
                 setta.types.code_obj_impls.BaseCodeObjImpl,
             ],
+            c.modifier_name,
+            c.parent_modifier_class_names,
+            ["id", "name", "isPreset"],
         )
 
     code += get_creation_fns(classes, "modifier")
@@ -95,11 +106,38 @@ from setta.types.code_obj_impls import (
     print(f"wrote to {output_file}")
 
 
+def generate_model_args_as_typed_dicts(
+    output_file, classes: dict[str, ImplClassInfoForGeneration]
+):
+    code = get_imports_str()
+    for c in classes.values():
+        code += create_model_args_as_typed_dict(
+            c,
+            [
+                setta.types.section_impls.BaseSectionImpl,
+                setta.types.code_obj_impls.BaseCodeObjImpl,
+            ],
+            c.args_name,
+            c.parent_args_class_names,
+        )
+
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 if __name__ == "__main__":
-    classes = get_impl_classes()
     generate_modifiers(
         get_absolute_path(
             __file__, Path("../../backend/setta/types/generated") / "modifiers.py"
         ),
-        classes,
+        get_impl_classes(),
+    )
+    generate_model_args_as_typed_dicts(
+        get_absolute_path(
+            __file__,
+            Path("../../backend/setta/types/generated")
+            / "model_args_as_typed_dicts.py",
+        ),
+        get_impl_classes(),
     )
