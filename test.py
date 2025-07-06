@@ -124,9 +124,14 @@
 # pprint(layering.modifier)
 # pprint(impl.model_dump())
 
-from pprint import pprint
+from typing import Any, TypeGuard
 
-from frontend.generation.utils import get_impl_classes
 
-x = get_impl_classes()
-pprint(x)
+def some_fn(x: tuple[Any, Any]) -> TypeGuard[tuple[int, int]]:
+    return True
+
+
+x = None
+y = None
+if some_fn((x, y)):
+    x
