@@ -1,7 +1,6 @@
 from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.section_impls import (
     BaseArtifactSectionImpl,
     BaseCanvasSectionImpl,
@@ -163,7 +162,6 @@ BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
     BaseParamCodeObjImpl,
@@ -293,7 +291,6 @@ BaseParentCodeObjImplTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.cores import (
     BaseArtifactSectionCore,
     BaseCanvasSectionCore,
@@ -455,7 +452,6 @@ BaseDictSectionCoreTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.cores import (
     BaseChildlessCodeObjCore,
     BaseParamCodeObjCore,
@@ -585,7 +581,6 @@ BaseParentCodeObjCoreTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.layerings import (
     BaseArtifactSectionLayering,
     BaseCanvasSectionLayering,
@@ -753,7 +748,6 @@ BaseDictSectionLayeringTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.layerings import (
     BaseChildlessCodeObjLayering,
     BaseParamCodeObjLayering,
@@ -885,7 +879,6 @@ BaseParentCodeObjLayeringTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.modifiers import (
     BaseArtifactSectionModifier,
     BaseCanvasSectionModifier,
@@ -1054,7 +1047,6 @@ BaseDictSectionModifierTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
-
 from setta.types.generated.modifiers import (
     BaseChildlessCodeObjModifier,
     BaseCodeObjModifier,

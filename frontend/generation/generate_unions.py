@@ -10,6 +10,11 @@ from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
+from .utils import (
+    get_class_to_children_mapping,
+    get_name_without_impl,
+)
+
 
 def construct_unions(
     module,
@@ -19,7 +24,9 @@ def construct_unions(
     class_transformer,
     return_class_mapping=False,
 ):
-    class_to_children = get_class_to_children_mapping(module, base_class)
+    class_to_children = get_class_to_children_mapping(
+        module, base_class, exclude_empty=True
+    )
     code = """
 from typing import Annotated,Union,TypeGuard
 from pydantic import Field, TypeAdapter

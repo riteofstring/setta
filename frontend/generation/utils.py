@@ -177,8 +177,23 @@ def python_type_to_str(python_type):
     return python_type.__name__
 
 
-def get_class_to_children_mapping(module, c):
+def get_class_children(module, c):
     return [x for x in find_sub_classes(module, c) if x is not c]
+
+
+def get_class_to_children_mapping(module, base_class, exclude_empty=False):
+    classes = find_sub_classes(module, base_class)
+    output = {}
+    for c in classes:
+        children = get_class_children(module, c)
+        if exclude_empty and len(children) == 0:
+            continue
+        output[c] = children
+    return output
+
+
+def get_name_without_impl(x):
+    return x.rstrip("Impl")
 
 
 @dataclass
@@ -221,15 +236,15 @@ class ImplClassInfoForGeneration:
 
     @property
     def parent_core_class_names(self):
-        return [p.__name__.rstrip("Impl") + "Core" for p in self.parents]
+        return [get_name_without_impl(p.__name__) + "Core" for p in self.parents]
 
     @property
     def parent_layering_class_names(self):
-        return [p.__name__.rstrip("Impl") + "Layering" for p in self.parents]
+        return [get_name_without_impl(p.__name__) + "Layering" for p in self.parents]
 
     @property
     def parent_modifier_class_names(self):
-        return [p.__name__.rstrip("Impl") + "Modifier" for p in self.parents]
+        return [get_name_without_impl(p.__name__) + "Modifier" for p in self.parents]
 
     @property
     def parent_is_base_model(self):
@@ -323,8 +338,8 @@ def get_impl_classes():
     )
     output: dict[str, ImplClassInfoForGeneration] = {}
     for c in classes:
-        children = get_class_to_children_mapping(setta.types.section_impls, c)
-        children += get_class_to_children_mapping(setta.types.code_obj_impls, c)
+        children = get_class_children(setta.types.section_impls, c)
+        children += get_class_children(setta.types.code_obj_impls, c)
         base_name = c.__name__.rstrip("Impl")
         output[c.__name__] = ImplClassInfoForGeneration(
             class_obj=c,
