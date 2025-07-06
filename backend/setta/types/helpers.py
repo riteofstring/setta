@@ -20,6 +20,9 @@ from setta.types.generated.unions import (
     BaseParentCodeObjLayeringUnion,
     BaseSectionCoreUnion,
     BaseSectionImplUnion,
+    BaseSectionWithParamsCoreUnion,
+    BaseSectionWithParamsImplUnion,
+    BaseSectionWithParamsLayeringUnion,
 )
 from setta.types.impl_helpers import (
     update_impl_layerings,
@@ -303,10 +306,19 @@ def add_code_obj(
     code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_layering = get_section_impl_layering(p, section_id)
+    base_section_impl = p.sectionImpls[section_layering.impl]
+    section_core = p.sections[section_id]
     section_impl = get_effective_impl(
-        section_layering, p.sections[section_id], p.sectionImpls
+        base_section_impl,
+        section_core,
+        section_layering,
     )
-    if not isinstance(section_impl, BaseSectionWithParamsImpl):
+    if not (
+        isinstance(base_section_impl, BaseSectionWithParamsImplUnion)
+        and isinstance(section_impl, BaseSectionWithParamsImplUnion)
+        and isinstance(section_core, BaseSectionWithParamsCoreUnion)
+        and isinstance(section_layering, BaseSectionWithParamsLayeringUnion)
+    ):
         raise TypeError
     code_obj_impl_layering = CodeObjImplLayering(
         impl=code_obj_impl.id,
@@ -318,17 +330,18 @@ def add_code_obj(
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
-    if isBaseSectionWithParamsImplModifier(section_layering.modifier):
-        set_effective_impl_value(
-            section_layering,
-            p.sections[section_id],
-            p.sectionImpls,
-            "codeObjImplLayeringMap",
-            {
+
+    set_effective_impl_value(
+        base_section_impl,
+        section_core,
+        section_layering,
+        {
+            "codeObjImplLayeringMap": {
                 **section_impl.codeObjImplLayeringMap,
                 code_obj.id: code_obj_impl_layering.id,
-            },
-        )
+            }
+        },
+    )
     return code_obj_impl_layering
 
 
