@@ -20,7 +20,7 @@ def get_effective_impl(
 
 
 def generate_set_effective_impl_value_overload(
-    impl_name: str, core_name: str, layering_name: str, field_literal_name: str
+    impl_name: str, core_name: str, layering_name: str, args_name: str
 ) -> str:
     """Generate a single set_effective_impl_value overload."""
     return f"""
@@ -29,8 +29,7 @@ def set_effective_impl_value(
     impl: {impl_name},
     core: {core_name},
     layering: {layering_name},
-    key: str,
-    value: Any,
+    args: {args_name}
 ) -> {impl_name}: ..."""
 
 
@@ -108,6 +107,7 @@ def generate_effective_impl_overloads():
     core_imports = []
     layering_imports = []
     union_imports = []
+    args_imports = []
     for cls in classes.values():
         if cls.is_section_impl:
             section_impl_imports.append(cls.original_name)
@@ -115,8 +115,10 @@ def generate_effective_impl_overloads():
             code_obj_impl_imports.append(cls.original_name)
         core_imports.append(cls.core_name)
         layering_imports.append(cls.layering_name)
+        args_imports.append(cls.args_name)
     for u in sorted_union_names:
         union_imports.extend(get_union_names(u))
+        args_imports.append(u.replace("Union", "Args"))
 
     # Generate imports using triple quotes
     imports = f"""# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
@@ -138,6 +140,9 @@ from setta.types.generated.layerings import (
 )
 from setta.types.generated.unions import (
     {", ".join(union_imports)}
+)
+from setta.types.generated.model_args_as_typed_dicts import (
+    {", ".join(args_imports)}
 )
 """
 
@@ -191,14 +196,16 @@ def get_effective_impl(
                 cls.original_name,
                 cls.core_name,
                 cls.layering_name,
-                cls.impl_fields_name,
+                cls.args_name,
             )
         )
 
     # Then, union overloads (already sorted by specificity)
     for u in sorted_union_names:
         set_overloads_list.append(
-            generate_set_effective_impl_value_overload(*get_union_names(u), "")
+            generate_set_effective_impl_value_overload(
+                *get_union_names(u), u.replace("Union", "Args")
+            )
         )
 
     set_overloads = "".join(set_overloads_list)
@@ -208,8 +215,7 @@ def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
     layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
-    key: str,
-    value: Any,
+    args: dict,
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     \"\"\"Set a value in the effective implementation.
     
@@ -221,12 +227,13 @@ def set_effective_impl_value(
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     \"\"\"
-    if not impl.isPreset:
-        setattr(impl, key, value)
-    elif key in core.unsharedKeys:
-        layering.modifier[key] = value
-    else:
-        core.sharedModifier[key] = value
+    for k, v in args.items():
+        if not impl.isPreset:
+            setattr(impl, k, v)
+        elif k in core.unsharedKeys:
+            layering.modifier[k] = v
+        else:
+            core.sharedModifier[k] = v
     return get_effective_impl(impl, core, layering)
 """
 

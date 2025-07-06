@@ -95,11 +95,7 @@ def load_json_sources_into_data_structures(
                 settings, layering.name, impl.jsonSourceKeys
             )
             impl = set_effective_impl_value(
-                base_impl,
-                section,
-                layering,
-                "jsonSourceMissing",
-                isMissing,
+                base_impl, section, layering, {"jsonSourceMissing": isMissing}
             )
             if isMissing:
                 continue
