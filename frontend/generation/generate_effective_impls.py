@@ -1,8 +1,5 @@
 from pathlib import Path
-from typing import get_args
 
-from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
-from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 from .utils import get_impl_classes
@@ -31,7 +28,7 @@ def set_effective_impl_value(
     impl: {impl_name},
     core: {core_name},
     layering: {layering_name},
-    key: {field_literal_name},
+    key: str,
     value: Any,
 ) -> {impl_name}: ..."""
 

@@ -258,7 +258,7 @@ def set_effective_impl_value(
     impl: NestedParamCodeObjImpl,
     core: NestedParamCodeObjCore,
     layering: NestedParamCodeObjLayering,
-    key: NestedParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> NestedParamCodeObjImpl: ...
 @overload
@@ -266,7 +266,7 @@ def set_effective_impl_value(
     impl: PasswordParamCodeObjImpl,
     core: PasswordParamCodeObjCore,
     layering: PasswordParamCodeObjLayering,
-    key: PasswordParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> PasswordParamCodeObjImpl: ...
 @overload
@@ -274,7 +274,7 @@ def set_effective_impl_value(
     impl: DropdownParamCodeObjImpl,
     core: DropdownParamCodeObjCore,
     layering: DropdownParamCodeObjLayering,
-    key: DropdownParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> DropdownParamCodeObjImpl: ...
 @overload
@@ -282,7 +282,7 @@ def set_effective_impl_value(
     impl: ColorPickerParamCodeObjImpl,
     core: ColorPickerParamCodeObjCore,
     layering: ColorPickerParamCodeObjLayering,
-    key: ColorPickerParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> ColorPickerParamCodeObjImpl: ...
 @overload
@@ -290,7 +290,7 @@ def set_effective_impl_value(
     impl: SwitchParamCodeObjImpl,
     core: SwitchParamCodeObjCore,
     layering: SwitchParamCodeObjLayering,
-    key: SwitchParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> SwitchParamCodeObjImpl: ...
 @overload
@@ -298,7 +298,7 @@ def set_effective_impl_value(
     impl: SliderParamCodeObjImpl,
     core: SliderParamCodeObjCore,
     layering: SliderParamCodeObjLayering,
-    key: SliderParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> SliderParamCodeObjImpl: ...
 @overload
@@ -306,7 +306,7 @@ def set_effective_impl_value(
     impl: TextParamCodeObjImpl,
     core: TextParamCodeObjCore,
     layering: TextParamCodeObjLayering,
-    key: TextParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> TextParamCodeObjImpl: ...
 @overload
@@ -314,7 +314,7 @@ def set_effective_impl_value(
     impl: CodeParamCodeObjImpl,
     core: CodeParamCodeObjCore,
     layering: CodeParamCodeObjLayering,
-    key: CodeParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> CodeParamCodeObjImpl: ...
 @overload
@@ -322,7 +322,7 @@ def set_effective_impl_value(
     impl: CodeCallableCodeObjImpl,
     core: CodeCallableCodeObjCore,
     layering: CodeCallableCodeObjLayering,
-    key: CodeCallableCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> CodeCallableCodeObjImpl: ...
 @overload
@@ -330,7 +330,7 @@ def set_effective_impl_value(
     impl: BaseParentCodeObjImpl,
     core: BaseParentCodeObjCore,
     layering: BaseParentCodeObjLayering,
-    key: BaseParentCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> BaseParentCodeObjImpl: ...
 @overload
@@ -338,7 +338,7 @@ def set_effective_impl_value(
     impl: BaseChildlessCodeObjImpl,
     core: BaseChildlessCodeObjCore,
     layering: BaseChildlessCodeObjLayering,
-    key: BaseChildlessCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> BaseChildlessCodeObjImpl: ...
 @overload
@@ -346,7 +346,7 @@ def set_effective_impl_value(
     impl: BaseParamCodeObjImpl,
     core: BaseParamCodeObjCore,
     layering: BaseParamCodeObjLayering,
-    key: BaseParamCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> BaseParamCodeObjImpl: ...
 @overload
@@ -354,7 +354,7 @@ def set_effective_impl_value(
     impl: BaseCodeObjImpl,
     core: BaseCodeObjCore,
     layering: BaseCodeObjLayering,
-    key: BaseCodeObjImplFields,
+    key: str,
     value: Any,
 ) -> BaseCodeObjImpl: ...
 @overload
@@ -362,7 +362,7 @@ def set_effective_impl_value(
     impl: BrowserSectionImpl,
     core: BrowserSectionCore,
     layering: BrowserSectionLayering,
-    key: BrowserSectionImplFields,
+    key: str,
     value: Any,
 ) -> BrowserSectionImpl: ...
 @overload
@@ -370,7 +370,7 @@ def set_effective_impl_value(
     impl: ChatSectionImpl,
     core: ChatSectionCore,
     layering: ChatSectionLayering,
-    key: ChatSectionImplFields,
+    key: str,
     value: Any,
 ) -> ChatSectionImpl: ...
 @overload
@@ -378,7 +378,7 @@ def set_effective_impl_value(
     impl: IFrameSectionImpl,
     core: IFrameSectionCore,
     layering: IFrameSectionLayering,
-    key: IFrameSectionImplFields,
+    key: str,
     value: Any,
 ) -> IFrameSectionImpl: ...
 @overload
@@ -386,7 +386,7 @@ def set_effective_impl_value(
     impl: TerminalSectionImpl,
     core: TerminalSectionCore,
     layering: TerminalSectionLayering,
-    key: TerminalSectionImplFields,
+    key: str,
     value: Any,
 ) -> TerminalSectionImpl: ...
 @overload
@@ -394,7 +394,7 @@ def set_effective_impl_value(
     impl: GenPythonCodeSectionImpl,
     core: GenPythonCodeSectionCore,
     layering: GenPythonCodeSectionLayering,
-    key: GenPythonCodeSectionImplFields,
+    key: str,
     value: Any,
 ) -> GenPythonCodeSectionImpl: ...
 @overload
@@ -402,7 +402,7 @@ def set_effective_impl_value(
     impl: CodeSectionImpl,
     core: CodeSectionCore,
     layering: CodeSectionLayering,
-    key: CodeSectionImplFields,
+    key: str,
     value: Any,
 ) -> CodeSectionImpl: ...
 @overload
@@ -410,7 +410,7 @@ def set_effective_impl_value(
     impl: GlobalVariablesSectionImpl,
     core: GlobalVariablesSectionCore,
     layering: GlobalVariablesSectionLayering,
-    key: GlobalVariablesSectionImplFields,
+    key: str,
     value: Any,
 ) -> GlobalVariablesSectionImpl: ...
 @overload
@@ -418,7 +418,7 @@ def set_effective_impl_value(
     impl: SocialSectionImpl,
     core: SocialSectionCore,
     layering: SocialSectionLayering,
-    key: SocialSectionImplFields,
+    key: str,
     value: Any,
 ) -> SocialSectionImpl: ...
 @overload
@@ -426,7 +426,7 @@ def set_effective_impl_value(
     impl: TextBlockSectionImpl,
     core: TextBlockSectionCore,
     layering: TextBlockSectionLayering,
-    key: TextBlockSectionImplFields,
+    key: str,
     value: Any,
 ) -> TextBlockSectionImpl: ...
 @overload
@@ -434,7 +434,7 @@ def set_effective_impl_value(
     impl: DrawSectionImpl,
     core: DrawSectionCore,
     layering: DrawSectionLayering,
-    key: DrawSectionImplFields,
+    key: str,
     value: Any,
 ) -> DrawSectionImpl: ...
 @overload
@@ -442,7 +442,7 @@ def set_effective_impl_value(
     impl: ChartSectionImpl,
     core: ChartSectionCore,
     layering: ChartSectionLayering,
-    key: ChartSectionImplFields,
+    key: str,
     value: Any,
 ) -> ChartSectionImpl: ...
 @overload
@@ -450,7 +450,7 @@ def set_effective_impl_value(
     impl: ImageSectionImpl,
     core: ImageSectionCore,
     layering: ImageSectionLayering,
-    key: ImageSectionImplFields,
+    key: str,
     value: Any,
 ) -> ImageSectionImpl: ...
 @overload
@@ -458,7 +458,7 @@ def set_effective_impl_value(
     impl: GroupSectionImpl,
     core: GroupSectionCore,
     layering: GroupSectionLayering,
-    key: GroupSectionImplFields,
+    key: str,
     value: Any,
 ) -> GroupSectionImpl: ...
 @overload
@@ -466,7 +466,7 @@ def set_effective_impl_value(
     impl: DictRootSectionImpl,
     core: DictRootSectionCore,
     layering: DictRootSectionLayering,
-    key: DictRootSectionImplFields,
+    key: str,
     value: Any,
 ) -> DictRootSectionImpl: ...
 @overload
@@ -474,7 +474,7 @@ def set_effective_impl_value(
     impl: ListRootSectionImpl,
     core: ListRootSectionCore,
     layering: ListRootSectionLayering,
-    key: ListRootSectionImplFields,
+    key: str,
     value: Any,
 ) -> ListRootSectionImpl: ...
 @overload
@@ -482,7 +482,7 @@ def set_effective_impl_value(
     impl: DictSectionImpl,
     core: DictSectionCore,
     layering: DictSectionLayering,
-    key: DictSectionImplFields,
+    key: str,
     value: Any,
 ) -> DictSectionImpl: ...
 @overload
@@ -490,7 +490,7 @@ def set_effective_impl_value(
     impl: CallableSectionImpl,
     core: CallableSectionCore,
     layering: CallableSectionLayering,
-    key: CallableSectionImplFields,
+    key: str,
     value: Any,
 ) -> CallableSectionImpl: ...
 @overload
@@ -498,7 +498,7 @@ def set_effective_impl_value(
     impl: BaseDictSectionImpl,
     core: BaseDictSectionCore,
     layering: BaseDictSectionLayering,
-    key: BaseDictSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseDictSectionImpl: ...
 @overload
@@ -506,7 +506,7 @@ def set_effective_impl_value(
     impl: BaseParentSectionImpl,
     core: BaseParentSectionCore,
     layering: BaseParentSectionLayering,
-    key: BaseParentSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseParentSectionImpl: ...
 @overload
@@ -514,7 +514,7 @@ def set_effective_impl_value(
     impl: BaseCodeSectionImpl,
     core: BaseCodeSectionCore,
     layering: BaseCodeSectionLayering,
-    key: BaseCodeSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseCodeSectionImpl: ...
 @overload
@@ -522,7 +522,7 @@ def set_effective_impl_value(
     impl: BaseCanvasSectionImpl,
     core: BaseCanvasSectionCore,
     layering: BaseCanvasSectionLayering,
-    key: BaseCanvasSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseCanvasSectionImpl: ...
 @overload
@@ -530,7 +530,7 @@ def set_effective_impl_value(
     impl: BaseArtifactSectionImpl,
     core: BaseArtifactSectionCore,
     layering: BaseArtifactSectionLayering,
-    key: BaseArtifactSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseArtifactSectionImpl: ...
 @overload
@@ -538,7 +538,7 @@ def set_effective_impl_value(
     impl: BaseSectionWithParamsImpl,
     core: BaseSectionWithParamsCore,
     layering: BaseSectionWithParamsLayering,
-    key: BaseSectionWithParamsImplFields,
+    key: str,
     value: Any,
 ) -> BaseSectionWithParamsImpl: ...
 @overload
@@ -546,7 +546,7 @@ def set_effective_impl_value(
     impl: BaseSectionImpl,
     core: BaseSectionCore,
     layering: BaseSectionLayering,
-    key: BaseSectionImplFields,
+    key: str,
     value: Any,
 ) -> BaseSectionImpl: ...
 
