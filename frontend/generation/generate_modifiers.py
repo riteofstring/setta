@@ -19,9 +19,12 @@ def create_model_args_as_typed_dict(
     typed_dict_name,
     typed_dict_parent_names,
     exclusions: list[str] | None = None,
+    required_args: list[str] | None = None,
 ):
     if exclusions is None:
         exclusions = []
+    if required_args is None:
+        required_args = []
     attributes = []
     for field_name, field_info in class_info.class_obj.model_fields.items():
         # Skip if field is in exclusions for base class
@@ -42,7 +45,7 @@ def create_model_args_as_typed_dict(
                 continue
 
         annotation = python_type_to_str(field_info.annotation)
-        if field_name != "type":
+        if field_name not in required_args:
             annotation = f"NotRequired[{annotation}]"
         attributes.append(f"{field_name}: {annotation}")
 
@@ -97,7 +100,8 @@ def generate_modifiers(output_file, classes: dict[str, ImplClassInfoForGeneratio
             ],
             c.modifier_name,
             c.parent_modifier_class_names,
-            ["id", "name", "isPreset"],
+            exclusions=["id", "name", "isPreset"],
+            required_args=["type"],
         )
 
     code += get_creation_fns(classes, "modifier")

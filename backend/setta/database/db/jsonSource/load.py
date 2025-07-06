@@ -258,8 +258,7 @@ def process_json_object(
     new_data = ProcessedJSONObject(
         sectionImpl=createDictSectionImpl(
             settings.dictSectionDefault,
-            isJsonSource=True,
-            jsonSourceKeys=jsonSourceKeys,
+            {"isJsonSource": True, "jsonSourceKeys": jsonSourceKeys},
         )
     )
 
@@ -298,7 +297,7 @@ def add_to_processed_json_object(
         codeObjImplLayering = NestedParamCodeObjLayering(impl=codeObjImpl.id)
     else:
         codeObjImpl = createTextParamCodeObjImpl(
-            settings.textParamCodeObjDefault, value=json.dumps(value)
+            settings.textParamCodeObjDefault, {"value": json.dumps(value)}
         )
         codeObjImplLayering = TextParamCodeObjLayering(impl=codeObjImpl.id)
     layeringId = codeObjImplLayering.id

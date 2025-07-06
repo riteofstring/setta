@@ -11,8 +11,10 @@ def generate_creation_function(class_info: ImplClassInfoForGeneration) -> str:
     function = f"""
 def create{class_info.original_name}(
     defaults: {class_info.user_default_name},
-    **overrides
+    overrides: {class_info.args_name} | None = None
 ) -> {class_info.original_name}:
+    if overrides is None:
+        overrides = {{}}
     return {class_info.original_name}(**{{**defaults.model_dump(), **overrides}})
 """
 
@@ -33,6 +35,7 @@ def generate_creation_functions_module() -> str:
     user_default_imports = ",\n    ".join(
         [cls.user_default_name for cls in classes.values()]
     )
+    args_imports = ",\n    ".join([cls.args_name for cls in classes.values()])
 
     functions = []
     for cls in classes.values():
@@ -58,6 +61,10 @@ from setta.types.code_obj_impls import (
 # Import user default classes
 from setta.types.generated.user_defaults import (
     {user_default_imports}
+)
+
+from setta.types.generated.model_args_as_typed_dicts import (
+    {args_imports}
 )
 
 

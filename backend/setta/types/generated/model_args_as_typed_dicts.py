@@ -21,7 +21,7 @@ from setta.types.section_impls import (
 
 
 class BaseSectionImplArgs(TypedDict):
-    type: Any
+    type: NotRequired[Any]
     id: NotRequired[str]
     name: NotRequired[str]
     parentId: NotRequired[str | None]
@@ -38,7 +38,7 @@ class BaseSectionImplArgs(TypedDict):
 
 
 class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
-    type: Any
+    type: NotRequired[Any]
     codeObjImplLayeringMap: NotRequired[dict[str, str]]
     hideUnpinnedParams: NotRequired[bool]
     paramFilter: NotRequired[str]
@@ -51,27 +51,27 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
 
 
 class BaseArtifactSectionImplArgs(BaseSectionImplArgs):
-    type: Any
+    type: NotRequired[Any]
     artifactGroupIds: NotRequired[list[str]]
 
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
-    type: Any
+    type: NotRequired[Any]
     renderedValue: NotRequired[Any]
 
 
 class BaseCodeSectionImplArgs(BaseSectionImplArgs):
-    type: Any
+    type: NotRequired[Any]
     code: NotRequired[str]
 
 
 class BaseParentSectionImplArgs(BaseSectionImplArgs):
-    type: Any
+    type: NotRequired[Any]
     children: NotRequired[list[str]]
 
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
-    type: Any
+    type: NotRequired[Any]
     topLevelParamIds: NotRequired[list[str]]
     isJsonSource: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
@@ -79,44 +79,44 @@ class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
 
 
 class CallableSectionImplArgs(BaseSectionWithParamsImplArgs):
-    type: Literal[SectionType.Callable]
+    type: NotRequired[Literal[SectionType.Callable]]
     callable: NotRequired[str | None]
     hideParams: NotRequired[bool]
 
 
 class DictSectionImplArgs(BaseDictSectionImplArgs):
-    type: Literal[SectionType.Dict]
+    type: NotRequired[Literal[SectionType.Dict]]
 
 
 class ListRootSectionImplArgs(BaseParentSectionImplArgs):
-    type: Literal[SectionType.ListRoot]
+    type: NotRequired[Literal[SectionType.ListRoot]]
 
 
 class DictRootSectionImplArgs(BaseParentSectionImplArgs):
-    type: Literal[SectionType.DictRoot]
+    type: NotRequired[Literal[SectionType.DictRoot]]
 
 
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
-    type: Literal[SectionType.Group]
+    type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]
 
 
 class ImageSectionImplArgs(BaseArtifactSectionImplArgs):
-    type: Literal[SectionType.Image]
+    type: NotRequired[Literal[SectionType.Image]]
 
 
 class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
-    type: Literal[SectionType.Chart]
+    type: NotRequired[Literal[SectionType.Chart]]
     chartSettings: NotRequired[ChartSettings]
 
 
 class DrawSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
-    type: Literal[SectionType.Draw]
+    type: NotRequired[Literal[SectionType.Draw]]
     canvasSettings: NotRequired[DrawAreaCanvasSettings]
 
 
 class TextBlockSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.TextBlock]
+    type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
     headingAsSectionName: NotRequired[bool]
     displayMode: NotRequired[TextBlockDisplayMode]
@@ -124,42 +124,42 @@ class TextBlockSectionImplArgs(BaseSectionImplArgs):
 
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.Social]
+    type: NotRequired[Literal[SectionType.Social]]
     social: NotRequired[str]
 
 
 class GlobalVariablesSectionImplArgs(BaseDictSectionImplArgs):
-    type: Literal[SectionType.GlobalVariables]
+    type: NotRequired[Literal[SectionType.GlobalVariables]]
 
 
 class CodeSectionImplArgs(BaseCodeSectionImplArgs):
-    type: Literal[SectionType.Code]
+    type: NotRequired[Literal[SectionType.Code]]
     codeLanguage: NotRequired[CodeLanguage]
 
 
 class GenPythonCodeSectionImplArgs(BaseCodeSectionImplArgs):
-    type: Literal[SectionType.GenPythonCode]
+    type: NotRequired[Literal[SectionType.GenPythonCode]]
 
 
 class TerminalSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.Terminal]
+    type: NotRequired[Literal[SectionType.Terminal]]
 
 
 class IFrameSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.IFrame]
+    type: NotRequired[Literal[SectionType.IFrame]]
 
 
 class ChatSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.Chat]
+    type: NotRequired[Literal[SectionType.Chat]]
 
 
 class BrowserSectionImplArgs(BaseSectionImplArgs):
-    type: Literal[SectionType.Browser]
+    type: NotRequired[Literal[SectionType.Browser]]
     hideColumn: NotRequired[bool]
 
 
 class BaseCodeObjImplArgs(TypedDict):
-    type: Any
+    type: NotRequired[Any]
     id: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
@@ -167,59 +167,59 @@ class BaseCodeObjImplArgs(TypedDict):
 
 
 class BaseParamCodeObjImplArgs(BaseCodeObjImplArgs):
-    type: Any
+    type: NotRequired[Any]
     coreNameType: NotRequired[ParamNameType]
     coreNameEditable: NotRequired[bool]
     passingStyle: NotRequired[ParameterPassingStyle]
 
 
 class BaseChildlessCodeObjImplArgs(BaseParamCodeObjImplArgs):
-    type: Any
+    type: NotRequired[Any]
     defaultVal: NotRequired[str]
     value: NotRequired[str]
 
 
 class BaseParentCodeObjImplArgs(BaseCodeObjImplArgs):
-    type: Any
+    type: NotRequired[Any]
     children: NotRequired[list[str]]
 
 
 class CodeCallableCodeObjImplArgs(BaseParentCodeObjImplArgs):
-    type: Literal[CodeObjType.CodeCallable]
+    type: NotRequired[Literal[CodeObjType.CodeCallable]]
 
 
 class CodeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.CodeParam]
+    type: NotRequired[Literal[CodeObjType.CodeParam]]
 
 
 class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.TextParam]
+    type: NotRequired[Literal[CodeObjType.TextParam]]
 
 
 class SliderParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.SliderParam]
+    type: NotRequired[Literal[CodeObjType.SliderParam]]
     min: NotRequired[int]
     max: NotRequired[int]
     step: NotRequired[int]
 
 
 class SwitchParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.SwitchParam]
+    type: NotRequired[Literal[CodeObjType.SwitchParam]]
 
 
 class ColorPickerParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.ColorPickerParam]
+    type: NotRequired[Literal[CodeObjType.ColorPickerParam]]
     choices: NotRequired[list[ColorPickerChoice]]
 
 
 class DropdownParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.DropdownParam]
+    type: NotRequired[Literal[CodeObjType.DropdownParam]]
     choices: NotRequired[list[str]]
 
 
 class PasswordParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: Literal[CodeObjType.PasswordParam]
+    type: NotRequired[Literal[CodeObjType.PasswordParam]]
 
 
 class NestedParamCodeObjImplArgs(BaseParamCodeObjImplArgs, BaseParentCodeObjImplArgs):
-    type: Literal[CodeObjType.NestedParam]
+    type: NotRequired[Literal[CodeObjType.NestedParam]]
