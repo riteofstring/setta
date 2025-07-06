@@ -48,7 +48,7 @@ def get_union_types(union_obj):
     return set(get_args(union_obj))
 
 
-def sort_unions_by_specificity(union_data, debug=True):
+def sort_unions_by_specificity(union_data, debug=False):
     """Sort unions from most specific (smallest) to most general (largest).
 
     union_data: list of tuples (name, union_object)
