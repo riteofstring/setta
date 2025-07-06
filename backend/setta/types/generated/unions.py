@@ -1,6 +1,7 @@
 from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
@@ -147,6 +148,7 @@ BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
@@ -269,6 +271,7 @@ BaseParentCodeObjImplTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.cores import (
     BrowserSectionCore,
     CallableSectionCore,
@@ -415,6 +418,7 @@ BaseDictSectionCoreTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.cores import (
     CodeCallableCodeObjCore,
     CodeParamCodeObjCore,
@@ -537,6 +541,7 @@ BaseParentCodeObjCoreTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.layerings import (
     BrowserSectionLayering,
     CallableSectionLayering,
@@ -689,6 +694,7 @@ BaseDictSectionLayeringTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.layerings import (
     CodeCallableCodeObjLayering,
     CodeParamCodeObjLayering,
@@ -813,6 +819,7 @@ BaseParentCodeObjLayeringTypeSet = set(["CodeCallable", "NestedParam"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.modifiers import (
     BaseArtifactSectionModifier,
     BaseCanvasSectionModifier,
@@ -972,6 +979,7 @@ BaseDictSectionModifierTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.generated.modifiers import (
     BaseChildlessCodeObjModifier,
     BaseCodeObjModifier,
@@ -1162,6 +1170,7 @@ def isBaseParentCodeObjModifier(
 from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllDependencies,

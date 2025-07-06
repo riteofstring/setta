@@ -2,7 +2,7 @@ from pathlib import Path
 
 from setta.utils.utils import get_absolute_path
 
-from .utils import get_impl_classes
+from .utils import get_impl_classes, get_impl_unions
 
 
 def generate_get_effective_impl_overload(
@@ -33,13 +33,25 @@ def set_effective_impl_value(
 ) -> {impl_name}: ..."""
 
 
+# returns impl, core, and layering names
+def get_union_names(u):
+    return (
+        u,
+        u.replace("Impl", "Core"),
+        u.replace("Impl", "Layering"),
+    )
+
+
 def generate_effective_impl_overloads():
     """Generate overloaded effective impl functions."""
     classes = get_impl_classes()
+    classes = {k: v for k, v in classes.items() if v.type_has_default}
+    unions = get_impl_unions("SectionImpl") + get_impl_unions("CodeObjImpl")
     section_impl_imports = []
     code_obj_impl_imports = []
     core_imports = []
     layering_imports = []
+    union_imports = []
     for cls in classes.values():
         if cls.is_section_impl:
             section_impl_imports.append(cls.original_name)
@@ -47,6 +59,8 @@ def generate_effective_impl_overloads():
             code_obj_impl_imports.append(cls.original_name)
         core_imports.append(cls.core_name)
         layering_imports.append(cls.layering_name)
+    for u in unions:
+        union_imports.extend(get_union_names(u))
 
     # Generate imports using triple quotes
     imports = f"""# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
@@ -66,6 +80,9 @@ from setta.types.generated.cores import (
 from setta.types.generated.layerings import (
     {", ".join(layering_imports)}
 )
+from setta.types.generated.unions import (
+    {", ".join(union_imports)}
+)
 """
 
     # TypeVar definition
@@ -74,9 +91,9 @@ TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
 
 
 def apply_modifier(
-    impl: TImpl, core: BaseSectionCore | BaseCodeObjCore, layering: BaseSectionLayering | BaseCodeObjLayering
+    impl: TImpl, core: BaseSectionCoreUnion | BaseCodeObjCoreUnion, layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion
 ) -> TImpl:
-    return impl.model_copy(update={**core.shared_modifier, **layering.modifier}, deep=True)
+    return impl.model_copy(update={**core.sharedModifier, **layering.modifier}, deep=True)
 """
 
     get_overloads_list = []
@@ -86,16 +103,22 @@ def apply_modifier(
                 cls.original_name, cls.core_name, cls.layering_name
             )
         )
-    get_overloads_list.reverse()
     get_overloads_specific = "".join(get_overloads_list)
+
+    get_overloads_list = []
+    for u in unions:
+        get_overloads_list.append(
+            generate_get_effective_impl_overload(*get_union_names(u))
+        )
+    get_overloads_unions = "".join(get_overloads_list)
 
     # implementation
     get_impl = """
 def get_effective_impl(
-    impl: BaseSectionImpl | BaseCodeObjImpl,
-    core: BaseSectionCore | BaseCodeObjCore,
-    layering: BaseSectionLayering | BaseCodeObjLayering,
-) -> BaseSectionImpl | BaseCodeObjImpl,
+    impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
+    core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
+    layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
+) -> BaseSectionImplUnion | BaseCodeObjImplUnion,
     return apply_modifier(impl, core, layering)
 """
 
@@ -109,17 +132,24 @@ def get_effective_impl(
                 cls.impl_fields_name,
             )
         )
-    set_overloads_list.reverse()
     set_overloads_specific = "".join(set_overloads_list)
+
+    set_overloads_list = []
+    for u in unions:
+        set_overloads_list.append(
+            generate_set_effective_impl_value_overload(*get_union_names(u), "")
+        )
+    set_overloads_unions = "".join(set_overloads_list)
+
     set_impl = """
 
 def set_effective_impl_value(
-    impl: BaseSectionImpl | BaseCodeObjImpl,
-    core: BaseSectionCore | BaseCodeObjCore,
-    layering: BaseSectionLayering | BaseCodeObjLayering,
+    impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
+    core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
+    layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
     key: str,
     value: Any,
-) -> BaseSectionImpl | BaseCodeObjImpl,
+) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     \"\"\"Set a value in the effective implementation.
     
     The value is set in the appropriate location based on:
@@ -144,8 +174,10 @@ def set_effective_impl_value(
         imports
         + type_var_def
         + get_overloads_specific
+        + get_overloads_unions
         + get_impl
         + set_overloads_specific
+        + set_overloads_unions
         + set_impl
     )
 

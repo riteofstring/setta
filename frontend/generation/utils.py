@@ -1,8 +1,8 @@
-from collections import defaultdict
 import inspect
 import os
 import subprocess
 import types
+from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import dataclass
 from enum import Enum
@@ -408,3 +408,24 @@ def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args_types_
 """
 
     return code
+
+
+def get_impl_unions(name_filter):
+    import setta.types.generated.unions
+
+    unions = []
+
+    for name in dir(setta.types.generated.unions):
+        if name.startswith("_"):
+            continue
+
+        if name_filter not in name:
+            continue
+
+        attr = getattr(setta.types.generated.unions, name)
+
+        origin = get_origin(attr)
+        if origin is Union:
+            unions.append(name)
+
+    return unions

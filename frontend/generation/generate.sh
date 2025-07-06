@@ -14,6 +14,6 @@ python -m generation.generate_effective_impls && \
 # python -m generation.convert_pydantic_to_js && \
 # python -m generation.convert_constants_to_js && \
 # python -m generation.convert_endpoints && \
-# cd .. && \
-# ./format_code.sh
+cd .. && \
+./format_code.sh
 echo "Done!"
