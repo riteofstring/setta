@@ -151,7 +151,7 @@ class DictSectionCore(BaseDictSectionCore):
     )
 
     unsharedKeys: list[DictSectionImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["codeObjImplLayeringMap", "topLevelParamIds"]
+        default_factory=lambda: []
     )
 
 
@@ -366,7 +366,7 @@ class CodeParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[CodeParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -377,7 +377,7 @@ class TextParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[TextParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -388,7 +388,7 @@ class SliderParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[SliderParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -399,7 +399,7 @@ class SwitchParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[SwitchParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -410,7 +410,7 @@ class ColorPickerParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[ColorPickerParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -421,7 +421,7 @@ class DropdownParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[DropdownParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
@@ -432,7 +432,7 @@ class PasswordParamCodeObjCore(BaseChildlessCodeObjCore):
     )
 
     unsharedKeys: list[PasswordParamCodeObjImplFields] = Field(  # type: ignore[override]
-        default_factory=lambda: ["value"]
+        default_factory=lambda: []
     )
 
 
