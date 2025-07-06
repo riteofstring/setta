@@ -1,31 +1,142 @@
 # Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import overload, Any, TypeVar
+from typing import Any, TypeVar, overload
 
-from setta.types.section_impls import (
-    CallableSectionImpl, DictSectionImpl, ListRootSectionImpl, DictRootSectionImpl, GroupSectionImpl, ImageSectionImpl, ChartSectionImpl, DrawSectionImpl, TextBlockSectionImpl, SocialSectionImpl, GlobalVariablesSectionImpl, CodeSectionImpl, GenPythonCodeSectionImpl, TerminalSectionImpl, IFrameSectionImpl, ChatSectionImpl, BrowserSectionImpl
-)
 from setta.types.code_obj_impls import (
-    CodeCallableCodeObjImpl, CodeParamCodeObjImpl, TextParamCodeObjImpl, SliderParamCodeObjImpl, SwitchParamCodeObjImpl, ColorPickerParamCodeObjImpl, DropdownParamCodeObjImpl, PasswordParamCodeObjImpl, NestedParamCodeObjImpl
+    CodeCallableCodeObjImpl,
+    CodeParamCodeObjImpl,
+    ColorPickerParamCodeObjImpl,
+    DropdownParamCodeObjImpl,
+    NestedParamCodeObjImpl,
+    PasswordParamCodeObjImpl,
+    SliderParamCodeObjImpl,
+    SwitchParamCodeObjImpl,
+    TextParamCodeObjImpl,
 )
 from setta.types.generated.cores import (
-    CallableSectionCore, DictSectionCore, ListRootSectionCore, DictRootSectionCore, GroupSectionCore, ImageSectionCore, ChartSectionCore, DrawSectionCore, TextBlockSectionCore, SocialSectionCore, GlobalVariablesSectionCore, CodeSectionCore, GenPythonCodeSectionCore, TerminalSectionCore, IFrameSectionCore, ChatSectionCore, BrowserSectionCore, CodeCallableCodeObjCore, CodeParamCodeObjCore, TextParamCodeObjCore, SliderParamCodeObjCore, SwitchParamCodeObjCore, ColorPickerParamCodeObjCore, DropdownParamCodeObjCore, PasswordParamCodeObjCore, NestedParamCodeObjCore
+    BrowserSectionCore,
+    CallableSectionCore,
+    ChartSectionCore,
+    ChatSectionCore,
+    CodeCallableCodeObjCore,
+    CodeParamCodeObjCore,
+    CodeSectionCore,
+    ColorPickerParamCodeObjCore,
+    DictRootSectionCore,
+    DictSectionCore,
+    DrawSectionCore,
+    DropdownParamCodeObjCore,
+    GenPythonCodeSectionCore,
+    GlobalVariablesSectionCore,
+    GroupSectionCore,
+    IFrameSectionCore,
+    ImageSectionCore,
+    ListRootSectionCore,
+    NestedParamCodeObjCore,
+    PasswordParamCodeObjCore,
+    SliderParamCodeObjCore,
+    SocialSectionCore,
+    SwitchParamCodeObjCore,
+    TerminalSectionCore,
+    TextBlockSectionCore,
+    TextParamCodeObjCore,
 )
 from setta.types.generated.layerings import (
-    CallableSectionLayering, DictSectionLayering, ListRootSectionLayering, DictRootSectionLayering, GroupSectionLayering, ImageSectionLayering, ChartSectionLayering, DrawSectionLayering, TextBlockSectionLayering, SocialSectionLayering, GlobalVariablesSectionLayering, CodeSectionLayering, GenPythonCodeSectionLayering, TerminalSectionLayering, IFrameSectionLayering, ChatSectionLayering, BrowserSectionLayering, CodeCallableCodeObjLayering, CodeParamCodeObjLayering, TextParamCodeObjLayering, SliderParamCodeObjLayering, SwitchParamCodeObjLayering, ColorPickerParamCodeObjLayering, DropdownParamCodeObjLayering, PasswordParamCodeObjLayering, NestedParamCodeObjLayering
+    BrowserSectionLayering,
+    CallableSectionLayering,
+    ChartSectionLayering,
+    ChatSectionLayering,
+    CodeCallableCodeObjLayering,
+    CodeParamCodeObjLayering,
+    CodeSectionLayering,
+    ColorPickerParamCodeObjLayering,
+    DictRootSectionLayering,
+    DictSectionLayering,
+    DrawSectionLayering,
+    DropdownParamCodeObjLayering,
+    GenPythonCodeSectionLayering,
+    GlobalVariablesSectionLayering,
+    GroupSectionLayering,
+    IFrameSectionLayering,
+    ImageSectionLayering,
+    ListRootSectionLayering,
+    NestedParamCodeObjLayering,
+    PasswordParamCodeObjLayering,
+    SliderParamCodeObjLayering,
+    SocialSectionLayering,
+    SwitchParamCodeObjLayering,
+    TerminalSectionLayering,
+    TextBlockSectionLayering,
+    TextParamCodeObjLayering,
 )
 from setta.types.generated.unions import (
-    BaseArtifactSectionImplUnion, BaseArtifactSectionCoreUnion, BaseArtifactSectionLayeringUnion, BaseCanvasSectionImplUnion, BaseCanvasSectionCoreUnion, BaseCanvasSectionLayeringUnion, BaseCodeSectionImplUnion, BaseCodeSectionCoreUnion, BaseCodeSectionLayeringUnion, BaseDictSectionImplUnion, BaseDictSectionCoreUnion, BaseDictSectionLayeringUnion, BaseParentSectionImplUnion, BaseParentSectionCoreUnion, BaseParentSectionLayeringUnion, BaseSectionImplUnion, BaseSectionCoreUnion, BaseSectionLayeringUnion, BaseChildlessCodeObjImplUnion, BaseChildlessCodeObjCoreUnion, BaseChildlessCodeObjLayeringUnion, BaseCodeObjImplUnion, BaseCodeObjCoreUnion, BaseCodeObjLayeringUnion, BaseParamCodeObjImplUnion, BaseParamCodeObjCoreUnion, BaseParamCodeObjLayeringUnion, BaseParentCodeObjImplUnion, BaseParentCodeObjCoreUnion, BaseParentCodeObjLayeringUnion
+    BaseArtifactSectionCoreUnion,
+    BaseArtifactSectionImplUnion,
+    BaseArtifactSectionLayeringUnion,
+    BaseCanvasSectionCoreUnion,
+    BaseCanvasSectionImplUnion,
+    BaseCanvasSectionLayeringUnion,
+    BaseChildlessCodeObjCoreUnion,
+    BaseChildlessCodeObjImplUnion,
+    BaseChildlessCodeObjLayeringUnion,
+    BaseCodeObjCoreUnion,
+    BaseCodeObjImplUnion,
+    BaseCodeObjLayeringUnion,
+    BaseCodeSectionCoreUnion,
+    BaseCodeSectionImplUnion,
+    BaseCodeSectionLayeringUnion,
+    BaseDictSectionCoreUnion,
+    BaseDictSectionImplUnion,
+    BaseDictSectionLayeringUnion,
+    BaseParamCodeObjCoreUnion,
+    BaseParamCodeObjImplUnion,
+    BaseParamCodeObjLayeringUnion,
+    BaseParentCodeObjCoreUnion,
+    BaseParentCodeObjImplUnion,
+    BaseParentCodeObjLayeringUnion,
+    BaseParentSectionCoreUnion,
+    BaseParentSectionImplUnion,
+    BaseParentSectionLayeringUnion,
+    BaseSectionCoreUnion,
+    BaseSectionImplUnion,
+    BaseSectionLayeringUnion,
+    BaseSectionWithParamsCoreUnion,
+    BaseSectionWithParamsImplUnion,
+    BaseSectionWithParamsLayeringUnion,
+)
+from setta.types.section_impls import (
+    BrowserSectionImpl,
+    CallableSectionImpl,
+    ChartSectionImpl,
+    ChatSectionImpl,
+    CodeSectionImpl,
+    DictRootSectionImpl,
+    DictSectionImpl,
+    DrawSectionImpl,
+    GenPythonCodeSectionImpl,
+    GlobalVariablesSectionImpl,
+    GroupSectionImpl,
+    IFrameSectionImpl,
+    ImageSectionImpl,
+    ListRootSectionImpl,
+    SocialSectionImpl,
+    TerminalSectionImpl,
+    TextBlockSectionImpl,
 )
 
 TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
 
 
 def apply_modifier(
-    impl: TImpl, core: BaseSectionCoreUnion | BaseCodeObjCoreUnion, layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion
+    impl: TImpl,
+    core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
+    layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
 ) -> TImpl:
-    return impl.model_copy(update={**core.sharedModifier, **layering.modifier}, deep=True)
+    return impl.model_copy(
+        update={**core.sharedModifier, **layering.modifier}, deep=True
+    )
+
 
 @overload
 def get_effective_impl(
@@ -185,12 +296,6 @@ def get_effective_impl(
 ) -> NestedParamCodeObjImpl: ...
 @overload
 def get_effective_impl(
-    impl: BaseArtifactSectionImplUnion,
-    core: BaseArtifactSectionCoreUnion,
-    layering: BaseArtifactSectionLayeringUnion,
-) -> BaseArtifactSectionImplUnion: ...
-@overload
-def get_effective_impl(
     impl: BaseCanvasSectionImplUnion,
     core: BaseCanvasSectionCoreUnion,
     layering: BaseCanvasSectionLayeringUnion,
@@ -209,16 +314,28 @@ def get_effective_impl(
 ) -> BaseDictSectionImplUnion: ...
 @overload
 def get_effective_impl(
+    impl: BaseParentCodeObjImplUnion,
+    core: BaseParentCodeObjCoreUnion,
+    layering: BaseParentCodeObjLayeringUnion,
+) -> BaseParentCodeObjImplUnion: ...
+@overload
+def get_effective_impl(
+    impl: BaseArtifactSectionImplUnion,
+    core: BaseArtifactSectionCoreUnion,
+    layering: BaseArtifactSectionLayeringUnion,
+) -> BaseArtifactSectionImplUnion: ...
+@overload
+def get_effective_impl(
     impl: BaseParentSectionImplUnion,
     core: BaseParentSectionCoreUnion,
     layering: BaseParentSectionLayeringUnion,
 ) -> BaseParentSectionImplUnion: ...
 @overload
 def get_effective_impl(
-    impl: BaseSectionImplUnion,
-    core: BaseSectionCoreUnion,
-    layering: BaseSectionLayeringUnion,
-) -> BaseSectionImplUnion: ...
+    impl: BaseSectionWithParamsImplUnion,
+    core: BaseSectionWithParamsCoreUnion,
+    layering: BaseSectionWithParamsLayeringUnion,
+) -> BaseSectionWithParamsImplUnion: ...
 @overload
 def get_effective_impl(
     impl: BaseChildlessCodeObjImplUnion,
@@ -227,28 +344,29 @@ def get_effective_impl(
 ) -> BaseChildlessCodeObjImplUnion: ...
 @overload
 def get_effective_impl(
-    impl: BaseCodeObjImplUnion,
-    core: BaseCodeObjCoreUnion,
-    layering: BaseCodeObjLayeringUnion,
-) -> BaseCodeObjImplUnion: ...
-@overload
-def get_effective_impl(
     impl: BaseParamCodeObjImplUnion,
     core: BaseParamCodeObjCoreUnion,
     layering: BaseParamCodeObjLayeringUnion,
 ) -> BaseParamCodeObjImplUnion: ...
 @overload
 def get_effective_impl(
-    impl: BaseParentCodeObjImplUnion,
-    core: BaseParentCodeObjCoreUnion,
-    layering: BaseParentCodeObjLayeringUnion,
-) -> BaseParentCodeObjImplUnion: ...
+    impl: BaseCodeObjImplUnion,
+    core: BaseCodeObjCoreUnion,
+    layering: BaseCodeObjLayeringUnion,
+) -> BaseCodeObjImplUnion: ...
+@overload
+def get_effective_impl(
+    impl: BaseSectionImplUnion,
+    core: BaseSectionCoreUnion,
+    layering: BaseSectionLayeringUnion,
+) -> BaseSectionImplUnion: ...
 def get_effective_impl(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
     layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
-) -> BaseSectionImplUnion | BaseCodeObjImplUnion,
+) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     return apply_modifier(impl, core, layering)
+
 
 @overload
 def set_effective_impl_value(
@@ -460,14 +578,6 @@ def set_effective_impl_value(
 ) -> NestedParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseArtifactSectionImplUnion,
-    core: BaseArtifactSectionCoreUnion,
-    layering: BaseArtifactSectionLayeringUnion,
-    key: str,
-    value: Any,
-) -> BaseArtifactSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
     impl: BaseCanvasSectionImplUnion,
     core: BaseCanvasSectionCoreUnion,
     layering: BaseCanvasSectionLayeringUnion,
@@ -492,6 +602,22 @@ def set_effective_impl_value(
 ) -> BaseDictSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseParentCodeObjImplUnion,
+    core: BaseParentCodeObjCoreUnion,
+    layering: BaseParentCodeObjLayeringUnion,
+    key: str,
+    value: Any,
+) -> BaseParentCodeObjImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseArtifactSectionImplUnion,
+    core: BaseArtifactSectionCoreUnion,
+    layering: BaseArtifactSectionLayeringUnion,
+    key: str,
+    value: Any,
+) -> BaseArtifactSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,
     core: BaseParentSectionCoreUnion,
     layering: BaseParentSectionLayeringUnion,
@@ -500,12 +626,12 @@ def set_effective_impl_value(
 ) -> BaseParentSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseSectionImplUnion,
-    core: BaseSectionCoreUnion,
-    layering: BaseSectionLayeringUnion,
+    impl: BaseSectionWithParamsImplUnion,
+    core: BaseSectionWithParamsCoreUnion,
+    layering: BaseSectionWithParamsLayeringUnion,
     key: str,
     value: Any,
-) -> BaseSectionImplUnion: ...
+) -> BaseSectionWithParamsImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseChildlessCodeObjImplUnion,
@@ -516,14 +642,6 @@ def set_effective_impl_value(
 ) -> BaseChildlessCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseCodeObjImplUnion,
-    core: BaseCodeObjCoreUnion,
-    layering: BaseCodeObjLayeringUnion,
-    key: str,
-    value: Any,
-) -> BaseCodeObjImplUnion: ...
-@overload
-def set_effective_impl_value(
     impl: BaseParamCodeObjImplUnion,
     core: BaseParamCodeObjCoreUnion,
     layering: BaseParamCodeObjLayeringUnion,
@@ -532,13 +650,20 @@ def set_effective_impl_value(
 ) -> BaseParamCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseParentCodeObjImplUnion,
-    core: BaseParentCodeObjCoreUnion,
-    layering: BaseParentCodeObjLayeringUnion,
+    impl: BaseCodeObjImplUnion,
+    core: BaseCodeObjCoreUnion,
+    layering: BaseCodeObjLayeringUnion,
     key: str,
     value: Any,
-) -> BaseParentCodeObjImplUnion: ...
-
+) -> BaseCodeObjImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseSectionImplUnion,
+    core: BaseSectionCoreUnion,
+    layering: BaseSectionLayeringUnion,
+    key: str,
+    value: Any,
+) -> BaseSectionImplUnion: ...
 def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
@@ -547,12 +672,12 @@ def set_effective_impl_value(
     value: Any,
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     """Set a value in the effective implementation.
-    
+
     The value is set in the appropriate location based on:
     - If impl is not a preset: directly on the impl
     - If key is in unsharedKeys: in the modifier
     - Otherwise: in the core's sharedModifier
-    
+
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     """
