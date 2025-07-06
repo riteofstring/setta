@@ -11,27 +11,17 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.code_obj_type_unions import (
-    BaseCodeObjImplUnion,
-)
-from setta.types.generated.impl_layerings import (
-    BaseCodeObjImplLayering,
-    BaseSectionImplLayering,
-    DictSectionImplLayering,
-)
-from setta.types.generated.section_core_unions import BaseSectionCoreUnion
-from setta.types.generated.section_type_unions import (
-    BaseSectionImplUnion,
+from setta.types.generated.layerings import (
+    DictSectionLayering,
 )
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.type_to_core import (
-    create_core_for_code_obj_type,
-    create_core_for_section_type,
-)
-from setta.types.generated.type_to_modifier import (
-    create_modifier_for_code_obj_type,
-    create_modifier_for_section_type,
+from setta.types.generated.unions import (
+    BaseCodeObjCoreUnion,
+    BaseCodeObjImplUnion,
+    BaseCodeObjLayeringUnion,
+    BaseSectionCoreUnion,
+    BaseSectionImplUnion,
+    BaseSectionLayeringUnion,
 )
 from setta.types.project_state import (
     ProjectConfig,
@@ -56,7 +46,7 @@ def add_code_obj_details(
     codeObjImpl: BaseCodeObjImplUnion,
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering],
+    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
 ):
     codeObjImplLayering = CodeObjImplLayering(
         impl=codeObjImpl.id,
@@ -79,7 +69,7 @@ def process_model_fields(
     model_class: type[BaseModel],
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering],
+    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
 ):
     child_ids: list[str] = []
     codeObjImplLayeringMap: dict[str, str] = {}
@@ -124,7 +114,7 @@ def create_settings_code_objs(section_names):
     sectionToTopLevelIds: dict[str, list[str]] = {}
     codeObjs: dict[str, BaseCodeObjCoreUnion] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
-    codeObjImplLayerings: dict[str, BaseCodeObjImplLayering] = {}
+    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion] = {}
     codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
 
     for s in section_names:
@@ -161,7 +151,7 @@ def create_settings_project_state(settings_path: Path):
 
     sections: dict[str, BaseSectionCoreUnion] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
-    sectionImplLayerings: dict[str, BaseSectionImplLayering] = {}
+    sectionImplLayerings: dict[str, BaseSectionLayeringUnion] = {}
     sectionImplLayeringMap: dict[str, str] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
@@ -172,7 +162,7 @@ def create_settings_project_state(settings_path: Path):
             codeObjImplLayeringMap=codeObjImplLayeringMaps[k],
             topLevelParamIds=sectionToTopLevelIds[k],
         )
-        sectionImplLayering = DictSectionImplLayering(
+        sectionImplLayering = DictSectionLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
             modifier=create_modifier_for_section_type(sectionImpl.type),

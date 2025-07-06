@@ -6,7 +6,7 @@ from pathlib import Path
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
-from setta.types.generated.impl_helpers import get_effective_impl
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers import get_section_impl_layering
 from setta.types.project_state import (
