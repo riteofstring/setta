@@ -75,7 +75,7 @@ def main(output_file: Path):
     code = generate_settings_state()
     formatted = ruff_format(code)
     output_file.write_text(formatted)
-    print(f"Generated SettingsState class in {output_file}")
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

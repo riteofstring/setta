@@ -168,6 +168,7 @@ def generate_websocket_unions(output_file: Path):
     code = existing_code + code  # type: ignore
     code = ruff_format(code)
     output_file.write_text(code)
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

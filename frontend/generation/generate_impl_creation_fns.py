@@ -73,7 +73,7 @@ def main(output_folder: Path):
     code = ruff_format(code)
     output_file = output_folder / "impl_creation_fns.py"
     output_file.write_text(code)
-    print(f"Generated creation functions in {output_file}")
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

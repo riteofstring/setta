@@ -92,6 +92,7 @@ from setta.types.code_obj_impls import (
     code += get_creation_fns(classes, "modifier")
     code = ruff_format(code)
     output_file.write_text(code)
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

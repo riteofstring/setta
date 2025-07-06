@@ -221,7 +221,7 @@ from setta.types.code_obj_impls import (
     # Write output
     output_file = output_folder / "user_defaults.py"
     output_file.write_text(formatted)
-    print(f"Generated UserDefault classes in {output_file}")
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":

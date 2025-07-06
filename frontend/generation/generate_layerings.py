@@ -68,6 +68,7 @@ from setta.types.generated.modifiers import {", ".join(modifier_names)}
 
     code = ruff_format(code)
     output_file.write_text(code)
+    print(f"wrote to {output_file}")
 
 
 if __name__ == "__main__":
