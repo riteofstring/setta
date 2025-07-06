@@ -44,7 +44,6 @@ class SettingsState(BaseModel, extra="forbid"):
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
     languageServer: dict = Field(default_factory=dict)  # TODO: make a model for this?
 
-    # Section defaults
     browserSectionDefault: UserDefaultBrowserSectionImpl = Field(
         default_factory=UserDefaultBrowserSectionImpl
     )
@@ -60,11 +59,11 @@ class SettingsState(BaseModel, extra="forbid"):
     codeSectionDefault: UserDefaultCodeSectionImpl = Field(
         default_factory=UserDefaultCodeSectionImpl
     )
-    dictSectionDefault: UserDefaultDictSectionImpl = Field(
-        default_factory=UserDefaultDictSectionImpl
-    )
     dictRootSectionDefault: UserDefaultDictRootSectionImpl = Field(
         default_factory=UserDefaultDictRootSectionImpl
+    )
+    dictSectionDefault: UserDefaultDictSectionImpl = Field(
+        default_factory=UserDefaultDictSectionImpl
     )
     drawSectionDefault: UserDefaultDrawSectionImpl = Field(
         default_factory=UserDefaultDrawSectionImpl
@@ -96,32 +95,30 @@ class SettingsState(BaseModel, extra="forbid"):
     textBlockSectionDefault: UserDefaultTextBlockSectionImpl = Field(
         default_factory=UserDefaultTextBlockSectionImpl
     )
-
-    # Code object defaults
-    codeCallableDefault: UserDefaultCodeCallableCodeObjImpl = Field(
+    codeCallableCodeObjDefault: UserDefaultCodeCallableCodeObjImpl = Field(
         default_factory=UserDefaultCodeCallableCodeObjImpl
     )
-    codeParamDefault: UserDefaultCodeParamCodeObjImpl = Field(
+    codeParamCodeObjDefault: UserDefaultCodeParamCodeObjImpl = Field(
         default_factory=UserDefaultCodeParamCodeObjImpl
     )
-    colorPickerParamDefault: UserDefaultColorPickerParamCodeObjImpl = Field(
+    colorPickerParamCodeObjDefault: UserDefaultColorPickerParamCodeObjImpl = Field(
         default_factory=UserDefaultColorPickerParamCodeObjImpl
     )
-    dropdownParamDefault: UserDefaultDropdownParamCodeObjImpl = Field(
+    dropdownParamCodeObjDefault: UserDefaultDropdownParamCodeObjImpl = Field(
         default_factory=UserDefaultDropdownParamCodeObjImpl
     )
-    nestedParamDefault: UserDefaultNestedParamCodeObjImpl = Field(
+    nestedParamCodeObjDefault: UserDefaultNestedParamCodeObjImpl = Field(
         default_factory=UserDefaultNestedParamCodeObjImpl
     )
-    passwordParamDefault: UserDefaultPasswordParamCodeObjImpl = Field(
+    passwordParamCodeObjDefault: UserDefaultPasswordParamCodeObjImpl = Field(
         default_factory=UserDefaultPasswordParamCodeObjImpl
     )
-    sliderParamDefault: UserDefaultSliderParamCodeObjImpl = Field(
+    sliderParamCodeObjDefault: UserDefaultSliderParamCodeObjImpl = Field(
         default_factory=UserDefaultSliderParamCodeObjImpl
     )
-    switchParamDefault: UserDefaultSwitchParamCodeObjImpl = Field(
+    switchParamCodeObjDefault: UserDefaultSwitchParamCodeObjImpl = Field(
         default_factory=UserDefaultSwitchParamCodeObjImpl
     )
-    textParamDefault: UserDefaultTextParamCodeObjImpl = Field(
+    textParamCodeObjDefault: UserDefaultTextParamCodeObjImpl = Field(
         default_factory=UserDefaultTextParamCodeObjImpl
     )

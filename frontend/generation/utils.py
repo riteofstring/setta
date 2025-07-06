@@ -241,7 +241,11 @@ class ImplClassInfoForGeneration:
 
     @property
     def type_value(self):
-        return f"{self.type_field.default.__class__.__name__}.{self.type_field.default.value}"
+        return self.type_field.default.value
+
+    @property
+    def type_full_enum_name(self):
+        return f"{self.type_field.default.__class__.__name__}.{self.type_value}"
 
     @property
     def type_has_default(self):
@@ -254,7 +258,7 @@ class ImplClassInfoForGeneration:
     @property
     def type_type_annotation_and_value(self):
         if self.type_has_default:
-            return f"{self.type_type_annotation} = {self.type_value}"
+            return f"{self.type_type_annotation} = {self.type_full_enum_name}"
         return self.type_type_annotation
 
     @property
@@ -262,7 +266,7 @@ class ImplClassInfoForGeneration:
         modifier = self.modifier_name
         if self.type_has_default:
             modifier = f"""{modifier} = Field( # type: ignore[override]
-    default_factory = lambda: create_modifier({self.type_value})
+    default_factory = lambda: create_modifier({self.type_full_enum_name})
 )
 """
         else:
@@ -348,7 +352,7 @@ def get_creation_fns(
     for c in classes.values():
         if not c.type_has_default:
             continue
-        cases[c.type_value] = getattr(c, f"{fn_type}_name")
+        cases[c.type_full_enum_name] = getattr(c, f"{fn_type}_name")
         code += f"""
 @overload
 def create_{fn_type}(type: {c.type_type_annotation}, {additional_args_types_str}) -> {getattr(c, f"{fn_type}_name")}:
