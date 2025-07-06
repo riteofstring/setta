@@ -213,10 +213,8 @@ def get_parent_classes_up_to_base_model(x):
     return output
 
 
-def main(output_folder):
-    generate_modifiers(output_folder / "modifiers.py", classes)
-    generate_unions(output_folder / "unions.py")
-
-
 if __name__ == "__main__":
-    main(get_absolute_path(__file__, Path("../../backend/setta/types/generated")))
+    generate_unions(
+        get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+        / "unions.py"
+    )
