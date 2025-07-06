@@ -219,6 +219,10 @@ class ImplClassInfoForGeneration:
         return [p.__name__.rstrip("Impl") + "Layering" for p in self.parents]
 
     @property
+    def parent_modifier_class_names(self):
+        return [p.__name__.rstrip("Impl") + "Modifier" for p in self.parents]
+
+    @property
     def type_field(self):
         return self.class_obj.model_fields["type"]
 
