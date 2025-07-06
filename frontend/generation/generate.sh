@@ -1,14 +1,19 @@
 #!/bin/bash
-python -m generation.generate_impl_field_literals
-python -m generation.generate_modifiers
-python -m generation.generate_layerings
-python -m generation.generate_cores
-python -m generation.generate_user_default_impls
-python -m generation.generate_impl_creation_fns
-python -m generation.generate_settings_state
-python -m generation.generate_impl_helpers
-python -m generation.convert_pydantic_to_js
-python -m generation.convert_constants_to_js
-python -m generation.convert_endpoints
-cd ..
-./format_code.sh
+cd .. && \
+find backend/setta/types/generated/ -name "*.py" -not -name "__init__.py" -delete && \
+cd frontend && \
+python -m generation.generate_impl_field_literals && \
+python -m generation.generate_modifiers && \
+python -m generation.generate_layerings && \
+python -m generation.generate_cores && \
+python -m generation.generate_user_default_impls && \
+python -m generation.generate_impl_creation_fns && \
+python -m generation.generate_settings_state && \
+python -m generation.generate_unions && \
+python -m generation.generate_impl_helpers && \
+python -m generation.convert_pydantic_to_js && \
+python -m generation.convert_constants_to_js && \
+python -m generation.convert_endpoints && \
+# cd .. && \
+# ./format_code.sh
+echo "Done!"

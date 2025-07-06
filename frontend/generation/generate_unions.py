@@ -1,5 +1,4 @@
 from pathlib import Path
-from pprint import pprint
 
 import setta.types.code_obj_impls
 import setta.types.generated.cores
@@ -27,7 +26,6 @@ def construct_unions(
     class_to_children = get_class_to_children_mapping(
         module, base_class, exclude_empty=True, required_discriminator=discriminator
     )
-    pprint(class_to_children)
     code = """
 from typing import Annotated,Union,TypeGuard
 from pydantic import Field, TypeAdapter

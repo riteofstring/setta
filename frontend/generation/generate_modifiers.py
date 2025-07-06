@@ -1,9 +1,6 @@
 from pathlib import Path
 
 import setta.types.code_obj_impls
-import setta.types.generated.cores
-import setta.types.generated.layerings
-import setta.types.generated.modifiers
 import setta.types.section_impls
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
