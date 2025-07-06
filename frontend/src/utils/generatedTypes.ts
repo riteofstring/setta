@@ -2082,8 +2082,8 @@ export function createImageSectionCore(
 }
 
 export const ChartSettingsSchema = z.object({
-  type: z.string().default("line"),
-  xAxisColumn: z.string().default(""),
+  type: z.string().default("line" as const),
+  xAxisColumn: z.string().default("" as const),
   secondYAxisColumns: z.array(z.string()).default([]),
   xAxisLog: z.boolean().default(false),
   y1AxisLog: z.boolean().default(false),
@@ -2163,13 +2163,13 @@ export function createChartSectionCore(
 
 export const DrawAreaCanvasSettingsSchema = z.object({
   activeLayerId: z.union([z.string(), z.null()]).default(null),
-  color: z.string().default("#ff0000"),
+  color: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
-  brushShape: z.string().default("butt"),
+  brushShape: z.string().default("butt" as const),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
-  mode: z.string().default("draw"),
+  mode: z.string().default("draw" as const),
 });
 
 export type DrawAreaCanvasSettings = z.infer<
@@ -2485,7 +2485,7 @@ export const CodeParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type CodeParamCodeObjCore = z.infer<typeof CodeParamCodeObjCoreSchema>;
@@ -2536,7 +2536,7 @@ export const TextParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type TextParamCodeObjCore = z.infer<typeof TextParamCodeObjCoreSchema>;
@@ -2593,7 +2593,7 @@ export const SliderParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type SliderParamCodeObjCore = z.infer<
@@ -2646,7 +2646,7 @@ export const SwitchParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type SwitchParamCodeObjCore = z.infer<
@@ -2714,7 +2714,7 @@ export const ColorPickerParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type ColorPickerParamCodeObjCore = z.infer<
@@ -2769,7 +2769,7 @@ export const DropdownParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type DropdownParamCodeObjCore = z.infer<
@@ -2822,7 +2822,7 @@ export const PasswordParamCodeObjCoreSchema = z.object({
         "value",
       ]),
     )
-    .default(() => ["value"]),
+    .default(() => ["value" as const]),
 });
 
 export type PasswordParamCodeObjCore = z.infer<
@@ -2853,15 +2853,15 @@ export const CodeParamCodeObjImplSchema = z.object({
   type: z.literal("CodeParam").default(CodeObjTypeEnum.CodeParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type CodeParamCodeObjImpl = z.infer<typeof CodeParamCodeObjImplSchema>;
@@ -2877,15 +2877,15 @@ export const TextParamCodeObjImplSchema = z.object({
   type: z.literal("TextParam").default(CodeObjTypeEnum.TextParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
@@ -2901,15 +2901,15 @@ export const SliderParamCodeObjImplSchema = z.object({
   type: z.literal("SliderParam").default(CodeObjTypeEnum.SliderParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   min: z.int().default(0),
   max: z.int().default(100),
   step: z.int().default(1),
@@ -2930,15 +2930,15 @@ export const SwitchParamCodeObjImplSchema = z.object({
   type: z.literal("SwitchParam").default(CodeObjTypeEnum.SwitchParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type SwitchParamCodeObjImpl = z.infer<
@@ -2956,15 +2956,15 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
   type: z.literal("ColorPickerParam").default(CodeObjTypeEnum.ColorPickerParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   choices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
@@ -2983,15 +2983,15 @@ export const DropdownParamCodeObjImplSchema = z.object({
   type: z.literal("DropdownParam").default(CodeObjTypeEnum.DropdownParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   choices: z.array(z.string()).default([]),
 });
 
@@ -3010,15 +3010,15 @@ export const PasswordParamCodeObjImplSchema = z.object({
   type: z.literal("PasswordParam").default(CodeObjTypeEnum.PasswordParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type PasswordParamCodeObjImpl = z.infer<
@@ -3309,7 +3309,7 @@ export const CodeCallableCodeObjImplSchema = z.object({
   type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -3329,7 +3329,7 @@ export const NestedParamCodeObjImplSchema = z.object({
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
@@ -3568,7 +3568,7 @@ export const CodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -3596,7 +3596,7 @@ export const GenPythonCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
 });
 
 export type GenPythonCodeSectionImpl = z.infer<
@@ -3738,7 +3738,10 @@ export const DictSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => ["codeObjImplLayeringMap", "topLevelParamIds"]),
+    .default(() => [
+      "codeObjImplLayeringMap" as const,
+      "topLevelParamIds" as const,
+    ]),
 });
 
 export type DictSectionCore = z.infer<typeof DictSectionCoreSchema>;
@@ -3862,7 +3865,7 @@ export const DictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(z.string()).default([]),
@@ -3903,7 +3906,7 @@ export const GlobalVariablesSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(z.string()).default([]),
@@ -4480,7 +4483,7 @@ export const CallableSectionCoreSchema = z.object({
         "visibility",
       ]),
     )
-    .default(() => ["callable", "codeObjImplLayeringMap"]),
+    .default(() => ["callable" as const, "codeObjImplLayeringMap" as const]),
 });
 
 export type CallableSectionCore = z.infer<typeof CallableSectionCoreSchema>;
@@ -4890,7 +4893,7 @@ export const CallableSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(z.string()).default([]),
@@ -4932,7 +4935,7 @@ export const TextBlockSectionImplSchema = z.object({
   displayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.render),
-  text: z.string().default(""),
+  text: z.string().default("" as const),
 });
 
 export type TextBlockSectionImpl = z.infer<typeof TextBlockSectionImplSchema>;
@@ -4959,7 +4962,7 @@ export const SocialSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  social: z.string().default(""),
+  social: z.string().default("" as const),
 });
 
 export type SocialSectionImpl = z.infer<typeof SocialSectionImplSchema>;
@@ -5339,13 +5342,15 @@ export function createTopLevelSectionLayout(
 export const ProjectConfigSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  previewImgColor: z.string().default("bg-blue-500/60 dark:bg-blue-600/30"),
+  previewImgColor: z
+    .string()
+    .default("bg-blue-500/60 dark:bg-blue-600/30" as const),
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
   viewingEditingMode: z
     .enum(ViewingEditingModeEnum)
     .default(ViewingEditingModeEnum.DEV),
-  genCodePrefix: z.string().default(""),
-  genCodeSuffix: z.string().default(""),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("" as const),
   entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
   topLevelSections: z
     .record(z.string(), TopLevelSectionLayoutSchema)
@@ -6621,7 +6626,9 @@ export function createWebsocketMsgArtifact(
 
 export const SettaNotificationSchema = z.object({
   id: z.string().default(create_new_id),
-  projectConfigId: z.string().default("NOTIFICATION_IS_FOR_ALL_PROJECTS"),
+  projectConfigId: z
+    .string()
+    .default("NOTIFICATION_IS_FOR_ALL_PROJECTS" as const),
   type: z
     .enum(SettaNotificationTypeEnum)
     .default(SettaNotificationTypeEnum.info),
@@ -6907,59 +6914,61 @@ export function createWebsocketMsgNewTerminalCreated(
 }
 
 export const SettingsShortcutsSchema = z.object({
-  newCardShortcut: z.string().default("N"),
-  newGroupShortcut: z.string().default("G"),
-  typeCheckShortcut: z.string().default(""),
-  newProjectConfigShortcut: z.string().default(""),
-  undoShortcut: z.string().default("Mod + Z"),
-  redoShortcut: z.string().default("Mod + Shift + Z"),
-  groupShortcut: z.string().default("Mod + G"),
-  ungroupShortcut: z.string().default("Shift + Mod + G"),
-  saveShortcut: z.string().default("Mod + S"),
-  saveAsShortcut: z.string().default("Mod + Shift + S"),
-  loadShortcut: z.string().default("Mod + L"),
-  searchShortcut: z.string().default("Mod + K"),
-  advancedSearchShortcut: z.string().default("Mod + P"),
-  commandPaletteShortcut: z.string().default("Mod + Shift + P"),
-  resetZoomShortcut: z.string().default("Mod + Comma"),
-  copyShortcut: z.string().default("Mod + C"),
-  pasteShortcut: z.string().default("Mod + V"),
-  pasteAsRefShortcut: z.string().default("Mod + Shift + V"),
-  sortingShortcut: z.string().default("Mod + Alt"),
-  movingFreeShortcut: z.string().default("Alt"),
-  showTooltipShortcut: z.string().default("Q"),
-  tooltipToPlaintextShortcut: z.string().default("Q + S"),
-  tooltipToMarkdownShortcut: z.string().default("Q + W"),
-  freezeTooltipShortcut: z.string().default("Q + F"),
-  frozenTooltipToPlaintextShortcut: z.string().default("S"),
-  frozenTooltipToMarkdownShortcut: z.string().default("W"),
-  incrementTooltipPageShortcut: z.string().default("Q + ArrowRight"),
-  decrementTooltipPageShortcut: z.string().default("Q + ArrowLeft"),
-  copyTooltipTextShortcut: z.string().default("Q + C"),
-  frozenTooltipIncrementShortcut: z.string().default("ArrowRight"),
-  frozenTooltipDecrementShortcut: z.string().default("ArrowLeft"),
-  frozenTooltipCopyShortcut: z.string().default("C"),
-  newTerminalShortcut: z.string().default("Ctrl + `"),
-  fitViewShortcut: z.string().default("F"),
-  zoomToMouseShortcut: z.string().default("Z"),
-  deleteSectionShortcut: z.string().default("Backspace"),
-  selectAll: z.string().default("Mod + A"),
-  selectTopLevelNonGroupSections: z.string().default("Mod + Shift + A"),
-  showVersionsTabShortcut: z.string().default("V"),
-  showParamUITypeTabShortcut: z.string().default("P"),
-  showProjectOverviewTabShortcut: z.string().default("O"),
-  runCodeShortcut: z.string().default("Mod + Enter"),
-  runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter"),
-  sendProjectToAllInteractiveCode: z.string().default("Alt + I"),
-  paramSelect: z.string().default("Mod + Shift"),
-  formatCode: z.string().default("Shift + Alt + F"),
-  selectionKeyCode: z.string().default("Shift"),
-  multiSelectionKeyCode: z.string().default("Mod"),
-  panActivationKeyCode: z.string().default("Space"),
-  zoomActivationKeyCode: z.string().default("Mod"),
-  zoomInShortcut: z.string().default("Equal"),
-  zoomOutShortcut: z.string().default("Minus"),
-  restartLanguageServerShortcut: z.string().default("Alt + Shift + R"),
+  newCardShortcut: z.string().default("N" as const),
+  newGroupShortcut: z.string().default("G" as const),
+  typeCheckShortcut: z.string().default("" as const),
+  newProjectConfigShortcut: z.string().default("" as const),
+  undoShortcut: z.string().default("Mod + Z" as const),
+  redoShortcut: z.string().default("Mod + Shift + Z" as const),
+  groupShortcut: z.string().default("Mod + G" as const),
+  ungroupShortcut: z.string().default("Shift + Mod + G" as const),
+  saveShortcut: z.string().default("Mod + S" as const),
+  saveAsShortcut: z.string().default("Mod + Shift + S" as const),
+  loadShortcut: z.string().default("Mod + L" as const),
+  searchShortcut: z.string().default("Mod + K" as const),
+  advancedSearchShortcut: z.string().default("Mod + P" as const),
+  commandPaletteShortcut: z.string().default("Mod + Shift + P" as const),
+  resetZoomShortcut: z.string().default("Mod + Comma" as const),
+  copyShortcut: z.string().default("Mod + C" as const),
+  pasteShortcut: z.string().default("Mod + V" as const),
+  pasteAsRefShortcut: z.string().default("Mod + Shift + V" as const),
+  sortingShortcut: z.string().default("Mod + Alt" as const),
+  movingFreeShortcut: z.string().default("Alt" as const),
+  showTooltipShortcut: z.string().default("Q" as const),
+  tooltipToPlaintextShortcut: z.string().default("Q + S" as const),
+  tooltipToMarkdownShortcut: z.string().default("Q + W" as const),
+  freezeTooltipShortcut: z.string().default("Q + F" as const),
+  frozenTooltipToPlaintextShortcut: z.string().default("S" as const),
+  frozenTooltipToMarkdownShortcut: z.string().default("W" as const),
+  incrementTooltipPageShortcut: z.string().default("Q + ArrowRight" as const),
+  decrementTooltipPageShortcut: z.string().default("Q + ArrowLeft" as const),
+  copyTooltipTextShortcut: z.string().default("Q + C" as const),
+  frozenTooltipIncrementShortcut: z.string().default("ArrowRight" as const),
+  frozenTooltipDecrementShortcut: z.string().default("ArrowLeft" as const),
+  frozenTooltipCopyShortcut: z.string().default("C" as const),
+  newTerminalShortcut: z.string().default("Ctrl + `" as const),
+  fitViewShortcut: z.string().default("F" as const),
+  zoomToMouseShortcut: z.string().default("Z" as const),
+  deleteSectionShortcut: z.string().default("Backspace" as const),
+  selectAll: z.string().default("Mod + A" as const),
+  selectTopLevelNonGroupSections: z
+    .string()
+    .default("Mod + Shift + A" as const),
+  showVersionsTabShortcut: z.string().default("V" as const),
+  showParamUITypeTabShortcut: z.string().default("P" as const),
+  showProjectOverviewTabShortcut: z.string().default("O" as const),
+  runCodeShortcut: z.string().default("Mod + Enter" as const),
+  runEntryCodeBlockShortcut: z.string().default("Mod + Shift + Enter" as const),
+  sendProjectToAllInteractiveCode: z.string().default("Alt + I" as const),
+  paramSelect: z.string().default("Mod + Shift" as const),
+  formatCode: z.string().default("Shift + Alt + F" as const),
+  selectionKeyCode: z.string().default("Shift" as const),
+  multiSelectionKeyCode: z.string().default("Mod" as const),
+  panActivationKeyCode: z.string().default("Space" as const),
+  zoomActivationKeyCode: z.string().default("Mod" as const),
+  zoomInShortcut: z.string().default("Equal" as const),
+  zoomOutShortcut: z.string().default("Minus" as const),
+  restartLanguageServerShortcut: z.string().default("Alt + Shift + R" as const),
 });
 
 export type SettingsShortcuts = z.infer<typeof SettingsShortcutsSchema>;
@@ -6977,8 +6986,8 @@ export const SettingsGUISchema = z.object({
     .enum(BackgroundVariantEnum)
     .default(BackgroundVariantEnum.dots),
   gridPatternSize: z.int().default(2),
-  gridColor: z.string().default("#afbacf"),
-  gridColorDarkMode: z.string().default("#2b364a"),
+  gridColor: z.string().default("#afbacf" as const),
+  gridColorDarkMode: z.string().default("#2b364a" as const),
   defaultZoomLevel: z.number().default(1.0),
   minZoom: z.number().default(0.1),
   maxZoom: z.number().default(10.0),
@@ -7057,7 +7066,7 @@ export const UserDefaultCallableSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedAreaHeight: z
@@ -7126,7 +7135,7 @@ export const UserDefaultCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
 
@@ -7167,7 +7176,7 @@ export const UserDefaultDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedAreaHeight: z
@@ -7216,7 +7225,7 @@ export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
 });
 
 export type UserDefaultGenPythonCodeSectionImpl = z.infer<
@@ -7237,7 +7246,7 @@ export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedAreaHeight: z
@@ -7341,7 +7350,7 @@ export const UserDefaultSocialSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  social: z.string().default(""),
+  social: z.string().default("" as const),
 });
 
 export type UserDefaultSocialSectionImpl = z.infer<
@@ -7387,7 +7396,7 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   displayMode: z
     .enum(TextBlockDisplayModeEnum)
     .default(TextBlockDisplayModeEnum.render),
-  text: z.string().default(""),
+  text: z.string().default("" as const),
 });
 
 export type UserDefaultTextBlockSectionImpl = z.infer<
@@ -7415,8 +7424,8 @@ export function createUserDefaultCodeCallableCodeObjImpl(
 export const UserDefaultCodeParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type UserDefaultCodeParamCodeObjImpl = z.infer<
@@ -7432,8 +7441,8 @@ export function createUserDefaultCodeParamCodeObjImpl(
 export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   choices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
@@ -7450,8 +7459,8 @@ export function createUserDefaultColorPickerParamCodeObjImpl(
 export const UserDefaultDropdownParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   choices: z.array(z.string()).default([]),
 });
 
@@ -7483,8 +7492,8 @@ export function createUserDefaultNestedParamCodeObjImpl(
 export const UserDefaultPasswordParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type UserDefaultPasswordParamCodeObjImpl = z.infer<
@@ -7500,8 +7509,8 @@ export function createUserDefaultPasswordParamCodeObjImpl(
 export const UserDefaultSliderParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
   min: z.int().default(0),
   max: z.int().default(100),
   step: z.int().default(1),
@@ -7520,8 +7529,8 @@ export function createUserDefaultSliderParamCodeObjImpl(
 export const UserDefaultSwitchParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type UserDefaultSwitchParamCodeObjImpl = z.infer<
@@ -7537,8 +7546,8 @@ export function createUserDefaultSwitchParamCodeObjImpl(
 export const UserDefaultTextParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type UserDefaultTextParamCodeObjImpl = z.infer<
@@ -9173,15 +9182,15 @@ export const BaseChildlessCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type BaseChildlessCodeObjImpl = z.infer<
@@ -9198,7 +9207,7 @@ export const BaseCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
@@ -9214,7 +9223,7 @@ export const BaseParamCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -9235,7 +9244,7 @@ export const BaseParentCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  description: z.string().default(""),
+  description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -9820,8 +9829,8 @@ export function createUserDefaultBaseCanvasSectionImpl(
 export const UserDefaultBaseChildlessCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
-  defaultVal: z.string().default(""),
-  value: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
 });
 
 export type UserDefaultBaseChildlessCodeObjImpl = z.infer<
@@ -9853,7 +9862,7 @@ export const UserDefaultBaseCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
 });
 
 export type UserDefaultBaseCodeSectionImpl = z.infer<
@@ -9874,7 +9883,7 @@ export const UserDefaultBaseDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedAreaHeight: z
@@ -9967,7 +9976,7 @@ export const UserDefaultBaseSectionWithParamsImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedAreaHeight: z
@@ -10028,7 +10037,7 @@ export const BaseSectionWithParamsImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(z.string()).default([]),
@@ -10410,7 +10419,7 @@ export const BaseCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  code: z.string().default(""),
+  code: z.string().default("" as const),
 });
 
 export type BaseCodeSectionImpl = z.infer<typeof BaseCodeSectionImplSchema>;
@@ -10438,7 +10447,7 @@ export const BaseDictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  paramFilter: z.string().default(""),
+  paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
   pinnedParams: z.array(z.string()).default([]),
@@ -10488,8 +10497,8 @@ export function createBaseSectionImpl(
 
 export const SimplifiedCodeInfoSchema = z.object({
   name: z.string(),
-  defaultVal: z.string().default(""),
-  description: z.string().default(""),
+  defaultVal: z.string().default("" as const),
+  description: z.string().default("" as const),
 });
 
 export type SimplifiedCodeInfo = z.infer<typeof SimplifiedCodeInfoSchema>;

@@ -459,7 +459,7 @@ def python_value_to_ts(value):
     if isinstance(value, enum.Enum):
         return f"{value.__class__.__name__}Enum.{value.name}"
     elif isinstance(value, str):
-        return f'"{value}"'
+        return f'"{value}" as const'
     elif isinstance(value, bool):
         return str(value).lower()
     elif isinstance(value, (int, float)):
