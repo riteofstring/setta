@@ -20,9 +20,6 @@ from typing import (
 )
 
 import setta.types.code_obj_impls
-import setta.types.generated.cores
-import setta.types.generated.layerings
-import setta.types.generated.modifiers
 import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
@@ -191,6 +188,14 @@ class ImplClassInfoForGeneration:
     base_name: str
 
     @property
+    def original_name(self):
+        return self.class_obj.__name__
+
+    @property
+    def user_default_name(self):
+        return "UserDefault" + self.original_name
+
+    @property
     def modifier_name(self):
         return self.base_name + "Modifier"
 
@@ -211,6 +216,10 @@ class ImplClassInfoForGeneration:
         return self.class_obj.__bases__
 
     @property
+    def parent_user_default_class_names(self):
+        return ["UserDefault" + p.__name__ for p in self.parents]
+
+    @property
     def parent_core_class_names(self):
         return [p.__name__.rstrip("Impl") + "Core" for p in self.parents]
 
@@ -221,6 +230,10 @@ class ImplClassInfoForGeneration:
     @property
     def parent_modifier_class_names(self):
         return [p.__name__.rstrip("Impl") + "Modifier" for p in self.parents]
+
+    @property
+    def parent_is_base_model(self):
+        return BaseModel in self.parents
 
     @property
     def type_field(self):

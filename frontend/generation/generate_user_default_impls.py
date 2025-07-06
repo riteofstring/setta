@@ -1,12 +1,11 @@
 import inspect
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Type
+from typing import Dict, List, Set
 
-from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-from .generate_backend_union_types import find_sub_classes
+from .utils import ImplClassInfoForGeneration, get_impl_classes
 
 DEFAULT_EXCLUSIONS = {"id", "name", "type"}
 
@@ -43,9 +42,9 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
     "SocialSectionImpl": DEFAULT_EXCLUSIONS,
-    "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,  # Keep name for GlobalVariables
+    "GlobalVariablesSectionImpl": DEFAULT_EXCLUSIONS,
     "CodeSectionImpl": DEFAULT_EXCLUSIONS,
-    "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,  # Keep name for GenPythonCode
+    "GenPythonCodeSectionImpl": DEFAULT_EXCLUSIONS,
     "TerminalSectionImpl": DEFAULT_EXCLUSIONS,
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
@@ -71,48 +70,9 @@ CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
 }
 
 
-def extract_class_info(
-    source_lines: List[str], class_name: str
-) -> Tuple[List[str], str]:
-    """Extract source lines for a specific class and its parent class name."""
-    class_lines = []
-    parent_class = None
-    in_class = False
-    indent_level = None
-
-    for line in source_lines:
-        if line.strip().startswith(f"class {class_name}"):
-            in_class = True
-            indent_level = len(line) - len(line.lstrip())
-            class_lines.append(line)
-
-            # Extract parent class from the line
-            # e.g., "class TextBlockSectionImpl(BaseSectionImpl):"
-            if "(" in line and ")" in line:
-                parent_part = line.split("(")[1].split(")")[0]
-                # Handle multiple inheritance - take the first parent
-                parent_class = parent_part.split(",")[0].strip()
-
-        elif in_class:
-            if indent_level is None:
-                raise ValueError
-            if line.strip() == "":
-                class_lines.append(line)
-            elif len(line) - len(line.lstrip()) > indent_level:
-                class_lines.append(line)
-            else:
-                # End of class
-                break
-
-    if parent_class is None:
-        raise ValueError
-    return class_lines, parent_class
-
-
 def transform_class_to_user_default(
     class_lines: List[str],
-    class_name: str,
-    parent_mapping: dict,
+    cls_info: ImplClassInfoForGeneration,
     exclusions: Set[str],
 ) -> List[str]:
     """Transform class source to UserDefault version."""
@@ -123,24 +83,16 @@ def transform_class_to_user_default(
     while i < len(class_lines):
         line = class_lines[i]
 
-        if line.strip().startswith(f"class {class_name}"):
-            # Determine parent
-            parent = parent_mapping.get(class_name)
-            if parent:
-                new_parent = f"UserDefault{parent}"
-            else:
-                new_parent = "BaseModel"
-
+        if line.strip().startswith(f"class {cls_info.original_name}"):
             # Create new class definition
             indent = " " * (len(line) - len(line.lstrip()))
-            new_class_def = f'{indent}class UserDefault{class_name}({new_parent}, extra="forbid"):\n'
-            new_lines.append(new_class_def)
-
-            # Add docstring
-            new_lines.append(
-                f'{indent}    """User-configurable defaults for {class_name}"""\n'
+            parents = (
+                "BaseModel"
+                if cls_info.parent_is_base_model
+                else ", ".join(cls_info.parent_user_default_class_names)
             )
-
+            new_class_def = f'{indent}class {cls_info.user_default_name}({parents}, extra="forbid"):\n'
+            new_lines.append(new_class_def)
             i += 1
 
         elif i > 0:  # After the class definition
@@ -191,51 +143,29 @@ def transform_class_to_user_default(
             i += 1
 
     # If no fields were added and no pass statement exists, add one
-    if len(new_lines) == 2:  # Only class def and docstring
+    if len(new_lines) == 1:  # Only class def and docstring
         indent = " " * 4
         new_lines.append(f"{indent}pass\n")
 
     return new_lines
 
 
-def process_module_classes(
-    source_file: Path,
-    module,
-    base_class: Type[BaseModel],
-    discriminator: str,
-    exclusions_map: Dict[str, Set[str]],
-) -> List[str]:
+def process_module_classes() -> List[str]:
     """Process classes from a module and return transformed classes."""
-    # Get all target classes
-    base_classes = find_sub_classes(module, base_class, discriminator, True, False)
-    concrete_classes = find_sub_classes(module, base_class, discriminator, False, False)
-    all_classes = [base_class] + base_classes + concrete_classes
-
-    # Create a set of all class names for quick lookup
-    all_class_names = {cls.__name__ for cls in all_classes}
-
-    # Read source file
-    source_lines = source_file.read_text().splitlines(keepends=True)
-
-    # Build parent mapping by parsing source
-    parent_mapping = {}
-    for cls in all_classes:
-        _, parent_name = extract_class_info(source_lines, cls.__name__)
-        if parent_name and parent_name in all_class_names:
-            parent_mapping[cls.__name__] = parent_name
+    classes = get_impl_classes()
 
     # Generate UserDefault classes
     class_definitions = []
-    for cls in all_classes:
-        class_lines, _ = extract_class_info(source_lines, cls.__name__)
+    for cls_name, cls_info in classes.items():
+        class_lines, _ = inspect.getsourcelines(cls_info.class_obj)
         if class_lines:
-            # Get exclusions for this class
-            exclusions = exclusions_map[cls.__name__]
-
+            exclusions_map = (
+                SECTION_EXCLUSIONS if cls_info.is_section_impl else CODE_OBJ_EXCLUSIONS
+            )
+            exclusions = exclusions_map[cls_name]
             transformed = transform_class_to_user_default(
                 class_lines,
-                cls.__name__,
-                parent_mapping,
+                cls_info,
                 exclusions,
             )
             class_definitions.extend(transformed)
@@ -246,29 +176,7 @@ def process_module_classes(
 
 def main(output_folder: Path):
     """Generate all UserDefault classes."""
-    import setta.types.code_obj_impls
-    import setta.types.section_impls
-
-    # Get source file paths
-    sections_file = Path(inspect.getfile(setta.types.section_impls))
-    code_objs_file = Path(inspect.getfile(setta.types.code_obj_impls))
-
-    # Process both modules
-    sections_classes = process_module_classes(
-        sections_file,
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        SECTION_EXCLUSIONS,
-    )
-
-    code_objs_classes = process_module_classes(
-        code_objs_file,
-        setta.types.code_obj_impls,
-        setta.types.code_obj_impls.BaseCodeObjImpl,
-        "type",
-        CODE_OBJ_EXCLUSIONS,
-    )
+    class_defs = process_module_classes()
 
     # Build the complete file
     header = """# Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
@@ -299,20 +207,13 @@ from setta.types.code_obj_impls import (
     ParamNameType,
 )
 
-
-# ============== Section UserDefault Classes ==============
-
 """
 
     # Join everything
-    sections_str = "".join(sections_classes)
-    code_objs_str = "".join(code_objs_classes)
+    class_defs_str = "".join(class_defs)
 
-    combined = f"""{header}{sections_str}
-
-# ============== Code Object UserDefault Classes ==============
-
-{code_objs_str}"""
+    combined = f"""{header}{class_defs_str}
+"""
 
     # Format
     formatted = ruff_format(combined)
