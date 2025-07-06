@@ -308,3 +308,43 @@ def get_impl_classes():
         )
 
     return output
+
+
+def get_creation_fns(
+    classes: dict[str, ImplClassInfoForGeneration],
+    fn_type: Literal["modifier", "core", "layering"],
+    additional_args: dict[str, str] | None = None,
+):
+    if additional_args is None:
+        additional_args = {}
+    additional_args_types_str = ""
+    additional_args_input_str = ""
+    for k, v in additional_args.items():
+        additional_args_types_str += f"{k}: {v},"
+        additional_args_input_str += f"{k}={k}"
+    cases = {}
+    code = ""
+    for c in classes.values():
+        if not c.type_has_default:
+            continue
+        cases[c.type_value] = getattr(c, f"{fn_type}_name")
+        code += f"""
+@overload
+def create_{fn_type}(type: {c.type_type_annotation}, {additional_args_types_str}) -> {getattr(c, f"{fn_type}_name")}:
+    ...
+"""
+
+    cases_str = []
+    for type_name, name in cases.items():
+        curr_case = f"""
+        case {type_name}:
+            return {name}(type=type, {additional_args_input_str})
+        """
+        cases_str.append(curr_case)
+
+    code += f"""
+def create_{fn_type}(type: SectionType | CodeObjType, {additional_args_types_str}):
+    match type:
+{"\n".join(cases_str)}
+"""
+    return code

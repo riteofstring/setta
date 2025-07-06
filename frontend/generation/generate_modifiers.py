@@ -5,11 +5,15 @@ import setta.types.generated.cores
 import setta.types.generated.layerings
 import setta.types.generated.modifiers
 import setta.types.section_impls
-from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-from .utils import ImplClassInfoForGeneration, get_impl_classes, python_type_to_str
+from .utils import (
+    ImplClassInfoForGeneration,
+    get_creation_fns,
+    get_impl_classes,
+    python_type_to_str,
+)
 
 
 def create_modifier(class_info: ImplClassInfoForGeneration, base_classes):
@@ -88,30 +92,7 @@ from setta.types.code_obj_impls import (
             ],
         )
 
-    modifier_cases = {}
-    for c in classes.values():
-        if not c.type_has_default:
-            continue
-        modifier_cases[c.type_value] = c.modifier_name
-        code += f"""
-@overload
-def create_modifier(type_: {c.type_type_annotation}) -> {c.modifier_name}:
-    ...
-"""
-
-    cases_str = []
-    for type_name, modifier_name in modifier_cases.items():
-        curr_case = f"""
-        case {type_name}:
-            return {modifier_name}(type=type_)
-        """
-        cases_str.append(curr_case)
-
-    code += f"""
-def create_modifier(type_: SectionType | CodeObjType):
-    match type_:
-{"\n".join(cases_str)}
-"""
+    code += get_creation_fns(classes, "modifier")
     code = ruff_format(code)
     output_file.write_text(code)
 

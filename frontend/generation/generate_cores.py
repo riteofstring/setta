@@ -7,6 +7,7 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import (
     ImplClassInfoForGeneration,
+    get_creation_fns,
     get_impl_classes,
 )
 
@@ -64,30 +65,7 @@ class {c.core_name}({", ".join(c.parent_core_class_names)}):
 
 """
 
-    core_cases = {}
-    for c in classes.values():
-        if not c.type_has_default:
-            continue
-        core_cases[c.type_value] = c.core_name
-        code += f"""
-@overload
-def create_core(type_: {c.type_type_annotation}) -> {c.core_name}:
-    ...
-"""
-
-    cases_str = []
-    for type_name, core_name in core_cases.items():
-        curr_case = f"""
-        case {type_name}:
-            return {core_name}(type=type_)
-        """
-        cases_str.append(curr_case)
-
-    code += f"""
-def create_core(type_: SectionType | CodeObjType):
-    match type_:
-{"\n".join(cases_str)}
-"""
+    code += get_creation_fns(classes, "core")
 
     code = (
         f"""

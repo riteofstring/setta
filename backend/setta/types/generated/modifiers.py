@@ -221,216 +221,290 @@ class NestedParamCodeObjModifier(BaseParamCodeObjModifier, BaseParentCodeObjModi
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.Callable],
+    type: Literal[SectionType.Callable],
 ) -> CallableSectionModifier: ...
 
 
 @overload
-def create_modifier(type_: Literal[SectionType.Dict]) -> DictSectionModifier: ...
+def create_modifier(
+    type: Literal[SectionType.Dict],
+) -> DictSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.ListRoot],
+    type: Literal[SectionType.ListRoot],
 ) -> ListRootSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.DictRoot],
+    type: Literal[SectionType.DictRoot],
 ) -> DictRootSectionModifier: ...
 
 
 @overload
-def create_modifier(type_: Literal[SectionType.Group]) -> GroupSectionModifier: ...
-
-
-@overload
-def create_modifier(type_: Literal[SectionType.Image]) -> ImageSectionModifier: ...
-
-
-@overload
-def create_modifier(type_: Literal[SectionType.Chart]) -> ChartSectionModifier: ...
-
-
-@overload
-def create_modifier(type_: Literal[SectionType.Draw]) -> DrawSectionModifier: ...
+def create_modifier(
+    type: Literal[SectionType.Group],
+) -> GroupSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.TextBlock],
+    type: Literal[SectionType.Image],
+) -> ImageSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type: Literal[SectionType.Chart],
+) -> ChartSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type: Literal[SectionType.Draw],
+) -> DrawSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type: Literal[SectionType.TextBlock],
 ) -> TextBlockSectionModifier: ...
 
 
 @overload
-def create_modifier(type_: Literal[SectionType.Social]) -> SocialSectionModifier: ...
+def create_modifier(
+    type: Literal[SectionType.Social],
+) -> SocialSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.GlobalVariables],
+    type: Literal[SectionType.GlobalVariables],
 ) -> GlobalVariablesSectionModifier: ...
 
 
 @overload
-def create_modifier(type_: Literal[SectionType.Code]) -> CodeSectionModifier: ...
+def create_modifier(
+    type: Literal[SectionType.Code],
+) -> CodeSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.GenPythonCode],
+    type: Literal[SectionType.GenPythonCode],
 ) -> GenPythonCodeSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[SectionType.Terminal],
+    type: Literal[SectionType.Terminal],
 ) -> TerminalSectionModifier: ...
 
 
 @overload
-def create_modifier(type_: Literal[SectionType.IFrame]) -> IFrameSectionModifier: ...
-
-
-@overload
-def create_modifier(type_: Literal[SectionType.Chat]) -> ChatSectionModifier: ...
-
-
-@overload
-def create_modifier(type_: Literal[SectionType.Browser]) -> BrowserSectionModifier: ...
+def create_modifier(
+    type: Literal[SectionType.IFrame],
+) -> IFrameSectionModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.CodeCallable],
+    type: Literal[SectionType.Chat],
+) -> ChatSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type: Literal[SectionType.Browser],
+) -> BrowserSectionModifier: ...
+
+
+@overload
+def create_modifier(
+    type: Literal[CodeObjType.CodeCallable],
 ) -> CodeCallableCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.CodeParam],
+    type: Literal[CodeObjType.CodeParam],
 ) -> CodeParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.TextParam],
+    type: Literal[CodeObjType.TextParam],
 ) -> TextParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.SliderParam],
+    type: Literal[CodeObjType.SliderParam],
 ) -> SliderParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.SwitchParam],
+    type: Literal[CodeObjType.SwitchParam],
 ) -> SwitchParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.ColorPickerParam],
+    type: Literal[CodeObjType.ColorPickerParam],
 ) -> ColorPickerParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.DropdownParam],
+    type: Literal[CodeObjType.DropdownParam],
 ) -> DropdownParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.PasswordParam],
+    type: Literal[CodeObjType.PasswordParam],
 ) -> PasswordParamCodeObjModifier: ...
 
 
 @overload
 def create_modifier(
-    type_: Literal[CodeObjType.NestedParam],
+    type: Literal[CodeObjType.NestedParam],
 ) -> NestedParamCodeObjModifier: ...
 
 
-def create_modifier(type_: SectionType | CodeObjType):
-    match type_:
+def create_modifier(
+    type: SectionType | CodeObjType,
+):
+    match type:
         case SectionType.Callable:
-            return CallableSectionModifier(type=type_)
+            return CallableSectionModifier(
+                type=type,
+            )
 
         case SectionType.Dict:
-            return DictSectionModifier(type=type_)
+            return DictSectionModifier(
+                type=type,
+            )
 
         case SectionType.ListRoot:
-            return ListRootSectionModifier(type=type_)
+            return ListRootSectionModifier(
+                type=type,
+            )
 
         case SectionType.DictRoot:
-            return DictRootSectionModifier(type=type_)
+            return DictRootSectionModifier(
+                type=type,
+            )
 
         case SectionType.Group:
-            return GroupSectionModifier(type=type_)
+            return GroupSectionModifier(
+                type=type,
+            )
 
         case SectionType.Image:
-            return ImageSectionModifier(type=type_)
+            return ImageSectionModifier(
+                type=type,
+            )
 
         case SectionType.Chart:
-            return ChartSectionModifier(type=type_)
+            return ChartSectionModifier(
+                type=type,
+            )
 
         case SectionType.Draw:
-            return DrawSectionModifier(type=type_)
+            return DrawSectionModifier(
+                type=type,
+            )
 
         case SectionType.TextBlock:
-            return TextBlockSectionModifier(type=type_)
+            return TextBlockSectionModifier(
+                type=type,
+            )
 
         case SectionType.Social:
-            return SocialSectionModifier(type=type_)
+            return SocialSectionModifier(
+                type=type,
+            )
 
         case SectionType.GlobalVariables:
-            return GlobalVariablesSectionModifier(type=type_)
+            return GlobalVariablesSectionModifier(
+                type=type,
+            )
 
         case SectionType.Code:
-            return CodeSectionModifier(type=type_)
+            return CodeSectionModifier(
+                type=type,
+            )
 
         case SectionType.GenPythonCode:
-            return GenPythonCodeSectionModifier(type=type_)
+            return GenPythonCodeSectionModifier(
+                type=type,
+            )
 
         case SectionType.Terminal:
-            return TerminalSectionModifier(type=type_)
+            return TerminalSectionModifier(
+                type=type,
+            )
 
         case SectionType.IFrame:
-            return IFrameSectionModifier(type=type_)
+            return IFrameSectionModifier(
+                type=type,
+            )
 
         case SectionType.Chat:
-            return ChatSectionModifier(type=type_)
+            return ChatSectionModifier(
+                type=type,
+            )
 
         case SectionType.Browser:
-            return BrowserSectionModifier(type=type_)
+            return BrowserSectionModifier(
+                type=type,
+            )
 
         case CodeObjType.CodeCallable:
-            return CodeCallableCodeObjModifier(type=type_)
+            return CodeCallableCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.CodeParam:
-            return CodeParamCodeObjModifier(type=type_)
+            return CodeParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.TextParam:
-            return TextParamCodeObjModifier(type=type_)
+            return TextParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.SliderParam:
-            return SliderParamCodeObjModifier(type=type_)
+            return SliderParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.SwitchParam:
-            return SwitchParamCodeObjModifier(type=type_)
+            return SwitchParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.ColorPickerParam:
-            return ColorPickerParamCodeObjModifier(type=type_)
+            return ColorPickerParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.DropdownParam:
-            return DropdownParamCodeObjModifier(type=type_)
+            return DropdownParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.PasswordParam:
-            return PasswordParamCodeObjModifier(type=type_)
+            return PasswordParamCodeObjModifier(
+                type=type,
+            )
 
         case CodeObjType.NestedParam:
-            return NestedParamCodeObjModifier(type=type_)
+            return NestedParamCodeObjModifier(
+                type=type,
+            )

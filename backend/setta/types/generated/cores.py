@@ -448,197 +448,291 @@ class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
 
 
 @overload
-def create_core(type_: Literal[SectionType.Callable]) -> CallableSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Dict]) -> DictSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.ListRoot]) -> ListRootSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.DictRoot]) -> DictRootSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Group]) -> GroupSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Image]) -> ImageSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Chart]) -> ChartSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Draw]) -> DrawSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.TextBlock]) -> TextBlockSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Social]) -> SocialSectionCore: ...
+def create_core(
+    type: Literal[SectionType.Callable],
+) -> CallableSectionCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[SectionType.GlobalVariables],
+    type: Literal[SectionType.Dict],
+) -> DictSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.ListRoot],
+) -> ListRootSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.DictRoot],
+) -> DictRootSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Group],
+) -> GroupSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Image],
+) -> ImageSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Chart],
+) -> ChartSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Draw],
+) -> DrawSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.TextBlock],
+) -> TextBlockSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Social],
+) -> SocialSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.GlobalVariables],
 ) -> GlobalVariablesSectionCore: ...
 
 
 @overload
-def create_core(type_: Literal[SectionType.Code]) -> CodeSectionCore: ...
+def create_core(
+    type: Literal[SectionType.Code],
+) -> CodeSectionCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[SectionType.GenPythonCode],
+    type: Literal[SectionType.GenPythonCode],
 ) -> GenPythonCodeSectionCore: ...
 
 
 @overload
-def create_core(type_: Literal[SectionType.Terminal]) -> TerminalSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.IFrame]) -> IFrameSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Chat]) -> ChatSectionCore: ...
-
-
-@overload
-def create_core(type_: Literal[SectionType.Browser]) -> BrowserSectionCore: ...
+def create_core(
+    type: Literal[SectionType.Terminal],
+) -> TerminalSectionCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[CodeObjType.CodeCallable],
+    type: Literal[SectionType.IFrame],
+) -> IFrameSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Chat],
+) -> ChatSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[SectionType.Browser],
+) -> BrowserSectionCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[CodeObjType.CodeCallable],
 ) -> CodeCallableCodeObjCore: ...
 
 
 @overload
-def create_core(type_: Literal[CodeObjType.CodeParam]) -> CodeParamCodeObjCore: ...
-
-
-@overload
-def create_core(type_: Literal[CodeObjType.TextParam]) -> TextParamCodeObjCore: ...
-
-
-@overload
-def create_core(type_: Literal[CodeObjType.SliderParam]) -> SliderParamCodeObjCore: ...
-
-
-@overload
-def create_core(type_: Literal[CodeObjType.SwitchParam]) -> SwitchParamCodeObjCore: ...
+def create_core(
+    type: Literal[CodeObjType.CodeParam],
+) -> CodeParamCodeObjCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[CodeObjType.ColorPickerParam],
+    type: Literal[CodeObjType.TextParam],
+) -> TextParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[CodeObjType.SliderParam],
+) -> SliderParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[CodeObjType.SwitchParam],
+) -> SwitchParamCodeObjCore: ...
+
+
+@overload
+def create_core(
+    type: Literal[CodeObjType.ColorPickerParam],
 ) -> ColorPickerParamCodeObjCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[CodeObjType.DropdownParam],
+    type: Literal[CodeObjType.DropdownParam],
 ) -> DropdownParamCodeObjCore: ...
 
 
 @overload
 def create_core(
-    type_: Literal[CodeObjType.PasswordParam],
+    type: Literal[CodeObjType.PasswordParam],
 ) -> PasswordParamCodeObjCore: ...
 
 
 @overload
-def create_core(type_: Literal[CodeObjType.NestedParam]) -> NestedParamCodeObjCore: ...
+def create_core(
+    type: Literal[CodeObjType.NestedParam],
+) -> NestedParamCodeObjCore: ...
 
 
-def create_core(type_: SectionType | CodeObjType):
-    match type_:
+def create_core(
+    type: SectionType | CodeObjType,
+):
+    match type:
         case SectionType.Callable:
-            return CallableSectionCore(type=type_)
+            return CallableSectionCore(
+                type=type,
+            )
 
         case SectionType.Dict:
-            return DictSectionCore(type=type_)
+            return DictSectionCore(
+                type=type,
+            )
 
         case SectionType.ListRoot:
-            return ListRootSectionCore(type=type_)
+            return ListRootSectionCore(
+                type=type,
+            )
 
         case SectionType.DictRoot:
-            return DictRootSectionCore(type=type_)
+            return DictRootSectionCore(
+                type=type,
+            )
 
         case SectionType.Group:
-            return GroupSectionCore(type=type_)
+            return GroupSectionCore(
+                type=type,
+            )
 
         case SectionType.Image:
-            return ImageSectionCore(type=type_)
+            return ImageSectionCore(
+                type=type,
+            )
 
         case SectionType.Chart:
-            return ChartSectionCore(type=type_)
+            return ChartSectionCore(
+                type=type,
+            )
 
         case SectionType.Draw:
-            return DrawSectionCore(type=type_)
+            return DrawSectionCore(
+                type=type,
+            )
 
         case SectionType.TextBlock:
-            return TextBlockSectionCore(type=type_)
+            return TextBlockSectionCore(
+                type=type,
+            )
 
         case SectionType.Social:
-            return SocialSectionCore(type=type_)
+            return SocialSectionCore(
+                type=type,
+            )
 
         case SectionType.GlobalVariables:
-            return GlobalVariablesSectionCore(type=type_)
+            return GlobalVariablesSectionCore(
+                type=type,
+            )
 
         case SectionType.Code:
-            return CodeSectionCore(type=type_)
+            return CodeSectionCore(
+                type=type,
+            )
 
         case SectionType.GenPythonCode:
-            return GenPythonCodeSectionCore(type=type_)
+            return GenPythonCodeSectionCore(
+                type=type,
+            )
 
         case SectionType.Terminal:
-            return TerminalSectionCore(type=type_)
+            return TerminalSectionCore(
+                type=type,
+            )
 
         case SectionType.IFrame:
-            return IFrameSectionCore(type=type_)
+            return IFrameSectionCore(
+                type=type,
+            )
 
         case SectionType.Chat:
-            return ChatSectionCore(type=type_)
+            return ChatSectionCore(
+                type=type,
+            )
 
         case SectionType.Browser:
-            return BrowserSectionCore(type=type_)
+            return BrowserSectionCore(
+                type=type,
+            )
 
         case CodeObjType.CodeCallable:
-            return CodeCallableCodeObjCore(type=type_)
+            return CodeCallableCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.CodeParam:
-            return CodeParamCodeObjCore(type=type_)
+            return CodeParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.TextParam:
-            return TextParamCodeObjCore(type=type_)
+            return TextParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.SliderParam:
-            return SliderParamCodeObjCore(type=type_)
+            return SliderParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.SwitchParam:
-            return SwitchParamCodeObjCore(type=type_)
+            return SwitchParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.ColorPickerParam:
-            return ColorPickerParamCodeObjCore(type=type_)
+            return ColorPickerParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.DropdownParam:
-            return DropdownParamCodeObjCore(type=type_)
+            return DropdownParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.PasswordParam:
-            return PasswordParamCodeObjCore(type=type_)
+            return PasswordParamCodeObjCore(
+                type=type,
+            )
 
         case CodeObjType.NestedParam:
-            return NestedParamCodeObjCore(type=type_)
+            return NestedParamCodeObjCore(
+                type=type,
+            )

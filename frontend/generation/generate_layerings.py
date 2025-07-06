@@ -7,6 +7,7 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import (
     ImplClassInfoForGeneration,
+    get_creation_fns,
     get_impl_classes,
 )
 
@@ -56,30 +57,7 @@ class {c.layering_name}({", ".join(c.parent_layering_class_names)}):
 
 """
 
-    layering_cases = {}
-    for c in classes.values():
-        if not c.type_has_default:
-            continue
-        layering_cases[c.type_value] = c.layering_name
-        code += f"""
-@overload
-def create_layering(type_: {c.type_type_annotation}, impl:str) -> {c.layering_name}:
-    ...
-"""
-
-    cases_str = []
-    for type_name, layering_name in layering_cases.items():
-        curr_case = f"""
-        case {type_name}:
-            return {layering_name}(type=type_, impl=impl)
-        """
-        cases_str.append(curr_case)
-
-    code += f"""
-def create_layering(type_: SectionType | CodeObjType, impl:str):
-    match type_:
-{"\n".join(cases_str)}
-"""
+    code += get_creation_fns(classes, "layering", {"impl": "str"})
 
     code = (
         f"""
