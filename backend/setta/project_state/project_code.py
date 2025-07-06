@@ -24,13 +24,14 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
     process_signature_help_response,
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl
-from setta.types.generated.creation_functions import createCodeCallableCodeObjImpl
-from setta.types.generated.impl_helpers import (
+from setta.types.generated.cores import CallableSectionCore, create_code_obj_core
+from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_creation_fns import createCodeCallableCodeObjImpl
+from setta.types.generated.layerings import CallableSectionLayering
 from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.type_to_core import create_core_for_code_obj_type
 from setta.types.helpers import (
     add_children_of_callable,
     add_code_obj,
@@ -124,23 +125,29 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_impl_layering = get_section_impl_layering(project_state, sectionId)
+        section_layering = get_section_impl_layering(project_state, sectionId)
+        base_section_impl = project_state.sectionImpls[section_layering.impl]
+        section_core = project_state.sections[sectionId]
         section_impl = get_effective_impl(
-            section_impl_layering,
-            project_state.sections[sectionId],
-            project_state.sectionImpls,
+            base_section_impl,
+            section_core,
+            section_layering,
         )
 
-        if not isinstance(section_impl, CallableSectionImpl):
+        if not (
+            isinstance(base_section_impl, CallableSectionImpl)
+            and isinstance(section_impl, CallableSectionImpl)
+            and isinstance(section_core, CallableSectionCore)
+            and isinstance(section_layering, CallableSectionLayering)
+        ):
             raise TypeError
 
         if callableName == "":
             section_impl = set_effective_impl_value(
-                section_impl_layering,
-                project_state.sections[sectionId],
-                project_state.sectionImpls,
-                "callable",
-                None,
+                base_section_impl,
+                section_core,
+                section_layering,
+                {"callable": None},
             )
 
         prev_selected = callable_has_been_selected_before(
@@ -149,11 +156,10 @@ class ProjectGenPythonCode(PythonCode):
 
         if prev_selected and not refetchParams:
             section_impl = set_effective_impl_value(
-                section_impl_layering,
-                project_state.sections[sectionId],
-                project_state.sectionImpls,
-                "callable",
-                prev_selected,
+                base_section_impl,
+                section_core,
+                section_layering,
+                {"callable": prev_selected},
             )
             return
 
@@ -180,7 +186,7 @@ class ProjectGenPythonCode(PythonCode):
             callable_code_obj_impl = createCodeCallableCodeObjImpl(
                 settings.codeCallableDefault
             )
-            callable_code_obj = create_core_for_code_obj_type(
+            callable_code_obj = create_code_obj_core(
                 callable_code_obj_impl.type, name=callableName
             )
             callable_code_obj_impl_layering = add_code_obj(
@@ -217,7 +223,7 @@ class ProjectGenPythonCode(PythonCode):
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
         set_effective_impl_value(
-            section_impl_layering,
+            section_layering,
             project_state.sections[sectionId],
             project_state.sectionImpls,
             "callable",

@@ -8,13 +8,13 @@ from lsprotocol import types as LSPTypes
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
-from setta.types.generated.code_obj_core_unions import BaseCodeObjCoreUnion
-from setta.types.generated.code_obj_type_unions import (
+from setta.types.generated.cores import create_code_obj_core
+from setta.types.generated.impl_creation_fns import createTextParamCodeObjImpl
+from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import (
+    BaseCodeObjCoreUnion,
     BaseParamCodeObjImplUnion,
 )
-from setta.types.generated.creation_functions import createTextParamCodeObjImpl
-from setta.types.generated.settings_state import SettingsState
-from setta.types.generated.type_to_core import create_core_for_code_obj_type
 
 
 @dataclass
@@ -117,12 +117,14 @@ def wrapper_parse_signature(
 
         # Append parsed information to list
         codeObjImpl = createTextParamCodeObjImpl(
-            settings.textParamDefault,
-            defaultVal=default,
-            description=description,
-            passingStyle=passingStyle,
+            settings.textParamCodeObjDefault,
+            {
+                "defaultVal": default,
+                "description": description,
+                "passingStyle": passingStyle,
+            },
         )
-        codeObj = create_core_for_code_obj_type(codeObjImpl.type, name=name.lstrip("*"))
+        codeObj = create_code_obj_core(codeObjImpl.type, name=name.lstrip("*"))
         codeObjs.append(codeObj)
         codeObjImplMap[codeObj.id] = codeObjImpl
 
