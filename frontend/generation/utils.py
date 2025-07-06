@@ -181,11 +181,20 @@ def get_class_children(module, c):
     return [x for x in find_sub_classes(module, c) if x is not c]
 
 
-def get_class_to_children_mapping(module, base_class, exclude_empty=False):
+def get_class_to_children_mapping(
+    module, base_class, exclude_empty=False, required_discriminator=None
+):
     classes = find_sub_classes(module, base_class)
     output = {}
     for c in classes:
         children = get_class_children(module, c)
+        if required_discriminator:
+            children = [
+                x
+                for x in children
+                if x.model_fields[required_discriminator].default
+                is not PydanticUndefined
+            ]
         if exclude_empty and len(children) == 0:
             continue
         output[c] = children

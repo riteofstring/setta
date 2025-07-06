@@ -7,21 +7,13 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.generated.code_obj_core_unions import (
+from setta.types.generated.unions import (
     BaseCodeObjCoreUnionWithDiscriminator,
-)
-from setta.types.generated.code_obj_type_unions import (
     BaseCodeObjImplUnionWithDiscriminator,
-)
-from setta.types.generated.impl_layering_unions import (
-    BaseCodeObjImplLayeringUnionWithDiscriminator,
-    BaseSectionImplLayeringUnionWithDiscriminator,
-)
-from setta.types.generated.section_core_unions import (
+    BaseCodeObjLayeringUnionWithDiscriminator,
     BaseSectionCoreUnionWithDiscriminator,
-)
-from setta.types.generated.section_type_unions import (
     BaseSectionImplUnionWithDiscriminator,
+    BaseSectionLayeringUnionWithDiscriminator,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -66,8 +58,8 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    sectionImplLayerings: dict[str, BaseSectionImplLayeringUnionWithDiscriminator] = (
-        Field(default_factory=dict)
+    sectionImplLayerings: dict[str, BaseSectionLayeringUnionWithDiscriminator] = Field(
+        default_factory=dict
     )
     codeObjs: dict[str, BaseCodeObjCoreUnionWithDiscriminator] = Field(
         default_factory=dict
@@ -75,8 +67,8 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, BaseCodeObjImplLayeringUnionWithDiscriminator] = (
-        Field(default_factory=dict)
+    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnionWithDiscriminator] = Field(
+        default_factory=dict
     )
 
 

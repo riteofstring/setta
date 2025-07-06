@@ -62,98 +62,106 @@ class WebsocketMsg(BaseModel):
     messageType: Any
 
 
-class WebsocketMsgAllConnections(WebsocketMsg):
+class FrontendWebsocketMsg(WebsocketMsg):
+    pass
+
+
+class BackendWebsocketMsg(WebsocketMsg):
+    pass
+
+
+class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
         WebsocketMsgTypeForFrontend.AllConnections
     )
 
 
-class WebsocketMsgArtifact(WebsocketMsg):
+class WebsocketMsgArtifact(FrontendWebsocketMsg):
     content: Artifact
     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
         WebsocketMsgTypeForFrontend.Artifact
     )
 
 
-class WebsocketMsgNotification(WebsocketMsg):
+class WebsocketMsgNotification(FrontendWebsocketMsg):
     content: SettaNotification
     messageType: Literal[WebsocketMsgTypeForFrontend.Notification] = (
         WebsocketMsgTypeForFrontend.Notification
     )
 
 
-class WebsocketMsgLLMStreamingResponse(WebsocketMsg):
+class WebsocketMsgLLMStreamingResponse(FrontendWebsocketMsg):
     content: LLMStreamingResponse
     messageType: Literal[WebsocketMsgTypeForFrontend.LLMStreamingResponse] = (
         WebsocketMsgTypeForFrontend.LLMStreamingResponse
     )
 
 
-class WebsocketMsgUUIDMappingForLLM(WebsocketMsg):
+class WebsocketMsgUUIDMappingForLLM(FrontendWebsocketMsg):
     content: IDToUUIDForLLM
     messageType: Literal[WebsocketMsgTypeForFrontend.UUIDMappingForLLM] = (
         WebsocketMsgTypeForFrontend.UUIDMappingForLLM
     )
 
 
-class WebsocketMsgLSPDiagnostics(WebsocketMsg):
+class WebsocketMsgLSPDiagnostics(FrontendWebsocketMsg):
     content: SettaProjectConfigDiagnostics
     messageType: Literal[WebsocketMsgTypeForFrontend.LSPDiagnostics] = (
         WebsocketMsgTypeForFrontend.LSPDiagnostics
     )
 
 
-class WebsocketMsgReturnRenameRefactorResults(WebsocketMsg):
+class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults] = (
         WebsocketMsgTypeForFrontend.ReturnRenameRefactorResults
     )
 
 
-class WebsocketMsgUpdateFrontendProjectState(WebsocketMsg):
+class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     content: ProjectStateSingleConfig
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )
 
 
-class WebsocketMsgSpecificFileWatcherUpdate(WebsocketMsg):
+class WebsocketMsgSpecificFileWatcherUpdate(FrontendWebsocketMsg):
     content: FileWatcherUpdate
     messageType: Literal[WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate] = (
         WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate
     )
 
 
-class WebsocketMsgAllDependencies(WebsocketMsg):
+class WebsocketMsgAllDependencies(FrontendWebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.AllDependencies] = (
         WebsocketMsgTypeForFrontend.AllDependencies
     )
 
 
-class WebsocketMsgTerminalMetadata(WebsocketMsg):
+class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.TerminalMetadata] = (
         WebsocketMsgTypeForFrontend.TerminalMetadata
     )
 
 
-class WebsocketMsgNewTerminalCreated(WebsocketMsg):
+class WebsocketMsgNewTerminalCreated(FrontendWebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.NewTerminalCreated] = (
         WebsocketMsgTypeForFrontend.NewTerminalCreated
     )
 
 
-class WebsocketMsgUpdateSettings(WebsocketMsg):
+class WebsocketMsgUpdateSettings(FrontendWebsocketMsg):
     content: SettingsState
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateSettings] = (
         WebsocketMsgTypeForFrontend.UpdateSettings
     )
 
 
-class WebsocketMsgCurrentAddressUpdate(WebsocketMsg):
+class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
@@ -165,7 +173,7 @@ class WebsocketMsgUpdateBackendProjectStateContent(BaseModel):
     requestRenameRefactor: bool
 
 
-class WebsocketMsgUpdateBackendProjectState(WebsocketMsg):
+class WebsocketMsgUpdateBackendProjectState(BackendWebsocketMsg):
     content: WebsocketMsgUpdateBackendProjectStateContent
     messageType: Literal[WebsocketMsgTypeForBackend.UpdateBackendProjectState] = (
         WebsocketMsgTypeForBackend.UpdateBackendProjectState

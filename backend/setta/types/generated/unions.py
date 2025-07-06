@@ -2,12 +2,6 @@ from typing import Annotated, TypeGuard, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.section_impls import (
-    BaseArtifactSectionImpl,
-    BaseCanvasSectionImpl,
-    BaseCodeSectionImpl,
-    BaseDictSectionImpl,
-    BaseParentSectionImpl,
-    BaseSectionWithParamsImpl,
     BrowserSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
@@ -28,12 +22,6 @@ from setta.types.section_impls import (
 )
 
 BaseSectionImplUnion = Union[
-    BaseSectionWithParamsImpl,
-    BaseArtifactSectionImpl,
-    BaseCanvasSectionImpl,
-    BaseCodeSectionImpl,
-    BaseParentSectionImpl,
-    BaseDictSectionImpl,
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
@@ -82,10 +70,7 @@ BaseSectionImplTypeSet = set(
 )
 
 BaseSectionWithParamsImplUnion = Union[
-    BaseDictSectionImpl,
-    CallableSectionImpl,
-    DictSectionImpl,
-    GlobalVariablesSectionImpl,
+    CallableSectionImpl, DictSectionImpl, GlobalVariablesSectionImpl
 ]
 
 BaseSectionWithParamsImplUnionWithDiscriminator = Annotated[
@@ -163,9 +148,6 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.code_obj_impls import (
-    BaseChildlessCodeObjImpl,
-    BaseParamCodeObjImpl,
-    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -178,9 +160,6 @@ from setta.types.code_obj_impls import (
 )
 
 BaseCodeObjImplUnion = Union[
-    BaseParamCodeObjImpl,
-    BaseChildlessCodeObjImpl,
-    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     TextParamCodeObjImpl,
@@ -213,7 +192,6 @@ BaseCodeObjImplTypeSet = set(
 )
 
 BaseParamCodeObjImplUnion = Union[
-    BaseChildlessCodeObjImpl,
     CodeParamCodeObjImpl,
     TextParamCodeObjImpl,
     SliderParamCodeObjImpl,
@@ -292,12 +270,6 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.generated.cores import (
-    BaseArtifactSectionCore,
-    BaseCanvasSectionCore,
-    BaseCodeSectionCore,
-    BaseDictSectionCore,
-    BaseParentSectionCore,
-    BaseSectionWithParamsCore,
     BrowserSectionCore,
     CallableSectionCore,
     ChartSectionCore,
@@ -318,12 +290,6 @@ from setta.types.generated.cores import (
 )
 
 BaseSectionCoreUnion = Union[
-    BaseSectionWithParamsCore,
-    BaseArtifactSectionCore,
-    BaseCanvasSectionCore,
-    BaseCodeSectionCore,
-    BaseParentSectionCore,
-    BaseDictSectionCore,
     CallableSectionCore,
     DictSectionCore,
     ListRootSectionCore,
@@ -372,10 +338,7 @@ BaseSectionCoreTypeSet = set(
 )
 
 BaseSectionWithParamsCoreUnion = Union[
-    BaseDictSectionCore,
-    CallableSectionCore,
-    DictSectionCore,
-    GlobalVariablesSectionCore,
+    CallableSectionCore, DictSectionCore, GlobalVariablesSectionCore
 ]
 
 BaseSectionWithParamsCoreUnionWithDiscriminator = Annotated[
@@ -453,9 +416,6 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.generated.cores import (
-    BaseChildlessCodeObjCore,
-    BaseParamCodeObjCore,
-    BaseParentCodeObjCore,
     CodeCallableCodeObjCore,
     CodeParamCodeObjCore,
     ColorPickerParamCodeObjCore,
@@ -468,9 +428,6 @@ from setta.types.generated.cores import (
 )
 
 BaseCodeObjCoreUnion = Union[
-    BaseParamCodeObjCore,
-    BaseChildlessCodeObjCore,
-    BaseParentCodeObjCore,
     CodeCallableCodeObjCore,
     CodeParamCodeObjCore,
     TextParamCodeObjCore,
@@ -503,7 +460,6 @@ BaseCodeObjCoreTypeSet = set(
 )
 
 BaseParamCodeObjCoreUnion = Union[
-    BaseChildlessCodeObjCore,
     CodeParamCodeObjCore,
     TextParamCodeObjCore,
     SliderParamCodeObjCore,
@@ -582,12 +538,6 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.generated.layerings import (
-    BaseArtifactSectionLayering,
-    BaseCanvasSectionLayering,
-    BaseCodeSectionLayering,
-    BaseDictSectionLayering,
-    BaseParentSectionLayering,
-    BaseSectionWithParamsLayering,
     BrowserSectionLayering,
     CallableSectionLayering,
     ChartSectionLayering,
@@ -608,12 +558,6 @@ from setta.types.generated.layerings import (
 )
 
 BaseSectionLayeringUnion = Union[
-    BaseSectionWithParamsLayering,
-    BaseArtifactSectionLayering,
-    BaseCanvasSectionLayering,
-    BaseCodeSectionLayering,
-    BaseParentSectionLayering,
-    BaseDictSectionLayering,
     CallableSectionLayering,
     DictSectionLayering,
     ListRootSectionLayering,
@@ -662,10 +606,7 @@ BaseSectionLayeringTypeSet = set(
 )
 
 BaseSectionWithParamsLayeringUnion = Union[
-    BaseDictSectionLayering,
-    CallableSectionLayering,
-    DictSectionLayering,
-    GlobalVariablesSectionLayering,
+    CallableSectionLayering, DictSectionLayering, GlobalVariablesSectionLayering
 ]
 
 BaseSectionWithParamsLayeringUnionWithDiscriminator = Annotated[
@@ -749,9 +690,6 @@ from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
 from setta.types.generated.layerings import (
-    BaseChildlessCodeObjLayering,
-    BaseParamCodeObjLayering,
-    BaseParentCodeObjLayering,
     CodeCallableCodeObjLayering,
     CodeParamCodeObjLayering,
     ColorPickerParamCodeObjLayering,
@@ -764,9 +702,6 @@ from setta.types.generated.layerings import (
 )
 
 BaseCodeObjLayeringUnion = Union[
-    BaseParamCodeObjLayering,
-    BaseChildlessCodeObjLayering,
-    BaseParentCodeObjLayering,
     CodeCallableCodeObjLayering,
     CodeParamCodeObjLayering,
     TextParamCodeObjLayering,
@@ -799,7 +734,6 @@ BaseCodeObjLayeringTypeSet = set(
 )
 
 BaseParamCodeObjLayeringUnion = Union[
-    BaseChildlessCodeObjLayering,
     CodeParamCodeObjLayering,
     TextParamCodeObjLayering,
     SliderParamCodeObjLayering,
@@ -907,12 +841,6 @@ from setta.types.generated.modifiers import (
 )
 
 BaseSectionModifierUnion = Union[
-    BaseSectionWithParamsModifier,
-    BaseArtifactSectionModifier,
-    BaseCanvasSectionModifier,
-    BaseCodeSectionModifier,
-    BaseParentSectionModifier,
-    BaseDictSectionModifier,
     CallableSectionModifier,
     DictSectionModifier,
     ListRootSectionModifier,
@@ -961,10 +889,7 @@ BaseSectionModifierTypeSet = set(
 )
 
 BaseSectionWithParamsModifierUnion = Union[
-    BaseDictSectionModifier,
-    CallableSectionModifier,
-    DictSectionModifier,
-    GlobalVariablesSectionModifier,
+    CallableSectionModifier, DictSectionModifier, GlobalVariablesSectionModifier
 ]
 
 BaseSectionWithParamsModifierUnionWithDiscriminator = Annotated[
@@ -1064,9 +989,6 @@ from setta.types.generated.modifiers import (
 )
 
 BaseCodeObjModifierUnion = Union[
-    BaseParamCodeObjModifier,
-    BaseChildlessCodeObjModifier,
-    BaseParentCodeObjModifier,
     CodeCallableCodeObjModifier,
     CodeParamCodeObjModifier,
     TextParamCodeObjModifier,
@@ -1099,7 +1021,6 @@ BaseCodeObjModifierTypeSet = set(
 )
 
 BaseParamCodeObjModifierUnion = Union[
-    BaseChildlessCodeObjModifier,
     CodeParamCodeObjModifier,
     TextParamCodeObjModifier,
     SliderParamCodeObjModifier,
@@ -1236,3 +1157,123 @@ def isBaseParentCodeObjModifier(
     x: BaseCodeObjModifier,
 ) -> TypeGuard[BaseParentCodeObjModifier]:
     return x["type"] in BaseParentCodeObjModifierTypeSet
+
+
+from typing import Annotated, TypeGuard, Union
+
+from pydantic import Field, TypeAdapter
+from setta.types.websocket import (
+    WebsocketMsgAllConnections,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgArtifact,
+    WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgNewTerminalCreated,
+    WebsocketMsgNotification,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgUpdateBackendProjectState,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgUpdateSettings,
+    WebsocketMsgUUIDMappingForLLM,
+)
+
+WebsocketMsgUnion = Union[
+    WebsocketMsgAllConnections,
+    WebsocketMsgArtifact,
+    WebsocketMsgNotification,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgUUIDMappingForLLM,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgNewTerminalCreated,
+    WebsocketMsgUpdateSettings,
+    WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgUpdateBackendProjectState,
+]
+
+WebsocketMsgUnionWithDiscriminator = Annotated[
+    WebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+WebsocketMsgTypeAdapter = TypeAdapter(WebsocketMsgUnionWithDiscriminator)
+
+WebsocketMsgTypeSet = set(
+    [
+        "AllConnections",
+        "Artifact",
+        "Notification",
+        "LLMStreamingResponse",
+        "UUIDMappingForLLM",
+        "LSPDiagnostics",
+        "ReturnRenameRefactorResults",
+        "UpdateFrontendProjectState",
+        "SpecificFileWatcherUpdate",
+        "AllDependencies",
+        "TerminalMetadata",
+        "NewTerminalCreated",
+        "UpdateSettings",
+        "CurrentAddressUpdate",
+        "UpdateBackendProjectState",
+    ]
+)
+
+FrontendWebsocketMsgUnion = Union[
+    WebsocketMsgAllConnections,
+    WebsocketMsgArtifact,
+    WebsocketMsgNotification,
+    WebsocketMsgLLMStreamingResponse,
+    WebsocketMsgUUIDMappingForLLM,
+    WebsocketMsgLSPDiagnostics,
+    WebsocketMsgReturnRenameRefactorResults,
+    WebsocketMsgUpdateFrontendProjectState,
+    WebsocketMsgSpecificFileWatcherUpdate,
+    WebsocketMsgAllDependencies,
+    WebsocketMsgTerminalMetadata,
+    WebsocketMsgNewTerminalCreated,
+    WebsocketMsgUpdateSettings,
+]
+
+FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
+    FrontendWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+FrontendWebsocketMsgTypeAdapter = TypeAdapter(
+    FrontendWebsocketMsgUnionWithDiscriminator
+)
+
+FrontendWebsocketMsgTypeSet = set(
+    [
+        "AllConnections",
+        "Artifact",
+        "Notification",
+        "LLMStreamingResponse",
+        "UUIDMappingForLLM",
+        "LSPDiagnostics",
+        "ReturnRenameRefactorResults",
+        "UpdateFrontendProjectState",
+        "SpecificFileWatcherUpdate",
+        "AllDependencies",
+        "TerminalMetadata",
+        "NewTerminalCreated",
+        "UpdateSettings",
+    ]
+)
+
+BackendWebsocketMsgUnion = Union[
+    WebsocketMsgCurrentAddressUpdate, WebsocketMsgUpdateBackendProjectState
+]
+
+BackendWebsocketMsgUnionWithDiscriminator = Annotated[
+    BackendWebsocketMsgUnion, Field(discriminator="messageType")
+]
+
+BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
+
+BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate", "UpdateBackendProjectState"])

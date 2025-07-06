@@ -1,11 +1,11 @@
 from pathlib import Path
+from pprint import pprint
 
 import setta.types.code_obj_impls
 import setta.types.generated.cores
 import setta.types.generated.layerings
 import setta.types.generated.modifiers
 import setta.types.section_impls
-from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
@@ -25,8 +25,9 @@ def construct_unions(
     return_class_mapping=False,
 ):
     class_to_children = get_class_to_children_mapping(
-        module, base_class, exclude_empty=True
+        module, base_class, exclude_empty=True, required_discriminator=discriminator
     )
+    pprint(class_to_children)
     code = """
 from typing import Annotated,Union,TypeGuard
 from pydantic import Field, TypeAdapter
@@ -59,61 +60,6 @@ from pydantic import Field, TypeAdapter
     if return_class_mapping:
         return code, class_to_children
     return code
-
-
-# This function differs from the section_impl and code_obj_impl functions above
-# because all websocket msgs extend WebsocketMsg, so we differentiate based on enum alone
-def generate_websocket_union_code(
-    enum_type, direction_name, discriminator="messageType"
-):
-    enum_names = []
-    for e in enum_type:
-        # assert enum name and value are the same for simplicity
-        assert e.name == e.value
-        enum_names.append(e.name)
-
-    class_names = [f"WebsocketMsg{e}" for e in enum_names]
-    classes_str = ",".join(class_names)
-
-    imports = f"from setta.types.websocket import {classes_str}"
-
-    enum_names_quoted = [f'"{e}"' for e in enum_names]
-
-    union_code = f"""
-WebsocketMsg{direction_name}Union = Union[{classes_str}]
-
-WebsocketMsg{direction_name}UnionWithDiscriminator = Annotated[WebsocketMsg{direction_name}Union, Field(discriminator="{discriminator}")]
-
-WebsocketMsg{direction_name}TypeAdapter = TypeAdapter(WebsocketMsg{direction_name}UnionWithDiscriminator)
-
-WebsocketMsg{direction_name}TypeSet = set([{",".join(enum_names_quoted)}])
-"""
-
-    return imports, union_code, enum_names
-
-
-def websocket_msg_union():
-    from setta.types.websocket import (
-        WebsocketMsgTypeForBackend,
-        WebsocketMsgTypeForFrontend,
-    )
-
-    # Generate code for both directions
-    backend_imports, backend_code, _ = generate_websocket_union_code(
-        WebsocketMsgTypeForBackend, "ForBackend"
-    )
-    frontend_imports, frontend_code, _ = generate_websocket_union_code(
-        WebsocketMsgTypeForFrontend, "ForFrontend"
-    )
-
-    return f"""
-from typing import Annotated,Union
-from pydantic import Field, TypeAdapter
-{backend_imports}
-{frontend_imports}
-{backend_code}
-{frontend_code}
-"""
 
 
 def add_type_predicate_fns(most_base_type, base_class_to_children, class_transformer):
@@ -173,7 +119,6 @@ def generate_unions(output_file):
         setta.types.generated.layerings,
         lambda x: x,
     )  # type: ignore
-
     modifier_code1, modifier_class_mapping1 = construct_unions(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
@@ -210,18 +155,28 @@ def generate_unions(output_file):
     output_file.write_text(code)
 
 
-def get_parent_classes_up_to_base_model(x):
-    if x.__base__ is BaseModel:
-        return []
-    output = []
-    for b in x.__bases__:
-        output.append(b)
-        output.extend(get_parent_classes_up_to_base_model(b))
-    return output
+def generate_websocket_unions(output_file: Path):
+    import setta.types.websocket
+
+    code = construct_unions(
+        setta.types.websocket,
+        setta.types.websocket.WebsocketMsg,
+        "messageType",
+        setta.types.websocket,
+        lambda x: x,
+    )  # type: ignore
+
+    existing_code = output_file.read_text()
+    code = existing_code + code  # type: ignore
+    code = ruff_format(code)
+    output_file.write_text(code)
 
 
 if __name__ == "__main__":
-    generate_unions(
+    output_file = (
         get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
         / "unions.py"
     )
+    generate_unions(output_file)
+    # has to be done separately due to import dependencies
+    generate_websocket_unions(output_file)
