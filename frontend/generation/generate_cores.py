@@ -8,7 +8,7 @@ from setta.utils.utils import get_absolute_path
 from .generate_modifiers import create_model_args_as_typed_dict
 from .utils import (
     ImplClassInfoForGeneration,
-    find_sub_classes,
+    get_core_classes,
     get_creation_fns,
     get_impl_classes,
 )
@@ -87,31 +87,23 @@ def generate_core_args_as_typed_dicts(
 ):
     import setta.types.generated.cores
 
-    core_classes = find_sub_classes(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseSectionCore,
-    )
-    core_classes += find_sub_classes(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseCodeObjCore,
-    )
-
     code = """
 from typing import Literal, Any, NotRequired, TypedDict
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.section_impls import SectionType
 from setta.types.generated.modifiers import BaseCodeObjModifier, BaseSectionModifier
 """
-    for c in core_classes:
+
+    classes = get_core_classes()
+    for c in classes.values():
         code += create_model_args_as_typed_dict(
             c,
-            c.__bases__,
             [
                 setta.types.generated.cores.BaseSectionCore,
                 setta.types.generated.cores.BaseCodeObjCore,
             ],
-            c.__name__ + "Args",
-            [p.__name__ + "Args" for p in c.__bases__],
+            c.args_name,
+            c.parent_args_class_names,
         )
 
     code = ruff_format(code)

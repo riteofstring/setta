@@ -2,6 +2,7 @@ import inspect
 import os
 import subprocess
 import types
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Sequence as ABCSequence
 from dataclasses import dataclass
@@ -203,104 +204,159 @@ def get_class_to_children_mapping(
     return output
 
 
-def get_name_without_impl(x):
-    return x.rstrip("Impl")
+def get_name_without_suffix(name: str, suffix: str) -> str:
+    """Remove a suffix from a name if it exists."""
+    return name.rstrip(suffix)
 
 
 @dataclass
-class ImplClassInfoForGeneration:
+class BaseClassInfoForGeneration(ABC):
+    """Base class for generating class information."""
+
     class_obj: Any
     children: list
     base_name: str
 
     @property
-    def original_name(self):
+    def original_name(self) -> str:
+        """The original class name."""
         return self.class_obj.__name__
 
     @property
-    def user_default_name(self):
-        return "UserDefault" + self.original_name
-
-    @property
-    def modifier_name(self):
-        return self.base_name + "Modifier"
-
-    @property
-    def args_name(self):
-        return self.original_name + "Args"
-
-    @property
-    def core_name(self):
-        return self.base_name + "Core"
-
-    @property
-    def layering_name(self):
-        return self.base_name + "Layering"
-
-    @property
-    def impl_fields_name(self):
-        return self.base_name + "ImplFields"
-
-    @property
-    def impl_name(self):
-        return self.original_name
+    @abstractmethod
+    def suffix(self) -> str:
+        """The suffix used for this type of class (e.g., 'Impl' or 'Core')."""
+        pass
 
     @property
     def parents(self):
+        """Parent classes."""
         return self.class_obj.__bases__
 
     @property
-    def parent_user_default_class_names(self):
-        return ["UserDefault" + p.__name__ for p in self.parents]
-
-    @property
-    def parent_core_class_names(self):
-        return [get_name_without_impl(p.__name__) + "Core" for p in self.parents]
-
-    @property
-    def parent_layering_class_names(self):
-        return [get_name_without_impl(p.__name__) + "Layering" for p in self.parents]
-
-    @property
-    def parent_modifier_class_names(self):
-        return [get_name_without_impl(p.__name__) + "Modifier" for p in self.parents]
-
-    @property
-    def parent_args_class_names(self):
-        return [p.__name__ + "Args" for p in self.parents]
-
-    @property
-    def parent_is_base_model(self):
+    def parent_is_base_model(self) -> bool:
+        """Check if BaseModel is a direct parent."""
         return BaseModel in self.parents
 
     @property
     def type_field(self):
-        return self.class_obj.model_fields["type"]
+        """The type field from the model."""
+        return self.class_obj.model_fields.get("type")
 
     @property
     def type_value(self):
-        return self.type_field.default.value
+        """The value of the type field."""
+        if self.type_field and self.type_field.default is not PydanticUndefined:
+            return self.type_field.default.value
+        return None
 
     @property
-    def type_full_enum_name(self):
-        return f"{self.type_field.default.__class__.__name__}.{self.type_value}"
+    def type_full_enum_name(self) -> str:
+        """Full enum name for the type."""
+        if self.type_field and self.type_field.default is not PydanticUndefined:
+            return f"{self.type_field.default.__class__.__name__}.{self.type_value}"
+        return ""
 
     @property
-    def type_has_default(self):
-        return self.type_field.default is not PydanticUndefined
+    def type_has_default(self) -> bool:
+        """Check if the type field has a default value."""
+        return self.type_field and self.type_field.default is not PydanticUndefined
 
     @property
-    def type_type_annotation(self):
-        return python_type_to_str(self.type_field.annotation)
+    def type_type_annotation(self) -> str:
+        """Type annotation for the type field."""
+        if self.type_field:
+            return python_type_to_str(self.type_field.annotation)
+        return ""
 
     @property
-    def type_type_annotation_and_value(self):
+    def type_type_annotation_and_value(self) -> str:
+        """Type annotation with optional default value."""
         if self.type_has_default:
             return f"{self.type_type_annotation} = {self.type_full_enum_name}"
         return self.type_type_annotation
 
     @property
-    def modifier_annotation_and_value(self):
+    def parent_classes_up_to_base_model(self) -> list:
+        """Get all parent classes up to BaseModel."""
+        output = []
+        for cls in self.class_obj.__mro__:
+            if cls not in (BaseModel, object):
+                output.append(cls)
+        return output
+
+    @property
+    def parent_args_class_names(self) -> list[str]:
+        return [p.__name__ + "Args" for p in self.parents]
+
+    # Common properties that might be used by both
+    @property
+    def modifier_name(self) -> str:
+        """Name of the modifier class."""
+        return self.base_name + "Modifier"
+
+    @property
+    def core_name(self) -> str:
+        """Name of the core class."""
+        return self.base_name + "Core"
+
+    @property
+    def layering_name(self) -> str:
+        """Name of the layering class."""
+        return self.base_name + "Layering"
+
+
+@dataclass
+class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
+    """Class info for Impl classes with all the specific properties needed."""
+
+    @property
+    def suffix(self) -> str:
+        return "Impl"
+
+    @property
+    def user_default_name(self) -> str:
+        return "UserDefault" + self.original_name
+
+    @property
+    def args_name(self) -> str:
+        return self.original_name + "Args"
+
+    @property
+    def impl_fields_name(self) -> str:
+        return self.base_name + "ImplFields"
+
+    @property
+    def impl_name(self) -> str:
+        return self.original_name
+
+    @property
+    def parent_user_default_class_names(self) -> list[str]:
+        return ["UserDefault" + p.__name__ for p in self.parents]
+
+    @property
+    def parent_core_class_names(self) -> list[str]:
+        return [
+            get_name_without_suffix(p.__name__, self.suffix) + "Core"
+            for p in self.parents
+        ]
+
+    @property
+    def parent_layering_class_names(self) -> list[str]:
+        return [
+            get_name_without_suffix(p.__name__, self.suffix) + "Layering"
+            for p in self.parents
+        ]
+
+    @property
+    def parent_modifier_class_names(self) -> list[str]:
+        return [
+            get_name_without_suffix(p.__name__, self.suffix) + "Modifier"
+            for p in self.parents
+        ]
+
+    @property
+    def modifier_annotation_and_value(self) -> str:
         modifier = self.modifier_name
         if self.type_has_default:
             modifier_fn_name = (
@@ -317,7 +373,7 @@ class ImplClassInfoForGeneration:
         return modifier
 
     @property
-    def unshared_keys_annotation_and_value(self):
+    def unshared_keys_annotation_and_value(self) -> str:
         unshared_keys = f"list[{self.impl_fields_name}]"
         if self.type_has_default:
             if self.is_section_impl:
@@ -340,20 +396,29 @@ class ImplClassInfoForGeneration:
         return unshared_keys
 
     @property
-    def is_section_impl(self):
+    def is_section_impl(self) -> bool:
+        import setta.types.section_impls
+
         return issubclass(self.class_obj, setta.types.section_impls.BaseSectionImpl)
 
     @property
-    def is_code_obj_impl(self):
+    def is_code_obj_impl(self) -> bool:
+        import setta.types.code_obj_impls
+
         return issubclass(self.class_obj, setta.types.code_obj_impls.BaseCodeObjImpl)
 
+
+@dataclass
+class CoreClassInfoForGeneration(BaseClassInfoForGeneration):
+    """Class info for Core classes - much simpler as they only need args_name."""
+
     @property
-    def parent_classes_up_to_base_model(self):
-        output = []
-        for cls in self.class_obj.__mro__:
-            if cls not in (BaseModel, object):
-                output.append(cls)
-        return output
+    def suffix(self) -> str:
+        return "Core"
+
+    @property
+    def args_name(self) -> str:
+        return self.base_name + "CoreArgs"
 
 
 def get_impl_classes():
@@ -370,6 +435,31 @@ def get_impl_classes():
         children += get_class_children(setta.types.code_obj_impls, c)
         base_name = c.__name__.rstrip("Impl")
         output[c.__name__] = ImplClassInfoForGeneration(
+            class_obj=c,
+            children=children,
+            base_name=base_name,
+        )
+
+    return output
+
+
+def get_core_classes():
+    import setta.types.generated.cores
+
+    classes = find_sub_classes(
+        setta.types.generated.cores,
+        setta.types.generated.cores.BaseSectionCore,
+    )
+    classes += find_sub_classes(
+        setta.types.generated.cores,
+        setta.types.generated.cores.BaseCodeObjCore,
+    )
+    output: dict[str, CoreClassInfoForGeneration] = {}
+    for c in classes:
+        children = get_class_children(setta.types.generated.cores, c)
+        children += get_class_children(setta.types.generated.cores, c)
+        base_name = c.__name__.rstrip("Core")
+        output[c.__name__] = CoreClassInfoForGeneration(
             class_obj=c,
             children=children,
             base_name=base_name,

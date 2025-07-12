@@ -1,13 +1,12 @@
 from pathlib import Path
 
 import setta.types.code_obj_impls
-import setta.types.generated
 import setta.types.section_impls
-from pydantic import BaseModel
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
 from .utils import (
+    BaseClassInfoForGeneration,
     ImplClassInfoForGeneration,
     get_creation_fns,
     get_impl_classes,
@@ -16,8 +15,7 @@ from .utils import (
 
 
 def create_model_args_as_typed_dict(
-    class_obj: type[BaseModel],
-    class_obj_parents: tuple,
+    class_info: BaseClassInfoForGeneration,
     base_classes,
     typed_dict_name,
     typed_dict_parent_names,
@@ -29,15 +27,15 @@ def create_model_args_as_typed_dict(
     if required_args is None:
         required_args = []
     attributes = []
-    for field_name, field_info in class_obj.model_fields.items():
+    for field_name, field_info in class_info.class_obj.model_fields.items():
         # Skip if field is in exclusions for base class
-        if class_obj in base_classes and field_name in exclusions:
+        if class_info.class_obj in base_classes and field_name in exclusions:
             continue
 
         # For non-base classes, skip if field is defined in ANY parent class (except type)
-        if class_obj not in base_classes and field_name != "type":
+        if class_info.class_obj not in base_classes and field_name != "type":
             field_in_parent = False
-            for parent in class_obj_parents:
+            for parent in class_info.parents:
                 if (
                     hasattr(parent, "model_fields")
                     and field_name in parent.model_fields
@@ -55,7 +53,7 @@ def create_model_args_as_typed_dict(
     attributes = "\n\t".join(attributes)
     attributes = f"\t{attributes}"
 
-    if class_obj in base_classes:
+    if class_info.class_obj in base_classes:
         parent_class = "TypedDict"
     else:
         parent_class = ", ".join(typed_dict_parent_names)
@@ -96,8 +94,7 @@ def generate_modifiers(output_file, classes: dict[str, ImplClassInfoForGeneratio
     code = get_imports_str()
     for c in classes.values():
         code += create_model_args_as_typed_dict(
-            c.class_obj,
-            c.parents,
+            c,
             [
                 setta.types.section_impls.BaseSectionImpl,
                 setta.types.code_obj_impls.BaseCodeObjImpl,
@@ -120,8 +117,7 @@ def generate_impl_args_as_typed_dicts(
     code = get_imports_str()
     for c in classes.values():
         code += create_model_args_as_typed_dict(
-            c.class_obj,
-            c.parents,
+            c,
             [
                 setta.types.section_impls.BaseSectionImpl,
                 setta.types.code_obj_impls.BaseCodeObjImpl,
