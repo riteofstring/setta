@@ -382,6 +382,8 @@ def get_creation_fns(
     additional_args_inputs_callback: Callable[[ImplClassInfoForGeneration], str]
     | None = None,
     additional_args_generic_type_callback: Callable[[], str] | None = None,
+    implementation_callback: Callable[[ImplClassInfoForGeneration, str], str]
+    | None = None,
 ):
     if additional_args_types_callback is None:
         additional_args_types_callback = lambda x: ""
@@ -389,6 +391,11 @@ def get_creation_fns(
         additional_args_inputs_callback = lambda x: ""
     if additional_args_generic_type_callback is None:
         additional_args_generic_type_callback = lambda: ""
+    if implementation_callback is None:
+        implementation_callback = (
+            lambda c,
+            additional_args: f"""return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
+        )
     cases: dict[str, list[ImplClassInfoForGeneration]] = defaultdict(list)
     code = ""
     for c in classes.values():
@@ -410,7 +417,7 @@ def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args}) -
             additional_args = additional_args_inputs_callback(c)
             curr_case = f"""
             case {c.type_full_enum_name}:
-                return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})
+                {implementation_callback(c, additional_args)}
             """
             cases_str.append(curr_case)
 
