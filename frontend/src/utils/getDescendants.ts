@@ -23,6 +23,7 @@ export type CodeObjPathMap = Record<string, Array<string>>;
 
 function _findAllDescendants(
   impls: ZustandProjectState["codeObjImpls"],
+  cores: ZustandProjectState["codeObjs"],
   layerings: ZustandProjectState["codeObjImplLayerings"],
   layeringMap: CallableSectionImpl["codeObjImplLayeringMap"],
   ids: Array<string>,
@@ -39,6 +40,7 @@ function _findAllDescendants(
       const impl = getEffectiveImplFromLayeringMap(
         id,
         impls,
+        cores,
         layerings,
         layeringMap,
       );
@@ -54,7 +56,13 @@ function _findAllDescendants(
     for (const id of idStack) {
       if (
         conditions.paramPath(
-          getEffectiveImplFromLayeringMap(id, impls, layerings, layeringMap),
+          getEffectiveImplFromLayeringMap(
+            id,
+            impls,
+            cores,
+            layerings,
+            layeringMap,
+          ),
         )
       ) {
         pathMap[id] = [id];
@@ -73,6 +81,7 @@ function _findAllDescendants(
     const impl = getEffectiveImplFromLayeringMap(
       id,
       impls,
+      cores,
       layerings,
       layeringMap,
     );
@@ -94,6 +103,7 @@ function _findAllDescendants(
           const childImpl = getEffectiveImplFromLayeringMap(
             childId,
             impls,
+            cores,
             layerings,
             layeringMap,
           );
@@ -115,6 +125,7 @@ function _findAllDescendants(
           getEffectiveImplFromLayeringMap(
             lastId,
             impls,
+            cores,
             layerings,
             layeringMap,
           ),
@@ -199,6 +210,7 @@ export function findAllParametersOfCallableSection(
   const { callable, codeObjImplLayeringMap } = impl;
   return _findAllDescendants(
     p.codeObjImpls,
+    p.codeObjs,
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     callable ? [callable] : [],
@@ -214,6 +226,7 @@ export function findAllParametersOfBaseDictSection(
   const { topLevelParamIds, codeObjImplLayeringMap } = impl;
   return _findAllDescendants(
     p.codeObjImpls,
+    p.codeObjs,
     p.codeObjImplLayerings,
     codeObjImplLayeringMap,
     topLevelParamIds,

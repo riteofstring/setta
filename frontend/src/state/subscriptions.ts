@@ -250,10 +250,14 @@ function artifactWhoModifiedSubscriptionFn(state) {
 
 function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   const filenameSet: Set<string> = new Set();
-  for (const v of Object.values(state.sectionImplLayerings)) {
-    const impl = getEffectiveImpl(v, state.sectionImpls);
-    if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
-      filenameSet.add(v.name);
+  for (const section of Object.values(state.sections)) {
+    for (const layeringId of section.implLayerings) {
+      const layering = state.sectionImplLayerings[layeringId];
+      const baseImpl = state.sectionImpls[layering.impl];
+      const impl = getEffectiveImpl(baseImpl, section, layering);
+      if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
+        filenameSet.add(layering.name);
+      }
     }
   }
   return Array.from(filenameSet);

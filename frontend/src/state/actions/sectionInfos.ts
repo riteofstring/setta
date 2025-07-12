@@ -9,7 +9,6 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
-  ImplLayering,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -20,17 +19,9 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-export function getEffectiveImpl<TImpl>(
-  implLayering: ImplLayering,
-  implDict: Record<string, TImpl>,
-): TImpl {
-  const baseImpl = implDict[implLayering.impl];
-  if (!baseImpl) {
-    throw new Error();
-  }
-  // Deep clone the base implementation
-  const effective = _.cloneDeep(baseImpl);
-  Object.assign(effective, implLayering.modifier);
+export function getEffectiveImpl<TImpl>(impl: TImpl, core, layering): TImpl {
+  const effective = _.cloneDeep(impl);
+  Object.assign(effective, { ...core.sharedModifier, ...layering.modifier });
   return effective;
 }
 
@@ -65,7 +56,9 @@ export function getEffectiveSectionImpl(
     }
 
     const implLayering = getSectionImplLayering(p, sectionId);
-    return getEffectiveImpl(implLayering, p.sectionImpls);
+    const baseImpl = p.sectionImpls[implLayering.impl];
+    const core = p.sections[sectionId];
+    return getEffectiveImpl(baseImpl, core, implLayering);
   }
   return sectionImpl;
 }
@@ -117,7 +110,9 @@ export function getEffectiveCodeObjImpl(
     sectionId,
     sectionImpl,
   );
-  return getEffectiveImpl(implLayering, p.codeObjImpls);
+  const baseImpl = p.codeObjImpls[implLayering.impl];
+  const core = p.codeObjs[codeObjId];
+  return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
 export function getCodeObjImpl(
@@ -136,6 +131,7 @@ export function getCodeObjImpl(
 export function getEffectiveImplFromLayeringMap<TImpl>(
   id: string,
   impls: Record<string, TImpl>,
+  cores,
   layerings: Record<string, ImplLayering>,
   layeringMap: Record<string, string>,
 ) {
@@ -144,7 +140,9 @@ export function getEffectiveImplFromLayeringMap<TImpl>(
   if (!implLayering) {
     throw new Error();
   }
-  return getEffectiveImpl(implLayering, impls);
+  const baseImpl = impls[implLayering.impl];
+  const core = cores[id];
+  return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
 export function getSectionInfo(sectionId) {
@@ -359,7 +357,9 @@ function getSectionDescendantsFromAllVariants(
     if (!implLayering) {
       throw new Error();
     }
-    const impl = getEffectiveImpl(implLayering, state.sectionImpls);
+    const baseImpl = state.sectionImpls[implLayering.impl];
+    const core = state.sections[sectionId];
+    const impl = getEffectiveImpl(baseImpl, core, implLayering);
     if (isBaseParentSectionImpl(impl)) {
       output.push(...impl.children);
     }

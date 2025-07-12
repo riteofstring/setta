@@ -127,7 +127,9 @@ function OneItem({
     if (!implLayering) {
       throw new Error();
     }
-    const impl = getEffectiveImpl(implLayering, x.sectionImpls);
+    const baseImpl = x.sectionImpls[implLayering.impl];
+    const core = x.sections[sectionId];
+    const impl = getEffectiveImpl(baseImpl, core, implLayering);
     return {
       name: implLayering.name,
       isFrozen: impl.isFrozen,
