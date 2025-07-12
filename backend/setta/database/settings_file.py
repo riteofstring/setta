@@ -83,7 +83,7 @@ class SettingsFile:
             impl = get_effective_impl(
                 p.sectionImpls[implLayering.impl],
                 p.sections[sectionId],
-                implLayering.modifier,
+                implLayering,
             )
             if isinstance(impl, DictSectionImpl):
                 if impl.jsonSourceKeys == [slice]:
