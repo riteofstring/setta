@@ -27,6 +27,8 @@ import setta.routers
 import setta.types
 import setta.types.code_obj_impls
 import setta.types.generated
+import setta.types.generated.cores
+import setta.types.generated.layerings
 import setta.types.generated.modifiers
 import setta.types.section_impls
 import setta.types.websocket
@@ -636,7 +638,9 @@ def create_type_predicate_fns_from_sets(all_sets):
         if not actual_type:
             actual_type = getattr(setta.types.code_obj_impls, type_name, None)
         if not actual_type:
-            actual_type = getattr(setta.types.generated.modifiers, type_name, None)
+            actual_type = getattr(setta.types.generated.cores, type_name, None)
+        if not actual_type:
+            actual_type = getattr(setta.types.generated.layerings, type_name, None)
         if not actual_type:
             actual_type = getattr(setta.types.websocket, type_name, None)
         if not actual_type:
@@ -645,6 +649,18 @@ def create_type_predicate_fns_from_sets(all_sets):
             input_type = "BaseSectionImpl"
         elif issubclass(actual_type, BaseCodeObjImpl):
             input_type = "BaseCodeObjImpl"
+        elif issubclass(actual_type, setta.types.generated.cores.BaseSectionCore):
+            input_type = "BaseSectionCore"
+        elif issubclass(actual_type, setta.types.generated.cores.BaseCodeObjCore):
+            input_type = "BaseCodeObjCore"
+        elif issubclass(
+            actual_type, setta.types.generated.layerings.BaseSectionLayering
+        ):
+            input_type = "BaseSectionLayering"
+        elif issubclass(
+            actual_type, setta.types.generated.layerings.BaseCodeObjLayering
+        ):
+            input_type = "BaseCodeObjLayering"
         elif issubclass(actual_type, WebsocketMsg):
             input_type = "WebsocketMsg"
             discriminator = "messageType"

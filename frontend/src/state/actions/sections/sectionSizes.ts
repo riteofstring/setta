@@ -8,7 +8,7 @@ import {
 import { ZustandProjectState } from "state/definitions";
 import {
   createSectionSize,
-  isBaseSectionImplModifier,
+  isBaseSectionLayering,
   SectionSize,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -131,7 +131,7 @@ export function setSectionSize(
   state: ZustandProjectState,
 ) {
   const implLayering = getSectionImplLayering(state, sectionId);
-  if (isBaseSectionImplModifier(implLayering.modifier)) {
+  if (isBaseSectionLayering(implLayering)) {
     const currModifierSize = implLayering.modifier.size;
     implLayering.modifier.size = createSectionSize({
       ...currModifierSize,

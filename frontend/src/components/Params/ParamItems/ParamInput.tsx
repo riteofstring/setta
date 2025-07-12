@@ -8,7 +8,7 @@ import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import {
   isBaseChildlessCodeObjImpl,
-  isBaseChildlessCodeObjImplModifier,
+  isBaseChildlessCodeObjLayering,
 } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -55,7 +55,7 @@ const debouncedSetParamEnteredValue = _.debounce(
         sectionId,
         null,
       );
-      if (!isBaseChildlessCodeObjImplModifier(implLayering.modifier)) {
+      if (!isBaseChildlessCodeObjLayering(implLayering)) {
         throw new Error();
       }
       implLayering.modifier.value = vStr;

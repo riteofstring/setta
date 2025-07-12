@@ -4,7 +4,7 @@ import {
   getSectionImplLayering,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionImplModifier } from "utils/generatedTypes";
+import { isBaseSectionLayering } from "utils/generatedTypes";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useProjectState((x) => {
@@ -14,7 +14,7 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
   function onClick() {
     useProjectState.setState((state) => {
       const implLayering = getSectionImplLayering(state, sectionId);
-      if (isBaseSectionImplModifier(implLayering.modifier)) {
+      if (isBaseSectionLayering(implLayering)) {
         implLayering.modifier.isMinimized = !isMinimized;
       }
     });

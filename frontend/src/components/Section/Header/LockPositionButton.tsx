@@ -5,10 +5,7 @@ import {
   getSectionImplLayering,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  isBaseSectionImplModifier,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { isBaseSectionLayering, SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
@@ -30,7 +27,7 @@ export function LockPositionButton({ sectionId }) {
   function onClick() {
     useProjectState.setState((state) => {
       const implLayering = getSectionImplLayering(state, sectionId);
-      if (isBaseSectionImplModifier(implLayering.modifier)) {
+      if (isBaseSectionLayering(implLayering)) {
         implLayering.modifier.positionAndSizeLocked = !positionAndSizeLocked;
       }
     });

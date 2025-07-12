@@ -13,7 +13,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { isBaseSectionImplModifier } from "utils/generatedTypes";
+import { isBaseSectionLayering } from "utils/generatedTypes";
 
 export function VersionList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -184,10 +184,7 @@ function OneItem({
             e.stopPropagation();
             useProjectState.setState((x) => {
               const implLayering = x.sectionImplLayerings[id];
-              if (
-                !implLayering ||
-                !isBaseSectionImplModifier(implLayering.modifier)
-              ) {
+              if (!implLayering || !isBaseSectionLayering(implLayering)) {
                 throw new Error();
               }
               implLayering.modifier.isFrozen = !isFrozen;

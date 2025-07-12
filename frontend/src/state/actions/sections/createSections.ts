@@ -11,12 +11,12 @@ import {
   BaseSectionImplUnion,
   createBaseSectionCoreUnionWithDiscriminator,
   createBaseSectionImplUnionWithDiscriminator,
-  createImplLayering,
+  createBaseSectionLayeringUnionWithDiscriminator,
   createSectionSize,
   createTopLevelSectionLayout,
   getSectionDefault,
   isBaseParentSectionImpl,
-  isBaseParentSectionImplModifier,
+  isBaseParentSectionLayering,
   Position,
   SectionSizeModeEnum,
   SectionTypeEnum,
@@ -152,7 +152,7 @@ export function addChildrenToSeries(
     }
 
     const parentImplLayering = getSectionImplLayering(state, parentId);
-    if (!isBaseParentSectionImplModifier(parentImplLayering.modifier)) {
+    if (!isBaseParentSectionLayering(parentImplLayering)) {
       throw new Error();
     }
     parentImplLayering.modifier.children = insertIntoArray(
@@ -178,9 +178,9 @@ export function createSection(
     ...sectionDefault,
     ...sectionProps,
   });
-  const sectionImplLayering = createImplLayering({
+  const sectionImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
+    type: sectionProps.type,
     impl: sectionImpl.id,
-    modifier: { type: sectionImpl.type },
   });
   const section = createBaseSectionCoreUnionWithDiscriminator({
     type: sectionProps.type,

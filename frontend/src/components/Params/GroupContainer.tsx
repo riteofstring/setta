@@ -21,7 +21,7 @@ import {
 } from "utils/constants";
 import {
   isBaseSectionWithParamsImpl,
-  isBaseSectionWithParamsImplModifier,
+  isBaseSectionWithParamsLayering,
 } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
@@ -124,7 +124,7 @@ function ResizablePinnedArea({
     });
     useProjectState.setState((state) => {
       const implLayering = getSectionImplLayering(state, sectionId);
-      if (!isBaseSectionWithParamsImplModifier(implLayering.modifier)) {
+      if (!isBaseSectionWithParamsLayering(implLayering)) {
         throw new Error();
       }
       implLayering.modifier.pinnedAreaHeight = height;

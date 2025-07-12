@@ -12492,10 +12492,22 @@ export function isBaseArtifactSectionImpl(
   return BaseArtifactSectionImplTypeSet.has(x.type);
 }
 
+export function isBaseArtifactSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseArtifactSectionLayering {
+  return BaseArtifactSectionLayeringTypeSet.has(x.type);
+}
+
 export function isBaseCanvasSectionImpl(
   x: BaseSectionImpl,
 ): x is BaseCanvasSectionImpl {
   return BaseCanvasSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseCanvasSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseCanvasSectionLayering {
+  return BaseCanvasSectionLayeringTypeSet.has(x.type);
 }
 
 export function isBaseChildlessCodeObjImpl(
@@ -12504,8 +12516,20 @@ export function isBaseChildlessCodeObjImpl(
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
 
+export function isBaseChildlessCodeObjLayering(
+  x: BaseCodeObjLayering,
+): x is BaseChildlessCodeObjLayering {
+  return BaseChildlessCodeObjLayeringTypeSet.has(x.type);
+}
+
 export function isBaseCodeObjImpl(x: BaseCodeObjImpl): x is BaseCodeObjImpl {
   return BaseCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseCodeObjLayering(
+  x: BaseCodeObjLayering,
+): x is BaseCodeObjLayering {
+  return BaseCodeObjLayeringTypeSet.has(x.type);
 }
 
 export function isBaseCodeSectionImpl(
@@ -12514,10 +12538,22 @@ export function isBaseCodeSectionImpl(
   return BaseCodeSectionImplTypeSet.has(x.type);
 }
 
+export function isBaseCodeSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseCodeSectionLayering {
+  return BaseCodeSectionLayeringTypeSet.has(x.type);
+}
+
 export function isBaseDictSectionImpl(
   x: BaseSectionImpl,
 ): x is BaseDictSectionImpl {
   return BaseDictSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseDictSectionLayering {
+  return BaseDictSectionLayeringTypeSet.has(x.type);
 }
 
 export function isBaseParamCodeObjImpl(
@@ -12526,10 +12562,22 @@ export function isBaseParamCodeObjImpl(
   return BaseParamCodeObjImplTypeSet.has(x.type);
 }
 
+export function isBaseParamCodeObjLayering(
+  x: BaseCodeObjLayering,
+): x is BaseParamCodeObjLayering {
+  return BaseParamCodeObjLayeringTypeSet.has(x.type);
+}
+
 export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImpl,
 ): x is BaseParentCodeObjImpl {
   return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjLayering(
+  x: BaseCodeObjLayering,
+): x is BaseParentCodeObjLayering {
+  return BaseParentCodeObjLayeringTypeSet.has(x.type);
 }
 
 export function isBaseParentSectionImpl(
@@ -12538,14 +12586,32 @@ export function isBaseParentSectionImpl(
   return BaseParentSectionImplTypeSet.has(x.type);
 }
 
+export function isBaseParentSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseParentSectionLayering {
+  return BaseParentSectionLayeringTypeSet.has(x.type);
+}
+
 export function isBaseSectionImpl(x: BaseSectionImpl): x is BaseSectionImpl {
   return BaseSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionLayering(
+  x: BaseSectionLayering,
+): x is BaseSectionLayering {
+  return BaseSectionLayeringTypeSet.has(x.type);
 }
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImpl,
 ): x is BaseSectionWithParamsImpl {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionWithParamsLayering(
+  x: BaseSectionLayering,
+): x is BaseSectionWithParamsLayering {
+  return BaseSectionWithParamsLayeringTypeSet.has(x.type);
 }
 
 export function isBackendWebsocketMsg(

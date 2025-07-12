@@ -2,7 +2,7 @@ import { deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   isBaseParentSectionImpl,
-  isBaseParentSectionImplModifier,
+  isBaseParentSectionLayering,
 } from "utils/generatedTypes";
 import { removeActiveSectionIds } from "../activeSections";
 import {
@@ -75,7 +75,7 @@ function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
     const { parentId } = impl;
     if (parentId) {
       const implLayering = getSectionImplLayering(state, parentId);
-      if (!isBaseParentSectionImplModifier(implLayering.modifier)) {
+      if (!isBaseParentSectionLayering(implLayering)) {
         throw new Error();
       }
       implLayering.modifier.children = (
@@ -90,7 +90,7 @@ function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
       if (
         !impl ||
         !isBaseParentSectionImpl(impl) ||
-        !isBaseParentSectionImplModifier(modifier)
+        !isBaseParentSectionLayering(implLayering)
       ) {
         continue;
       }
