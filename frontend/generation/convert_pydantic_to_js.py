@@ -629,10 +629,14 @@ def dataclass_to_zod(model: type, processed_types: set):
     )
 
 
+def is_proper_subclass(child, parent):
+    return issubclass(child, parent) and child is not parent
+
+
 def create_type_predicate_fns_from_sets(all_sets):
     code = ""
     for x_name in all_sets.keys():
-        type_name = x_name.rstrip("TypeSet")
+        type_name = x_name.removesuffix("TypeSet")
         discriminator = "type"
         actual_type = getattr(setta.types.section_impls, type_name, None)
         if not actual_type:
@@ -645,30 +649,34 @@ def create_type_predicate_fns_from_sets(all_sets):
             actual_type = getattr(setta.types.websocket, type_name, None)
         if not actual_type:
             continue
-        if issubclass(actual_type, BaseSectionImpl):
-            input_type = "BaseSectionImpl"
-        elif issubclass(actual_type, BaseCodeObjImpl):
-            input_type = "BaseCodeObjImpl"
-        elif issubclass(actual_type, setta.types.generated.cores.BaseSectionCore):
-            input_type = "BaseSectionCore"
-        elif issubclass(actual_type, setta.types.generated.cores.BaseCodeObjCore):
-            input_type = "BaseCodeObjCore"
-        elif issubclass(
+        if is_proper_subclass(actual_type, BaseSectionImpl):
+            input_type = "BaseSectionImplUnion"
+        elif is_proper_subclass(actual_type, BaseCodeObjImpl):
+            input_type = "BaseCodeObjImplUnion"
+        elif is_proper_subclass(
+            actual_type, setta.types.generated.cores.BaseSectionCore
+        ):
+            input_type = "BaseSectionCoreUnion"
+        elif is_proper_subclass(
+            actual_type, setta.types.generated.cores.BaseCodeObjCore
+        ):
+            input_type = "BaseCodeObjCoreUnion"
+        elif is_proper_subclass(
             actual_type, setta.types.generated.layerings.BaseSectionLayering
         ):
-            input_type = "BaseSectionLayering"
-        elif issubclass(
+            input_type = "BaseSectionLayeringUnion"
+        elif is_proper_subclass(
             actual_type, setta.types.generated.layerings.BaseCodeObjLayering
         ):
-            input_type = "BaseCodeObjLayering"
-        elif issubclass(actual_type, WebsocketMsg):
-            input_type = "WebsocketMsg"
+            input_type = "BaseCodeObjLayeringUnion"
+        elif is_proper_subclass(actual_type, WebsocketMsg):
+            input_type = "WebsocketMsgUnion"
             discriminator = "messageType"
         else:
             continue
 
         code += f"""
-export function is{type_name}(x: {input_type}): x is {type_name}{{
+export function is{type_name}(x: {input_type}): x is {type_name}Union{{
     return {x_name}.has(x.{discriminator})
 }}
 

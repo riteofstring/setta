@@ -205,11 +205,6 @@ def get_class_to_children_mapping(
     return output
 
 
-def get_name_without_suffix(name: str, suffix: str) -> str:
-    """Remove a suffix from a name if it exists."""
-    return name.rstrip(suffix)
-
-
 @dataclass
 class BaseClassInfoForGeneration(ABC):
     """Base class for generating class information."""
@@ -343,24 +338,15 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
 
     @property
     def parent_core_class_names(self) -> list[str]:
-        return [
-            get_name_without_suffix(p.__name__, self.suffix) + "Core"
-            for p in self.parents
-        ]
+        return [p.__name__.removesuffix(self.suffix) + "Core" for p in self.parents]
 
     @property
     def parent_layering_class_names(self) -> list[str]:
-        return [
-            get_name_without_suffix(p.__name__, self.suffix) + "Layering"
-            for p in self.parents
-        ]
+        return [p.__name__.removesuffix(self.suffix) + "Layering" for p in self.parents]
 
     @property
     def parent_modifier_class_names(self) -> list[str]:
-        return [
-            get_name_without_suffix(p.__name__, self.suffix) + "Modifier"
-            for p in self.parents
-        ]
+        return [p.__name__.removesuffix(self.suffix) + "Modifier" for p in self.parents]
 
     @property
     def modifier_annotation_and_value(self) -> str:
@@ -452,7 +438,7 @@ def get_impl_classes():
     for c in classes:
         children = get_class_children(setta.types.section_impls, c)
         children += get_class_children(setta.types.code_obj_impls, c)
-        base_name = c.__name__.rstrip("Impl")
+        base_name = c.__name__.removesuffix("Impl")
         output[c.__name__] = ImplClassInfoForGeneration(
             class_obj=c,
             children=children,
@@ -477,7 +463,7 @@ def get_core_classes():
     for c in classes:
         children = get_class_children(setta.types.generated.cores, c)
         children += get_class_children(setta.types.generated.cores, c)
-        base_name = c.__name__.rstrip("Core")
+        base_name = c.__name__.removesuffix("Core")
         output[c.__name__] = CoreClassInfoForGeneration(
             class_obj=c,
             children=children,

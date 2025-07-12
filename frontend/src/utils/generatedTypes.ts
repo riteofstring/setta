@@ -12486,148 +12486,178 @@ export function createCodeMirrorCompletion(
   return CodeMirrorCompletionSchema.parse(options);
 }
 
+export function isBaseArtifactSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseArtifactSectionCoreUnion {
+  return BaseArtifactSectionCoreTypeSet.has(x.type);
+}
+
 export function isBaseArtifactSectionImpl(
-  x: BaseSectionImpl,
-): x is BaseArtifactSectionImpl {
+  x: BaseSectionImplUnion,
+): x is BaseArtifactSectionImplUnion {
   return BaseArtifactSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseArtifactSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseArtifactSectionLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseArtifactSectionLayeringUnion {
   return BaseArtifactSectionLayeringTypeSet.has(x.type);
 }
 
+export function isBaseCanvasSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseCanvasSectionCoreUnion {
+  return BaseCanvasSectionCoreTypeSet.has(x.type);
+}
+
 export function isBaseCanvasSectionImpl(
-  x: BaseSectionImpl,
-): x is BaseCanvasSectionImpl {
+  x: BaseSectionImplUnion,
+): x is BaseCanvasSectionImplUnion {
   return BaseCanvasSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseCanvasSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseCanvasSectionLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseCanvasSectionLayeringUnion {
   return BaseCanvasSectionLayeringTypeSet.has(x.type);
 }
 
+export function isBaseChildlessCodeObjCore(
+  x: BaseCodeObjCoreUnion,
+): x is BaseChildlessCodeObjCoreUnion {
+  return BaseChildlessCodeObjCoreTypeSet.has(x.type);
+}
+
 export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImpl,
-): x is BaseChildlessCodeObjImpl {
+  x: BaseCodeObjImplUnion,
+): x is BaseChildlessCodeObjImplUnion {
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
 
 export function isBaseChildlessCodeObjLayering(
-  x: BaseCodeObjLayering,
-): x is BaseChildlessCodeObjLayering {
+  x: BaseCodeObjLayeringUnion,
+): x is BaseChildlessCodeObjLayeringUnion {
   return BaseChildlessCodeObjLayeringTypeSet.has(x.type);
 }
 
-export function isBaseCodeObjImpl(x: BaseCodeObjImpl): x is BaseCodeObjImpl {
-  return BaseCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseCodeObjLayering(
-  x: BaseCodeObjLayering,
-): x is BaseCodeObjLayering {
-  return BaseCodeObjLayeringTypeSet.has(x.type);
+export function isBaseCodeSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseCodeSectionCoreUnion {
+  return BaseCodeSectionCoreTypeSet.has(x.type);
 }
 
 export function isBaseCodeSectionImpl(
-  x: BaseSectionImpl,
-): x is BaseCodeSectionImpl {
+  x: BaseSectionImplUnion,
+): x is BaseCodeSectionImplUnion {
   return BaseCodeSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseCodeSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseCodeSectionLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseCodeSectionLayeringUnion {
   return BaseCodeSectionLayeringTypeSet.has(x.type);
 }
 
+export function isBaseDictSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseDictSectionCoreUnion {
+  return BaseDictSectionCoreTypeSet.has(x.type);
+}
+
 export function isBaseDictSectionImpl(
-  x: BaseSectionImpl,
-): x is BaseDictSectionImpl {
+  x: BaseSectionImplUnion,
+): x is BaseDictSectionImplUnion {
   return BaseDictSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseDictSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseDictSectionLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseDictSectionLayeringUnion {
   return BaseDictSectionLayeringTypeSet.has(x.type);
 }
 
+export function isBaseParamCodeObjCore(
+  x: BaseCodeObjCoreUnion,
+): x is BaseParamCodeObjCoreUnion {
+  return BaseParamCodeObjCoreTypeSet.has(x.type);
+}
+
 export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImpl,
-): x is BaseParamCodeObjImpl {
+  x: BaseCodeObjImplUnion,
+): x is BaseParamCodeObjImplUnion {
   return BaseParamCodeObjImplTypeSet.has(x.type);
 }
 
 export function isBaseParamCodeObjLayering(
-  x: BaseCodeObjLayering,
-): x is BaseParamCodeObjLayering {
+  x: BaseCodeObjLayeringUnion,
+): x is BaseParamCodeObjLayeringUnion {
   return BaseParamCodeObjLayeringTypeSet.has(x.type);
 }
 
+export function isBaseParentCodeObjCore(
+  x: BaseCodeObjCoreUnion,
+): x is BaseParentCodeObjCoreUnion {
+  return BaseParentCodeObjCoreTypeSet.has(x.type);
+}
+
 export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImpl,
-): x is BaseParentCodeObjImpl {
+  x: BaseCodeObjImplUnion,
+): x is BaseParentCodeObjImplUnion {
   return BaseParentCodeObjImplTypeSet.has(x.type);
 }
 
 export function isBaseParentCodeObjLayering(
-  x: BaseCodeObjLayering,
-): x is BaseParentCodeObjLayering {
+  x: BaseCodeObjLayeringUnion,
+): x is BaseParentCodeObjLayeringUnion {
   return BaseParentCodeObjLayeringTypeSet.has(x.type);
 }
 
+export function isBaseParentSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseParentSectionCoreUnion {
+  return BaseParentSectionCoreTypeSet.has(x.type);
+}
+
 export function isBaseParentSectionImpl(
-  x: BaseSectionImpl,
-): x is BaseParentSectionImpl {
+  x: BaseSectionImplUnion,
+): x is BaseParentSectionImplUnion {
   return BaseParentSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseParentSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseParentSectionLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseParentSectionLayeringUnion {
   return BaseParentSectionLayeringTypeSet.has(x.type);
 }
 
-export function isBaseSectionImpl(x: BaseSectionImpl): x is BaseSectionImpl {
-  return BaseSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseSectionLayering(
-  x: BaseSectionLayering,
-): x is BaseSectionLayering {
-  return BaseSectionLayeringTypeSet.has(x.type);
+export function isBaseSectionWithParamsCore(
+  x: BaseSectionCoreUnion,
+): x is BaseSectionWithParamsCoreUnion {
+  return BaseSectionWithParamsCoreTypeSet.has(x.type);
 }
 
 export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImpl,
-): x is BaseSectionWithParamsImpl {
+  x: BaseSectionImplUnion,
+): x is BaseSectionWithParamsImplUnion {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
 export function isBaseSectionWithParamsLayering(
-  x: BaseSectionLayering,
-): x is BaseSectionWithParamsLayering {
+  x: BaseSectionLayeringUnion,
+): x is BaseSectionWithParamsLayeringUnion {
   return BaseSectionWithParamsLayeringTypeSet.has(x.type);
 }
 
 export function isBackendWebsocketMsg(
-  x: WebsocketMsg,
-): x is BackendWebsocketMsg {
+  x: WebsocketMsgUnion,
+): x is BackendWebsocketMsgUnion {
   return BackendWebsocketMsgTypeSet.has(x.messageType);
 }
 
 export function isFrontendWebsocketMsg(
-  x: WebsocketMsg,
-): x is FrontendWebsocketMsg {
+  x: WebsocketMsgUnion,
+): x is FrontendWebsocketMsgUnion {
   return FrontendWebsocketMsgTypeSet.has(x.messageType);
-}
-
-export function isWebsocketMsg(x: WebsocketMsg): x is WebsocketMsg {
-  return WebsocketMsgTypeSet.has(x.messageType);
 }
 
 export function getSectionDefault(

@@ -11,7 +11,6 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import (
     get_class_to_children_mapping,
-    get_name_without_suffix,
 )
 
 
@@ -106,7 +105,7 @@ def generate_unions(output_file):
         setta.types.section_impls.BaseSectionImpl,
         "type",
         setta.types.generated.modifiers,
-        lambda x: f"{get_name_without_suffix(x, 'Impl')}Modifier",
+        lambda x: f"{x.removesuffix('Impl')}Modifier",
     )
 
     code += construct_unions(
@@ -114,7 +113,7 @@ def generate_unions(output_file):
         setta.types.code_obj_impls.BaseCodeObjImpl,
         "type",
         setta.types.generated.modifiers,
-        lambda x: f"{get_name_without_suffix(x, 'Impl')}Modifier",
+        lambda x: f"{x.removesuffix('Impl')}Modifier",
     )
 
     code = ruff_format(code)
