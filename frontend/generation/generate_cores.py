@@ -7,14 +7,14 @@ from setta.utils.utils import get_absolute_path
 
 from .generate_modifiers import create_model_args_as_typed_dict
 from .utils import (
-    ImplClassInfoForGeneration,
+    CoreClassInfoForGeneration,
     get_core_classes,
     get_creation_fns,
     get_impl_classes,
 )
 
 
-def generate_cores(output_file, classes: dict[str, ImplClassInfoForGeneration]):
+def generate_cores(output_file):
     code = """
 from typing import Any, Literal, overload
 
@@ -30,6 +30,7 @@ from setta.types.generated.modifiers import create_section_modifier, create_code
     modifier_names = []
     impl_fields = []
 
+    classes = get_impl_classes()
     for c in classes.values():
         modifier_names.append(c.modifier_name)
         impl_fields.append(c.impl_fields_name)
@@ -66,8 +67,6 @@ class {c.core_name}({", ".join(c.parent_core_class_names)}):
     unsharedKeys: {c.unshared_keys_annotation_and_value}
 
 """
-
-    code += get_creation_fns(classes, "core")
 
     code = (
         f"""
@@ -111,17 +110,61 @@ from setta.types.generated.modifiers import BaseCodeObjModifier, BaseSectionModi
     print(f"wrote to {output_file}")
 
 
+def additional_args_types_callback(c: CoreClassInfoForGeneration):
+    return f"overrides: {c.args_name} | None = None"
+
+
+def additional_args_generic_type_callback():
+    return "overrides: Any = None"
+
+
+def implementation_callback(c: CoreClassInfoForGeneration, additiona_args):
+    return f"""
+                    if overrides is None:
+                        overrides = {{}}
+                    return {c.original_name}(**overrides)
+"""
+
+
+def generate_core_creation_fns(output_file: Path):
+    classes = get_core_classes()
+    code = output_file.read_text()
+    args_imports = ",\n    ".join([cls.args_name for cls in classes.values()])
+    code = f"""
+from typing import overload
+from setta.types.generated.core_args_as_typed_dicts import (
+    {args_imports}
+)
+
+{code}
+"""
+    code += get_creation_fns(
+        classes,
+        "core",
+        additional_args_types_callback=additional_args_types_callback,
+        additional_args_generic_type_callback=additional_args_generic_type_callback,
+        implementation_callback=implementation_callback,
+    )
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 if __name__ == "__main__":
-    classes = get_impl_classes()
     generate_cores(
         get_absolute_path(
             __file__, Path("../../backend/setta/types/generated") / "cores.py"
         ),
-        classes,
     )
     generate_core_args_as_typed_dicts(
         get_absolute_path(
             __file__,
             Path("../../backend/setta/types/generated") / "core_args_as_typed_dicts.py",
+        ),
+    )
+    generate_core_creation_fns(
+        get_absolute_path(
+            __file__,
+            Path("../../backend/setta/types/generated") / "cores.py",
         ),
     )

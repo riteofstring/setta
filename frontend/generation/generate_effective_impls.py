@@ -109,9 +109,9 @@ def generate_effective_impl_overloads():
     union_imports = []
     args_imports = []
     for cls in classes.values():
-        if cls.is_section_impl:
+        if cls.is_for_section:
             section_impl_imports.append(cls.original_name)
-        elif cls.is_code_obj_impl:
+        elif cls.is_for_code_obj:
             code_obj_impl_imports.append(cls.original_name)
         core_imports.append(cls.core_name)
         layering_imports.append(cls.layering_name)

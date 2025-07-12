@@ -160,7 +160,7 @@ def process_module_classes() -> List[str]:
         class_lines, _ = inspect.getsourcelines(cls_info.class_obj)
         if class_lines:
             exclusions_map = (
-                SECTION_EXCLUSIONS if cls_info.is_section_impl else CODE_OBJ_EXCLUSIONS
+                SECTION_EXCLUSIONS if cls_info.is_for_section else CODE_OBJ_EXCLUSIONS
             )
             exclusions = exclusions_map[cls_name]
             transformed = transform_class_to_user_default(

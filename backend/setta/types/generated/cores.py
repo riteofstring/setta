@@ -4,6 +4,34 @@ from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import CodeObjType
+from setta.types.generated.core_args_as_typed_dicts import (
+    BrowserSectionCoreArgs,
+    CallableSectionCoreArgs,
+    ChartSectionCoreArgs,
+    ChatSectionCoreArgs,
+    CodeCallableCodeObjCoreArgs,
+    CodeParamCodeObjCoreArgs,
+    CodeSectionCoreArgs,
+    ColorPickerParamCodeObjCoreArgs,
+    DictRootSectionCoreArgs,
+    DictSectionCoreArgs,
+    DrawSectionCoreArgs,
+    DropdownParamCodeObjCoreArgs,
+    GenPythonCodeSectionCoreArgs,
+    GlobalVariablesSectionCoreArgs,
+    GroupSectionCoreArgs,
+    IFrameSectionCoreArgs,
+    ImageSectionCoreArgs,
+    ListRootSectionCoreArgs,
+    NestedParamCodeObjCoreArgs,
+    PasswordParamCodeObjCoreArgs,
+    SliderParamCodeObjCoreArgs,
+    SocialSectionCoreArgs,
+    SwitchParamCodeObjCoreArgs,
+    TerminalSectionCoreArgs,
+    TextBlockSectionCoreArgs,
+    TextParamCodeObjCoreArgs,
+)
 from setta.types.generated.impl_field_literals import (
     BaseArtifactSectionImplFields,
     BaseCanvasSectionImplFields,
@@ -451,294 +479,306 @@ class NestedParamCodeObjCore(BaseParamCodeObjCore, BaseParentCodeObjCore):
 @overload
 def create_section_core(
     type: Literal[SectionType.Callable],
+    overrides: CallableSectionCoreArgs | None = None,
 ) -> CallableSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Dict],
+    type: Literal[SectionType.Dict], overrides: DictSectionCoreArgs | None = None
 ) -> DictSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.ListRoot],
+    overrides: ListRootSectionCoreArgs | None = None,
 ) -> ListRootSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.DictRoot],
+    overrides: DictRootSectionCoreArgs | None = None,
 ) -> DictRootSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Group],
+    type: Literal[SectionType.Group], overrides: GroupSectionCoreArgs | None = None
 ) -> GroupSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Image],
+    type: Literal[SectionType.Image], overrides: ImageSectionCoreArgs | None = None
 ) -> ImageSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Chart],
+    type: Literal[SectionType.Chart], overrides: ChartSectionCoreArgs | None = None
 ) -> ChartSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Draw],
+    type: Literal[SectionType.Draw], overrides: DrawSectionCoreArgs | None = None
 ) -> DrawSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.TextBlock],
+    overrides: TextBlockSectionCoreArgs | None = None,
 ) -> TextBlockSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Social],
+    type: Literal[SectionType.Social], overrides: SocialSectionCoreArgs | None = None
 ) -> SocialSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.GlobalVariables],
+    overrides: GlobalVariablesSectionCoreArgs | None = None,
 ) -> GlobalVariablesSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Code],
+    type: Literal[SectionType.Code], overrides: CodeSectionCoreArgs | None = None
 ) -> CodeSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.GenPythonCode],
+    overrides: GenPythonCodeSectionCoreArgs | None = None,
 ) -> GenPythonCodeSectionCore: ...
 
 
 @overload
 def create_section_core(
     type: Literal[SectionType.Terminal],
+    overrides: TerminalSectionCoreArgs | None = None,
 ) -> TerminalSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.IFrame],
+    type: Literal[SectionType.IFrame], overrides: IFrameSectionCoreArgs | None = None
 ) -> IFrameSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Chat],
+    type: Literal[SectionType.Chat], overrides: ChatSectionCoreArgs | None = None
 ) -> ChatSectionCore: ...
 
 
 @overload
 def create_section_core(
-    type: Literal[SectionType.Browser],
+    type: Literal[SectionType.Browser], overrides: BrowserSectionCoreArgs | None = None
 ) -> BrowserSectionCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.CodeCallable],
+    overrides: CodeCallableCodeObjCoreArgs | None = None,
 ) -> CodeCallableCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.CodeParam],
+    overrides: CodeParamCodeObjCoreArgs | None = None,
 ) -> CodeParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.TextParam],
+    overrides: TextParamCodeObjCoreArgs | None = None,
 ) -> TextParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.SliderParam],
+    overrides: SliderParamCodeObjCoreArgs | None = None,
 ) -> SliderParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.SwitchParam],
+    overrides: SwitchParamCodeObjCoreArgs | None = None,
 ) -> SwitchParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.ColorPickerParam],
+    overrides: ColorPickerParamCodeObjCoreArgs | None = None,
 ) -> ColorPickerParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.DropdownParam],
+    overrides: DropdownParamCodeObjCoreArgs | None = None,
 ) -> DropdownParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.PasswordParam],
+    overrides: PasswordParamCodeObjCoreArgs | None = None,
 ) -> PasswordParamCodeObjCore: ...
 
 
 @overload
 def create_code_obj_core(
     type: Literal[CodeObjType.NestedParam],
+    overrides: NestedParamCodeObjCoreArgs | None = None,
 ) -> NestedParamCodeObjCore: ...
 
 
-def create_section_core(
-    type: SectionType,
-):
+def create_section_core(type: SectionType, overrides: Any = None):
     match type:
         case SectionType.Callable:
-            return CallableSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return CallableSectionCore(**overrides)
 
         case SectionType.Dict:
-            return DictSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return DictSectionCore(**overrides)
 
         case SectionType.ListRoot:
-            return ListRootSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return ListRootSectionCore(**overrides)
 
         case SectionType.DictRoot:
-            return DictRootSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return DictRootSectionCore(**overrides)
 
         case SectionType.Group:
-            return GroupSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return GroupSectionCore(**overrides)
 
         case SectionType.Image:
-            return ImageSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return ImageSectionCore(**overrides)
 
         case SectionType.Chart:
-            return ChartSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return ChartSectionCore(**overrides)
 
         case SectionType.Draw:
-            return DrawSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return DrawSectionCore(**overrides)
 
         case SectionType.TextBlock:
-            return TextBlockSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return TextBlockSectionCore(**overrides)
 
         case SectionType.Social:
-            return SocialSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return SocialSectionCore(**overrides)
 
         case SectionType.GlobalVariables:
-            return GlobalVariablesSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return GlobalVariablesSectionCore(**overrides)
 
         case SectionType.Code:
-            return CodeSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return CodeSectionCore(**overrides)
 
         case SectionType.GenPythonCode:
-            return GenPythonCodeSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return GenPythonCodeSectionCore(**overrides)
 
         case SectionType.Terminal:
-            return TerminalSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return TerminalSectionCore(**overrides)
 
         case SectionType.IFrame:
-            return IFrameSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return IFrameSectionCore(**overrides)
 
         case SectionType.Chat:
-            return ChatSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return ChatSectionCore(**overrides)
 
         case SectionType.Browser:
-            return BrowserSectionCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return BrowserSectionCore(**overrides)
 
 
-def create_code_obj_core(
-    type: CodeObjType,
-):
+def create_code_obj_core(type: CodeObjType, overrides: Any = None):
     match type:
         case CodeObjType.CodeCallable:
-            return CodeCallableCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return CodeCallableCodeObjCore(**overrides)
 
         case CodeObjType.CodeParam:
-            return CodeParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return CodeParamCodeObjCore(**overrides)
 
         case CodeObjType.TextParam:
-            return TextParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return TextParamCodeObjCore(**overrides)
 
         case CodeObjType.SliderParam:
-            return SliderParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return SliderParamCodeObjCore(**overrides)
 
         case CodeObjType.SwitchParam:
-            return SwitchParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return SwitchParamCodeObjCore(**overrides)
 
         case CodeObjType.ColorPickerParam:
-            return ColorPickerParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return ColorPickerParamCodeObjCore(**overrides)
 
         case CodeObjType.DropdownParam:
-            return DropdownParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return DropdownParamCodeObjCore(**overrides)
 
         case CodeObjType.PasswordParam:
-            return PasswordParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return PasswordParamCodeObjCore(**overrides)
 
         case CodeObjType.NestedParam:
-            return NestedParamCodeObjCore(
-                type=type,
-            )
+            if overrides is None:
+                overrides = {}
+            return NestedParamCodeObjCore(**overrides)

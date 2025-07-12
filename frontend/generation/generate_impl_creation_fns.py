@@ -28,10 +28,10 @@ def generate_creation_functions_module() -> str:
     classes = {k: v for k, v in classes.items() if v.type_has_default}
 
     section_imports_str = ",\n    ".join(
-        [cls.original_name for cls in classes.values() if cls.is_section_impl]
+        [cls.original_name for cls in classes.values() if cls.is_for_section]
     )
     code_obj_imports_str = ",\n    ".join(
-        [cls.original_name for cls in classes.values() if cls.is_code_obj_impl]
+        [cls.original_name for cls in classes.values() if cls.is_for_code_obj]
     )
     user_default_imports = ",\n    ".join(
         [cls.user_default_name for cls in classes.values()]

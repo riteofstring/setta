@@ -16,11 +16,9 @@ def generate_settings_state() -> str:
     - One attribute for each CodeObjType enum value (e.g., sliderParamDefault)
     """
     classes = get_impl_classes()
-    section_keys = sorted(
-        {k: v for k, v in classes.items() if v.is_section_impl}.keys()
-    )
+    section_keys = sorted({k: v for k, v in classes.items() if v.is_for_section}.keys())
     code_obj_keys = sorted(
-        {k: v for k, v in classes.items() if v.is_code_obj_impl}.keys()
+        {k: v for k, v in classes.items() if v.is_for_code_obj}.keys()
     )
 
     imports = []
@@ -29,7 +27,7 @@ def generate_settings_state() -> str:
         cls_info = classes[key]
         if not cls_info.type_has_default:
             continue
-        suffix = "SectionDefault" if cls_info.is_section_impl else "CodeObjDefault"
+        suffix = "SectionDefault" if cls_info.is_for_section else "CodeObjDefault"
         attr_name = cls_info.type_value[0].lower() + cls_info.type_value[1:] + suffix
         class_name = cls_info.user_default_name
         imports.append(class_name)

@@ -11,7 +11,7 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.generated.cores import DictSectionCore
+from setta.types.generated.cores import DictSectionCore, create_code_obj_core
 from setta.types.generated.layerings import (
     DictSectionLayering,
     create_code_obj_layering,
@@ -57,11 +57,13 @@ def add_code_obj_details(
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
 
-    codeObj = create_core_for_code_obj_type(
+    codeObj = create_code_obj_core(
         codeObjImpl.type,
-        name=codeObjName,
-        implLayerings=[codeObjImplLayering.id],
-        defaultImplLayering=codeObjImplLayering.id,
+        {
+            "name": codeObjName,
+            "implLayerings": [codeObjImplLayering.id],
+            "defaultImplLayering": codeObjImplLayering.id,
+        },
     )
     codeObjs[codeObj.id] = codeObj
     return codeObj.id

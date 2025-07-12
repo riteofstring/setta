@@ -17,6 +17,7 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TypeVar,
     Union,
     get_args,
     get_origin,
@@ -244,18 +245,14 @@ class BaseClassInfoForGeneration(ABC):
         return self.class_obj.model_fields.get("type")
 
     @property
-    def type_value(self):
+    def type_value(self) -> str:
         """The value of the type field."""
-        if self.type_field and self.type_field.default is not PydanticUndefined:
-            return self.type_field.default.value
-        return None
+        return self.type_field.default.value
 
     @property
     def type_full_enum_name(self) -> str:
         """Full enum name for the type."""
-        if self.type_field and self.type_field.default is not PydanticUndefined:
-            return f"{self.type_field.default.__class__.__name__}.{self.type_value}"
-        return ""
+        return f"{self.type_field.default.__class__.__name__}.{self.type_value}"
 
     @property
     def type_has_default(self) -> bool:
@@ -304,6 +301,16 @@ class BaseClassInfoForGeneration(ABC):
     def layering_name(self) -> str:
         """Name of the layering class."""
         return self.base_name + "Layering"
+
+    @property
+    @abstractmethod
+    def is_for_section(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def is_for_code_obj(self) -> bool:
+        pass
 
 
 @dataclass
@@ -361,7 +368,7 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
         if self.type_has_default:
             modifier_fn_name = (
                 "create_section_modifier"
-                if self.is_section_impl
+                if self.is_for_section
                 else "create_code_obj_modifier"
             )
             modifier = f"""{modifier} = Field( # type: ignore[override]
@@ -376,11 +383,11 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
     def unshared_keys_annotation_and_value(self) -> str:
         unshared_keys = f"list[{self.impl_fields_name}]"
         if self.type_has_default:
-            if self.is_section_impl:
+            if self.is_for_section:
                 default_keys = DEFAULT_SECTION_UNSHARED_KEYS[
                     self.type_field.default.value
                 ]
-            elif self.is_code_obj_impl:
+            elif self.is_for_code_obj:
                 default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[
                     self.type_field.default.value
                 ]
@@ -396,13 +403,13 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
         return unshared_keys
 
     @property
-    def is_section_impl(self) -> bool:
+    def is_for_section(self) -> bool:
         import setta.types.section_impls
 
         return issubclass(self.class_obj, setta.types.section_impls.BaseSectionImpl)
 
     @property
-    def is_code_obj_impl(self) -> bool:
+    def is_for_code_obj(self) -> bool:
         import setta.types.code_obj_impls
 
         return issubclass(self.class_obj, setta.types.code_obj_impls.BaseCodeObjImpl)
@@ -419,6 +426,18 @@ class CoreClassInfoForGeneration(BaseClassInfoForGeneration):
     @property
     def args_name(self) -> str:
         return self.base_name + "CoreArgs"
+
+    @property
+    def is_for_section(self) -> bool:
+        import setta.types.generated.cores
+
+        return issubclass(self.class_obj, setta.types.generated.cores.BaseSectionCore)
+
+    @property
+    def is_for_code_obj(self) -> bool:
+        import setta.types.generated.cores
+
+        return issubclass(self.class_obj, setta.types.generated.cores.BaseCodeObjCore)
 
 
 def get_impl_classes():
@@ -468,16 +487,16 @@ def get_core_classes():
     return output
 
 
+T = TypeVar("T", bound=BaseClassInfoForGeneration)
+
+
 def get_creation_fns(
-    classes: dict[str, ImplClassInfoForGeneration],
+    classes: dict[str, T],
     fn_type: Literal["modifier", "core", "layering", "impl"],
-    additional_args_types_callback: Callable[[ImplClassInfoForGeneration], str]
-    | None = None,
-    additional_args_inputs_callback: Callable[[ImplClassInfoForGeneration], str]
-    | None = None,
+    additional_args_types_callback: Callable[[T], str] | None = None,
+    additional_args_inputs_callback: Callable[[T], str] | None = None,
     additional_args_generic_type_callback: Callable[[], str] | None = None,
-    implementation_callback: Callable[[ImplClassInfoForGeneration, str], str]
-    | None = None,
+    implementation_callback: Callable[[T, str], str] | None = None,
 ):
     if additional_args_types_callback is None:
         additional_args_types_callback = lambda x: ""
@@ -490,12 +509,12 @@ def get_creation_fns(
             lambda c, additional_args: f"""
                 return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
         )
-    cases: dict[str, list[ImplClassInfoForGeneration]] = defaultdict(list)
+    cases: dict[str, list[T]] = defaultdict(list)
     code = ""
     for c in classes.values():
         if not c.type_has_default:
             continue
-        suffix_prefix = "section" if c.is_section_impl else "code_obj"
+        suffix_prefix = "section" if c.is_for_section else "code_obj"
         cases[suffix_prefix].append(c)
         fn_name_suffix = f"{suffix_prefix}_{fn_type}"
         additional_args = additional_args_types_callback(c)
