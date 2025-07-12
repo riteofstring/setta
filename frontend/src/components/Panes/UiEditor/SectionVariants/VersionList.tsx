@@ -129,7 +129,14 @@ function OneItem({
     }
     const baseImpl = x.sectionImpls[implLayering.impl];
     const core = x.sections[sectionId];
-    const impl = getEffectiveImpl(baseImpl, core, implLayering);
+    if (!baseImpl || !core) {
+      throw new Error();
+    }
+    const impl = getEffectiveImpl<"BaseSectionImplUnion">(
+      baseImpl,
+      core,
+      implLayering,
+    );
     return {
       name: implLayering.name,
       isFrozen: impl.isFrozen,

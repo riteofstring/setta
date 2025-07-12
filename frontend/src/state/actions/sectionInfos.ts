@@ -9,6 +9,7 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
+  ImplCoreLayeringBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -19,7 +20,11 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-export function getEffectiveImpl<TImpl>(impl: TImpl, core, layering): TImpl {
+export function getEffectiveImpl<K extends keyof ImplCoreLayeringBundleMap>(
+  impl: ImplCoreLayeringBundleMap[K]["impl"],
+  core: ImplCoreLayeringBundleMap[K]["core"],
+  layering: ImplCoreLayeringBundleMap[K]["layering"],
+): ImplCoreLayeringBundleMap[K]["impl"] {
   const effective = _.cloneDeep(impl);
   Object.assign(effective, { ...core.sharedModifier, ...layering.modifier });
   return effective;
@@ -58,7 +63,11 @@ export function getEffectiveSectionImpl(
     const implLayering = getSectionImplLayering(p, sectionId);
     const baseImpl = p.sectionImpls[implLayering.impl];
     const core = p.sections[sectionId];
-    return getEffectiveImpl(baseImpl, core, implLayering);
+    return getEffectiveImpl<"BaseSectionImplUnion">(
+      baseImpl,
+      core,
+      implLayering,
+    );
   }
   return sectionImpl;
 }
@@ -112,7 +121,7 @@ export function getEffectiveCodeObjImpl(
   );
   const baseImpl = p.codeObjImpls[implLayering.impl];
   const core = p.codeObjs[codeObjId];
-  return getEffectiveImpl(baseImpl, core, implLayering);
+  return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
 }
 
 export function getCodeObjImpl(
@@ -359,7 +368,11 @@ function getSectionDescendantsFromAllVariants(
     }
     const baseImpl = state.sectionImpls[implLayering.impl];
     const core = state.sections[sectionId];
-    const impl = getEffectiveImpl(baseImpl, core, implLayering);
+    const impl = getEffectiveImpl<"BaseSectionImplUnion">(
+      baseImpl,
+      core,
+      implLayering,
+    );
     if (isBaseParentSectionImpl(impl)) {
       output.push(...impl.children);
     }

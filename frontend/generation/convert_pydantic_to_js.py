@@ -41,7 +41,7 @@ from setta.types.section_impls import BaseSectionImpl
 from setta.types.websocket import WebsocketMsg
 from setta.utils.utils import get_absolute_path
 
-from .utils import format_generated_code
+from .utils import format_generated_code, get_impl_classes
 
 TYPE_ALIAS_EXCLUSIONS = [
     "CoreSchema",
@@ -722,6 +722,34 @@ export function getCodeObjDefault(settings: SettingsState, codeObjType: CodeObjT
 """
 
 
+def create_impl_core_layering_bundled_types():
+    classes = get_impl_classes()
+    code = ""
+    for c in classes.values():
+        code += f"""
+    {c.original_name}: {{
+        impl: {c.original_name};
+        core: {c.core_name};
+        layering: {c.layering_name};
+    }}
+"""
+        if not c.type_has_default:
+            code += f"""
+    {c.original_name}Union: {{
+        impl: {c.original_name}Union;
+        core: {c.core_name}Union;
+        layering: {c.layering_name}Union;
+    }}
+"""
+
+    code = f"""
+    export type ImplCoreLayeringBundleMap = {{
+        {code}
+    }}
+"""
+    return code
+
+
 def main(output_file):
     all_sets = {}
     all_aliases = {}
@@ -777,6 +805,7 @@ export type ObjectValues<T> = T[keyof T]
 
     ts_code += create_type_predicate_fns_from_sets(all_sets)
     ts_code += create_default_getter_functions()
+    ts_code += create_impl_core_layering_bundled_types()
 
     with open(output_file, "w") as f:
         f.write(ts_code)
