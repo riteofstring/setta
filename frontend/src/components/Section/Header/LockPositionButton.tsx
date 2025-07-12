@@ -33,7 +33,7 @@ export function LockPositionButton({ sectionId }) {
       if (!baseImpl || !core) {
         throw new Error();
       }
-      setEffectiveImplValue(baseImpl, core, layering, {
+      setEffectiveImplValue<"BaseSectionImplUnion">(baseImpl, core, layering, {
         positionAndSizeLocked: !positionAndSizeLocked,
       });
     });
