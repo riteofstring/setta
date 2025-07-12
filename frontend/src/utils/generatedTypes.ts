@@ -12540,6 +12540,24 @@ export function isBaseChildlessCodeObjLayering(
   return BaseChildlessCodeObjLayeringTypeSet.has(x.type);
 }
 
+export function isBaseCodeObjCore(
+  x: BaseCodeObjCoreUnion,
+): x is BaseCodeObjCoreUnion {
+  return BaseCodeObjCoreTypeSet.has(x.type);
+}
+
+export function isBaseCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseCodeObjImplUnion {
+  return BaseCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseCodeObjLayering(
+  x: BaseCodeObjLayeringUnion,
+): x is BaseCodeObjLayeringUnion {
+  return BaseCodeObjLayeringTypeSet.has(x.type);
+}
+
 export function isBaseCodeSectionCore(
   x: BaseSectionCoreUnion,
 ): x is BaseCodeSectionCoreUnion {
@@ -12630,6 +12648,24 @@ export function isBaseParentSectionLayering(
   return BaseParentSectionLayeringTypeSet.has(x.type);
 }
 
+export function isBaseSectionCore(
+  x: BaseSectionCoreUnion,
+): x is BaseSectionCoreUnion {
+  return BaseSectionCoreTypeSet.has(x.type);
+}
+
+export function isBaseSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseSectionImplUnion {
+  return BaseSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionLayering(
+  x: BaseSectionLayeringUnion,
+): x is BaseSectionLayeringUnion {
+  return BaseSectionLayeringTypeSet.has(x.type);
+}
+
 export function isBaseSectionWithParamsCore(
   x: BaseSectionCoreUnion,
 ): x is BaseSectionWithParamsCoreUnion {
@@ -12658,6 +12694,10 @@ export function isFrontendWebsocketMsg(
   x: WebsocketMsgUnion,
 ): x is FrontendWebsocketMsgUnion {
   return FrontendWebsocketMsgTypeSet.has(x.messageType);
+}
+
+export function isWebsocketMsg(x: WebsocketMsgUnion): x is WebsocketMsgUnion {
+  return WebsocketMsgTypeSet.has(x.messageType);
 }
 
 export function getSectionDefault(
