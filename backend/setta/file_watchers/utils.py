@@ -113,7 +113,8 @@ def get_json_source_impl_layerings(
                 continue
             processed.add(layering_id)
             layering = p.sectionImplLayerings[layering_id]
-            impl = get_effective_impl(layering, section, p.sectionImpls)
+            base_impl = p.sectionImpls[layering.impl]
+            impl = get_effective_impl(base_impl, section, layering)
             if (
                 not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource

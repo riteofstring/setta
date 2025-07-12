@@ -317,9 +317,7 @@ def add_to_processed_json_object(
     layeringId = codeObjImplLayering.id
     codeObj = create_code_obj_core(
         codeObjImpl.type,
-        # name=key,
-        # implLayerings=[layeringId],
-        # defaultImplLayering=layeringId,
+        {"name": key, "implLayerings": [layeringId], "defaultImplLayering": layeringId},
     )
 
     output.sectionImpl.codeObjImplLayeringMap[codeObj.id] = layeringId
