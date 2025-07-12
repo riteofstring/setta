@@ -13,7 +13,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.generated.layerings import (
     DictSectionLayering,
-    create_code_obj_layering,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
@@ -49,14 +48,14 @@ def add_code_obj_details(
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
 ):
-    codeObjImplLayering = create_code_obj_layering(
-        type=codeObjImpl.type,
+    codeObjImplLayering = CodeObjImplLayering(
         impl=codeObjImpl.id,
+        modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
 
-    codeObj = create_code_obj_co(
+    codeObj = create_core_for_code_obj_type(
         codeObjImpl.type,
         name=codeObjName,
         implLayerings=[codeObjImplLayering.id],
