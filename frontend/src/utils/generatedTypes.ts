@@ -12777,287 +12777,335 @@ export type ImplCoreLayeringBundleMap = {
     impl: BaseSectionImpl;
     core: BaseSectionCore;
     layering: BaseSectionLayering;
+    args: BaseSectionImplArgs;
   };
 
   BaseSectionImplUnion: {
     impl: BaseSectionImplUnion;
     core: BaseSectionCoreUnion;
     layering: BaseSectionLayeringUnion;
+    args: BaseSectionImplArgs;
   };
 
   BaseSectionWithParamsImpl: {
     impl: BaseSectionWithParamsImpl;
     core: BaseSectionWithParamsCore;
     layering: BaseSectionWithParamsLayering;
+    args: BaseSectionWithParamsImplArgs;
   };
 
   BaseSectionWithParamsImplUnion: {
     impl: BaseSectionWithParamsImplUnion;
     core: BaseSectionWithParamsCoreUnion;
     layering: BaseSectionWithParamsLayeringUnion;
+    args: BaseSectionWithParamsImplArgs;
   };
 
   BaseArtifactSectionImpl: {
     impl: BaseArtifactSectionImpl;
     core: BaseArtifactSectionCore;
     layering: BaseArtifactSectionLayering;
+    args: BaseArtifactSectionImplArgs;
   };
 
   BaseArtifactSectionImplUnion: {
     impl: BaseArtifactSectionImplUnion;
     core: BaseArtifactSectionCoreUnion;
     layering: BaseArtifactSectionLayeringUnion;
+    args: BaseArtifactSectionImplArgs;
   };
 
   BaseCanvasSectionImpl: {
     impl: BaseCanvasSectionImpl;
     core: BaseCanvasSectionCore;
     layering: BaseCanvasSectionLayering;
+    args: BaseCanvasSectionImplArgs;
   };
 
   BaseCanvasSectionImplUnion: {
     impl: BaseCanvasSectionImplUnion;
     core: BaseCanvasSectionCoreUnion;
     layering: BaseCanvasSectionLayeringUnion;
+    args: BaseCanvasSectionImplArgs;
   };
 
   BaseCodeSectionImpl: {
     impl: BaseCodeSectionImpl;
     core: BaseCodeSectionCore;
     layering: BaseCodeSectionLayering;
+    args: BaseCodeSectionImplArgs;
   };
 
   BaseCodeSectionImplUnion: {
     impl: BaseCodeSectionImplUnion;
     core: BaseCodeSectionCoreUnion;
     layering: BaseCodeSectionLayeringUnion;
+    args: BaseCodeSectionImplArgs;
   };
 
   BaseParentSectionImpl: {
     impl: BaseParentSectionImpl;
     core: BaseParentSectionCore;
     layering: BaseParentSectionLayering;
+    args: BaseParentSectionImplArgs;
   };
 
   BaseParentSectionImplUnion: {
     impl: BaseParentSectionImplUnion;
     core: BaseParentSectionCoreUnion;
     layering: BaseParentSectionLayeringUnion;
+    args: BaseParentSectionImplArgs;
   };
 
   BaseDictSectionImpl: {
     impl: BaseDictSectionImpl;
     core: BaseDictSectionCore;
     layering: BaseDictSectionLayering;
+    args: BaseDictSectionImplArgs;
   };
 
   BaseDictSectionImplUnion: {
     impl: BaseDictSectionImplUnion;
     core: BaseDictSectionCoreUnion;
     layering: BaseDictSectionLayeringUnion;
+    args: BaseDictSectionImplArgs;
   };
 
   CallableSectionImpl: {
     impl: CallableSectionImpl;
     core: CallableSectionCore;
     layering: CallableSectionLayering;
+    args: CallableSectionImplArgs;
   };
 
   DictSectionImpl: {
     impl: DictSectionImpl;
     core: DictSectionCore;
     layering: DictSectionLayering;
+    args: DictSectionImplArgs;
   };
 
   ListRootSectionImpl: {
     impl: ListRootSectionImpl;
     core: ListRootSectionCore;
     layering: ListRootSectionLayering;
+    args: ListRootSectionImplArgs;
   };
 
   DictRootSectionImpl: {
     impl: DictRootSectionImpl;
     core: DictRootSectionCore;
     layering: DictRootSectionLayering;
+    args: DictRootSectionImplArgs;
   };
 
   GroupSectionImpl: {
     impl: GroupSectionImpl;
     core: GroupSectionCore;
     layering: GroupSectionLayering;
+    args: GroupSectionImplArgs;
   };
 
   ImageSectionImpl: {
     impl: ImageSectionImpl;
     core: ImageSectionCore;
     layering: ImageSectionLayering;
+    args: ImageSectionImplArgs;
   };
 
   ChartSectionImpl: {
     impl: ChartSectionImpl;
     core: ChartSectionCore;
     layering: ChartSectionLayering;
+    args: ChartSectionImplArgs;
   };
 
   DrawSectionImpl: {
     impl: DrawSectionImpl;
     core: DrawSectionCore;
     layering: DrawSectionLayering;
+    args: DrawSectionImplArgs;
   };
 
   TextBlockSectionImpl: {
     impl: TextBlockSectionImpl;
     core: TextBlockSectionCore;
     layering: TextBlockSectionLayering;
+    args: TextBlockSectionImplArgs;
   };
 
   SocialSectionImpl: {
     impl: SocialSectionImpl;
     core: SocialSectionCore;
     layering: SocialSectionLayering;
+    args: SocialSectionImplArgs;
   };
 
   GlobalVariablesSectionImpl: {
     impl: GlobalVariablesSectionImpl;
     core: GlobalVariablesSectionCore;
     layering: GlobalVariablesSectionLayering;
+    args: GlobalVariablesSectionImplArgs;
   };
 
   CodeSectionImpl: {
     impl: CodeSectionImpl;
     core: CodeSectionCore;
     layering: CodeSectionLayering;
+    args: CodeSectionImplArgs;
   };
 
   GenPythonCodeSectionImpl: {
     impl: GenPythonCodeSectionImpl;
     core: GenPythonCodeSectionCore;
     layering: GenPythonCodeSectionLayering;
+    args: GenPythonCodeSectionImplArgs;
   };
 
   TerminalSectionImpl: {
     impl: TerminalSectionImpl;
     core: TerminalSectionCore;
     layering: TerminalSectionLayering;
+    args: TerminalSectionImplArgs;
   };
 
   IFrameSectionImpl: {
     impl: IFrameSectionImpl;
     core: IFrameSectionCore;
     layering: IFrameSectionLayering;
+    args: IFrameSectionImplArgs;
   };
 
   ChatSectionImpl: {
     impl: ChatSectionImpl;
     core: ChatSectionCore;
     layering: ChatSectionLayering;
+    args: ChatSectionImplArgs;
   };
 
   BrowserSectionImpl: {
     impl: BrowserSectionImpl;
     core: BrowserSectionCore;
     layering: BrowserSectionLayering;
+    args: BrowserSectionImplArgs;
   };
 
   BaseCodeObjImpl: {
     impl: BaseCodeObjImpl;
     core: BaseCodeObjCore;
     layering: BaseCodeObjLayering;
+    args: BaseCodeObjImplArgs;
   };
 
   BaseCodeObjImplUnion: {
     impl: BaseCodeObjImplUnion;
     core: BaseCodeObjCoreUnion;
     layering: BaseCodeObjLayeringUnion;
+    args: BaseCodeObjImplArgs;
   };
 
   BaseParamCodeObjImpl: {
     impl: BaseParamCodeObjImpl;
     core: BaseParamCodeObjCore;
     layering: BaseParamCodeObjLayering;
+    args: BaseParamCodeObjImplArgs;
   };
 
   BaseParamCodeObjImplUnion: {
     impl: BaseParamCodeObjImplUnion;
     core: BaseParamCodeObjCoreUnion;
     layering: BaseParamCodeObjLayeringUnion;
+    args: BaseParamCodeObjImplArgs;
   };
 
   BaseChildlessCodeObjImpl: {
     impl: BaseChildlessCodeObjImpl;
     core: BaseChildlessCodeObjCore;
     layering: BaseChildlessCodeObjLayering;
+    args: BaseChildlessCodeObjImplArgs;
   };
 
   BaseChildlessCodeObjImplUnion: {
     impl: BaseChildlessCodeObjImplUnion;
     core: BaseChildlessCodeObjCoreUnion;
     layering: BaseChildlessCodeObjLayeringUnion;
+    args: BaseChildlessCodeObjImplArgs;
   };
 
   BaseParentCodeObjImpl: {
     impl: BaseParentCodeObjImpl;
     core: BaseParentCodeObjCore;
     layering: BaseParentCodeObjLayering;
+    args: BaseParentCodeObjImplArgs;
   };
 
   BaseParentCodeObjImplUnion: {
     impl: BaseParentCodeObjImplUnion;
     core: BaseParentCodeObjCoreUnion;
     layering: BaseParentCodeObjLayeringUnion;
+    args: BaseParentCodeObjImplArgs;
   };
 
   CodeCallableCodeObjImpl: {
     impl: CodeCallableCodeObjImpl;
     core: CodeCallableCodeObjCore;
     layering: CodeCallableCodeObjLayering;
+    args: CodeCallableCodeObjImplArgs;
   };
 
   CodeParamCodeObjImpl: {
     impl: CodeParamCodeObjImpl;
     core: CodeParamCodeObjCore;
     layering: CodeParamCodeObjLayering;
+    args: CodeParamCodeObjImplArgs;
   };
 
   TextParamCodeObjImpl: {
     impl: TextParamCodeObjImpl;
     core: TextParamCodeObjCore;
     layering: TextParamCodeObjLayering;
+    args: TextParamCodeObjImplArgs;
   };
 
   SliderParamCodeObjImpl: {
     impl: SliderParamCodeObjImpl;
     core: SliderParamCodeObjCore;
     layering: SliderParamCodeObjLayering;
+    args: SliderParamCodeObjImplArgs;
   };
 
   SwitchParamCodeObjImpl: {
     impl: SwitchParamCodeObjImpl;
     core: SwitchParamCodeObjCore;
     layering: SwitchParamCodeObjLayering;
+    args: SwitchParamCodeObjImplArgs;
   };
 
   ColorPickerParamCodeObjImpl: {
     impl: ColorPickerParamCodeObjImpl;
     core: ColorPickerParamCodeObjCore;
     layering: ColorPickerParamCodeObjLayering;
+    args: ColorPickerParamCodeObjImplArgs;
   };
 
   DropdownParamCodeObjImpl: {
     impl: DropdownParamCodeObjImpl;
     core: DropdownParamCodeObjCore;
     layering: DropdownParamCodeObjLayering;
+    args: DropdownParamCodeObjImplArgs;
   };
 
   PasswordParamCodeObjImpl: {
     impl: PasswordParamCodeObjImpl;
     core: PasswordParamCodeObjCore;
     layering: PasswordParamCodeObjLayering;
+    args: PasswordParamCodeObjImplArgs;
   };
 
   NestedParamCodeObjImpl: {
     impl: NestedParamCodeObjImpl;
     core: NestedParamCodeObjCore;
     layering: NestedParamCodeObjLayering;
+    args: NestedParamCodeObjImplArgs;
   };
 };

@@ -163,7 +163,14 @@ export function getEffectiveImplFromLayeringMap(
   return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
 }
 
-export function setEffectiveImplValue(impl, core, layering, args) {
+export function setEffectiveImplValue<
+  K extends keyof ImplCoreLayeringBundleMap,
+>(
+  impl: ImplCoreLayeringBundleMap[K]["impl"],
+  core: ImplCoreLayeringBundleMap[K]["core"],
+  layering: ImplCoreLayeringBundleMap[K]["layering"],
+  args: ImplCoreLayeringBundleMap[K]["args"],
+): ImplCoreLayeringBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
     if (!impl.isPreset) {
       impl[k] = v;

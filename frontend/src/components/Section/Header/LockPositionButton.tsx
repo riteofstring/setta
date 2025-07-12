@@ -3,9 +3,10 @@ import _ from "lodash";
 import {
   getEffectiveSectionImpl,
   getSectionImplLayering,
+  setEffectiveImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionLayering, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
@@ -26,10 +27,15 @@ export function LockPositionButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (isBaseSectionLayering(implLayering)) {
-        implLayering.modifier.positionAndSizeLocked = !positionAndSizeLocked;
+      const layering = getSectionImplLayering(state, sectionId);
+      const baseImpl = state.sectionImpls[layering.impl];
+      const core = state.sections[sectionId];
+      if (!baseImpl || !core) {
+        throw new Error();
       }
+      setEffectiveImplValue(baseImpl, core, layering, {
+        positionAndSizeLocked: !positionAndSizeLocked,
+      });
     });
   }
 
