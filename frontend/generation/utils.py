@@ -9,6 +9,7 @@ from enum import Enum
 from typing import (
     Annotated,
     Any,
+    Callable,
     Dict,
     List,
     Literal,
@@ -376,41 +377,47 @@ def get_impl_classes():
 def get_creation_fns(
     classes: dict[str, ImplClassInfoForGeneration],
     fn_type: Literal["modifier", "core", "layering"],
-    additional_args: dict[str, str] | None = None,
+    additional_args_types_callback: Callable[[ImplClassInfoForGeneration], str]
+    | None = None,
+    additional_args_inputs_callback: Callable[[ImplClassInfoForGeneration], str]
+    | None = None,
+    additional_args_generic_type_callback: Callable[[], str] | None = None,
 ):
-    if additional_args is None:
-        additional_args = {}
-    additional_args_types_str = ""
-    additional_args_input_str = ""
-    for k, v in additional_args.items():
-        additional_args_types_str += f"{k}: {v},"
-        additional_args_input_str += f"{k}={k}"
-    cases = defaultdict(dict)
+    if additional_args_types_callback is None:
+        additional_args_types_callback = lambda x: ""
+    if additional_args_inputs_callback is None:
+        additional_args_inputs_callback = lambda x: ""
+    if additional_args_generic_type_callback is None:
+        additional_args_generic_type_callback = lambda: ""
+    cases: dict[str, list[ImplClassInfoForGeneration]] = defaultdict(list)
     code = ""
     for c in classes.values():
         if not c.type_has_default:
             continue
         suffix_prefix = "section" if c.is_section_impl else "code_obj"
-        cases[suffix_prefix][c.type_full_enum_name] = getattr(c, f"{fn_type}_name")
+        cases[suffix_prefix].append(c)
         fn_name_suffix = f"{suffix_prefix}_{fn_type}"
+        additional_args = additional_args_types_callback(c)
         code += f"""
 @overload
-def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args_types_str}) -> {getattr(c, f"{fn_type}_name")}:
+def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args}) -> {getattr(c, f"{fn_type}_name")}:
     ...
 """
 
-    for impl_category, details in cases.items():
+    for impl_category, category_classes in cases.items():
         cases_str = []
-        for type_name, name in details.items():
+        for c in category_classes:
+            additional_args = additional_args_inputs_callback(c)
             curr_case = f"""
-            case {type_name}:
-                return {name}(type=type, {additional_args_input_str})
+            case {c.type_full_enum_name}:
+                return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})
             """
             cases_str.append(curr_case)
 
+        additional_args = additional_args_generic_type_callback()
         input_type = "SectionType" if impl_category == "section" else "CodeObjType"
         code += f"""
-def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args_types_str}):
+def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):
     match type:
 {"\n".join(cases_str)}
 """

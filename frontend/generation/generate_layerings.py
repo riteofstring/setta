@@ -12,6 +12,18 @@ from .utils import (
 )
 
 
+def additional_args_types_callback(c: ImplClassInfoForGeneration):
+    return "impl: str"
+
+
+def additional_args_inputs_callback(c: ImplClassInfoForGeneration):
+    return "impl=impl"
+
+
+def additional_args_generic_type_callback():
+    return "impl: str"
+
+
 def generate_layerings(output_file, classes: dict[str, ImplClassInfoForGeneration]):
     code = """
 from typing import Any, Literal, overload
@@ -57,7 +69,13 @@ class {c.layering_name}({", ".join(c.parent_layering_class_names)}):
 
 """
 
-    code += get_creation_fns(classes, "layering", {"impl": "str"})
+    code += get_creation_fns(
+        classes,
+        "layering",
+        additional_args_types_callback=additional_args_types_callback,
+        additional_args_inputs_callback=additional_args_inputs_callback,
+        additional_args_generic_type_callback=additional_args_generic_type_callback,
+    )
 
     code = (
         f"""
