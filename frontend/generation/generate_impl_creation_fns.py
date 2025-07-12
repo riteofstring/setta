@@ -5,20 +5,6 @@ from setta.utils.utils import get_absolute_path
 
 from .utils import ImplClassInfoForGeneration, get_creation_fns, get_impl_classes
 
-# def generate_creation_function(class_info: ImplClassInfoForGeneration) -> str:
-#     # Simple function that just applies defaults and overrides
-#     function = f"""
-# def create{class_info.original_name}(
-#     defaults: {class_info.user_default_name},
-#     overrides: {class_info.args_name} | None = None
-# ) -> {class_info.original_name}:
-#     if overrides is None:
-#         overrides = {{}}
-#     return {class_info.original_name}(**{{**defaults.model_dump(), **overrides}})
-# """
-
-#     return function
-
 
 def additional_args_types_callback(c: ImplClassInfoForGeneration):
     return f"defaults: {c.user_default_name}, overrides: {c.args_name} | None = None"
@@ -89,7 +75,6 @@ from setta.types.generated.model_args_as_typed_dicts import (
 
 {code}
 """
-    print(code)
 
     return code
 
