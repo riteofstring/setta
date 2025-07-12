@@ -63,6 +63,9 @@ export function getEffectiveSectionImpl(
     const implLayering = getSectionImplLayering(p, sectionId);
     const baseImpl = p.sectionImpls[implLayering.impl];
     const core = p.sections[sectionId];
+    if (!baseImpl || !core) {
+      throw new Error();
+    }
     return getEffectiveImpl<"BaseSectionImplUnion">(
       baseImpl,
       core,
@@ -121,6 +124,9 @@ export function getEffectiveCodeObjImpl(
   );
   const baseImpl = p.codeObjImpls[implLayering.impl];
   const core = p.codeObjs[codeObjId];
+  if (!baseImpl || !core) {
+    throw new Error();
+  }
   return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
 }
 
@@ -129,7 +135,7 @@ export function getCodeObjImpl(
   sectionId: string,
   codeObjId: string,
 ) {
-  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId);
+  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId, null);
   const baseImpl = p.codeObjImpls[implLayering.impl];
   if (!baseImpl) {
     throw new Error();
@@ -137,21 +143,37 @@ export function getCodeObjImpl(
   return baseImpl;
 }
 
-export function getEffectiveImplFromLayeringMap<TImpl>(
+export function getEffectiveImplFromLayeringMap(
   id: string,
-  impls: Record<string, TImpl>,
-  cores,
-  layerings: Record<string, ImplLayering>,
+  impls: ZustandProjectState["codeObjImpls"],
+  cores: ZustandProjectState["codeObjs"],
+  layerings: ZustandProjectState["codeObjImplLayerings"],
   layeringMap: Record<string, string>,
 ) {
   const layeringId = layeringMap[id];
-  const implLayering = layerings[layeringId!];
+  const implLayering = layerings[layeringId];
   if (!implLayering) {
     throw new Error();
   }
   const baseImpl = impls[implLayering.impl];
   const core = cores[id];
-  return getEffectiveImpl(baseImpl, core, implLayering);
+  if (!baseImpl || !core) {
+    throw new Error();
+  }
+  return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
+}
+
+export function setEffectiveImplValue(impl, core, layering, args) {
+  for (const [k, v] of Object.entries(args)) {
+    if (!impl.isPreset) {
+      impl[k] = v;
+    } else if (core.unsharedKeys.includes(k)) {
+      layering.modifier[k] = v;
+    } else {
+      core.sharedModifier[k] = v;
+    }
+  }
+  return getEffectiveImpl(impl, core, layering);
 }
 
 export function getSectionInfo(sectionId) {
