@@ -141,7 +141,7 @@ from setta.types.generated.layerings import (
 from setta.types.generated.unions import (
     {", ".join(union_imports)}
 )
-from setta.types.generated.model_args_as_typed_dicts import (
+from setta.types.generated.impl_args_as_typed_dicts import (
     {", ".join(args_imports)}
 )
 """

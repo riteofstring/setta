@@ -11,8 +11,10 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
+from setta.types.generated.cores import DictSectionCore
 from setta.types.generated.layerings import (
     DictSectionLayering,
+    create_code_obj_layering,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
@@ -48,9 +50,9 @@ def add_code_obj_details(
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
 ):
-    codeObjImplLayering = CodeObjImplLayering(
+    codeObjImplLayering = create_code_obj_layering(
+        type=codeObjImpl.type,
         impl=codeObjImpl.id,
-        modifier=create_modifier_for_code_obj_type(codeObjImpl.type),
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
@@ -165,10 +167,8 @@ def create_settings_project_state(settings_path: Path):
         sectionImplLayering = DictSectionLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
-            modifier=create_modifier_for_section_type(sectionImpl.type),
         )
-        section = create_core_for_section_type(
-            sectionImpl.type,
+        section = DictSectionCore(
             name=k,
             implLayerings=[sectionImplLayering.id],
             defaultImplLayering=sectionImplLayering.id,

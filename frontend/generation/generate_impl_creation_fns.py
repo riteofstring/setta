@@ -68,7 +68,7 @@ from setta.types.generated.user_defaults import (
     {user_default_imports}
 )
 
-from setta.types.generated.model_args_as_typed_dicts import (
+from setta.types.generated.impl_args_as_typed_dicts import (
     {args_imports}
 )
 

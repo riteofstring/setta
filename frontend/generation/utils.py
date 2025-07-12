@@ -133,7 +133,7 @@ def python_type_to_str(python_type):
                 literals.append(f"{str(arg).lower()}")
             else:
                 literals.append(f"{arg}")
-        literals = " | ".join(literals)
+        literals = ", ".join(literals)
         return f"Literal[{literals}]"
 
     # Handle Optional/Union types

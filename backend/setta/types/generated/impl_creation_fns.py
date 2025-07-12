@@ -15,7 +15,7 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextParamCodeObjImpl,
 )
-from setta.types.generated.model_args_as_typed_dicts import (
+from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
