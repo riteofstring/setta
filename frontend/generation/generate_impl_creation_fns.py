@@ -3,22 +3,37 @@ from pathlib import Path
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
 
-from .utils import ImplClassInfoForGeneration, get_impl_classes
+from .utils import ImplClassInfoForGeneration, get_creation_fns, get_impl_classes
+
+# def generate_creation_function(class_info: ImplClassInfoForGeneration) -> str:
+#     # Simple function that just applies defaults and overrides
+#     function = f"""
+# def create{class_info.original_name}(
+#     defaults: {class_info.user_default_name},
+#     overrides: {class_info.args_name} | None = None
+# ) -> {class_info.original_name}:
+#     if overrides is None:
+#         overrides = {{}}
+#     return {class_info.original_name}(**{{**defaults.model_dump(), **overrides}})
+# """
+
+#     return function
 
 
-def generate_creation_function(class_info: ImplClassInfoForGeneration) -> str:
-    # Simple function that just applies defaults and overrides
-    function = f"""
-def create{class_info.original_name}(
-    defaults: {class_info.user_default_name},
-    overrides: {class_info.args_name} | None = None
-) -> {class_info.original_name}:
-    if overrides is None:
-        overrides = {{}}
-    return {class_info.original_name}(**{{**defaults.model_dump(), **overrides}})
+def additional_args_types_callback(c: ImplClassInfoForGeneration):
+    return f"defaults: {c.user_default_name}, overrides: {c.args_name} | None = None"
+
+
+def additional_args_generic_type_callback():
+    return "defaults: Any, overrides: Any = None"
+
+
+def implementation_callback(c, additiona_args):
+    return f"""
+                    if overrides is None:
+                        overrides = {{}}
+                    return {c.original_name}(**{{**defaults.model_dump(), **overrides}})
 """
-
-    return function
 
 
 def generate_creation_functions_module() -> str:
@@ -37,17 +52,21 @@ def generate_creation_functions_module() -> str:
     )
     args_imports = ",\n    ".join([cls.args_name for cls in classes.values()])
 
-    functions = []
-    for cls in classes.values():
-        func = generate_creation_function(cls)
-        if func:
-            functions.append(func)
-
-    functions_str = "\n".join(functions)
+    code = get_creation_fns(
+        classes,
+        "impl",
+        additional_args_types_callback=additional_args_types_callback,
+        additional_args_generic_type_callback=additional_args_generic_type_callback,
+        implementation_callback=implementation_callback,
+    )
 
     # Build the complete module
-    output = f"""# Auto-generated creation functions - DO NOT EDIT MANUALLY
+    code = f"""# Auto-generated creation functions - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
+
+from typing import Any, Literal, overload
+from setta.types.code_obj_impls import CodeObjType
+from setta.types.section_impls import SectionType
 
 # Import implementation classes
 from setta.types.section_impls import (
@@ -68,10 +87,11 @@ from setta.types.generated.model_args_as_typed_dicts import (
 )
 
 
-{functions_str}
+{code}
 """
+    print(code)
 
-    return output
+    return code
 
 
 def main(output_folder: Path):

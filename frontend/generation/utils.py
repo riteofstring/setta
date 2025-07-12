@@ -242,6 +242,10 @@ class ImplClassInfoForGeneration:
         return self.base_name + "ImplFields"
 
     @property
+    def impl_name(self):
+        return self.original_name
+
+    @property
     def parents(self):
         return self.class_obj.__bases__
 
@@ -376,7 +380,7 @@ def get_impl_classes():
 
 def get_creation_fns(
     classes: dict[str, ImplClassInfoForGeneration],
-    fn_type: Literal["modifier", "core", "layering"],
+    fn_type: Literal["modifier", "core", "layering", "impl"],
     additional_args_types_callback: Callable[[ImplClassInfoForGeneration], str]
     | None = None,
     additional_args_inputs_callback: Callable[[ImplClassInfoForGeneration], str]
@@ -393,8 +397,8 @@ def get_creation_fns(
         additional_args_generic_type_callback = lambda: ""
     if implementation_callback is None:
         implementation_callback = (
-            lambda c,
-            additional_args: f"""return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
+            lambda c, additional_args: f"""
+                return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
         )
     cases: dict[str, list[ImplClassInfoForGeneration]] = defaultdict(list)
     code = ""
@@ -417,7 +421,7 @@ def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args}) -
             additional_args = additional_args_inputs_callback(c)
             curr_case = f"""
             case {c.type_full_enum_name}:
-                {implementation_callback(c, additional_args)}
+{implementation_callback(c, additional_args)}
             """
             cases_str.append(curr_case)
 

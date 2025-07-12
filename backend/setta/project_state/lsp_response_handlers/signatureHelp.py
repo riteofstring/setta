@@ -6,10 +6,11 @@ import docstring_parser
 from lsprotocol import types as LSPTypes
 
 from setta.types.code_obj_impls import (
+    CodeObjType,
     ParameterPassingStyle,
 )
 from setta.types.generated.cores import create_code_obj_core
-from setta.types.generated.impl_creation_fns import createTextParamCodeObjImpl
+from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseCodeObjCoreUnion,
@@ -116,7 +117,8 @@ def wrapper_parse_signature(
                 description = ""
 
         # Append parsed information to list
-        codeObjImpl = createTextParamCodeObjImpl(
+        codeObjImpl = create_code_obj_impl(
+            CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
             {
                 "defaultVal": default,

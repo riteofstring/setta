@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
+    CodeObjType,
     NestedParamCodeObjImpl,
 )
 from setta.types.generated.cores import NestedParamCodeObjCore, create_code_obj_core
@@ -16,9 +17,8 @@ from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
 from setta.types.generated.impl_creation_fns import (
-    createDictSectionImpl,
-    createNestedParamCodeObjImpl,
-    createTextParamCodeObjImpl,
+    create_code_obj_impl,
+    create_section_impl,
 )
 from setta.types.generated.layerings import (
     NestedParamCodeObjLayering,
@@ -45,6 +45,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseDictSectionImpl,
+    SectionType,
 )
 
 logger = logging.getLogger(__name__)
@@ -264,7 +265,8 @@ def process_json_object(
     jsonSourceKeys: list[str],
 ):
     new_data = ProcessedJSONObject(
-        sectionImpl=createDictSectionImpl(
+        sectionImpl=create_section_impl(
+            SectionType.Dict,
             settings.dictSectionDefault,
             {"isJsonSource": True, "jsonSourceKeys": jsonSourceKeys},
         )
@@ -301,11 +303,15 @@ def add_to_processed_json_object(
 ):
     is_dict = isinstance(value, dict)
     if is_dict:
-        codeObjImpl = createNestedParamCodeObjImpl(settings.nestedParamCodeObjDefault)
+        codeObjImpl = create_code_obj_impl(
+            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
+        )
         codeObjImplLayering = NestedParamCodeObjLayering(impl=codeObjImpl.id)
     else:
-        codeObjImpl = createTextParamCodeObjImpl(
-            settings.textParamCodeObjDefault, {"value": json.dumps(value)}
+        codeObjImpl = create_code_obj_impl(
+            CodeObjType.TextParam,
+            settings.textParamCodeObjDefault,
+            {"value": json.dumps(value)},
         )
         codeObjImplLayering = TextParamCodeObjLayering(impl=codeObjImpl.id)
     layeringId = codeObjImplLayering.id

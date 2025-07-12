@@ -1,9 +1,11 @@
 # Auto-generated creation functions - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-# Import implementation classes
+from typing import Any, Literal, overload
+
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
+    CodeObjType,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
@@ -71,6 +73,8 @@ from setta.types.generated.user_defaults import (
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
 )
+
+# Import implementation classes
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
@@ -86,234 +90,352 @@ from setta.types.section_impls import (
     IFrameSectionImpl,
     ImageSectionImpl,
     ListRootSectionImpl,
+    SectionType,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
 
 
-def createCallableSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Callable],
     defaults: UserDefaultCallableSectionImpl,
     overrides: CallableSectionImplArgs | None = None,
-) -> CallableSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return CallableSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> CallableSectionImpl: ...
 
 
-def createDictSectionImpl(
-    defaults: UserDefaultDictSectionImpl, overrides: DictSectionImplArgs | None = None
-) -> DictSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return DictSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Dict],
+    defaults: UserDefaultDictSectionImpl,
+    overrides: DictSectionImplArgs | None = None,
+) -> DictSectionImpl: ...
 
 
-def createListRootSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.ListRoot],
     defaults: UserDefaultListRootSectionImpl,
     overrides: ListRootSectionImplArgs | None = None,
-) -> ListRootSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return ListRootSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> ListRootSectionImpl: ...
 
 
-def createDictRootSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.DictRoot],
     defaults: UserDefaultDictRootSectionImpl,
     overrides: DictRootSectionImplArgs | None = None,
-) -> DictRootSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return DictRootSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> DictRootSectionImpl: ...
 
 
-def createGroupSectionImpl(
-    defaults: UserDefaultGroupSectionImpl, overrides: GroupSectionImplArgs | None = None
-) -> GroupSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return GroupSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Group],
+    defaults: UserDefaultGroupSectionImpl,
+    overrides: GroupSectionImplArgs | None = None,
+) -> GroupSectionImpl: ...
 
 
-def createImageSectionImpl(
-    defaults: UserDefaultImageSectionImpl, overrides: ImageSectionImplArgs | None = None
-) -> ImageSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return ImageSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Image],
+    defaults: UserDefaultImageSectionImpl,
+    overrides: ImageSectionImplArgs | None = None,
+) -> ImageSectionImpl: ...
 
 
-def createChartSectionImpl(
-    defaults: UserDefaultChartSectionImpl, overrides: ChartSectionImplArgs | None = None
-) -> ChartSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return ChartSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Chart],
+    defaults: UserDefaultChartSectionImpl,
+    overrides: ChartSectionImplArgs | None = None,
+) -> ChartSectionImpl: ...
 
 
-def createDrawSectionImpl(
-    defaults: UserDefaultDrawSectionImpl, overrides: DrawSectionImplArgs | None = None
-) -> DrawSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return DrawSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Draw],
+    defaults: UserDefaultDrawSectionImpl,
+    overrides: DrawSectionImplArgs | None = None,
+) -> DrawSectionImpl: ...
 
 
-def createTextBlockSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.TextBlock],
     defaults: UserDefaultTextBlockSectionImpl,
     overrides: TextBlockSectionImplArgs | None = None,
-) -> TextBlockSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return TextBlockSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> TextBlockSectionImpl: ...
 
 
-def createSocialSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Social],
     defaults: UserDefaultSocialSectionImpl,
     overrides: SocialSectionImplArgs | None = None,
-) -> SocialSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return SocialSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> SocialSectionImpl: ...
 
 
-def createGlobalVariablesSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.GlobalVariables],
     defaults: UserDefaultGlobalVariablesSectionImpl,
     overrides: GlobalVariablesSectionImplArgs | None = None,
-) -> GlobalVariablesSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return GlobalVariablesSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> GlobalVariablesSectionImpl: ...
 
 
-def createCodeSectionImpl(
-    defaults: UserDefaultCodeSectionImpl, overrides: CodeSectionImplArgs | None = None
-) -> CodeSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return CodeSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Code],
+    defaults: UserDefaultCodeSectionImpl,
+    overrides: CodeSectionImplArgs | None = None,
+) -> CodeSectionImpl: ...
 
 
-def createGenPythonCodeSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.GenPythonCode],
     defaults: UserDefaultGenPythonCodeSectionImpl,
     overrides: GenPythonCodeSectionImplArgs | None = None,
-) -> GenPythonCodeSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return GenPythonCodeSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> GenPythonCodeSectionImpl: ...
 
 
-def createTerminalSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Terminal],
     defaults: UserDefaultTerminalSectionImpl,
     overrides: TerminalSectionImplArgs | None = None,
-) -> TerminalSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return TerminalSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> TerminalSectionImpl: ...
 
 
-def createIFrameSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.IFrame],
     defaults: UserDefaultIFrameSectionImpl,
     overrides: IFrameSectionImplArgs | None = None,
-) -> IFrameSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return IFrameSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> IFrameSectionImpl: ...
 
 
-def createChatSectionImpl(
-    defaults: UserDefaultChatSectionImpl, overrides: ChatSectionImplArgs | None = None
-) -> ChatSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return ChatSectionImpl(**{**defaults.model_dump(), **overrides})
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Chat],
+    defaults: UserDefaultChatSectionImpl,
+    overrides: ChatSectionImplArgs | None = None,
+) -> ChatSectionImpl: ...
 
 
-def createBrowserSectionImpl(
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Browser],
     defaults: UserDefaultBrowserSectionImpl,
     overrides: BrowserSectionImplArgs | None = None,
-) -> BrowserSectionImpl:
-    if overrides is None:
-        overrides = {}
-    return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
+) -> BrowserSectionImpl: ...
 
 
-def createCodeCallableCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.CodeCallable],
     defaults: UserDefaultCodeCallableCodeObjImpl,
     overrides: CodeCallableCodeObjImplArgs | None = None,
-) -> CodeCallableCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return CodeCallableCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> CodeCallableCodeObjImpl: ...
 
 
-def createCodeParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.CodeParam],
     defaults: UserDefaultCodeParamCodeObjImpl,
     overrides: CodeParamCodeObjImplArgs | None = None,
-) -> CodeParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return CodeParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> CodeParamCodeObjImpl: ...
 
 
-def createTextParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.TextParam],
     defaults: UserDefaultTextParamCodeObjImpl,
     overrides: TextParamCodeObjImplArgs | None = None,
-) -> TextParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> TextParamCodeObjImpl: ...
 
 
-def createSliderParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.SliderParam],
     defaults: UserDefaultSliderParamCodeObjImpl,
     overrides: SliderParamCodeObjImplArgs | None = None,
-) -> SliderParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return SliderParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> SliderParamCodeObjImpl: ...
 
 
-def createSwitchParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.SwitchParam],
     defaults: UserDefaultSwitchParamCodeObjImpl,
     overrides: SwitchParamCodeObjImplArgs | None = None,
-) -> SwitchParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return SwitchParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> SwitchParamCodeObjImpl: ...
 
 
-def createColorPickerParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.ColorPickerParam],
     defaults: UserDefaultColorPickerParamCodeObjImpl,
     overrides: ColorPickerParamCodeObjImplArgs | None = None,
-) -> ColorPickerParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return ColorPickerParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> ColorPickerParamCodeObjImpl: ...
 
 
-def createDropdownParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.DropdownParam],
     defaults: UserDefaultDropdownParamCodeObjImpl,
     overrides: DropdownParamCodeObjImplArgs | None = None,
-) -> DropdownParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return DropdownParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> DropdownParamCodeObjImpl: ...
 
 
-def createPasswordParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.PasswordParam],
     defaults: UserDefaultPasswordParamCodeObjImpl,
     overrides: PasswordParamCodeObjImplArgs | None = None,
-) -> PasswordParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return PasswordParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> PasswordParamCodeObjImpl: ...
 
 
-def createNestedParamCodeObjImpl(
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.NestedParam],
     defaults: UserDefaultNestedParamCodeObjImpl,
     overrides: NestedParamCodeObjImplArgs | None = None,
-) -> NestedParamCodeObjImpl:
-    if overrides is None:
-        overrides = {}
-    return NestedParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+) -> NestedParamCodeObjImpl: ...
+
+
+def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None):
+    match type:
+        case SectionType.Callable:
+            if overrides is None:
+                overrides = {}
+            return CallableSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Dict:
+            if overrides is None:
+                overrides = {}
+            return DictSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.ListRoot:
+            if overrides is None:
+                overrides = {}
+            return ListRootSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.DictRoot:
+            if overrides is None:
+                overrides = {}
+            return DictRootSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Group:
+            if overrides is None:
+                overrides = {}
+            return GroupSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Image:
+            if overrides is None:
+                overrides = {}
+            return ImageSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Chart:
+            if overrides is None:
+                overrides = {}
+            return ChartSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Draw:
+            if overrides is None:
+                overrides = {}
+            return DrawSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.TextBlock:
+            if overrides is None:
+                overrides = {}
+            return TextBlockSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Social:
+            if overrides is None:
+                overrides = {}
+            return SocialSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.GlobalVariables:
+            if overrides is None:
+                overrides = {}
+            return GlobalVariablesSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Code:
+            if overrides is None:
+                overrides = {}
+            return CodeSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.GenPythonCode:
+            if overrides is None:
+                overrides = {}
+            return GenPythonCodeSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Terminal:
+            if overrides is None:
+                overrides = {}
+            return TerminalSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.IFrame:
+            if overrides is None:
+                overrides = {}
+            return IFrameSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Chat:
+            if overrides is None:
+                overrides = {}
+            return ChatSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Browser:
+            if overrides is None:
+                overrides = {}
+            return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
+
+
+def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None):
+    match type:
+        case CodeObjType.CodeCallable:
+            if overrides is None:
+                overrides = {}
+            return CodeCallableCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.CodeParam:
+            if overrides is None:
+                overrides = {}
+            return CodeParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.TextParam:
+            if overrides is None:
+                overrides = {}
+            return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.SliderParam:
+            if overrides is None:
+                overrides = {}
+            return SliderParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.SwitchParam:
+            if overrides is None:
+                overrides = {}
+            return SwitchParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.ColorPickerParam:
+            if overrides is None:
+                overrides = {}
+            return ColorPickerParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.DropdownParam:
+            if overrides is None:
+                overrides = {}
+            return DropdownParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.PasswordParam:
+            if overrides is None:
+                overrides = {}
+            return PasswordParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.NestedParam:
+            if overrides is None:
+                overrides = {}
+            return NestedParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
