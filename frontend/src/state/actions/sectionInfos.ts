@@ -230,6 +230,57 @@ export function getSectionImplCoreLayeringBundle<
   return { impl, core, layering };
 }
 
+export function setEffectiveCodeObjImplValue<
+  K extends keyof ImplCoreLayeringBundleMap,
+>(
+  state: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  args: ImplCoreLayeringBundleMap[K]["args"],
+): ImplCoreLayeringBundleMap[K]["impl"] {
+  const bundle = getCodeObjImplCoreLayeringBundle<K>(
+    state,
+    sectionId,
+    codeObjId,
+  );
+  return setEffectiveImplValue<K>(
+    bundle.impl,
+    bundle.core,
+    bundle.layering,
+    args,
+  );
+}
+
+export function getCodeObjImplCoreLayeringBundle<
+  K extends keyof ImplCoreLayeringBundleMap,
+>(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+): {
+  impl: ImplCoreLayeringBundleMap[K]["impl"];
+  core: ImplCoreLayeringBundleMap[K]["core"];
+  layering: ImplCoreLayeringBundleMap[K]["layering"];
+} {
+  const layering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
+  const impl = p.codeObjImpls[layering.impl];
+  const core = p.codeObjs[codeObjId];
+
+  if (!impl || !core) {
+    throw new Error(`Missing section data for sectionId: ${sectionId}`);
+  }
+
+  // Check that all three have the same type
+  if (impl.type !== core.type || core.type !== layering.type) {
+    throw new Error(
+      `Type mismatch: baseImpl.type=${impl.type}, ` +
+        `core.type=${core.type}, layering.type=${layering.type}`,
+    );
+  }
+
+  return { impl, core, layering };
+}
+
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }

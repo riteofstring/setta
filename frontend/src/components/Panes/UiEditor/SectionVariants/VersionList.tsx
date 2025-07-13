@@ -8,7 +8,6 @@ import { createNewVersion } from "state/actions/newVersion";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
-  getSectionImplLayering,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -238,13 +237,19 @@ function OneItemEditing({
   deletable: boolean;
 }) {
   const name = useProjectState((x) => {
-    const implLayering = getSectionImplLayering(x, sectionId);
+    const implLayering = x.sectionImplLayerings[id];
+    if (!implLayering) {
+      throw new Error();
+    }
     return implLayering.name;
   }, _.isEqual);
 
   function onSetName(v: string) {
     useProjectState.setState((x) => {
-      const implLayering = getSectionImplLayering(x, sectionId);
+      const implLayering = x.sectionImplLayerings[id];
+      if (!implLayering) {
+        throw new Error();
+      }
       implLayering.name = v;
     });
     // maybeLoadJsonContents(id);
