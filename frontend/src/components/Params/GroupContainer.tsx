@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
@@ -19,10 +19,7 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import {
-  isBaseSectionWithParamsImpl,
-  isBaseSectionWithParamsLayering,
-} from "utils/generatedTypes";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -123,11 +120,9 @@ function ResizablePinnedArea({
       sizeMode: { height: SIZE_MODE.any },
     });
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (!isBaseSectionWithParamsLayering(implLayering)) {
-        throw new Error();
-      }
-      implLayering.modifier.pinnedAreaHeight = height;
+      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
+        pinnedAreaHeight: height,
+      });
     });
   }
 

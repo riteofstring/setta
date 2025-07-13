@@ -1,10 +1,9 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionLayering } from "utils/generatedTypes";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useProjectState((x) => {
@@ -13,10 +12,9 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
   });
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (isBaseSectionLayering(implLayering)) {
-        implLayering.modifier.isMinimized = !isMinimized;
-      }
+      setEffectiveSectionImplValue<"BaseSectionUnion">(state, sectionId, {
+        isMinimized: !isMinimized,
+      });
     });
   }
 

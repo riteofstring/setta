@@ -16,7 +16,6 @@ import {
   createTopLevelSectionLayout,
   getSectionDefault,
   isBaseParentSectionImpl,
-  isBaseParentSectionLayering,
   Position,
   SectionSizeModeEnum,
   SectionTypeEnum,
@@ -27,7 +26,7 @@ import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
 import { addNodes } from "../nodeInternals";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "../sectionInfos";
 
 export function addRegularSectionInEmptySpace() {
@@ -128,7 +127,7 @@ export function addChildrenToSeries(
       startIdx = 0;
     } else {
       const impl = getEffectiveSectionImpl(state, calledBy);
-      parentId = impl.parentId!;
+      parentId = impl.parentId;
       parentImpl = getEffectiveSectionImpl(state, parentId);
       if (!isBaseParentSectionImpl(parentImpl)) {
         throw new Error();
@@ -151,15 +150,9 @@ export function addChildrenToSeries(
       );
     }
 
-    const parentImplLayering = getSectionImplLayering(state, parentId);
-    if (!isBaseParentSectionLayering(parentImplLayering)) {
-      throw new Error();
-    }
-    parentImplLayering.modifier.children = insertIntoArray(
-      parentImplLayering.modifier.children ?? [],
-      startIdx,
-      ...newIds,
-    );
+    setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
+      children: insertIntoArray(parentImpl.children ?? [], startIdx, ...newIds),
+    });
   });
 
   maybeIncrementProjectStateVersion(true);

@@ -10,7 +10,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
-import { getSectionImplLayering } from "./sectionInfos";
+import { setEffectiveSectionImplValue } from "./sectionInfos";
 
 export async function updateWithFileChanges(
   updatedFileInfo: FileWatcherUpdateUnion,
@@ -71,10 +71,9 @@ function genPythonCodeUpdateHandler(
   useProjectState.setState((state) => {
     const sectionId = state.singletonSections[SectionTypeEnum.GenPythonCode];
     if (sectionId) {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type === SectionTypeEnum.GenPythonCode) {
-        implLayering.modifier.code = fileContent;
-      }
+      setEffectiveSectionImplValue<"GenPythonCodeSection">(state, sectionId, {
+        code: fileContent,
+      });
     }
   });
 }

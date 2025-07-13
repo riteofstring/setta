@@ -2,7 +2,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
@@ -26,14 +26,12 @@ export function RenderTextBlock({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
-        throw new Error();
-      }
-      implLayering.modifier.displayMode =
-        displayMode === TextBlockDisplayModeEnum.render
-          ? TextBlockDisplayModeEnum.edit
-          : TextBlockDisplayModeEnum.render;
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        displayMode:
+          displayMode === TextBlockDisplayModeEnum.render
+            ? TextBlockDisplayModeEnum.edit
+            : TextBlockDisplayModeEnum.render,
+      });
     });
   }
 
@@ -62,11 +60,9 @@ export function ConvertFormat({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
-        throw new Error();
-      }
-      implLayering.modifier.format = convertTo;
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        format: convertTo,
+      });
     });
   }
 

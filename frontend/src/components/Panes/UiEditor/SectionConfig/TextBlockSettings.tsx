@@ -1,10 +1,10 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { getSectionImplLayering } from "state/actions/sectionInfos";
+import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
 import { route_docstring_to_markdown } from "utils/generatedEndpoints";
-import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
+import { TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function TextBlockSettings({ sectionId }) {
   const { format, text, isFrozen, headingAsSectionName } =
@@ -19,24 +19,20 @@ export function TextBlockSettings({ sectionId }) {
       newText = text;
     }
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
-        throw new Error();
-      }
-      implLayering.modifier.text = newText;
-      implLayering.modifier.format = v
-        ? TextBlockFormatEnum.Markdown
-        : TextBlockFormatEnum.Plaintext;
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        text: newText,
+        format: v
+          ? TextBlockFormatEnum.Markdown
+          : TextBlockFormatEnum.Plaintext,
+      });
     });
   }
 
   async function onChangeHeadingAsSectionName(v) {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type !== SectionTypeEnum.TextBlock) {
-        throw new Error();
-      }
-      implLayering.modifier.headingAsSectionName = v;
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        headingAsSectionName: v,
+      });
     });
   }
 

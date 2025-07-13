@@ -8,7 +8,7 @@ import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 
@@ -74,13 +74,10 @@ function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
     const impl = getEffectiveSectionImpl(state, id);
     const { parentId } = impl;
     if (parentId) {
-      const implLayering = getSectionImplLayering(state, parentId);
-      if (!isBaseParentSectionLayering(implLayering)) {
-        throw new Error();
-      }
-      implLayering.modifier.children = (
-        implLayering.modifier.children ?? []
-      ).filter((x) => x !== id);
+      const parentLayering = getEffectiveSectionImpl(state, parentId);
+      setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
+        children: (parentLayering.children ?? []).filter((x) => x !== id),
+      });
     }
 
     let isStillUsedInAnImpl = false;

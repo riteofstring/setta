@@ -5,7 +5,7 @@ import {
 } from "react-icons/tb";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -18,11 +18,9 @@ export function ChangeOrientationButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const implLayering = getSectionImplLayering(state, sectionId);
-      if (implLayering.modifier.type !== SectionTypeEnum.Group) {
-        throw new Error();
-      }
-      implLayering.modifier.isHorizontalOrientation = !isHorizontalOrientation;
+      setEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
+        isHorizontalOrientation: !isHorizontalOrientation,
+      });
     });
   }
 
