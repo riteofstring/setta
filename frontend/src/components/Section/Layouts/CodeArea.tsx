@@ -8,7 +8,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   getEffectiveSectionImpl,
-  getSectionVariant,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
@@ -303,8 +303,7 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 
 const debouncedSetCode = _.debounce((sectionId, value) => {
   useProjectState.setState((x) => {
-    const sectionVariant = getSectionVariant(sectionId, x);
-    sectionVariant.code = value;
+    setEffectiveSectionImplValue<"CodeSection">(x, sectionId, { code: value });
   });
   maybeIncrementProjectStateVersion(true);
 }, 50);
