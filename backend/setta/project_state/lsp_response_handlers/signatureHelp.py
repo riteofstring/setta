@@ -126,7 +126,7 @@ def wrapper_parse_signature(
                 "passingStyle": passingStyle,
             },
         )
-        codeObj = create_code_obj_core(codeObjImpl.type, name=name.lstrip("*"))
+        codeObj = create_code_obj_core(codeObjImpl.type, {"name": name.lstrip("*")})
         codeObjs.append(codeObj)
         codeObjImplMap[codeObj.id] = codeObjImpl
 

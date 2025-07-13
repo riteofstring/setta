@@ -8,6 +8,7 @@ from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.layerings import create_code_obj_layering
 from setta.types.generated.unions import (
     BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
@@ -320,9 +321,9 @@ def add_code_obj(
         and isinstance(section_layering, BaseSectionWithParamsLayeringUnion)
     ):
         raise TypeError
-    code_obj_impl_layering = CodeObjImplLayering(
+    code_obj_impl_layering = create_code_obj_layering(
+        type=code_obj_impl.type,
         impl=code_obj_impl.id,
-        modifier=create_modifier_for_code_obj_type(code_obj_impl.type),
     )
     code_obj.implLayerings.append(code_obj_impl_layering.id)
     if not code_obj.defaultImplLayering:

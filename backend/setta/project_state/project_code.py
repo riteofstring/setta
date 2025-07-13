@@ -183,27 +183,25 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if not prev_selected:
-            callable_code_obj_impl = create_code_obj_impl(
+            callable_base_impl = create_code_obj_impl(
                 CodeObjType.CodeCallable, settings.codeCallableCodeObjDefault
             )
             callable_code_obj = create_code_obj_core(
-                callable_code_obj_impl.type, name=callableName
+                callable_base_impl.type, {"name": callableName}
             )
             callable_code_obj_impl_layering = add_code_obj(
-                project_state, sectionId, callable_code_obj, callable_code_obj_impl
+                project_state, sectionId, callable_code_obj, callable_base_impl
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
             callable_code_obj_impl_layering = get_code_obj_impl_layering(
                 project_state, callable_code_obj.id, section_impl=section_impl
             )
-            callable_code_obj_impl = get_effective_impl(
-                callable_code_obj_impl_layering,
-                callable_code_obj,
-                project_state.codeObjImpls,
-            )
+            callable_base_impl = project_state.codeObjImpls[
+                callable_code_obj_impl_layering.impl
+            ]
 
-        if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
+        if not isinstance(callable_base_impl, CodeCallableCodeObjImpl):
             raise TypeError
 
         result = process_signature_help_response(settings, response)
@@ -212,22 +210,20 @@ class ProjectGenPythonCode(PythonCode):
 
         [documentation, codeObjs, codeObjImplMap] = result
         set_effective_impl_value(
-            callable_code_obj_impl_layering,
+            callable_base_impl,
             callable_code_obj,
-            project_state.codeObjImpls,
-            "description",
-            documentation,
+            callable_code_obj_impl_layering,
+            {"description": documentation},
         )
 
         add_children_of_callable(
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
         set_effective_impl_value(
+            base_section_impl,
+            section_core,
             section_layering,
-            project_state.sections[sectionId],
-            project_state.sectionImpls,
-            "callable",
-            callable_code_obj.id,
+            {"callable": callable_code_obj.id},
         )
 
     async def gen_code_prefix_autocomplete(self, fullText, position):
