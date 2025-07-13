@@ -3,12 +3,11 @@ import {
   getEffectiveSectionImpl,
   getHighestAncestor,
   getSectionDescendants,
-  getSectionImplLayering,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 import {
   createSectionSize,
-  isBaseSectionLayering,
   SectionSize,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -130,12 +129,11 @@ export function setSectionSize(
   size: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  const implLayering = getSectionImplLayering(state, sectionId);
-  if (isBaseSectionLayering(implLayering)) {
-    const currModifierSize = implLayering.modifier.size;
-    implLayering.modifier.size = createSectionSize({
-      ...currModifierSize,
-      ...size,
-    });
-  }
+  setEffectiveSectionImplValue<"BaseSection">(state, sectionId, {
+    size: (currSize) =>
+      createSectionSize({
+        ...currSize,
+        ...size,
+      }),
+  });
 }

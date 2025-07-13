@@ -731,7 +731,7 @@ def create_impl_core_layering_bundled_types():
         impl: {c.original_name};
         core: {c.core_name};
         layering: {c.layering_name};
-        args: {c.args_name};
+        args: ImplCoreLayeringBundleArgsWithUpdaters<{c.args_name}>;
     }}
 """
         if not c.type_has_default:
@@ -740,11 +740,15 @@ def create_impl_core_layering_bundled_types():
         impl: {c.original_name}Union;
         core: {c.core_name}Union;
         layering: {c.layering_name}Union;
-        args: {c.args_name}
+        args: ImplCoreLayeringBundleArgsWithUpdaters<{c.args_name}>;
     }}
 """
 
     code = f"""
+type ImplCoreLayeringBundleArgsWithUpdaters<T> = {{
+  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
+}};
+
     export type ImplCoreLayeringBundleMap = {{
         {code}
     }}

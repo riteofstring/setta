@@ -151,7 +151,8 @@ export function addChildrenToSeries(
     }
 
     setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
-      children: insertIntoArray(parentImpl.children ?? [], startIdx, ...newIds),
+      children: (currChildren) =>
+        insertIntoArray(currChildren ?? [], startIdx, ...newIds),
     });
   });
 

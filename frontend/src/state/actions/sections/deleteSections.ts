@@ -74,9 +74,9 @@ function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
     const impl = getEffectiveSectionImpl(state, id);
     const { parentId } = impl;
     if (parentId) {
-      const parentLayering = getEffectiveSectionImpl(state, parentId);
       setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
-        children: (parentLayering.children ?? []).filter((x) => x !== id),
+        children: (currChildren) =>
+          (currChildren ?? []).filter((x) => x !== id),
       });
     }
 

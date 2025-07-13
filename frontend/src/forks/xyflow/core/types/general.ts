@@ -56,7 +56,6 @@ export type Viewport = {
 
 export type SnapGrid = [number, number];
 
-
 export type ViewportHelperFunctionOptions = {
   duration?: number;
 };
@@ -137,7 +136,6 @@ export type PanelPosition =
   | "bottom-right";
 
 export type UseDragEvent = D3DragEvent<HTMLDivElement, null, SubjectPosition>;
-
 
 export type SelectionRect = Rect & {
   startX: number;

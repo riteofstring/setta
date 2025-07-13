@@ -168,28 +168,36 @@ export function setEffectiveImplValue<
   args: ImplCoreLayeringBundleMap[K]["args"],
 ): ImplCoreLayeringBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
+    // Resolve the value if it's a function
+    const resolvedValue =
+      typeof v === "function"
+        ? v(impl[k]) // Pass the current value to the updater
+        : v;
+
     if (!impl.isPreset) {
-      impl[k] = v;
+      impl[k] = resolvedValue;
     } else if (core.unsharedKeys.includes(k)) {
-      layering.modifier[k] = v;
+      layering.modifier[k] = resolvedValue;
     } else {
-      core.sharedModifier[k] = v;
+      core.sharedModifier[k] = resolvedValue;
     }
   }
   return getEffectiveImpl(impl, core, layering);
 }
 
-export function setEffectiveSectionImplValue<K extends keyof ImplCoreLayeringBundleMap>(
+export function setEffectiveSectionImplValue<
+  K extends keyof ImplCoreLayeringBundleMap,
+>(
   state: ZustandProjectState,
   sectionId: string,
-  args: ImplCoreLayeringBundleMap[K]["args"]
+  args: ImplCoreLayeringBundleMap[K]["args"],
 ): ImplCoreLayeringBundleMap[K]["impl"] {
   const bundle = getSectionImplCoreLayeringBundle<K>(state, sectionId);
   return setEffectiveImplValue<K>(
     bundle.impl,
     bundle.core,
     bundle.layering,
-    args
+    args,
   );
 }
 
