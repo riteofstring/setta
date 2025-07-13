@@ -4,7 +4,7 @@ import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { loadJsonContents } from "state/actions/fileUpdates";
-import { createNewVersion } from "state/actions/newVersion";
+import { createNewSectionVersion } from "state/actions/newVersion";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
@@ -23,7 +23,7 @@ export function VersionList({ sectionId }) {
 
   function onClickAddVersionButton() {
     useProjectState.setState((state) => {
-      createNewVersion(state, sectionId);
+      createNewSectionVersion(state, sectionId);
     });
   }
 
