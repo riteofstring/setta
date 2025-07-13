@@ -727,7 +727,7 @@ def create_impl_core_layering_bundled_types():
     code = ""
     for c in classes.values():
         code += f"""
-    {c.original_name}: {{
+    {c.base_name}: {{
         impl: {c.original_name};
         core: {c.core_name};
         layering: {c.layering_name};
@@ -736,7 +736,7 @@ def create_impl_core_layering_bundled_types():
 """
         if not c.type_has_default:
             code += f"""
-    {c.original_name}Union: {{
+    {c.base_name}Union: {{
         impl: {c.original_name}Union;
         core: {c.core_name}Union;
         layering: {c.layering_name}Union;

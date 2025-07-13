@@ -132,7 +132,7 @@ function OneItem({
     if (!baseImpl || !core) {
       throw new Error();
     }
-    const impl = getEffectiveImpl<"BaseSectionImplUnion">(
+    const impl = getEffectiveImpl<"BaseSectionUnion">(
       baseImpl,
       core,
       implLayering,

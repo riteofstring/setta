@@ -12773,336 +12773,336 @@ export function getCodeObjDefault(
 }
 
 export type ImplCoreLayeringBundleMap = {
-  BaseSectionImpl: {
+  BaseSection: {
     impl: BaseSectionImpl;
     core: BaseSectionCore;
     layering: BaseSectionLayering;
     args: BaseSectionImplArgs;
   };
 
-  BaseSectionImplUnion: {
+  BaseSectionUnion: {
     impl: BaseSectionImplUnion;
     core: BaseSectionCoreUnion;
     layering: BaseSectionLayeringUnion;
     args: BaseSectionImplArgs;
   };
 
-  BaseSectionWithParamsImpl: {
+  BaseSectionWithParams: {
     impl: BaseSectionWithParamsImpl;
     core: BaseSectionWithParamsCore;
     layering: BaseSectionWithParamsLayering;
     args: BaseSectionWithParamsImplArgs;
   };
 
-  BaseSectionWithParamsImplUnion: {
+  BaseSectionWithParamsUnion: {
     impl: BaseSectionWithParamsImplUnion;
     core: BaseSectionWithParamsCoreUnion;
     layering: BaseSectionWithParamsLayeringUnion;
     args: BaseSectionWithParamsImplArgs;
   };
 
-  BaseArtifactSectionImpl: {
+  BaseArtifactSection: {
     impl: BaseArtifactSectionImpl;
     core: BaseArtifactSectionCore;
     layering: BaseArtifactSectionLayering;
     args: BaseArtifactSectionImplArgs;
   };
 
-  BaseArtifactSectionImplUnion: {
+  BaseArtifactSectionUnion: {
     impl: BaseArtifactSectionImplUnion;
     core: BaseArtifactSectionCoreUnion;
     layering: BaseArtifactSectionLayeringUnion;
     args: BaseArtifactSectionImplArgs;
   };
 
-  BaseCanvasSectionImpl: {
+  BaseCanvasSection: {
     impl: BaseCanvasSectionImpl;
     core: BaseCanvasSectionCore;
     layering: BaseCanvasSectionLayering;
     args: BaseCanvasSectionImplArgs;
   };
 
-  BaseCanvasSectionImplUnion: {
+  BaseCanvasSectionUnion: {
     impl: BaseCanvasSectionImplUnion;
     core: BaseCanvasSectionCoreUnion;
     layering: BaseCanvasSectionLayeringUnion;
     args: BaseCanvasSectionImplArgs;
   };
 
-  BaseCodeSectionImpl: {
+  BaseCodeSection: {
     impl: BaseCodeSectionImpl;
     core: BaseCodeSectionCore;
     layering: BaseCodeSectionLayering;
     args: BaseCodeSectionImplArgs;
   };
 
-  BaseCodeSectionImplUnion: {
+  BaseCodeSectionUnion: {
     impl: BaseCodeSectionImplUnion;
     core: BaseCodeSectionCoreUnion;
     layering: BaseCodeSectionLayeringUnion;
     args: BaseCodeSectionImplArgs;
   };
 
-  BaseParentSectionImpl: {
+  BaseParentSection: {
     impl: BaseParentSectionImpl;
     core: BaseParentSectionCore;
     layering: BaseParentSectionLayering;
     args: BaseParentSectionImplArgs;
   };
 
-  BaseParentSectionImplUnion: {
+  BaseParentSectionUnion: {
     impl: BaseParentSectionImplUnion;
     core: BaseParentSectionCoreUnion;
     layering: BaseParentSectionLayeringUnion;
     args: BaseParentSectionImplArgs;
   };
 
-  BaseDictSectionImpl: {
+  BaseDictSection: {
     impl: BaseDictSectionImpl;
     core: BaseDictSectionCore;
     layering: BaseDictSectionLayering;
     args: BaseDictSectionImplArgs;
   };
 
-  BaseDictSectionImplUnion: {
+  BaseDictSectionUnion: {
     impl: BaseDictSectionImplUnion;
     core: BaseDictSectionCoreUnion;
     layering: BaseDictSectionLayeringUnion;
     args: BaseDictSectionImplArgs;
   };
 
-  CallableSectionImpl: {
+  CallableSection: {
     impl: CallableSectionImpl;
     core: CallableSectionCore;
     layering: CallableSectionLayering;
     args: CallableSectionImplArgs;
   };
 
-  DictSectionImpl: {
+  DictSection: {
     impl: DictSectionImpl;
     core: DictSectionCore;
     layering: DictSectionLayering;
     args: DictSectionImplArgs;
   };
 
-  ListRootSectionImpl: {
+  ListRootSection: {
     impl: ListRootSectionImpl;
     core: ListRootSectionCore;
     layering: ListRootSectionLayering;
     args: ListRootSectionImplArgs;
   };
 
-  DictRootSectionImpl: {
+  DictRootSection: {
     impl: DictRootSectionImpl;
     core: DictRootSectionCore;
     layering: DictRootSectionLayering;
     args: DictRootSectionImplArgs;
   };
 
-  GroupSectionImpl: {
+  GroupSection: {
     impl: GroupSectionImpl;
     core: GroupSectionCore;
     layering: GroupSectionLayering;
     args: GroupSectionImplArgs;
   };
 
-  ImageSectionImpl: {
+  ImageSection: {
     impl: ImageSectionImpl;
     core: ImageSectionCore;
     layering: ImageSectionLayering;
     args: ImageSectionImplArgs;
   };
 
-  ChartSectionImpl: {
+  ChartSection: {
     impl: ChartSectionImpl;
     core: ChartSectionCore;
     layering: ChartSectionLayering;
     args: ChartSectionImplArgs;
   };
 
-  DrawSectionImpl: {
+  DrawSection: {
     impl: DrawSectionImpl;
     core: DrawSectionCore;
     layering: DrawSectionLayering;
     args: DrawSectionImplArgs;
   };
 
-  TextBlockSectionImpl: {
+  TextBlockSection: {
     impl: TextBlockSectionImpl;
     core: TextBlockSectionCore;
     layering: TextBlockSectionLayering;
     args: TextBlockSectionImplArgs;
   };
 
-  SocialSectionImpl: {
+  SocialSection: {
     impl: SocialSectionImpl;
     core: SocialSectionCore;
     layering: SocialSectionLayering;
     args: SocialSectionImplArgs;
   };
 
-  GlobalVariablesSectionImpl: {
+  GlobalVariablesSection: {
     impl: GlobalVariablesSectionImpl;
     core: GlobalVariablesSectionCore;
     layering: GlobalVariablesSectionLayering;
     args: GlobalVariablesSectionImplArgs;
   };
 
-  CodeSectionImpl: {
+  CodeSection: {
     impl: CodeSectionImpl;
     core: CodeSectionCore;
     layering: CodeSectionLayering;
     args: CodeSectionImplArgs;
   };
 
-  GenPythonCodeSectionImpl: {
+  GenPythonCodeSection: {
     impl: GenPythonCodeSectionImpl;
     core: GenPythonCodeSectionCore;
     layering: GenPythonCodeSectionLayering;
     args: GenPythonCodeSectionImplArgs;
   };
 
-  TerminalSectionImpl: {
+  TerminalSection: {
     impl: TerminalSectionImpl;
     core: TerminalSectionCore;
     layering: TerminalSectionLayering;
     args: TerminalSectionImplArgs;
   };
 
-  IFrameSectionImpl: {
+  IFrameSection: {
     impl: IFrameSectionImpl;
     core: IFrameSectionCore;
     layering: IFrameSectionLayering;
     args: IFrameSectionImplArgs;
   };
 
-  ChatSectionImpl: {
+  ChatSection: {
     impl: ChatSectionImpl;
     core: ChatSectionCore;
     layering: ChatSectionLayering;
     args: ChatSectionImplArgs;
   };
 
-  BrowserSectionImpl: {
+  BrowserSection: {
     impl: BrowserSectionImpl;
     core: BrowserSectionCore;
     layering: BrowserSectionLayering;
     args: BrowserSectionImplArgs;
   };
 
-  BaseCodeObjImpl: {
+  BaseCodeObj: {
     impl: BaseCodeObjImpl;
     core: BaseCodeObjCore;
     layering: BaseCodeObjLayering;
     args: BaseCodeObjImplArgs;
   };
 
-  BaseCodeObjImplUnion: {
+  BaseCodeObjUnion: {
     impl: BaseCodeObjImplUnion;
     core: BaseCodeObjCoreUnion;
     layering: BaseCodeObjLayeringUnion;
     args: BaseCodeObjImplArgs;
   };
 
-  BaseParamCodeObjImpl: {
+  BaseParamCodeObj: {
     impl: BaseParamCodeObjImpl;
     core: BaseParamCodeObjCore;
     layering: BaseParamCodeObjLayering;
     args: BaseParamCodeObjImplArgs;
   };
 
-  BaseParamCodeObjImplUnion: {
+  BaseParamCodeObjUnion: {
     impl: BaseParamCodeObjImplUnion;
     core: BaseParamCodeObjCoreUnion;
     layering: BaseParamCodeObjLayeringUnion;
     args: BaseParamCodeObjImplArgs;
   };
 
-  BaseChildlessCodeObjImpl: {
+  BaseChildlessCodeObj: {
     impl: BaseChildlessCodeObjImpl;
     core: BaseChildlessCodeObjCore;
     layering: BaseChildlessCodeObjLayering;
     args: BaseChildlessCodeObjImplArgs;
   };
 
-  BaseChildlessCodeObjImplUnion: {
+  BaseChildlessCodeObjUnion: {
     impl: BaseChildlessCodeObjImplUnion;
     core: BaseChildlessCodeObjCoreUnion;
     layering: BaseChildlessCodeObjLayeringUnion;
     args: BaseChildlessCodeObjImplArgs;
   };
 
-  BaseParentCodeObjImpl: {
+  BaseParentCodeObj: {
     impl: BaseParentCodeObjImpl;
     core: BaseParentCodeObjCore;
     layering: BaseParentCodeObjLayering;
     args: BaseParentCodeObjImplArgs;
   };
 
-  BaseParentCodeObjImplUnion: {
+  BaseParentCodeObjUnion: {
     impl: BaseParentCodeObjImplUnion;
     core: BaseParentCodeObjCoreUnion;
     layering: BaseParentCodeObjLayeringUnion;
     args: BaseParentCodeObjImplArgs;
   };
 
-  CodeCallableCodeObjImpl: {
+  CodeCallableCodeObj: {
     impl: CodeCallableCodeObjImpl;
     core: CodeCallableCodeObjCore;
     layering: CodeCallableCodeObjLayering;
     args: CodeCallableCodeObjImplArgs;
   };
 
-  CodeParamCodeObjImpl: {
+  CodeParamCodeObj: {
     impl: CodeParamCodeObjImpl;
     core: CodeParamCodeObjCore;
     layering: CodeParamCodeObjLayering;
     args: CodeParamCodeObjImplArgs;
   };
 
-  TextParamCodeObjImpl: {
+  TextParamCodeObj: {
     impl: TextParamCodeObjImpl;
     core: TextParamCodeObjCore;
     layering: TextParamCodeObjLayering;
     args: TextParamCodeObjImplArgs;
   };
 
-  SliderParamCodeObjImpl: {
+  SliderParamCodeObj: {
     impl: SliderParamCodeObjImpl;
     core: SliderParamCodeObjCore;
     layering: SliderParamCodeObjLayering;
     args: SliderParamCodeObjImplArgs;
   };
 
-  SwitchParamCodeObjImpl: {
+  SwitchParamCodeObj: {
     impl: SwitchParamCodeObjImpl;
     core: SwitchParamCodeObjCore;
     layering: SwitchParamCodeObjLayering;
     args: SwitchParamCodeObjImplArgs;
   };
 
-  ColorPickerParamCodeObjImpl: {
+  ColorPickerParamCodeObj: {
     impl: ColorPickerParamCodeObjImpl;
     core: ColorPickerParamCodeObjCore;
     layering: ColorPickerParamCodeObjLayering;
     args: ColorPickerParamCodeObjImplArgs;
   };
 
-  DropdownParamCodeObjImpl: {
+  DropdownParamCodeObj: {
     impl: DropdownParamCodeObjImpl;
     core: DropdownParamCodeObjCore;
     layering: DropdownParamCodeObjLayering;
     args: DropdownParamCodeObjImplArgs;
   };
 
-  PasswordParamCodeObjImpl: {
+  PasswordParamCodeObj: {
     impl: PasswordParamCodeObjImpl;
     core: PasswordParamCodeObjCore;
     layering: PasswordParamCodeObjLayering;
     args: PasswordParamCodeObjImplArgs;
   };
 
-  NestedParamCodeObjImpl: {
+  NestedParamCodeObj: {
     impl: NestedParamCodeObjImpl;
     core: NestedParamCodeObjCore;
     layering: NestedParamCodeObjLayering;

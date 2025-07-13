@@ -254,7 +254,7 @@ function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
     for (const layeringId of section.implLayerings) {
       const layering = state.sectionImplLayerings[layeringId];
       const baseImpl = state.sectionImpls[layering.impl];
-      const impl = getEffectiveImpl<"BaseSectionImplUnion">(
+      const impl = getEffectiveImpl<"BaseSectionUnion">(
         baseImpl,
         section,
         layering,

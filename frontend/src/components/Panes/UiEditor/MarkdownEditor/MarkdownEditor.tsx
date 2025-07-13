@@ -74,7 +74,7 @@ const _MarkdownEditorCore = React.forwardRef(
             ) {
               throw new Error();
             }
-            const impl = setEffectiveImplValue<"TextBlockSectionImpl">(
+            const impl = setEffectiveImplValue<"TextBlockSection">(
               baseImpl,
               core,
               layering,

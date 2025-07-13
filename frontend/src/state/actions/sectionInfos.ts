@@ -66,11 +66,7 @@ export function getEffectiveSectionImpl(
     if (!baseImpl || !core) {
       throw new Error();
     }
-    return getEffectiveImpl<"BaseSectionImplUnion">(
-      baseImpl,
-      core,
-      implLayering,
-    );
+    return getEffectiveImpl<"BaseSectionUnion">(baseImpl, core, implLayering);
   }
   return sectionImpl;
 }
@@ -127,7 +123,7 @@ export function getEffectiveCodeObjImpl(
   if (!baseImpl || !core) {
     throw new Error();
   }
-  return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
+  return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
 }
 
 export function getCodeObjImpl(
@@ -160,7 +156,7 @@ export function getEffectiveImplFromLayeringMap(
   if (!baseImpl || !core) {
     throw new Error();
   }
-  return getEffectiveImpl<"BaseCodeObjImplUnion">(baseImpl, core, implLayering);
+  return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
 }
 
 export function setEffectiveImplValue<
@@ -397,7 +393,7 @@ function getSectionDescendantsFromAllVariants(
     }
     const baseImpl = state.sectionImpls[implLayering.impl];
     const core = state.sections[sectionId];
-    const impl = getEffectiveImpl<"BaseSectionImplUnion">(
+    const impl = getEffectiveImpl<"BaseSectionUnion">(
       baseImpl,
       core,
       implLayering,
