@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
-import { addChildrenToSeries } from "state/actions/sections/createSections";
+import { addChildrenToSeriesViaIncrementer } from "state/actions/sections/createSections";
 import { deleteChildrenFromSeries } from "state/actions/sections/deleteSections";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function Incrementer({
   sectionId,
@@ -37,7 +38,9 @@ export function Incrementer({
 
   const addSections = () => {
     if (typeof numSections === "string") return;
-    addChildrenToSeries(isRoot, sectionId, numSections);
+    addChildrenToSeriesViaIncrementer(isRoot, sectionId, numSections, {
+      type: SectionTypeEnum.Callable,
+    });
   };
 
   const deleteChildren = () => {

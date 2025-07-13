@@ -8,6 +8,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
+  BaseSectionCoreUnion,
   BaseSectionImplUnion,
   createBaseSectionCoreUnionWithDiscriminator,
   createBaseSectionImplUnionWithDiscriminator,
@@ -18,7 +19,6 @@ import {
   isBaseParentSectionImpl,
   Position,
   SectionSizeModeEnum,
-  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
@@ -28,6 +28,13 @@ import {
   getEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "../sectionInfos";
+
+type PartialImplWithType = Partial<BaseSectionImplUnion> &
+  Required<Pick<BaseSectionImplUnion, "type">>;
+
+type PartialCoreWithIdOrName = Partial<
+  Pick<BaseSectionCoreUnion, "id" | "name">
+>;
 
 export function addRegularSectionInEmptySpace() {
   let newId;
@@ -69,13 +76,11 @@ export function addTerminalInEmptySpace() {
   maybeIncrementProjectStateVersion(true);
 }
 
-export function addSectionInEmptySpace({
-  type,
-  sectionProps = {},
-  sectionVariantProps = {},
-  positionOffset = { x: 10, y: 10 },
-  state,
-}) {
+export function addSectionInEmptySpace(
+  sectionProps: PartialImplWithType,
+  state: ZustandProjectState,
+  coreProps?: PartialCoreWithIdOrName,
+) {
   const {
     transform: [_x, _y, zoom],
   } = useReactFlow.getState();
@@ -84,15 +89,10 @@ export function addSectionInEmptySpace({
   const x = (overviewWidth - _x) / zoom;
   const y = -_y / zoom;
 
+  const positionOffset = { x: 10, y: 10 };
   const position = { x: x + positionOffset.x, y: y + positionOffset.y };
 
-  return addSectionAtPosition({
-    type,
-    sectionProps,
-    sectionVariantProps,
-    position,
-    state,
-  });
+  return createSection(sectionProps, state, position, coreProps);
 }
 
 export function addSectionAtPosition({
@@ -111,10 +111,11 @@ export function addSectionAtPosition({
   return newId;
 }
 
-export function addChildrenToSeries(
+export function addChildrenToSeriesViaIncrementer(
   isRoot: boolean,
   calledBy: string,
   numChildren: number,
+  childImplProps: PartialImplWithType,
 ) {
   useProjectState.setState((state) => {
     let parentId: string, parentImpl: BaseSectionImplUnion, startIdx: number;
@@ -135,51 +136,85 @@ export function addChildrenToSeries(
       startIdx = parentImpl.children.indexOf(calledBy) + 1;
     }
 
-    const size = createSectionSize({
-      height: SectionSizeModeEnum.auto,
-      width: parentImpl.size.width,
-    });
-
-    const newIds: Array<string> = [];
-    for (let x = 0; x < numChildren; x++) {
-      newIds.push(
-        createSection(
-          { parentId, size, type: SectionTypeEnum.Callable },
-          state,
-        ),
-      );
-    }
-
-    setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
-      children: (currChildren) =>
-        insertIntoArray(currChildren ?? [], startIdx, ...newIds),
-    });
+    addChildrenToSeries(
+      parentId,
+      childImplProps,
+      state,
+      undefined,
+      startIdx,
+      numChildren,
+    );
   });
 
   maybeIncrementProjectStateVersion(true);
 }
 
+export function addChildrenToSeries(
+  parentId: string,
+  childImplProps: PartialImplWithType,
+  state: ZustandProjectState,
+  childCoreProps?: PartialCoreWithIdOrName,
+  startIdx?: number,
+  numChildren?: number,
+) {
+  const parentImpl = getEffectiveSectionImpl(state, parentId);
+  if (!isBaseParentSectionImpl(parentImpl)) {
+    throw new Error();
+  }
+
+  const size = createSectionSize({
+    height: SectionSizeModeEnum.auto,
+    width: parentImpl.size.width,
+  });
+
+  const newIds: Array<string> = [];
+  if (numChildren === undefined) {
+    numChildren = 1;
+  }
+  for (let x = 0; x < numChildren; x++) {
+    newIds.push(
+      createSection(
+        { parentId, size, ...childImplProps },
+        state,
+        undefined,
+        childCoreProps,
+      ),
+    );
+  }
+
+  if (startIdx === undefined) {
+    startIdx = parentImpl.children.length;
+  }
+
+  setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
+    children: (currChildren) =>
+      insertIntoArray(currChildren ?? [], startIdx, ...newIds),
+  });
+}
+
 export function createSection(
-  sectionProps: Partial<BaseSectionImplUnion>,
+  implProps: PartialImplWithType,
   state: ZustandProjectState,
   position?: Position,
+  coreProps?: PartialCoreWithIdOrName,
 ) {
   const sectionDefault = getSectionDefault(
     useSettings.getState(),
-    sectionProps.type,
+    implProps.type,
   );
   const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
     ...sectionDefault,
-    ...sectionProps,
+    ...implProps,
   });
   const sectionImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
-    type: sectionProps.type,
+    type: implProps.type,
     impl: sectionImpl.id,
   });
   const section = createBaseSectionCoreUnionWithDiscriminator({
-    type: sectionProps.type,
+    type: implProps.type,
     implLayerings: [sectionImplLayering.id],
     defaultImplLayering: sectionImplLayering.id,
+    ...coreProps,
   });
 
   state.projectConfig.sectionImplLayeringMap[section.id] =
@@ -188,7 +223,7 @@ export function createSection(
   state.sectionImpls[sectionImpl.id] = sectionImpl;
   state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
 
-  if (!sectionProps.parentId) {
+  if (!implProps.parentId) {
     const topLevelSectionLayout = createTopLevelSectionLayout(position);
     state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
     addNodes([

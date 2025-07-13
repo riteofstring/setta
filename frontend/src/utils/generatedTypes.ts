@@ -6895,9 +6895,22 @@ export function createWebsocketMsgTerminalMetadata(
   return WebsocketMsgTerminalMetadataSchema.parse(options);
 }
 
+export const NewTerminalCreatedSchema = z.object({
+  projectConfigId: z.string(),
+  terminalId: z.string(),
+});
+
+export type NewTerminalCreated = z.infer<typeof NewTerminalCreatedSchema>;
+
+export function createNewTerminalCreated(
+  options: Partial<NewTerminalCreated> = {},
+): NewTerminalCreated {
+  return NewTerminalCreatedSchema.parse(options);
+}
+
 export const WebsocketMsgNewTerminalCreatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: z.any(),
+  content: NewTerminalCreatedSchema,
   messageType: z
     .literal("NewTerminalCreated")
     .default(WebsocketMsgTypeForFrontendEnum.NewTerminalCreated),

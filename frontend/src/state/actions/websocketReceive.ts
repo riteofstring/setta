@@ -14,10 +14,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
+  FrontendWebsocketMsgUnion,
   RouteEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
-  WebsocketMsgForFrontendUnion,
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
@@ -88,7 +88,7 @@ function wssReady(wss: WebSocket | null): wss is WebSocket {
 }
 
 function receiveMessage(message: string) {
-  const m: WebsocketMsgForFrontendUnion = JSON.parse(message);
+  const m: FrontendWebsocketMsgUnion = JSON.parse(message);
   console.log(m);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:

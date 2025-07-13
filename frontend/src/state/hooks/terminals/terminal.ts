@@ -1,15 +1,21 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
-import { setSectionVariantChildren } from "state/actions/sectionInfos";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import {
+  addChildrenToSeries,
+  addSectionInEmptySpace,
+} from "state/actions/sections/createSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams, res200 } from "utils/endpointUtils";
 import { route_get_existing_terminals } from "utils/generatedEndpoints";
-import { RouteEnum } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
+import {
+  NewTerminalCreated,
+  RouteEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
+import { createNewId, createRandomName } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
@@ -170,30 +176,16 @@ export async function restoreTerminals() {
   }
 }
 
-function createTemporaryTerminal(id, groupId, state) {
-  createSectionInfo({
-    sectionProps: {
-      id,
-      parentId: groupId,
-      uiTypeId: BASE_UI_TYPE_IDS[UITypeNameEnum.TERMINAL],
-      isTemporary: true,
-    },
-    state,
-  });
-  setSectionVariantChildren(groupId, (x) => [...x, id], state);
-}
-
-function maybeCreateTemporaryTerminalGroup(state) {
+function maybeCreateTemporaryTerminalGroup(state: ZustandProjectState) {
   let groupId = state.singletonSections.temporaryTerminalGroup;
   if (!groupId) {
-    groupId = addSectionInEmptySpace({
-      type: UITypeNameEnum.GROUP,
-      sectionProps: {
-        name: getTemporaryTerminalsGroupName(),
-        isTemporary: true,
+    groupId = addSectionInEmptySpace(
+      {
+        type: SectionTypeEnum.Group,
       },
       state,
-    });
+      { name: getTemporaryTerminalsGroupName() },
+    );
   }
   return groupId;
 }
@@ -216,12 +208,14 @@ function getTemporaryTerminalsGroupName() {
 export function createTemporaryTerminalFromBackend({
   projectConfigId,
   terminalId,
-}) {
+}: NewTerminalCreated) {
   if (useProjectState.getState().projectConfig.id !== projectConfigId) {
     return;
   }
   useProjectState.setState((state) => {
     const groupId = maybeCreateTemporaryTerminalGroup(state);
-    createTemporaryTerminal(terminalId, groupId, state);
+    addChildrenToSeries(groupId, { type: SectionTypeEnum.Terminal }, state, {
+      id: terminalId,
+    });
   });
 }
