@@ -179,6 +179,49 @@ export function setEffectiveImplValue<
   return getEffectiveImpl(impl, core, layering);
 }
 
+export function setEffectiveSectionImplValue<K extends keyof ImplCoreLayeringBundleMap>(
+  state: ZustandProjectState,
+  sectionId: string,
+  args: ImplCoreLayeringBundleMap[K]["args"]
+): ImplCoreLayeringBundleMap[K]["impl"] {
+  const bundle = getSectionImplCoreLayeringBundle<K>(state, sectionId);
+  return setEffectiveImplValue<K>(
+    bundle.impl,
+    bundle.core,
+    bundle.layering,
+    args
+  );
+}
+
+export function getSectionImplCoreLayeringBundle<
+  K extends keyof ImplCoreLayeringBundleMap,
+>(
+  p: ZustandProjectState,
+  sectionId: string,
+): {
+  impl: ImplCoreLayeringBundleMap[K]["impl"];
+  core: ImplCoreLayeringBundleMap[K]["core"];
+  layering: ImplCoreLayeringBundleMap[K]["layering"];
+} {
+  const layering = getSectionImplLayering(p, sectionId);
+  const impl = p.sectionImpls[layering.impl];
+  const core = p.sections[sectionId];
+
+  if (!impl || !core) {
+    throw new Error(`Missing section data for sectionId: ${sectionId}`);
+  }
+
+  // Check that all three have the same type
+  if (impl.type !== core.type || core.type !== layering.type) {
+    throw new Error(
+      `Type mismatch: baseImpl.type=${impl.type}, ` +
+        `core.type=${core.type}, layering.type=${layering.type}`,
+    );
+  }
+
+  return { impl, core, layering };
+}
+
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }

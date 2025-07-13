@@ -7,15 +7,12 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import {
-  getSectionImplLayering,
-  setEffectiveImplValue,
-} from "state/actions/sectionInfos";
+import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
+import { TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
@@ -61,23 +58,9 @@ const _MarkdownEditorCore = React.forwardRef(
       _.debounce((sectionId, v, text) => {
         if (v !== text) {
           useProjectState.setState((state) => {
-            const layering = getSectionImplLayering(state, sectionId);
-            const baseImpl = state.sectionImpls[layering.impl];
-            const core = state.sections[sectionId];
-            if (!baseImpl || !core) {
-              throw new Error();
-            }
-            if (
-              baseImpl.type !== SectionTypeEnum.TextBlock ||
-              core.type !== SectionTypeEnum.TextBlock ||
-              layering.type !== SectionTypeEnum.TextBlock
-            ) {
-              throw new Error();
-            }
-            const impl = setEffectiveImplValue<"TextBlockSection">(
-              baseImpl,
-              core,
-              layering,
+            const impl = setEffectiveSectionImplValue<"TextBlockSection">(
+              state,
+              sectionId,
               { text: v },
             );
             if (impl.headingAsSectionName) {

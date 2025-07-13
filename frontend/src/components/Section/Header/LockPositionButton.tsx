@@ -2,8 +2,7 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import {
   getEffectiveSectionImpl,
-  getSectionImplLayering,
-  setEffectiveImplValue,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -27,13 +26,7 @@ export function LockPositionButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      const layering = getSectionImplLayering(state, sectionId);
-      const baseImpl = state.sectionImpls[layering.impl];
-      const core = state.sections[sectionId];
-      if (!baseImpl || !core) {
-        throw new Error();
-      }
-      setEffectiveImplValue<"BaseSectionUnion">(baseImpl, core, layering, {
+      setEffectiveSectionImplValue<"BaseSectionUnion">(state, sectionId, {
         positionAndSizeLocked: !positionAndSizeLocked,
       });
     });
