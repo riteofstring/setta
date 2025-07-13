@@ -3508,7 +3508,7 @@ export function createGenPythonCodeSectionModifier(
 
 export const GenPythonCodeSectionCoreSchema = z.object({
   id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
+  name: z.string().default("Generated Python Code" as const),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
   type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
@@ -3791,7 +3791,7 @@ export function createGlobalVariablesSectionModifier(
 
 export const GlobalVariablesSectionCoreSchema = z.object({
   id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
+  name: z.string().default("Global Variables" as const),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
   type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),

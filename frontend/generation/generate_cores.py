@@ -62,6 +62,7 @@ class BaseCodeObjCore(BaseModel, extra="forbid"):
         else:
             code += f"""
 class {c.core_name}({", ".join(c.parent_core_class_names)}):
+    {c.custom_core_attrs}
     type: {c.type_type_annotation_and_value}
     sharedModifier: {c.modifier_annotation_and_value}
     unsharedKeys: {c.unshared_keys_annotation_and_value}

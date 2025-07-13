@@ -298,6 +298,16 @@ class BaseClassInfoForGeneration(ABC):
         return self.base_name + "Layering"
 
     @property
+    def custom_core_attrs(self) -> str:
+        if not self.type_has_default:
+            return ""
+        if self.type_value == "GlobalVariables":
+            return 'name:str = "Global Variables"'
+        elif self.type_value == "GenPythonCode":
+            return 'name:str = "Generated Python Code"'
+        return ""
+
+    @property
     @abstractmethod
     def is_for_section(self) -> bool:
         pass

@@ -273,6 +273,7 @@ class SocialSectionCore(BaseSectionCore):
 
 
 class GlobalVariablesSectionCore(BaseDictSectionCore):
+    name: str = "Global Variables"
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
     sharedModifier: GlobalVariablesSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_section_modifier(SectionType.GlobalVariables)
@@ -295,6 +296,7 @@ class CodeSectionCore(BaseCodeSectionCore):
 
 
 class GenPythonCodeSectionCore(BaseCodeSectionCore):
+    name: str = "Generated Python Code"
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
     sharedModifier: GenPythonCodeSectionModifier = Field(  # type: ignore[override]
         default_factory=lambda: create_section_modifier(SectionType.GenPythonCode)
