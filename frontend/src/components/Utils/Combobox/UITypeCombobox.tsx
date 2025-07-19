@@ -1,18 +1,21 @@
-import _ from "lodash";
 import { useAvailableUITypesForParam } from "state/hooks/presetUITypes";
 import { IdNameCombobox } from "./IdNameCombobox";
 
-function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
-  const grouped = _.groupBy(availableUITypes, "displayType");
-  const groupedAsList = Object.keys(grouped).map((k) => ({
-    group: k,
-    items: grouped[k],
-  }));
+function UITypeCombobox({
+  baseImpls,
+  presetImpls,
+  onDropdownSelect,
+  selectedBaseImplId,
+}) {
+  const allItems = [
+    { group: "Base", items: baseImpls },
+    { group: "Preset", items: presetImpls },
+  ];
 
   return (
     <IdNameCombobox
-      allItems={groupedAsList}
-      value={selectedId}
+      allItems={allItems}
+      value={selectedBaseImplId}
       onSelectedItemChange={onDropdownSelect}
     />
   );
@@ -21,19 +24,23 @@ function UITypeCombobox({ onDropdownSelect, selectedId, availableUITypes }) {
 export function ParamConfigUITypeCombobox({
   sectionId,
   paramInfoId,
-  selectedId,
-  ...props
+  selectedBaseImplId,
+  presetCodeObjImpls,
+  onDropdownSelect,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  selectedBaseImplId: string;
+  presetCodeObjImpls: Array<{ id: string; name: string }>;
+  onDropdownSelect: any;
 }) {
-  const availableUITypes = useAvailableUITypesForParam(
-    sectionId,
-    paramInfoId,
-    selectedId,
-  );
+  const baseImpls = useAvailableUITypesForParam(sectionId, paramInfoId);
   return (
     <UITypeCombobox
-      availableUITypes={availableUITypes}
-      selectedId={selectedId}
-      {...props}
+      baseImpls={baseImpls}
+      presetImpls={presetCodeObjImpls}
+      selectedBaseImplId={selectedBaseImplId}
+      onDropdownSelect={onDropdownSelect}
     />
   );
 }

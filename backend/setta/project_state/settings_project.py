@@ -53,6 +53,7 @@ def add_code_obj_details(
     codeObjImplLayering = create_code_obj_layering(
         type=codeObjImpl.type,
         impl=codeObjImpl.id,
+        nonPresetImpls=[codeObjImpl.id] if not codeObjImpl.isPreset else [],
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
@@ -74,6 +75,7 @@ def process_model_fields(
     codeObjs: dict[str, BaseCodeObjCoreUnion],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
+    presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion],
 ):
     child_ids: list[str] = []
     codeObjImplLayeringMap: dict[str, str] = {}
@@ -81,7 +83,11 @@ def process_model_fields(
         codeObjName, codeObjImpl = None, None
         if isclass(v.annotation) and issubclass(v.annotation, BaseModel):
             nested_child_ids, nestedCodeObjImplLayeringMap = process_model_fields(
-                v.annotation, codeObjs, codeObjImpls, codeObjImplLayerings
+                v.annotation,
+                codeObjs,
+                codeObjImpls,
+                codeObjImplLayerings,
+                presetCodeObjImplNames,
             )
             codeObjName, codeObjImpl = (
                 k,
@@ -91,14 +97,20 @@ def process_model_fields(
         elif v.annotation is bool:
             codeObjName, codeObjImpl = k, SwitchParamCodeObjImpl()
         elif isclass(v.annotation) and issubclass(v.annotation, Enum):
-            codeObjName, codeObjImpl = (
-                k,
-                DropdownParamCodeObjImpl(
-                    name=v.annotation.__name__,
+            # The assumption here is that we only automatically create presets
+            # for enums, and each enum should have a unique name,
+            # therefore the presets should all have unique names.
+            presetName = v.annotation.__name__
+            codeObjName = k
+            codeObjImpl = presetCodeObjImplNames.get(presetName, None)
+            if not codeObjImpl:
+                codeObjImpl = DropdownParamCodeObjImpl(
+                    name=presetName,
                     choices=[f'"{b.value}"' for b in v.annotation],
                     isPreset=True,
-                ),
-            )
+                )
+                presetCodeObjImplNames[presetName] = codeObjImpl
+
         elif isinstance(v.default, str) and is_color_hex(v.default):
             codeObjName, codeObjImpl = k, ColorPickerParamCodeObjImpl()
 
@@ -120,6 +132,7 @@ def create_settings_code_objs(section_names):
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion] = {}
     codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
+    presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion] = {}
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
@@ -129,6 +142,7 @@ def create_settings_code_objs(section_names):
                 codeObjs,
                 codeObjImpls,
                 codeObjImplLayerings,
+                presetCodeObjImplNames,
             )
         else:
             sectionToTopLevelIds[s] = []
@@ -169,7 +183,7 @@ def create_settings_project_state(settings_path: Path):
         sectionImplLayering = DictSectionLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
-            impls=[sectionImpl.id],
+            nonPresetImpls=[sectionImpl.id],
         )
         section = DictSectionCore(
             name=k,

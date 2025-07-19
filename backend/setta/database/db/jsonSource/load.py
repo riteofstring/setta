@@ -307,7 +307,7 @@ def add_to_processed_json_object(
             CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
         )
         codeObjImplLayering = NestedParamCodeObjLayering(
-            impl=codeObjImpl.id, impls=[codeObjImpl.id]
+            impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     else:
         codeObjImpl = create_code_obj_impl(
@@ -316,7 +316,7 @@ def add_to_processed_json_object(
             {"value": json.dumps(value)},
         )
         codeObjImplLayering = TextParamCodeObjLayering(
-            impl=codeObjImpl.id, impls=[codeObjImpl.id]
+            impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     layeringId = codeObjImplLayering.id
     codeObj = create_code_obj_core(

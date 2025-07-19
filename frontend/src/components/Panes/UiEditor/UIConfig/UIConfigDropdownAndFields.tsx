@@ -1,25 +1,32 @@
 import { ParamUIConfig } from "components/Params/ParamUIs/ParamUI";
+import { ParamConfigUITypeCombobox } from "components/Utils/Combobox/UITypeCombobox";
 
 export function UIConfigDropdownAndFields({
   sectionId,
   paramInfoId,
-  implType,
+  baseImplId,
+  presetCodeObjImpls,
   onDropdownSelect,
-  selectedId,
-  selectedType,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  baseImplId: string;
+  presetCodeObjImpls: Array<{ id: string; name: string }>;
+  onDropdownSelect: any;
 }) {
   return (
     <>
-      {/* <ParamConfigUITypeCombobox
+      <ParamConfigUITypeCombobox
         sectionId={sectionId}
         paramInfoId={paramInfoId}
         onDropdownSelect={onDropdownSelect}
-        selectedId={selectedId}
-      /> */}
+        presetCodeObjImpls={presetCodeObjImpls}
+        selectedBaseImplId={baseImplId}
+      />
       <ParamUIConfig
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-        implType={implType}
+        baseImplId={baseImplId}
       />
     </>
   );

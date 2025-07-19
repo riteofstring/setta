@@ -1,8 +1,7 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import _ from "lodash";
 import React from "react";
-import { getEffectiveCodeObjImpl } from "state/actions/sectionInfos";
-import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
+import { getCodeObjImplLayering } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
@@ -13,7 +12,26 @@ const UIElement = React.memo(_UIElement, _.isEqual);
 
 function _UIConfig({ sectionId }: { sectionId: string }) {
   const paramInfos = useParamIdsAndNamesForSidePane(sectionId);
-  return <UIConfigCore sectionId={sectionId} paramInfos={paramInfos} />;
+  const presetCodeObjImpls = useProjectState((x) => {
+    const output: Array<{ id: string; name: string }> = [];
+    for (const c of Object.values(x.codeObjImpls)) {
+      if (c.isPreset) {
+        output.push({
+          id: c.id,
+          name: `${c.name} - (${c.type})`,
+        });
+      }
+    }
+    return output;
+  }, _.isEqual);
+
+  return (
+    <UIConfigCore
+      sectionId={sectionId}
+      paramInfos={paramInfos}
+      presetCodeObjImpls={presetCodeObjImpls}
+    />
+  );
 }
 
 export const UIConfig = React.memo(_UIConfig);
@@ -21,9 +39,11 @@ export const UIConfig = React.memo(_UIConfig);
 function UIConfigCore({
   sectionId,
   paramInfos,
+  presetCodeObjImpls,
 }: {
   sectionId: string;
   paramInfos: Array<{ id: string; name: string }>;
+  presetCodeObjImpls: Array<{ id: string; name: string }>;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilterWithDelay(
     paramInfos,
@@ -50,6 +70,7 @@ function UIConfigCore({
           <UIElement
             sectionId={sectionId}
             paramInfo={e}
+            presetCodeObjImpls={presetCodeObjImpls}
             key={`${e.name}-${idx}`}
           />
         ))}
@@ -61,26 +82,27 @@ function UIConfigCore({
 function _UIElement({
   sectionId,
   paramInfo,
+  presetCodeObjImpls,
 }: {
   sectionId: string;
   paramInfo: { id: string; name: string };
+  presetCodeObjImpls: Array<{ id: string; name: string }>;
 }) {
   const paramInfoId = paramInfo.id;
-  const implType = useProjectState((x) => {
-    const impl = getEffectiveCodeObjImpl(x, paramInfo.id, sectionId, null);
-    return impl.type;
+  const baseImplId = useProjectState((x) => {
+    return getCodeObjImplLayering(x, paramInfoId, sectionId, null).impl;
   }, _.isEqual);
   const paramName = paramInfo.name;
 
   const onSelect = (e) => {
-    useProjectState.setState((state) => {
-      setParamUITypeId({
-        uiTypeId: e,
-        sectionId,
-        paramInfoId,
-        state,
-      });
-    });
+    // useProjectState.setState((state) => {
+    //   setParamUITypeId({
+    //     uiTypeId: e,
+    //     sectionId,
+    //     paramInfoId,
+    //     state,
+    //   });
+    // });
   };
 
   return (
@@ -97,7 +119,8 @@ function _UIElement({
       <UIConfigDropdownAndFields
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-        implType={implType}
+        baseImplId={baseImplId}
+        presetCodeObjImpls={presetCodeObjImpls}
         onDropdownSelect={onSelect}
         // selectedId={uiType.id}
         // selectedType={uiType.type}

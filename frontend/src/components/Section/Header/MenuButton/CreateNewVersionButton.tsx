@@ -4,7 +4,9 @@ import { useProjectState } from "state/definitions";
 
 export function CreateNewVersionButton({ sectionId }) {
   async function onClick() {
-    useProjectState.setState((state) => createNewSectionVersion(state, sectionId));
+    useProjectState.setState((state) =>
+      createNewSectionVersion(state, sectionId),
+    );
   }
 
   return <MenuItem onClick={onClick}>New Version</MenuItem>;

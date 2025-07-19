@@ -13,7 +13,6 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import {
-  CodeObjType,
   CodeObjTypeEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
@@ -31,12 +30,14 @@ import { SwitchInput } from "./SwitchInput";
 export function ParamUIConfig({
   sectionId,
   paramInfoId,
-  implType,
+  baseImplId,
 }: {
   sectionId: string;
   paramInfoId: string;
-  implType: CodeObjType;
+  baseImplId: string;
 }) {
+  const implType = useProjectState((x) => x.codeObjImpls[baseImplId]?.type);
+
   switch (implType) {
     case CodeObjTypeEnum.SliderParam:
       return (

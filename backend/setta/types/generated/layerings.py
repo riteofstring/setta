@@ -53,7 +53,7 @@ class BaseSectionLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
-    impls: list[str]
+    nonPresetImpls: list[str]
     type: Any
     modifier: BaseSectionModifier
 
@@ -211,7 +211,7 @@ class BaseCodeObjLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
-    impls: list[str]
+    nonPresetImpls: list[str]
     type: Any
     modifier: BaseCodeObjModifier
 
@@ -296,239 +296,291 @@ class NestedParamCodeObjLayering(BaseParamCodeObjLayering, BaseParentCodeObjLaye
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Callable], impl: str
+    type: Literal[SectionType.Callable], impl: str, nonPresetImpls: list[str]
 ) -> CallableSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Dict], impl: str
+    type: Literal[SectionType.Dict], impl: str, nonPresetImpls: list[str]
 ) -> DictSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.ListRoot], impl: str
+    type: Literal[SectionType.ListRoot], impl: str, nonPresetImpls: list[str]
 ) -> ListRootSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.DictRoot], impl: str
+    type: Literal[SectionType.DictRoot], impl: str, nonPresetImpls: list[str]
 ) -> DictRootSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Group], impl: str
+    type: Literal[SectionType.Group], impl: str, nonPresetImpls: list[str]
 ) -> GroupSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Image], impl: str
+    type: Literal[SectionType.Image], impl: str, nonPresetImpls: list[str]
 ) -> ImageSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Chart], impl: str
+    type: Literal[SectionType.Chart], impl: str, nonPresetImpls: list[str]
 ) -> ChartSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Draw], impl: str
+    type: Literal[SectionType.Draw], impl: str, nonPresetImpls: list[str]
 ) -> DrawSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.TextBlock], impl: str
+    type: Literal[SectionType.TextBlock], impl: str, nonPresetImpls: list[str]
 ) -> TextBlockSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Social], impl: str
+    type: Literal[SectionType.Social], impl: str, nonPresetImpls: list[str]
 ) -> SocialSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.GlobalVariables], impl: str
+    type: Literal[SectionType.GlobalVariables], impl: str, nonPresetImpls: list[str]
 ) -> GlobalVariablesSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Code], impl: str
+    type: Literal[SectionType.Code], impl: str, nonPresetImpls: list[str]
 ) -> CodeSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.GenPythonCode], impl: str
+    type: Literal[SectionType.GenPythonCode], impl: str, nonPresetImpls: list[str]
 ) -> GenPythonCodeSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Terminal], impl: str
+    type: Literal[SectionType.Terminal], impl: str, nonPresetImpls: list[str]
 ) -> TerminalSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.IFrame], impl: str
+    type: Literal[SectionType.IFrame], impl: str, nonPresetImpls: list[str]
 ) -> IFrameSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Chat], impl: str
+    type: Literal[SectionType.Chat], impl: str, nonPresetImpls: list[str]
 ) -> ChatSectionLayering: ...
 
 
 @overload
 def create_section_layering(
-    type: Literal[SectionType.Browser], impl: str
+    type: Literal[SectionType.Browser], impl: str, nonPresetImpls: list[str]
 ) -> BrowserSectionLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.CodeCallable], impl: str
+    type: Literal[CodeObjType.CodeCallable], impl: str, nonPresetImpls: list[str]
 ) -> CodeCallableCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.CodeParam], impl: str
+    type: Literal[CodeObjType.CodeParam], impl: str, nonPresetImpls: list[str]
 ) -> CodeParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.TextParam], impl: str
+    type: Literal[CodeObjType.TextParam], impl: str, nonPresetImpls: list[str]
 ) -> TextParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.SliderParam], impl: str
+    type: Literal[CodeObjType.SliderParam], impl: str, nonPresetImpls: list[str]
 ) -> SliderParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.SwitchParam], impl: str
+    type: Literal[CodeObjType.SwitchParam], impl: str, nonPresetImpls: list[str]
 ) -> SwitchParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.ColorPickerParam], impl: str
+    type: Literal[CodeObjType.ColorPickerParam], impl: str, nonPresetImpls: list[str]
 ) -> ColorPickerParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.DropdownParam], impl: str
+    type: Literal[CodeObjType.DropdownParam], impl: str, nonPresetImpls: list[str]
 ) -> DropdownParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.PasswordParam], impl: str
+    type: Literal[CodeObjType.PasswordParam], impl: str, nonPresetImpls: list[str]
 ) -> PasswordParamCodeObjLayering: ...
 
 
 @overload
 def create_code_obj_layering(
-    type: Literal[CodeObjType.NestedParam], impl: str
+    type: Literal[CodeObjType.NestedParam], impl: str, nonPresetImpls: list[str]
 ) -> NestedParamCodeObjLayering: ...
 
 
-def create_section_layering(type: SectionType, impl: str):
+def create_section_layering(type: SectionType, impl: str, nonPresetImpls: list[str]):
     match type:
         case SectionType.Callable:
-            return CallableSectionLayering(type=type, impl=impl, impls=[impl])
+            return CallableSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Dict:
-            return DictSectionLayering(type=type, impl=impl, impls=[impl])
+            return DictSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.ListRoot:
-            return ListRootSectionLayering(type=type, impl=impl, impls=[impl])
+            return ListRootSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.DictRoot:
-            return DictRootSectionLayering(type=type, impl=impl, impls=[impl])
+            return DictRootSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Group:
-            return GroupSectionLayering(type=type, impl=impl, impls=[impl])
+            return GroupSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Image:
-            return ImageSectionLayering(type=type, impl=impl, impls=[impl])
+            return ImageSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Chart:
-            return ChartSectionLayering(type=type, impl=impl, impls=[impl])
+            return ChartSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Draw:
-            return DrawSectionLayering(type=type, impl=impl, impls=[impl])
+            return DrawSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.TextBlock:
-            return TextBlockSectionLayering(type=type, impl=impl, impls=[impl])
+            return TextBlockSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Social:
-            return SocialSectionLayering(type=type, impl=impl, impls=[impl])
+            return SocialSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.GlobalVariables:
-            return GlobalVariablesSectionLayering(type=type, impl=impl, impls=[impl])
+            return GlobalVariablesSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Code:
-            return CodeSectionLayering(type=type, impl=impl, impls=[impl])
+            return CodeSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.GenPythonCode:
-            return GenPythonCodeSectionLayering(type=type, impl=impl, impls=[impl])
+            return GenPythonCodeSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Terminal:
-            return TerminalSectionLayering(type=type, impl=impl, impls=[impl])
+            return TerminalSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.IFrame:
-            return IFrameSectionLayering(type=type, impl=impl, impls=[impl])
+            return IFrameSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Chat:
-            return ChatSectionLayering(type=type, impl=impl, impls=[impl])
+            return ChatSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case SectionType.Browser:
-            return BrowserSectionLayering(type=type, impl=impl, impls=[impl])
+            return BrowserSectionLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
 
-def create_code_obj_layering(type: CodeObjType, impl: str):
+def create_code_obj_layering(type: CodeObjType, impl: str, nonPresetImpls: list[str]):
     match type:
         case CodeObjType.CodeCallable:
-            return CodeCallableCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return CodeCallableCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.CodeParam:
-            return CodeParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return CodeParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.TextParam:
-            return TextParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return TextParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.SliderParam:
-            return SliderParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return SliderParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.SwitchParam:
-            return SwitchParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return SwitchParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.ColorPickerParam:
-            return ColorPickerParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return ColorPickerParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.DropdownParam:
-            return DropdownParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return DropdownParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.PasswordParam:
-            return PasswordParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return PasswordParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )
 
         case CodeObjType.NestedParam:
-            return NestedParamCodeObjLayering(type=type, impl=impl, impls=[impl])
+            return NestedParamCodeObjLayering(
+                type=type, impl=impl, nonPresetImpls=nonPresetImpls
+            )

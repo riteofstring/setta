@@ -13,15 +13,15 @@ from .utils import (
 
 
 def additional_args_types_callback(c: ImplClassInfoForGeneration):
-    return "impl: str"
+    return "impl: str, nonPresetImpls: list[str]"
 
 
 def additional_args_inputs_callback(c: ImplClassInfoForGeneration):
-    return "impl=impl, impls=[impl]"
+    return "impl=impl, nonPresetImpls=nonPresetImpls"
 
 
 def additional_args_generic_type_callback():
-    return "impl: str"
+    return "impl: str, nonPresetImpls: list[str]"
 
 
 def generate_layerings(output_file, classes: dict[str, ImplClassInfoForGeneration]):
@@ -47,7 +47,7 @@ class BaseSectionLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
-    impls: list[str]
+    nonPresetImpls: list[str]
     type: Any
     modifier: {c.modifier_name}
 
@@ -58,7 +58,7 @@ class BaseCodeObjLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
-    impls: list[str]
+    nonPresetImpls: list[str]
     type: Any
     modifier: {c.modifier_name}
 
