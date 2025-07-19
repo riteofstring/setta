@@ -209,6 +209,7 @@ export function createSection(
   const sectionImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
     type: implProps.type,
     impl: sectionImpl.id,
+    nonPresetImpls: sectionImpl.isPreset ? [] : [sectionImpl.id],
   });
   const section = createBaseSectionCoreUnionWithDiscriminator({
     type: implProps.type,
