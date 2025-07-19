@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
@@ -10,7 +11,7 @@ def additional_args_types_callback(c: ImplClassInfoForGeneration):
     return f"defaults: {c.user_default_name}, overrides: {c.args_name} | None = None"
 
 
-def additional_args_generic_type_callback():
+def additional_args_generic_type_callback(c: Literal["section", "code_obj"]):
     return "defaults: Any, overrides: Any = None"
 
 

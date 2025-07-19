@@ -12,6 +12,7 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
 )
 from setta.types.generated.cores import DictSectionCore, create_code_obj_core
+from setta.types.generated.layering_unions import BaseCodeObjLayeringUnion
 from setta.types.generated.layerings import (
     DictSectionLayering,
     create_code_obj_layering,
@@ -20,10 +21,8 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
-    BaseCodeObjLayeringUnion,
     BaseSectionCoreUnion,
     BaseSectionImplUnion,
-    BaseSectionLayeringUnion,
 )
 from setta.types.project_state import (
     ProjectConfig,
@@ -52,8 +51,7 @@ def add_code_obj_details(
 ):
     codeObjImplLayering = create_code_obj_layering(
         type=codeObjImpl.type,
-        impl=codeObjImpl.id,
-        nonPresetImpls=[codeObjImpl.id] if not codeObjImpl.isPreset else [],
+        impl=codeObjImpl,
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl

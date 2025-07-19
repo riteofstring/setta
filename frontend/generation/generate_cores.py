@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.section_impls import BaseSectionImpl
@@ -115,7 +116,7 @@ def additional_args_types_callback(c: CoreClassInfoForGeneration):
     return f"overrides: {c.args_name} | None = None"
 
 
-def additional_args_generic_type_callback():
+def additional_args_generic_type_callback(c: Literal["section", "code_obj"]):
     return "overrides: Any = None"
 
 

@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.section_impls import BaseSectionImpl
@@ -13,15 +14,17 @@ from .utils import (
 
 
 def additional_args_types_callback(c: ImplClassInfoForGeneration):
-    return "impl: str, nonPresetImpls: list[str]"
+    return f"impl: {c.original_name}"
 
 
 def additional_args_inputs_callback(c: ImplClassInfoForGeneration):
-    return "impl=impl, nonPresetImpls=nonPresetImpls"
+    return "impl=impl.id, nonPresetImpls=[] if impl.isPreset else [impl.id]"
 
 
-def additional_args_generic_type_callback():
-    return "impl: str, nonPresetImpls: list[str]"
+def additional_args_generic_type_callback(c: Literal["section", "code_obj"]):
+    if c == "section":
+        return "impl: BaseSectionImplUnion"
+    return "impl: BaseCodeObjImplUnion"
 
 
 def generate_layerings(output_file, classes: dict[str, ImplClassInfoForGeneration]):
@@ -35,12 +38,20 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.types.section_impls import SectionType
 from setta.types.code_obj_impls import CodeObjType
 from setta.types.generated.modifiers import create_section_modifier, create_code_obj_modifier
+from setta.types.generated.unions import BaseSectionImplUnion, BaseCodeObjImplUnion
 """
 
     modifier_names = []
+    section_impl_imports = []
+    code_obj_impl_imports = []
 
     for c in classes.values():
         modifier_names.append(c.modifier_name)
+        if c.is_for_section:
+            section_impl_imports.append(c.original_name)
+        elif c.is_for_code_obj:
+            code_obj_impl_imports.append(c.original_name)
+
         if c.class_obj is BaseSectionImpl:
             code += f"""
 class BaseSectionLayering(BaseModel, extra="forbid"):
@@ -81,6 +92,13 @@ class {c.layering_name}({", ".join(c.parent_layering_class_names)}):
 
     code = (
         f"""
+from setta.types.section_impls import (
+    {", ".join(section_impl_imports)}
+)
+from setta.types.code_obj_impls import (
+    {", ".join(code_obj_impl_imports)}
+)
+
 from setta.types.generated.modifiers import {", ".join(modifier_names)}
 """
         + code
