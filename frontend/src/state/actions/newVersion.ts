@@ -7,34 +7,35 @@ import {
   route_save_section_json_source,
 } from "utils/generatedEndpoints";
 import {
+  BaseCodeObjImplUnion,
+  BaseSectionImplUnion,
+  BaseSectionWithParamsImpl,
   createBaseCodeObjLayeringUnionWithDiscriminator,
   createBaseSectionLayeringUnionWithDiscriminator,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
-import { getSectionImpl, getSectionVariant } from "./sectionInfos";
+import {
+  getSectionImpl,
+  getSectionVariant,
+  setEffectiveImplValue,
+} from "./sectionInfos";
 
 export function createNewSectionVersion(
   p: ZustandProjectState,
   sectionId: string,
 ) {
   const currImpl = getSectionImpl(p, sectionId);
-  const newImpl = _.cloneDeep({
-    ...currImpl,
-    id: createNewId(),
-    name: createRandomName(),
-  });
-  if (isBaseSectionWithParamsImpl(newImpl)) {
-    for (const [codeObjId, codeObjLayeringId] of Object.entries(
-      newImpl.codeObjImplLayeringMap,
-    )) {
-      newImpl.codeObjImplLayeringMap[codeObjId] = createNewCodeObjVersion(
-        p,
-        codeObjId,
-        codeObjLayeringId,
-      );
-    }
+  let newImpl: BaseSectionImplUnion;
+  if (currImpl.isPreset) {
+    newImpl = currImpl;
+  } else {
+    newImpl = _.cloneDeep({
+      ...currImpl,
+      id: createNewId(),
+      name: createRandomName(),
+    });
   }
   const newImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
     type: newImpl.type,
@@ -44,6 +45,24 @@ export function createNewSectionVersion(
   if (!section) {
     throw new Error();
   }
+
+  if (isBaseSectionWithParamsImpl(newImpl)) {
+    const newCodeObjImplLayeringMap: BaseSectionWithParamsImpl["codeObjImplLayeringMap"] =
+      {};
+    for (const [codeObjId, codeObjLayeringId] of Object.entries(
+      newImpl.codeObjImplLayeringMap,
+    )) {
+      newCodeObjImplLayeringMap[codeObjId] = createNewCodeObjVersion(
+        p,
+        codeObjId,
+        codeObjLayeringId,
+      );
+    }
+    setEffectiveImplValue(newImpl, section, newImplLayering, {
+      codeObjImplLayeringMap: newCodeObjImplLayeringMap,
+    });
+  }
+
   section.implLayerings.push(newImplLayering.id);
   p.sectionImpls[newImpl.id] = newImpl;
   p.sectionImplLayerings[newImplLayering.id] = newImplLayering;
@@ -60,18 +79,23 @@ function createNewCodeObjVersion(
   if (!layering) {
     throw new Error();
   }
-  const oldCodeObjImpl = p.codeObjImpls[layering.impl];
-  if (!oldCodeObjImpl) {
+  const currImpl = p.codeObjImpls[layering.impl];
+  if (!currImpl) {
     throw new Error();
   }
-  const newCodeObjImpl = _.cloneDeep({
-    ...oldCodeObjImpl,
-    id: createNewId(),
-    name: createRandomName(),
-  });
+  let newImpl: BaseCodeObjImplUnion;
+  if (currImpl.isPreset) {
+    newImpl = currImpl;
+  } else {
+    newImpl = _.cloneDeep({
+      ...currImpl,
+      id: createNewId(),
+      name: createRandomName(),
+    });
+  }
   const newImplLayering = createBaseCodeObjLayeringUnionWithDiscriminator({
-    type: newCodeObjImpl.type,
-    impl: newCodeObjImpl.id,
+    type: newImpl.type,
+    impl: newImpl.id,
   });
 
   const codeObj = p.codeObjs[codeObjId];
@@ -79,7 +103,7 @@ function createNewCodeObjVersion(
     throw new Error();
   }
   codeObj.implLayerings.push(newImplLayering.id);
-  p.codeObjImpls[newCodeObjImpl.id] = newCodeObjImpl;
+  p.codeObjImpls[newImpl.id] = newImpl;
   p.codeObjImplLayerings[newImplLayering.id] = newImplLayering;
   return newImplLayering.id;
 }
