@@ -13,15 +13,15 @@ from .utils import (
 
 
 def additional_args_types_callback(c: ImplClassInfoForGeneration):
-    return "impl: str, nonPresetImpls: list[str]"
+    return "impl: str, implIsPreset: bool = False"
 
 
 def additional_args_inputs_callback(c: ImplClassInfoForGeneration):
-    return "impl=impl, nonPresetImpls=nonPresetImpls"
+    return "impl=impl, nonPresetImpls=[] if implIsPreset else [impl]"
 
 
 def additional_args_generic_type_callback():
-    return "impl: str, nonPresetImpls: list[str]"
+    return "impl: str, implIsPreset: bool = False"
 
 
 def generate_layerings(output_file, classes: dict[str, ImplClassInfoForGeneration]):

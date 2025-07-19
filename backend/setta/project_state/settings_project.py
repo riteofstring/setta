@@ -51,9 +51,7 @@ def add_code_obj_details(
     codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
 ):
     codeObjImplLayering = create_code_obj_layering(
-        type=codeObjImpl.type,
-        impl=codeObjImpl.id,
-        nonPresetImpls=[codeObjImpl.id] if not codeObjImpl.isPreset else [],
+        type=codeObjImpl.type, impl=codeObjImpl.id, implIsPreset=codeObjImpl.isPreset
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl

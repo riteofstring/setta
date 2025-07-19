@@ -118,6 +118,7 @@ def generate_unions(output_file):
 
     code = ruff_format(code)
     output_file.write_text(code)
+    print(f"wrote to {output_file}")
 
 
 def generate_websocket_unions(output_file: Path):

@@ -324,6 +324,7 @@ def add_code_obj(
     code_obj_impl_layering = create_code_obj_layering(
         type=code_obj_impl.type,
         impl=code_obj_impl.id,
+        implIsPreset=code_obj_impl.isPreset,
     )
     code_obj.implLayerings.append(code_obj_impl_layering.id)
     if not code_obj.defaultImplLayering:
