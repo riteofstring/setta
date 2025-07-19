@@ -3,7 +3,7 @@ import { getCodeObjImplLayering } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 
-export function useAvailableUITypesForParam(
+export function useNonPresetImplsForParam(
   sectionId: string,
   paramInfoId: string,
 ) {

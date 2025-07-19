@@ -1,14 +1,14 @@
-import { useAvailableUITypesForParam } from "state/hooks/presetUITypes";
+import { useNonPresetImplsForParam } from "state/hooks/presetUITypes";
 import { IdNameCombobox } from "./IdNameCombobox";
 
 function UITypeCombobox({
-  baseImpls,
+  nonPresetImpls,
   presetImpls,
   onDropdownSelect,
   selectedBaseImplId,
 }) {
   const allItems = [
-    { group: "Base", items: baseImpls },
+    { group: "Base", items: nonPresetImpls },
     { group: "Preset", items: presetImpls },
   ];
 
@@ -34,10 +34,10 @@ export function ParamConfigUITypeCombobox({
   presetCodeObjImpls: Array<{ id: string; name: string }>;
   onDropdownSelect: any;
 }) {
-  const baseImpls = useAvailableUITypesForParam(sectionId, paramInfoId);
+  const nonPresetImpls = useNonPresetImplsForParam(sectionId, paramInfoId);
   return (
     <UITypeCombobox
-      baseImpls={baseImpls}
+      nonPresetImpls={nonPresetImpls}
       presetImpls={presetCodeObjImpls}
       selectedBaseImplId={selectedBaseImplId}
       onDropdownSelect={onDropdownSelect}

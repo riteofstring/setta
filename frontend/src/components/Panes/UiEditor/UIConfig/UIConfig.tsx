@@ -122,8 +122,6 @@ function _UIElement({
         baseImplId={baseImplId}
         presetCodeObjImpls={presetCodeObjImpls}
         onDropdownSelect={onSelect}
-        // selectedId={uiType.id}
-        // selectedType={uiType.type}
       />
     </div>
   );
