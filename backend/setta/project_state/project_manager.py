@@ -29,6 +29,7 @@ from setta.types.helpers import (
 )
 from setta.types.project_state import (
     ProjectConfig,
+    ProjectMetadata,
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
@@ -446,10 +447,10 @@ class ProjectManager:
     def get_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
         projectMetadata = list(self.project_state_backend.projectConfigs.values())
-        return {
-            "defaultProjectConfigId": defaultProjectConfigId,
-            "projectMetadata": projectMetadata,
-        }
+        return ProjectMetadata(
+            defaultProjectConfigId=defaultProjectConfigId,
+            projectMetadata=projectMetadata,
+        )
 
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):

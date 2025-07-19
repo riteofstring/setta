@@ -7054,7 +7054,7 @@ export function createSettingsGUI(
 
 export const SettingsBackendSchema = z.object({
   showDefaultConfigOnLoad: z.boolean().default(true),
-  autosave: z.boolean().default(false),
+  autosave: z.boolean().default(true),
   autobackup: z.boolean().default(false),
   autobackupFreq: z.int().default(300),
   autobackupKeepLastN: z.int().default(10),
@@ -11345,6 +11345,19 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
+}
+
+export const ProjectMetadataSchema = z.object({
+  defaultProjectConfigId: z.union([z.string(), z.null()]),
+  projectMetadata: z.array(ProjectConfigSchema),
+});
+
+export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
+
+export function createProjectMetadata(
+  options: Partial<ProjectMetadata> = {},
+): ProjectMetadata {
+  return ProjectMetadataSchema.parse(options);
 }
 
 export const ProjectStateCoreSchema = z.object({

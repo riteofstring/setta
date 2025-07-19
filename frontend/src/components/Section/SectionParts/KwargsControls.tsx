@@ -15,7 +15,6 @@ import {
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState, useSettings } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
 export function KwargsControls({
@@ -106,7 +105,7 @@ function ParamFilter({ sectionId }) {
     shortcutPrettified(x.shortcuts.searchShortcut),
   );
 
-  function onSearchChange(e) {
+  function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
       setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
         paramFilter: e.target.value,
@@ -126,8 +125,8 @@ function ParamFilter({ sectionId }) {
         onChange={onSearchChange}
         onKeyDown={(e) => {
           if (e.code === "Escape") {
-            e.target.blur();
-            focusOnSection(null, sectionId, false);
+            e.currentTarget.blur();
+            // focusOnSection(null, sectionId, false);
           }
         }}
       />

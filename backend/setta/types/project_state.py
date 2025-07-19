@@ -97,3 +97,8 @@ class ProjectStateBackend(ProjectStateCore, extra="forbid"):
 
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
+
+
+class ProjectMetadata(BaseModel):
+    defaultProjectConfigId: str | None
+    projectMetadata: list[ProjectConfig]

@@ -106,7 +106,7 @@ class SettingsGUI(BaseModel):
 
 class SettingsBackend(BaseModel):
     showDefaultConfigOnLoad: bool = True
-    autosave: bool = False
+    autosave: bool = True
     autobackup: bool = False
     autobackupFreq: int = 300
     autobackupKeepLastN: int = 10

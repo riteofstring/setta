@@ -233,7 +233,7 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
           homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
       >
-        <PreviewImg projectChildren={project.children} />
+        <PreviewImg projectChildren={project.topLevelSections} />
       </div>
     </div>
   );
