@@ -491,10 +491,7 @@ def get_creation_fns(
     fn_type: Literal["modifier", "core", "layering", "impl"],
     additional_args_types_callback: Callable[[T], str] | None = None,
     additional_args_inputs_callback: Callable[[T], str] | None = None,
-    additional_args_generic_type_callback: Callable[
-        [Literal["section", "code_obj"]], str
-    ]
-    | None = None,
+    additional_args_generic_type_callback: Callable[[], str] | None = None,
     implementation_callback: Callable[[T, str], str] | None = None,
 ):
     if additional_args_types_callback is None:
@@ -502,13 +499,13 @@ def get_creation_fns(
     if additional_args_inputs_callback is None:
         additional_args_inputs_callback = lambda x: ""
     if additional_args_generic_type_callback is None:
-        additional_args_generic_type_callback = lambda x: ""
+        additional_args_generic_type_callback = lambda: ""
     if implementation_callback is None:
         implementation_callback = (
             lambda c, additional_args: f"""
                 return {getattr(c, f"{fn_type}_name")}(type=type, {additional_args})"""
         )
-    cases: dict[Literal["section", "code_obj"], list[T]] = defaultdict(list)
+    cases: dict[str, list[T]] = defaultdict(list)
     code = ""
     for c in classes.values():
         if not c.type_has_default:
@@ -533,7 +530,7 @@ def create_{fn_name_suffix}(type: {c.type_type_annotation}, {additional_args}) -
             """
             cases_str.append(curr_case)
 
-        additional_args = additional_args_generic_type_callback(impl_category)
+        additional_args = additional_args_generic_type_callback()
         input_type = "SectionType" if impl_category == "section" else "CodeObjType"
         code += f"""
 def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):

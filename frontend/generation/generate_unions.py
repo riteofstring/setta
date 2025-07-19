@@ -2,6 +2,7 @@ from pathlib import Path
 
 import setta.types.code_obj_impls
 import setta.types.generated.cores
+import setta.types.generated.layerings
 import setta.types.generated.modifiers
 import setta.types.section_impls
 from pydantic_core import PydanticUndefined
@@ -86,29 +87,6 @@ def generate_unions(output_file):
         lambda x: x,
     )
     code += construct_unions(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        setta.types.generated.modifiers,
-        lambda x: f"{x.removesuffix('Impl')}Modifier",
-    )
-    code += construct_unions(
-        setta.types.code_obj_impls,
-        setta.types.code_obj_impls.BaseCodeObjImpl,
-        "type",
-        setta.types.generated.modifiers,
-        lambda x: f"{x.removesuffix('Impl')}Modifier",
-    )
-
-    code = ruff_format(code)
-    output_file.write_text(code)
-    print(f"wrote to {output_file}")
-
-
-def generate_layering_unions(output_file):
-    import setta.types.generated.layerings
-
-    code = construct_unions(
         setta.types.generated.layerings,
         setta.types.generated.layerings.BaseSectionLayering,
         "type",
@@ -122,9 +100,24 @@ def generate_layering_unions(output_file):
         setta.types.generated.layerings,
         lambda x: x,
     )
+    code += construct_unions(
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+        "type",
+        setta.types.generated.modifiers,
+        lambda x: f"{x.removesuffix('Impl')}Modifier",
+    )
+
+    code += construct_unions(
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
+        "type",
+        setta.types.generated.modifiers,
+        lambda x: f"{x.removesuffix('Impl')}Modifier",
+    )
+
     code = ruff_format(code)
     output_file.write_text(code)
-    print(f"wrote to {output_file}")
 
 
 def generate_websocket_unions(output_file: Path):
@@ -150,15 +143,6 @@ if __name__ == "__main__":
             / "unions.py"
         )
     )
-
-    # has to be done separately due to import dependencies
-    generate_layering_unions(
-        output_file=(
-            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-            / "layering_unions.py"
-        )
-    )
-
     # has to be done separately due to import dependencies
     generate_websocket_unions(
         output_file=(

@@ -6,10 +6,10 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
 )
 from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.generated.layering_unions import BaseCodeObjLayeringUnion
 from setta.types.generated.unions import (
     BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
+    BaseCodeObjLayeringUnion,
     BaseDictSectionImplUnion,
 )
 from setta.types.helpers import get_effective_code_obj_impl

@@ -7,15 +7,13 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.generated.layering_unions import (
-    BaseCodeObjLayeringUnionWithDiscriminator,
-    BaseSectionLayeringUnionWithDiscriminator,
-)
 from setta.types.generated.unions import (
     BaseCodeObjCoreUnionWithDiscriminator,
     BaseCodeObjImplUnionWithDiscriminator,
+    BaseCodeObjLayeringUnionWithDiscriminator,
     BaseSectionCoreUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
+    BaseSectionLayeringUnionWithDiscriminator,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 

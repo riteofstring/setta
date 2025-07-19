@@ -20,12 +20,6 @@ from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
 )
-from setta.types.generated.layering_unions import (
-    BaseChildlessCodeObjLayeringUnion,
-    BaseCodeObjLayeringUnion,
-    BaseDictSectionLayeringUnion,
-    BaseSectionLayeringUnion,
-)
 from setta.types.generated.layerings import (
     NestedParamCodeObjLayering,
     TextParamCodeObjLayering,
@@ -34,12 +28,16 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
+    BaseChildlessCodeObjLayeringUnion,
     BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
+    BaseCodeObjLayeringUnion,
     BaseDictSectionCoreUnion,
     BaseDictSectionImplUnion,
+    BaseDictSectionLayeringUnion,
     BaseSectionCoreUnion,
     BaseSectionImplUnion,
+    BaseSectionLayeringUnion,
 )
 from setta.types.project_state import (
     ProjectStateBackend,

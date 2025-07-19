@@ -8,24 +8,22 @@ from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
-from setta.types.generated.layering_unions import (
-    BaseChildlessCodeObjLayeringUnion,
-    BaseParentCodeObjLayeringUnion,
-    BaseSectionWithParamsLayeringUnion,
-)
 from setta.types.generated.layerings import create_code_obj_layering
 from setta.types.generated.unions import (
     BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
+    BaseChildlessCodeObjLayeringUnion,
     BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
     BaseParentCodeObjCoreUnion,
     BaseParentCodeObjImplUnion,
+    BaseParentCodeObjLayeringUnion,
     BaseSectionCoreUnion,
     BaseSectionImplUnion,
     BaseSectionWithParamsCoreUnion,
     BaseSectionWithParamsImplUnion,
+    BaseSectionWithParamsLayeringUnion,
 )
 from setta.types.impl_helpers import (
     update_impl_layerings,

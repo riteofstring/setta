@@ -139,10 +139,7 @@ from setta.types.generated.layerings import (
     {", ".join(layering_imports)}
 )
 from setta.types.generated.unions import (
-    {", ".join([u for u in union_imports if "Layering" not in u])}
-)
-from setta.types.generated.layering_unions import (
-    {", ".join([u for u in union_imports if "Layering" in u])}
+    {", ".join(union_imports)}
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     {", ".join(args_imports)}
