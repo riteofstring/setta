@@ -2358,6 +2358,7 @@ export const ImageSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Image").default(SectionTypeEnum.Image),
   modifier: ImageSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Image,
@@ -2376,6 +2377,7 @@ export const ChartSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Chart").default(SectionTypeEnum.Chart),
   modifier: ChartSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Chart,
@@ -2394,6 +2396,7 @@ export const DrawSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Draw").default(SectionTypeEnum.Draw),
   modifier: DrawSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Draw,
@@ -3050,6 +3053,7 @@ export const CodeParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("CodeParam").default(CodeObjTypeEnum.CodeParam),
   modifier: CodeParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.CodeParam,
@@ -3070,6 +3074,7 @@ export const TextParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("TextParam").default(CodeObjTypeEnum.TextParam),
   modifier: TextParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.TextParam,
@@ -3090,6 +3095,7 @@ export const SliderParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("SliderParam").default(CodeObjTypeEnum.SliderParam),
   modifier: SliderParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.SliderParam,
@@ -3110,6 +3116,7 @@ export const SwitchParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("SwitchParam").default(CodeObjTypeEnum.SwitchParam),
   modifier: SwitchParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.SwitchParam,
@@ -3130,6 +3137,7 @@ export const ColorPickerParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("ColorPickerParam").default(CodeObjTypeEnum.ColorPickerParam),
   modifier: ColorPickerParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.ColorPickerParam,
@@ -3150,6 +3158,7 @@ export const DropdownParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("DropdownParam").default(CodeObjTypeEnum.DropdownParam),
   modifier: DropdownParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.DropdownParam,
@@ -3170,6 +3179,7 @@ export const PasswordParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("PasswordParam").default(CodeObjTypeEnum.PasswordParam),
   modifier: PasswordParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.PasswordParam,
@@ -3368,6 +3378,7 @@ export const CodeCallableCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("CodeCallable").default(CodeObjTypeEnum.CodeCallable),
   modifier: CodeCallableCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.CodeCallable,
@@ -3388,6 +3399,7 @@ export const NestedParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("NestedParam").default(CodeObjTypeEnum.NestedParam),
   modifier: NestedParamCodeObjModifierSchema.default(() => ({
     type: CodeObjTypeEnum.NestedParam,
@@ -3623,6 +3635,7 @@ export const CodeSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Code").default(SectionTypeEnum.Code),
   modifier: CodeSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Code,
@@ -3641,6 +3654,7 @@ export const GenPythonCodeSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
   modifier: GenPythonCodeSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.GenPythonCode,
@@ -3945,6 +3959,7 @@ export const DictSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Dict").default(SectionTypeEnum.Dict),
   modifier: DictSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Dict,
@@ -3963,6 +3978,7 @@ export const GlobalVariablesSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
   modifier: GlobalVariablesSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.GlobalVariables,
@@ -4349,6 +4365,7 @@ export const ListRootSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("ListRoot").default(SectionTypeEnum.ListRoot),
   modifier: ListRootSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.ListRoot,
@@ -4369,6 +4386,7 @@ export const DictRootSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("DictRoot").default(SectionTypeEnum.DictRoot),
   modifier: DictRootSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.DictRoot,
@@ -4389,6 +4407,7 @@ export const GroupSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Group").default(SectionTypeEnum.Group),
   modifier: GroupSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Group,
@@ -5109,6 +5128,7 @@ export const CallableSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Callable").default(SectionTypeEnum.Callable),
   modifier: CallableSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Callable,
@@ -5129,6 +5149,7 @@ export const TextBlockSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("TextBlock").default(SectionTypeEnum.TextBlock),
   modifier: TextBlockSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.TextBlock,
@@ -5149,6 +5170,7 @@ export const SocialSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Social").default(SectionTypeEnum.Social),
   modifier: SocialSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Social,
@@ -5167,6 +5189,7 @@ export const TerminalSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Terminal").default(SectionTypeEnum.Terminal),
   modifier: TerminalSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Terminal,
@@ -5187,6 +5210,7 @@ export const IFrameSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("IFrame").default(SectionTypeEnum.IFrame),
   modifier: IFrameSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.IFrame,
@@ -5205,6 +5229,7 @@ export const ChatSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Chat").default(SectionTypeEnum.Chat),
   modifier: ChatSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Chat,
@@ -5223,6 +5248,7 @@ export const BrowserSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.literal("Browser").default(SectionTypeEnum.Browser),
   modifier: BrowserSectionModifierSchema.default(() => ({
     type: SectionTypeEnum.Browser,
@@ -10689,6 +10715,7 @@ export const BaseArtifactSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseArtifactSectionModifierSchema,
 });
@@ -10707,6 +10734,7 @@ export const BaseCanvasSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseCanvasSectionModifierSchema,
 });
@@ -10725,6 +10753,7 @@ export const BaseChildlessCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseChildlessCodeObjModifierSchema,
 });
@@ -10743,6 +10772,7 @@ export const BaseCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseCodeObjModifierSchema,
 });
@@ -10759,6 +10789,7 @@ export const BaseCodeSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseCodeSectionModifierSchema,
 });
@@ -10777,6 +10808,7 @@ export const BaseDictSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseDictSectionModifierSchema,
 });
@@ -10795,6 +10827,7 @@ export const BaseParamCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseParamCodeObjModifierSchema,
 });
@@ -10813,6 +10846,7 @@ export const BaseParentCodeObjLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseParentCodeObjModifierSchema,
 });
@@ -10831,6 +10865,7 @@ export const BaseParentSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseParentSectionModifierSchema,
 });
@@ -10849,6 +10884,7 @@ export const BaseSectionLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseSectionModifierSchema,
 });
@@ -10865,6 +10901,7 @@ export const BaseSectionWithParamsLayeringSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
+  impls: z.array(z.string()),
   type: z.any(),
   modifier: BaseSectionWithParamsModifierSchema,
 });

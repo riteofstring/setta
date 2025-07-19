@@ -169,6 +169,7 @@ def create_settings_project_state(settings_path: Path):
         sectionImplLayering = DictSectionLayering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
+            impls=[sectionImpl.id],
         )
         section = DictSectionCore(
             name=k,

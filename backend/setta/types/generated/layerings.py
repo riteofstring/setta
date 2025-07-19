@@ -53,6 +53,7 @@ class BaseSectionLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
+    impls: list[str]
     type: Any
     modifier: BaseSectionModifier
 
@@ -210,6 +211,7 @@ class BaseCodeObjLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
+    impls: list[str]
     type: Any
     modifier: BaseCodeObjModifier
 
@@ -451,82 +453,82 @@ def create_code_obj_layering(
 def create_section_layering(type: SectionType, impl: str):
     match type:
         case SectionType.Callable:
-            return CallableSectionLayering(type=type, impl=impl)
+            return CallableSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Dict:
-            return DictSectionLayering(type=type, impl=impl)
+            return DictSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.ListRoot:
-            return ListRootSectionLayering(type=type, impl=impl)
+            return ListRootSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.DictRoot:
-            return DictRootSectionLayering(type=type, impl=impl)
+            return DictRootSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Group:
-            return GroupSectionLayering(type=type, impl=impl)
+            return GroupSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Image:
-            return ImageSectionLayering(type=type, impl=impl)
+            return ImageSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Chart:
-            return ChartSectionLayering(type=type, impl=impl)
+            return ChartSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Draw:
-            return DrawSectionLayering(type=type, impl=impl)
+            return DrawSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.TextBlock:
-            return TextBlockSectionLayering(type=type, impl=impl)
+            return TextBlockSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Social:
-            return SocialSectionLayering(type=type, impl=impl)
+            return SocialSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.GlobalVariables:
-            return GlobalVariablesSectionLayering(type=type, impl=impl)
+            return GlobalVariablesSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Code:
-            return CodeSectionLayering(type=type, impl=impl)
+            return CodeSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.GenPythonCode:
-            return GenPythonCodeSectionLayering(type=type, impl=impl)
+            return GenPythonCodeSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Terminal:
-            return TerminalSectionLayering(type=type, impl=impl)
+            return TerminalSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.IFrame:
-            return IFrameSectionLayering(type=type, impl=impl)
+            return IFrameSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Chat:
-            return ChatSectionLayering(type=type, impl=impl)
+            return ChatSectionLayering(type=type, impl=impl, impls=[impl])
 
         case SectionType.Browser:
-            return BrowserSectionLayering(type=type, impl=impl)
+            return BrowserSectionLayering(type=type, impl=impl, impls=[impl])
 
 
 def create_code_obj_layering(type: CodeObjType, impl: str):
     match type:
         case CodeObjType.CodeCallable:
-            return CodeCallableCodeObjLayering(type=type, impl=impl)
+            return CodeCallableCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.CodeParam:
-            return CodeParamCodeObjLayering(type=type, impl=impl)
+            return CodeParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.TextParam:
-            return TextParamCodeObjLayering(type=type, impl=impl)
+            return TextParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.SliderParam:
-            return SliderParamCodeObjLayering(type=type, impl=impl)
+            return SliderParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.SwitchParam:
-            return SwitchParamCodeObjLayering(type=type, impl=impl)
+            return SwitchParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.ColorPickerParam:
-            return ColorPickerParamCodeObjLayering(type=type, impl=impl)
+            return ColorPickerParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.DropdownParam:
-            return DropdownParamCodeObjLayering(type=type, impl=impl)
+            return DropdownParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.PasswordParam:
-            return PasswordParamCodeObjLayering(type=type, impl=impl)
+            return PasswordParamCodeObjLayering(type=type, impl=impl, impls=[impl])
 
         case CodeObjType.NestedParam:
-            return NestedParamCodeObjLayering(type=type, impl=impl)
+            return NestedParamCodeObjLayering(type=type, impl=impl, impls=[impl])

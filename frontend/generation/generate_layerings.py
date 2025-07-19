@@ -17,7 +17,7 @@ def additional_args_types_callback(c: ImplClassInfoForGeneration):
 
 
 def additional_args_inputs_callback(c: ImplClassInfoForGeneration):
-    return "impl=impl"
+    return "impl=impl, impls=[impl]"
 
 
 def additional_args_generic_type_callback():
@@ -47,6 +47,7 @@ class BaseSectionLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
+    impls: list[str]
     type: Any
     modifier: {c.modifier_name}
 
@@ -57,6 +58,7 @@ class BaseCodeObjLayering(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
+    impls: list[str]
     type: Any
     modifier: {c.modifier_name}
 

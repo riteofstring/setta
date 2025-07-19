@@ -306,14 +306,18 @@ def add_to_processed_json_object(
         codeObjImpl = create_code_obj_impl(
             CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
         )
-        codeObjImplLayering = NestedParamCodeObjLayering(impl=codeObjImpl.id)
+        codeObjImplLayering = NestedParamCodeObjLayering(
+            impl=codeObjImpl.id, impls=[codeObjImpl.id]
+        )
     else:
         codeObjImpl = create_code_obj_impl(
             CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
             {"value": json.dumps(value)},
         )
-        codeObjImplLayering = TextParamCodeObjLayering(impl=codeObjImpl.id)
+        codeObjImplLayering = TextParamCodeObjLayering(
+            impl=codeObjImpl.id, impls=[codeObjImpl.id]
+        )
     layeringId = codeObjImplLayering.id
     codeObj = create_code_obj_core(
         codeObjImpl.type,
