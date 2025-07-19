@@ -7,9 +7,14 @@ import {
   getAllSelectedParamIds,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
-import { getSectionVariant } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionVariant,
+  setEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState, useSettings } from "state/definitions";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
@@ -48,34 +53,34 @@ export function KwargsControls({
               Args
             </h3> */}
 
-            <button
+            {/* <button
               className={classes}
               onClick={onClickDeleteKwarg}
               tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-math-minus before:!left-0 " />
-            </button>
-            <button
+            </button> */}
+            {/* <button
               className={classes}
               onClick={onClickAddKwarg}
               tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-math-plus !scale-50" />
-            </button>
+            </button> */}
 
-            <button className={classes} onClick={onClickPinParam} tabIndex={0}>
+            {/* <button className={classes} onClick={onClickPinParam} tabIndex={0}>
               <i className="gg-pin-alt mt-1 !scale-50" />
-            </button>
-            <button
+            </button> */}
+            {/* <button
               className={classes}
               onClick={onClickDeleteSelectedKwargs}
               tabIndex={0}
               disabled={variantIsFrozen}
             >
               <i className="gg-close !scale-50" />
-            </button>
+            </button> */}
           </section>
         </article>
 
@@ -86,19 +91,26 @@ export function KwargsControls({
 }
 
 function ParamFilter({ sectionId }) {
-  const { paramFilterValue, sectionIsActive } = useProjectState(
-    (x) => ({
-      paramFilterValue: x.sections[sectionId].paramFilter,
+  const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
+    const impl = getEffectiveSectionImpl(x, sectionId);
+    if (!isBaseSectionWithParamsImpl(impl)) {
+      throw new Error();
+    }
+    return {
+      paramFilterValue: impl.paramFilter,
       sectionIsActive: _.isEqual(x.activeIds, [sectionId]),
-    }),
-    _.isEqual,
-  );
+    };
+  }, _.isEqual);
+
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),
   );
+
   function onSearchChange(e) {
     useProjectState.setState((state) => {
-      state.sections[sectionId].paramFilter = e.target.value;
+      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
+        paramFilter: e.target.value,
+      });
     });
   }
 
