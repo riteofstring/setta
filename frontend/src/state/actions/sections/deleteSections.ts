@@ -1,9 +1,6 @@
 import { deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState, ZustandProjectState } from "state/definitions";
-import {
-  isBaseParentSectionImpl,
-  isBaseParentSectionLayering,
-} from "utils/generatedTypes";
+import { isBaseParentSectionImpl } from "utils/generatedTypes";
 import { removeActiveSectionIds } from "../activeSections";
 import {
   getAllSectionsForDeletionOrCopying,
@@ -84,11 +81,7 @@ function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
     for (const implLayering of Object.values(state.sectionImplLayerings)) {
       const impl = state.sectionImpls[implLayering.impl];
       const modifier = implLayering.modifier;
-      if (
-        !impl ||
-        !isBaseParentSectionImpl(impl) ||
-        !isBaseParentSectionLayering(implLayering)
-      ) {
+      if (!impl || !isBaseParentSectionImpl(impl)) {
         continue;
       }
       if (impl.children.includes(id) || modifier.children?.includes(id)) {

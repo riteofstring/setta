@@ -249,7 +249,6 @@ class BaseClassInfoForGeneration(ABC):
     def parent_args_class_names(self) -> list[str]:
         return [p.__name__ + "Args" for p in self.parents]
 
-
     @property
     @abstractmethod
     def is_for_section(self) -> bool:

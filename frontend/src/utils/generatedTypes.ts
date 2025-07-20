@@ -1649,7 +1649,7 @@ export function createCodeSectionImpl(
 export const GenPythonCodeSectionImplSchema = z.object({
   type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
   id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
+  name: z.string().default("Generated Python Code" as const),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -1730,7 +1730,7 @@ export function createDictSectionImpl(
 export const GlobalVariablesSectionImplSchema = z.object({
   type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
   id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
+  name: z.string().default("Global Variables" as const),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),

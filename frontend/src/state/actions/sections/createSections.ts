@@ -8,11 +8,11 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
-  BaseSectionCoreUnion,
   BaseSectionImplUnion,
-  createBaseSectionCoreUnionWithDiscriminator,
+  Core,
   createBaseSectionImplUnionWithDiscriminator,
-  createBaseSectionLayeringUnionWithDiscriminator,
+  createCore,
+  createLayering,
   createSectionSize,
   createTopLevelSectionLayout,
   getSectionDefault,
@@ -32,9 +32,7 @@ import {
 type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
 
-type PartialCoreWithIdOrName = Partial<
-  Pick<BaseSectionCoreUnion, "id" | "name">
->;
+type PartialCoreWithIdOrName = Partial<Pick<Core, "id">>;
 
 export function addRegularSectionInEmptySpace() {
   let newId;
@@ -206,13 +204,11 @@ export function createSection(
     ...sectionDefault,
     ...implProps,
   });
-  const sectionImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
-    type: implProps.type,
+  const sectionImplLayering = createLayering({
     impl: sectionImpl.id,
     nonPresetImpls: sectionImpl.isPreset ? [] : [sectionImpl.id],
   });
-  const section = createBaseSectionCoreUnionWithDiscriminator({
-    type: implProps.type,
+  const section = createCore({
     implLayerings: [sectionImplLayering.id],
     defaultImplLayering: sectionImplLayering.id,
     ...coreProps,

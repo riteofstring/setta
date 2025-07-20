@@ -10,8 +10,7 @@ import {
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   BaseSectionWithParamsImpl,
-  createBaseCodeObjLayeringUnionWithDiscriminator,
-  createBaseSectionLayeringUnionWithDiscriminator,
+  createLayering,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { createNewId, createRandomName } from "utils/idNameCreation";
@@ -37,8 +36,7 @@ export function createNewSectionVersion(
       name: createRandomName(),
     });
   }
-  const newImplLayering = createBaseSectionLayeringUnionWithDiscriminator({
-    type: newImpl.type,
+  const newImplLayering = createLayering({
     impl: newImpl.id,
   });
   const section = p.sections[sectionId];
@@ -98,8 +96,7 @@ function createNewCodeObjVersion(
       name: createRandomName(),
     });
   }
-  const newImplLayering = createBaseCodeObjLayeringUnionWithDiscriminator({
-    type: newImpl.type,
+  const newImplLayering = createLayering({
     impl: newImpl.id,
   });
 
