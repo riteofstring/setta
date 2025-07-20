@@ -57,10 +57,14 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {sectionTypeName === SectionTypeEnum.Code && (
+        {(sectionTypeName === SectionTypeEnum.Code ||
+          sectionTypeName === SectionTypeEnum.GenPythonCode) && (
           <>
-            <RunButton sectionId={sectionId} />{" "}
-            <ToggleEntryCodeBlockButton sectionId={sectionId} />{" "}
+            <RunButton sectionId={sectionId} />
+            <ToggleEntryCodeBlockButton
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+            />
           </>
         )}
         {!isUserView && <LockPositionButton sectionId={sectionId} />}

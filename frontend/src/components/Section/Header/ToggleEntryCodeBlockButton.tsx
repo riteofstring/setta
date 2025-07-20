@@ -1,17 +1,32 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { MdMemory } from "react-icons/md";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
-export function ToggleEntryCodeBlockButton({ sectionId }) {
+export function ToggleEntryCodeBlockButton({
+  sectionId,
+  sectionTypeName,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+}) {
   const isEntryCodeBlock = useProjectState(
-    (x) => sectionId === x.projectConfig.entryCodeBlockId,
+    (x) =>
+      // null sectionId corresponds to gen python code block
+      (sectionTypeName === SectionTypeEnum.GenPythonCode &&
+        !x.projectConfig.entryCodeBlockId) ||
+      sectionId === x.projectConfig.entryCodeBlockId,
   );
 
   function onClick() {
     useProjectState.setState((state) => {
-      state.projectConfig.entryCodeBlockId = sectionId;
+      state.projectConfig.entryCodeBlockId =
+        sectionTypeName === SectionTypeEnum.GenPythonCode ? null : sectionId;
     });
+
+    maybeIncrementProjectStateVersion(true);
   }
 
   return (

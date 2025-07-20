@@ -81,7 +81,7 @@ export function subscribe() {
       if (codeBlockIds.length === 0) {
         configState.entryCodeBlockId = null;
       } else if (
-        !configState.entryCodeBlockId ||
+        configState.entryCodeBlockId &&
         !codeBlockIds.includes(configState.entryCodeBlockId)
       ) {
         configState.entryCodeBlockId = codeBlockIds[0] ?? null;
