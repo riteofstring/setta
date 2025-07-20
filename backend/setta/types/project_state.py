@@ -8,13 +8,10 @@ from pydantic import (
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME
 from setta.database.utils import create_new_id
+from setta.types.core import Core, Layering
 from setta.types.generated.unions import (
-    BaseCodeObjCoreUnionWithDiscriminator,
     BaseCodeObjImplUnionWithDiscriminator,
-    BaseCodeObjLayeringUnionWithDiscriminator,
-    BaseSectionCoreUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
-    BaseSectionLayeringUnionWithDiscriminator,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -53,24 +50,16 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSectionCoreUnionWithDiscriminator] = Field(
-        default_factory=dict
-    )
+    sections: dict[str, Core] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    sectionImplLayerings: dict[str, BaseSectionLayeringUnionWithDiscriminator] = Field(
-        default_factory=dict
-    )
-    codeObjs: dict[str, BaseCodeObjCoreUnionWithDiscriminator] = Field(
-        default_factory=dict
-    )
+    sectionImplLayerings: dict[str, Layering] = Field(default_factory=dict)
+    codeObjs: dict[str, Core] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnionWithDiscriminator] = Field(
-        default_factory=dict
-    )
+    codeObjImplLayerings: dict[str, Layering] = Field(default_factory=dict)
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

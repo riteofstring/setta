@@ -4,7 +4,6 @@ find backend/setta/types/generated/ -name "*.py" -not -name "__init__.py" -delet
 cd frontend && \
 python -m generation.generate_impl_field_literals && \
 python -m generation.generate_modifiers && \
-python -m generation.generate_layerings && \
 python -m generation.generate_cores && \
 python -m generation.generate_user_default_impls && \
 python -m generation.generate_impl_creation_fns && \

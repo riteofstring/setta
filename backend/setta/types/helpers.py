@@ -4,29 +4,21 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
 )
+from setta.types.core import Core, Layering
 from setta.types.generated.cores import create_section_core
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
-from setta.types.generated.layerings import create_code_obj_layering
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
-    BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
-    BaseChildlessCodeObjLayeringUnion,
-    BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
-    BaseParentCodeObjCoreUnion,
     BaseParentCodeObjImplUnion,
-    BaseParentCodeObjLayeringUnion,
-    BaseSectionCoreUnion,
     BaseSectionImplUnion,
-    BaseSectionWithParamsCoreUnion,
     BaseSectionWithParamsImplUnion,
-    BaseSectionWithParamsLayeringUnion,
 )
 from setta.types.impl_helpers import (
     update_impl_layerings,
@@ -306,7 +298,7 @@ def callable_has_been_selected_before(
 def add_code_obj(
     p: ProjectStateSingleConfig,
     section_id: str,
-    code_obj: BaseCodeObjCoreUnion,
+    code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_layering = get_section_impl_layering(p, section_id)
@@ -320,14 +312,11 @@ def add_code_obj(
     if not (
         isinstance(base_section_impl, BaseSectionWithParamsImplUnion)
         and isinstance(section_impl, BaseSectionWithParamsImplUnion)
-        and isinstance(section_core, BaseSectionWithParamsCoreUnion)
-        and isinstance(section_layering, BaseSectionWithParamsLayeringUnion)
     ):
         raise TypeError
-    code_obj_impl_layering = create_code_obj_layering(
-        type=code_obj_impl.type,
+    code_obj_impl_layering = Layering(
         impl=code_obj_impl.id,
-        implIsPreset=code_obj_impl.isPreset,
+        nonPresetImpls=[] if code_obj_impl.isPreset else [code_obj_impl.id],
     )
     code_obj.implLayerings.append(code_obj_impl_layering.id)
     if not code_obj.defaultImplLayering:
@@ -354,7 +343,7 @@ def add_children_of_callable(
     p: ProjectStateSingleConfig,
     section_id: str,
     callable_id: str,
-    new_params: list[BaseCodeObjCoreUnion],
+    new_params: list[Core],
     new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
 ):
     callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
@@ -365,7 +354,7 @@ def add_children_of_callable(
     )
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
-    existing_param_core: dict[str, BaseCodeObjCoreUnion] = {}
+    existing_param_core: dict[str, Core] = {}
     for c in callable_code_obj_impl.children:
         match = p.codeObjs[c]
         existing_param_core[match.name] = match
@@ -386,11 +375,7 @@ def add_children_of_callable(
 
     base_impl = p.codeObjImpls[callable_code_obj_layering.impl]
     code_obj_core = p.codeObjs[callable_id]
-    if (
-        isinstance(base_impl, BaseParentCodeObjImplUnion)
-        and isinstance(code_obj_core, BaseParentCodeObjCoreUnion)
-        and isinstance(callable_code_obj_layering, BaseParentCodeObjLayeringUnion)
-    ):
+    if isinstance(base_impl, BaseParentCodeObjImplUnion):
         set_effective_impl_value(
             base_impl,
             code_obj_core,
@@ -408,11 +393,7 @@ def set_param_entered_value(
     code_obj_impl_layering = get_code_obj_impl_layering(p, paramId, sectionId)
     base_impl = (p.codeObjImpls[code_obj_impl_layering.impl],)
     code_obj_core = p.codeObjs[paramId]
-    if (
-        isinstance(base_impl, BaseChildlessCodeObjImplUnion)
-        and isinstance(code_obj_core, BaseChildlessCodeObjCoreUnion)
-        and isinstance(code_obj_impl_layering, BaseChildlessCodeObjLayeringUnion)
-    ):
+    if isinstance(base_impl, BaseChildlessCodeObjImplUnion):
         set_effective_impl_value(
             base_impl,
             code_obj_core,
@@ -423,7 +404,7 @@ def set_param_entered_value(
 
 
 def get_top_level_sections(p: ProjectStateSingleConfig):
-    output: dict[str, BaseSectionCoreUnion] = {}
+    output: dict[str, Core] = {}
     projectConfig = p.projectConfig
     for c in projectConfig.topLevelSections.keys():
         output[c] = p.sections[c]
@@ -432,7 +413,7 @@ def get_top_level_sections(p: ProjectStateSingleConfig):
 
 def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
     param_ids = get_top_level_param_ids(p, sectionId)
-    output: list[tuple[BaseCodeObjCoreUnion, BaseParamCodeObjImpl]] = []
+    output: list[tuple[Core, BaseParamCodeObjImpl]] = []
     for x in param_ids:
         codeObj = p.codeObjs[x]
         codeObjImpl = get_effective_code_obj_impl(p, sectionId, x)

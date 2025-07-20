@@ -12,6 +12,7 @@ BaseSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -32,6 +33,7 @@ BaseSectionWithParamsImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
+    "presetName",
     "selectedParams",
     "size",
     "visibility",
@@ -46,6 +48,7 @@ BaseArtifactSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -58,6 +61,7 @@ BaseCanvasSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "renderedValue",
     "size",
     "visibility",
@@ -72,6 +76,7 @@ BaseCodeSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -85,6 +90,7 @@ BaseParentSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -108,6 +114,7 @@ BaseDictSectionImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
+    "presetName",
     "selectedParams",
     "size",
     "topLevelParamIds",
@@ -132,6 +139,7 @@ CallableSectionImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
+    "presetName",
     "selectedParams",
     "size",
     "visibility",
@@ -156,6 +164,7 @@ DictSectionImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
+    "presetName",
     "selectedParams",
     "size",
     "topLevelParamIds",
@@ -171,6 +180,7 @@ ListRootSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -184,6 +194,7 @@ DictRootSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -198,6 +209,7 @@ GroupSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -211,6 +223,7 @@ ImageSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -225,6 +238,7 @@ ChartSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "renderedValue",
     "size",
     "visibility",
@@ -240,6 +254,7 @@ DrawSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "renderedValue",
     "size",
     "visibility",
@@ -256,6 +271,7 @@ TextBlockSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "text",
     "visibility",
@@ -269,6 +285,7 @@ SocialSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "social",
     "visibility",
@@ -293,6 +310,7 @@ GlobalVariablesSectionImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
+    "presetName",
     "selectedParams",
     "size",
     "topLevelParamIds",
@@ -309,6 +327,7 @@ CodeSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -322,6 +341,7 @@ GenPythonCodeSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -334,6 +354,7 @@ TerminalSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -346,6 +367,7 @@ IFrameSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -358,6 +380,7 @@ ChatSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
@@ -371,12 +394,13 @@ BrowserSectionImplFields = Literal[
     "isMinimized",
     "parentId",
     "positionAndSizeLocked",
+    "presetName",
     "size",
     "visibility",
 ]
-BaseCodeObjImplFields = Literal["description"]
+BaseCodeObjImplFields = Literal["description", "presetName"]
 BaseParamCodeObjImplFields = Literal[
-    "coreNameEditable", "coreNameType", "description", "passingStyle"
+    "coreNameEditable", "coreNameType", "description", "passingStyle", "presetName"
 ]
 BaseChildlessCodeObjImplFields = Literal[
     "coreNameEditable",
@@ -384,16 +408,18 @@ BaseChildlessCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
-BaseParentCodeObjImplFields = Literal["children", "description"]
-CodeCallableCodeObjImplFields = Literal["children", "description"]
+BaseParentCodeObjImplFields = Literal["children", "description", "presetName"]
+CodeCallableCodeObjImplFields = Literal["children", "description", "presetName"]
 CodeParamCodeObjImplFields = Literal[
     "coreNameEditable",
     "coreNameType",
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 TextParamCodeObjImplFields = Literal[
@@ -402,6 +428,7 @@ TextParamCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 SliderParamCodeObjImplFields = Literal[
@@ -412,6 +439,7 @@ SliderParamCodeObjImplFields = Literal[
     "max",
     "min",
     "passingStyle",
+    "presetName",
     "step",
     "value",
 ]
@@ -421,6 +449,7 @@ SwitchParamCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 ColorPickerParamCodeObjImplFields = Literal[
@@ -430,6 +459,7 @@ ColorPickerParamCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 DropdownParamCodeObjImplFields = Literal[
@@ -439,6 +469,7 @@ DropdownParamCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 PasswordParamCodeObjImplFields = Literal[
@@ -447,8 +478,14 @@ PasswordParamCodeObjImplFields = Literal[
     "defaultVal",
     "description",
     "passingStyle",
+    "presetName",
     "value",
 ]
 NestedParamCodeObjImplFields = Literal[
-    "children", "coreNameEditable", "coreNameType", "description", "passingStyle"
+    "children",
+    "coreNameEditable",
+    "coreNameType",
+    "description",
+    "passingStyle",
+    "presetName",
 ]

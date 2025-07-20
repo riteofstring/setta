@@ -1,7 +1,6 @@
 import copy
 import json
 import logging
-from typing import TypeGuard
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +10,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
 )
-from setta.types.generated.cores import NestedParamCodeObjCore, create_code_obj_core
+from setta.types.core import Core, Layering
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -26,18 +25,10 @@ from setta.types.generated.layerings import (
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
-    BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
-    BaseChildlessCodeObjLayeringUnion,
-    BaseCodeObjCoreUnion,
     BaseCodeObjImplUnion,
-    BaseCodeObjLayeringUnion,
-    BaseDictSectionCoreUnion,
     BaseDictSectionImplUnion,
-    BaseDictSectionLayeringUnion,
-    BaseSectionCoreUnion,
     BaseSectionImplUnion,
-    BaseSectionLayeringUnion,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -53,20 +44,18 @@ logger = logging.getLogger(__name__)
 
 class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
-    codeObjs: dict[str, BaseCodeObjCoreUnion] = Field(default_factory=dict)
+    codeObjs: dict[str, Core] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion] = Field(
-        default_factory=dict
-    )
+    codeObjImplLayerings: dict[str, Layering] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
-    sections: dict[str, BaseSectionCoreUnion]
+    sections: dict[str, Core]
     sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionImplLayerings: dict[str, BaseSectionLayeringUnion]
-    codeObjs: dict[str, BaseCodeObjCoreUnion]
+    sectionImplLayerings: dict[str, Layering]
+    codeObjs: dict[str, Core]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion]
+    codeObjImplLayerings: dict[str, Layering]
 
 
 def load_json_sources_into_data_structures(
@@ -86,8 +75,6 @@ def load_json_sources_into_data_structures(
             if (
                 not isinstance(base_impl, BaseDictSectionImplUnion)
                 or not isinstance(impl, BaseDictSectionImplUnion)
-                or not isinstance(layering, BaseDictSectionLayeringUnion)
-                or not isinstance(section, BaseDictSectionCoreUnion)
                 or not impl.isJsonSource
                 or (
                     section_impl_layering_ids
@@ -119,13 +106,13 @@ def load_json_sources_into_data_structures(
 def merge_into_existing(
     filename: str,
     new_data: ProcessedJSONObject,
-    section: BaseDictSectionCoreUnion,
+    section: Core,
     base_section_impl: BaseDictSectionImplUnion,
     section_impl: BaseDictSectionImplUnion,
-    section_impl_layering: BaseDictSectionLayeringUnion,
-    codeObjs: dict[str, BaseCodeObjCoreUnion],
+    section_impl_layering: Layering,
+    codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, BaseCodeObjLayeringUnion],
+    codeObjImplLayerings: dict[str, Layering],
 ):
     ancestor_paths = build_ancestor_paths(
         codeObjs,
@@ -189,8 +176,6 @@ def merge_into_existing(
             isinstance(baseCodeObjImpl, NestedParamCodeObjImpl)
             and isinstance(impl, NestedParamCodeObjImpl)
             and isinstance(newImpl, NestedParamCodeObjImpl)
-            and isinstance(codeObjCore, NestedParamCodeObjCore)
-            and isinstance(layering, NestedParamCodeObjLayering)
         ):
             impl = set_effective_impl_value(
                 baseCodeObjImpl,
@@ -207,8 +192,6 @@ def merge_into_existing(
             isinstance(baseCodeObjImpl, BaseChildlessCodeObjImplUnion)
             and isinstance(impl, BaseChildlessCodeObjImplUnion)
             and isinstance(newImpl, BaseChildlessCodeObjImplUnion)
-            and isinstance(codeObjCore, BaseChildlessCodeObjCoreUnion)
-            and isinstance(layering, BaseChildlessCodeObjLayeringUnion)
         ):
             impl = set_effective_impl_value(
                 baseCodeObjImpl, codeObjCore, layering, {"value": newImpl.value}
@@ -304,7 +287,7 @@ def add_to_processed_json_object(
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = create_code_obj_impl(
-            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
+            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault, {"name": key}
         )
         codeObjImplLayering = NestedParamCodeObjLayering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
@@ -313,15 +296,15 @@ def add_to_processed_json_object(
         codeObjImpl = create_code_obj_impl(
             CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
-            {"value": json.dumps(value)},
+            {"name": key, "value": json.dumps(value)},
         )
         codeObjImplLayering = TextParamCodeObjLayering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     layeringId = codeObjImplLayering.id
-    codeObj = create_code_obj_core(
-        codeObjImpl.type,
-        {"name": key, "implLayerings": [layeringId], "defaultImplLayering": layeringId},
+    codeObj = Core(
+        implLayerings=[layeringId],
+        defaultImplLayering=layeringId,
     )
 
     output.sectionImpl.codeObjImplLayeringMap[codeObj.id] = layeringId
@@ -333,21 +316,3 @@ def add_to_processed_json_object(
 
 def createMetadataJsonString(filename: str, path: list[str]):
     return json.dumps({"filename": filename, "key": path})
-
-
-def are_dict_sections(
-    objs: tuple[object, object, object, object],
-) -> TypeGuard[
-    tuple[
-        BaseDictSectionImplUnion,
-        BaseDictSectionImplUnion,
-        BaseDictSectionLayeringUnion,
-        BaseDictSectionCoreUnion,
-    ]
-]:
-    return (
-        isinstance(objs[0], BaseDictSectionImplUnion)
-        and isinstance(objs[1], BaseDictSectionImplUnion)
-        and isinstance(objs[2], BaseDictSectionLayeringUnion)
-        and isinstance(objs[3], BaseDictSectionCoreUnion)
-    )

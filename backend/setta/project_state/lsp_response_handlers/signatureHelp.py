@@ -9,11 +9,10 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ParameterPassingStyle,
 )
-from setta.types.generated.cores import create_code_obj_core
+from setta.types.core import Core
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
-    BaseCodeObjCoreUnion,
     BaseParamCodeObjImplUnion,
 )
 
@@ -81,7 +80,7 @@ def wrapper_parse_signature(
     ],
 ):
     params = get_proposed_params(signature, docstring)
-    codeObjs: list[BaseCodeObjCoreUnion] = []
+    codeObjs: list[Core] = []
     codeObjImplMap: dict[str, BaseParamCodeObjImplUnion] = {}
     positional_only_indicator_idx = -1
     keyword_only_indicator_idx = -1
@@ -121,12 +120,13 @@ def wrapper_parse_signature(
             CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
             {
+                "name": name.lstrip("*"),
                 "defaultVal": default,
                 "description": description,
                 "passingStyle": passingStyle,
             },
         )
-        codeObj = create_code_obj_core(codeObjImpl.type, {"name": name.lstrip("*")})
+        codeObj = Core()
         codeObjs.append(codeObj)
         codeObjImplMap[codeObj.id] = codeObjImpl
 

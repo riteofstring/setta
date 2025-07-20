@@ -8,7 +8,6 @@ from setta.utils.utils import get_absolute_path
 from .utils import (
     BaseClassInfoForGeneration,
     ImplClassInfoForGeneration,
-    get_creation_fns,
     get_impl_classes,
     python_type_to_str,
 )
@@ -90,27 +89,6 @@ from setta.types.code_obj_impls import (
 """
 
 
-def generate_modifiers(output_file, classes: dict[str, ImplClassInfoForGeneration]):
-    code = get_imports_str()
-    for c in classes.values():
-        code += create_model_args_as_typed_dict(
-            c,
-            [
-                setta.types.section_impls.BaseSectionImpl,
-                setta.types.code_obj_impls.BaseCodeObjImpl,
-            ],
-            c.modifier_name,
-            c.parent_modifier_class_names,
-            exclusions=["id", "name", "isPreset"],
-            required_args=["type"],
-        )
-
-    code += get_creation_fns(classes, "modifier")
-    code = ruff_format(code)
-    output_file.write_text(code)
-    print(f"wrote to {output_file}")
-
-
 def generate_impl_args_as_typed_dicts(
     output_file, classes: dict[str, ImplClassInfoForGeneration]
 ):
@@ -132,12 +110,6 @@ def generate_impl_args_as_typed_dicts(
 
 
 if __name__ == "__main__":
-    generate_modifiers(
-        get_absolute_path(
-            __file__, Path("../../backend/setta/types/generated") / "modifiers.py"
-        ),
-        get_impl_classes(),
-    )
     generate_impl_args_as_typed_dicts(
         get_absolute_path(
             __file__,
