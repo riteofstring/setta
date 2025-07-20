@@ -2,7 +2,11 @@ import _ from "lodash";
 import { getCodeObjImplLayering } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
-import { IdNameCombobox } from "./IdNameCombobox";
+import {
+  ComboboxOnSelectedItemChange,
+  IdNameArrayForCombobox,
+  IdNameCombobox,
+} from "../../../Utils/Combobox/IdNameCombobox";
 
 function UITypeCombobox({
   nonPresetImpls,
@@ -34,8 +38,8 @@ export function ParamConfigUITypeCombobox({
   sectionId: string;
   paramInfoId: string;
   selectedBaseImplId: string;
-  presetCodeObjImpls: Array<{ id: string; name: string }>;
-  onDropdownSelect: any;
+  presetCodeObjImpls: IdNameArrayForCombobox;
+  onDropdownSelect: ComboboxOnSelectedItemChange;
 }) {
   const nonPresetImpls = useNonPresetImplsForParam(sectionId, paramInfoId);
   return (
@@ -60,7 +64,7 @@ function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
       prevImpls[impl.type] = impl.id;
     }
 
-    const output: Array<{ id: string; name: string }> = [];
+    const output: IdNameArrayForCombobox = [];
     for (const c of BaseParamCodeObjImplTypeSet) {
       if (prevImpls[c]) {
         output.push({

@@ -1,10 +1,13 @@
 import * as Slider from "@radix-ui/react-slider";
+import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import {
+  SliderConfigForFrontend,
+  useParamCodeObjUIConfig,
+} from "state/hooks/uiTypes";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
-import { SimpleConfig } from "./SimpleConfig";
 
 export function SliderInputConfigForParam({
   sectionId,
@@ -26,15 +29,23 @@ export function SliderInputConfigForParam({
   return <SliderInputConfig onChange={onChange} config={config} />;
 }
 
-export function SliderInputConfig({ onChange, config }) {
-  const options = ["min", "max", "step"];
+export function SliderInputConfig({
+  onChange,
+  config,
+}: {
+  onChange: any;
+  config: SliderConfigForFrontend;
+}) {
   const [localConfig, setLocalConfig] = useState(config);
 
-  function localOnChange(configName, value) {
+  function localOnChange(
+    configName: keyof SliderConfigForFrontend,
+    value: string,
+  ) {
     setLocalConfig({ ...localConfig, [configName]: value });
   }
 
-  function onBlur(configName, value) {
+  function onBlur(configName: keyof SliderConfigForFrontend, value: string) {
     const asNum = _.toNumber(value);
     if (
       value === "" ||
@@ -52,27 +63,42 @@ export function SliderInputConfig({ onChange, config }) {
   }, [config]);
 
   return (
-    <SimpleConfig
-      options={options}
-      onChange={localOnChange}
-      onBlur={onBlur}
-      config={localConfig}
-    />
+    <div className="mt-1 flex flex-col">
+      {Object.keys(config).map((e, idx) => (
+        <div
+          className="flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]"
+          key={`SimpleConfig-${idx}`}
+        >
+          <p className="flex-1 font-sans text-xs font-semibold text-setta-600">
+            {e}
+          </p>
+          <StandardInput
+            twClasses="justify-end"
+            placeholder={e}
+            key={`${e}-${idx}`}
+            onChange={(v) => localOnChange(e, v.target.value)}
+            onBlur={(v) => onBlur(e, v.target.value)}
+            value={config[e]}
+          />
+        </div>
+      ))}
+    </div>
   );
 }
 
-function configMakesSense(configName, newConfigVal, config) {
-  let { step, min, max } = config;
-  if (configName === "min") {
-    min = newConfigVal;
-  } else if (configName === "max") {
-    max = newConfigVal;
-  } else {
-    step = newConfigVal;
-  }
+function configMakesSense(
+  configName: keyof SliderConfigForFrontend,
+  newConfigVal: number,
+  config: SliderConfigForFrontend,
+): boolean {
+  const updatedConfig: SliderConfigForFrontend = {
+    ...config,
+    [configName]: newConfigVal,
+  };
+
+  const { min, max, step } = updatedConfig;
   return min < max && step <= max - min;
 }
-
 export function SliderInput({
   value,
   defaultVal,

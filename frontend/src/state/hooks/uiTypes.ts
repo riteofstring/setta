@@ -113,8 +113,16 @@ export function getUIEditorTab(
   return { selectedTabName, requiredTabs: new Set(requiredTabs) };
 }
 
+export type SliderConfigForFrontend = {
+  min: number;
+  max: number;
+  step: number;
+};
+
 const UI_CONFIG_EXTRACTORS = {
-  [CodeObjTypeEnum.SliderParam]: (obj: SliderParamCodeObjImpl) => ({
+  [CodeObjTypeEnum.SliderParam]: (
+    obj: SliderParamCodeObjImpl,
+  ): SliderConfigForFrontend => ({
     min: obj.min,
     max: obj.max,
     step: obj.step,

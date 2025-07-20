@@ -1,5 +1,9 @@
+import { ParamConfigUITypeCombobox } from "components/Panes/UiEditor/UIConfig/UITypeCombobox";
 import { ParamUIConfig } from "components/Params/ParamUIs/ParamUI";
-import { ParamConfigUITypeCombobox } from "components/Utils/Combobox/UITypeCombobox";
+import {
+  ComboboxOnSelectedItemChange,
+  IdNameArrayForCombobox,
+} from "components/Utils/Combobox/IdNameCombobox";
 
 export function UIConfigDropdownAndFields({
   sectionId,
@@ -11,8 +15,8 @@ export function UIConfigDropdownAndFields({
   sectionId: string;
   paramInfoId: string;
   baseImplId: string;
-  presetCodeObjImpls: Array<{ id: string; name: string }>;
-  onDropdownSelect: any;
+  presetCodeObjImpls: IdNameArrayForCombobox;
+  onDropdownSelect: ComboboxOnSelectedItemChange;
 }) {
   return (
     <>
