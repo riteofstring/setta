@@ -6,7 +6,6 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import (
-    CLASS_NAME,
     sanitize_name,
 )
 from setta.database.utils import create_new_id
@@ -289,12 +288,8 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code(self):
         return self.code_generator.code
 
-    def write_to_folder(self, folder: Path, as_entry_code_block: bool):
-        code = self.code_generator.code
-        if as_entry_code_block:
-            # if we're using this as the entry code block, then just append S()
-            code = f"{code}\n\n{CLASS_NAME}()"
-        return super().write_to_folder(code, folder)
+    def write_to_folder(self, folder: Path):
+        return super().write_to_folder(self.code_generator.code, folder)
 
 
 class ProjectPythonCode(PythonCode):

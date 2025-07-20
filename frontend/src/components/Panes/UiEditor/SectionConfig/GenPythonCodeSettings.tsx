@@ -6,14 +6,29 @@ import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
 } from "utils/generatedEndpoints";
+import {
+  CodeMirrorCompletion,
+  GenCodePrefixCompletionRequest,
+} from "utils/generatedTypes";
 
-// Generic CodeEditor component
-function GenCodeEditor({ label, value, completionRoute, onChange }) {
+function GenCodeEditor({
+  label,
+  value,
+  completionRoute,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  completionRoute: (
+    x: GenCodePrefixCompletionRequest | GenCodePrefixCompletionRequest,
+  ) => Promise<ResponseDataAndStatus<Array<CodeMirrorCompletion>>>;
+  onChange: (x: string) => void;
+}) {
   const theme = useCodeMirrorStyle();
   const [localValue, setLocalValue] = useState(value);
 

@@ -6370,7 +6370,7 @@ export const ProjectConfigSchema = z.object({
     .enum(ViewingEditingModeEnum)
     .default(ViewingEditingModeEnum.DEV),
   genCodePrefix: z.string().default("" as const),
-  genCodeSuffix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("s = S()" as const),
   entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
   topLevelSections: z
     .record(z.string(), TopLevelSectionLayoutSchema)
@@ -11994,6 +11994,22 @@ export function createGenCodePrefixCompletionRequest(
   options: Partial<GenCodePrefixCompletionRequest> = {},
 ): GenCodePrefixCompletionRequest {
   return GenCodePrefixCompletionRequestSchema.parse(options);
+}
+
+export const GenCodeSuffixCompletionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  fullText: z.string(),
+  position: z.int(),
+});
+
+export type GenCodeSuffixCompletionRequest = z.infer<
+  typeof GenCodeSuffixCompletionRequestSchema
+>;
+
+export function createGenCodeSuffixCompletionRequest(
+  options: Partial<GenCodeSuffixCompletionRequest> = {},
+): GenCodeSuffixCompletionRequest {
+  return GenCodeSuffixCompletionRequestSchema.parse(options);
 }
 
 export const SetCallableRequestSchema = z.object({

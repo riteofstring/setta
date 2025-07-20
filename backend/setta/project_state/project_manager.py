@@ -155,20 +155,17 @@ class ProjectManager:
     ):
         target_folder = create_timestamped_folder(CODE_FOLDER)
         gen_code = self.gen_code[projectConfigId]
-
-        if not sectionId:
-            sectionId = self.project_state_backend.projectConfigs[
-                projectConfigId
-            ].entryCodeBlockId
-
-        gen_code_path = gen_code.write_to_folder(
-            target_folder, as_entry_code_block=not sectionId
-        )
+        gen_code_path = gen_code.write_to_folder(target_folder)
 
         code_dict = self.code_dict[projectConfigId]
         code_paths = {}
         for sid, c in code_dict.items():
             code_paths[sid] = c.write_to_folder(target_folder)
+
+        if not sectionId:
+            sectionId = self.project_state_backend.projectConfigs[
+                projectConfigId
+            ].entryCodeBlockId
 
         if sectionId:
             return code_dict[sectionId].get_run_command(code_paths[sectionId])

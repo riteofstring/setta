@@ -41,6 +41,7 @@ class GenCodePrefixCompletionRequest(BaseModel):
     fullText: str
     position: int
 
+
 class GenCodeSuffixCompletionRequest(BaseModel):
     projectConfigId: str
     fullText: str
@@ -94,7 +95,6 @@ async def route_gen_code_prefix_completion(
 async def route_gen_code_suffix_completion(
     x: GenCodeSuffixCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
-    print(f"\n\n\n{x}",flush=True)
     return await state.project_manager.gen_code_suffix_autocomplete(
         x.projectConfigId, x.fullText, x.position
     )

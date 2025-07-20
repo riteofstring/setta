@@ -1,7 +1,7 @@
 SELF_IDENTIFIER = "s"
-CLASS_NAME = "S"
+GEN_CODE_CLASS_NAME = "S"
 CLASS_DEF = f"""
-class {CLASS_NAME}:
+class {GEN_CODE_CLASS_NAME}:
     def __init__({SELF_IDENTIFIER}):
 """.lstrip()
 

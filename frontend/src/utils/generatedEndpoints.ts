@@ -334,7 +334,7 @@ export async function route_gen_code_prefix_completion(
 }
 
 export async function route_gen_code_suffix_completion(
-  x: gt.GenCodePrefixCompletionRequest,
+  x: gt.GenCodeSuffixCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post("/genCodeSuffixCompletion", x);
 }

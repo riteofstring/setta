@@ -6,6 +6,7 @@ from pydantic import (
     model_validator,
 )
 
+from setta.code_gen.utils import GEN_CODE_CLASS_NAME
 from setta.database.utils import create_new_id
 from setta.types.generated.unions import (
     BaseCodeObjCoreUnionWithDiscriminator,
@@ -45,7 +46,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
     genCodePrefix: str = ""
-    genCodeSuffix: str = ""
+    genCodeSuffix: str = f"s = {GEN_CODE_CLASS_NAME}()"
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionImplLayeringMap: dict[str, str] = Field(default_factory=dict)
