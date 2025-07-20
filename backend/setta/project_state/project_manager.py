@@ -220,8 +220,9 @@ class ProjectManager:
             )
             self.gen_code[projectConfigId].callback_cleanup()
 
-        gen_code_prefix = projectConfig.genCodePrefix
-        code_generator = PythonCodeGenerator(dep_graph, gen_code_prefix)
+        code_generator = PythonCodeGenerator(
+            dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+        )
         code_generator.generate_code()
 
         projectConfigName = projectConfig.name
@@ -327,6 +328,15 @@ class ProjectManager:
     ):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
         return await self.gen_code[projectConfigId].gen_code_prefix_autocomplete(
+            fullText, position
+        )
+
+    @enqueue_method
+    async def gen_code_suffix_autocomplete(
+        self, projectConfigId: str, fullText: str, position: int
+    ):
+        print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
+        return await self.gen_code[projectConfigId].gen_code_suffix_autocomplete(
             fullText, position
         )
 

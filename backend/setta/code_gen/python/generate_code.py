@@ -33,9 +33,12 @@ class PythonCodeLine:
 
 
 class PythonCodeGenerator:
-    def __init__(self, dep_graph: DependencyGraph, gen_code_prefix: str):
+    def __init__(
+        self, dep_graph: DependencyGraph, gen_code_prefix: str, gen_code_suffix: str
+    ):
         self.dep_graph = dep_graph
         self.gen_code_prefix = gen_code_prefix
+        self.gen_code_suffix = gen_code_suffix
         self.reset()
 
     def reset(self):
@@ -64,7 +67,10 @@ class PythonCodeGenerator:
             print(f"Found {len(cycles_detected)} cycles during code generation")
             print(cycles_detected)
 
-        self.code = self.generate_wrapper_class()
+        code = self.generate_wrapper_class()
+        gen_code_suffix_position = len(code)
+        self.code = f"{code}{self.gen_code_suffix}"
+        return gen_code_suffix_position
 
     def _process_node_and_deps(self, graph_key, node, processed_nodes, path=None):
         """Process a node and its dependencies, recording any cycles found."""
@@ -246,3 +252,7 @@ class PythonCodeGenerator:
     def set_gen_code_prefix(self, new_prefix):
         self.gen_code_prefix = new_prefix
         self.generate_code()
+
+    def set_gen_code_suffix(self, new_suffix):
+        self.gen_code_suffix = new_suffix
+        return self.generate_code()

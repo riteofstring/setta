@@ -7,12 +7,14 @@ import { useCallback, useEffect, useState } from "react";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_gen_code_prefix_completion } from "utils/generatedEndpoints";
+import {
+  route_gen_code_prefix_completion,
+  route_gen_code_suffix_completion,
+} from "utils/generatedEndpoints";
 
-export function GenPythonCodeSettings() {
-  const value = useProjectState((x) => x.projectConfig.genCodePrefix);
+// Generic CodeEditor component
+function GenCodeEditor({ label, value, completionRoute, onChange }) {
   const theme = useCodeMirrorStyle();
-
   const [localValue, setLocalValue] = useState(value);
 
   useEffect(() => {
@@ -21,63 +23,103 @@ export function GenPythonCodeSettings() {
     }
   }, [value]);
 
-  function onChange(v) {
+  const debouncedSetGlobalState = useCallback(
+    _.debounce((v) => {
+      onChange(v);
+    }, 50),
+    [onChange],
+  );
+
+  function localOnChange(v) {
     setLocalValue(v);
-    debouncedSetCode(v);
+    debouncedSetGlobalState(v);
   }
 
-  const completionsFn = useCallback(getGenCodePrefixCompletionsFn(), []);
+  const completionsFn = useCallback(() => {
+    const fn = async (fullText: string, position: number) => {
+      const projectConfigId = useProjectState.getState().projectConfig.id;
+      const res = await completionRoute({
+        projectConfigId,
+        fullText,
+        position,
+      });
+
+      if (res200(res)) {
+        return res.data;
+      }
+      return [];
+    };
+
+    return wrappedCompletionsFn(fn);
+  }, [completionRoute]);
 
   const extensions = getExtensions({
     parentDivId: "UiEditorPane",
     language: "python",
     tabToAutocomplete: true,
     indentWithTab: true,
-    completionsFn,
+    completionsFn: completionsFn(),
   });
 
   return (
-    <article
-      className="cursor-auto overflow-y-scroll [&_*]:!outline-0"
-      tabIndex={0}
-    >
-      <CodeMirror
-        value={localValue}
-        theme={theme}
-        extensions={extensions}
-        onChange={onChange}
-        indentWithTab={false} // I take care of this in getExtensions
-        basicSetup={{ tabSize: 4 }}
-      />
-    </article>
+    <div>
+      <h3 className="mb-2 text-sm font-medium">{label}</h3>
+      <article
+        className="cursor-auto overflow-y-scroll [&_*]:!outline-0"
+        tabIndex={0}
+      >
+        <CodeMirror
+          value={localValue}
+          theme={theme}
+          extensions={extensions}
+          onChange={localOnChange}
+          indentWithTab={false} // I take care of this in getExtensions
+          basicSetup={{ tabSize: 4 }}
+        />
+      </article>
+    </div>
   );
 }
 
-const debouncedSetCode = _.debounce((value) => {
-  setGenCodePrefix({ value });
-}, 50);
+// Main component using the generic editor twice
+export function GenPythonCodeSettings() {
+  const { prefixValue, suffixValue } = useProjectState(
+    (x) => ({
+      prefixValue: x.projectConfig.genCodePrefix,
+      suffixValue: x.projectConfig.genCodeSuffix,
+    }),
+    _.isEqual,
+  );
 
-function getGenCodePrefixCompletionsFn() {
-  const fn = async (fullText: string, position: number) => {
-    const projectConfigId = useProjectState.getState().projectConfig.id;
-    const res = await route_gen_code_prefix_completion({
-      projectConfigId,
-      fullText,
-      position,
-    });
+  return (
+    <div className="flex flex-col gap-4">
+      <GenCodeEditor
+        label="Code Prefix"
+        value={prefixValue}
+        completionRoute={route_gen_code_prefix_completion}
+        onChange={setGenCodePrefix}
+      />
 
-    if (res200(res)) {
-      return res.data;
-    }
-    return [];
-  };
-
-  return wrappedCompletionsFn(fn);
+      <GenCodeEditor
+        label="Code Suffix"
+        value={suffixValue}
+        completionRoute={route_gen_code_suffix_completion}
+        onChange={setGenCodeSuffix}
+      />
+    </div>
+  );
 }
 
-export function setGenCodePrefix({ value }) {
+export function setGenCodePrefix(value: string) {
   useProjectState.setState((state) => {
     state.projectConfig.genCodePrefix = value;
+  });
+  maybeIncrementProjectStateVersion(true);
+}
+
+export function setGenCodeSuffix(value: string) {
+  useProjectState.setState((state) => {
+    state.projectConfig.genCodeSuffix = value;
   });
   maybeIncrementProjectStateVersion(true);
 }

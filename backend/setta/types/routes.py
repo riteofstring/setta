@@ -69,3 +69,4 @@ class Route(str, Enum):
     TEXT_FIELD_COMPLETION = "/textFieldCompletion"
     CODE_AREA_COMPLETION = "/codeAreaCompletion"
     GEN_CODE_PREFIX_COMPLETION = "/genCodePrefixCompletion"
+    GEN_CODE_SUFFIX_COMPLETION = "/genCodeSuffixCompletion"

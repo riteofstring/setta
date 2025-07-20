@@ -242,6 +242,22 @@ class ProjectGenPythonCode(PythonCode):
         )
         return process_completion_response(response, fullText)
 
+    async def gen_code_suffix_autocomplete(self, fullText, position):
+        position += self.code_generator.set_gen_code_suffix(fullText)
+        await self.update_file()
+        line, col = position_to_line_col(self.code_generator.code, position)
+        request_id = create_new_id()
+        response = await self.lsp_writer.send_and_wait(
+            self.lsp_writer.send_autocomplete_request(
+                filepath=self.temp_file,
+                line=line,
+                character=col,
+                request_id=request_id,
+            ),
+            request_id,
+        )
+        return process_completion_response(response, fullText)
+
     async def type_check(self):
         await self.send_document_open_request(self.code_generator.code)
 
