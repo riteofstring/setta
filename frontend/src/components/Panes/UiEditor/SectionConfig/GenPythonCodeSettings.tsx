@@ -78,7 +78,9 @@ function GenCodeEditor({
 
   return (
     <div>
-      <h3 className="mb-2 text-sm font-medium">{label}</h3>
+      <h3 className="text-xs font-bold text-setta-700 dark:text-setta-300">
+        {label}
+      </h3>
       <article
         className="cursor-auto overflow-y-scroll [&_*]:!outline-0"
         tabIndex={0}
