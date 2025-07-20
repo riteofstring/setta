@@ -249,21 +249,6 @@ class BaseClassInfoForGeneration(ABC):
     def parent_args_class_names(self) -> list[str]:
         return [p.__name__ + "Args" for p in self.parents]
 
-    # Common properties that might be used by both
-    @property
-    def modifier_name(self) -> str:
-        """Name of the modifier class."""
-        return self.base_name + "Modifier"
-
-    @property
-    def custom_core_attrs(self) -> str:
-        if not self.type_has_default:
-            return ""
-        if self.type_value == "GlobalVariables":
-            return 'name:str = "Global Variables"'
-        elif self.type_value == "GenPythonCode":
-            return 'name:str = "Generated Python Code"'
-        return ""
 
     @property
     @abstractmethod
@@ -303,18 +288,6 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
     @property
     def parent_user_default_class_names(self) -> list[str]:
         return ["UserDefault" + p.__name__ for p in self.parents]
-
-    @property
-    def parent_core_class_names(self) -> list[str]:
-        return [p.__name__.removesuffix(self.suffix) + "Core" for p in self.parents]
-
-    @property
-    def parent_layering_class_names(self) -> list[str]:
-        return [p.__name__.removesuffix(self.suffix) + "Layering" for p in self.parents]
-
-    @property
-    def parent_modifier_class_names(self) -> list[str]:
-        return [p.__name__.removesuffix(self.suffix) + "Modifier" for p in self.parents]
 
     @property
     def is_for_section(self) -> bool:

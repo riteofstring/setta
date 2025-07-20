@@ -128,7 +128,7 @@ class DependencyGraph:
         section_node = self.get_node(graph_key)
         if not section_node:
             sectionImpl = get_effective_section_impl(p, id)
-            name = p.sections[id].name
+            name = sectionImpl.name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
                 value, potential_refs = self.export_section_callable(p, id)
@@ -178,10 +178,11 @@ class DependencyGraph:
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
         callable = get_section_callable(p, sectionId)
         if callable:
+            callableImpl = get_effective_code_obj_impl(p, callable.id, sectionId)
             potential_refs = find_undefined_special_var_expressions(
-                callable.name, SELF_IDENTIFIER, keep_attr_only=True
+                callableImpl.name, SELF_IDENTIFIER, keep_attr_only=True
             )
-            return callable.name, potential_refs
+            return callableImpl.name, potential_refs
         return None, None
 
     def export_section_params(
@@ -217,7 +218,7 @@ class DependencyGraph:
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
                 param_children = get_code_obj_children_ids(p, pid, sectionId)
-                name = p.codeObjs[pid].name
+                name = code_obj_impl.name
                 value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
