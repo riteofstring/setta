@@ -27,9 +27,6 @@ import setta.routers
 import setta.types
 import setta.types.code_obj_impls
 import setta.types.generated
-import setta.types.generated.cores
-import setta.types.generated.layerings
-import setta.types.generated.modifiers
 import setta.types.section_impls
 import setta.types.websocket
 from fastapi import WebSocket
@@ -638,10 +635,6 @@ def create_type_predicate_fns_from_sets(all_sets):
         if not actual_type:
             actual_type = getattr(setta.types.code_obj_impls, type_name, None)
         if not actual_type:
-            actual_type = getattr(setta.types.generated.cores, type_name, None)
-        if not actual_type:
-            actual_type = getattr(setta.types.generated.layerings, type_name, None)
-        if not actual_type:
             actual_type = getattr(setta.types.websocket, type_name, None)
         if not actual_type:
             continue
@@ -649,18 +642,6 @@ def create_type_predicate_fns_from_sets(all_sets):
             input_type = "BaseSectionImplUnion"
         elif issubclass(actual_type, BaseCodeObjImpl):
             input_type = "BaseCodeObjImplUnion"
-        elif issubclass(actual_type, setta.types.generated.cores.BaseSectionCore):
-            input_type = "BaseSectionCoreUnion"
-        elif issubclass(actual_type, setta.types.generated.cores.BaseCodeObjCore):
-            input_type = "BaseCodeObjCoreUnion"
-        elif issubclass(
-            actual_type, setta.types.generated.layerings.BaseSectionLayering
-        ):
-            input_type = "BaseSectionLayeringUnion"
-        elif issubclass(
-            actual_type, setta.types.generated.layerings.BaseCodeObjLayering
-        ):
-            input_type = "BaseCodeObjLayeringUnion"
         elif issubclass(actual_type, WebsocketMsg):
             input_type = "WebsocketMsgUnion"
             discriminator = "messageType"
@@ -729,27 +710,23 @@ def create_impl_core_layering_bundled_types():
         code += f"""
     {c.base_name}: {{
         impl: {c.original_name};
-        core: {c.core_name};
-        layering: {c.layering_name};
-        args: ImplCoreLayeringBundleArgsWithUpdaters<{c.args_name}>;
+        args: ImplArgsBundleWithUpdaters<{c.args_name}>;
     }}
 """
         if not c.type_has_default:
             code += f"""
     {c.base_name}Union: {{
         impl: {c.original_name}Union;
-        core: {c.core_name}Union;
-        layering: {c.layering_name}Union;
-        args: ImplCoreLayeringBundleArgsWithUpdaters<{c.args_name}>;
+        args: ImplArgsBundleWithUpdaters<{c.args_name}>;
     }}
 """
 
     code = f"""
-type ImplCoreLayeringBundleArgsWithUpdaters<T> = {{
+type ImplArgsBundleWithUpdaters<T> = {{
   [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
 }};
 
-    export type ImplCoreLayeringBundleMap = {{
+    export type ImplArgsBundleMap = {{
         {code}
     }}
 """

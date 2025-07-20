@@ -24,13 +24,11 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 )
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
-from setta.types.generated.cores import CallableSectionCore
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
-from setta.types.generated.layerings import CallableSectionLayering
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers import (
     add_children_of_callable,
@@ -137,8 +135,6 @@ class ProjectGenPythonCode(PythonCode):
         if not (
             isinstance(base_section_impl, CallableSectionImpl)
             and isinstance(section_impl, CallableSectionImpl)
-            and isinstance(section_core, CallableSectionCore)
-            and isinstance(section_layering, CallableSectionLayering)
         ):
             raise TypeError
 

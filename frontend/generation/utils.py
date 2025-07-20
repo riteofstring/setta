@@ -28,38 +28,6 @@ import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
-DEFAULT_SECTION_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "Callable": {"callable", "codeObjImplLayeringMap"},
-    "Dict": {"topLevelParamIds", "codeObjImplLayeringMap"},
-    "ListRoot": set(),
-    "DictRoot": set(),
-    "Group": set(),
-    "Image": set(),
-    "Chart": set(),
-    "Draw": set(),
-    "TextBlock": set(),
-    "Social": set(),
-    "GlobalVariables": set(),
-    "Code": set(),
-    "GenPythonCode": set(),
-    "Terminal": set(),
-    "IFrame": set(),
-    "Chat": set(),
-    "Browser": set(),
-}
-
-DEFAULT_CODE_OBJ_UNSHARED_KEYS: Dict[str, Set[str]] = {
-    "CodeCallable": set(),
-    "CodeParam": {"value"},
-    "TextParam": {"value"},
-    "SliderParam": {"value"},
-    "SwitchParam": {"value"},
-    "ColorPickerParam": {"value"},
-    "DropdownParam": {"value"},
-    "PasswordParam": {"value"},
-    "NestedParam": set(),
-}
-
 
 def format_generated_code(output_file):
     # Suppress Node warnings
@@ -288,16 +256,6 @@ class BaseClassInfoForGeneration(ABC):
         return self.base_name + "Modifier"
 
     @property
-    def core_name(self) -> str:
-        """Name of the core class."""
-        return self.base_name + "Core"
-
-    @property
-    def layering_name(self) -> str:
-        """Name of the layering class."""
-        return self.base_name + "Layering"
-
-    @property
     def custom_core_attrs(self) -> str:
         if not self.type_has_default:
             return ""
@@ -359,46 +317,6 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
         return [p.__name__.removesuffix(self.suffix) + "Modifier" for p in self.parents]
 
     @property
-    def modifier_annotation_and_value(self) -> str:
-        modifier = self.modifier_name
-        if self.type_has_default:
-            modifier_fn_name = (
-                "create_section_modifier"
-                if self.is_for_section
-                else "create_code_obj_modifier"
-            )
-            modifier = f"""{modifier} = Field( # type: ignore[override]
-    default_factory = lambda: {modifier_fn_name}({self.type_full_enum_name})
-)
-"""
-        else:
-            modifier = f"{modifier} # type: ignore[override]"
-        return modifier
-
-    @property
-    def unshared_keys_annotation_and_value(self) -> str:
-        unshared_keys = f"list[{self.impl_fields_name}]"
-        if self.type_has_default:
-            if self.is_for_section:
-                default_keys = DEFAULT_SECTION_UNSHARED_KEYS[
-                    self.type_field.default.value
-                ]
-            elif self.is_for_code_obj:
-                default_keys = DEFAULT_CODE_OBJ_UNSHARED_KEYS[
-                    self.type_field.default.value
-                ]
-            else:
-                raise ValueError
-            default_keys = [f'"{v}"' for v in sorted(default_keys)]
-            unshared_keys = f"""{unshared_keys} = Field( # type: ignore[override]
-    default_factory = lambda: [{", ".join(default_keys)}]
-)
-"""
-        else:
-            unshared_keys = f"{unshared_keys} # type: ignore[override]"
-        return unshared_keys
-
-    @property
     def is_for_section(self) -> bool:
         import setta.types.section_impls
 
@@ -409,31 +327,6 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
         import setta.types.code_obj_impls
 
         return issubclass(self.class_obj, setta.types.code_obj_impls.BaseCodeObjImpl)
-
-
-@dataclass
-class CoreClassInfoForGeneration(BaseClassInfoForGeneration):
-    """Class info for Core classes - much simpler as they only need args_name."""
-
-    @property
-    def suffix(self) -> str:
-        return "Core"
-
-    @property
-    def args_name(self) -> str:
-        return self.base_name + "CoreArgs"
-
-    @property
-    def is_for_section(self) -> bool:
-        import setta.types.generated.cores
-
-        return issubclass(self.class_obj, setta.types.generated.cores.BaseSectionCore)
-
-    @property
-    def is_for_code_obj(self) -> bool:
-        import setta.types.generated.cores
-
-        return issubclass(self.class_obj, setta.types.generated.cores.BaseCodeObjCore)
 
 
 def get_impl_classes():
@@ -450,31 +343,6 @@ def get_impl_classes():
         children += get_class_children(setta.types.code_obj_impls, c)
         base_name = c.__name__.removesuffix("Impl")
         output[c.__name__] = ImplClassInfoForGeneration(
-            class_obj=c,
-            children=children,
-            base_name=base_name,
-        )
-
-    return output
-
-
-def get_core_classes():
-    import setta.types.generated.cores
-
-    classes = find_sub_classes(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseSectionCore,
-    )
-    classes += find_sub_classes(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseCodeObjCore,
-    )
-    output: dict[str, CoreClassInfoForGeneration] = {}
-    for c in classes:
-        children = get_class_children(setta.types.generated.cores, c)
-        children += get_class_children(setta.types.generated.cores, c)
-        base_name = c.__name__.removesuffix("Core")
-        output[c.__name__] = CoreClassInfoForGeneration(
             class_obj=c,
             children=children,
             base_name=base_name,

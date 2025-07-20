@@ -19,10 +19,6 @@ from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
 )
-from setta.types.generated.layerings import (
-    NestedParamCodeObjLayering,
-    TextParamCodeObjLayering,
-)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
@@ -289,7 +285,7 @@ def add_to_processed_json_object(
         codeObjImpl = create_code_obj_impl(
             CodeObjType.NestedParam, settings.nestedParamCodeObjDefault, {"name": key}
         )
-        codeObjImplLayering = NestedParamCodeObjLayering(
+        codeObjImplLayering = Layering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     else:
@@ -298,7 +294,7 @@ def add_to_processed_json_object(
             settings.textParamCodeObjDefault,
             {"name": key, "value": json.dumps(value)},
         )
-        codeObjImplLayering = TextParamCodeObjLayering(
+        codeObjImplLayering = Layering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     layeringId = codeObjImplLayering.id

@@ -5,7 +5,6 @@ from setta.types.code_obj_impls import (
     CodeObjType,
 )
 from setta.types.core import Core, Layering
-from setta.types.generated.cores import create_section_core
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -444,7 +443,7 @@ def create_sections(
     # TODO!
     for s in sections:
         # sectionImpl =
-        sectionCore = create_section_core(s.type, name=s.name)
+        sectionCore = Core()
         # p.sections[sectionCore.id] = sectionCore
         # p.sectionImpls[sectionImpl.id] = sectionImpl
         # new_section.variantIds = [new_section_config.variantId]

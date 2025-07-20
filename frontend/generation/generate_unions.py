@@ -1,9 +1,6 @@
 from pathlib import Path
 
 import setta.types.code_obj_impls
-import setta.types.generated.cores
-import setta.types.generated.layerings
-import setta.types.generated.modifiers
 import setta.types.section_impls
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
@@ -70,50 +67,6 @@ def generate_unions(output_file):
         "type",
         setta.types.code_obj_impls,
         lambda x: x,
-    )
-
-    code += construct_unions(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseSectionCore,
-        "type",
-        setta.types.generated.cores,
-        lambda x: x,
-    )
-    code += construct_unions(
-        setta.types.generated.cores,
-        setta.types.generated.cores.BaseCodeObjCore,
-        "type",
-        setta.types.generated.cores,
-        lambda x: x,
-    )
-    code += construct_unions(
-        setta.types.generated.layerings,
-        setta.types.generated.layerings.BaseSectionLayering,
-        "type",
-        setta.types.generated.layerings,
-        lambda x: x,
-    )
-    code += construct_unions(
-        setta.types.generated.layerings,
-        setta.types.generated.layerings.BaseCodeObjLayering,
-        "type",
-        setta.types.generated.layerings,
-        lambda x: x,
-    )
-    code += construct_unions(
-        setta.types.section_impls,
-        setta.types.section_impls.BaseSectionImpl,
-        "type",
-        setta.types.generated.modifiers,
-        lambda x: f"{x.removesuffix('Impl')}Modifier",
-    )
-
-    code += construct_unions(
-        setta.types.code_obj_impls,
-        setta.types.code_obj_impls.BaseCodeObjImpl,
-        "type",
-        setta.types.generated.modifiers,
-        lambda x: f"{x.removesuffix('Impl')}Modifier",
     )
 
     code = ruff_format(code)

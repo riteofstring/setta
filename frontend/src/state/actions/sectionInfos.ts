@@ -9,9 +9,11 @@ import { res200 } from "utils/endpointUtils";
 import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
-  ImplCoreLayeringBundleMap,
+  Core,
+  ImplArgsBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
+  Layering,
   ProjectStateSingleConfig,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -20,11 +22,11 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-export function getEffectiveImpl<K extends keyof ImplCoreLayeringBundleMap>(
-  impl: ImplCoreLayeringBundleMap[K]["impl"],
-  core: ImplCoreLayeringBundleMap[K]["core"],
-  layering: ImplCoreLayeringBundleMap[K]["layering"],
-): ImplCoreLayeringBundleMap[K]["impl"] {
+export function getEffectiveImpl<K extends keyof ImplArgsBundleMap>(
+  impl: ImplArgsBundleMap[K]["impl"],
+  core: Core,
+  layering: Layering,
+): ImplArgsBundleMap[K]["impl"] {
   const effective = _.cloneDeep(impl);
   Object.assign(effective, { ...core.sharedModifier, ...layering.modifier });
   return effective;
@@ -160,13 +162,13 @@ export function getEffectiveImplFromLayeringMap(
 }
 
 export function setEffectiveImplValue<
-  K extends keyof ImplCoreLayeringBundleMap,
+  K extends keyof ImplArgsBundleMap,
 >(
-  impl: ImplCoreLayeringBundleMap[K]["impl"],
-  core: ImplCoreLayeringBundleMap[K]["core"],
-  layering: ImplCoreLayeringBundleMap[K]["layering"],
-  args: ImplCoreLayeringBundleMap[K]["args"],
-): ImplCoreLayeringBundleMap[K]["impl"] {
+  impl: ImplArgsBundleMap[K]["impl"],
+  core: Core,
+  layering: Layering,
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
     // Resolve the value if it's a function
     const resolvedValue =
@@ -186,12 +188,12 @@ export function setEffectiveImplValue<
 }
 
 export function setEffectiveSectionImplValue<
-  K extends keyof ImplCoreLayeringBundleMap,
+  K extends keyof ImplArgsBundleMap,
 >(
   state: ZustandProjectState,
   sectionId: string,
-  args: ImplCoreLayeringBundleMap[K]["args"],
-): ImplCoreLayeringBundleMap[K]["impl"] {
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   const bundle = getSectionImplCoreLayeringBundle<K>(state, sectionId);
   return setEffectiveImplValue<K>(
     bundle.impl,
@@ -202,14 +204,14 @@ export function setEffectiveSectionImplValue<
 }
 
 export function getSectionImplCoreLayeringBundle<
-  K extends keyof ImplCoreLayeringBundleMap,
+  K extends keyof ImplArgsBundleMap,
 >(
   p: ZustandProjectState,
   sectionId: string,
 ): {
-  impl: ImplCoreLayeringBundleMap[K]["impl"];
-  core: ImplCoreLayeringBundleMap[K]["core"];
-  layering: ImplCoreLayeringBundleMap[K]["layering"];
+  impl: ImplArgsBundleMap[K]["impl"];
+  core: Core;
+  layering: Layering;
 } {
   const layering = getSectionImplLayering(p, sectionId);
   const impl = p.sectionImpls[layering.impl];
@@ -231,13 +233,13 @@ export function getSectionImplCoreLayeringBundle<
 }
 
 export function setEffectiveCodeObjImplValue<
-  K extends keyof ImplCoreLayeringBundleMap,
+  K extends keyof ImplArgsBundleMap,
 >(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  args: ImplCoreLayeringBundleMap[K]["args"],
-): ImplCoreLayeringBundleMap[K]["impl"] {
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   const bundle = getCodeObjImplCoreLayeringBundle<K>(
     state,
     sectionId,
@@ -252,15 +254,15 @@ export function setEffectiveCodeObjImplValue<
 }
 
 export function getCodeObjImplCoreLayeringBundle<
-  K extends keyof ImplCoreLayeringBundleMap,
+  K extends keyof ImplArgsBundleMap,
 >(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
 ): {
-  impl: ImplCoreLayeringBundleMap[K]["impl"];
-  core: ImplCoreLayeringBundleMap[K]["core"];
-  layering: ImplCoreLayeringBundleMap[K]["layering"];
+  impl: ImplArgsBundleMap[K]["impl"];
+  core: Core;
+  layering: Layering;
 } {
   const layering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
   const impl = p.codeObjImpls[layering.impl];

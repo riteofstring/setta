@@ -58,9 +58,14 @@ export function createNewSectionVersion(
         codeObjLayeringId,
       );
     }
-    setEffectiveImplValue(newImpl, section, newImplLayering, {
-      codeObjImplLayeringMap: newCodeObjImplLayeringMap,
-    });
+    setEffectiveImplValue<"BaseSectionWithParams">(
+      newImpl,
+      section,
+      newImplLayering,
+      {
+        codeObjImplLayeringMap: newCodeObjImplLayeringMap,
+      },
+    );
   }
 
   section.implLayerings.push(newImplLayering.id);
