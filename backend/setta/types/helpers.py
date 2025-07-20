@@ -2,13 +2,16 @@ from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
+    CodeObjType,
 )
 from setta.types.generated.cores import create_section_core
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.layerings import create_code_obj_layering
+from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseChildlessCodeObjCoreUnion,
     BaseChildlessCodeObjImplUnion,
@@ -469,3 +472,56 @@ def create_sections(
         # p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
         #     x=s.position.x, y=s.position.y
         # )
+
+
+def change_param_impl(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    paramInfoId: str,
+    selectedId: str,
+):
+    layering = get_code_obj_impl_layering(p, paramInfoId, sectionId)
+    impl = p.codeObjImpls.get(selectedId, None)
+    if not impl:
+        # selectedId will be the CodeObjType name
+        type = CodeObjType[selectedId]
+        impl = create_code_obj_impl(
+            type=type, defaults=get_user_default_code_obj_from_settings(settings, type)
+        )
+        p.codeObjImpls[impl.id] = impl
+
+    layering.impl = impl.id
+    if not impl.isPreset and impl.id not in layering.nonPresetImpls:
+        layering.nonPresetImpls.append(impl.id)
+    layering.type = impl.type
+    p.codeObjs[paramInfoId].type = impl.type
+
+
+def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
+    return getattr(settings, x[0].lower() + x[1:] + "CodeObjDefault")
+
+
+# useProjectState.setState((state) => {
+
+#       let codeObjImpl = state.codeObjImpls[selectedId];
+#       if (codeObjImpl) {
+#         layering.impl = codeObjImpl.id;
+#         layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
+#           type: codeObjImpl.type,
+#         });
+#       } else if (selectedId in CodeObjTypeEnum) {
+#         // selectedId will be the CodeObjType name
+#         codeObjImpl = createBaseCodeObjImplUnionWithDiscriminator({
+#           type: CodeObjTypeEnum[selectedId],
+#         });
+#         state.codeObjImpls[codeObjImpl.id] = codeObjImpl;
+#         layering.impl = codeObjImpl.id;
+#         layering.nonPresetImpls.push(codeObjImpl.id);
+#         layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
+#           type: CodeObjTypeEnum[selectedId],
+#         });
+#       } else {
+#         throw new Error();
+#       }
+#     });

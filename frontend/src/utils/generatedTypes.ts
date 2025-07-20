@@ -570,6 +570,7 @@ export const RouteEnum = {
   CODE_AREA_COMPLETION: "/codeAreaCompletion",
   GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
   GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
+  CHANGE_PARAM_IMPL: "/changeParamImpl",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -11945,6 +11946,23 @@ export function createTypeCheckRequest(
   options: Partial<TypeCheckRequest> = {},
 ): TypeCheckRequest {
   return TypeCheckRequestSchema.parse(options);
+}
+
+export const ChangeParamImplRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.string(),
+  selectedId: z.string(),
+});
+
+export type ChangeParamImplRequest = z.infer<
+  typeof ChangeParamImplRequestSchema
+>;
+
+export function createChangeParamImplRequest(
+  options: Partial<ChangeParamImplRequest> = {},
+): ChangeParamImplRequest {
+  return ChangeParamImplRequestSchema.parse(options);
 }
 
 export const ClearTextFieldCompletionRequestSchema = z.object({

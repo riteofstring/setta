@@ -19,6 +19,7 @@ from setta.project_state.project_code import (
 )
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
+    change_param_impl,
     convert_backend_to_single_config,
     create_sections,
     get_effective_section_impl,
@@ -192,7 +193,9 @@ class ProjectManager:
         section_impl_layering_ids: list[str] | None = None,
     ):
         load_json_sources_into_data_structures(
-            self.project_state_backend, section_impl_layering_ids
+            self.settings_file.settings,
+            self.project_state_backend,
+            section_impl_layering_ids,
         )
         for configId in self.project_state_backend.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(
@@ -377,6 +380,21 @@ class ProjectManager:
     async def get_top_level_sections(self, projectConfigId: str):
         project_state = self.get_single_config_state(projectConfigId)
         return get_top_level_sections(project_state)
+
+    @enqueue_method
+    async def change_param_impl(
+        self, projectConfigId: str, sectionId: str, paramInfoId: str, selectedId: str
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        change_param_impl(
+            self.settings_file.settings,
+            project_state,
+            sectionId,
+            paramInfoId,
+            selectedId,
+        )
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:

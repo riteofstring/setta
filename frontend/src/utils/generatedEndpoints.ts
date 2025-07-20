@@ -338,3 +338,9 @@ export async function route_gen_code_suffix_completion(
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
   return await post("/genCodeSuffixCompletion", x);
 }
+
+export async function route_change_param_impl(
+  x: gt.ChangeParamImplRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/changeParamImpl", x);
+}

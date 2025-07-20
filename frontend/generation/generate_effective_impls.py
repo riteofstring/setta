@@ -146,17 +146,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 """
 
-    # TypeVar definition
-    type_var_def = """
-TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
-
-
-def apply_modifier(
-    impl: TImpl, core: BaseSectionCoreUnion | BaseCodeObjCoreUnion, layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion
-) -> TImpl:
-    return impl.model_copy(update={**core.sharedModifier, **layering.modifier}, deep=True)
-"""
-
     # Generate get_effective_impl overloads
     get_overloads_list = []
 
@@ -183,7 +172,7 @@ def get_effective_impl(
     core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
     layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
-    return apply_modifier(impl, core, layering)
+    return impl.model_copy(update={**core.sharedModifier, **layering.modifier}, deep=True)
 """
 
     # Generate set_effective_impl_value overloads
@@ -238,7 +227,7 @@ def set_effective_impl_value(
 """
 
     # Combine all parts
-    return imports + type_var_def + get_overloads + get_impl + set_overloads + set_impl
+    return imports + get_overloads + get_impl + set_overloads + set_impl
 
 
 def main(output_folder: Path):

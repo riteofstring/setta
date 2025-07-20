@@ -48,6 +48,13 @@ class GenCodeSuffixCompletionRequest(BaseModel):
     position: int
 
 
+class ChangeParamImplRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str
+    selectedId: str
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
@@ -97,4 +104,13 @@ async def route_gen_code_suffix_completion(
 ) -> list[CodeMirrorCompletion]:
     return await state.project_manager.gen_code_suffix_autocomplete(
         x.projectConfigId, x.fullText, x.position
+    )
+
+
+@router.post(Route.CHANGE_PARAM_IMPL)
+async def route_change_param_impl(
+    x: ChangeParamImplRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.change_param_impl(
+        x.projectConfigId, x.sectionId, x.paramInfoId, x.selectedId
     )

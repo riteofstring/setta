@@ -1,7 +1,7 @@
 # Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import TypeVar, overload
+from typing import overload
 
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
@@ -163,18 +163,6 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
-
-TImpl = TypeVar("TImpl", bound=BaseCodeObjImplUnion | BaseSectionImplUnion)
-
-
-def apply_modifier(
-    impl: TImpl,
-    core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
-    layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
-) -> TImpl:
-    return impl.model_copy(
-        update={**core.sharedModifier, **layering.modifier}, deep=True
-    )
 
 
 @overload
@@ -404,7 +392,9 @@ def get_effective_impl(
     core: BaseSectionCoreUnion | BaseCodeObjCoreUnion,
     layering: BaseSectionLayeringUnion | BaseCodeObjLayeringUnion,
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
-    return apply_modifier(impl, core, layering)
+    return impl.model_copy(
+        update={**core.sharedModifier, **layering.modifier}, deep=True
+    )
 
 
 @overload

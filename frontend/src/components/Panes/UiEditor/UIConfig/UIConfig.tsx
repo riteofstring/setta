@@ -9,11 +9,7 @@ import { getCodeObjImplLayering } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
-import {
-  CodeObjTypeEnum,
-  createBaseCodeObjImplUnionWithDiscriminator,
-  createBaseCodeObjModifierUnionWithDiscriminator,
-} from "utils/generatedTypes";
+import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 
@@ -104,36 +100,14 @@ function _UIElement({
   const paramName = paramInfo.name;
 
   const onSelect: ComboboxOnSelectedItemChange = (selectedId) => {
-    useProjectState.setState((state) => {
-      if (selectedId === null) {
-        throw new Error();
-      }
-      const layering = getCodeObjImplLayering(
-        state,
-        paramInfoId,
-        sectionId,
-        null,
-      );
-      let codeObjImpl = state.codeObjImpls[selectedId];
-      if (codeObjImpl) {
-        layering.impl = codeObjImpl.id;
-        layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
-          type: codeObjImpl.type,
-        });
-      } else if (selectedId in CodeObjTypeEnum) {
-        // selectedId will be the CodeObjType name
-        codeObjImpl = createBaseCodeObjImplUnionWithDiscriminator({
-          type: CodeObjTypeEnum[selectedId],
-        });
-        state.codeObjImpls[codeObjImpl.id] = codeObjImpl;
-        layering.impl = codeObjImpl.id;
-        layering.nonPresetImpls.push(codeObjImpl.id);
-        layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
-          type: CodeObjTypeEnum[selectedId],
-        });
-      } else {
-        throw new Error();
-      }
+    if (!selectedId) {
+      throw new Error();
+    }
+    route_change_param_impl({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionId,
+      paramInfoId,
+      selectedId,
     });
   };
 

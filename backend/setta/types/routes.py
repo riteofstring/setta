@@ -70,3 +70,4 @@ class Route(str, Enum):
     CODE_AREA_COMPLETION = "/codeAreaCompletion"
     GEN_CODE_PREFIX_COMPLETION = "/genCodePrefixCompletion"
     GEN_CODE_SUFFIX_COMPLETION = "/genCodeSuffixCompletion"
+    CHANGE_PARAM_IMPL = "/changeParamImpl"
