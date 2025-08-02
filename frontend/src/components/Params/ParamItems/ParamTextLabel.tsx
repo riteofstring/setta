@@ -1,10 +1,7 @@
-import { getEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 
 export function ParamTextLabel({ sectionId, paramInfoId, onMouseDown, bg }) {
-  const name = useProjectState(
-    (x) => getEffectiveCodeObjImpl(x, paramInfoId, sectionId, null).name,
-  );
+  const name = useProjectState((x) => x.codeObjs[paramInfoId].name);
 
   function onClick() {
     if (useMisc.getState().isSelectingParams) {

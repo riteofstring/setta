@@ -104,7 +104,7 @@ function useTitleIsEditable(sectionId: string) {
     }
 
     return {
-      sectionName: impl.name,
+      sectionName: s.name,
       titleIsEditable: !uneditableTypes.includes(impl.type),
     };
   });
