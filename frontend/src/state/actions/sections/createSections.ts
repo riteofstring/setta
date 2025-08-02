@@ -19,7 +19,10 @@ import {
   isBaseParentSectionImpl,
   Position,
   SectionSizeModeEnum,
+  SectionType,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
+import { createRandomName } from "utils/idNameCreation";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
@@ -209,6 +212,7 @@ export function createSection(
     nonPresetImpls: sectionImpl.isPreset ? [] : [sectionImpl.id],
   });
   const section = createCore({
+    name: getDefaultCoreName(sectionImpl.type),
     implLayerings: [sectionImplLayering.id],
     defaultImplLayering: sectionImplLayering.id,
     ...coreProps,
@@ -235,4 +239,15 @@ export function createSection(
   }
 
   return section.id;
+}
+
+function getDefaultCoreName(implType: SectionType) {
+  switch (implType) {
+    case SectionTypeEnum.GlobalVariables:
+      return "Global Variables";
+    case SectionTypeEnum.GenPythonCode:
+      return "Generated Python Code";
+    default:
+      return createRandomName();
+  }
 }
