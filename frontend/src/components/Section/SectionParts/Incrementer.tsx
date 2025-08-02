@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
-import { deleteChildrenFromSeries } from "state/actions/sections/deleteSections";
 import { useProjectState } from "state/definitions";
-import { route_create_child_sections_via_incrementer } from "utils/generatedEndpoints";
+import {
+  route_create_child_sections_via_incrementer,
+  route_delete_child_sections_via_decrementer,
+} from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function Incrementer({
@@ -49,7 +51,11 @@ export function Incrementer({
 
   const deleteChildren = () => {
     if (typeof numSections === "string") return;
-    deleteChildrenFromSeries(isRoot, sectionId, numSections);
+    route_delete_child_sections_via_decrementer({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      calledBy: sectionId,
+      numChildren: numSections,
+    });
   };
 
   // In your JSX:

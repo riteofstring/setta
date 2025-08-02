@@ -315,6 +315,7 @@ export const RouteEnum = {
   CREATE_CHILD_SECTIONS: "/createChildSections",
   DELETE_SECTIONS: "/deleteSections",
   CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
+  DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -6013,6 +6014,22 @@ export function createCreateSectionRequest(
   options: Partial<CreateSectionRequest> = {},
 ): CreateSectionRequest {
   return CreateSectionRequestSchema.parse(options);
+}
+
+export const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
+  projectConfigId: z.string(),
+  calledBy: z.string(),
+  numChildren: z.int(),
+});
+
+export type DeleteChildSectionsViaDecrementerRequest = z.infer<
+  typeof DeleteChildSectionsViaDecrementerRequestSchema
+>;
+
+export function createDeleteChildSectionsViaDecrementerRequest(
+  options: Partial<DeleteChildSectionsViaDecrementerRequest> = {},
+): DeleteChildSectionsViaDecrementerRequest {
+  return DeleteChildSectionsViaDecrementerRequestSchema.parse(options);
 }
 
 export const DeleteSectionsRequestSchema = z.object({

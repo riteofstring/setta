@@ -90,6 +90,12 @@ class DeleteSectionsRequest(BaseModel):
     sectionIds: list[str]
 
 
+class DeleteChildSectionsViaDecrementerRequest(BaseModel):
+    projectConfigId: str
+    calledBy: str
+    numChildren: int
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
@@ -195,3 +201,12 @@ async def route_create_child_sections_via_incrementer(
 @router.post(Route.DELETE_SECTIONS)
 async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromRequest):
     return await state.project_manager.delete_sections(x.projectConfigId, x.sectionIds)
+
+
+@router.post(Route.DELETE_CHILD_SECTIONS_VIA_DECREMENTER)
+async def route_delete_child_sections_via_decrementer(
+    x: DeleteChildSectionsViaDecrementerRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.delete_child_sections_via_decrementer(
+        x.projectConfigId, x.calledBy, x.numChildren
+    )

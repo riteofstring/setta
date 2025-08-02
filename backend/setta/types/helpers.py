@@ -589,6 +589,22 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
                 del p.projectConfig.topLevelSections[id]
 
 
+def delete_child_sections_via_decrementer(
+    p: ProjectStateSingleConfig, calledBy: str, numChildren: int
+):
+    impl = get_effective_section_impl(p, calledBy)
+    if isinstance(impl, BaseParentSectionImpl):
+        sectionIds = impl.children[:numChildren]
+    else:
+        parentImpl = get_effective_section_impl(p, impl.parentId)
+        if not isinstance(parentImpl, BaseParentSectionImpl):
+            raise ValueError
+        startIdx = parentImpl.children.index(calledBy) + 1
+        sectionIds = parentImpl.children[startIdx : startIdx + numChildren]
+
+    delete_sections(p, sectionIds)
+
+
 def check_if_section_is_still_used_somewhere(
     p: ProjectStateSingleConfig, sectionId: str
 ):

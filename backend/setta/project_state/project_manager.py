@@ -24,6 +24,7 @@ from setta.types.helpers import (
     create_child_sections,
     create_child_sections_via_incrementer,
     create_top_level_section,
+    delete_child_sections_via_decrementer,
     delete_sections,
     # create_sections,
     get_effective_section_impl,
@@ -461,6 +462,14 @@ class ProjectManager:
     async def delete_sections(self, projectConfigId: str, sectionIds: list[str]):
         project_state = self.get_single_config_state(projectConfigId)
         delete_sections(project_state, sectionIds)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_child_sections_via_decrementer(
+        self, projectConfigId: str, calledBy: str, numChildren: int
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        delete_child_sections_via_decrementer(project_state, calledBy, numChildren)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

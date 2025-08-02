@@ -366,3 +366,9 @@ export async function route_delete_sections(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteSections", x);
 }
+
+export async function route_delete_child_sections_via_decrementer(
+  x: gt.DeleteChildSectionsViaDecrementerRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteChildSectionsViaDecrementer", x);
+}
