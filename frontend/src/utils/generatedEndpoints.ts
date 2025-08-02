@@ -355,6 +355,12 @@ export async function route_create_child_sections(
   return await post("/createChildSections", x);
 }
 
+export async function route_create_child_sections_via_incrementer(
+  x: gt.CreateChildSectionsViaIncrementerRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/createChildSectionsViaIncrementer", x);
+}
+
 export async function route_delete_sections(
   x: gt.DeleteSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {

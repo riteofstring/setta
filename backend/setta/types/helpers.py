@@ -535,6 +535,28 @@ def create_child_sections(
     return newIds
 
 
+def create_child_sections_via_incrementer(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    calledBy: str,
+    impl_type: SectionType,
+    numChildren: int,
+):
+    impl = get_effective_section_impl(p, calledBy)
+    if isinstance(impl, BaseParentSectionImpl):
+        parentId = calledBy
+        startIdx = 0
+    else:
+        parentId = impl.parentId
+        if not parentId:
+            raise ValueError
+        parentImpl = get_effective_section_impl(p, parentId)
+        if not isinstance(parentImpl, BaseParentSectionImpl):
+            raise ValueError
+        startIdx = parentImpl.children.index(calledBy) + 1
+    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
+
+
 def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
     for id in to_delete:

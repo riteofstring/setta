@@ -78,6 +78,13 @@ class CreateChildSectionsRequest(BaseModel):
     startIdx: int | None
 
 
+class CreateChildSectionsViaIncrementerRequest(BaseModel):
+    projectConfigId: str
+    calledBy: str
+    numChildren: int
+    impl_type: SectionType
+
+
 class DeleteSectionsRequest(BaseModel):
     projectConfigId: str
     sectionIds: list[str]
@@ -170,6 +177,18 @@ async def route_create_child_sections(
 ):
     return await state.project_manager.create_child_sections(
         x.projectConfigId, x.parentId, x.impl_type, x.numChildren, x.startIdx
+    )
+
+
+@router.post(Route.CREATE_CHILD_SECTIONS_VIA_INCREMENTER)
+async def route_create_child_sections_via_incrementer(
+    x: CreateChildSectionsViaIncrementerRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.create_child_sections_via_incrementer(
+        x.projectConfigId,
+        x.calledBy,
+        x.impl_type,
+        x.numChildren,
     )
 
 

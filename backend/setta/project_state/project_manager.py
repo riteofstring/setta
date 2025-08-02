@@ -22,6 +22,7 @@ from setta.types.helpers import (
     change_param_impl,
     convert_backend_to_single_config,
     create_child_sections,
+    create_child_sections_via_incrementer,
     create_top_level_section,
     delete_sections,
     # create_sections,
@@ -423,6 +424,24 @@ class ProjectManager:
             impl_type,
             numChildren,
             startIdx,
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def create_child_sections_via_incrementer(
+        self,
+        projectConfigId: str,
+        calledBy: str,
+        impl_type: SectionType,
+        numChildren: int,
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        create_child_sections_via_incrementer(
+            self.settings_file.settings,
+            project_state,
+            calledBy,
+            impl_type,
+            numChildren,
         )
         await self.update_and_broadcast_project_state(project_state)
 

@@ -6,15 +6,9 @@ import {
   useSectionRefs,
   ZustandProjectState,
 } from "state/definitions";
-import { route_create_child_sections } from "utils/generatedEndpoints";
-import {
-  BaseSectionImplUnion,
-  Core,
-  isBaseParentSectionImpl,
-} from "utils/generatedTypes";
+import { BaseSectionImplUnion, Core } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
-import { getEffectiveSectionImpl } from "../sectionInfos";
 
 export type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
@@ -94,40 +88,4 @@ export function addSectionAtPosition({
     state,
   });
   return newId;
-}
-
-export function addChildrenToSeriesViaIncrementer(
-  isRoot: boolean,
-  calledBy: string,
-  numChildren: number,
-  childImplProps: PartialImplWithType,
-) {
-  let parentId: string, parentImpl: BaseSectionImplUnion, startIdx: number;
-  const state = useProjectState.getState();
-  if (isRoot) {
-    parentId = calledBy;
-    parentImpl = getEffectiveSectionImpl(state, parentId);
-    if (!isBaseParentSectionImpl(parentImpl)) {
-      throw new Error();
-    }
-    startIdx = 0;
-  } else {
-    const impl = getEffectiveSectionImpl(state, calledBy);
-    parentId = impl.parentId;
-    parentImpl = getEffectiveSectionImpl(state, parentId);
-    if (!isBaseParentSectionImpl(parentImpl)) {
-      throw new Error();
-    }
-    startIdx = parentImpl.children.indexOf(calledBy) + 1;
-  }
-
-  route_create_child_sections({
-    projectConfigId: state.projectConfig.id,
-    parentId,
-    impl_type: childImplProps.type,
-    numChildren,
-    startIdx: startIdx,
-  });
-
-  // maybeIncrementProjectStateVersion(true);
 }

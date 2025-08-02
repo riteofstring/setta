@@ -314,6 +314,7 @@ export const RouteEnum = {
   CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
   CREATE_CHILD_SECTIONS: "/createChildSections",
   DELETE_SECTIONS: "/deleteSections",
+  CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -5981,6 +5982,23 @@ export function createCreateChildSectionsRequest(
   options: Partial<CreateChildSectionsRequest> = {},
 ): CreateChildSectionsRequest {
   return CreateChildSectionsRequestSchema.parse(options);
+}
+
+export const CreateChildSectionsViaIncrementerRequestSchema = z.object({
+  projectConfigId: z.string(),
+  calledBy: z.string(),
+  numChildren: z.int(),
+  impl_type: z.enum(SectionTypeEnum),
+});
+
+export type CreateChildSectionsViaIncrementerRequest = z.infer<
+  typeof CreateChildSectionsViaIncrementerRequestSchema
+>;
+
+export function createCreateChildSectionsViaIncrementerRequest(
+  options: Partial<CreateChildSectionsViaIncrementerRequest> = {},
+): CreateChildSectionsViaIncrementerRequest {
+  return CreateChildSectionsViaIncrementerRequestSchema.parse(options);
 }
 
 export const CreateSectionRequestSchema = z.object({

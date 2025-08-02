@@ -74,3 +74,4 @@ class Route(str, Enum):
     CREATE_TOP_LEVEL_SECTION = "/createTopLevelSection"
     CREATE_CHILD_SECTIONS = "/createChildSections"
     DELETE_SECTIONS = "/deleteSections"
+    CREATE_CHILD_SECTIONS_VIA_INCREMENTER = "/createChildSectionsViaIncrementer"
