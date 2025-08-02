@@ -4,8 +4,10 @@ import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
-import { tryParseJSON } from "utils/utils";
+import {
+  CodeObjTypeEnum,
+  ColorPickerParamCodeObjImpl,
+} from "utils/generatedTypes";
 
 export function ColorPickerInputConfigForParam({
   sectionId,
@@ -80,7 +82,7 @@ export const AvailableColors = ({
   updateColor,
   updateDescription,
 }: {
-  choices: ColorPickerConfigForFrontend["choices"];
+  choices: ColorPickerParamCodeObjImpl["choices"];
   addColor: () => void;
   removeColor: (removeIdx: number) => void;
   updateColor: (updateIdx: number, newColor: string) => void;
@@ -130,20 +132,22 @@ export const AvailableColors = ({
 };
 
 export function ColorPickerInput({
-  colorChoices,
+  choices,
   value,
   onChange,
   onEscape,
   wrapperClassName,
   colorPickerChoicesClasses,
   isDisabled,
+}: {
+  choices: ColorPickerParamCodeObjImpl["choices"];
+  value: ColorPickerParamCodeObjImpl["value"];
 }) {
-  const _value = tryParseJSON(value);
   return (
     <div className={wrapperClassName}>
       <ColorPicker
-        colorChoices={colorChoices}
-        value={_value}
+        choices={choices}
+        value={value}
         onChange={onChange}
         onEscape={onEscape}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
@@ -154,12 +158,15 @@ export function ColorPickerInput({
 }
 
 function ColorPicker({
-  colorChoices,
+  choices,
   value,
   onChange,
   onEscape,
   colorPickerChoicesClasses,
   isDisabled,
+}: {
+  choices: ColorPickerParamCodeObjImpl["choices"];
+  value: ColorPickerParamCodeObjImpl["value"];
 }) {
   const style = {
     // from https://codepen.io/devongovett/pen/QwLbRrW
@@ -167,11 +174,11 @@ function ColorPicker({
     background: "var(--bg)",
     color: "lch(from var(--bg) calc((49.44 - l) * infinity) 0 0)",
   };
-  return colorChoices?.length > 0 ? (
+  return choices.length > 0 ? (
     <ColorPickerFromColorChoices
       color={value}
       setColor={onChange}
-      colorChoices={colorChoices}
+      colorChoices={choices}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
       onEscape={onEscape}
@@ -202,14 +209,19 @@ function ColorPicker({
 function ColorPickerFromColorChoices({
   color,
   setColor,
-  colorChoices,
+  choices,
   colorPickerChoicesClasses,
   isDisabled,
   onEscape,
+}: {
+  choices: ColorPickerParamCodeObjImpl["choices"];
 }) {
-  let selectedItem = colorChoices.find((c) => c.color === color);
+  let selectedItem = choices.find((c) => c.color === color);
   if (!selectedItem) {
-    selectedItem = colorChoices[0];
+    selectedItem = choices[0];
+  }
+  if (!selectedItem) {
+    throw new Error();
   }
 
   const style = {
@@ -251,7 +263,7 @@ function ColorPickerFromColorChoices({
           align="start"
           style={{ minWidth: "var(--radix-dropdown-menu-trigger-width)" }}
         >
-          {colorChoices.map((item, index) => (
+          {choices.map((item, index) => (
             <DropdownMenu.Item
               key={index}
               className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700"
