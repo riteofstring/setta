@@ -6,7 +6,6 @@ import { useProjectState } from "state/definitions";
 import { getParamUIType } from "state/hooks/uiTypes";
 import { getValueForUIType } from "utils/objs/ev";
 import { setEnteredValue } from "../sectionInfos";
-import { setParamUITypeId } from "./setParamUITypeId";
 import { setOneUITypeConfig } from "./uiTypes";
 
 export function setParamUITypeConfig({ sectionId, paramInfoId, configProps }) {
@@ -17,9 +16,9 @@ export function setParamUITypeConfig({ sectionId, paramInfoId, configProps }) {
       state,
     );
     setOneUITypeConfig({ uiTypeId, ...configProps, state });
-    if (uiTypeId !== oldUITypeId) {
-      setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state });
-    }
+    // if (uiTypeId !== oldUITypeId) {
+    // setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state });
+    // }
     updateEVs(uiTypeId, configProps.configName, state);
   });
 }

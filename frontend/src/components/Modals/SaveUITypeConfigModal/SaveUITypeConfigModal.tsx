@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { cloneNewUIType } from "state/actions/uiTypes/cloneUITypes";
-import { setParamUITypeId } from "state/actions/uiTypes/setParamUITypeId";
 import { deleteUIType } from "state/actions/uiTypes/uiTypes";
 import { isPreset, isUserPreset } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
@@ -24,11 +23,11 @@ export function SaveUITypeConfigModal({ open, modalType }) {
       name: filename,
       presetType: UITypePresetTypeEnum.USER,
     });
-    setParamUITypeId({
-      uiTypeId: newUIType.id,
-      sectionId,
-      paramInfoId,
-    });
+    // setParamUITypeId({
+    //   uiTypeId: newUIType.id,
+    //   sectionId,
+    //   paramInfoId,
+    // });
     // delete old uitype if its a non-preset
     if (!isPreset(uiType)) {
       deleteUIType(uiType.id);

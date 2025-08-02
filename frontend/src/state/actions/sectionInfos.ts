@@ -133,7 +133,7 @@ export function getCodeObjImpl(
   sectionId: string,
   codeObjId: string,
 ) {
-  const implLayering = getCodeObjImplLayering(p, sectionId, codeObjId, null);
+  const implLayering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
   const baseImpl = p.codeObjImpls[implLayering.impl];
   if (!baseImpl) {
     throw new Error();

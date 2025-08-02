@@ -2,6 +2,9 @@ import * as Slider from "@radix-ui/react-slider";
 import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { getCodeObjImpl } from "state/actions/sectionInfos";
+import { maybeIncrementProjectStateVersion } from "state/actions/undo";
+import { useProjectState } from "state/definitions";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -22,8 +25,12 @@ export function SliderInputConfigForParam({
     CodeObjTypeEnum.SliderParam,
   );
 
-  function onChange() {
-    console.log("onChange");
+  function onChange(newConfig: SliderConfigForFrontend) {
+    useProjectState.setState((state) => {
+      const impl = getCodeObjImpl(state, sectionId, paramInfoId);
+      Object.assign(impl, newConfig);
+    });
+    maybeIncrementProjectStateVersion(true);
   }
 
   return <SliderInputConfig onChange={onChange} config={config} />;
@@ -33,7 +40,7 @@ export function SliderInputConfig({
   onChange,
   config,
 }: {
-  onChange: any;
+  onChange: (x: SliderConfigForFrontend) => void;
   config: SliderConfigForFrontend;
 }) {
   const [localConfig, setLocalConfig] = useState(config);
@@ -55,7 +62,7 @@ export function SliderInputConfig({
       setLocalConfig(config);
       return;
     }
-    onChange(configName, () => asNum);
+    onChange({ ...localConfig, [configName]: asNum });
   }
 
   useEffect(() => {
@@ -78,7 +85,7 @@ export function SliderInputConfig({
             key={`${e}-${idx}`}
             onChange={(v) => localOnChange(e, v.target.value)}
             onBlur={(v) => onBlur(e, v.target.value)}
-            value={config[e]}
+            value={localConfig[e]}
           />
         </div>
       ))}
