@@ -1,5 +1,4 @@
 import { createNewId } from "utils/idNameCreation";
-import { getValueForUIType } from "utils/objs/ev";
 import { getSectionVariant, setParamEnteredValue } from "../sectionInfos";
 
 export function setParamUITypeId({ uiTypeId, sectionId, paramInfoId, state }) {
@@ -27,6 +26,5 @@ function convertValue(sectionId, paramInfoId, uiTypeId, state) {
   const values = getSectionVariant(sectionId, state).values;
   const currValue =
     paramInfoId in values ? values[paramInfoId].value : createEVEntry().value;
-  const value = getValueForUIType({ uiType, currValue });
   setParamEnteredValue(sectionId, paramInfoId, value, state);
 }

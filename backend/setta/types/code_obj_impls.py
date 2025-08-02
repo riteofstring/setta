@@ -77,15 +77,18 @@ class SliderParamCodeObjImpl(BaseChildlessCodeObjImpl):
     min: int = 0
     max: int = 100
     step: int = 1
+    value: str = "0"
 
 
 class SwitchParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.SwitchParam] = CodeObjType.SwitchParam
+    value: str = "false"
 
 
 class ColorPickerParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.ColorPickerParam] = CodeObjType.ColorPickerParam
     choices: list[ColorPickerChoice] = Field(default_factory=list)
+    value: str = "#ff0000"
 
 
 class DropdownParamCodeObjImpl(BaseChildlessCodeObjImpl):

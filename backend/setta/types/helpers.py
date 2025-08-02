@@ -1,3 +1,4 @@
+from typing import assert_never
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -34,6 +35,8 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
+import math
+import re
 
 
 class ProjectNotFound(Exception):
@@ -464,6 +467,7 @@ def change_param_impl(
     selectedId: str,
 ):
     layering = get_code_obj_impl_layering(p, paramInfoId, sectionId)
+    old_impl = p.codeObjImpls[layering.impl]
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -477,31 +481,46 @@ def change_param_impl(
     if not impl.isPreset and impl.id not in layering.nonPresetImpls:
         layering.nonPresetImpls.append(impl.id)
 
+    if isinstance(old_impl, BaseChildlessCodeObjImplUnion) and isinstance(
+        impl, BaseChildlessCodeObjImplUnion
+    ):
+        core = p.codeObjs[paramInfoId]
+        old_effective_impl = get_effective_impl(old_impl, core, layering)
+        old_value = old_effective_impl.value
+        new_value = convert_code_obj_value(impl, old_value)
+        if new_value != old_value:
+            set_effective_impl_value(impl, core, layering, {"value": new_value})
+
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
     return getattr(settings, x[0].lower() + x[1:] + "CodeObjDefault")
 
 
-# useProjectState.setState((state) => {
+def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
+    match impl.type:
+        case (
+            CodeObjType.CodeParam
+            | CodeObjType.TextParam
+            | CodeObjType.DropdownParam
+            | CodeObjType.PasswordParam
+        ):
+            return value
+        case CodeObjType.SliderParam:
+            try:
+                x = float(value)
+                if not math.isnan(x):
+                    return str(max(min(x, impl.max), impl.min))
+            except (ValueError, TypeError):
+                pass
+            return str(impl.min)
+        case CodeObjType.SwitchParam:
+            return "false" if value == "0" else "true"
+        case CodeObjType.ColorPickerParam:
+            return value if is_color_hex(value) else "#ff0000"
+        case _:
+            assert_never(impl.type)
 
-#       let codeObjImpl = state.codeObjImpls[selectedId];
-#       if (codeObjImpl) {
-#         layering.impl = codeObjImpl.id;
-#         layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
-#           type: codeObjImpl.type,
-#         });
-#       } else if (selectedId in CodeObjTypeEnum) {
-#         // selectedId will be the CodeObjType name
-#         codeObjImpl = createBaseCodeObjImplUnionWithDiscriminator({
-#           type: CodeObjTypeEnum[selectedId],
-#         });
-#         state.codeObjImpls[codeObjImpl.id] = codeObjImpl;
-#         layering.impl = codeObjImpl.id;
-#         layering.nonPresetImpls.push(codeObjImpl.id);
-#         layering.modifier = createBaseCodeObjModifierUnionWithDiscriminator({
-#           type: CodeObjTypeEnum[selectedId],
-#         });
-#       } else {
-#         throw new Error();
-#       }
-#     });
+
+def is_color_hex(string):
+    pattern = r"^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
+    return bool(re.match(pattern, string))

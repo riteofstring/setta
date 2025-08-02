@@ -1,4 +1,3 @@
-import re
 from enum import Enum
 from inspect import isclass
 from pathlib import Path
@@ -17,6 +16,7 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
     BaseSectionImplUnion,
 )
+from setta.types.helpers import is_color_hex
 from setta.types.project_state import (
     ProjectConfig,
     ProjectStateSingleConfig,
@@ -28,11 +28,6 @@ from setta.types.section_impls import (
     SectionSize,
 )
 from setta.utils.constants import CWD
-
-
-def is_color_hex(string):
-    pattern = r"^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
-    return bool(re.match(pattern, string))
 
 
 def add_code_obj_details(
