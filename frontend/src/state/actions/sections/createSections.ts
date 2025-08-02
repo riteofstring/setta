@@ -240,13 +240,3 @@ export function createSection(
   return section.id;
 }
 
-function getDefaultCoreName(implType: SectionType) {
-  switch (implType) {
-    case SectionTypeEnum.GlobalVariables:
-      return "Global Variables";
-    case SectionTypeEnum.GenPythonCode:
-      return "Generated Python Code";
-    default:
-      return createRandomName();
-  }
-}

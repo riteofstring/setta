@@ -13,6 +13,7 @@ from setta.types.core import (
     Layering,
     compute_initial_default_layering,
     compute_initial_nonPresetImpls,
+    get_default_section_core_name,
 )
 from setta.types.generated.effective_impls import (
     get_effective_impl,
@@ -454,24 +455,6 @@ def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newNam
     p.projectConfigs[projectConfigId].name = newName
 
 
-# def create_sections(
-#     p: ProjectStateSingleConfig,
-#     sections: list[SimplifiedSectionCreation],
-# ):
-#     # TODO!
-#     for s in sections:
-#         # sectionImpl =
-#         sectionCore = Core()
-#         # p.sections[sectionCore.id] = sectionCore
-#         # p.sectionImpls[sectionImpl.id] = sectionImpl
-#         # new_section.variantIds = [new_section_config.variantId]
-#         # new_section.defaultVariantId = new_section_config.variantId
-#         # p.projectConfig.sectionConfigs[new_section.id] = new_section_config
-#         # p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
-#         #     x=s.position.x, y=s.position.y
-#         # )
-
-
 def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
@@ -489,7 +472,11 @@ def create_section(
     )
     if not core_overrides:
         core_overrides = {}
-    core = Core(**core_overrides, **compute_initial_default_layering(layering))
+    core = Core(
+        name=get_default_section_core_name(impl_type),
+        **compute_initial_default_layering(layering),
+        **core_overrides,
+    )
     p.projectConfig.sectionImplLayeringMap[core.id] = layering.id
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
