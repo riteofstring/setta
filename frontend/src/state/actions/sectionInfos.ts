@@ -128,19 +128,6 @@ export function getEffectiveCodeObjImpl(
   return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
 }
 
-export function getCodeObjImpl(
-  p: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-) {
-  const implLayering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
-  const baseImpl = p.codeObjImpls[implLayering.impl];
-  if (!baseImpl) {
-    throw new Error();
-  }
-  return baseImpl;
-}
-
 export function getEffectiveImplFromLayeringMap(
   id: string,
   impls: ZustandProjectState["codeObjImpls"],
@@ -387,14 +374,6 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
   state.variants[variantId].values[paramInfoId].value = value;
 }
 
-export function setParamEnteredValue(sectionId, paramInfoId, value, state) {
-  setEnteredValue(
-    state.sections[sectionId].variantId,
-    paramInfoId,
-    value,
-    state,
-  );
-}
 
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -404,12 +383,6 @@ export function getCodeInfoCol(sectionId, _state) {
     : createCodeInfoCol();
 }
 
-export function getDisplayedCodeInfoCol(sectionId, _state) {
-  const state = _state ?? useProjectState.getState();
-  return state.codeInfoCols[
-    getDisplayedSectionVariant(sectionId, state).codeInfoColId
-  ];
-}
 
 export function getDisplayedSectionVariant(sectionId, _state) {
   const state = _state ?? useProjectState.getState();

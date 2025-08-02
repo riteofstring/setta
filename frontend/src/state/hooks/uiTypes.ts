@@ -24,22 +24,6 @@ import {
   SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 
-export function getParamUIType(sectionId, paramInfoId, _state) {
-  const state = _state ?? useProjectState.getState();
-  return state.uiTypes[
-    getUITypeColAttr(sectionId, paramInfoId, "uiTypeId", state)
-  ];
-}
-
-export function getUITypeColAttr(sectionId, paramInfoId, key, _state) {
-  const state = _state ?? useProjectState.getState();
-  const { uiTypeColId } = state.sections[sectionId];
-  if (uiTypeColId && paramInfoId in state.uiTypeCols[uiTypeColId]) {
-    return state.uiTypeCols[uiTypeColId][paramInfoId][key];
-  } else {
-    return createUITypeColEntry()[key];
-  }
-}
 
 export function getIsSeriesElementHelper(
   sectionId: string,

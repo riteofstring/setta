@@ -24,7 +24,7 @@ async def run_code(
 
         if not terminal_id:
             terminal_id = create_new_id()
-            terminals.new_terminal(projectConfigId, terminal_id, True)
+            terminals.new_terminal(projectConfigId, terminal_id)
             await project_manager.create_temporary_terminal(
                 projectConfigId, terminal_id
             )

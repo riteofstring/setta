@@ -4,34 +4,17 @@ import {
   useLocalStorage,
   useProjectState,
   useSectionRefs,
-  useSettings,
   ZustandProjectState,
 } from "state/definitions";
 import { route_create_child_sections } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   Core,
-  createBaseSectionImplUnionWithDiscriminator,
-  createCore,
-  createLayering,
-  createSectionSize,
-  createTopLevelSectionLayout,
-  getSectionDefault,
   isBaseParentSectionImpl,
-  Position,
-  SectionSizeModeEnum,
-  SectionType,
-  SectionTypeEnum,
 } from "utils/generatedTypes";
-import { createRandomName } from "utils/idNameCreation";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
-import { insertIntoArray } from "utils/utils";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
-import { addNodes } from "../nodeInternals";
-import {
-  getEffectiveSectionImpl,
-  setEffectiveSectionImplValue,
-} from "../sectionInfos";
+import { getEffectiveSectionImpl } from "../sectionInfos";
 
 export type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
@@ -148,95 +131,3 @@ export function addChildrenToSeriesViaIncrementer(
 
   // maybeIncrementProjectStateVersion(true);
 }
-
-export function addChildrenToSeries(
-  parentId: string,
-  childImplProps: PartialImplWithType,
-  state: ZustandProjectState,
-  childCoreProps?: PartialCoreWithIdOrName,
-  startIdx?: number,
-  numChildren?: number,
-) {
-  const parentImpl = getEffectiveSectionImpl(state, parentId);
-  if (!isBaseParentSectionImpl(parentImpl)) {
-    throw new Error();
-  }
-
-  const size = createSectionSize({
-    height: SectionSizeModeEnum.auto,
-    width: parentImpl.size.width,
-  });
-
-  const newIds: Array<string> = [];
-  if (numChildren === undefined) {
-    numChildren = 1;
-  }
-  for (let x = 0; x < numChildren; x++) {
-    newIds.push(
-      createSection(
-        { parentId, size, ...childImplProps },
-        state,
-        undefined,
-        childCoreProps,
-      ),
-    );
-  }
-
-  if (startIdx === undefined) {
-    startIdx = parentImpl.children.length;
-  }
-
-  setEffectiveSectionImplValue<"BaseParentSection">(state, parentId, {
-    children: (currChildren) =>
-      insertIntoArray(currChildren ?? [], startIdx, ...newIds),
-  });
-}
-
-export function createSection(
-  implProps: PartialImplWithType,
-  state: ZustandProjectState,
-  position?: Position,
-  coreProps?: PartialCoreWithIdOrName,
-) {
-  const sectionDefault = getSectionDefault(
-    useSettings.getState(),
-    implProps.type,
-  );
-  const sectionImpl = createBaseSectionImplUnionWithDiscriminator({
-    ...sectionDefault,
-    ...implProps,
-  });
-  const sectionImplLayering = createLayering({
-    impl: sectionImpl.id,
-    nonPresetImpls: sectionImpl.isPreset ? [] : [sectionImpl.id],
-  });
-  const section = createCore({
-    name: getDefaultCoreName(sectionImpl.type),
-    implLayerings: [sectionImplLayering.id],
-    defaultImplLayering: sectionImplLayering.id,
-    ...coreProps,
-  });
-
-  state.projectConfig.sectionImplLayeringMap[section.id] =
-    sectionImplLayering.id;
-  state.sections[section.id] = section;
-  state.sectionImpls[sectionImpl.id] = sectionImpl;
-  state.sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering;
-
-  if (!implProps.parentId) {
-    const topLevelSectionLayout = createTopLevelSectionLayout(position);
-    state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
-    addNodes([
-      {
-        id: section.id,
-        position,
-        zIndex: 0,
-        tempZIndex: 0,
-        visibility: true,
-      },
-    ]);
-  }
-
-  return section.id;
-}
-
