@@ -33,14 +33,10 @@ class RunCodeRequest(BaseModel):
 @router.websocket(Route.TERMINAL)
 async def terminal_websocket_endpoint(
     websocket: WebSocket,
-    projectConfigId: str,
     sectionId: str,
     id: str,
     state: AppStateFromWebsocket,
 ):
-    # First check if terminal exists
-    state.terminals.new_terminal(projectConfigId, sectionId)
-
     try:
         await state.terminals.connect(websocket, sectionId, id)
         write_task = asyncio.create_task(

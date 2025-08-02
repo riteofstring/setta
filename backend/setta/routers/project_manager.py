@@ -152,9 +152,11 @@ async def route_update_param_impl_config(
 async def route_create_top_level_section(
     x: CreateSectionRequest, state: AppStateFromRequest
 ):
-    return await state.project_manager.create_top_level_section(
+    sectionId = await state.project_manager.create_top_level_section(
         x.projectConfigId, x.implType, x.position
     )
+    if x.implType == SectionType.Terminal:
+        state.terminals.new_terminal(x.projectConfigId, sectionId)
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)

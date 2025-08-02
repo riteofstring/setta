@@ -399,10 +399,11 @@ class ProjectManager:
         self, projectConfigId: str, impl_type: SectionType, position: Position
     ):
         project_state = self.get_single_config_state(projectConfigId)
-        create_top_level_section(
+        sectionId = create_top_level_section(
             self.settings_file.settings, project_state, impl_type, position
         )
         await self.update_and_broadcast_project_state(project_state)
+        return sectionId
 
     @enqueue_method
     async def create_child_sections(
