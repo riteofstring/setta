@@ -356,3 +356,9 @@ export async function route_create_top_level_section(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createTopLevelSection", x);
 }
+
+export async function route_create_child_sections(
+  x: gt.CreateChildSectionsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/createChildSections", x);
+}

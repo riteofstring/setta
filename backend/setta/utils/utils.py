@@ -104,3 +104,7 @@ def ensure_str_path(path: str | bytes | Any):
     if isinstance(path, bytes):
         return path.decode("utf-8")
     return str(path)
+
+
+def insert_into_array(arr: list, index: int, new_items: list):
+    return [*arr[:index], *new_items, *arr[index:]]

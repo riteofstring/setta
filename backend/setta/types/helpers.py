@@ -45,9 +45,11 @@ from setta.types.section_impls import (
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
+    SectionSize,
     SectionType,
 )
 from setta.types.simplified_states import Position
+from setta.utils.utils import insert_into_array
 
 
 class ProjectNotFound(Exception):
@@ -474,10 +476,12 @@ def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
+    impl_overrides: dict | None = None,
 ):
     impl = create_section_impl(
         impl_type,
         get_user_default_section_from_settings(settings, impl_type),
+        impl_overrides,
     )
     layering = Layering(
         impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl)
@@ -504,29 +508,38 @@ def create_top_level_section(
     return sectionId
 
 
-# export function createSection(
-#   implProps: PartialImplWithType,
-#   state: ZustandProjectState,
-#   position?: Position,
-#   coreProps?: PartialCoreWithIdOrName,
-# ) {
+def create_child_sections(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    parentId: str,
+    impl_type: SectionType,
+    numChildren: int,
+    startIdx: int | None,
+):
+    layering = get_section_impl_layering(p, parentId)
+    core = p.sections[parentId]
+    baseImpl = p.sectionImpls[layering.impl]
+    effectiveImpl = get_effective_section_impl(p, parentId)
+    if not isinstance(effectiveImpl, BaseParentSectionImpl) or not isinstance(
+        baseImpl, BaseParentSectionImpl
+    ):
+        raise ValueError
+    size = SectionSize(width=effectiveImpl.size.width)
+    newIds = [
+        create_section(settings, p, impl_type, {"size": size})
+        for _ in range(numChildren)
+    ]
+    if startIdx is None:
+        startIdx = len(effectiveImpl.children)
 
-#   if (!implProps.parentId) {
-#     const topLevelSectionLayout = createTopLevelSectionLayout(position);
-#     state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
-#     addNodes([
-#       {
-#         id: section.id,
-#         position,
-#         zIndex: 0,
-#         tempZIndex: 0,
-#         visibility: true,
-#       },
-#     ]);
-#   }
-
-#   return section.id;
-# }
+    currChildren = effectiveImpl.children
+    set_effective_impl_value(
+        baseImpl,
+        core,
+        get_section_impl_layering(p, parentId),
+        {"children": insert_into_array(currChildren, startIdx, newIds)},
+    )
+    return newIds
 
 
 def change_param_impl(

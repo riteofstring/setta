@@ -70,6 +70,14 @@ class CreateSectionRequest(BaseModel):
     position: Position
 
 
+class CreateChildSectionsRequest(BaseModel):
+    projectConfigId: str
+    parentId: str
+    impl_type: SectionType
+    numChildren: int
+    startIdx: int | None
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
@@ -146,4 +154,13 @@ async def route_create_top_level_section(
 ):
     return await state.project_manager.create_top_level_section(
         x.projectConfigId, x.implType, x.position
+    )
+
+
+@router.post(Route.CREATE_CHILD_SECTIONS)
+async def route_create_child_sections(
+    x: CreateChildSectionsRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.create_child_sections(
+        x.projectConfigId, x.parentId, x.impl_type, x.numChildren, x.startIdx
     )

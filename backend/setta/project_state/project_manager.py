@@ -21,6 +21,7 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     change_param_impl,
     convert_backend_to_single_config,
+    create_child_sections,
     create_top_level_section,
     # create_sections,
     get_effective_section_impl,
@@ -203,8 +204,7 @@ class ProjectManager:
             singleConfig = convert_backend_to_single_config(
                 self.project_state_backend, configId
             )
-            await self.update(singleConfig)
-            await self.websocket_msg_handler.broadcast_project_state(singleConfig)
+            await self.update_and_broadcast_project_state(singleConfig)
 
     async def update(
         self,
@@ -306,8 +306,7 @@ class ProjectManager:
             callableName,
             refetchParams,
         )
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
         return project_state
 
     @enqueue_method
@@ -347,8 +346,7 @@ class ProjectManager:
         print("*************set_gen_code_prefix\n\n\n", flush=True)
         project_state = self.get_single_config_state(projectConfigId)
         project_state.projectConfig.genCodePrefix = value
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_param_values(
@@ -363,8 +361,7 @@ class ProjectManager:
                 paramInfoId,
                 value,
             )
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def get_gen_python_code_path(self, projectConfigId: str):
@@ -395,8 +392,7 @@ class ProjectManager:
             paramInfoId,
             selectedId,
         )
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def create_top_level_section(
@@ -406,8 +402,27 @@ class ProjectManager:
         create_top_level_section(
             self.settings_file.settings, project_state, impl_type, position
         )
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def create_child_sections(
+        self,
+        projectConfigId: str,
+        parentId: str,
+        impl_type: SectionType,
+        numChildren: int,
+        startIdx: int | None,
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        create_child_sections(
+            self.settings_file.settings,
+            project_state,
+            parentId,
+            impl_type,
+            numChildren,
+            startIdx,
+        )
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def update_param_impl_config(
@@ -415,8 +430,7 @@ class ProjectManager:
     ):
         project_state = self.get_single_config_state(projectConfigId)
         update_param_impl_config(project_state, sectionId, paramInfoId, newConfig)
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:
@@ -529,8 +543,7 @@ class ProjectManager:
     ):
         project_state = self.get_single_config_state(projectConfigId)
         create_sections(project_state, sections)
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
@@ -545,3 +558,9 @@ class ProjectManager:
 
     def get_new_project_state_backend(self, x: ProjectStateSingleConfig):
         return merge_single_config_into_backend(self.project_state_backend, x)
+
+    async def update_and_broadcast_project_state(
+        self, project_state: ProjectStateSingleConfig
+    ):
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(project_state)

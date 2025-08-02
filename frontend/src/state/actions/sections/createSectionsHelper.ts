@@ -1,15 +1,11 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
-import {
-  BaseSectionImplUnion,
-  CodeLanguageEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { PartialImplWithType } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
-  specificProps: Pick<BaseSectionImplUnion, "type"> &
-    Partial<BaseSectionImplUnion>;
+  specificProps: PartialImplWithType;
 };
 
 export function useCreateSectionsList() {

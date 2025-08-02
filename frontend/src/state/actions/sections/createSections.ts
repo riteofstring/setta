@@ -7,6 +7,7 @@ import {
   useSettings,
   ZustandProjectState,
 } from "state/definitions";
+import { route_create_child_sections } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   Core,
@@ -32,7 +33,7 @@ import {
   setEffectiveSectionImplValue,
 } from "../sectionInfos";
 
-type PartialImplWithType = Partial<BaseSectionImplUnion> &
+export type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
 
 type PartialCoreWithIdOrName = Partial<Pick<Core, "id" | "name">>;
@@ -118,36 +119,34 @@ export function addChildrenToSeriesViaIncrementer(
   numChildren: number,
   childImplProps: PartialImplWithType,
 ) {
-  useProjectState.setState((state) => {
-    let parentId: string, parentImpl: BaseSectionImplUnion, startIdx: number;
-    if (isRoot) {
-      parentId = calledBy;
-      parentImpl = getEffectiveSectionImpl(state, parentId);
-      if (!isBaseParentSectionImpl(parentImpl)) {
-        throw new Error();
-      }
-      startIdx = 0;
-    } else {
-      const impl = getEffectiveSectionImpl(state, calledBy);
-      parentId = impl.parentId;
-      parentImpl = getEffectiveSectionImpl(state, parentId);
-      if (!isBaseParentSectionImpl(parentImpl)) {
-        throw new Error();
-      }
-      startIdx = parentImpl.children.indexOf(calledBy) + 1;
+  let parentId: string, parentImpl: BaseSectionImplUnion, startIdx: number;
+  const state = useProjectState.getState();
+  if (isRoot) {
+    parentId = calledBy;
+    parentImpl = getEffectiveSectionImpl(state, parentId);
+    if (!isBaseParentSectionImpl(parentImpl)) {
+      throw new Error();
     }
+    startIdx = 0;
+  } else {
+    const impl = getEffectiveSectionImpl(state, calledBy);
+    parentId = impl.parentId;
+    parentImpl = getEffectiveSectionImpl(state, parentId);
+    if (!isBaseParentSectionImpl(parentImpl)) {
+      throw new Error();
+    }
+    startIdx = parentImpl.children.indexOf(calledBy) + 1;
+  }
 
-    addChildrenToSeries(
-      parentId,
-      childImplProps,
-      state,
-      undefined,
-      startIdx,
-      numChildren,
-    );
+  route_create_child_sections({
+    projectConfigId: state.projectConfig.id,
+    parentId,
+    impl_type: childImplProps.type,
+    numChildren,
+    startIdx: startIdx,
   });
 
-  maybeIncrementProjectStateVersion(true);
+  // maybeIncrementProjectStateVersion(true);
 }
 
 export function addChildrenToSeries(

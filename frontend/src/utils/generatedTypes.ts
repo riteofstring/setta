@@ -315,6 +315,7 @@ export const RouteEnum = {
   CHANGE_PARAM_IMPL: "/changeParamImpl",
   UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
   CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
+  CREATE_CHILD_SECTIONS: "/createChildSections",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -6000,6 +6001,24 @@ export function createCodeAreaCompletionRequest(
   options: Partial<CodeAreaCompletionRequest> = {},
 ): CodeAreaCompletionRequest {
   return CodeAreaCompletionRequestSchema.parse(options);
+}
+
+export const CreateChildSectionsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  parentId: z.string(),
+  impl_type: z.enum(SectionTypeEnum),
+  numChildren: z.int(),
+  startIdx: z.union([z.int(), z.null()]),
+});
+
+export type CreateChildSectionsRequest = z.infer<
+  typeof CreateChildSectionsRequestSchema
+>;
+
+export function createCreateChildSectionsRequest(
+  options: Partial<CreateChildSectionsRequest> = {},
+): CreateChildSectionsRequest {
+  return CreateChildSectionsRequestSchema.parse(options);
 }
 
 export const CreateSectionRequestSchema = z.object({
