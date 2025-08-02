@@ -34,7 +34,6 @@ class BaseSectionImplArgs(TypedDict):
     aspectRatioExtraWidth: NotRequired[int]
     isMinimized: NotRequired[bool]
     positionAndSizeLocked: NotRequired[bool]
-    presetName: NotRequired[str]
     isPreset: NotRequired[bool]
 
 
@@ -164,7 +163,6 @@ class BaseCodeObjImplArgs(TypedDict):
     id: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    presetName: NotRequired[str]
     isPreset: NotRequired[bool]
 
 

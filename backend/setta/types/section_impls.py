@@ -98,7 +98,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     aspectRatioExtraWidth: int = 0
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
-    presetName: str = ""
     isPreset: bool = False
 
 
@@ -193,7 +192,6 @@ class SocialSectionImpl(BaseSectionImpl):
 
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):
-    name: str = "Global Variables"
     type: Literal[SectionType.GlobalVariables] = SectionType.GlobalVariables
 
 
@@ -204,7 +202,6 @@ class CodeSectionImpl(BaseCodeSectionImpl):
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):
-    name: str = "Generated Python Code"
     type: Literal[SectionType.GenPythonCode] = SectionType.GenPythonCode
 
 

@@ -32,7 +32,7 @@ import {
 type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
 
-type PartialCoreWithIdOrName = Partial<Pick<Core, "id">>;
+type PartialCoreWithIdOrName = Partial<Pick<Core, "id" | "name">>;
 
 export function addRegularSectionInEmptySpace() {
   let newId;

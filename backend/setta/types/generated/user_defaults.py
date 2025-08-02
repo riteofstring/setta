@@ -32,7 +32,6 @@ class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
     aspectRatio: bool | float = False
     isMinimized: bool = False
     positionAndSizeLocked: bool = False
-    presetName: str = ""
 
 
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -158,7 +157,7 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):
-    presetName: str = ""
+    pass
 
 
 class UserDefaultBaseParamCodeObjImpl(UserDefaultBaseCodeObjImpl, extra="forbid"):

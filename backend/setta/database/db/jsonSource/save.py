@@ -115,11 +115,8 @@ def build_ancestor_paths(
             # Traverse up to build the path
             while current_id is not None:
                 if current_id in codeObjs:
-                    layering_id = codeObjImplLayeringMap[current_id]
-                    layering = codeObjImplLayerings[layering_id]
-                    base_impl = codeObjImpls[layering.impl]
-                    impl = get_effective_impl(base_impl, codeObjs[current_id], layering)
-                    path.insert(0, impl.name)
+                    name = codeObjs[current_id].name
+                    path.insert(0, name)
 
                     # Get parent using the map
                     parent_id = parent_map.get(current_id)

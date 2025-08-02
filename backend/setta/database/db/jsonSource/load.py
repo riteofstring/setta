@@ -283,7 +283,7 @@ def add_to_processed_json_object(
     is_dict = isinstance(value, dict)
     if is_dict:
         codeObjImpl = create_code_obj_impl(
-            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault, {"name": key}
+            CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
         )
         codeObjImplLayering = Layering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
@@ -292,13 +292,14 @@ def add_to_processed_json_object(
         codeObjImpl = create_code_obj_impl(
             CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
-            {"name": key, "value": json.dumps(value)},
+            {"value": json.dumps(value)},
         )
         codeObjImplLayering = Layering(
             impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
         )
     layeringId = codeObjImplLayering.id
     codeObj = Core(
+        name=key,
         implLayerings=[layeringId],
         defaultImplLayering=layeringId,
     )

@@ -44,7 +44,6 @@ AllImplFields = Literal[
     "pinnedAreaHeight",
     "pinnedParams",
     "positionAndSizeLocked",
-    "presetName",
     "renderedValue",
     "selectedParams",
     "size",

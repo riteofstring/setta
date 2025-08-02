@@ -42,7 +42,6 @@ class BaseCodeObjImpl(BaseModel):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     description: str = ""
-    presetName: str = ""
     isPreset: bool = False
 
 

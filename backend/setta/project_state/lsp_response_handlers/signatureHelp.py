@@ -120,13 +120,12 @@ def wrapper_parse_signature(
             CodeObjType.TextParam,
             settings.textParamCodeObjDefault,
             {
-                "name": name.lstrip("*"),
                 "defaultVal": default,
                 "description": description,
                 "passingStyle": passingStyle,
             },
         )
-        codeObj = Core()
+        codeObj = Core(name=name.lstrip("*"))
         codeObjs.append(codeObj)
         codeObjImplMap[codeObj.id] = codeObjImpl
 

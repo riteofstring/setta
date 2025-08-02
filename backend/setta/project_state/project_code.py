@@ -182,9 +182,8 @@ class ProjectGenPythonCode(PythonCode):
             callable_base_impl = create_code_obj_impl(
                 CodeObjType.CodeCallable,
                 settings.codeCallableCodeObjDefault,
-                {"name": callableName},
             )
-            callable_code_obj = Core()
+            callable_code_obj = Core(name=callableName)
             callable_code_obj_impl_layering = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_base_impl
             )

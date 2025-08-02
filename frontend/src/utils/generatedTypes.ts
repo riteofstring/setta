@@ -1145,7 +1145,6 @@ export const AllImplFieldsSchema = z.literal([
   "pinnedAreaHeight",
   "pinnedParams",
   "positionAndSizeLocked",
-  "presetName",
   "renderedValue",
   "selectedParams",
   "size",
@@ -1204,7 +1203,6 @@ export const ImageSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   artifactGroupIds: z.array(z.string()).default([]),
 });
@@ -1251,7 +1249,6 @@ export const ChartSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   artifactGroupIds: z.array(z.string()).default([]),
@@ -1302,7 +1299,6 @@ export const DrawSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   artifactGroupIds: z.array(z.string()).default([]),
@@ -1344,7 +1340,6 @@ export const CodeParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1369,7 +1364,6 @@ export const TextParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1394,7 +1388,6 @@ export const SliderParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1424,7 +1417,6 @@ export const SwitchParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1464,7 +1456,6 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1492,7 +1483,6 @@ export const DropdownParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1520,7 +1510,6 @@ export const PasswordParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -1561,7 +1550,6 @@ export const CodeCallableCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -1582,7 +1570,6 @@ export const NestedParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
@@ -1631,7 +1618,6 @@ export const CodeSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
@@ -1649,7 +1635,7 @@ export function createCodeSectionImpl(
 export const GenPythonCodeSectionImplSchema = z.object({
   type: z.literal("GenPythonCode").default(SectionTypeEnum.GenPythonCode),
   id: z.string().default(create_new_id),
-  name: z.string().default("Generated Python Code" as const),
+  name: z.string().default(generate_memorable_string),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -1660,7 +1646,6 @@ export const GenPythonCodeSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
 });
@@ -1699,7 +1684,6 @@ export const DictSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
@@ -1730,7 +1714,7 @@ export function createDictSectionImpl(
 export const GlobalVariablesSectionImplSchema = z.object({
   type: z.literal("GlobalVariables").default(SectionTypeEnum.GlobalVariables),
   id: z.string().default(create_new_id),
-  name: z.string().default("Global Variables" as const),
+  name: z.string().default(generate_memorable_string),
   parentId: z.union([z.string(), z.null()]).default(null),
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -1741,7 +1725,6 @@ export const GlobalVariablesSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
@@ -1818,7 +1801,6 @@ export const ListRootSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -1846,7 +1828,6 @@ export const DictRootSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -1874,7 +1855,6 @@ export const GroupSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
   isHorizontalOrientation: z.boolean().default(false),
@@ -1913,7 +1893,6 @@ export const CallableSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
@@ -1953,7 +1932,6 @@ export const TextBlockSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
@@ -1986,7 +1964,6 @@ export const SocialSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   social: z.string().default("" as const),
 });
@@ -2016,7 +1993,6 @@ export const TerminalSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
@@ -2043,7 +2019,6 @@ export const IFrameSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
@@ -2072,7 +2047,6 @@ export const ChatSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
@@ -2099,7 +2073,6 @@ export const BrowserSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
 });
@@ -2378,6 +2351,7 @@ export function createWebsocketMsgCurrentAddressUpdate(
 
 export const CoreSchema = z.object({
   id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
   implLayerings: z.array(z.string()).default([]),
   defaultImplLayering: z.union([z.string(), z.null()]).default(null),
   sharedModifier: z.record(z.string(), z.any()).default({}),
@@ -2427,7 +2401,6 @@ export const CoreSchema = z.object({
         "pinnedAreaHeight",
         "pinnedParams",
         "positionAndSizeLocked",
-        "presetName",
         "renderedValue",
         "selectedParams",
         "size",
@@ -3146,7 +3119,6 @@ export const UserDefaultBrowserSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideColumn: z.boolean().default(false),
 });
 
@@ -3167,7 +3139,6 @@ export const UserDefaultCallableSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -3197,7 +3168,6 @@ export const UserDefaultChartSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   chartSettings: ChartSettingsSchema.default(createChartSettings),
 });
 
@@ -3220,7 +3190,6 @@ export const UserDefaultChatSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultChatSectionImpl = z.infer<
@@ -3240,7 +3209,6 @@ export const UserDefaultCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   code: z.string().default("" as const),
   codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
 });
@@ -3262,7 +3230,6 @@ export const UserDefaultDictRootSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultDictRootSectionImpl = z.infer<
@@ -3282,7 +3249,6 @@ export const UserDefaultDictSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -3311,7 +3277,6 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   canvasSettings: DrawAreaCanvasSettingsSchema.default(
     createDrawAreaCanvasSettings,
   ),
@@ -3334,7 +3299,6 @@ export const UserDefaultGenPythonCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   code: z.string().default("" as const),
 });
 
@@ -3355,7 +3319,6 @@ export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -3384,7 +3347,6 @@ export const UserDefaultGroupSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isHorizontalOrientation: z.boolean().default(false),
 });
 
@@ -3405,7 +3367,6 @@ export const UserDefaultIFrameSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultIFrameSectionImpl = z.infer<
@@ -3425,7 +3386,6 @@ export const UserDefaultImageSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultImageSectionImpl = z.infer<
@@ -3445,7 +3405,6 @@ export const UserDefaultListRootSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultListRootSectionImpl = z.infer<
@@ -3465,7 +3424,6 @@ export const UserDefaultSocialSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   social: z.string().default("" as const),
 });
 
@@ -3488,7 +3446,6 @@ export const UserDefaultTerminalSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultTerminalSectionImpl = z.infer<
@@ -3508,7 +3465,6 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   format: z.enum(TextBlockFormatEnum).default(TextBlockFormatEnum.Plaintext),
   headingAsSectionName: z.boolean().default(false),
   displayMode: z
@@ -3527,9 +3483,7 @@ export function createUserDefaultTextBlockSectionImpl(
   return UserDefaultTextBlockSectionImplSchema.parse(options);
 }
 
-export const UserDefaultCodeCallableCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
-});
+export const UserDefaultCodeCallableCodeObjImplSchema = z.object({});
 
 export type UserDefaultCodeCallableCodeObjImpl = z.infer<
   typeof UserDefaultCodeCallableCodeObjImplSchema
@@ -3542,7 +3496,6 @@ export function createUserDefaultCodeCallableCodeObjImpl(
 }
 
 export const UserDefaultCodeParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3560,7 +3513,6 @@ export function createUserDefaultCodeParamCodeObjImpl(
 }
 
 export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3579,7 +3531,6 @@ export function createUserDefaultColorPickerParamCodeObjImpl(
 }
 
 export const UserDefaultDropdownParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3598,7 +3549,6 @@ export function createUserDefaultDropdownParamCodeObjImpl(
 }
 
 export const UserDefaultNestedParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
 });
@@ -3614,7 +3564,6 @@ export function createUserDefaultNestedParamCodeObjImpl(
 }
 
 export const UserDefaultPasswordParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3632,7 +3581,6 @@ export function createUserDefaultPasswordParamCodeObjImpl(
 }
 
 export const UserDefaultSliderParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3653,7 +3601,6 @@ export function createUserDefaultSliderParamCodeObjImpl(
 }
 
 export const UserDefaultSwitchParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3671,7 +3618,6 @@ export function createUserDefaultSwitchParamCodeObjImpl(
 }
 
 export const UserDefaultTextParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -3997,7 +3943,6 @@ export const BaseArtifactSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
 });
@@ -4026,7 +3971,6 @@ export const BaseCanvasSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   renderedValue: z.any().optional(),
 });
@@ -4046,7 +3990,6 @@ export const BaseChildlessCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4070,7 +4013,6 @@ export const BaseCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
 
@@ -4096,7 +4038,6 @@ export const BaseCodeSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
 });
@@ -4125,7 +4066,6 @@ export const BaseDictSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
@@ -4157,7 +4097,6 @@ export const BaseParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4179,7 +4118,6 @@ export const BaseParentCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
 });
@@ -4208,7 +4146,6 @@ export const BaseParentSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
 });
@@ -4237,7 +4174,6 @@ export const BaseSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
 
@@ -4263,7 +4199,6 @@ export const BaseSectionWithParamsImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
@@ -4300,7 +4235,6 @@ export const BrowserSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
 });
@@ -4329,7 +4263,6 @@ export const CallableSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
@@ -4368,7 +4301,6 @@ export const ChartSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
@@ -4397,7 +4329,6 @@ export const ChatSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
 
@@ -4414,7 +4345,6 @@ export const CodeCallableCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
 });
@@ -4434,7 +4364,6 @@ export const CodeParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4467,7 +4396,6 @@ export const CodeSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
   codeLanguage: z.enum(CodeLanguageEnum).optional(),
@@ -4486,7 +4414,6 @@ export const ColorPickerParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4520,7 +4447,6 @@ export const DictRootSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
 });
@@ -4549,7 +4475,6 @@ export const DictSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
@@ -4588,7 +4513,6 @@ export const DrawSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
@@ -4608,7 +4532,6 @@ export const DropdownParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4642,7 +4565,6 @@ export const GenPythonCodeSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   code: z.string().optional(),
 });
@@ -4671,7 +4593,6 @@ export const GlobalVariablesSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
@@ -4712,7 +4633,6 @@ export const GroupSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
   isHorizontalOrientation: z.boolean().optional(),
@@ -4740,7 +4660,6 @@ export const IFrameSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
 
@@ -4766,7 +4685,6 @@ export const ImageSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
 });
@@ -4793,7 +4711,6 @@ export const ListRootSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   children: z.array(z.string()).optional(),
 });
@@ -4813,7 +4730,6 @@ export const NestedParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4836,7 +4752,6 @@ export const PasswordParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4860,7 +4775,6 @@ export const SliderParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4896,7 +4810,6 @@ export const SocialSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   social: z.string().optional(),
 });
@@ -4914,7 +4827,6 @@ export const SwitchParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -4947,7 +4859,6 @@ export const TerminalSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
 });
 
@@ -4975,7 +4886,6 @@ export const TextBlockSectionImplArgsSchema = z.object({
   aspectRatioExtraWidth: z.int().optional(),
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   format: z.enum(TextBlockFormatEnum).optional(),
   headingAsSectionName: z.boolean().optional(),
@@ -4998,7 +4908,6 @@ export const TextParamCodeObjImplArgsSchema = z.object({
   id: z.string().optional(),
   name: z.string().optional(),
   description: z.string().optional(),
-  presetName: z.string().optional(),
   isPreset: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   coreNameEditable: z.boolean().optional(),
@@ -5089,7 +4998,6 @@ export const BaseChildlessCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -5115,7 +5023,6 @@ export const BaseCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
@@ -5132,7 +5039,6 @@ export const BaseParamCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
@@ -5154,7 +5060,6 @@ export const BaseParentCodeObjImplSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -5174,7 +5079,6 @@ export const UserDefaultBaseArtifactSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultBaseArtifactSectionImpl = z.infer<
@@ -5194,7 +5098,6 @@ export const UserDefaultBaseCanvasSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultBaseCanvasSectionImpl = z.infer<
@@ -5208,7 +5111,6 @@ export function createUserDefaultBaseCanvasSectionImpl(
 }
 
 export const UserDefaultBaseChildlessCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
@@ -5225,9 +5127,7 @@ export function createUserDefaultBaseChildlessCodeObjImpl(
   return UserDefaultBaseChildlessCodeObjImplSchema.parse(options);
 }
 
-export const UserDefaultBaseCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
-});
+export const UserDefaultBaseCodeObjImplSchema = z.object({});
 
 export type UserDefaultBaseCodeObjImpl = z.infer<
   typeof UserDefaultBaseCodeObjImplSchema
@@ -5246,7 +5146,6 @@ export const UserDefaultBaseCodeSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   code: z.string().default("" as const),
 });
 
@@ -5267,7 +5166,6 @@ export const UserDefaultBaseDictSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -5290,7 +5188,6 @@ export function createUserDefaultBaseDictSectionImpl(
 }
 
 export const UserDefaultBaseParamCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
 });
@@ -5305,9 +5202,7 @@ export function createUserDefaultBaseParamCodeObjImpl(
   return UserDefaultBaseParamCodeObjImplSchema.parse(options);
 }
 
-export const UserDefaultBaseParentCodeObjImplSchema = z.object({
-  presetName: z.string().default("" as const),
-});
+export const UserDefaultBaseParentCodeObjImplSchema = z.object({});
 
 export type UserDefaultBaseParentCodeObjImpl = z.infer<
   typeof UserDefaultBaseParentCodeObjImplSchema
@@ -5326,7 +5221,6 @@ export const UserDefaultBaseParentSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultBaseParentSectionImpl = z.infer<
@@ -5346,7 +5240,6 @@ export const UserDefaultBaseSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
 });
 
 export type UserDefaultBaseSectionImpl = z.infer<
@@ -5366,7 +5259,6 @@ export const UserDefaultBaseSectionWithParamsImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -5400,7 +5292,6 @@ export const BaseParentSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   children: z.array(z.string()).default([]),
 });
@@ -5427,7 +5318,6 @@ export const BaseSectionWithParamsImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
@@ -5619,7 +5509,6 @@ export const BaseArtifactSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   artifactGroupIds: z.array(z.string()).default([]),
 });
@@ -5648,7 +5537,6 @@ export const BaseCanvasSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
 });
@@ -5675,7 +5563,6 @@ export const BaseCodeSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   code: z.string().default("" as const),
 });
@@ -5702,7 +5589,6 @@ export const BaseDictSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
   codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
@@ -5743,7 +5629,6 @@ export const BaseSectionImplSchema = z.object({
   aspectRatioExtraWidth: z.int().default(0),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  presetName: z.string().default("" as const),
   isPreset: z.boolean().default(false),
 });
 
