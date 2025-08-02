@@ -18,7 +18,7 @@ class Route(str, Enum):
     LOAD_SETTINGS = "/loadSettings"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
-    TERMINAL = "/{projectConfigId}/{sectionId}/{id}/{isTemporary}"
+    TERMINAL = "/{projectConfigId}/{sectionId}/{id}"
     DELETE_TERMINALS = "/deleteTerminals"
     WEBSOCKET_FRONTEND = "/frontend"
     WEBSOCKET_CLI = "/cli"

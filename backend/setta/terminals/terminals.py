@@ -59,7 +59,7 @@ class Terminals:
         self.settings_file = settings_file
         # asyncio.create_task(self.monitor_child_processes())
 
-    def new_terminal(self, projectConfigId, sectionId, isTemporary):
+    def new_terminal(self, projectConfigId, sectionId):
         if sectionId not in self.PTY_PIDS:
             terminal_shell = get_terminal_shell(
                 self.settings_file.settings.backend.defaultTerminalShell
@@ -73,7 +73,6 @@ class Terminals:
                 "history": deque(maxlen=1000),
                 "wasJustResized": False,
                 "terminalPromptIsReady": asyncio.Event(),
-                "isTemporary": isTemporary,
             }
             pty_info = self.PTY_PIDS[sectionId]
             if (
@@ -223,10 +222,10 @@ class Terminals:
         return None
 
     def get_existing_terminals(self, projectConfigId):
-        output = []
+        output: list[str] = []
         for k, v in self.PTY_PIDS.items():
             if v["projectConfigId"] == projectConfigId:
-                output.append({"id": k, "isTemporary": v["isTemporary"]})
+                output.append(k)
         return output
 
     async def run_command_in_terminal(self, terminal_id, command):

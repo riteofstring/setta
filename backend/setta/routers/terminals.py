@@ -36,11 +36,10 @@ async def terminal_websocket_endpoint(
     projectConfigId: str,
     sectionId: str,
     id: str,
-    isTemporary: bool,
     state: AppStateFromWebsocket,
 ):
     # First check if terminal exists
-    state.terminals.new_terminal(projectConfigId, sectionId, isTemporary)
+    state.terminals.new_terminal(projectConfigId, sectionId)
 
     try:
         await state.terminals.connect(websocket, sectionId, id)
@@ -67,8 +66,7 @@ def route_kill_subprocesses(
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
-    existing = state.terminals.get_existing_terminals(x.projectConfigId)
-    ids = [x["id"] for x in existing]
+    ids = state.terminals.get_existing_terminals(x.projectConfigId)
     num_killed = state.terminals.kill_processes(ids)
     msg = (
         f"Killed {num_killed} processes"

@@ -87,9 +87,7 @@ export function useTerminal({ sectionId, width, height, setHasScrollbar }) {
 function newTerminalWebsocket(sectionId) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
   const id = createNewId();
-  const isTemporary =
-    !!useProjectState.getState().sections[sectionId].isTemporary;
-  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id, isTemporary })}`;
+  const wsTerminalAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(RouteEnum.TERMINAL, { projectConfigId, sectionId, id })}`;
   const ws = new WebSocket(wsTerminalAddress);
   ws.addEventListener("open", async () => {
     if (INITIAL_MESSAGES[sectionId]?.length > 0) {
