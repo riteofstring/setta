@@ -25,7 +25,6 @@ class Route(str, Enum):
     WEBSOCKET_CLI_WITH_ID = "/cli/{id}"
     WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}"
     WEBSOCKET_PYTHON_LOGGER = "/pythonLogger"
-    GET_EXISTING_TERMINALS = "/getExistingTerminals/{projectConfigId}"
     SAVE_CODE_INFO = "/codeInfo/save"
     COPY_SECTIONS = "/copySections"
     SEND_PROJECT_TO_INTERACTIVE_CODE = "/sendProjectTointeractiveCode"

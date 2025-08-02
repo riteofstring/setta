@@ -61,11 +61,6 @@ async def route_delete_terminals(x: DeleteTerminalsRequest, state: AppStateFromR
     await state.terminals.delete_terminals(x.sectionIds)
 
 
-@router.get(Route.GET_EXISTING_TERMINALS)
-def route_get_existing_terminals(projectConfigId: str, state: AppStateFromRequest):
-    return state.terminals.get_existing_terminals(projectConfigId)
-
-
 @router.post(Route.KILL_SUBPROCESSES)
 def route_kill_subprocesses(
     x: KillSubprocessesRequest,

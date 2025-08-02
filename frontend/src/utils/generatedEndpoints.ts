@@ -1,4 +1,4 @@
-import { get, post, ResponseDataAndStatus } from "./endpointUtils";
+import { post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_load_all_project_metadata(): Promise<
@@ -149,14 +149,6 @@ export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteTerminals", x);
-}
-
-export async function route_get_existing_terminals(
-  projectConfigId: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/getExistingTerminals/{projectConfigId}", {
-    projectConfigId,
-  });
 }
 
 export async function route_kill_subprocesses(

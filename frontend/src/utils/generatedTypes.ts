@@ -171,18 +171,6 @@ export type ParameterPassingStyle = ObjectValues<
   typeof ParameterPassingStyleEnum
 >;
 
-export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
-
-export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
-
-export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
-
-export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
-export const SectionSizeModeEnum = { auto: "auto" } as const;
-
-export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
-
 export const SectionTypeEnum = {
   Callable: "Callable",
   Dict: "Dict",
@@ -204,6 +192,18 @@ export const SectionTypeEnum = {
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
+export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
+
+export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+
+export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
+
+export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
+
+export const SectionSizeModeEnum = { auto: "auto" } as const;
+
+export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
 
 export const TextBlockDisplayModeEnum = {
   render: "render",
@@ -265,7 +265,6 @@ export const RouteEnum = {
   WEBSOCKET_CLI_WITH_ID: "/cli/{id}",
   WEBSOCKET_PYTHON_SCRIPT: "/pythonScript/{id}",
   WEBSOCKET_PYTHON_LOGGER: "/pythonLogger",
-  GET_EXISTING_TERMINALS: "/getExistingTerminals/{projectConfigId}",
   SAVE_CODE_INFO: "/codeInfo/save",
   COPY_SECTIONS: "/copySections",
   SEND_PROJECT_TO_INTERACTIVE_CODE: "/sendProjectTointeractiveCode",

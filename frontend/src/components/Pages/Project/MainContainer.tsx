@@ -5,7 +5,6 @@ import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocati
 import { useEffect } from "react";
 import { initializeGlobalSectionColumnWidthEventListeners } from "state/actions/sectionColumnWidth";
 import { useLoadProjectConfig } from "state/hooks/project";
-import { restoreTerminals } from "state/hooks/terminals/terminal";
 import { Overview } from "../../../components/Panes/Overview/Overview";
 import { UiEditor } from "../../../components/Panes/UiEditor/UiEditor";
 import { NotFound } from "../NotFound/NotFound";
@@ -18,7 +17,6 @@ export function MainContainer() {
 
   useEffect(() => {
     if (doneLoading && !is404) {
-      restoreTerminals();
       const cleanup = initializeGlobalSectionColumnWidthEventListeners();
       return cleanup;
     }

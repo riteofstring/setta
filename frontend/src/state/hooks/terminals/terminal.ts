@@ -4,12 +4,10 @@ import {
   addChildrenToSeries,
   addSectionInEmptySpace,
 } from "state/actions/sections/createSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams, res200 } from "utils/endpointUtils";
-import { route_get_existing_terminals } from "utils/generatedEndpoints";
+import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { Terminal } from "xterm";
@@ -148,28 +146,6 @@ function addTerminalInitialMessage(sectionId, msg) {
 
 function removeWsFromArray(x, ws) {
   return x.filter((w) => w !== ws);
-}
-
-export async function restoreTerminals() {
-  const res = await route_get_existing_terminals(
-    useProjectState.getState().projectConfig.id,
-  );
-  if (res200(res)) {
-    const existingTerminalInfo = res.data;
-    const terminalsWithoutSections = existingTerminalInfo.filter(
-      (x) => !(x.id in useProjectState.getState().sections),
-    );
-    if (terminalsWithoutSections.length === 0) {
-      return;
-    }
-    useProjectState.setState((state) => {
-      const groupId = maybeCreateTemporaryTerminalGroup(state);
-      for (const terminalInfo of terminalsWithoutSections) {
-        createTemporaryTerminal(terminalInfo.id, groupId, state);
-      }
-    });
-    maybeIncrementProjectStateVersion(true);
-  }
 }
 
 function maybeCreateTemporaryTerminalGroup(state: ZustandProjectState) {
