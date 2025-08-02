@@ -351,8 +351,8 @@ export async function route_update_param_impl_config(
   return await post("/updateParamImplConfig", x);
 }
 
-export async function route_create_section(
+export async function route_create_top_level_section(
   x: gt.CreateSectionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createSection", x);
+  return await post("/createTopLevelSection", x);
 }

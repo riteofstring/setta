@@ -8,7 +8,7 @@ import {
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus, useProjectState } from "state/definitions";
-import { route_create_section } from "utils/generatedEndpoints";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
@@ -17,7 +17,7 @@ export function PaneContextMenu() {
   function onClick(
     specificProps: CreateSectionsContextMenuInfo["specificProps"],
   ) {
-    route_create_section({
+    route_create_top_level_section({
       projectConfigId: useProjectState.getState().projectConfig.id,
       implType: specificProps.type,
       position: screenToFlowPosition({ x, y }),

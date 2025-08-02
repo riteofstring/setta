@@ -21,7 +21,7 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     change_param_impl,
     convert_backend_to_single_config,
-    create_section,
+    create_top_level_section,
     # create_sections,
     get_effective_section_impl,
     get_top_level_sections,
@@ -399,15 +399,12 @@ class ProjectManager:
         await self.websocket_msg_handler.broadcast_project_state(project_state)
 
     @enqueue_method
-    async def create_section(
+    async def create_top_level_section(
         self, projectConfigId: str, impl_type: SectionType, position: Position
     ):
         project_state = self.get_single_config_state(projectConfigId)
-        create_section(
-            self.settings_file.settings,
-            project_state,
-            impl_type,
-            position,
+        create_top_level_section(
+            self.settings_file.settings, project_state, impl_type, position
         )
         await self.update(project_state)
         await self.websocket_msg_handler.broadcast_project_state(project_state)

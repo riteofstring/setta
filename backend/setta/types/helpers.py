@@ -474,7 +474,6 @@ def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
-    position: Position,
 ):
     impl = create_section_impl(
         impl_type,
@@ -489,12 +488,20 @@ def create_section(
     p.sectionImpls[impl.id] = impl
     p.sectionImplLayerings[layering.id] = layering
 
-    if not impl.parentId:
-        p.projectConfig.topLevelSections[core.id] = TopLevelSectionLayout(
-            **position.model_dump()
-        )
-
     return core.id
+
+
+def create_top_level_section(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    impl_type: SectionType,
+    position: Position,
+):
+    sectionId = create_section(settings, p, impl_type)
+    p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
+        **position.model_dump()
+    )
+    return sectionId
 
 
 # export function createSection(

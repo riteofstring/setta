@@ -140,8 +140,10 @@ async def route_update_param_impl_config(
     )
 
 
-@router.post(Route.CREATE_SECTION)
-async def route_create_section(x: CreateSectionRequest, state: AppStateFromRequest):
-    return await state.project_manager.create_section(
+@router.post(Route.CREATE_TOP_LEVEL_SECTION)
+async def route_create_top_level_section(
+    x: CreateSectionRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.create_top_level_section(
         x.projectConfigId, x.implType, x.position
     )

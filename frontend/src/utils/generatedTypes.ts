@@ -314,7 +314,7 @@ export const RouteEnum = {
   GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
   CHANGE_PARAM_IMPL: "/changeParamImpl",
   UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
-  CREATE_SECTION: "/createSection",
+  CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
