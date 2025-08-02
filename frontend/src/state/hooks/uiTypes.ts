@@ -113,11 +113,20 @@ export function getUIEditorTab(
   return { selectedTabName, requiredTabs: new Set(requiredTabs) };
 }
 
-export type SliderConfigForFrontend = {
-  min: number;
-  max: number;
-  step: number;
-};
+export type SliderConfigForFrontend = Pick<
+  SliderParamCodeObjImpl,
+  "min" | "max" | "step"
+>;
+
+export type DropdownConfigForFrontend = Pick<
+  DropdownParamCodeObjImpl,
+  "choices"
+>;
+
+export type ColorPickerConfigForFrontend = Pick<
+  ColorPickerParamCodeObjImpl,
+  "choices"
+>;
 
 const UI_CONFIG_EXTRACTORS = {
   [CodeObjTypeEnum.SliderParam]: (
@@ -127,10 +136,14 @@ const UI_CONFIG_EXTRACTORS = {
     max: obj.max,
     step: obj.step,
   }),
-  [CodeObjTypeEnum.DropdownParam]: (obj: DropdownParamCodeObjImpl) => ({
+  [CodeObjTypeEnum.DropdownParam]: (
+    obj: DropdownParamCodeObjImpl,
+  ): DropdownConfigForFrontend => ({
     choices: obj.choices,
   }),
-  [CodeObjTypeEnum.ColorPickerParam]: (obj: ColorPickerParamCodeObjImpl) => ({
+  [CodeObjTypeEnum.ColorPickerParam]: (
+    obj: ColorPickerParamCodeObjImpl,
+  ): ColorPickerConfigForFrontend => ({
     choices: obj.choices,
   }),
 } as const;

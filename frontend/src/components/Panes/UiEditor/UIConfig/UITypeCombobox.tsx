@@ -18,6 +18,7 @@ function UITypeCombobox({
     { group: "Base", items: nonPresetImpls },
     { group: "Preset", items: presetImpls },
   ];
+  console.log(allItems);
 
   return (
     <IdNameCombobox

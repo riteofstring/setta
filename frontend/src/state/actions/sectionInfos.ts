@@ -20,6 +20,7 @@ import {
 } from "utils/generatedTypes";
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
+import { maybeIncrementProjectStateVersion } from "./undo";
 
 // Generic function with constraints
 export function getEffectiveImpl<K extends keyof ImplArgsBundleMap>(
@@ -259,6 +260,18 @@ export function getCodeObjImplCoreLayeringBundle<
   }
 
   return { impl, core, layering };
+}
+
+export function updateCodeObjImplConfig(
+  sectionId: string,
+  paramInfoId: string,
+  newConfig,
+) {
+  useProjectState.setState((state) => {
+    const impl = getCodeObjImpl(state, sectionId, paramInfoId);
+    Object.assign(impl, newConfig);
+  });
+  maybeIncrementProjectStateVersion(true);
 }
 
 export function getSectionInfo(sectionId) {

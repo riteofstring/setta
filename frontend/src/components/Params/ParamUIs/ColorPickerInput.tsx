@@ -1,5 +1,9 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useParamCodeObjUIConfig } from "state/hooks/uiTypes";
+import { updateCodeObjImplConfig } from "state/actions/sectionInfos";
+import {
+  ColorPickerConfigForFrontend,
+  useParamCodeObjUIConfig,
+} from "state/hooks/uiTypes";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
 
@@ -16,42 +20,51 @@ export function ColorPickerInputConfigForParam({
     CodeObjTypeEnum.ColorPickerParam,
   );
 
-  function onChange() {
-    console.log("onChange");
+  function onChange(newConfig: ColorPickerConfigForFrontend) {
+    updateCodeObjImplConfig(sectionId, paramInfoId, newConfig);
   }
+
   return <ColorPickerInputConfig config={config} onChange={onChange} />;
 }
 
-export function ColorPickerInputConfig({ onChange, config }) {
-  const colors = config.colorChoices ?? [];
-
+export function ColorPickerInputConfig({
+  onChange,
+  config,
+}: {
+  onChange: (x: ColorPickerConfigForFrontend) => void;
+  config: ColorPickerConfigForFrontend;
+}) {
   const addColor = () => {
-    const colorChoices = [...colors, { color: "#ff0000", description: "" }];
-    onChange("colorChoices", () => colorChoices);
+    onChange({
+      choices: [...config.choices, { color: "#ff0000", description: "" }],
+    });
   };
 
-  const removeColor = (removeIdx) => {
-    const colorChoices = colors.filter((color, idx) => idx !== removeIdx);
-    onChange("colorChoices", () => colorChoices);
+  const removeColor = (removeIdx: number) => {
+    onChange({
+      choices: config.choices.filter((choice, idx) => idx !== removeIdx),
+    });
   };
 
-  const updateColor = (updateIdx, newColor) => {
-    const colorChoices = colors.map((color, idx) =>
-      idx === updateIdx ? { ...color, color: newColor } : color,
-    );
-    onChange("colorChoices", () => colorChoices);
+  const updateColor = (updateIdx: number, newColor: string) => {
+    onChange({
+      choices: config.choices.map((choice, idx) =>
+        idx === updateIdx ? { ...choice, color: newColor } : choice,
+      ),
+    });
   };
 
-  const updateDescription = (updateIdx, description) => {
-    const colorChoices = colors.map((color, idx) =>
-      idx === updateIdx ? { ...color, description } : color,
-    );
-    onChange("colorChoices", () => colorChoices);
+  const updateDescription = (updateIdx: number, description: string) => {
+    onChange({
+      choices: config.choices.map((choice, idx) =>
+        idx === updateIdx ? { ...choice, description } : choice,
+      ),
+    });
   };
 
   return (
     <AvailableColors
-      colors={colors}
+      choices={config.choices}
       addColor={addColor}
       removeColor={removeColor}
       updateColor={updateColor}
@@ -61,11 +74,17 @@ export function ColorPickerInputConfig({ onChange, config }) {
 }
 
 export const AvailableColors = ({
-  colors,
+  choices,
   addColor,
   removeColor,
   updateColor,
   updateDescription,
+}: {
+  choices: ColorPickerConfigForFrontend["choices"];
+  addColor: () => void;
+  removeColor: (removeIdx: number) => void;
+  updateColor: (updateIdx: number, newColor: string) => void;
+  updateDescription: (updateIdx: number, description: string) => void;
 }) => {
   return (
     <>
@@ -79,7 +98,7 @@ export const AvailableColors = ({
       </button>
 
       <div className="flex flex-col gap-2 overflow-y-auto">
-        {colors.map(({ color, description }, idx) => (
+        {choices.map(({ color, description }, idx) => (
           <div key={idx} className="flex items-center gap-2">
             <div className="flex flex-auto items-center gap-1 overflow-hidden">
               <input
