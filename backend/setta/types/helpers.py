@@ -8,12 +8,20 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeObjType,
 )
-from setta.types.core import Core, Layering
+from setta.types.core import (
+    Core,
+    Layering,
+    compute_initial_default_layering,
+    compute_initial_nonPresetImpls,
+)
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
-from setta.types.generated.impl_creation_fns import create_code_obj_impl
+from setta.types.generated.impl_creation_fns import (
+    create_code_obj_impl,
+    create_section_impl,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
@@ -29,6 +37,7 @@ from setta.types.impl_helpers import (
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
+    TopLevelSectionLayout,
 )
 from setta.types.section_impls import (
     BaseParentSectionImpl,
@@ -36,8 +45,9 @@ from setta.types.section_impls import (
     CallableSectionImpl,
     DictSectionImpl,
     ListRootSectionImpl,
+    SectionType,
 )
-from setta.types.simplified_states import SimplifiedSectionCreation
+from setta.types.simplified_states import Position
 
 
 class ProjectNotFound(Exception):
@@ -321,7 +331,7 @@ def add_code_obj(
         raise TypeError
     code_obj_impl_layering = Layering(
         impl=code_obj_impl.id,
-        nonPresetImpls=[] if code_obj_impl.isPreset else [code_obj_impl.id],
+        nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
     )
     code_obj.implLayerings.append(code_obj_impl_layering.id)
     if not code_obj.defaultImplLayering:
@@ -442,22 +452,74 @@ def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newNam
     p.projectConfigs[projectConfigId].name = newName
 
 
-def create_sections(
+# def create_sections(
+#     p: ProjectStateSingleConfig,
+#     sections: list[SimplifiedSectionCreation],
+# ):
+#     # TODO!
+#     for s in sections:
+#         # sectionImpl =
+#         sectionCore = Core()
+#         # p.sections[sectionCore.id] = sectionCore
+#         # p.sectionImpls[sectionImpl.id] = sectionImpl
+#         # new_section.variantIds = [new_section_config.variantId]
+#         # new_section.defaultVariantId = new_section_config.variantId
+#         # p.projectConfig.sectionConfigs[new_section.id] = new_section_config
+#         # p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
+#         #     x=s.position.x, y=s.position.y
+#         # )
+
+
+def create_section(
+    settings: SettingsState,
     p: ProjectStateSingleConfig,
-    sections: list[SimplifiedSectionCreation],
+    impl_type: SectionType,
+    position: Position,
 ):
-    # TODO!
-    for s in sections:
-        # sectionImpl =
-        sectionCore = Core()
-        # p.sections[sectionCore.id] = sectionCore
-        # p.sectionImpls[sectionImpl.id] = sectionImpl
-        # new_section.variantIds = [new_section_config.variantId]
-        # new_section.defaultVariantId = new_section_config.variantId
-        # p.projectConfig.sectionConfigs[new_section.id] = new_section_config
-        # p.projectConfig.topLevelSections[new_section.id] = TopLevelSectionLayout(
-        #     x=s.position.x, y=s.position.y
-        # )
+    impl = create_section_impl(
+        impl_type,
+        get_user_default_section_from_settings(settings, impl_type),
+    )
+    layering = Layering(
+        impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl)
+    )
+    core = Core(**compute_initial_default_layering(layering))
+    p.projectConfig.sectionImplLayeringMap[core.id] = layering.id
+    p.sections[core.id] = core
+    p.sectionImpls[impl.id] = impl
+    p.sectionImplLayerings[layering.id] = layering
+
+    if not impl.parentId:
+        p.projectConfig.topLevelSections[core.id] = TopLevelSectionLayout(
+            **position.model_dump()
+        )
+
+    return core.id
+
+
+# export function createSection(
+#   implProps: PartialImplWithType,
+#   state: ZustandProjectState,
+#   position?: Position,
+#   coreProps?: PartialCoreWithIdOrName,
+# ) {
+
+#   if (!implProps.parentId) {
+#     const topLevelSectionLayout = createTopLevelSectionLayout(position);
+#     state.projectConfig.topLevelSections[section.id] = topLevelSectionLayout;
+#     addNodes([
+#       {
+#         id: section.id,
+#         position,
+#         zIndex: 0,
+#         tempZIndex: 0,
+#         visibility: true,
+#       },
+#     ]);
+#   }
+
+#   return section.id;
+# }
 
 
 def change_param_impl(
@@ -500,6 +562,10 @@ def update_param_impl_config(
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
     return getattr(settings, x[0].lower() + x[1:] + "CodeObjDefault")
+
+
+def get_user_default_section_from_settings(settings: SettingsState, x: SectionType):
+    return getattr(settings, x[0].lower() + x[1:] + "SectionDefault")
 
 
 def maybe_convert_code_obj_value(old_impl, new_impl, core, layering):

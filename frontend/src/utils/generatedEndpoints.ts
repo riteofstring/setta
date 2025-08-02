@@ -350,3 +350,9 @@ export async function route_update_param_impl_config(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/updateParamImplConfig", x);
 }
+
+export async function route_create_section(
+  x: gt.CreateSectionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/createSection", x);
+}

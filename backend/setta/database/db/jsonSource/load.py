@@ -10,7 +10,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Layering
+from setta.types.core import Core, Layering, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -286,7 +286,8 @@ def add_to_processed_json_object(
             CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
         )
         codeObjImplLayering = Layering(
-            impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
+            impl=codeObjImpl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
         )
     else:
         codeObjImpl = create_code_obj_impl(
@@ -295,7 +296,8 @@ def add_to_processed_json_object(
             {"value": json.dumps(value)},
         )
         codeObjImplLayering = Layering(
-            impl=codeObjImpl.id, nonPresetImpls=[codeObjImpl.id]
+            impl=codeObjImpl.id,
+            nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
         )
     layeringId = codeObjImplLayering.id
     codeObj = Core(

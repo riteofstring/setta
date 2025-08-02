@@ -10,7 +10,7 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.core import Core, Layering
+from setta.types.core import Core, Layering, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
@@ -39,7 +39,7 @@ def add_code_obj_details(
 ):
     codeObjImplLayering = Layering(
         impl=codeObjImpl.id,
-        nonPresetImpls=[] if codeObjImpl.isPreset else [codeObjImpl.id],
+        nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
     )
     codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
     codeObjImpls[codeObjImpl.id] = codeObjImpl
@@ -166,7 +166,7 @@ def create_settings_project_state(settings_path: Path):
         sectionImplLayering = Layering(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
-            nonPresetImpls=[sectionImpl.id],
+            nonPresetImpls=compute_initial_nonPresetImpls(sectionImpl),
         )
         section = Core(
             name=k,

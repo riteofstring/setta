@@ -314,6 +314,7 @@ export const RouteEnum = {
   GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
   CHANGE_PARAM_IMPL: "/changeParamImpl",
   UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
+  CREATE_SECTION: "/createSection",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -5073,6 +5074,31 @@ export function createBaseParentCodeObjImpl(
   return BaseParentCodeObjImplSchema.parse(options);
 }
 
+export const BaseSectionImplSchema = z.object({
+  type: z.any(),
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  parentId: z.union([z.string(), z.null()]).default(null),
+  isFrozen: z.boolean().default(false),
+  visibility: VisibilitySchema.default(createVisibility),
+  isInOtherProjectConfigs: z.boolean().default(false),
+  size: SectionSizeSchema.default(createSectionSize),
+  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
+  aspectRatioExtraHeight: z.int().default(0),
+  aspectRatioExtraWidth: z.int().default(0),
+  isMinimized: z.boolean().default(false),
+  positionAndSizeLocked: z.boolean().default(false),
+  isPreset: z.boolean().default(false),
+});
+
+export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
+
+export function createBaseSectionImpl(
+  options: Partial<BaseSectionImpl> = {},
+): BaseSectionImpl {
+  return BaseSectionImplSchema.parse(options);
+}
+
 export const UserDefaultBaseArtifactSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   visibility: VisibilitySchema.default(createVisibility),
@@ -5343,6 +5369,17 @@ export function createBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplSchema.parse(options);
 }
 
+export const PositionSchema = z.object({
+  x: z.number().default(0),
+  y: z.number().default(0),
+});
+
+export type Position = z.infer<typeof PositionSchema>;
+
+export function createPosition(options: Partial<Position> = {}): Position {
+  return PositionSchema.parse(options);
+}
+
 export const ProjectStateBackendSchema = z.object({
   sections: z.record(z.string(), CoreSchema).default({}),
   sectionImpls: z
@@ -5398,34 +5435,6 @@ export function createProjectStateBackend(
   options: Partial<ProjectStateBackend> = {},
 ): ProjectStateBackend {
   return ProjectStateBackendSchema.parse(options);
-}
-
-export const PositionSchema = z.object({
-  x: z.number().default(0),
-  y: z.number().default(0),
-});
-
-export type Position = z.infer<typeof PositionSchema>;
-
-export function createPosition(options: Partial<Position> = {}): Position {
-  return PositionSchema.parse(options);
-}
-
-export const SimplifiedSectionCreationSchema = z.object({
-  name: z.string(),
-  position: PositionSchema.default(createPosition),
-  size: SectionSizeSchema.default(createSectionSize),
-  type: z.enum(SectionTypeEnum).default(SectionTypeEnum.Callable),
-});
-
-export type SimplifiedSectionCreation = z.infer<
-  typeof SimplifiedSectionCreationSchema
->;
-
-export function createSimplifiedSectionCreation(
-  options: Partial<SimplifiedSectionCreation> = {},
-): SimplifiedSectionCreation {
-  return SimplifiedSectionCreationSchema.parse(options);
 }
 
 export const ProjectMetadataSchema = z.object({
@@ -5616,31 +5625,6 @@ export function createBaseDictSectionImpl(
   return BaseDictSectionImplSchema.parse(options);
 }
 
-export const BaseSectionImplSchema = z.object({
-  type: z.any(),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  parentId: z.union([z.string(), z.null()]).default(null),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-});
-
-export type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
-
-export function createBaseSectionImpl(
-  options: Partial<BaseSectionImpl> = {},
-): BaseSectionImpl {
-  return BaseSectionImplSchema.parse(options);
-}
-
 export const SimplifiedCodeInfoSchema = z.object({
   name: z.string(),
   defaultVal: z.string().default("" as const),
@@ -5665,6 +5649,23 @@ export function createSimplifiedSection(
   options: Partial<SimplifiedSection> = {},
 ): SimplifiedSection {
   return SimplifiedSectionSchema.parse(options);
+}
+
+export const SimplifiedSectionCreationSchema = z.object({
+  name: z.string(),
+  position: PositionSchema.default(createPosition),
+  size: SectionSizeSchema.default(createSectionSize),
+  type: z.enum(SectionTypeEnum).default(SectionTypeEnum.Callable),
+});
+
+export type SimplifiedSectionCreation = z.infer<
+  typeof SimplifiedSectionCreationSchema
+>;
+
+export function createSimplifiedSectionCreation(
+  options: Partial<SimplifiedSectionCreation> = {},
+): SimplifiedSectionCreation {
+  return SimplifiedSectionCreationSchema.parse(options);
 }
 
 export const BackendWebsocketMsgSchema = z.object({
@@ -5999,6 +6000,20 @@ export function createCodeAreaCompletionRequest(
   options: Partial<CodeAreaCompletionRequest> = {},
 ): CodeAreaCompletionRequest {
   return CodeAreaCompletionRequestSchema.parse(options);
+}
+
+export const CreateSectionRequestSchema = z.object({
+  projectConfigId: z.string(),
+  implType: z.enum(SectionTypeEnum),
+  position: PositionSchema,
+});
+
+export type CreateSectionRequest = z.infer<typeof CreateSectionRequestSchema>;
+
+export function createCreateSectionRequest(
+  options: Partial<CreateSectionRequest> = {},
+): CreateSectionRequest {
+  return CreateSectionRequestSchema.parse(options);
 }
 
 export const GenCodePrefixCompletionRequestSchema = z.object({

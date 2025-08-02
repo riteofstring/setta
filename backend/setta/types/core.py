@@ -1,7 +1,9 @@
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
+from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.generated.impl_field_literals import AllImplFields
+from setta.types.section_impls import BaseSectionImpl
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -27,3 +29,11 @@ class Layering(BaseModel, extra="forbid"):
     impl: str
     nonPresetImpls: list[str]
     modifier: dict = Field(default_factory=dict)
+
+
+def compute_initial_default_layering(layering: Layering):
+    return {"implLayerings": [layering.id], "defaultImplLayering": layering.id}
+
+
+def compute_initial_nonPresetImpls(impl: BaseCodeObjImpl | BaseSectionImpl):
+    return [] if impl.isPreset else [impl.id]

@@ -72,3 +72,4 @@ class Route(str, Enum):
     GEN_CODE_SUFFIX_COMPLETION = "/genCodeSuffixCompletion"
     CHANGE_PARAM_IMPL = "/changeParamImpl"
     UPDATE_PARAM_IMPL_CONFIG = "/updateParamImplConfig"
+    CREATE_SECTION = "/createSection"

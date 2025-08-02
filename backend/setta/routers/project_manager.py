@@ -4,6 +4,8 @@ from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompl
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
+from setta.types.section_impls import SectionType
+from setta.types.simplified_states import Position
 
 router = SettaAPIRouter()
 
@@ -60,6 +62,12 @@ class UpdateParamImplConfigRequest(BaseModel):
     sectionId: str
     paramInfoId: str
     newConfig: dict
+
+
+class CreateSectionRequest(BaseModel):
+    projectConfigId: str
+    implType: SectionType
+    position: Position
 
 
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
@@ -129,4 +137,11 @@ async def route_update_param_impl_config(
 ):
     return await state.project_manager.update_param_impl_config(
         x.projectConfigId, x.sectionId, x.paramInfoId, x.newConfig
+    )
+
+
+@router.post(Route.CREATE_SECTION)
+async def route_create_section(x: CreateSectionRequest, state: AppStateFromRequest):
+    return await state.project_manager.create_section(
+        x.projectConfigId, x.implType, x.position
     )

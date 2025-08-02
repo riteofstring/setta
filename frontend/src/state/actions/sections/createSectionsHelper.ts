@@ -8,7 +8,8 @@ import {
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
-  specificProps: Partial<BaseSectionImplUnion>;
+  specificProps: Pick<BaseSectionImplUnion, "type"> &
+    Partial<BaseSectionImplUnion>;
 };
 
 export function useCreateSectionsList() {

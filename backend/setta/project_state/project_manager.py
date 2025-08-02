@@ -21,7 +21,8 @@ from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     change_param_impl,
     convert_backend_to_single_config,
-    create_sections,
+    create_section,
+    # create_sections,
     get_effective_section_impl,
     get_top_level_sections,
     merge_single_config_into_backend,
@@ -35,9 +36,9 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import CodeLanguage, CodeSectionImpl
+from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
-from setta.types.simplified_states import SimplifiedSectionCreation
+from setta.types.simplified_states import Position, SimplifiedSectionCreation
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -393,6 +394,20 @@ class ProjectManager:
             sectionId,
             paramInfoId,
             selectedId,
+        )
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def create_section(
+        self, projectConfigId: str, impl_type: SectionType, position: Position
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        create_section(
+            self.settings_file.settings,
+            project_state,
+            impl_type,
+            position,
         )
         await self.update(project_state)
         await self.websocket_msg_handler.broadcast_project_state(project_state)
