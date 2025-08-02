@@ -28,15 +28,3 @@ export const uiTypesToPretty = {
   // [UITypeNameEnum.CODE]: "Code",
   // [UITypeNameEnum.TERMINAL]: "Terminal",
 };
-
-export function isBasePreset(uiType) {
-  return uiType.presetType === UITypePresetTypeEnum.BASE;
-}
-
-export function isUserPreset(uiType) {
-  return uiType.presetType === UITypePresetTypeEnum.USER;
-}
-
-export function isPreset(uiType) {
-  return isBasePreset(uiType) || isUserPreset(uiType);
-}
