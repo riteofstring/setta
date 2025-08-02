@@ -55,6 +55,13 @@ class ChangeParamImplRequest(BaseModel):
     selectedId: str
 
 
+class UpdateParamImplConfigRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str
+    newConfig: dict
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
@@ -113,4 +120,13 @@ async def route_change_param_impl(
 ):
     return await state.project_manager.change_param_impl(
         x.projectConfigId, x.sectionId, x.paramInfoId, x.selectedId
+    )
+
+
+@router.post(Route.UPDATE_PARAM_IMPL_CONFIG)
+async def route_update_param_impl_config(
+    x: UpdateParamImplConfigRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.update_param_impl_config(
+        x.projectConfigId, x.sectionId, x.paramInfoId, x.newConfig
     )

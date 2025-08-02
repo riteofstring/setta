@@ -1,9 +1,10 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { updateCodeObjImplConfig } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { tryParseJSON } from "utils/utils";
 
@@ -21,7 +22,12 @@ export function ColorPickerInputConfigForParam({
   );
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
-    updateCodeObjImplConfig(sectionId, paramInfoId, newConfig);
+    route_update_param_impl_config({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionId,
+      paramInfoId,
+      newConfig,
+    });
   }
 
   return <ColorPickerInputConfig config={config} onChange={onChange} />;

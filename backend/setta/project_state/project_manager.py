@@ -27,6 +27,7 @@ from setta.types.helpers import (
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
+    update_param_impl_config,
 )
 from setta.types.project_state import (
     ProjectConfig,
@@ -393,6 +394,15 @@ class ProjectManager:
             paramInfoId,
             selectedId,
         )
+        await self.update(project_state)
+        await self.websocket_msg_handler.broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def update_param_impl_config(
+        self, projectConfigId: str, sectionId: str, paramInfoId: str, newConfig: dict
+    ):
+        project_state = self.get_single_config_state(projectConfigId)
+        update_param_impl_config(project_state, sectionId, paramInfoId, newConfig)
         await self.update(project_state)
         await self.websocket_msg_handler.broadcast_project_state(project_state)
 

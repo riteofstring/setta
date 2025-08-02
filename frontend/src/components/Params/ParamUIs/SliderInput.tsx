@@ -2,11 +2,12 @@ import * as Slider from "@radix-ui/react-slider";
 import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { updateCodeObjImplConfig } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
+import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
@@ -24,7 +25,12 @@ export function SliderInputConfigForParam({
   );
 
   function onChange(newConfig: SliderConfigForFrontend) {
-    updateCodeObjImplConfig(sectionId, paramInfoId, newConfig);
+    route_update_param_impl_config({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionId,
+      paramInfoId,
+      newConfig,
+    });
   }
 
   return <SliderInputConfig onChange={onChange} config={config} />;

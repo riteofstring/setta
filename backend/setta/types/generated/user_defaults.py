@@ -200,18 +200,20 @@ class UserDefaultSliderParamCodeObjImpl(
     min: int = 0
     max: int = 100
     step: int = 1
+    value: str = "0"
 
 
 class UserDefaultSwitchParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
-    pass
+    value: str = "false"
 
 
 class UserDefaultColorPickerParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
     choices: list[ColorPickerChoice] = Field(default_factory=list)
+    value: str = "#ff0000"
 
 
 class UserDefaultDropdownParamCodeObjImpl(

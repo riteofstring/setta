@@ -344,3 +344,9 @@ export async function route_change_param_impl(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/changeParamImpl", x);
 }
+
+export async function route_update_param_impl_config(
+  x: gt.UpdateParamImplConfigRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/updateParamImplConfig", x);
+}

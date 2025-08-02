@@ -313,6 +313,7 @@ export const RouteEnum = {
   GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
   GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
   CHANGE_PARAM_IMPL: "/changeParamImpl",
+  UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -1395,7 +1396,7 @@ export const SliderParamCodeObjImplSchema = z.object({
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("0" as const),
   min: z.int().default(0),
   max: z.int().default(100),
   step: z.int().default(1),
@@ -1424,7 +1425,7 @@ export const SwitchParamCodeObjImplSchema = z.object({
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("false" as const),
 });
 
 export type SwitchParamCodeObjImpl = z.infer<
@@ -1463,7 +1464,7 @@ export const ColorPickerParamCodeObjImplSchema = z.object({
     .enum(ParameterPassingStyleEnum)
     .default(ParameterPassingStyleEnum.DEFAULT),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("#ff0000" as const),
   choices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
@@ -3516,7 +3517,7 @@ export const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("#ff0000" as const),
   choices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
@@ -3584,7 +3585,7 @@ export const UserDefaultSliderParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("0" as const),
   min: z.int().default(0),
   max: z.int().default(100),
   step: z.int().default(1),
@@ -3604,7 +3605,7 @@ export const UserDefaultSwitchParamCodeObjImplSchema = z.object({
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   defaultVal: z.string().default("" as const),
-  value: z.string().default("" as const),
+  value: z.string().default("false" as const),
 });
 
 export type UserDefaultSwitchParamCodeObjImpl = z.infer<
@@ -6063,6 +6064,23 @@ export function createTextFieldCompletionRequest(
   options: Partial<TextFieldCompletionRequest> = {},
 ): TextFieldCompletionRequest {
   return TextFieldCompletionRequestSchema.parse(options);
+}
+
+export const UpdateParamImplConfigRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.string(),
+  newConfig: z.record(z.string(), z.any()),
+});
+
+export type UpdateParamImplConfigRequest = z.infer<
+  typeof UpdateParamImplConfigRequestSchema
+>;
+
+export function createUpdateParamImplConfigRequest(
+  options: Partial<UpdateParamImplConfigRequest> = {},
+): UpdateParamImplConfigRequest {
+  return UpdateParamImplConfigRequestSchema.parse(options);
 }
 
 export const AddDefaultDataForJSONImportRequestSchema = z.object({

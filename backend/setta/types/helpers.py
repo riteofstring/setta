@@ -1,4 +1,7 @@
+import math
+import re
 from typing import assert_never
+
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -35,8 +38,6 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
 )
 from setta.types.simplified_states import SimplifiedSectionCreation
-import math
-import re
 
 
 class ProjectNotFound(Exception):
@@ -481,19 +482,35 @@ def change_param_impl(
     if not impl.isPreset and impl.id not in layering.nonPresetImpls:
         layering.nonPresetImpls.append(impl.id)
 
-    if isinstance(old_impl, BaseChildlessCodeObjImplUnion) and isinstance(
-        impl, BaseChildlessCodeObjImplUnion
-    ):
-        core = p.codeObjs[paramInfoId]
-        old_effective_impl = get_effective_impl(old_impl, core, layering)
-        old_value = old_effective_impl.value
-        new_value = convert_code_obj_value(impl, old_value)
-        if new_value != old_value:
-            set_effective_impl_value(impl, core, layering, {"value": new_value})
+    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], layering)
+
+
+def update_param_impl_config(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    paramInfoId: str,
+    newConfig: dict,
+):
+    layering = get_code_obj_impl_layering(p, paramInfoId, sectionId)
+    impl = p.codeObjImpls[layering.impl]
+    for k, v in newConfig.items():
+        setattr(impl, k, v)
+    maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], layering)
 
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
     return getattr(settings, x[0].lower() + x[1:] + "CodeObjDefault")
+
+
+def maybe_convert_code_obj_value(old_impl, new_impl, core, layering):
+    if isinstance(old_impl, BaseChildlessCodeObjImplUnion) and isinstance(
+        new_impl, BaseChildlessCodeObjImplUnion
+    ):
+        old_effective_impl = get_effective_impl(old_impl, core, layering)
+        old_value = old_effective_impl.value
+        new_value = convert_code_obj_value(new_impl, old_value)
+        if new_value != old_value:
+            set_effective_impl_value(new_impl, core, layering, {"value": new_value})
 
 
 def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
@@ -516,7 +533,13 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
         case CodeObjType.SwitchParam:
             return "false" if value == "0" else "true"
         case CodeObjType.ColorPickerParam:
-            return value if is_color_hex(value) else "#ff0000"
+            if len(impl.choices) > 0:
+                if value in [c.color for c in impl.choices]:
+                    return value
+                return impl.choices[0].color
+            elif is_color_hex(value):
+                return value
+            return "#ff0000"
         case _:
             assert_never(impl.type)
 
