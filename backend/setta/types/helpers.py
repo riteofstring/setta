@@ -519,7 +519,7 @@ def create_child_sections(
         raise ValueError
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
-        create_section(settings, p, impl_type, {"size": size})
+        create_section(settings, p, impl_type, {"size": size, "parentId": parentId})
         for _ in range(numChildren)
     ]
     if startIdx is None:
@@ -541,14 +541,16 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         impl = get_effective_section_impl(p, id)
         # delete from parent's current children list
         if impl.parentId:
-            parent_effective_impl = get_effective_section_impl(p, id)
+            parent_effective_impl = get_effective_section_impl(p, impl.parentId)
             parent_core = p.sections[impl.parentId]
-            parent_layering = get_section_impl_layering(p, id)
+            parent_layering = get_section_impl_layering(p, impl.parentId)
             parent_base_impl = p.sectionImpls[parent_layering.impl]
             if not isinstance(
                 parent_effective_impl, BaseParentSectionImpl
             ) or not isinstance(parent_base_impl, BaseParentSectionImpl):
-                raise ValueError
+                raise ValueError(
+                    f"parent_effective_impl: {parent_effective_impl}\nparent_base_impl: {parent_base_impl}"
+                )
 
             new_children = [x for x in parent_effective_impl.children if x != id]
             set_effective_impl_value(
@@ -561,7 +563,8 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         still_used = check_if_section_is_still_used_somewhere(p, id)
         if not still_used:
             del p.sections[id]
-            del p.projectConfig.topLevelSections[id]
+            if not impl.parentId:
+                del p.projectConfig.topLevelSections[id]
 
 
 def check_if_section_is_still_used_somewhere(
