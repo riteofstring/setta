@@ -161,9 +161,7 @@ export function getEffectiveImplFromLayeringMap(
   return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
 }
 
-export function setEffectiveImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
+export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   impl: ImplArgsBundleMap[K]["impl"],
   core: Core,
   layering: Layering,
@@ -187,9 +185,7 @@ export function setEffectiveImplValue<
   return getEffectiveImpl(impl, core, layering);
 }
 
-export function setEffectiveSectionImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
+export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
   args: ImplArgsBundleMap[K]["args"],
@@ -221,20 +217,10 @@ export function getSectionImplCoreLayeringBundle<
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
   }
 
-  // Check that all three have the same type
-  if (impl.type !== core.type || core.type !== layering.type) {
-    throw new Error(
-      `Type mismatch: baseImpl.type=${impl.type}, ` +
-        `core.type=${core.type}, layering.type=${layering.type}`,
-    );
-  }
-
   return { impl, core, layering };
 }
 
-export function setEffectiveCodeObjImplValue<
-  K extends keyof ImplArgsBundleMap,
->(
+export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -270,14 +256,6 @@ export function getCodeObjImplCoreLayeringBundle<
 
   if (!impl || !core) {
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
-  }
-
-  // Check that all three have the same type
-  if (impl.type !== core.type || core.type !== layering.type) {
-    throw new Error(
-      `Type mismatch: baseImpl.type=${impl.type}, ` +
-        `core.type=${core.type}, layering.type=${layering.type}`,
-    );
   }
 
   return { impl, core, layering };
