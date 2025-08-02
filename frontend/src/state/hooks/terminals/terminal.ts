@@ -1,15 +1,10 @@
-import _ from "lodash";
 import { useEffect, useRef } from "react";
-import {
-  addChildrenToSeries,
-  addSectionInEmptySpace,
-} from "state/actions/sections/createSections";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
-import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { createNewId, createRandomName } from "utils/idNameCreation";
+import { RouteEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
 import "xterm/css/xterm.css";
@@ -144,48 +139,4 @@ function addTerminalInitialMessage(sectionId, msg) {
 
 function removeWsFromArray(x, ws) {
   return x.filter((w) => w !== ws);
-}
-
-function maybeCreateTemporaryTerminalGroup(state: ZustandProjectState) {
-  let groupId = state.singletonSections.temporaryTerminalGroup;
-  if (!groupId) {
-    groupId = addSectionInEmptySpace(
-      {
-        type: SectionTypeEnum.Group,
-      },
-      state,
-      { name: getTemporaryTerminalsGroupName() },
-    );
-  }
-  return groupId;
-}
-
-function getTemporaryTerminalsGroupName() {
-  const baseName = "Temporary Terminals";
-  const existingNames = _.map(
-    useProjectState.getState().sections,
-    (s) => s.name,
-  );
-  let name = baseName;
-
-  while (existingNames.includes(name)) {
-    name = `${baseName} ${createRandomName()}`;
-  }
-
-  return name;
-}
-
-export function createTemporaryTerminalFromBackend({
-  projectConfigId,
-  terminalId,
-}) {
-  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
-    return;
-  }
-  useProjectState.setState((state) => {
-    const groupId = maybeCreateTemporaryTerminalGroup(state);
-    addChildrenToSeries(groupId, { type: SectionTypeEnum.Terminal }, state, {
-      id: terminalId,
-    });
-  });
 }
