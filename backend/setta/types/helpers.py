@@ -509,8 +509,7 @@ def maybe_convert_code_obj_value(old_impl, new_impl, core, layering):
         old_effective_impl = get_effective_impl(old_impl, core, layering)
         old_value = old_effective_impl.value
         new_value = convert_code_obj_value(new_impl, old_value)
-        if new_value != old_value:
-            set_effective_impl_value(new_impl, core, layering, {"value": new_value})
+        set_effective_impl_value(new_impl, core, layering, {"value": new_value})
 
 
 def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):

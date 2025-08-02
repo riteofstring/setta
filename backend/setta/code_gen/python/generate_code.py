@@ -176,6 +176,7 @@ class PythonCodeGenerator:
         t = node.type
         if (
             t == CodeObjType.TextParam
+            or t == CodeObjType.CodeParam
             or t == CodeObjType.SliderParam
             or t == CodeObjType.DropdownParam
         ):
