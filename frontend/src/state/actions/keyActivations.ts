@@ -50,12 +50,12 @@ import { restartLanguageServer } from "./lsp";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
+import { deleteAllActiveSections } from "./sectionInfos";
 import {
   addGroupInEmptySpace,
   addRegularSectionInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
-import { deleteAllActiveSections } from "./sections/deleteSections";
 import {
   groupActiveSections,
   ungroupActiveGroup,

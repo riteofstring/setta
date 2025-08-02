@@ -6,7 +6,10 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_get_json_source_path_to_be_deleted } from "utils/generatedEndpoints";
+import {
+  route_delete_sections,
+  route_get_json_source_path_to_be_deleted,
+} from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   Core,
@@ -574,4 +577,11 @@ export function getCurrentSectionConfigs(
 ) {
   const state = _state ?? useProjectState.getState();
   return state.projectConfig.sectionConfigs;
+}
+
+export function deleteAllActiveSections() {
+  route_delete_sections({
+    projectConfigId: useProjectState.getState().projectConfig.id,
+    sectionIds: useProjectState.getState().activeIds,
+  });
 }
