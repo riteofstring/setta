@@ -425,6 +425,18 @@ class ProjectManager:
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
+    async def create_temporary_terminal(self, projectConfigId: str, terminalId: str):
+        project_state = self.get_single_config_state(projectConfigId)
+        create_top_level_section(
+            self.settings_file.settings,
+            project_state,
+            SectionType.Terminal,
+            Position(),
+            core_overrides={"id": terminalId},
+        )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
     async def update_param_impl_config(
         self, projectConfigId: str, sectionId: str, paramInfoId: str, newConfig: dict
     ):

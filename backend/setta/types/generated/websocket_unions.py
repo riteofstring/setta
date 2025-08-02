@@ -9,7 +9,6 @@ from setta.types.websocket import (
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
-    WebsocketMsgNewTerminalCreated,
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgSpecificFileWatcherUpdate,
@@ -32,7 +31,6 @@ WebsocketMsgUnion = Union[
     WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgAllDependencies,
     WebsocketMsgTerminalMetadata,
-    WebsocketMsgNewTerminalCreated,
     WebsocketMsgUpdateSettings,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgUpdateBackendProjectState,
@@ -57,7 +55,6 @@ WebsocketMsgTypeSet = set(
         "SpecificFileWatcherUpdate",
         "AllDependencies",
         "TerminalMetadata",
-        "NewTerminalCreated",
         "UpdateSettings",
         "CurrentAddressUpdate",
         "UpdateBackendProjectState",
@@ -76,7 +73,6 @@ FrontendWebsocketMsgUnion = Union[
     WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgAllDependencies,
     WebsocketMsgTerminalMetadata,
-    WebsocketMsgNewTerminalCreated,
     WebsocketMsgUpdateSettings,
 ]
 
@@ -101,7 +97,6 @@ FrontendWebsocketMsgTypeSet = set(
         "SpecificFileWatcherUpdate",
         "AllDependencies",
         "TerminalMetadata",
-        "NewTerminalCreated",
         "UpdateSettings",
     ]
 )

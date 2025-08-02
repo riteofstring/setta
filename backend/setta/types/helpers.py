@@ -477,6 +477,7 @@ def create_section(
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
     impl_overrides: dict | None = None,
+    core_overrides: dict | None = None,
 ):
     impl = create_section_impl(
         impl_type,
@@ -486,7 +487,9 @@ def create_section(
     layering = Layering(
         impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl)
     )
-    core = Core(**compute_initial_default_layering(layering))
+    if not core_overrides:
+        core_overrides = {}
+    core = Core(**core_overrides, **compute_initial_default_layering(layering))
     p.projectConfig.sectionImplLayeringMap[core.id] = layering.id
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
@@ -500,8 +503,10 @@ def create_top_level_section(
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
     position: Position,
+    impl_overrides: dict | None = None,
+    core_overrides: dict | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type)
+    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )

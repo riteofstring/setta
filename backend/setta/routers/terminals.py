@@ -93,7 +93,7 @@ def route_kill_subprocesses(
 async def route_run_code(
     x: RunCodeRequest, background_tasks: BackgroundTasks, state: AppStateFromRequest
 ):
-    terminal_id, new_terminal_created = await run_code(
+    terminal_id = await run_code(
         x.projectConfigId,
         x.sectionId,
         x.cliId,
@@ -109,8 +109,3 @@ async def route_run_code(
         state.wmh_frontend_sender.broadcast_notification,
         notification,
     )
-
-    if new_terminal_created:
-        await state.wmh_frontend_sender.send_new_terminal_id(
-            x.projectConfigId, terminal_id
-        )

@@ -10,11 +10,7 @@ import { C } from "utils/c";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams, res200 } from "utils/endpointUtils";
 import { route_get_existing_terminals } from "utils/generatedEndpoints";
-import {
-  NewTerminalCreated,
-  RouteEnum,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { RouteEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { createNewId, createRandomName } from "utils/idNameCreation";
 import { Terminal } from "xterm";
 import { AttachAddon } from "xterm-addon-attach";
@@ -208,7 +204,7 @@ function getTemporaryTerminalsGroupName() {
 export function createTemporaryTerminalFromBackend({
   projectConfigId,
   terminalId,
-}: NewTerminalCreated) {
+}) {
   if (useProjectState.getState().projectConfig.id !== projectConfigId) {
     return;
   }

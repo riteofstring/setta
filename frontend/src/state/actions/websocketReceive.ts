@@ -9,7 +9,6 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { createTemporaryTerminalFromBackend } from "state/hooks/terminals/terminal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import {
   createWebsocketConnectionInfo,
@@ -101,8 +100,6 @@ function receiveMessage(message: string) {
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
       return processTypeErrors(m.content);
-    case WebsocketMsgTypeForFrontendEnum.NewTerminalCreated:
-      return createTemporaryTerminalFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.Notification:
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:

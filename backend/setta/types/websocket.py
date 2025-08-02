@@ -14,7 +14,6 @@ from setta.types.lsp import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.specific_file_watcher import FileWatcherUpdate
-from setta.types.terminals import NewTerminalCreated
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -29,7 +28,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     Artifact = "Artifact"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
-    NewTerminalCreated = "NewTerminalCreated"
     UpdateSettings = "UpdateSettings"
 
 
@@ -145,13 +143,6 @@ class WebsocketMsgTerminalMetadata(FrontendWebsocketMsg):
     content: Any
     messageType: Literal[WebsocketMsgTypeForFrontend.TerminalMetadata] = (
         WebsocketMsgTypeForFrontend.TerminalMetadata
-    )
-
-
-class WebsocketMsgNewTerminalCreated(FrontendWebsocketMsg):
-    content: NewTerminalCreated
-    messageType: Literal[WebsocketMsgTypeForFrontend.NewTerminalCreated] = (
-        WebsocketMsgTypeForFrontend.NewTerminalCreated
     )
 
 

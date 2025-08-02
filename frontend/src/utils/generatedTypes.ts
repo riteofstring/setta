@@ -102,7 +102,6 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "Artifact",
   "LLMStreamingResponse",
   "LSPDiagnostics",
-  "NewTerminalCreated",
   "Notification",
   "ReturnRenameRefactorResults",
   "SpecificFileWatcherUpdate",
@@ -119,7 +118,6 @@ export const WebsocketMsgTypeSet = new Set([
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
-  "NewTerminalCreated",
   "Notification",
   "ReturnRenameRefactorResults",
   "SpecificFileWatcherUpdate",
@@ -399,7 +397,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   Artifact: "Artifact",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  NewTerminalCreated: "NewTerminalCreated",
   UpdateSettings: "UpdateSettings",
 } as const;
 
@@ -2959,37 +2956,6 @@ export function createWebsocketMsgTerminalMetadata(
   return WebsocketMsgTerminalMetadataSchema.parse(options);
 }
 
-export const NewTerminalCreatedSchema = z.object({
-  projectConfigId: z.string(),
-  terminalId: z.string(),
-});
-
-export type NewTerminalCreated = z.infer<typeof NewTerminalCreatedSchema>;
-
-export function createNewTerminalCreated(
-  options: Partial<NewTerminalCreated> = {},
-): NewTerminalCreated {
-  return NewTerminalCreatedSchema.parse(options);
-}
-
-export const WebsocketMsgNewTerminalCreatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: NewTerminalCreatedSchema,
-  messageType: z
-    .literal("NewTerminalCreated")
-    .default(WebsocketMsgTypeForFrontendEnum.NewTerminalCreated),
-});
-
-export type WebsocketMsgNewTerminalCreated = z.infer<
-  typeof WebsocketMsgNewTerminalCreatedSchema
->;
-
-export function createWebsocketMsgNewTerminalCreated(
-  options: Partial<WebsocketMsgNewTerminalCreated> = {},
-): WebsocketMsgNewTerminalCreated {
-  return WebsocketMsgNewTerminalCreatedSchema.parse(options);
-}
-
 export const SettingsShortcutsSchema = z.object({
   newCardShortcut: z.string().default("N" as const),
   newGroupShortcut: z.string().default("G" as const),
@@ -3765,7 +3731,6 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgSpecificFileWatcherUpdateSchema,
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
-  WebsocketMsgNewTerminalCreatedSchema,
   WebsocketMsgUpdateSettingsSchema,
 ]);
 
@@ -3786,7 +3751,6 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgSpecificFileWatcherUpdateSchema,
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
-    WebsocketMsgNewTerminalCreatedSchema,
     WebsocketMsgUpdateSettingsSchema,
   ]);
 
@@ -3812,7 +3776,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgSpecificFileWatcherUpdateSchema,
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
-  WebsocketMsgNewTerminalCreatedSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
   WebsocketMsgUpdateBackendProjectStateSchema,
@@ -3834,7 +3797,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgSpecificFileWatcherUpdateSchema,
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
-    WebsocketMsgNewTerminalCreatedSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
     WebsocketMsgUpdateBackendProjectStateSchema,

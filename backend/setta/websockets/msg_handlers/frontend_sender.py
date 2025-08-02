@@ -8,13 +8,11 @@ from setta.types.lsp import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.specific_file_watcher import FileWatcherUpdate
-from setta.types.terminals import NewTerminalCreated
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgArtifact,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
-    WebsocketMsgNewTerminalCreated,
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgSpecificFileWatcherUpdate,
@@ -89,16 +87,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     async def broadcast_terminal_metadata(self, terminal_metadata):
         await self.websocket_manager.broadcast(
             WebsocketMsgTerminalMetadata(content=terminal_metadata),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
-
-    async def send_new_terminal_id(self, projectConfigId, terminalId):
-        await self.websocket_manager.broadcast(
-            WebsocketMsgNewTerminalCreated(
-                content=NewTerminalCreated(
-                    projectConfigId=projectConfigId, terminalId=terminalId
-                )
-            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
