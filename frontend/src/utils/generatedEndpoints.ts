@@ -354,3 +354,9 @@ export async function route_create_child_sections(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createChildSections", x);
 }
+
+export async function route_delete_sections(
+  x: gt.DeleteSectionsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteSections", x);
+}

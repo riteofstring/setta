@@ -4,9 +4,8 @@ import {
   getEffectiveSectionImpl,
   getSectionVisibilityKey,
 } from "state/actions/sectionInfos";
-import { deleteSections } from "state/actions/sections/deleteSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
+import { route_delete_sections } from "utils/generatedEndpoints";
 import {
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -24,16 +23,20 @@ export function DeleteOrHideButton({
   });
 
   const onClick = () => {
-    useProjectState.setState((state) => {
-      if (viewingEditingMode === ViewingEditingModeEnum.DEV) {
-        deleteSections([sectionId], state);
-      } else if (viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
-        state.sections[sectionId].visibility[ViewingEditingModeEnum.USER] =
-          !visibility;
-      }
+    route_delete_sections({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionIds: [sectionId],
     });
+    // useProjectState.setState((state) => {
+    //   if (viewingEditingMode === ViewingEditingModeEnum.DEV) {
+    //     route_delete_sections({projectConfigId: })
+    //   } else if (viewingEditingMode === ViewingEditingModeEnum.USER_EDIT) {
+    //     state.sections[sectionId].visibility[ViewingEditingModeEnum.USER] =
+    //       !visibility;
+    //   }
+    // });
 
-    maybeIncrementProjectStateVersion(true);
+    // maybeIncrementProjectStateVersion(true);
   };
 
   return (

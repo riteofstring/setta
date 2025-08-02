@@ -23,6 +23,7 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
     create_child_sections,
     create_top_level_section,
+    delete_sections,
     # create_sections,
     get_effective_section_impl,
     get_top_level_sections,
@@ -435,6 +436,12 @@ class ProjectManager:
             Position(),
             core_overrides={"id": terminalId},
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_sections(self, projectConfigId: str, sectionIds: list[str]):
+        project_state = self.get_single_config_state(projectConfigId)
+        delete_sections(project_state, sectionIds)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

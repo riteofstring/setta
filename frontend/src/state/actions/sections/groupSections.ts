@@ -6,7 +6,6 @@ import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
 import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
-import { deleteSections } from "./deleteSections";
 
 export function groupSections({ sectionIds, position, name }) {
   let groupId;
@@ -69,7 +68,7 @@ export function ungroupGroup(groupId, state) {
     state,
   });
 
-  deleteSections([groupId], state);
+  // deleteSections([groupId], state);
 
   state.requestRenameRefactor = true;
 }

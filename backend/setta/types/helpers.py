@@ -1,3 +1,4 @@
+import copy
 import math
 import re
 from typing import assert_never
@@ -532,6 +533,108 @@ def create_child_sections(
         {"children": insert_into_array(currChildren, startIdx, newIds)},
     )
     return newIds
+
+
+def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
+    to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
+    for id in to_delete:
+        impl = get_effective_section_impl(p, id)
+        # delete from parent's current children list
+        if impl.parentId:
+            parent_effective_impl = get_effective_section_impl(p, id)
+            parent_core = p.sections[impl.parentId]
+            parent_layering = get_section_impl_layering(p, id)
+            parent_base_impl = p.sectionImpls[parent_layering.impl]
+            if not isinstance(
+                parent_effective_impl, BaseParentSectionImpl
+            ) or not isinstance(parent_base_impl, BaseParentSectionImpl):
+                raise ValueError
+
+            new_children = [x for x in parent_effective_impl.children if x != id]
+            set_effective_impl_value(
+                parent_base_impl,
+                parent_core,
+                parent_layering,
+                {"children": new_children},
+            )
+
+        still_used = check_if_section_is_still_used_somewhere(p, id)
+        if not still_used:
+            del p.sections[id]
+            del p.projectConfig.topLevelSections[id]
+
+
+def check_if_section_is_still_used_somewhere(
+    p: ProjectStateSingleConfig, sectionId: str
+):
+    for s in p.sections.values():
+        if "children" in s.sharedModifier and id in s.sharedModifier["children"]:
+            return True
+    for s in p.sectionImpls.values():
+        if isinstance(s, BaseParentSectionImpl) and id in s.children:
+            return True
+    for s in p.sectionImplLayerings.values():
+        if "children" in s.modifier and id in s.modifier["children"]:
+            return True
+    return False
+
+
+def get_all_sections_for_deletion_or_copying(
+    p: ProjectStateSingleConfig, sectionIds: list[str]
+):
+    idsToDelete = copy.deepcopy(sectionIds)
+    visited = set()
+    idx = 0
+    while idx < len(idsToDelete):
+        currId = idsToDelete[idx]
+        if currId not in visited:
+            currChildren = get_section_descendants_from_all_versions(p, currId)
+            idsToDelete.extend(currChildren)
+            visited.add(currId)
+        idx += 1
+    return set(idsToDelete)
+
+
+def get_section_descendants_from_all_versions(
+    p: ProjectStateSingleConfig, sectionId: str
+):
+    output: list[str] = []
+    core = p.sections[sectionId]
+    for layeringId in core.implLayerings:
+        layering = p.sectionImplLayerings[layeringId]
+        base_impl = p.sectionImpls[layering.impl]
+        impl = get_effective_impl(base_impl, core, layering)
+        if isinstance(impl, BaseParentSectionImpl):
+            output.extend(impl.children)
+    return output
+
+
+# function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
+#   const idSet = new Set(ids);
+#   for (const id of idSet) {
+#     const impl = getEffectiveSectionImpl(state, id);
+
+#     let isStillUsedInAnImpl = false;
+#     for (const implLayering of Object.values(state.sectionImplLayerings)) {
+#       const impl = state.sectionImpls[implLayering.impl];
+#       const modifier = implLayering.modifier;
+#       if (!impl || !isBaseParentSectionImpl(impl)) {
+#         continue;
+#       }
+#       if (impl.children.includes(id) || modifier.children?.includes(id)) {
+#         isStillUsedInAnImpl = true;
+#         break;
+#       }
+#     }
+
+#     if (!isStillUsedInAnImpl) {
+#       // for (const variantId of state.sections[id].variantIds) {
+#       //   delete state.variants[variantId];
+#       // }
+#       delete state.sections[id];
+#     }
+#   }
+# }
 
 
 def change_param_impl(

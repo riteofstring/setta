@@ -374,7 +374,6 @@ export function setEnteredValue(variantId, paramInfoId, value, state) {
   state.variants[variantId].values[paramInfoId].value = value;
 }
 
-
 export function getCodeInfoCol(sectionId, _state) {
   const state = _state ?? useProjectState.getState();
   const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
@@ -382,7 +381,6 @@ export function getCodeInfoCol(sectionId, _state) {
     ? state.codeInfoCols[codeInfoColId]
     : createCodeInfoCol();
 }
-
 
 export function getDisplayedSectionVariant(sectionId, _state) {
   const state = _state ?? useProjectState.getState();
@@ -430,53 +428,6 @@ export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
-}
-
-function getSectionDescendantsFromAllVariants(
-  sectionId: string,
-  state: ZustandProjectState,
-) {
-  const output: Array<string> = [];
-  const section = state.sections[sectionId];
-  if (!section) {
-    throw new Error();
-  }
-  for (const layeringId of section.implLayerings) {
-    const implLayering = state.sectionImplLayerings[layeringId];
-    if (!implLayering) {
-      throw new Error();
-    }
-    const baseImpl = state.sectionImpls[implLayering.impl];
-    const core = state.sections[sectionId];
-    const impl = getEffectiveImpl<"BaseSectionUnion">(
-      baseImpl,
-      core,
-      implLayering,
-    );
-    if (isBaseParentSectionImpl(impl)) {
-      output.push(...impl.children);
-    }
-  }
-  return output;
-}
-
-export function getAllSectionsForDeletionOrCopying(
-  sectionIds: Array<string>,
-  state: ZustandProjectState,
-) {
-  const idsToDelete = [...sectionIds];
-  let idx = 0;
-  while (idx < idsToDelete.length) {
-    const idxChildren = getSectionDescendantsFromAllVariants(
-      idsToDelete[idx],
-      state,
-    );
-    if (idxChildren) {
-      idsToDelete.push(...idxChildren);
-    }
-    idx += 1;
-  }
-  return idsToDelete;
 }
 
 export function resetSectionsToDefaultVersions(sectionIds) {

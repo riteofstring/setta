@@ -313,6 +313,7 @@ export const RouteEnum = {
   UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
   CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
   CREATE_CHILD_SECTIONS: "/createChildSections",
+  DELETE_SECTIONS: "/deleteSections",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -5994,6 +5995,19 @@ export function createCreateSectionRequest(
   options: Partial<CreateSectionRequest> = {},
 ): CreateSectionRequest {
   return CreateSectionRequestSchema.parse(options);
+}
+
+export const DeleteSectionsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionIds: z.array(z.string()),
+});
+
+export type DeleteSectionsRequest = z.infer<typeof DeleteSectionsRequestSchema>;
+
+export function createDeleteSectionsRequest(
+  options: Partial<DeleteSectionsRequest> = {},
+): DeleteSectionsRequest {
+  return DeleteSectionsRequestSchema.parse(options);
 }
 
 export const GenCodePrefixCompletionRequestSchema = z.object({

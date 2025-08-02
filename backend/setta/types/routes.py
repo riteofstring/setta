@@ -73,3 +73,4 @@ class Route(str, Enum):
     UPDATE_PARAM_IMPL_CONFIG = "/updateParamImplConfig"
     CREATE_TOP_LEVEL_SECTION = "/createTopLevelSection"
     CREATE_CHILD_SECTIONS = "/createChildSections"
+    DELETE_SECTIONS = "/deleteSections"

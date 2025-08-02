@@ -5,7 +5,7 @@ import _ from "lodash";
 import { clearActiveSectionIds } from "state/actions/activeSections";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
-import { deleteSections } from "state/actions/sections/deleteSections";
+// import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
 import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useProjectState } from "state/definitions";

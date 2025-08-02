@@ -78,6 +78,11 @@ class CreateChildSectionsRequest(BaseModel):
     startIdx: int | None
 
 
+class DeleteSectionsRequest(BaseModel):
+    projectConfigId: str
+    sectionIds: list[str]
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
@@ -166,3 +171,8 @@ async def route_create_child_sections(
     return await state.project_manager.create_child_sections(
         x.projectConfigId, x.parentId, x.impl_type, x.numChildren, x.startIdx
     )
+
+
+@router.post(Route.DELETE_SECTIONS)
+async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromRequest):
+    return await state.project_manager.delete_sections(x.projectConfigId, x.sectionIds)
