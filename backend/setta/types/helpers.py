@@ -74,6 +74,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             section_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.sectionImplLayerings[impl_layering_id]
             section_impl_ids.add(impl_layering.impl)
+            section_impl_ids.update(impl_layering.nonPresetImpls)
             impl = p.sectionImpls[impl_layering.impl]
             effective_impl = get_effective_impl(impl, section, impl_layering)
 
@@ -102,6 +103,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             code_obj_impl_layering_ids.add(impl_layering_id)
             impl_layering = p.codeObjImplLayerings[impl_layering_id]
             code_obj_impl_ids.add(impl_layering.impl)
+            code_obj_impl_ids.update(impl_layering.nonPresetImpls)
             base_impl = p.codeObjImpls[impl_layering.impl]
             effective_impl = get_effective_impl(base_impl, obj, impl_layering)
             if isinstance(effective_impl, BaseParentCodeObjImpl):
@@ -474,8 +476,6 @@ def change_param_impl(
     layering.impl = impl.id
     if not impl.isPreset and impl.id not in layering.nonPresetImpls:
         layering.nonPresetImpls.append(impl.id)
-    layering.type = impl.type
-    p.codeObjs[paramInfoId].type = impl.type
 
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
