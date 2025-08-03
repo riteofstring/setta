@@ -4,7 +4,6 @@ import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { loadJsonContents } from "state/actions/fileUpdates";
-import { createNewSectionVersion } from "state/actions/newVersion";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
@@ -12,6 +11,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { route_create_new_section_version } from "utils/generatedEndpoints";
 
 export function VersionList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -21,8 +21,9 @@ export function VersionList({ sectionId }) {
   }
 
   function onClickAddVersionButton() {
-    useProjectState.setState((state) => {
-      createNewSectionVersion(state, sectionId);
+    route_create_new_section_version({
+      projectConfigId: useProjectState.getState().projectConfig.id,
+      sectionId,
     });
   }
 

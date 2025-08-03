@@ -5,6 +5,7 @@ from setta.project_state.project_manager_types import (
     CodeAreaCompletionRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
+    CreateNewSectionVersionRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteSectionsRequest,
@@ -109,3 +110,10 @@ async def route_delete_child_sections_via_decrementer(
     x: DeleteChildSectionsViaDecrementerRequest, state: AppStateFromRequest
 ):
     return await state.project_manager.delete_child_sections_via_decrementer(x)
+
+
+@router.post(Route.CREATE_NEW_SECTION_VERSION)
+async def route_create_new_section_version(
+    x: CreateNewSectionVersionRequest, state: AppStateFromRequest
+):
+    return await state.project_manager.create_new_section_version(x)

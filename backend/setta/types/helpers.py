@@ -3,6 +3,7 @@ import math
 import re
 from typing import assert_never
 
+from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import (
     BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -51,6 +52,7 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.simplified_states import Position
+from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array
 
 
@@ -181,6 +183,14 @@ def get_section_impl_layering(
 ):
     impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
     return p.sectionImplLayerings[impl_layering_id]
+
+
+def get_section_base_impl(
+    p: ProjectStateSingleConfig,
+    section_id: str,
+):
+    layering = get_section_impl_layering(p, section_id)
+    return p.sectionImpls[layering.impl]
 
 
 def get_section_callable(
@@ -650,31 +660,95 @@ def get_section_descendants_from_all_versions(
     return output
 
 
-# function removeSectionInfos(ids: Array<string>, state: ZustandProjectState) {
-#   const idSet = new Set(ids);
-#   for (const id of idSet) {
-#     const impl = getEffectiveSectionImpl(state, id);
+def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
+    currBaseImpl = get_section_base_impl(p, sectionId)
+    if currBaseImpl.isPreset:
+        newBaseImpl = currBaseImpl
+    else:
+        newBaseImpl = currBaseImpl.model_copy(
+            update={"id": create_new_id(), "name": generate_memorable_string()},
+            deep=True,
+        )
 
-#     let isStillUsedInAnImpl = false;
-#     for (const implLayering of Object.values(state.sectionImplLayerings)) {
-#       const impl = state.sectionImpls[implLayering.impl];
-#       const modifier = implLayering.modifier;
-#       if (!impl || !isBaseParentSectionImpl(impl)) {
-#         continue;
-#       }
-#       if (impl.children.includes(id) || modifier.children?.includes(id)) {
-#         isStillUsedInAnImpl = true;
-#         break;
-#       }
-#     }
+    newImplLayering = Layering(
+        impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
+    )
+    core = p.sections[sectionId]
 
-#     if (!isStillUsedInAnImpl) {
-#       // for (const variantId of state.sections[id].variantIds) {
-#       //   delete state.variants[variantId];
-#       // }
-#       delete state.sections[id];
+    if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
+        pass
+
+    core.implLayerings.append(newImplLayering.id)
+    p.sectionImpls[newBaseImpl.id] = newBaseImpl
+    p.sectionImplLayerings[newImplLayering.id] = newImplLayering
+    p.projectConfig.sectionImplLayeringMap[sectionId] = newImplLayering.id
+
+
+# export function createNewSectionVersion(
+#   p: ZustandProjectState,
+#   sectionId: string,
+# ) {
+
+#   if (isBaseSectionWithParamsImpl(newImpl)) {
+#     const newCodeObjImplLayeringMap: BaseSectionWithParamsImpl["codeObjImplLayeringMap"] =
+#       {};
+#     for (const [codeObjId, codeObjLayeringId] of Object.entries(
+#       newImpl.codeObjImplLayeringMap,
+#     )) {
+#       newCodeObjImplLayeringMap[codeObjId] = createNewCodeObjVersion(
+#         p,
+#         codeObjId,
+#         codeObjLayeringId,
+#       );
 #     }
+#     setEffectiveImplValue<"BaseSectionWithParams">(
+#       newImpl,
+#       section,
+#       newImplLayering,
+#       {
+#         codeObjImplLayeringMap: newCodeObjImplLayeringMap,
+#       },
+#     );
 #   }
+#
+#   addTemporaryNotification("New Version Created");
+# }
+
+# function createNewCodeObjVersion(
+#   p: ZustandProjectState,
+#   codeObjId: string,
+#   codeObjLayeringId: string,
+# ) {
+#   const layering = p.codeObjImplLayerings[codeObjLayeringId];
+#   if (!layering) {
+#     throw new Error();
+#   }
+#   const currImpl = p.codeObjImpls[layering.impl];
+#   if (!currImpl) {
+#     throw new Error();
+#   }
+#   let newImpl: BaseCodeObjImplUnion;
+#   if (currImpl.isPreset) {
+#     newImpl = currImpl;
+#   } else {
+#     newImpl = _.cloneDeep({
+#       ...currImpl,
+#       id: createNewId(),
+#       name: createRandomName(),
+#     });
+#   }
+#   const newImplLayering = createLayering({
+#     impl: newImpl.id,
+#   });
+
+#   const codeObj = p.codeObjs[codeObjId];
+#   if (!codeObj) {
+#     throw new Error();
+#   }
+#   codeObj.implLayerings.push(newImplLayering.id);
+#   p.codeObjImpls[newImpl.id] = newImpl;
+#   p.codeObjImplLayerings[newImplLayering.id] = newImplLayering;
+#   return newImplLayering.id;
 # }
 
 
