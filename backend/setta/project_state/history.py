@@ -5,10 +5,11 @@ T = TypeVar("T")
 
 
 class History(Generic[T]):
-    def __init__(self, state: T | None = None) -> None:
+    def __init__(self, state: T | None = None, max_size: int | None = 1000) -> None:
         self._history: List[T] = []
         self._current: int = -1
         self._copy_func = copy.deepcopy
+        self._max_size = max_size
         if state:
             self.add(state)
 
@@ -17,6 +18,12 @@ class History(Generic[T]):
         self._history = self._history[: self._current + 1]
         self._history.append(state)
         self._current = len(self._history) - 1
+
+        # Enforce max size by removing oldest entries
+        if self._max_size and len(self._history) > self._max_size:
+            items_to_remove = len(self._history) - self._max_size
+            self._history = self._history[items_to_remove:]
+            self._current -= items_to_remove
 
     def add_current_copy(self) -> T:
         current = self.get_current()
@@ -34,7 +41,6 @@ class History(Generic[T]):
 
         # Clamp to valid range
         self._current = max(0, self._current - steps)
-        print("\n\n\nself._current", self._current)
         return self._history[self._current]
 
     def redo(self, steps: int = 1) -> T:
