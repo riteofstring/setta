@@ -12,7 +12,6 @@ import {
   getSectionVariant,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState, useSettings } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
@@ -30,12 +29,10 @@ export function KwargsControls({
 
   const onClickDeleteSelectedKwargs = () => {
     deleteSelectedKwargs(sectionId);
-    maybeIncrementProjectStateVersion(true);
   };
 
   function onClickPinParam() {
     pinSelectedKwargs(sectionId);
-    maybeIncrementProjectStateVersion(true);
   }
 
   const classes =
@@ -150,8 +147,6 @@ function onClickAddKwargFn(sectionId, objInfoId) {
         addKwarg({ sectionId, parentId: objInfoId, state });
       }
     });
-
-    maybeIncrementProjectStateVersion(true);
   };
 }
 
@@ -181,8 +176,6 @@ function onClickDeleteKwargFn(sectionId, objInfoId) {
         });
       }
     });
-
-    maybeIncrementProjectStateVersion(true);
   };
 }
 

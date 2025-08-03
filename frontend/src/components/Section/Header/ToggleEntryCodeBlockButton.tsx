@@ -1,7 +1,6 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { MdMemory } from "react-icons/md";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
@@ -25,8 +24,6 @@ export function ToggleEntryCodeBlockButton({
       state.projectConfig.entryCodeBlockId =
         sectionTypeName === SectionTypeEnum.GenPythonCode ? null : sectionId;
     });
-
-    maybeIncrementProjectStateVersion(true);
   }
 
   return (

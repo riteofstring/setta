@@ -4,7 +4,6 @@ import {
   getEffectiveCodeObjImpl,
   setEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
@@ -53,7 +52,6 @@ const debouncedSetParamEnteredValue = _.debounce(
         { value: vStr },
       );
     });
-    maybeIncrementProjectStateVersion(true);
   },
   50,
 );

@@ -4,7 +4,6 @@ import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
-import { maybeIncrementProjectStateVersion } from "../undo";
 import { addSectionAtPosition } from "./createSections";
 
 export function groupSections({ sectionIds, position, name }) {
@@ -28,8 +27,6 @@ export function groupSections({ sectionIds, position, name }) {
   });
 
   setActiveSectionIds([groupId]);
-
-  maybeIncrementProjectStateVersion(true);
 
   return groupId;
 }
@@ -81,5 +78,4 @@ export function ungroupActiveGroup() {
       ungroupGroup(ids[0], state);
     }
   });
-  maybeIncrementProjectStateVersion(true);
 }

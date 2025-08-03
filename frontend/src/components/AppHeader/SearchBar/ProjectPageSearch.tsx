@@ -10,7 +10,6 @@ import React, { useRef } from "react";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useProjectSearch,
   useProjectState,
@@ -129,7 +128,6 @@ function ProjectPageCommandPalette() {
         ...match.specificProps,
       });
     });
-    maybeIncrementProjectStateVersion(true);
   }
 
   return (

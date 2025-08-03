@@ -7,7 +7,6 @@ import {
 } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import potpack from "potpack";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getNewNodes } from "../nodeInternals";
@@ -39,8 +38,6 @@ export function setZIndices(
   }
 
   useNodeInternals.setState({ x: newValues });
-
-  maybeIncrementProjectStateVersion(incrementVersion);
 }
 
 export function goToSection(sectionId: string) {

@@ -13,7 +13,6 @@ import {
   maybeMakeCopyOfSection,
   moveSection,
 } from "state/actions/sections/moveSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { updateWithArrayMove } from "utils/utils";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
@@ -29,8 +28,6 @@ function onSortEnd({ active, over }) {
         state,
       );
     });
-
-    maybeIncrementProjectStateVersion(true);
   }
 }
 
@@ -109,8 +106,6 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 
     state.requestRenameRefactor = true;
   });
-
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function useOnDragEnd() {

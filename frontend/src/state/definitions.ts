@@ -20,16 +20,10 @@ import {
   SettingsState,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
-import { temporal } from "zundo";
 import { persist, subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
-import {
-  withProjectState,
-  withResetFn,
-  withVersion,
-  ZUNDO_TEMPORAL_OPTIONS,
-} from "./utils";
+import { withProjectState, withResetFn } from "./utils";
 
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
@@ -92,29 +86,24 @@ export type ZustandProjectState = {
 export const useProjectState = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
-      temporal(
-        immer(
-          withResetFn(() =>
-            withVersion<ZustandProjectState>({
-              projectConfig: createProjectConfig(),
-              sections: {},
-              sectionImpls: {},
-              sectionImplLayerings: {},
-              codeObjs: {},
-              codeObjImpls: {},
-              codeObjImplLayerings: {},
-              artifactGroups: {},
-              singletonSections: {
-                [SectionTypeEnum.GlobalVariables]: null,
-                [SectionTypeEnum.GenPythonCode]: null,
-                temporaryTerminalGroup: null,
-              },
-              requestRenameRefactor: false,
-              activeIds: [],
-            }),
-          ),
-        ),
-        ZUNDO_TEMPORAL_OPTIONS,
+      immer(
+        withResetFn<ZustandProjectState>(() => ({
+          projectConfig: createProjectConfig(),
+          sections: {},
+          sectionImpls: {},
+          sectionImplLayerings: {},
+          codeObjs: {},
+          codeObjImpls: {},
+          codeObjImplLayerings: {},
+          artifactGroups: {},
+          singletonSections: {
+            [SectionTypeEnum.GlobalVariables]: null,
+            [SectionTypeEnum.GenPythonCode]: null,
+            temporaryTerminalGroup: null,
+          },
+          requestRenameRefactor: false,
+          activeIds: [],
+        })),
       ),
     ),
   ),
@@ -157,14 +146,9 @@ export const useModal = withProjectState(
 
 export const useNodeInternals = withProjectState(
   createWithEqualityFn(
-    temporal(
-      withResetFn(() =>
-        withVersion({
-          x: new Map(),
-        }),
-      ),
-      ZUNDO_TEMPORAL_OPTIONS,
-    ),
+    withResetFn(() => ({
+      x: new Map(),
+    })),
   ),
 );
 
@@ -178,12 +162,7 @@ export const useNotifications = createWithEqualityFn(
 
 export const useArtifacts = withProjectState(
   createWithEqualityFn(
-    subscribeWithSelector(
-      temporal(
-        withResetFn(() => withVersion({ x: {}, namePathTypeToId: {} })),
-        ZUNDO_TEMPORAL_OPTIONS,
-      ),
-    ),
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
   ),
 );
 
@@ -223,12 +202,7 @@ export const useSectionRefs = withProjectState(
 export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 export const useStateVersion = withProjectState(
-  createWithEqualityFn(
-    temporal(
-      withResetFn(() => withVersion({})),
-      ZUNDO_TEMPORAL_OPTIONS,
-    ),
-  ),
+  createWithEqualityFn(withResetFn(() => ({}))),
 );
 
 type ZustandTypeErrors = {

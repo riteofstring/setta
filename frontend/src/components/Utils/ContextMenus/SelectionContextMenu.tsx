@@ -7,7 +7,6 @@ import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getSectionVisibilityKey } from "state/actions/sectionInfos";
 // import { deleteSections } from "state/actions/sections/deleteSections";
 import { groupSections } from "state/actions/sections/groupSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useContextMenus, useProjectState } from "state/definitions";
 import { ViewingEditingModeEnum } from "utils/generatedTypes";
 import { ContextMenuCore } from "./ContextMenuCore";
@@ -63,7 +62,6 @@ export function SelectionContextMenu() {
     });
     closeContextMenu();
     clearActiveSectionIds();
-    maybeIncrementProjectStateVersion(true);
   }
 
   function onClickLock() {

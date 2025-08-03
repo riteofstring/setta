@@ -1,5 +1,4 @@
 import { addNodes } from "state/actions/nodeInternals";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { updateProjectState } from "../sectionInfos";
 
@@ -48,5 +47,4 @@ export function loadSectionIntoState({
     });
   }
   addNodes(nodes);
-  maybeIncrementProjectStateVersion(incrementVersion);
 }

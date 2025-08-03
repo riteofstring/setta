@@ -3,7 +3,6 @@ import { Resizable } from "re-resizable";
 import React, { useEffect, useRef, useState } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { addSectionInEmptySpace } from "state/actions/sections/createSections";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
   useProjectState,
@@ -384,7 +383,6 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
           state,
         });
       });
-      maybeIncrementProjectStateVersion(true);
     }
     // if converting a frozen floating box, then we need to remove it
     removeFrozenFloatingBox();

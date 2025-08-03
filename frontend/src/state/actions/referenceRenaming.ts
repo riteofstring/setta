@@ -2,7 +2,6 @@ import { useProjectState, useSettings } from "state/definitions";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
 import { openRenameReferencesModal } from "./modal";
 import { getSectionVariant } from "./sectionInfos";
-import { maybeIncrementProjectStateVersion } from "./undo";
 
 export function processRenameRefactorResults(changedValues) {
   const renameMode = useSettings.getState().backend.renameRefactorMode;
@@ -31,6 +30,4 @@ export async function makeReplacements(changedValues) {
       }
     }
   });
-
-  maybeIncrementProjectStateVersion(true);
 }

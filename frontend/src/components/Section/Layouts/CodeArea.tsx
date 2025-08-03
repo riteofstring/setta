@@ -10,7 +10,6 @@ import {
   getEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
@@ -305,7 +304,6 @@ const debouncedSetCode = _.debounce((sectionId, value) => {
   useProjectState.setState((x) => {
     setEffectiveSectionImplValue<"CodeSection">(x, sectionId, { code: value });
   });
-  maybeIncrementProjectStateVersion(true);
 }, 50);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {

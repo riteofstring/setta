@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import {
   useLocalStorage,
   useProjectState,
@@ -33,7 +32,6 @@ export function addRegularSectionInEmptySpace() {
       unsub();
     },
   );
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function addGroupInEmptySpace() {
@@ -45,14 +43,12 @@ export function addGroupInEmptySpace() {
     });
   });
   setActiveSectionIdAndUpdateZIndex(newId);
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function addTerminalInEmptySpace() {
   useProjectState.setState((state) => {
     addSectionInEmptySpace({ type: UITypeNameEnum.TERMINAL, state });
   });
-  maybeIncrementProjectStateVersion(true);
 }
 
 export function addSectionInEmptySpace(

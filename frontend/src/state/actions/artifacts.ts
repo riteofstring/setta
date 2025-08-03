@@ -13,7 +13,6 @@ import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";
-import { maybeIncrementProjectStateVersion } from "./undo";
 
 export async function loadArtifacts(sectionId, artifactIds, signal) {
   const res = await route_load_artifacts(artifactIds);
@@ -27,7 +26,6 @@ export async function loadArtifacts(sectionId, artifactIds, signal) {
     useProjectState.setState((state) => {
       actionAfterSettingSectionArtifacts(artifactIds, sectionId, state);
     });
-    maybeIncrementProjectStateVersion(true);
   }
 }
 

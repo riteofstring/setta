@@ -23,7 +23,6 @@ import {
   updateNodeDimensions,
   updateNodeVisibility,
 } from "./actions/nodeInternals";
-import { updateBackendProjectState } from "./actions/project/generateCode";
 import {
   getDisplayedSectionIdToChildren,
   getEffectiveImpl,
@@ -87,10 +86,6 @@ export function subscribe() {
         configState.entryCodeBlockId = codeBlockIds[0] ?? null;
       }
     });
-  });
-
-  useProjectState.subscribe(updateBackendSubscriptionFn, () => {
-    updateBackendProjectState();
   });
 
   useReactFlow.subscribe(
@@ -289,8 +284,4 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
 
 function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
   return [state.apiKeysFilepath];
-}
-
-function updateBackendSubscriptionFn(state) {
-  return state.version;
 }

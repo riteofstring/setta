@@ -1,7 +1,5 @@
 import { StateCreator } from "zustand";
 
-export const ZUNDO_TEMPORAL_OPTIONS = { limit: 200 };
-
 //https://github.com/pmndrs/zustand/blob/main/docs/guides/how-to-reset-state.md
 //https://github.com/pmndrs/zustand/issues/1494
 
@@ -49,30 +47,12 @@ function addStatePointer(state, stateType) {
   stateDict[stateType].push(state);
 }
 
-export function withVersion<T>(state: T): T & { version: number } {
-  return { ...state, version: 0 };
-}
-
 function resetStores(stateType) {
   for (const state of stateDict[stateType]) {
     state.getState().reset?.();
-    if (state.temporal) {
-      state.temporal.getState().clear();
-    }
   }
 }
 
 export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
-}
-
-export function pauseTemporal() {
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal) {
-      s.temporal.getState().pause();
-      if (s.getState().version === undefined) {
-        throw new Error("temporal state version should not be undefined");
-      }
-    }
-  }
 }

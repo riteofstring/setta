@@ -35,8 +35,6 @@ export function DeleteOrHideButton({
     //       !visibility;
     //   }
     // });
-
-    // maybeIncrementProjectStateVersion(true);
   };
 
   return (

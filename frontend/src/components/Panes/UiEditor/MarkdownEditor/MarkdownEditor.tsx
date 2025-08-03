@@ -8,7 +8,6 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
@@ -71,7 +70,6 @@ const _MarkdownEditorCore = React.forwardRef(
               section.name = getFirstHeadingOrText(v) ?? section.name;
             }
           });
-          maybeIncrementProjectStateVersion(true);
         }
       }, 200),
       [],

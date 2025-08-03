@@ -1,7 +1,6 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
@@ -86,7 +85,6 @@ function setSectionName(sectionId: string, name: string) {
     s.name = name;
     x.requestRenameRefactor = true;
   });
-  maybeIncrementProjectStateVersion(true);
 }
 
 function useTitleIsEditable(sectionId: string) {

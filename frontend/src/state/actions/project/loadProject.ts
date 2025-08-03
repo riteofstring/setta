@@ -19,7 +19,6 @@ import {
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
-import { maybeIncrementProjectStateVersion } from "../undo";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
@@ -57,7 +56,6 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
     x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
   });
   // await maybeRunGuiToYamlOnAllSections();
-  maybeIncrementProjectStateVersion(true, false);
   return true;
 }
 

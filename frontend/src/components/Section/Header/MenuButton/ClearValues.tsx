@@ -1,7 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { maybeRunGuiToYaml } from "state/actions/guiToYaml";
 import { getSectionInfo } from "state/actions/sectionInfos";
-import { maybeIncrementProjectStateVersion } from "state/actions/undo";
 import { useProjectState } from "state/definitions";
 
 export function ClearValues({ sectionId }) {
@@ -13,7 +12,6 @@ export function ClearValues({ sectionId }) {
         x.variants[variantId].values[k] = createEVEntry();
       }
     });
-    maybeIncrementProjectStateVersion(true);
     maybeRunGuiToYaml(sectionId, variantId);
   }
 

@@ -1,13 +1,11 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";
-import { pauseTemporal } from "state/utils";
 import "../icons.css";
 import { App } from "./App";
 import "./index.css";
 
 subscribe();
-pauseTemporal();
 
 const container = document.getElementById("root");
 const root = createRoot(container);
