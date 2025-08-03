@@ -1,100 +1,15 @@
 import _ from "lodash";
-import { useMisc, useSettings, useStateVersion } from "state/definitions";
-import { STATE_TYPES, stateDict } from "state/utils";
+import { useSettings } from "state/definitions";
+import { route_redo, route_undo } from "utils/generatedEndpoints";
 import { saveProject } from "./project/saveProject";
 
-export const undoProjectState = _.throttle(() => {
-  const pastStates = useStateVersion.temporal.getState().pastStates;
-  if (pastStates.length <= 1) {
-    return;
-  }
-
-  const version = useStateVersion.getState().version;
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal && version === s.getState().version) {
-      s.temporal.getState().undo(2);
-      undoSetPastAndFutureStates(s);
-    }
-  }
-  autoSave();
-  useMisc.setState({ undoOrRedoWasTriggered: true });
-}, 100);
-
-function undoSetPastAndFutureStates(s) {
-  s.temporal.setState((state) => ({
-    pastStates: [...state.pastStates, s.getState()],
-    futureStates: filterPastOrFutureStates(state.futureStates),
-  }));
+export function undoProjectState() {
+  route_undo({ steps: 1 });
 }
 
-function filterPastOrFutureStates(states) {
-  const output = [];
-  const versions = new Set();
-  for (const f of states) {
-    if (!versions.has(f.version)) {
-      output.push(f);
-      versions.add(f.version);
-    }
-  }
-  return output;
+export function redoProjectState() {
+  route_redo({ steps: 1 });
 }
-
-export const redoProjectState = _.throttle(() => {
-  const version = useStateVersion.getState().version;
-  for (const s of stateDict[STATE_TYPES.PROJECT_STATE]) {
-    if (s.temporal && version === s.getState().version) {
-      s.temporal.getState().redo();
-      redoSetPastAndFutureStates(s);
-    }
-  }
-  autoSave();
-  useMisc.setState({ undoOrRedoWasTriggered: true });
-}, 100);
-
-function redoSetPastAndFutureStates(s) {
-  s.temporal.setState((state) => ({
-    pastStates: filterPastOrFutureStates([...state.pastStates, s.getState()]),
-  }));
-}
-
-function incrementStateVersion(states) {
-  let stateActuallyChanged = false;
-  for (const s of states) {
-    if (
-      s.temporal &&
-      !_.isEqual(s.getState(), s.temporal.getState().pastStates.at(-1))
-    ) {
-      stateActuallyChanged = true;
-      break;
-    }
-  }
-
-  if (!stateActuallyChanged) {
-    return;
-  }
-
-  const version = useStateVersion.getState().version;
-  for (const s of states) {
-    if (s.temporal) {
-      s.setState({ version: version + 1 });
-      s.temporal.setState((state) => ({
-        pastStates: [...state.pastStates, s.getState()],
-      }));
-    }
-  }
-}
-
-export const maybeIncrementProjectStateVersion = _.throttle(
-  (doIncrementVersion, doAutoSave = true) => {
-    if (doIncrementVersion) {
-      incrementStateVersion(stateDict[STATE_TYPES.PROJECT_STATE]);
-      if (doAutoSave) {
-        autoSave();
-      }
-    }
-  },
-  500,
-);
 
 const autoSave = _.debounce(() => {
   if (useSettings.getState().backend.autosave) {

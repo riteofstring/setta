@@ -378,3 +378,15 @@ export async function route_create_new_section_version(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createNewSectionVersion", x);
 }
+
+export async function route_undo(
+  x: gt.UndoRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/undo", x);
+}
+
+export async function route_redo(
+  x: gt.RedoRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/redo", x);
+}

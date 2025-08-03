@@ -66,7 +66,6 @@ class ProjectGenPythonCode(PythonCode):
         self.project_config_id = project_config_id
         self.dep_graph = dep_graph
         self.code_generator = code_generator
-        self.diagnostics_callback = self.process_diagnostics_response
 
     async def update_file(self):
         await super().update_file(self.code_generator.code)
@@ -256,7 +255,7 @@ class ProjectGenPythonCode(PythonCode):
     async def type_check(self):
         await self.send_document_open_request(self.code_generator.code)
 
-    async def process_diagnostics_response(
+    async def diagnostics_callback(
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
     ):
         params = lsp_response.params
@@ -306,7 +305,6 @@ class ProjectPythonCode(PythonCode):
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
-        self.diagnostics_callback = self.process_diagnostics_response
 
     async def update_file(self):
         await super().update_file(self.code)
@@ -333,7 +331,7 @@ class ProjectPythonCode(PythonCode):
     async def type_check(self):
         await self.send_document_open_request(self.code)
 
-    async def process_diagnostics_response(self, lsp_response):
+    async def diagnostics_callback(self, lsp_response):
         # TODO
         pass
 

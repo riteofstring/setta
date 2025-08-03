@@ -317,6 +317,8 @@ export const RouteEnum = {
   CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
   DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
   CREATE_NEW_SECTION_VERSION: "/createNewSectionVersion",
+  UNDO: "/undo",
+  REDO: "/redo",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -6095,6 +6097,18 @@ export function createGenCodeSuffixCompletionRequest(
   return GenCodeSuffixCompletionRequestSchema.parse(options);
 }
 
+export const RedoRequestSchema = z.object({
+  steps: z.int(),
+});
+
+export type RedoRequest = z.infer<typeof RedoRequestSchema>;
+
+export function createRedoRequest(
+  options: Partial<RedoRequest> = {},
+): RedoRequest {
+  return RedoRequestSchema.parse(options);
+}
+
 export const SetCallableRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
@@ -6126,6 +6140,18 @@ export function createTextFieldCompletionRequest(
   options: Partial<TextFieldCompletionRequest> = {},
 ): TextFieldCompletionRequest {
   return TextFieldCompletionRequestSchema.parse(options);
+}
+
+export const UndoRequestSchema = z.object({
+  steps: z.int(),
+});
+
+export type UndoRequest = z.infer<typeof UndoRequestSchema>;
+
+export function createUndoRequest(
+  options: Partial<UndoRequest> = {},
+): UndoRequest {
+  return UndoRequestSchema.parse(options);
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({

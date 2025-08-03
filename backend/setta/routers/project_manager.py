@@ -11,8 +11,10 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
+    UndoRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -123,3 +125,13 @@ async def route_create_new_section_version(
         temporary=True,
     )
     await state.wmh_frontend_sender.broadcast_notification(notification)
+
+
+@router.post(Route.UNDO)
+async def route_undo(x: UndoRequest, state: AppStateFromRequest) -> None:
+    await state.project_manager.undo(x)
+
+
+@router.post(Route.REDO)
+async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
+    await state.project_manager.redo(x)

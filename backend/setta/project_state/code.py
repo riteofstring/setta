@@ -69,7 +69,6 @@ class PythonCode(Code):
         self.lsp_writer = lsp_writers.full
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
-        self.diagnostics_callback = None
 
     async def update_file(self, code):
         super().update_file(code)
@@ -98,6 +97,10 @@ class PythonCode(Code):
         path = path.relative_to(CWD)
         module_path = convert_path_to_module_path(path)
         return f"python -m {module_path}"
+
+    @abstractmethod
+    async def diagnostics_callback(self, lsp_response):
+        pass
 
 
 class BashCode(Code):

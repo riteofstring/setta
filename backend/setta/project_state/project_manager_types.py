@@ -93,3 +93,11 @@ class DeleteChildSectionsViaDecrementerRequest(BaseModel):
 class CreateNewSectionVersionRequest(BaseModel):
     projectConfigId: str
     sectionId: str
+
+
+class UndoRequest(BaseModel):
+    steps: int
+
+
+class RedoRequest(BaseModel):
+    steps: int

@@ -12,6 +12,7 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
+from setta.project_state.history import History
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -29,8 +30,10 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
+    UndoRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -78,7 +81,9 @@ class ProjectManager:
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         with dbe.session as db:
-            self.project_state_backend: ProjectStateBackend = load_project_state(db)
+            self.history: History[ProjectStateBackend] = History(
+                load_project_state(db),
+            )
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
@@ -167,8 +172,6 @@ class ProjectManager:
         async def wrapper(self, *args, **kwargs):
             return await self._enqueue(func(self, *args, **kwargs))
 
-        # Store the original function
-        # wrapper.direct = func
         return wrapper
 
     @enqueue_method
@@ -301,6 +304,7 @@ class ProjectManager:
 
     @enqueue_method
     async def set_callable(self, x: SetCallableRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
 
         await self.gen_code[x.projectConfigId].set_callable(
@@ -338,6 +342,7 @@ class ProjectManager:
     @enqueue_method
     async def set_gen_code_prefix(self, projectConfigId: str, value: str):
         print("*************set_gen_code_prefix\n\n\n", flush=True)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         project_state.projectConfig.genCodePrefix = value
         await self.update_and_broadcast_project_state(project_state)
@@ -347,6 +352,7 @@ class ProjectManager:
         self, projectConfigId: str, sectionId: str, paramIdsToValues: dict[str, str]
     ):
         print("*************set_param_values\n\n\n", flush=True)
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         for paramInfoId, value in paramIdsToValues.items():
             set_param_entered_value(
@@ -376,6 +382,7 @@ class ProjectManager:
 
     @enqueue_method
     async def change_param_impl(self, x: ChangeParamImplRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
             self.settings_file.settings,
@@ -388,6 +395,7 @@ class ProjectManager:
 
     @enqueue_method
     async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
             self.settings_file.settings, project_state, x.implType, x.position
@@ -397,6 +405,7 @@ class ProjectManager:
 
     @enqueue_method
     async def create_child_sections(self, x: CreateChildSectionsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
@@ -412,6 +421,7 @@ class ProjectManager:
     async def create_child_sections_via_incrementer(
         self, x: CreateChildSectionsViaIncrementerRequest
     ):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
@@ -424,6 +434,7 @@ class ProjectManager:
 
     @enqueue_method
     async def create_temporary_terminal(self, projectConfigId: str, terminalId: str):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
@@ -436,6 +447,7 @@ class ProjectManager:
 
     @enqueue_method
     async def delete_sections(self, x: DeleteSectionsRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_sections(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
@@ -444,18 +456,21 @@ class ProjectManager:
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
     ):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def create_new_section_version(self, x: CreateNewSectionVersionRequest):
+        self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_version(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
@@ -592,3 +607,32 @@ class ProjectManager:
     ):
         await self.update(project_state)
         await self.websocket_msg_handler.broadcast_project_state(project_state)
+
+    @property
+    def project_state_backend(self):
+        return self.history.get_current()
+
+    @project_state_backend.setter
+    def project_state_backend(self, x: ProjectStateBackend):
+        self.history.set_current(x)
+
+    def add_new_history_entry(self):
+        self.history.add_current_copy()
+
+    @enqueue_method
+    async def undo(self, x: UndoRequest):
+        self.history.undo(x.steps)
+        await self.update_and_broadcast_all_project_state()
+
+    @enqueue_method
+    async def redo(self, x: RedoRequest):
+        self.history.redo(x.steps)
+        await self.update_and_broadcast_all_project_state()
+
+    async def update_and_broadcast_all_project_state(self):
+        for projectConfigId in self.project_state_backend.projectConfigs.keys():
+            await self.update_and_broadcast_project_state(
+                convert_backend_to_single_config(
+                    self.project_state_backend, projectConfigId
+                )
+            )
