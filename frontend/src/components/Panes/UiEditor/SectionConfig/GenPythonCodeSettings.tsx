@@ -4,6 +4,7 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { useProjectState } from "state/definitions";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
@@ -130,10 +131,12 @@ export function setGenCodePrefix(value: string) {
   useProjectState.setState((state) => {
     state.projectConfig.genCodePrefix = value;
   });
+  updateBackendProjectState();
 }
 
 export function setGenCodeSuffix(value: string) {
   useProjectState.setState((state) => {
     state.projectConfig.genCodeSuffix = value;
   });
+  updateBackendProjectState();
 }

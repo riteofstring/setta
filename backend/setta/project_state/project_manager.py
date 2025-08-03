@@ -211,6 +211,7 @@ class ProjectManager:
         projectState: ProjectStateSingleConfig,
         requestRenameRefactor: bool = False,
     ):
+        self.add_new_history_entry()
         await self.update(projectState, requestRenameRefactor, messageId)
 
     @enqueue_method

@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getEffectiveCodeObjImpl,
   setEffectiveCodeObjImplValue,
@@ -52,6 +53,7 @@ const debouncedSetParamEnteredValue = _.debounce(
         { value: vStr },
       );
     });
+    updateBackendProjectState();
   },
   50,
 );

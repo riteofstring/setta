@@ -8,7 +8,7 @@ import {
 import { asyncDebounce } from "utils/utils";
 import { getProjectData } from "./saveProject";
 
-export async function getProjectDataToGenerateCode({
+async function getProjectDataToGenerateCode({
   withArtifacts = false,
   includeDrawings = false,
   includeLatestChatMessages = false,
