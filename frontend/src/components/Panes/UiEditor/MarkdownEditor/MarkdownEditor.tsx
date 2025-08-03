@@ -7,6 +7,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
@@ -54,30 +55,29 @@ const _MarkdownEditorCore = React.forwardRef(
     }, [text]);
 
     const debouncedSetText = useCallback(
-      _.debounce((sectionId, v, text) => {
-        if (v !== text) {
-          useProjectState.setState((state) => {
-            const impl = setEffectiveSectionImplValue<"TextBlockSection">(
-              state,
-              sectionId,
-              { text: v },
-            );
-            if (impl.headingAsSectionName) {
-              const section = state.sections[sectionId];
-              if (!section) {
-                throw new Error();
-              }
-              section.name = getFirstHeadingOrText(v) ?? section.name;
+      _.debounce((sectionId, v) => {
+        useProjectState.setState((state) => {
+          const impl = setEffectiveSectionImplValue<"TextBlockSection">(
+            state,
+            sectionId,
+            { text: v },
+          );
+          if (impl.headingAsSectionName) {
+            const section = state.sections[sectionId];
+            if (!section) {
+              throw new Error();
             }
-          });
-        }
+            section.name = getFirstHeadingOrText(v) ?? section.name;
+          }
+        });
+        updateBackendProjectState();
       }, 200),
       [],
     );
 
     function onChange(v) {
       setLocalText(v);
-      debouncedSetText(sectionId, v, text);
+      debouncedSetText(sectionId, v);
     }
 
     const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
