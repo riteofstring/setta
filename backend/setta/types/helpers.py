@@ -676,7 +676,17 @@ def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
     core = p.sections[sectionId]
 
     if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
-        pass
+        newCodeObjImplLayeringMap: dict[str, str] = {}
+        for codeObjId, codeObjLayeringId in newBaseImpl.codeObjImplLayeringMap.items():
+            newCodeObjImplLayeringMap[codeObjId] = create_new_code_obj_version(
+                p, codeObjId, codeObjLayeringId
+            )
+        set_effective_impl_value(
+            newBaseImpl,
+            core,
+            newImplLayering,
+            {"codeObjImplLayeringMap": newCodeObjImplLayeringMap},
+        )
 
     core.implLayerings.append(newImplLayering.id)
     p.sectionImpls[newBaseImpl.id] = newBaseImpl
@@ -684,72 +694,31 @@ def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
     p.projectConfig.sectionImplLayeringMap[sectionId] = newImplLayering.id
 
 
-# export function createNewSectionVersion(
-#   p: ZustandProjectState,
-#   sectionId: string,
-# ) {
+def create_new_code_obj_version(
+    p: ProjectStateSingleConfig, codeObjId: str, codeObjLayeringId: str
+):
+    layering = p.codeObjImplLayerings[codeObjLayeringId]
+    currBaseImpl = p.codeObjImpls[layering.impl]
+    if currBaseImpl.isPreset:
+        newBaseImpl = currBaseImpl
+    else:
+        newBaseImpl = currBaseImpl.model_copy(
+            update={
+                "id": create_new_id(),
+                "name": generate_memorable_string(),
+            },
+            deep=True,
+        )
 
-#   if (isBaseSectionWithParamsImpl(newImpl)) {
-#     const newCodeObjImplLayeringMap: BaseSectionWithParamsImpl["codeObjImplLayeringMap"] =
-#       {};
-#     for (const [codeObjId, codeObjLayeringId] of Object.entries(
-#       newImpl.codeObjImplLayeringMap,
-#     )) {
-#       newCodeObjImplLayeringMap[codeObjId] = createNewCodeObjVersion(
-#         p,
-#         codeObjId,
-#         codeObjLayeringId,
-#       );
-#     }
-#     setEffectiveImplValue<"BaseSectionWithParams">(
-#       newImpl,
-#       section,
-#       newImplLayering,
-#       {
-#         codeObjImplLayeringMap: newCodeObjImplLayeringMap,
-#       },
-#     );
-#   }
-#
-#   addTemporaryNotification("New Version Created");
-# }
+    newImplLayering = Layering(
+        impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
+    )
+    core = p.codeObjs[codeObjId]
 
-# function createNewCodeObjVersion(
-#   p: ZustandProjectState,
-#   codeObjId: string,
-#   codeObjLayeringId: string,
-# ) {
-#   const layering = p.codeObjImplLayerings[codeObjLayeringId];
-#   if (!layering) {
-#     throw new Error();
-#   }
-#   const currImpl = p.codeObjImpls[layering.impl];
-#   if (!currImpl) {
-#     throw new Error();
-#   }
-#   let newImpl: BaseCodeObjImplUnion;
-#   if (currImpl.isPreset) {
-#     newImpl = currImpl;
-#   } else {
-#     newImpl = _.cloneDeep({
-#       ...currImpl,
-#       id: createNewId(),
-#       name: createRandomName(),
-#     });
-#   }
-#   const newImplLayering = createLayering({
-#     impl: newImpl.id,
-#   });
-
-#   const codeObj = p.codeObjs[codeObjId];
-#   if (!codeObj) {
-#     throw new Error();
-#   }
-#   codeObj.implLayerings.push(newImplLayering.id);
-#   p.codeObjImpls[newImpl.id] = newImpl;
-#   p.codeObjImplLayerings[newImplLayering.id] = newImplLayering;
-#   return newImplLayering.id;
-# }
+    core.implLayerings.append(newImplLayering.id)
+    p.codeObjImpls[newBaseImpl.id] = newBaseImpl
+    p.codeObjImplLayerings[newImplLayering.id] = newImplLayering
+    return newImplLayering.id
 
 
 def change_param_impl(

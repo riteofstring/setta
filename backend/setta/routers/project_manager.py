@@ -17,6 +17,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -116,4 +117,9 @@ async def route_delete_child_sections_via_decrementer(
 async def route_create_new_section_version(
     x: CreateNewSectionVersionRequest, state: AppStateFromRequest
 ):
-    return await state.project_manager.create_new_section_version(x)
+    await state.project_manager.create_new_section_version(x)
+    notification = SettaNotification(
+        message="New Version Created",
+        temporary=True,
+    )
+    await state.wmh_frontend_sender.broadcast_notification(notification)
