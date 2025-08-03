@@ -81,6 +81,7 @@ export type ZustandProjectState = {
   codeObjImplLayerings: ProjectStateSingleConfig["codeObjImplLayerings"];
   activeIds: Array<string>;
   singletonSections: ZustandSingletonSections;
+  modCount: number;
 };
 
 export const useProjectState = withProjectState(
@@ -103,6 +104,7 @@ export const useProjectState = withProjectState(
           },
           requestRenameRefactor: false,
           activeIds: [],
+          modCount: 0,
         })),
       ),
     ),
@@ -200,10 +202,6 @@ export const useSectionRefs = withProjectState(
 );
 
 export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
-
-export const useStateVersion = withProjectState(
-  createWithEqualityFn(withResetFn(() => ({}))),
-);
 
 type ZustandTypeErrors = {
   userRequested: boolean;

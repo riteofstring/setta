@@ -142,6 +142,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             x: p.codeObjImplLayerings[x] for x in code_obj_impl_layering_ids
         },
         projectConfig=project_config,
+        modCount=p.modCount,
     )
 
 
@@ -160,6 +161,7 @@ def merge_single_config_into_backend(
             config.projectConfig.id: config.projectConfig,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
+        modCount=x.modCount,
     )
 
 

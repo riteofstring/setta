@@ -286,6 +286,7 @@ class ProjectManager:
 
         self.delete_unused_files(project_temp_folder)
         self.project_state_backend = self.get_new_project_state_backend(projectState)
+        self.project_state_backend.modCount += 1
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
