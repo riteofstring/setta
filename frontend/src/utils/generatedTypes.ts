@@ -5970,7 +5970,7 @@ export function createCodeAreaCompletionRequest(
 export const CreateChildSectionsRequestSchema = z.object({
   projectConfigId: z.string(),
   parentId: z.string(),
-  impl_type: z.enum(SectionTypeEnum),
+  implType: z.enum(SectionTypeEnum),
   numChildren: z.int(),
   startIdx: z.union([z.int(), z.null()]),
 });
@@ -5989,7 +5989,7 @@ export const CreateChildSectionsViaIncrementerRequestSchema = z.object({
   projectConfigId: z.string(),
   calledBy: z.string(),
   numChildren: z.int(),
-  impl_type: z.enum(SectionTypeEnum),
+  implType: z.enum(SectionTypeEnum),
 });
 
 export type CreateChildSectionsViaIncrementerRequest = z.infer<
@@ -6002,18 +6002,20 @@ export function createCreateChildSectionsViaIncrementerRequest(
   return CreateChildSectionsViaIncrementerRequestSchema.parse(options);
 }
 
-export const CreateSectionRequestSchema = z.object({
+export const CreateTopLevelSectionRequestSchema = z.object({
   projectConfigId: z.string(),
   implType: z.enum(SectionTypeEnum),
   position: PositionSchema,
 });
 
-export type CreateSectionRequest = z.infer<typeof CreateSectionRequestSchema>;
+export type CreateTopLevelSectionRequest = z.infer<
+  typeof CreateTopLevelSectionRequestSchema
+>;
 
-export function createCreateSectionRequest(
-  options: Partial<CreateSectionRequest> = {},
-): CreateSectionRequest {
-  return CreateSectionRequestSchema.parse(options);
+export function createCreateTopLevelSectionRequest(
+  options: Partial<CreateTopLevelSectionRequest> = {},
+): CreateTopLevelSectionRequest {
+  return CreateTopLevelSectionRequestSchema.parse(options);
 }
 
 export const DeleteChildSectionsViaDecrementerRequestSchema = z.object({

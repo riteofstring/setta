@@ -17,6 +17,21 @@ from setta.project_state.project_code import (
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
+from setta.project_state.project_manager_types import (
+    ChangeParamImplRequest,
+    ClearTextFieldCompletionRequest,
+    CodeAreaCompletionRequest,
+    CreateChildSectionsRequest,
+    CreateChildSectionsViaIncrementerRequest,
+    CreateTopLevelSectionRequest,
+    DeleteChildSectionsViaDecrementerRequest,
+    DeleteSectionsRequest,
+    GenCodePrefixCompletionRequest,
+    GenCodeSuffixCompletionRequest,
+    SetCallableRequest,
+    TextFieldCompletionRequest,
+    UpdateParamImplConfigRequest,
+)
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     change_param_impl,
@@ -271,77 +286,51 @@ class ProjectManager:
         await self.gen_code[projectConfigId].type_check()
 
     @enqueue_method
-    async def text_field_autocomplete(
-        self,
-        projectConfigId: str,
-        sectionId: str,
-        paramInfoId: str | None,
-        fullText: str,
-        position: int,
-    ):
-        print("*************text_field_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[projectConfigId].text_field_autocomplete(
-            sectionId, paramInfoId, fullText, position
+    async def text_field_completion(self, x: TextFieldCompletionRequest):
+        return await self.gen_code[x.projectConfigId].text_field_completion(
+            x.sectionId, x.paramInfoId, x.fullText, x.position
         )
 
     @enqueue_method
-    async def clear_text_field_completion(
-        self, projectConfigId: str, sectionId: str, paramInfoId: str | None
-    ):
-        await self.gen_code[projectConfigId].clear_text_field_completion(
-            sectionId, paramInfoId
+    async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
+        await self.gen_code[x.projectConfigId].clear_text_field_completion(
+            x.sectionId, x.paramInfoId
         )
 
     @enqueue_method
-    async def set_callable(
-        self,
-        projectConfigId: str,
-        sectionId: str,
-        callableName: str,
-        refetchParams: bool,
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
+    async def set_callable(self, x: SetCallableRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
 
-        await self.gen_code[projectConfigId].set_callable(
+        await self.gen_code[x.projectConfigId].set_callable(
             self.settings_file.settings,
             project_state,
-            sectionId,
-            callableName,
-            refetchParams,
+            x.sectionId,
+            x.callableName,
+            x.refetchParams,
         )
         await self.update_and_broadcast_project_state(project_state)
         return project_state
 
     @enqueue_method
-    async def code_area_autocomplete(
-        self,
-        projectConfigId: str,
-        sectionId: str,
-        fullText: str,
-        position: int,
-    ):
+    async def code_area_completion(self, x: CodeAreaCompletionRequest):
         print("*************code_area_autocomplete\n\n\n", flush=True)
-        code = self.code_dict[projectConfigId][sectionId]
+        code = self.code_dict[x.projectConfigId][x.sectionId]
         if isinstance(code, ProjectPythonCode):
-            return await code.code_area_autocomplete(fullText, position)
+            return await code.code_area_completion(x.fullText, x.position)
         return []
 
     @enqueue_method
-    async def gen_code_prefix_autocomplete(
-        self, projectConfigId: str, fullText: str, position: int
-    ):
+    async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[projectConfigId].gen_code_prefix_autocomplete(
-            fullText, position
+        return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
+            x.fullText, x.position
         )
 
     @enqueue_method
-    async def gen_code_suffix_autocomplete(
-        self, projectConfigId: str, fullText: str, position: int
-    ):
+    async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
         print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
-        return await self.gen_code[projectConfigId].gen_code_suffix_autocomplete(
-            fullText, position
+        return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
+            x.fullText, x.position
         )
 
     @enqueue_method
@@ -384,65 +373,50 @@ class ProjectManager:
         return get_top_level_sections(project_state)
 
     @enqueue_method
-    async def change_param_impl(
-        self, projectConfigId: str, sectionId: str, paramInfoId: str, selectedId: str
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
+    async def change_param_impl(self, x: ChangeParamImplRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
         change_param_impl(
             self.settings_file.settings,
             project_state,
-            sectionId,
-            paramInfoId,
-            selectedId,
+            x.sectionId,
+            x.paramInfoId,
+            x.selectedId,
         )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def create_top_level_section(
-        self, projectConfigId: str, impl_type: SectionType, position: Position
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
+    async def create_top_level_section(self, x: CreateTopLevelSectionRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
-            self.settings_file.settings, project_state, impl_type, position
+            self.settings_file.settings, project_state, x.implType, x.position
         )
         await self.update_and_broadcast_project_state(project_state)
         return sectionId
 
     @enqueue_method
-    async def create_child_sections(
-        self,
-        projectConfigId: str,
-        parentId: str,
-        impl_type: SectionType,
-        numChildren: int,
-        startIdx: int | None,
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
+    async def create_child_sections(self, x: CreateChildSectionsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
             project_state,
-            parentId,
-            impl_type,
-            numChildren,
-            startIdx,
+            x.parentId,
+            x.implType,
+            x.numChildren,
+            x.startIdx,
         )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def create_child_sections_via_incrementer(
-        self,
-        projectConfigId: str,
-        calledBy: str,
-        impl_type: SectionType,
-        numChildren: int,
+        self, x: CreateChildSectionsViaIncrementerRequest
     ):
-        project_state = self.get_single_config_state(projectConfigId)
+        project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
             project_state,
-            calledBy,
-            impl_type,
-            numChildren,
+            x.calledBy,
+            x.implType,
+            x.numChildren,
         )
         await self.update_and_broadcast_project_state(project_state)
 
@@ -459,25 +433,23 @@ class ProjectManager:
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def delete_sections(self, projectConfigId: str, sectionIds: list[str]):
-        project_state = self.get_single_config_state(projectConfigId)
-        delete_sections(project_state, sectionIds)
+    async def delete_sections(self, x: DeleteSectionsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_sections(project_state, x.sectionIds)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def delete_child_sections_via_decrementer(
-        self, projectConfigId: str, calledBy: str, numChildren: int
+        self, x: DeleteChildSectionsViaDecrementerRequest
     ):
-        project_state = self.get_single_config_state(projectConfigId)
-        delete_child_sections_via_decrementer(project_state, calledBy, numChildren)
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_child_sections_via_decrementer(project_state, x.calledBy, x.numChildren)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def update_param_impl_config(
-        self, projectConfigId: str, sectionId: str, paramInfoId: str, newConfig: dict
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
-        update_param_impl_config(project_state, sectionId, paramInfoId, newConfig)
+    async def update_param_impl_config(self, x: UpdateParamImplConfigRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        update_param_impl_config(project_state, x.sectionId, x.paramInfoId, x.newConfig)
         await self.update_and_broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):

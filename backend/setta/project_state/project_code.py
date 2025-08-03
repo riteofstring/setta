@@ -83,7 +83,7 @@ class ProjectGenPythonCode(PythonCode):
         line, col = position_to_line_col(self.code_generator.code, position)
         return line, col
 
-    async def text_field_autocomplete(
+    async def text_field_completion(
         self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
     ):
         line_col = await self.insert_code_at_position(
@@ -221,7 +221,7 @@ class ProjectGenPythonCode(PythonCode):
             {"callable": callable_code_obj.id},
         )
 
-    async def gen_code_prefix_autocomplete(self, fullText, position):
+    async def gen_code_prefix_completion(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)
         await self.update_file()
         line, col = position_to_line_col(self.code_generator.code, position)
@@ -237,7 +237,7 @@ class ProjectGenPythonCode(PythonCode):
         )
         return process_completion_response(response, fullText)
 
-    async def gen_code_suffix_autocomplete(self, fullText, position):
+    async def gen_code_suffix_completion(self, fullText, position):
         position += self.code_generator.set_gen_code_suffix(fullText)
         await self.update_file()
         line, col = position_to_line_col(self.code_generator.code, position)
@@ -314,7 +314,7 @@ class ProjectPythonCode(PythonCode):
     def get_base_filename(self):
         return sanitize_name(self.section_path_full_name)
 
-    async def code_area_autocomplete(self, fullText, position):
+    async def code_area_completion(self, fullText, position):
         self.code = fullText
         await self.update_file()
         line, col = position_to_line_col(fullText, position)

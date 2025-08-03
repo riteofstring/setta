@@ -44,7 +44,7 @@ export function Incrementer({
     route_create_child_sections_via_incrementer({
       projectConfigId: useProjectState.getState().projectConfig.id,
       calledBy: sectionId,
-      impl_type: SectionTypeEnum.Callable,
+      implType: SectionTypeEnum.Callable,
       numChildren: numSections,
     });
   };
