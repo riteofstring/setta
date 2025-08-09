@@ -2,7 +2,6 @@ import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
-  getNodes,
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "state/actions/nodeInternals";
@@ -23,7 +22,7 @@ const NodeRenderer = () => {
   // even though the MiniMap component uses the exact same hook and comparison fn
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
-  const nodes = useNodeInternals(getNodes, shallow);
+  const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useProjectState((x) => x.activeIds);
@@ -51,20 +50,14 @@ const NodeRenderer = () => {
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
-      {nodes.map((node) => {
-        const posX = node.position?.x ?? 0;
-        const posY = node.position?.y ?? 0;
-
+      {nodeIds.map((nodeId) => {
         return (
           <NodeWrapper
-            key={node.id}
-            id={node.id}
-            xPos={posX}
-            yPos={posY}
-            selected={activeSectionIds.includes(node.id)}
+            key={nodeId}
+            id={nodeId}
+            selected={activeSectionIds.includes(nodeId)}
             isDraggable={!panActivationKeyPressed}
             resizeObserver={resizeObserver}
-            zIndex={node.tempZIndex}
             visibility={readyToBeVisible ? "visible" : "hidden"}
           />
         );

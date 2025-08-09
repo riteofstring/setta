@@ -1,10 +1,11 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { useFloatingBox } from "components/Utils/FloatingBox";
+import _ from "lodash";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
@@ -23,22 +24,17 @@ export const arrowKeyDiffs: Record<string, XYPosition> = {
 
 const _NodeWrapper = ({
   id,
-  xPos,
-  yPos,
   selected,
   isDraggable: _isDraggable,
   resizeObserver,
-  zIndex,
   visibility,
 }: Pick<Node, "id"> & {
-  xPos: number;
-  yPos: number;
   selected: boolean;
   isDraggable: boolean;
   resizeObserver: ResizeObserver | null;
-  zIndex: number;
   visibility: CSSProperties["visibility"];
 }) => {
+  const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getEffectiveSectionImpl(x, id);
@@ -97,10 +93,10 @@ const _NodeWrapper = ({
       ])}
       ref={nodeRef}
       style={{
-        transform: `translate(${xPos}px,${yPos}px)`,
+        transform: `translate(${node?.position.x}px,${node?.position.y}px)`,
         pointerEvents: hasPointerEvents ? "all" : "none",
         visibility,
-        zIndex,
+        zIndex: node?.tempZIndex,
       }}
       data-id={id}
       data-testid={`rf__node-${id}`}
