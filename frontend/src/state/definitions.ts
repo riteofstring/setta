@@ -149,7 +149,7 @@ export const useModal = withProjectState(
   ),
 );
 
-type ZustandNodeInternalsState = { x: Map<string, Node> };
+export type ZustandNodeInternalsState = { x: Map<string, Node> };
 
 export const useNodeInternals = withProjectState(
   createWithEqualityFn(

@@ -1,7 +1,3 @@
-/**
- * The user selection rectangle gets displayed when a user drags the mouse while pressing shift
- */
-
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
@@ -145,7 +141,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       useSettings.getState().gui.selectionMode === SelectionModeEnum.partial,
       true,
     );
-    // const selectedNodeIds = selectedNodes.map((n) => n.id);
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
       prevSelectedNodesCount.current = selectedNodeIds.length;

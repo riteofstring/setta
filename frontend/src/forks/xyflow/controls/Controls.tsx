@@ -87,19 +87,6 @@ const Controls = () => {
       >
         <TbArrowAutofitWidth size={15} />
       </button>
-      {/* {showInteractive && (
-        <button
-          className="react-flow__controls-interactive"
-          onClick={onToggleInteractivity}
-          title="toggle interactivity"
-          aria-label="toggle interactivity"
-        >
-          {isInteractive ? <UnlockIcon /> : <LockIcon />}
-        </button>
-      )} */}
-      {/* <button onClick={autoLayout}>
-        <RiLayoutFill />
-      </button> */}
       <button
         onClick={toggleSnapToGrid}
         className={`cursor-pointer items-center justify-center overflow-clip rounded-md  p-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${snapToGrid ? styleForActive : "text-setta-400 dark:text-setta-600"}`}

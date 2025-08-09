@@ -1,7 +1,7 @@
 import cc from "classcat";
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { useFloatingBox } from "components/Utils/FloatingBox";
-import type { KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -11,7 +11,7 @@ import {
 } from "utils/constants";
 import useDrag from "../hooks/useDrag";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
-import type { WrapNodeProps, XYPosition } from "../types";
+import type { Node, XYPosition } from "../types";
 import { isInputDOMNode } from "../utils";
 
 export const arrowKeyDiffs: Record<string, XYPosition> = {
@@ -30,7 +30,15 @@ const _NodeWrapper = ({
   resizeObserver,
   zIndex,
   visibility,
-}: WrapNodeProps) => {
+}: Pick<Node, "id"> & {
+  xPos: number;
+  yPos: number;
+  selected: boolean;
+  isDraggable: boolean;
+  resizeObserver: ResizeObserver | null;
+  zIndex: number;
+  visibility: CSSProperties["visibility"];
+}) => {
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useProjectState((x) => {
     const impl = getEffectiveSectionImpl(x, id);
