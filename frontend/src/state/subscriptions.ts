@@ -26,6 +26,7 @@ import {
   getDisplayedSectionIdToChildren,
   getEffectiveImpl,
   getEffectiveSectionImpl,
+  getSectionImplLayering,
   getSectionShouldRender,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
@@ -246,10 +247,7 @@ function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   const filenameSet: Set<string> = new Set();
   for (const section of Object.values(state.sections)) {
     for (const layeringId of section.implLayerings) {
-      const layering = state.sectionImplLayerings[layeringId];
-      if (!layering) {
-        throw new Error();
-      }
+      const layering = getSectionImplLayering(state, layeringId);
       const baseImpl = state.sectionImpls[layering.impl];
       if (!baseImpl) {
         throw new Error();

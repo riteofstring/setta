@@ -38,7 +38,7 @@ export function getEffectiveImpl<T>(
   return effective;
 }
 
-export function getSectionImplLayering(
+export function getCurrSectionImplLayering(
   p: ZustandProjectState,
   sectionId: string,
 ) {
@@ -51,10 +51,7 @@ export function getSectionImplLayering(
   }
 
   // Check if implLayeringId exists in layerings
-  const implLayering = p.sectionImplLayerings[implLayeringId];
-  if (!implLayering) {
-    throw new Error(`Implementation layering '${implLayeringId}' not found`);
-  }
+  const implLayering = getSectionImplLayering(p, implLayeringId);
   return implLayering;
 }
 
@@ -68,7 +65,7 @@ export function getEffectiveSectionImpl(
       throw new Error("Either section_id or section_impl must be provided");
     }
 
-    const implLayering = getSectionImplLayering(p, sectionId);
+    const implLayering = getCurrSectionImplLayering(p, sectionId);
     const baseImpl = p.sectionImpls[implLayering.impl];
     const core = getSectionCore(p, sectionId);
     if (!baseImpl) {
@@ -80,7 +77,7 @@ export function getEffectiveSectionImpl(
 }
 
 export function getSectionImpl(p: ZustandProjectState, sectionId: string) {
-  const implLayering = getSectionImplLayering(p, sectionId);
+  const implLayering = getCurrSectionImplLayering(p, sectionId);
   const baseImpl = p.sectionImpls[implLayering.impl];
   if (!baseImpl) {
     throw new Error();
@@ -202,7 +199,7 @@ export function getSectionImplCoreLayeringBundle<
   core: Core;
   layering: Layering;
 } {
-  const layering = getSectionImplLayering(p, sectionId);
+  const layering = getCurrSectionImplLayering(p, sectionId);
   const impl = p.sectionImpls[layering.impl];
   const core = getSectionCore(p, sectionId);
 
@@ -268,6 +265,14 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
     throw new Error();
   }
   return codeObj;
+}
+
+export function getSectionImplLayering(p: ZustandProjectState, implLayeringId) {
+  const layering = p.sectionImplLayerings[implLayeringId];
+  if (!layering) {
+    throw new Error();
+  }
+  return layering;
 }
 
 export function getSectionInfo(sectionId) {

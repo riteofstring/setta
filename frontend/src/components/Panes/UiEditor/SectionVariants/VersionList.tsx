@@ -9,6 +9,7 @@ import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
   getSectionCore,
+  getSectionImplLayering,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -72,9 +73,6 @@ function EVItems({
       const { implLayerings, defaultImplLayering } = sectionCore;
       const currImplLayering =
         x.projectConfig.sectionImplLayeringMap[sectionId];
-      if (!currImplLayering) {
-        throw new Error();
-      }
       return {
         currVersionId: currImplLayering,
         versionIds: implLayerings,
@@ -121,10 +119,7 @@ function OneItem({
   isDefault: boolean;
 }) {
   const { name, isFrozen, isJsonSource } = useProjectState((x) => {
-    const implLayering = x.sectionImplLayerings[id];
-    if (!implLayering) {
-      throw new Error();
-    }
+    const implLayering = getSectionImplLayering(x, id);
     const baseImpl = x.sectionImpls[implLayering.impl];
     const core = getSectionCore(x, sectionId);
     if (!baseImpl) {
@@ -184,10 +179,7 @@ function OneItem({
           onClick={(e) => {
             e.stopPropagation();
             useProjectState.setState((x) => {
-              const implLayering = x.sectionImplLayerings[id];
-              if (!implLayering) {
-                throw new Error();
-              }
+              const implLayering = getSectionImplLayering(x, id);
               implLayering.modifier.isFrozen = !isFrozen;
             });
           }}
@@ -230,19 +222,13 @@ function OneItemEditing({
   deletable: boolean;
 }) {
   const name = useProjectState((x) => {
-    const implLayering = x.sectionImplLayerings[id];
-    if (!implLayering) {
-      throw new Error();
-    }
+    const implLayering = getSectionImplLayering(x, id);
     return implLayering.name;
   }, _.isEqual);
 
   function onSetName(v: string) {
     useProjectState.setState((x) => {
-      const implLayering = x.sectionImplLayerings[id];
-      if (!implLayering) {
-        throw new Error();
-      }
+      const implLayering = getSectionImplLayering(x, id);
       implLayering.name = v;
     });
     // maybeLoadJsonContents(id);
@@ -252,7 +238,7 @@ function OneItemEditing({
     const state = useProjectState.getState();
     const section = getSectionCore(state, sectionId);
     for (const layeringId of section.implLayerings) {
-      if (state.sectionImplLayerings[layeringId]?.name === v) {
+      if (getSectionImplLayering(state, layeringId).name === v) {
         return false;
       }
     }
