@@ -1,4 +1,5 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getEffectiveSectionImpl,
   setEffectiveSectionImplValue,
@@ -16,6 +17,7 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
         isMinimized: !isMinimized,
       });
     });
+    updateBackendProjectState();
   }
 
   return (

@@ -4,6 +4,7 @@ import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { loadJsonContents } from "state/actions/fileUpdates";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
@@ -142,11 +143,12 @@ function OneItem({
   return (
     <li
       // onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
-      onClick={() =>
+      onClick={() => {
         useProjectState.setState((state) => {
           state.projectConfig.sectionImplLayeringMap[sectionId] = id;
-        })
-      }
+        });
+        updateBackendProjectState();
+      }}
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >
       <p

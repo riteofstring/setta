@@ -33,12 +33,16 @@ export function updateWithArrayMove(active, over) {
   };
 }
 
-export function asyncDebounce(func, wait) {
-  const debounced = _.debounce((resolve, reject, args) => {
-    func(...args)
-      .then(resolve)
-      .catch(reject);
-  }, wait);
+export function asyncDebounce(func, wait, options = {}) {
+  const debounced = _.debounce(
+    (resolve, reject, args) => {
+      func(...args)
+        .then(resolve)
+        .catch(reject);
+    },
+    wait,
+    options,
+  );
   return (...args) =>
     new Promise((resolve, reject) => {
       debounced(resolve, reject, args);

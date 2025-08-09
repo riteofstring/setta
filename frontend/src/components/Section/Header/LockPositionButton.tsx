@@ -1,5 +1,6 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getEffectiveSectionImpl,
   setEffectiveSectionImplValue,
@@ -30,6 +31,7 @@ export function LockPositionButton({ sectionId }) {
         positionAndSizeLocked: !positionAndSizeLocked,
       });
     });
+    updateBackendProjectState();
   }
 
   return (

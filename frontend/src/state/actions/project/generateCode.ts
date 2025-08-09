@@ -30,20 +30,26 @@ async function getProjectDataToGenerateCode({
   return project;
 }
 
-export const updateBackendProjectState = asyncDebounce(async () => {
-  if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
-    return;
-  }
-  const projectState = await getProjectDataToGenerateCode({});
-  const requestRenameRefactor =
-    useProjectState.getState().requestRenameRefactor;
-  await route_update_from_frontend({
-    messageId: createNewId(),
-    projectState,
-    requestRenameRefactor,
-  });
-  // have to reset requestRenameRefactor to false, in case it was set to true
-  useProjectState.setState((state) => {
-    state.requestRenameRefactor = false;
-  });
-}, 200);
+export const updateBackendProjectState = asyncDebounce(
+  async () => {
+    if (
+      useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME
+    ) {
+      return;
+    }
+    const projectState = await getProjectDataToGenerateCode({});
+    const requestRenameRefactor =
+      useProjectState.getState().requestRenameRefactor;
+    await route_update_from_frontend({
+      messageId: createNewId(),
+      projectState,
+      requestRenameRefactor,
+    });
+    // have to reset requestRenameRefactor to false, in case it was set to true
+    useProjectState.setState((state) => {
+      state.requestRenameRefactor = false;
+    });
+  },
+  200,
+  { leading: true },
+);
