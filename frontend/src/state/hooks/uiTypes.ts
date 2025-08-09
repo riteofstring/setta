@@ -24,7 +24,6 @@ import {
   SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 
-
 export function getIsSeriesElementHelper(
   sectionId: string,
   parentTypesToCheck: Array<SectionType>,
