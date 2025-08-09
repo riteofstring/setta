@@ -316,6 +316,7 @@ export const RouteEnum = {
   UNDO: "/undo",
   REDO: "/redo",
   UPDATE_FROM_FRONTEND: "/updateFromFrontend",
+  GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7109,6 +7110,20 @@ export function createGenCodeSuffixCompletionRequest(
   options: Partial<GenCodeSuffixCompletionRequest> = {},
 ): GenCodeSuffixCompletionRequest {
   return GenCodeSuffixCompletionRequestSchema.parse(options);
+}
+
+export const GetLatestProjectStateRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type GetLatestProjectStateRequest = z.infer<
+  typeof GetLatestProjectStateRequestSchema
+>;
+
+export function createGetLatestProjectStateRequest(
+  options: Partial<GetLatestProjectStateRequest> = {},
+): GetLatestProjectStateRequest {
+  return GetLatestProjectStateRequestSchema.parse(options);
 }
 
 export const RedoRequestSchema = z.object({

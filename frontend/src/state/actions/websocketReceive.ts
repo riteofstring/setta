@@ -9,7 +9,10 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
+import { useProjectState } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
+import { res200 } from "utils/endpointUtils";
+import { route_get_latest_project_state } from "utils/generatedEndpoints";
 import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
@@ -38,7 +41,7 @@ export const openWebSocket = _.debounce(
       wss = new WebSocket(
         `${C_ADDRESSES.WEBSOCKET}${RouteEnum.WEBSOCKET_FRONTEND}`,
       );
-      wss.addEventListener("open", () => {
+      wss.addEventListener("open", async () => {
         sendCurrentAddress(pathname);
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
@@ -49,6 +52,12 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
+        const res = await route_get_latest_project_state({
+          projectConfigId: useProjectState.getState().projectConfig.id,
+        });
+        if (res200(res)) {
+          processProjectStateUpdateFromBackend(res.data);
+        }
       });
 
       wss.addEventListener("message", (event) => {

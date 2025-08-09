@@ -80,3 +80,4 @@ class Route(str, Enum):
     UNDO = "/undo"
     REDO = "/redo"
     UPDATE_FROM_FRONTEND = "/updateFromFrontend"
+    GET_LATEST_PROJECT_STATE = "/getLatestProjectState"

@@ -30,6 +30,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
+    GetLatestProjectStateRequest,
     RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
@@ -653,3 +654,9 @@ class ProjectManager:
                     self.project_state_backend, projectConfigId
                 )
             )
+
+    @enqueue_method
+    async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
+        return convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        )

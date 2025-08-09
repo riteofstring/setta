@@ -108,3 +108,7 @@ class UpdateFromFrontendRequest(BaseModel):
     messageId: str | None
     projectState: ProjectStateSingleConfig
     requestRenameRefactor: bool = False
+
+
+class GetLatestProjectStateRequest(BaseModel):
+    projectConfigId: str

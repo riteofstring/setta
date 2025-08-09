@@ -396,3 +396,9 @@ export async function route_update_from_frontend(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/updateFromFrontend", x);
 }
+
+export async function route_get_latest_project_state(
+  x: gt.GetLatestProjectStateRequest,
+): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+  return await post("/getLatestProjectState", x);
+}
