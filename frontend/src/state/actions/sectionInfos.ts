@@ -319,23 +319,15 @@ export function setAllPreviewVariantIdsToNull() {
 export function processProjectStateUpdateFromBackend(
   projectState: ProjectStateSingleConfig,
 ) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  if (projectState.projectConfig.id !== projectConfigId) {
+  if (
+    projectState.projectConfig.id !==
+    useProjectState.getState().projectConfig.id
+  ) {
     return;
   }
   useProjectState.setState(projectState);
   useNodeInternals.setState({
     x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
-  });
-  console.log(useNodeInternals.getState().x)
-  // When the backend makes changes to sections, it doesn't necessarily know what
-  // the resulting dimensions/locations are. So this sends back the true layout.
-  route_update_from_frontend_top_level_section_layout({
-    projectConfigId,
-    topLevelSections: createTopLevelSectionLayoutDict(
-      useProjectState.getState().sections,
-      useNodeInternals.getState(),
-    ),
   });
 }
 
@@ -592,25 +584,4 @@ export function deleteAllActiveSections() {
     projectConfigId: useProjectState.getState().projectConfig.id,
     sectionIds: useProjectState.getState().activeIds,
   });
-}
-
-export function createTopLevelSectionLayoutDict(
-  sections: ProjectStateSingleConfig["sections"],
-  nodeInternalsState,
-) {
-  const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
-    {};
-  for (const c of nodeInternalsState.x.values()) {
-    if (c.id in sections) {
-      // need this filter because some sections might be temporary
-      topLevelSections[c.id] = {
-        x: c.position.x,
-        y: c.position.y,
-        zIndex: c.zIndex,
-        w: c.width, // save width and height so we can show preview on home page
-        h: c.height,
-      };
-    }
-  }
-  return topLevelSections;
 }

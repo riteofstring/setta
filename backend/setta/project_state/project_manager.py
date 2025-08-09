@@ -223,15 +223,6 @@ class ProjectManager:
         return success
 
     @enqueue_method
-    async def update_from_frontend_top_level_section_layout(
-        self, x: UpdateFromFrontendTopLevelSectionLayout
-    ):
-        print("\n\n\n\n***new layout", x.topLevelSections)
-        self.project_state_backend.projectConfigs[
-            x.projectConfigId
-        ].topLevelSections = x.topLevelSections
-
-    @enqueue_method
     async def load_json_sources(
         self,
         section_impl_layering_ids: list[str] | None = None,

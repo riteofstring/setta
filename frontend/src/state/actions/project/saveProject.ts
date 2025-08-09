@@ -50,10 +50,21 @@ export function getProjectData({
   // const artifactGroups = useProjectState.getState().artifactGroups;
 
   const projectConfig = getProjectConfigMetadata();
-  projectConfig.topLevelSections = createTopLevelSectionLayoutDict(
-    sections,
-    useNodeInternals.getState(),
-  );
+  const children: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
+    {};
+  for (const c of useNodeInternals.getState().x.values()) {
+    if (c.id in sections) {
+      // need this filter because some sections might be temporary
+      children[c.id] = {
+        x: c.position.x,
+        y: c.position.y,
+        zIndex: c.zIndex,
+        w: c.width, // save width and height so we can show preview on home page
+        h: c.height,
+      };
+    }
+  }
+  projectConfig.topLevelSections = children;
 
   const {
     sectionImpls,
