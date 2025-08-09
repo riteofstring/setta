@@ -7,6 +7,7 @@ import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
+  getBaseSectionImpl,
   getEffectiveImpl,
   getSectionCore,
   getSectionImplLayering,
@@ -120,11 +121,8 @@ function OneItem({
 }) {
   const { name, isFrozen, isJsonSource } = useProjectState((x) => {
     const implLayering = getSectionImplLayering(x, id);
-    const baseImpl = x.sectionImpls[implLayering.impl];
+    const baseImpl = getBaseSectionImpl(x, implLayering.impl);
     const core = getSectionCore(x, sectionId);
-    if (!baseImpl) {
-      throw new Error();
-    }
     const impl = getEffectiveImpl(baseImpl, core, implLayering);
     return {
       name: implLayering.name,

@@ -41,7 +41,7 @@ export function getTextBlockText(
   state: ZustandProjectState,
   _impl: BaseSectionImplUnion | null = null,
 ) {
-  const impl = getEffectiveSectionImpl(state, sectionId, _impl);
+  const impl = _impl ?? getEffectiveSectionImpl(state, sectionId);
   if (impl.type !== SectionTypeEnum.TextBlock) {
     throw new Error();
   }

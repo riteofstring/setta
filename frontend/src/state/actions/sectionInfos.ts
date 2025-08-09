@@ -42,57 +42,30 @@ export function getCurrSectionImplLayering(
   p: ZustandProjectState,
   sectionId: string,
 ) {
-  // Check if sectionId exists in the map
   const implLayeringId = p.projectConfig.sectionImplLayeringMap[sectionId];
   if (implLayeringId === undefined) {
-    throw new Error(
-      `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
-    );
+    throw new Error();
   }
-
-  // Check if implLayeringId exists in layerings
-  const implLayering = getSectionImplLayering(p, implLayeringId);
-  return implLayering;
+  return getSectionImplLayering(p, implLayeringId);
 }
 
 export function getEffectiveSectionImpl(
   p: ZustandProjectState,
-  sectionId: string | null = null,
-  sectionImpl: BaseSectionImplUnion | null = null,
+  sectionId: string,
 ) {
-  if (sectionImpl === null) {
-    if (sectionId === null) {
-      throw new Error("Either section_id or section_impl must be provided");
-    }
-
-    const implLayering = getCurrSectionImplLayering(p, sectionId);
-    const baseImpl = p.sectionImpls[implLayering.impl];
-    const core = getSectionCore(p, sectionId);
-    if (!baseImpl) {
-      throw new Error();
-    }
-    return getEffectiveImpl(baseImpl, core, implLayering);
-  }
-  return sectionImpl;
-}
-
-export function getSectionImpl(p: ZustandProjectState, sectionId: string) {
   const implLayering = getCurrSectionImplLayering(p, sectionId);
-  const baseImpl = p.sectionImpls[implLayering.impl];
-  if (!baseImpl) {
-    throw new Error();
-  }
-  return baseImpl;
+  const baseImpl = getBaseSectionImpl(p, implLayering.impl);
+  const core = getSectionCore(p, sectionId);
+  return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
-export function getCodeObjImplLayering(
+export function getCurrCodeObjImplLayering(
   p: ZustandProjectState,
+  sectionId: string,
   codeObjId: string,
-  sectionId: string | null,
-  sectionImpl: BaseSectionImplUnion | null,
 ) {
   // Check if sectionId exists in the map
-  sectionImpl = getEffectiveSectionImpl(p, sectionId, sectionImpl);
+  const sectionImpl = getEffectiveSectionImpl(p, sectionId);
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     throw new Error();
   }
@@ -102,32 +75,17 @@ export function getCodeObjImplLayering(
       `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
     );
   }
-
-  // Check if implLayeringId exists in layerings
-  const implLayering = p.codeObjImplLayerings[implLayeringId];
-  if (!implLayering) {
-    throw new Error(`Implementation layering '${implLayeringId}' not found`);
-  }
-  return implLayering;
+  return getCodeObjImplLayering(p, implLayeringId);
 }
 
 export function getEffectiveCodeObjImpl(
   p: ZustandProjectState,
   codeObjId: string,
-  sectionId: string | null,
-  sectionImpl: BaseSectionImplUnion | null,
+  sectionId: string,
 ) {
-  const implLayering = getCodeObjImplLayering(
-    p,
-    codeObjId,
-    sectionId,
-    sectionImpl,
-  );
-  const baseImpl = p.codeObjImpls[implLayering.impl];
+  const implLayering = getCurrCodeObjImplLayering(p, sectionId, codeObjId);
+  const baseImpl = getBaseCodeObjImpl(p, implLayering.impl);
   const core = getCodeObjCore(p, codeObjId);
-  if (!baseImpl) {
-    throw new Error();
-  }
   return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
@@ -240,7 +198,7 @@ export function getCodeObjImplCoreLayeringBundle<
   core: Core;
   layering: Layering;
 } {
-  const layering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
+  const layering = getCurrCodeObjImplLayering(p, sectionId, codeObjId);
   const impl = p.codeObjImpls[layering.impl];
   const core = getCodeObjCore(p, codeObjId);
 
@@ -259,6 +217,25 @@ export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   return section;
 }
 
+export function getBaseSectionImpl(p: ZustandProjectState, implId: string) {
+  const impl = p.sectionImpls[implId];
+  if (!impl) {
+    throw new Error();
+  }
+  return impl;
+}
+
+export function getSectionImplLayering(
+  p: ZustandProjectState,
+  implLayeringId: string,
+) {
+  const layering = p.sectionImplLayerings[implLayeringId];
+  if (!layering) {
+    throw new Error();
+  }
+  return layering;
+}
+
 export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
   const codeObj = p.codeObjs[codeObjId];
   if (!codeObj) {
@@ -267,8 +244,19 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
   return codeObj;
 }
 
-export function getSectionImplLayering(p: ZustandProjectState, implLayeringId) {
-  const layering = p.sectionImplLayerings[implLayeringId];
+export function getBaseCodeObjImpl(p: ZustandProjectState, implId: string) {
+  const impl = p.codeObjImpls[implId];
+  if (!impl) {
+    throw new Error();
+  }
+  return impl;
+}
+
+export function getCodeObjImplLayering(
+  p: ZustandProjectState,
+  implLayeringId: string,
+) {
+  const layering = p.codeObjImplLayerings[implLayeringId];
   if (!layering) {
     throw new Error();
   }

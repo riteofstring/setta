@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getCodeObjImplLayering } from "state/actions/sectionInfos";
+import {
+  getBaseCodeObjImpl,
+  getCurrCodeObjImplLayering,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
 import {
@@ -55,13 +58,10 @@ export function ParamConfigUITypeCombobox({
 
 function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
   return useProjectState((x) => {
-    const layering = getCodeObjImplLayering(x, paramInfoId, sectionId, null);
+    const layering = getCurrCodeObjImplLayering(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
     for (const i of layering.nonPresetImpls) {
-      const impl = x.codeObjImpls[i];
-      if (!impl) {
-        throw new Error();
-      }
+      const impl = getBaseCodeObjImpl(x, i);
       prevImpls[impl.type] = impl.id;
     }
 
