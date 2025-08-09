@@ -1,6 +1,7 @@
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
@@ -147,6 +148,7 @@ BaseDictSectionImplTypeSet = set(["Dict", "GlobalVariables"])
 from typing import Annotated, Union
 
 from pydantic import Field, TypeAdapter
+
 from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,

@@ -38,7 +38,6 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.routers.project_manager import GetLatestProjectStateRequest
 from setta.types.helpers import (
     change_param_impl,
     convert_backend_to_single_config,
@@ -654,10 +653,3 @@ class ProjectManager:
                     self.project_state_backend, projectConfigId
                 )
             )
-
-    @enqueue_method
-    async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
-        return convert_backend_to_single_config(
-            self.project_state_backend, x.projectConfigId
-        )
-
