@@ -110,6 +110,16 @@ async def route_load_project_config(
         print("[DEBUG] route_load_project_config finished", flush=True)
 
 
+# Steps for manual saving (ctrl-s)
+# 1. Try update_from_frontend. If there's a conflict then return failure, because we don't want to save something that doesn't match what the user is seeing.
+# 2. Make a backup of the current sqlite db (if user has enabled backups.)
+# 3. Save project_manager.project_backend_state
+# 4. Export to yaml etc (if user has this enabled).
+
+
+# Steps for autosave (debounced)
+# 1. After every undo-able update, run steps 2-4 in the above.
+
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
     x: ProjectSaveRequest, background_tasks: BackgroundTasks, state: AppStateFromRequest

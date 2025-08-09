@@ -66,6 +66,7 @@ from setta.types.project_state import (
 from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position, SimplifiedSectionCreation
+from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -99,6 +100,7 @@ class ProjectManager:
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
+        self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
@@ -636,6 +638,7 @@ class ProjectManager:
 
     def add_new_history_entry(self):
         self.history.add_current_copy()
+        self.autosave_debouncer.trigger()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
@@ -660,3 +663,11 @@ class ProjectManager:
         return convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )
+
+    @enqueue_method
+    async def autosave(self):
+        print("\n\n\n\n**********AUTOSAVE************")
+        notification = SettaNotification(
+            message="Autosaved!", type=SettaNotificationType.save, temporary=True
+        )
+        await self.websocket_msg_handler.broadcast_notification(notification)

@@ -9,7 +9,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { useProjectState } from "state/definitions";
+import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
@@ -52,11 +52,14 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        const res = await route_get_latest_project_state({
-          projectConfigId: useProjectState.getState().projectConfig.id,
-        });
-        if (res200(res)) {
-          processProjectStateUpdateFromBackend(res.data);
+        const projectConfigId = useProjectState.getState().projectConfig.id;
+        if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
+          const res = await route_get_latest_project_state({
+            projectConfigId: useProjectState.getState().projectConfig.id,
+          });
+          if (res200(res)) {
+            processProjectStateUpdateFromBackend(res.data);
+          }
         }
       });
 

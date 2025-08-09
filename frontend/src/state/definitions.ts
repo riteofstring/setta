@@ -84,12 +84,14 @@ export type ZustandProjectState = {
   modCount: number;
 };
 
+export const NULL_PROJECT_CONFIG_ID = "null";
+
 export const useProjectState = withProjectState(
   createWithEqualityFn(
     subscribeWithSelector(
       immer(
         withResetFn<ZustandProjectState>(() => ({
-          projectConfig: createProjectConfig(),
+          projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
           sectionImplLayerings: {},
