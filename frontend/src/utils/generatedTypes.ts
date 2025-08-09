@@ -7184,21 +7184,6 @@ export function createUpdateFromFrontendRequest(
   return UpdateFromFrontendRequestSchema.parse(options);
 }
 
-export const UpdateFromFrontendReturnSchema = z.object({
-  success: z.boolean(),
-  modCount: z.int(),
-});
-
-export type UpdateFromFrontendReturn = z.infer<
-  typeof UpdateFromFrontendReturnSchema
->;
-
-export function createUpdateFromFrontendReturn(
-  options: Partial<UpdateFromFrontendReturn> = {},
-): UpdateFromFrontendReturn {
-  return UpdateFromFrontendReturnSchema.parse(options);
-}
-
 export const UpdateParamImplConfigRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),

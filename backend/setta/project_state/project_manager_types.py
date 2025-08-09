@@ -108,8 +108,3 @@ class UpdateFromFrontendRequest(BaseModel):
     messageId: str | None
     projectState: ProjectStateSingleConfig
     requestRenameRefactor: bool = False
-
-
-class UpdateFromFrontendReturn(BaseModel):
-    success: bool
-    modCount: int

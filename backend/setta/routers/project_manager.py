@@ -16,7 +16,6 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
-    UpdateFromFrontendReturn,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -142,5 +141,5 @@ async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
 @router.post(Route.UPDATE_FROM_FRONTEND)
 async def route_update_from_frontend(
     x: UpdateFromFrontendRequest, state: AppStateFromRequest
-) -> UpdateFromFrontendReturn:
-    return await state.project_manager.update_from_frontend(x)
+):
+    await state.project_manager.update_from_frontend(x)

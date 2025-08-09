@@ -35,7 +35,6 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
-    UpdateFromFrontendReturn,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -56,6 +55,7 @@ from setta.types.helpers import (
     set_project_config_name,
     update_param_impl_config,
 )
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectConfig,
     ProjectMetadata,
@@ -212,9 +212,14 @@ class ProjectManager:
         success = await self.update(
             x.projectState, x.requestRenameRefactor, x.messageId
         )
-        return UpdateFromFrontendReturn(
-            success=success, modCount=self.project_state_backend.modCount
-        )
+        await self.websocket_msg_handler.broadcast_project_state(x.projectState)
+        if not success:
+            notification = SettaNotification(
+                message="Update conflict",
+                type=SettaNotificationType.error,
+                temporary=True,
+            )
+            await self.websocket_msg_handler.broadcast_notification(notification)
 
     @enqueue_method
     async def load_json_sources(

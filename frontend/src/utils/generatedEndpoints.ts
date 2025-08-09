@@ -393,6 +393,6 @@ export async function route_redo(
 
 export async function route_update_from_frontend(
   x: gt.UpdateFromFrontendRequest,
-): Promise<ResponseDataAndStatus<gt.UpdateFromFrontendReturn>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/updateFromFrontend", x);
 }
