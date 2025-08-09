@@ -1,6 +1,9 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getEffectiveSectionImpl,
+  getSectionCore,
+} from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
@@ -78,10 +81,7 @@ function EditableTitle({
 
 function setSectionName(sectionId: string, name: string) {
   useProjectState.setState((x) => {
-    const s = x.sections[sectionId];
-    if (!s) {
-      throw new Error();
-    }
+    const s = getSectionCore(x, sectionId);
     s.name = name;
     x.requestRenameRefactor = true;
   });
@@ -96,10 +96,7 @@ function useTitleIsEditable(sectionId: string) {
       SectionTypeEnum.GenPythonCode,
     ];
 
-    const s = x.sections[sectionId];
-    if (!s) {
-      throw new Error();
-    }
+    const s = getSectionCore(x, sectionId);
 
     return {
       sectionName: s.name,

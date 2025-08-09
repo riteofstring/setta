@@ -70,8 +70,8 @@ export function getEffectiveSectionImpl(
 
     const implLayering = getSectionImplLayering(p, sectionId);
     const baseImpl = p.sectionImpls[implLayering.impl];
-    const core = p.sections[sectionId];
-    if (!baseImpl || !core) {
+    const core = getSectionCore(p, sectionId);
+    if (!baseImpl) {
       throw new Error();
     }
     return getEffectiveImpl(baseImpl, core, implLayering);
@@ -127,8 +127,8 @@ export function getEffectiveCodeObjImpl(
     sectionImpl,
   );
   const baseImpl = p.codeObjImpls[implLayering.impl];
-  const core = p.codeObjs[codeObjId];
-  if (!baseImpl || !core) {
+  const core = getCodeObjCore(p, codeObjId);
+  if (!baseImpl) {
     throw new Error();
   }
   return getEffectiveImpl(baseImpl, core, implLayering);
@@ -204,9 +204,9 @@ export function getSectionImplCoreLayeringBundle<
 } {
   const layering = getSectionImplLayering(p, sectionId);
   const impl = p.sectionImpls[layering.impl];
-  const core = p.sections[sectionId];
+  const core = getSectionCore(p, sectionId);
 
-  if (!impl || !core) {
+  if (!impl) {
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
   }
 
@@ -245,13 +245,29 @@ export function getCodeObjImplCoreLayeringBundle<
 } {
   const layering = getCodeObjImplLayering(p, codeObjId, sectionId, null);
   const impl = p.codeObjImpls[layering.impl];
-  const core = p.codeObjs[codeObjId];
+  const core = getCodeObjCore(p, codeObjId);
 
   if (!impl || !core) {
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
   }
 
   return { impl, core, layering };
+}
+
+export function getSectionCore(p: ZustandProjectState, sectionId: string) {
+  const section = p.sections[sectionId];
+  if (!section) {
+    throw new Error();
+  }
+  return section;
+}
+
+export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
+  const codeObj = p.codeObjs[codeObjId];
+  if (!codeObj) {
+    throw new Error();
+  }
+  return codeObj;
 }
 
 export function getSectionInfo(sectionId) {

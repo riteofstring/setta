@@ -8,7 +8,10 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
-import { setEffectiveSectionImplValue } from "state/actions/sectionInfos";
+import {
+  getSectionCore,
+  setEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
@@ -63,10 +66,7 @@ const _MarkdownEditorCore = React.forwardRef(
             { text: v },
           );
           if (impl.headingAsSectionName) {
-            const section = state.sections[sectionId];
-            if (!section) {
-              throw new Error();
-            }
+            const section = getSectionCore(state, sectionId);
             section.name = getFirstHeadingOrText(v) ?? section.name;
           }
         });

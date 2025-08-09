@@ -4,6 +4,7 @@ import _ from "lodash";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
+  getCodeObjCore,
   getEffectiveCodeObjImpl,
   getEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
@@ -80,10 +81,7 @@ function SectionSearchCore({
     }
     const { configLanguage } = sectionImpl;
     if (callable) {
-      const codeObj = x.codeObjs[callable];
-      if (!codeObj) {
-        throw new Error();
-      }
+      const codeObj = getCodeObjCore(x, callable);
       const impl = getEffectiveCodeObjImpl(x, callable, sectionId, sectionImpl);
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };

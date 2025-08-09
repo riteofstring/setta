@@ -8,6 +8,7 @@ import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getEffectiveImpl,
+  getSectionCore,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -67,10 +68,7 @@ function EVItems({
 }) {
   const { currVersionId, versionIds, defaultVersionId } = useProjectState(
     (x) => {
-      const sectionCore = x.sections[sectionId];
-      if (!sectionCore) {
-        throw new Error();
-      }
+      const sectionCore = getSectionCore(x, sectionId);
       const { implLayerings, defaultImplLayering } = sectionCore;
       const currImplLayering =
         x.projectConfig.sectionImplLayeringMap[sectionId];
@@ -128,8 +126,8 @@ function OneItem({
       throw new Error();
     }
     const baseImpl = x.sectionImpls[implLayering.impl];
-    const core = x.sections[sectionId];
-    if (!baseImpl || !core) {
+    const core = getSectionCore(x, sectionId);
+    if (!baseImpl) {
       throw new Error();
     }
     const impl = getEffectiveImpl(baseImpl, core, implLayering);
@@ -170,10 +168,7 @@ function OneItem({
           onClick={(e) => {
             e.stopPropagation();
             useProjectState.setState((x) => {
-              const section = x.sections[sectionId];
-              if (!section) {
-                throw new Error();
-              }
+              const section = getSectionCore(x, sectionId);
               section.defaultImplLayering = id;
             });
           }}
@@ -255,10 +250,7 @@ function OneItemEditing({
 
   function conditionToSetName(v: string) {
     const state = useProjectState.getState();
-    const section = state.sections[sectionId];
-    if (!section) {
-      throw new Error();
-    }
+    const section = getSectionCore(state, sectionId);
     for (const layeringId of section.implLayerings) {
       if (state.sectionImplLayerings[layeringId]?.name === v) {
         return false;
