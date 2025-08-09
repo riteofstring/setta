@@ -1,14 +1,12 @@
-type LinePatternProps = {
-  dimensions: [number, number];
-  lineWidth?: number;
-  color: string;
-};
-
 export function LinePattern({
   color,
   dimensions,
   lineWidth,
-}: LinePatternProps) {
+}: {
+  dimensions: [number, number];
+  lineWidth?: number;
+  color: string;
+}) {
   return (
     <path
       stroke={color}
@@ -18,11 +16,12 @@ export function LinePattern({
   );
 }
 
-type DotPatternProps = {
+export function DotPattern({
+  color,
+  radius,
+}: {
   radius: number;
   color: string;
-};
-
-export function DotPattern({ color, radius }: DotPatternProps) {
+}) {
   return <circle cx={radius} cy={radius} r={radius} fill={color} />;
 }
