@@ -1,8 +1,8 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
+  getNodes,
   getNodeUpdateInformation,
   updateNodeDimensions,
 } from "state/actions/nodeInternals";
@@ -23,7 +23,7 @@ const NodeRenderer = ({}) => {
   // even though the MiniMap component uses the exact same hook and comparison fn
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
-  const nodes = useNodeInternals((x) => Array.from(x.x.values()), _.isEqual);
+  const nodes = useNodeInternals(getNodes, shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useProjectState((x) => x.activeIds);
@@ -48,8 +48,6 @@ const NodeRenderer = ({}) => {
       resizeObserverRef?.current?.disconnect();
     };
   }, []);
-
-  console.log("nodes", nodes);
 
   return (
     <div className="react-flow__nodes" style={containerStyle}>
