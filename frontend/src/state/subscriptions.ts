@@ -14,6 +14,7 @@ import {
 import {
   route_file_watch_gen_python_code,
   route_file_watch_list,
+  route_update_from_frontend_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import { FileWatchGroupNameEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
@@ -23,6 +24,7 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  createTopLevelSectionLayoutDict,
   getDisplayedSectionIdToChildren,
   getEffectiveImpl,
   getEffectiveSectionImpl,
@@ -131,6 +133,27 @@ export function subscribe() {
           updateAllDrawAreas: state.updateAllDrawAreas + 1,
           undoOrRedoWasTriggered: false,
         }));
+      }
+    },
+  );
+
+  useMisc.subscribe(
+    nodeInternalsWidthHeightWasNullSubscriptionFn,
+    (nodeInternalsWidthHeightWasNull) => {
+      if (nodeInternalsWidthHeightWasNull) {
+        // When the backend creates sections, the node size on the backend is null.
+        // This subscription gets triggered when updating a node dimension (like on first render).
+        // Specifically, if the current node dimensions (before the update) are null,
+        // then that means backend thinkss the node dimensions aren null. 
+        // So this sends the true node dimensions to fix that.
+        route_update_from_frontend_top_level_section_layout({
+          projectConfigId: useProjectState.getState().projectConfig.id,
+          topLevelSections: createTopLevelSectionLayoutDict(
+            useProjectState.getState().sections,
+            useNodeInternals.getState().x,
+          ),
+        });
+        useMisc.setState({ nodeInternalsWidthHeightWasNull: false });
       }
     },
   );
@@ -285,4 +308,8 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
 
 function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
   return [state.apiKeysFilepath];
+}
+
+function nodeInternalsWidthHeightWasNullSubscriptionFn(state) {
+  return state.nodeInternalsWidthHeightWasNull;
 }

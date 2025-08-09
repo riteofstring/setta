@@ -32,8 +32,8 @@ class TopLevelSectionLayout(BaseModel, extra="forbid"):
     x: float = 0
     y: float = 0
     zIndex: int = 0
-    w: float = 0
-    h: float = 0
+    w: float | None = None
+    h: float | None = None
 
 
 class ProjectConfig(BaseModel, extra="forbid"):

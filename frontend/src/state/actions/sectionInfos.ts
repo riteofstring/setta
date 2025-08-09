@@ -321,10 +321,8 @@ export function setAllPreviewVariantIdsToNull() {
 export function processProjectStateUpdateFromBackend(
   projectState: ProjectStateSingleConfig,
 ) {
-  if (
-    projectState.projectConfig.id !==
-    useProjectState.getState().projectConfig.id
-  ) {
+  const projectConfigId = useProjectState.getState().projectConfig.id;
+  if (projectState.projectConfig.id !== projectConfigId) {
     return;
   }
   useProjectState.setState(projectState);
@@ -587,4 +585,25 @@ export function deleteAllActiveSections() {
     projectConfigId: useProjectState.getState().projectConfig.id,
     sectionIds: useProjectState.getState().activeIds,
   });
+}
+
+export function createTopLevelSectionLayoutDict(
+  sections: ProjectStateSingleConfig["sections"],
+  nodeInternals: ZustandNodeInternalsState["x"],
+) {
+  const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
+    {};
+  for (const c of nodeInternals.values()) {
+    if (c.id in sections) {
+      // need this filter because some sections might be temporary
+      topLevelSections[c.id] = {
+        x: c.position.x,
+        y: c.position.y,
+        zIndex: c.zIndex,
+        w: c.width, // save width and height so we can show preview on home page
+        h: c.height,
+      };
+    }
+  }
+  return topLevelSections;
 }

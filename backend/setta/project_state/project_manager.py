@@ -36,6 +36,7 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
+    UpdateFromFrontendTopLevelSectionLayout,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.save_load import save
@@ -221,6 +222,14 @@ class ProjectManager:
         )
         await self.websocket_msg_handler.broadcast_project_state(x.projectState)
         return success
+
+    @enqueue_method
+    async def update_from_frontend_top_level_section_layout(
+        self, x: UpdateFromFrontendTopLevelSectionLayout
+    ):
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].topLevelSections = x.topLevelSections
 
     @enqueue_method
     async def load_json_sources(

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
 from setta.types.section_impls import SectionType
 from setta.types.simplified_states import Position
 
@@ -112,3 +112,8 @@ class UpdateFromFrontendRequest(BaseModel):
 
 class GetLatestProjectStateRequest(BaseModel):
     projectConfigId: str
+
+
+class UpdateFromFrontendTopLevelSectionLayout(BaseModel):
+    projectConfigId: str
+    topLevelSections: dict[str, TopLevelSectionLayout]

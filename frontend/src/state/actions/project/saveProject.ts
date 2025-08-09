@@ -18,7 +18,10 @@ import {
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
-import { getSectionType } from "../sectionInfos";
+import {
+  createTopLevelSectionLayoutDict,
+  getSectionType,
+} from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 
 export function getProjectData({
@@ -50,21 +53,10 @@ export function getProjectData({
   // const artifactGroups = useProjectState.getState().artifactGroups;
 
   const projectConfig = getProjectConfigMetadata();
-  const children: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
-    {};
-  for (const c of useNodeInternals.getState().x.values()) {
-    if (c.id in sections) {
-      // need this filter because some sections might be temporary
-      children[c.id] = {
-        x: c.position.x,
-        y: c.position.y,
-        zIndex: c.zIndex,
-        w: c.width ?? 0, // save width and height so we can show preview on home page
-        h: c.height ?? 0,
-      };
-    }
-  }
-  projectConfig.topLevelSections = children;
+  projectConfig.topLevelSections = createTopLevelSectionLayoutDict(
+    sections,
+    useNodeInternals.getState().x,
+  );
 
   const {
     sectionImpls,

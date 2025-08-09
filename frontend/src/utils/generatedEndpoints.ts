@@ -402,3 +402,9 @@ export async function route_get_latest_project_state(
 ): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
   return await post("/getLatestProjectState", x);
 }
+
+export async function route_update_from_frontend_top_level_section_layout(
+  x: gt.UpdateFromFrontendTopLevelSectionLayout,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/updateFromFrontendTopLevelSectionLayout", x);
+}

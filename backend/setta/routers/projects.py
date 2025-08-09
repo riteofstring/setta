@@ -3,7 +3,6 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.database.backup import maybe_create_backup
 from setta.database.db.notifications.delete import delete_notification
 from setta.database.db.notifications.load import (
     load_project_notifications,
@@ -15,7 +14,6 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.database.export_db.export_db import maybe_export_database
 from setta.project_state.project_manager_types import UpdateFromFrontendRequest
 from setta.project_state.save_load import save
 from setta.routers.dependencies import AppStateFromRequest

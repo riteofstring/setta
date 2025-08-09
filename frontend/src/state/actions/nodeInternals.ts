@@ -48,6 +48,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   const newNodes = getNewNodes();
+  let prevWidthHeightWasNull = false;
 
   for (const u of updates) {
     const node = newNodes.get(u.id);
@@ -62,6 +63,9 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
       );
 
       if (doUpdate) {
+        if (node.width === null || node.height === null) {
+          prevWidthHeightWasNull = true;
+        }
         newNodes.set(node.id, {
           ...node,
           ...dimensions,
@@ -71,6 +75,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   useNodeInternals.setState({ x: newNodes });
+  useMisc.setState({ nodeInternalsWidthHeightWasNull: prevWidthHeightWasNull });
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering

@@ -317,6 +317,8 @@ export const RouteEnum = {
   REDO: "/redo",
   UPDATE_FROM_FRONTEND: "/updateFromFrontend",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT:
+    "/updateFromFrontendTopLevelSectionLayout",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -2707,8 +2709,8 @@ export const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
   zIndex: z.int().default(0),
-  w: z.number().default(1),
-  h: z.number().default(1),
+  w: z.union([z.number(), z.null()]).default(null),
+  h: z.union([z.number(), z.null()]).default(null),
 });
 
 export type TopLevelSectionLayout = z.infer<typeof TopLevelSectionLayoutSchema>;
@@ -7184,7 +7186,7 @@ export function createUndoRequest(
 }
 
 export const UpdateFromFrontendRequestSchema = z.object({
-  messageId: z.union([z.string(), z.null()]),
+  messageId: z.union([z.string(), z.null()]).default(null),
   projectState: ProjectStateSingleConfigSchema,
   requestRenameRefactor: z.boolean().default(false),
 });
@@ -7197,6 +7199,21 @@ export function createUpdateFromFrontendRequest(
   options: Partial<UpdateFromFrontendRequest> = {},
 ): UpdateFromFrontendRequest {
   return UpdateFromFrontendRequestSchema.parse(options);
+}
+
+export const UpdateFromFrontendTopLevelSectionLayoutSchema = z.object({
+  projectConfigId: z.string(),
+  topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
+});
+
+export type UpdateFromFrontendTopLevelSectionLayout = z.infer<
+  typeof UpdateFromFrontendTopLevelSectionLayoutSchema
+>;
+
+export function createUpdateFromFrontendTopLevelSectionLayout(
+  options: Partial<UpdateFromFrontendTopLevelSectionLayout> = {},
+): UpdateFromFrontendTopLevelSectionLayout {
+  return UpdateFromFrontendTopLevelSectionLayoutSchema.parse(options);
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({

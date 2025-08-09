@@ -17,6 +17,7 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
+    UpdateFromFrontendTopLevelSectionLayout,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -159,3 +160,10 @@ async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, state: AppStateFromRequest
 ) -> ProjectStateSingleConfig:
     return await state.project_manager.get_latest_project_state(x)
+
+
+@router.post(Route.UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT)
+async def route_update_from_frontend_top_level_section_layout(
+    x: UpdateFromFrontendTopLevelSectionLayout, state: AppStateFromRequest
+):
+    await state.project_manager.update_from_frontend_top_level_section_layout(x)

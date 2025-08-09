@@ -81,3 +81,6 @@ class Route(str, Enum):
     REDO = "/redo"
     UPDATE_FROM_FRONTEND = "/updateFromFrontend"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
+    UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT = (
+        "/updateFromFrontendTopLevelSectionLayout"
+    )

@@ -6,8 +6,8 @@ import type { XYPosition } from ".";
 export type Node = {
   id: string;
   position: XYPosition;
-  width?: number | null;
-  height?: number | null;
+  width: number | null;
+  height: number | null;
   zIndex: number;
   tempZIndex: number;
 };
