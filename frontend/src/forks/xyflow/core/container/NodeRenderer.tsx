@@ -23,11 +23,10 @@ const NodeRenderer = () => {
   // even though the MiniMap component uses the exact same hook and comparison fn
   // and rerenders on every update.
   // Tried debugging, could not figure out why.
-  const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
+  const nodes = useNodeInternals(getNodes, shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
   const activeSectionIds = useProjectState((x) => x.activeIds);
-  console.log("NodeRenderer");
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
