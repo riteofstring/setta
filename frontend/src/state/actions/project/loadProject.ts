@@ -52,9 +52,12 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
   }
   useProjectState.setState(p);
   useSectionColumnWidth.setState(_.mapValues(p.sections, (x) => x.columnWidth));
-  useNodeInternals.setState({
-    x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
-  });
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
   // await maybeRunGuiToYamlOnAllSections();
   return true;
 }

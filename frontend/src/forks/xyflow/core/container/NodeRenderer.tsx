@@ -16,7 +16,7 @@ const selector = (s: ReactFlowState) => ({
   panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
-const NodeRenderer = ({}) => {
+const NodeRenderer = () => {
   const { panActivationKeyPressed } = useReactFlow(selector, shallow);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,

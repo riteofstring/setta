@@ -1,8 +1,10 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   useNodeInternals,
   useProjectState,
+  ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
@@ -326,9 +328,12 @@ export function processProjectStateUpdateFromBackend(
     return;
   }
   useProjectState.setState(projectState);
-  useNodeInternals.setState({
-    x: createNodesMapFromProjectConfigChildren(useProjectState.getState()),
-  });
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
 }
 
 export function updateProjectState({
@@ -350,20 +355,18 @@ export function updateProjectState({
 
 export function createNodesMapFromProjectConfigChildren(
   p: ZustandProjectState,
+  nodes: ZustandNodeInternalsState["x"],
 ) {
-  const nodesMap = new Map();
-  const visibilityKey = getSectionVisibilityKeyForDisplay(
-    p.projectConfig.viewingEditingMode,
-  );
+  const nodesMap: Map<string, Node> = new Map();
 
   for (const [k, v] of Object.entries(p.projectConfig.topLevelSections)) {
-    const impl = getEffectiveSectionImpl(p, k);
     nodesMap.set(k, {
       id: k,
       position: { x: v.x, y: v.y },
+      width: nodes.get(k)?.width ?? v.w,
+      height: nodes.get(k)?.height ?? v.h,
       zIndex: v.zIndex,
       tempZIndex: v.zIndex,
-      visibility: impl.visibility[visibilityKey],
     });
   }
 

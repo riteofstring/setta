@@ -59,8 +59,8 @@ export function getProjectData({
         x: c.position.x,
         y: c.position.y,
         zIndex: c.zIndex,
-        w: c.width, // save width and height so we can show preview on home page
-        h: c.height,
+        w: c.width ?? 0, // save width and height so we can show preview on home page
+        h: c.height ?? 0,
       };
     }
   }

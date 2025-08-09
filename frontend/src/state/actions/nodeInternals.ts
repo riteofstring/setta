@@ -1,21 +1,27 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
+import { Node, XYPosition } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
-import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
+import {
+  useMisc,
+  useNodeInternals,
+  useSectionRefs,
+  ZustandNodeInternalsState,
+} from "state/definitions";
 
-export function getNodes(s = null) {
+type NodeDimensionsUpdate = Array<{
+  id: string;
+  nodeElement: HTMLDivElement;
+  forceUpdate: boolean;
+}>;
+
+export function getNodes(s: null | ZustandNodeInternalsState = null) {
   const source = s ? s.x : useNodeInternals.getState().x;
-  const result = [];
-  for (const n of source.values()) {
-    if (n.visibility) {
-      result.push(n);
-    }
-  }
-  return result;
+  return Array.from(source.values());
 }
 
-export function addNodes(nodes) {
+export function addNodes(nodes: Array<Node>) {
   const newNodes = getNewNodes();
   for (const n of nodes) {
     newNodes.set(n.id, n);
@@ -31,7 +37,7 @@ export function deleteNodes(nodeIds: Array<string>) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function updateNodeDimensions(updates) {
+export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   const { fitViewOnInit, fitViewOnInitDone, fitViewOnInitOptions, domNode } =
     useReactFlow.getState();
 
@@ -92,7 +98,7 @@ export function updateNodePositions(nodeDragItems) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function raiseTempZIndex(nodes) {
+export function raiseTempZIndex(nodes: Array<Node>) {
   const newNodes = getNewNodes();
   for (const [, n] of newNodes) {
     n.tempZIndex = n.zIndex;
@@ -103,20 +109,9 @@ export function raiseTempZIndex(nodes) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function justMoveANode(id, position) {
+export function justMoveANode(id: string, position: XYPosition) {
   const newNodes = getNewNodes();
   newNodes.get(id).position = position;
-  useNodeInternals.setState({ x: newNodes });
-}
-
-export function updateNodeVisibility(idToVisibility: Record<string, boolean>) {
-  const newNodes = getNewNodes();
-  for (const [id, visibility] of Object.entries(idToVisibility)) {
-    const n = newNodes.get(id);
-    if (n) {
-      n.visibility = visibility;
-    }
-  }
   useNodeInternals.setState({ x: newNodes });
 }
 
@@ -124,7 +119,7 @@ export function getNewNodes() {
   return _.cloneDeep(useNodeInternals.getState().x);
 }
 
-export function getNodeUpdateInformation(entries, fromResizeObserver) {
+export function getNodeUpdateInformation(entries, fromResizeObserver: boolean) {
   if (fromResizeObserver) {
     return entries.map((entry) => ({
       id: entry.target.getAttribute("data-id"),
@@ -132,7 +127,7 @@ export function getNodeUpdateInformation(entries, fromResizeObserver) {
       forceUpdate: true,
     }));
   }
-  const output = [];
+  const output: NodeDimensionsUpdate = [];
   const refState = useSectionRefs.getState().withNested;
   entries.forEach((nodeId) => {
     if (refState[nodeId]) {

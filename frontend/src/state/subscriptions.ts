@@ -21,7 +21,6 @@ import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
-  updateNodeVisibility,
 } from "./actions/nodeInternals";
 import {
   getDisplayedSectionIdToChildren,
@@ -66,13 +65,13 @@ export function subscribe() {
     },
   );
 
-  useProjectState.subscribe(
-    topLevelSectionVisibilitySubscriptionFn,
-    (newVal) => {
-      updateNodeVisibility(newVal);
-    },
-    { equalityFn: _.isEqual },
-  );
+  // useProjectState.subscribe(
+  //   topLevelSectionVisibilitySubscriptionFn,
+  //   (newVal) => {
+  //     updateNodeVisibility(newVal);
+  //   },
+  //   { equalityFn: _.isEqual },
+  // );
 
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {

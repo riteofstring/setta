@@ -1,3 +1,4 @@
+import { Node } from "forks/xyflow/core/types";
 import { addNodes } from "state/actions/nodeInternals";
 import { useProjectState } from "state/definitions";
 import { updateProjectState } from "../sectionInfos";
@@ -36,14 +37,13 @@ export function loadSectionIntoState({
     });
   });
 
-  const nodes = [];
+  const nodes: Array<Node> = [];
   for (const [id, n] of Object.entries(topLevelMapping)) {
     nodes.push({
       id,
       position: { x: n.x, y: n.y },
       zIndex: n.zIndex,
       tempZIndex: n.zIndex,
-      visibility: sections[id].visibility,
     });
   }
   addNodes(nodes);
