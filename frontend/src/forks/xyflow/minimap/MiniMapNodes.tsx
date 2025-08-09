@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { memo } from "react";
+import { getNodes } from "state/actions/nodeInternals";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
@@ -8,14 +9,14 @@ import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
 declare const window: any;
 
+const selectorNodes = (s) =>
+  getNodes(s).filter((node) => node.width && node.height);
 const getAttrFunction = (func: any): GetMiniMapNodeAttribute =>
   func instanceof Function ? func : () => func;
 
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
-  const nodes = useNodeInternals((x) =>
-    x.x.values().filter((n) => n.width && n.height),
-  );
+  const nodes = useNodeInternals(selectorNodes);
   if (readyToBeVisible) {
     return <MiniMapNodes nodes={nodes} {...props} />;
   }
