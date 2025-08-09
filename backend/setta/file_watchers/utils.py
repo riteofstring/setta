@@ -90,37 +90,35 @@ async def maybe_read_json_source_contents(
     coreUpdate: FileWatcherCoreUpdate,
 ):
     p = project_manager.project_state_backend
-    implLayeringsToLoad = get_json_source_impl_layerings(p, coreUpdate)
-    if len(implLayeringsToLoad) > 0:
-        await project_manager.load_json_sources(implLayeringsToLoad)
+    variantsToLoad = get_json_source_variants(p, coreUpdate)
+    if len(variantsToLoad) > 0:
+        await project_manager.load_json_sources(variantsToLoad)
 
-    implLayeringsToLoad = get_json_source_impl_layerings(
-        settings_file.project_state, coreUpdate
-    )
-    if len(implLayeringsToLoad) > 0:
+    variantsToLoad = get_json_source_variants(settings_file.project_state, coreUpdate)
+    if len(variantsToLoad) > 0:
         await settings_file.load_and_broadcast_settings_project()
         await settings_file.load_and_broadcast_settings()
 
 
-def get_json_source_impl_layerings(
+def get_json_source_variants(
     p: ProjectStateBackend | ProjectStateSingleConfig, coreUpdate: FileWatcherCoreUpdate
 ):
-    implLayeringsToLoad: list[str] = []
+    variantsToLoad: list[str] = []
     processed = set()
     for section in p.sections.values():
-        for layering_id in section.implLayerings:
-            if layering_id in implLayeringsToLoad:
+        for variant_id in section.variants:
+            if variant_id in variantsToLoad:
                 continue
-            processed.add(layering_id)
-            layering = p.sectionImplLayerings[layering_id]
-            base_impl = p.sectionImpls[layering.impl]
-            impl = get_effective_impl(base_impl, section, layering)
+            processed.add(variant_id)
+            variant = p.sectionVariants[variant_id]
+            base_impl = p.sectionImpls[variant.impl]
+            impl = get_effective_impl(base_impl, section, variant)
             if (
                 not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource
-                or layering.name != str(coreUpdate.relPath)
+                or variant.name != str(coreUpdate.relPath)
             ):
                 continue
 
-            implLayeringsToLoad.append(layering_id)
-    return implLayeringsToLoad
+            variantsToLoad.append(variant_id)
+    return variantsToLoad

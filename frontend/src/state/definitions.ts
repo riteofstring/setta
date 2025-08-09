@@ -76,10 +76,10 @@ export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
   sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionImplLayerings: ProjectStateSingleConfig["sectionImplLayerings"];
+  sectionVariants: ProjectStateSingleConfig["sectionVariants"];
   codeObjs: ProjectStateSingleConfig["codeObjs"];
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
-  codeObjImplLayerings: ProjectStateSingleConfig["codeObjImplLayerings"];
+  codeObjVariants: ProjectStateSingleConfig["codeObjVariants"];
   activeIds: Array<string>;
   singletonSections: ZustandSingletonSections;
   modCount: number;
@@ -95,10 +95,10 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
-          sectionImplLayerings: {},
+          sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
-          codeObjImplLayerings: {},
+          codeObjVariants: {},
           artifactGroups: {},
           singletonSections: {
             [SectionTypeEnum.GlobalVariables]: null,

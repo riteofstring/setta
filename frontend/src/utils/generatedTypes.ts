@@ -1117,7 +1117,7 @@ export const AllImplFieldsSchema = z.literal([
   "choices",
   "code",
   "codeLanguage",
-  "codeObjImplLayeringMap",
+  "codeObjVariantMap",
   "columnWidth",
   "configLanguage",
   "coreNameEditable",
@@ -1689,7 +1689,7 @@ export const DictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  codeObjVariantMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -1730,7 +1730,7 @@ export const GlobalVariablesSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  codeObjVariantMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -1898,7 +1898,7 @@ export const CallableSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  codeObjVariantMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -2604,8 +2604,8 @@ export function createWebsocketMsgReturnRenameRefactorResults(
 export const CoreSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
-  implLayerings: z.array(z.string()).default([]),
-  defaultImplLayering: z.union([z.string(), z.null()]).default(null),
+  variants: z.array(z.string()).default([]),
+  defaultVariant: z.union([z.string(), z.null()]).default(null),
   sharedModifier: z.record(z.string(), z.any()).default({}),
   unsharedKeys: z
     .array(
@@ -2621,7 +2621,7 @@ export const CoreSchema = z.object({
         "choices",
         "code",
         "codeLanguage",
-        "codeObjImplLayeringMap",
+        "codeObjVariantMap",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",
@@ -2667,7 +2667,7 @@ export const CoreSchema = z.object({
     )
     .default(() => [
       "callable" as const,
-      "codeObjImplLayeringMap" as const,
+      "codeObjVariantMap" as const,
       "topLevelParamIds" as const,
       "value" as const,
     ]),
@@ -2679,7 +2679,7 @@ export function createCore(options: Partial<Core> = {}): Core {
   return CoreSchema.parse(options);
 }
 
-export const LayeringSchema = z.object({
+export const VariantSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
   impl: z.string(),
@@ -2687,10 +2687,10 @@ export const LayeringSchema = z.object({
   modifier: z.record(z.string(), z.any()).default({}),
 });
 
-export type Layering = z.infer<typeof LayeringSchema>;
+export type Variant = z.infer<typeof VariantSchema>;
 
-export function createLayering(options: Partial<Layering> = {}): Layering {
-  return LayeringSchema.parse(options);
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return VariantSchema.parse(options);
 }
 
 export const ViewportSchema = z.object({
@@ -2737,7 +2737,7 @@ export const ProjectConfigSchema = z.object({
   topLevelSections: z
     .record(z.string(), TopLevelSectionLayoutSchema)
     .default({}),
-  sectionImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  sectionVariantMap: z.record(z.string(), z.string()).default({}),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
@@ -2774,7 +2774,7 @@ export const ProjectStateSingleConfigSchema = z.object({
       ]),
     )
     .default({}),
-  sectionImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  sectionVariants: z.record(z.string(), VariantSchema).default({}),
   codeObjs: z.record(z.string(), CoreSchema).default({}),
   codeObjImpls: z
     .record(
@@ -2792,7 +2792,7 @@ export const ProjectStateSingleConfigSchema = z.object({
       ]),
     )
     .default({}),
-  codeObjImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  codeObjVariants: z.record(z.string(), VariantSchema).default({}),
   projectConfig: ProjectConfigSchema,
   modCount: z.int().default(0),
 });
@@ -4111,7 +4111,7 @@ export const BaseDictSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
+  codeObjVariantMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -4151,7 +4151,7 @@ export const BaseDictSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  codeObjImplLayeringMap: z
+  codeObjVariantMap: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
@@ -4387,7 +4387,7 @@ export const BaseSectionWithParamsImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
+  codeObjVariantMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -4423,7 +4423,7 @@ export const BaseSectionWithParamsImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  codeObjImplLayeringMap: z
+  codeObjVariantMap: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
@@ -4521,7 +4521,7 @@ export const CallableSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
+  codeObjVariantMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -4559,7 +4559,7 @@ export const CallableSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  codeObjImplLayeringMap: z
+  codeObjVariantMap: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
@@ -4961,7 +4961,7 @@ export const DictSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
+  codeObjVariantMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -4999,7 +4999,7 @@ export const DictSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  codeObjImplLayeringMap: z
+  codeObjVariantMap: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
@@ -5209,7 +5209,7 @@ export const GlobalVariablesSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).optional(),
+  codeObjVariantMap: z.record(z.string(), z.string()).optional(),
   hideUnpinnedParams: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
@@ -5249,7 +5249,7 @@ export const GlobalVariablesSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  codeObjImplLayeringMap: z
+  codeObjVariantMap: z
     .union([z.record(z.string(), z.string()), z.any()])
     .optional(),
   hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
@@ -6330,7 +6330,7 @@ export const BaseSectionWithParamsImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  codeObjVariantMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -6390,7 +6390,7 @@ export const ProjectStateBackendSchema = z.object({
       ]),
     )
     .default({}),
-  sectionImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  sectionVariants: z.record(z.string(), VariantSchema).default({}),
   codeObjs: z.record(z.string(), CoreSchema).default({}),
   codeObjImpls: z
     .record(
@@ -6408,7 +6408,7 @@ export const ProjectStateBackendSchema = z.object({
       ]),
     )
     .default({}),
-  codeObjImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  codeObjVariants: z.record(z.string(), VariantSchema).default({}),
   projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
   modCount: z.int().default(0),
@@ -6461,7 +6461,7 @@ export const ProjectStateCoreSchema = z.object({
       ]),
     )
     .default({}),
-  sectionImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  sectionVariants: z.record(z.string(), VariantSchema).default({}),
   codeObjs: z.record(z.string(), CoreSchema).default({}),
   codeObjImpls: z
     .record(
@@ -6479,7 +6479,7 @@ export const ProjectStateCoreSchema = z.object({
       ]),
     )
     .default({}),
-  codeObjImplLayerings: z.record(z.string(), LayeringSchema).default({}),
+  codeObjVariants: z.record(z.string(), VariantSchema).default({}),
 });
 
 export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;
@@ -6585,7 +6585,7 @@ export const BaseDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  codeObjImplLayeringMap: z.record(z.string(), z.string()).default({}),
+  codeObjVariantMap: z.record(z.string(), z.string()).default({}),
   hideUnpinnedParams: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
@@ -7491,7 +7491,7 @@ export const LoadJSONSourceObjectSchema = z.object({
       BrowserSectionImplSchema,
     ]),
   ),
-  sectionImplLayerings: z.record(z.string(), LayeringSchema),
+  sectionVariants: z.record(z.string(), VariantSchema),
   codeObjs: z.record(z.string(), CoreSchema),
   codeObjImpls: z.record(
     z.string(),
@@ -7507,7 +7507,7 @@ export const LoadJSONSourceObjectSchema = z.object({
       NestedParamCodeObjImplSchema,
     ]),
   ),
-  codeObjImplLayerings: z.record(z.string(), LayeringSchema),
+  codeObjVariants: z.record(z.string(), VariantSchema),
 });
 
 export type LoadJSONSourceObject = z.infer<typeof LoadJSONSourceObjectSchema>;

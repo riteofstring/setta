@@ -8,7 +8,7 @@ from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.settings_project import create_settings_project_state
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers import get_section_impl_layering
+from setta.types.helpers import get_section_variant
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -79,15 +79,15 @@ class SettingsFile:
 
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            implLayering = get_section_impl_layering(p, sectionId)
+            variant = get_section_variant(p, sectionId)
             impl = get_effective_impl(
-                p.sectionImpls[implLayering.impl],
+                p.sectionImpls[variant.impl],
                 p.sections[sectionId],
-                implLayering,
+                variant,
             )
             if isinstance(impl, DictSectionImpl):
                 if impl.jsonSourceKeys == [slice]:
-                    return Path(implLayering.name)
+                    return Path(variant.name)
             else:
                 raise TypeError
         return None

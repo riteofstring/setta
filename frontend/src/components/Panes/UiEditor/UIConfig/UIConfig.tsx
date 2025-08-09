@@ -5,7 +5,7 @@ import {
 } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import React from "react";
-import { getCurrCodeObjImplLayering } from "state/actions/sectionInfos";
+import { getCurrCodeObjVariant } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
@@ -95,7 +95,7 @@ function _UIElement({
 }) {
   const paramInfoId = paramInfo.id;
   const baseImplId = useProjectState((x) => {
-    return getCurrCodeObjImplLayering(x, sectionId, paramInfoId).impl;
+    return getCurrCodeObjVariant(x, sectionId, paramInfoId).impl;
   }, _.isEqual);
   const paramName = paramInfo.name;
 

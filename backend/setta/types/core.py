@@ -10,20 +10,20 @@ from setta.utils.generate_memorable_string import generate_memorable_string
 class Core(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    implLayerings: list[str] = Field(default_factory=list)
-    defaultImplLayering: str | None = None
+    variants: list[str] = Field(default_factory=list)
+    defaultVariant: str | None = None
     sharedModifier: dict = Field(default_factory=dict)
     unsharedKeys: list[AllImplFields] = Field(
         default_factory=lambda: [
             "callable",
-            "codeObjImplLayeringMap",
+            "codeObjVariantMap",
             "topLevelParamIds",
             "value",
         ]
     )
 
 
-class Layering(BaseModel, extra="forbid"):
+class Variant(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
     impl: str
@@ -31,8 +31,8 @@ class Layering(BaseModel, extra="forbid"):
     modifier: dict = Field(default_factory=dict)
 
 
-def compute_initial_default_layering(layering: Layering):
-    return {"implLayerings": [layering.id], "defaultImplLayering": layering.id}
+def compute_initial_default_variant(variant: Variant):
+    return {"variants": [variant.id], "defaultVariant": variant.id}
 
 
 def compute_initial_nonPresetImpls(impl: BaseCodeObjImpl | BaseSectionImpl):

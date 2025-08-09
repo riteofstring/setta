@@ -10,7 +10,7 @@ import {
   getBaseSectionImpl,
   getEffectiveImpl,
   getSectionCore,
-  getSectionImplLayering,
+  getSectionVariant,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -71,13 +71,12 @@ function EVItems({
   const { currVersionId, versionIds, defaultVersionId } = useProjectState(
     (x) => {
       const sectionCore = getSectionCore(x, sectionId);
-      const { implLayerings, defaultImplLayering } = sectionCore;
-      const currImplLayering =
-        x.projectConfig.sectionImplLayeringMap[sectionId];
+      const { variants, defaultVariant } = sectionCore;
+      const currVariant = x.projectConfig.sectionVariantMap[sectionId];
       return {
-        currVersionId: currImplLayering,
-        versionIds: implLayerings,
-        defaultVersionId: defaultImplLayering,
+        currVersionId: currVariant,
+        versionIds: variants,
+        defaultVersionId: defaultVariant,
       };
     },
     _.isEqual,
@@ -120,12 +119,12 @@ function OneItem({
   isDefault: boolean;
 }) {
   const { name, isFrozen, isJsonSource } = useProjectState((x) => {
-    const implLayering = getSectionImplLayering(x, id);
-    const baseImpl = getBaseSectionImpl(x, implLayering.impl);
+    const variant = getSectionVariant(x, id);
+    const baseImpl = getBaseSectionImpl(x, variant.impl);
     const core = getSectionCore(x, sectionId);
-    const impl = getEffectiveImpl(baseImpl, core, implLayering);
+    const impl = getEffectiveImpl(baseImpl, core, variant);
     return {
-      name: implLayering.name,
+      name: variant.name,
       isFrozen: impl.isFrozen,
       isJsonSource: false,
     };
@@ -136,7 +135,7 @@ function OneItem({
       // onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
       onClick={() => {
         useProjectState.setState((state) => {
-          state.projectConfig.sectionImplLayeringMap[sectionId] = id;
+          state.projectConfig.sectionVariantMap[sectionId] = id;
         });
         updateBackendProjectState();
       }}
@@ -162,7 +161,7 @@ function OneItem({
             e.stopPropagation();
             useProjectState.setState((x) => {
               const section = getSectionCore(x, sectionId);
-              section.defaultImplLayering = id;
+              section.defaultVariant = id;
             });
           }}
         >
@@ -177,8 +176,8 @@ function OneItem({
           onClick={(e) => {
             e.stopPropagation();
             useProjectState.setState((x) => {
-              const implLayering = getSectionImplLayering(x, id);
-              implLayering.modifier.isFrozen = !isFrozen;
+              const variant = getSectionVariant(x, id);
+              variant.modifier.isFrozen = !isFrozen;
             });
           }}
         >
@@ -220,14 +219,14 @@ function OneItemEditing({
   deletable: boolean;
 }) {
   const name = useProjectState((x) => {
-    const implLayering = getSectionImplLayering(x, id);
-    return implLayering.name;
+    const variant = getSectionVariant(x, id);
+    return variant.name;
   }, _.isEqual);
 
   function onSetName(v: string) {
     useProjectState.setState((x) => {
-      const implLayering = getSectionImplLayering(x, id);
-      implLayering.name = v;
+      const variant = getSectionVariant(x, id);
+      variant.name = v;
     });
     // maybeLoadJsonContents(id);
   }
@@ -235,8 +234,8 @@ function OneItemEditing({
   function conditionToSetName(v: string) {
     const state = useProjectState.getState();
     const section = getSectionCore(state, sectionId);
-    for (const layeringId of section.implLayerings) {
-      if (getSectionImplLayering(state, layeringId).name === v) {
+    for (const variantId of section.variants) {
+      if (getSectionVariant(state, variantId).name === v) {
         return false;
       }
     }

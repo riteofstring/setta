@@ -22,7 +22,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
         }
     ),
     "BaseSectionWithParamsImpl": DEFAULT_EXCLUSIONS.union(
-        {"codeObjImplLayeringMap", "pinnedParams", "selectedParams", "ignoreTypeErrors"}
+        {"codeObjVariantMap", "pinnedParams", "selectedParams", "ignoreTypeErrors"}
     ),
     "BaseArtifactSectionImpl": DEFAULT_EXCLUSIONS.union({"artifactGroupIds"}),
     "BaseCanvasSectionImpl": DEFAULT_EXCLUSIONS.union({"renderedValue"}),

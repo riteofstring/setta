@@ -332,7 +332,7 @@ T = TypeVar("T", bound=BaseClassInfoForGeneration)
 
 def get_creation_fns(
     classes: dict[str, T],
-    fn_type: Literal["modifier", "core", "layering", "impl"],
+    fn_type: Literal["modifier", "core", "variant", "impl"],
     additional_args_types_callback: Callable[[T], str] | None = None,
     additional_args_inputs_callback: Callable[[T], str] | None = None,
     additional_args_generic_type_callback: Callable[[], str] | None = None,

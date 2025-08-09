@@ -35,11 +35,11 @@ from setta.types.helpers import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_code_obj_impl_layering,
-    get_code_obj_impl_layering_map_update_fn,
+    get_code_obj_variant_map_update_fn,
+    get_code_obj_variants,
     get_effective_section_impl,
-    get_section_impl_layering,
     get_section_path_full_name,
+    get_section_variant,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
@@ -123,13 +123,13 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_layering = get_section_impl_layering(project_state, sectionId)
-        base_section_impl = project_state.sectionImpls[section_layering.impl]
+        section_variant = get_section_variant(project_state, sectionId)
+        base_section_impl = project_state.sectionImpls[section_variant.impl]
         section_core = project_state.sections[sectionId]
         section_impl = get_effective_impl(
             base_section_impl,
             section_core,
-            section_layering,
+            section_variant,
         )
 
         if not (
@@ -142,7 +142,7 @@ class ProjectGenPythonCode(PythonCode):
             section_impl = set_effective_impl_value(
                 base_section_impl,
                 section_core,
-                section_layering,
+                section_variant,
                 {"callable": None},
             )
 
@@ -154,7 +154,7 @@ class ProjectGenPythonCode(PythonCode):
             section_impl = set_effective_impl_value(
                 base_section_impl,
                 section_core,
-                section_layering,
+                section_variant,
                 {"callable": prev_selected},
             )
             return
@@ -184,16 +184,16 @@ class ProjectGenPythonCode(PythonCode):
                 settings.codeCallableCodeObjDefault,
             )
             callable_code_obj = Core(name=callableName)
-            callable_code_obj_impl_layering = add_code_obj(
+            callable_code_obj_variant = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_base_impl
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
-            callable_code_obj_impl_layering = get_code_obj_impl_layering(
+            callable_code_obj_variant = get_code_obj_variants(
                 project_state, callable_code_obj.id, section_impl=section_impl
             )
             callable_base_impl = project_state.codeObjImpls[
-                callable_code_obj_impl_layering.impl
+                callable_code_obj_variant.impl
             ]
 
         if not isinstance(callable_base_impl, CodeCallableCodeObjImpl):
@@ -207,7 +207,7 @@ class ProjectGenPythonCode(PythonCode):
         set_effective_impl_value(
             callable_base_impl,
             callable_code_obj,
-            callable_code_obj_impl_layering,
+            callable_code_obj_variant,
             {"description": documentation},
         )
 
@@ -218,11 +218,11 @@ class ProjectGenPythonCode(PythonCode):
         set_effective_impl_value(
             base_section_impl,
             section_core,
-            section_layering,
+            section_variant,
             {
                 "callable": callable_code_obj.id,
-                "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
-                    {callable_code_obj.id: callable_code_obj_impl_layering.id}
+                "codeObjVariantMap": get_code_obj_variant_map_update_fn(
+                    {callable_code_obj.id: callable_code_obj_variant.id}
                 ),
             },
         )

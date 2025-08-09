@@ -56,7 +56,7 @@ class BaseSectionImplArgsWithCallable(TypedDict):
 
 class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
-    codeObjImplLayeringMap: NotRequired[dict[str, str]]
+    codeObjVariantMap: NotRequired[dict[str, str]]
     hideUnpinnedParams: NotRequired[bool]
     paramFilter: NotRequired[str]
     columnWidth: NotRequired[float | None]
@@ -69,7 +69,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    codeObjImplLayeringMap: NotRequired[
+    codeObjVariantMap: NotRequired[
         dict[str, str] | Callable[[dict[str, str]], dict[str, str]]
     ]
     hideUnpinnedParams: NotRequired[bool | Callable[[bool], bool]]

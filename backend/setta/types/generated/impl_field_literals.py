@@ -12,7 +12,7 @@ AllImplFields = Literal[
     "choices",
     "code",
     "codeLanguage",
-    "codeObjImplLayeringMap",
+    "codeObjVariantMap",
     "columnWidth",
     "configLanguage",
     "coreNameEditable",

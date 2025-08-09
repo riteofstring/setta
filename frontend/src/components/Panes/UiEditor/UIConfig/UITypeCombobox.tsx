@@ -1,7 +1,7 @@
 import _ from "lodash";
 import {
   getBaseCodeObjImpl,
-  getCurrCodeObjImplLayering,
+  getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { BaseParamCodeObjImplTypeSet } from "utils/generatedTypes";
@@ -58,9 +58,9 @@ export function ParamConfigUITypeCombobox({
 
 function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
   return useProjectState((x) => {
-    const layering = getCurrCodeObjImplLayering(x, sectionId, paramInfoId);
+    const variant = getCurrCodeObjVariant(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
-    for (const i of layering.nonPresetImpls) {
+    for (const i of variant.nonPresetImpls) {
       const impl = getBaseCodeObjImpl(x, i);
       prevImpls[impl.type] = impl.id;
     }

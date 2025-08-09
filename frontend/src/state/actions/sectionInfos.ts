@@ -19,8 +19,8 @@ import {
   ImplArgsBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
-  Layering,
   ProjectStateSingleConfig,
+  Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
@@ -28,38 +28,34 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-export function getEffectiveImpl<T>(
-  impl: T,
-  core: Core,
-  layering: Layering,
-): T {
+export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
-  Object.assign(effective, { ...core.sharedModifier, ...layering.modifier });
+  Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
   return effective;
 }
 
-export function getCurrSectionImplLayering(
+export function getCurrSectionVariant(
   p: ZustandProjectState,
   sectionId: string,
 ) {
-  const implLayeringId = p.projectConfig.sectionImplLayeringMap[sectionId];
-  if (implLayeringId === undefined) {
+  const variantId = p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
     throw new Error();
   }
-  return getSectionImplLayering(p, implLayeringId);
+  return getSectionVariant(p, variantId);
 }
 
 export function getEffectiveSectionImpl(
   p: ZustandProjectState,
   sectionId: string,
 ) {
-  const implLayering = getCurrSectionImplLayering(p, sectionId);
-  const baseImpl = getBaseSectionImpl(p, implLayering.impl);
+  const variant = getCurrSectionVariant(p, sectionId);
+  const baseImpl = getBaseSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
-  return getEffectiveImpl(baseImpl, core, implLayering);
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function getCurrCodeObjImplLayering(
+export function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -69,13 +65,11 @@ export function getCurrCodeObjImplLayering(
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     throw new Error();
   }
-  const implLayeringId = sectionImpl.codeObjImplLayeringMap[codeObjId];
-  if (implLayeringId === undefined) {
-    throw new Error(
-      `Section ID '${sectionId}' not found in sectionImplLayeringMap`,
-    );
+  const variantId = sectionImpl.codeObjVariantMap[codeObjId];
+  if (variantId === undefined) {
+    throw new Error();
   }
-  return getCodeObjImplLayering(p, implLayeringId);
+  return getCodeObjVariant(p, variantId);
 }
 
 export function getEffectiveCodeObjImpl(
@@ -83,36 +77,36 @@ export function getEffectiveCodeObjImpl(
   codeObjId: string,
   sectionId: string,
 ) {
-  const implLayering = getCurrCodeObjImplLayering(p, sectionId, codeObjId);
-  const baseImpl = getBaseCodeObjImpl(p, implLayering.impl);
+  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
+  const baseImpl = getBaseCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
-  return getEffectiveImpl(baseImpl, core, implLayering);
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function getEffectiveImplFromLayeringMap(
+export function getEffectiveImplFromVariantMap(
   id: string,
   impls: ZustandProjectState["codeObjImpls"],
   cores: ZustandProjectState["codeObjs"],
-  layerings: ZustandProjectState["codeObjImplLayerings"],
-  layeringMap: Record<string, string>,
+  variants: ZustandProjectState["codeObjVariants"],
+  variantMap: Record<string, string>,
 ) {
-  const layeringId = layeringMap[id];
-  const implLayering = layerings[layeringId];
-  if (!implLayering) {
+  const variantId = variantMap[id];
+  const variant = variants[variantId];
+  if (!variant) {
     throw new Error();
   }
-  const baseImpl = impls[implLayering.impl];
+  const baseImpl = impls[variant.impl];
   const core = cores[id];
   if (!baseImpl || !core) {
     throw new Error();
   }
-  return getEffectiveImpl(baseImpl, core, implLayering);
+  return getEffectiveImpl(baseImpl, core, variant);
 }
 
 export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   impl: ImplArgsBundleMap[K]["impl"],
   core: Core,
-  layering: Layering,
+  variant: Variant,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
@@ -125,12 +119,12 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
     if (!impl.isPreset) {
       impl[k] = resolvedValue;
     } else if (core.unsharedKeys.includes(k)) {
-      layering.modifier[k] = resolvedValue;
+      variant.modifier[k] = resolvedValue;
     } else {
       core.sharedModifier[k] = resolvedValue;
     }
   }
-  return getEffectiveImpl(impl, core, layering);
+  return getEffectiveImpl(impl, core, variant);
 }
 
 export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
@@ -138,16 +132,16 @@ export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   sectionId: string,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
-  const bundle = getSectionImplCoreLayeringBundle<K>(state, sectionId);
+  const bundle = getSectionImplCoreVariantBundle<K>(state, sectionId);
   return setEffectiveImplValue<K>(
     bundle.impl,
     bundle.core,
-    bundle.layering,
+    bundle.variant,
     args,
   );
 }
 
-export function getSectionImplCoreLayeringBundle<
+export function getSectionImplCoreVariantBundle<
   K extends keyof ImplArgsBundleMap,
 >(
   p: ZustandProjectState,
@@ -155,17 +149,17 @@ export function getSectionImplCoreLayeringBundle<
 ): {
   impl: ImplArgsBundleMap[K]["impl"];
   core: Core;
-  layering: Layering;
+  variant: Variant;
 } {
-  const layering = getCurrSectionImplLayering(p, sectionId);
-  const impl = p.sectionImpls[layering.impl];
+  const variant = getCurrSectionVariant(p, sectionId);
+  const impl = p.sectionImpls[variant.impl];
   const core = getSectionCore(p, sectionId);
 
   if (!impl) {
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
   }
 
-  return { impl, core, layering };
+  return { impl, core, variant };
 }
 
 export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
@@ -174,7 +168,7 @@ export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   codeObjId: string,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
-  const bundle = getCodeObjImplCoreLayeringBundle<K>(
+  const bundle = getCodeObjImplCoreVariantBundle<K>(
     state,
     sectionId,
     codeObjId,
@@ -182,12 +176,12 @@ export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   return setEffectiveImplValue<K>(
     bundle.impl,
     bundle.core,
-    bundle.layering,
+    bundle.variant,
     args,
   );
 }
 
-export function getCodeObjImplCoreLayeringBundle<
+export function getCodeObjImplCoreVariantBundle<
   K extends keyof ImplArgsBundleMap,
 >(
   p: ZustandProjectState,
@@ -196,17 +190,17 @@ export function getCodeObjImplCoreLayeringBundle<
 ): {
   impl: ImplArgsBundleMap[K]["impl"];
   core: Core;
-  layering: Layering;
+  variant: Variant;
 } {
-  const layering = getCurrCodeObjImplLayering(p, sectionId, codeObjId);
-  const impl = p.codeObjImpls[layering.impl];
+  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
+  const impl = p.codeObjImpls[variant.impl];
   const core = getCodeObjCore(p, codeObjId);
 
   if (!impl || !core) {
     throw new Error(`Missing section data for sectionId: ${sectionId}`);
   }
 
-  return { impl, core, layering };
+  return { impl, core, variant };
 }
 
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {
@@ -225,15 +219,15 @@ export function getBaseSectionImpl(p: ZustandProjectState, implId: string) {
   return impl;
 }
 
-export function getSectionImplLayering(
+export function getSectionVariant(
   p: ZustandProjectState,
   implLayeringId: string,
 ) {
-  const layering = p.sectionImplLayerings[implLayeringId];
-  if (!layering) {
+  const variant = p.sectionVariants[implLayeringId];
+  if (!variant) {
     throw new Error();
   }
-  return layering;
+  return variant;
 }
 
 export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
@@ -252,15 +246,15 @@ export function getBaseCodeObjImpl(p: ZustandProjectState, implId: string) {
   return impl;
 }
 
-export function getCodeObjImplLayering(
+export function getCodeObjVariant(
   p: ZustandProjectState,
   implLayeringId: string,
 ) {
-  const layering = p.codeObjImplLayerings[implLayeringId];
-  if (!layering) {
+  const variant = p.codeObjVariants[implLayeringId];
+  if (!variant) {
     throw new Error();
   }
-  return layering;
+  return variant;
 }
 
 export function getSectionInfo(sectionId) {
@@ -275,11 +269,6 @@ export function getSectionParentId(sectionId: string) {
 export function getSectionType(sectionId, _state = null) {
   const state = _state ?? useProjectState.getState();
   return state.uiTypes[state.sections[sectionId].uiTypeId].type;
-}
-
-export function getSectionVariant(sectionId, _state) {
-  const state = _state ?? useProjectState.getState();
-  return state.variants[getCurrentSectionConfigs(state)[sectionId].variantId];
 }
 
 export function getHighestAncestor(

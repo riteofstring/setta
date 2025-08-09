@@ -5,7 +5,7 @@ from setta.types.code_obj_impls import (
     BaseParentCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Layering
+from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
@@ -19,35 +19,32 @@ from setta.utils.utils import save_json_to_file, try_json
 
 
 def save_json_source_data(
-    p: ProjectStateSingleConfig, section_impl_layering_ids: list[str] | None = None
+    p: ProjectStateSingleConfig, section_variant_ids: list[str] | None = None
 ):
     to_be_saved = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
-        for layering_id in section.implLayerings:
-            if layering_id in processed:
+        for variant_id in section.variants:
+            if variant_id in processed:
                 continue
-            processed.add(layering_id)
-            layering = p.sectionImplLayerings[layering_id]
-            base_impl = p.sectionImpls[layering.impl]
-            impl = get_effective_impl(base_impl, section, layering)
+            processed.add(variant_id)
+            variant = p.sectionVariants[variant_id]
+            base_impl = p.sectionImpls[variant.impl]
+            impl = get_effective_impl(base_impl, section, variant)
             if (
                 not isinstance(impl, BaseDictSectionImplUnion)
                 or not impl.isJsonSource
-                or (
-                    section_impl_layering_ids
-                    and layering_id not in section_impl_layering_ids
-                )
+                or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
             ancestor_paths = build_ancestor_paths(
                 p.codeObjs,
                 p.codeObjImpls,
-                p.codeObjImplLayerings,
-                impl.codeObjImplLayeringMap,
+                p.codeObjVariants,
+                impl.codeObjVariantMap,
                 impl.topLevelParamIds,
             )
-            filename = layering.name
+            filename = variant.name
             for paramId in impl.topLevelParamIds:
                 recursively_add_keys(
                     p,
@@ -70,18 +67,18 @@ def save_json_source_data(
 def build_parent_map(
     codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, Layering],
-    codeObjImplLayeringMap: dict[str, str],
+    codeObjVariants: dict[str, Variant],
+    codeObjVariantMap: dict[str, str],
     paramIds: list[str],
 ) -> dict[str, str | None]:
     """Build a map of child -> parent relationships."""
     parent_map: dict[str, str | None] = {pid: None for pid in paramIds}
 
     def add_children(param_id: str):
-        layering_id = codeObjImplLayeringMap[param_id]
-        layering = codeObjImplLayerings[layering_id]
-        base_impl = codeObjImpls[layering.impl]
-        impl = get_effective_impl(base_impl, codeObjs[param_id], layering)
+        variant_id = codeObjVariantMap[param_id]
+        variant = codeObjVariants[variant_id]
+        base_impl = codeObjImpls[variant.impl]
+        impl = get_effective_impl(base_impl, codeObjs[param_id], variant)
 
         if isinstance(impl, NestedParamCodeObjImpl):
             for child_id in impl.children:
@@ -97,13 +94,13 @@ def build_parent_map(
 def build_ancestor_paths(
     codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, Layering],
-    codeObjImplLayeringMap: dict[str, str],
+    codeObjVariants: dict[str, Variant],
+    codeObjVariantMap: dict[str, str],
     paramIds: list[str],
 ) -> dict[str, list[str]]:
     """Build ancestor paths for all nodes in the hierarchy."""
     parent_map = build_parent_map(
-        codeObjs, codeObjImpls, codeObjImplLayerings, codeObjImplLayeringMap, paramIds
+        codeObjs, codeObjImpls, codeObjVariants, codeObjVariantMap, paramIds
     )
 
     ancestor_paths: dict[str, list[str]] = {}

@@ -102,7 +102,7 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 
 
 class BaseSectionWithParamsImpl(BaseSectionImpl):
-    codeObjImplLayeringMap: dict[str, str] = Field(default_factory=dict)
+    codeObjVariantMap: dict[str, str] = Field(default_factory=dict)
     hideUnpinnedParams: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None

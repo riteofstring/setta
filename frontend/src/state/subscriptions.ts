@@ -26,8 +26,8 @@ import {
   getDisplayedSectionIdToChildren,
   getEffectiveImpl,
   getEffectiveSectionImpl,
-  getSectionImplLayering,
   getSectionShouldRender,
+  getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
 
@@ -246,15 +246,15 @@ function artifactWhoModifiedSubscriptionFn(state) {
 function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   const filenameSet: Set<string> = new Set();
   for (const section of Object.values(state.sections)) {
-    for (const layeringId of section.implLayerings) {
-      const layering = getSectionImplLayering(state, layeringId);
-      const baseImpl = state.sectionImpls[layering.impl];
+    for (const variantId of section.variants) {
+      const variant = getSectionVariant(state, variantId);
+      const baseImpl = state.sectionImpls[variant.impl];
       if (!baseImpl) {
         throw new Error();
       }
-      const impl = getEffectiveImpl(baseImpl, section, layering);
+      const impl = getEffectiveImpl(baseImpl, section, variant);
       if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
-        filenameSet.add(layering.name);
+        filenameSet.add(variant.name);
       }
     }
   }

@@ -10,7 +10,7 @@ from setta.types.code_obj_impls import (
     NestedParamCodeObjImpl,
     SwitchParamCodeObjImpl,
 )
-from setta.types.core import Core, Layering, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.settings_state import SettingsState
 from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
@@ -35,19 +35,19 @@ def add_code_obj_details(
     codeObjImpl: BaseCodeObjImplUnion,
     codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, Layering],
+    codeObjVariants: dict[str, Variant],
 ):
-    codeObjImplLayering = Layering(
+    codeObjVariant = Variant(
         impl=codeObjImpl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
     )
-    codeObjImplLayerings[codeObjImplLayering.id] = codeObjImplLayering
+    codeObjVariants[codeObjVariant.id] = codeObjVariant
     codeObjImpls[codeObjImpl.id] = codeObjImpl
 
     codeObj = Core(
         name=codeObjName,
-        implLayerings=[codeObjImplLayering.id],
-        defaultImplLayering=codeObjImplLayering.id,
+        variants=[codeObjVariant.id],
+        defaultVariant=codeObjVariant.id,
     )
     codeObjs[codeObj.id] = codeObj
     return codeObj.id
@@ -57,26 +57,26 @@ def process_model_fields(
     model_class: type[BaseModel],
     codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, Layering],
+    codeObjVariants: dict[str, Variant],
     presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion],
 ):
     child_ids: list[str] = []
-    codeObjImplLayeringMap: dict[str, str] = {}
+    codeObjVariantMap: dict[str, str] = {}
     for k, v in model_class.model_fields.items():
         codeObjName, codeObjImpl = None, None
         if isclass(v.annotation) and issubclass(v.annotation, BaseModel):
-            nested_child_ids, nestedCodeObjImplLayeringMap = process_model_fields(
+            nested_child_ids, nestedCodeObjVariantMap = process_model_fields(
                 v.annotation,
                 codeObjs,
                 codeObjImpls,
-                codeObjImplLayerings,
+                codeObjVariants,
                 presetCodeObjImplNames,
             )
             codeObjName, codeObjImpl = (
                 k,
                 NestedParamCodeObjImpl(children=nested_child_ids),
             )
-            codeObjImplLayeringMap.update(nestedCodeObjImplLayeringMap)
+            codeObjVariantMap.update(nestedCodeObjVariantMap)
         elif v.annotation is bool:
             codeObjName, codeObjImpl = k, SwitchParamCodeObjImpl()
         elif isclass(v.annotation) and issubclass(v.annotation, Enum):
@@ -99,44 +99,44 @@ def process_model_fields(
 
         if codeObjName and codeObjImpl:
             codeObjId = add_code_obj_details(
-                codeObjName, codeObjImpl, codeObjs, codeObjImpls, codeObjImplLayerings
+                codeObjName, codeObjImpl, codeObjs, codeObjImpls, codeObjVariants
             )
             child_ids.append(codeObjId)
-            defaultImplLayering = codeObjs[codeObjId].defaultImplLayering
-            if defaultImplLayering:
-                codeObjImplLayeringMap[codeObjId] = defaultImplLayering
+            defaultVariant = codeObjs[codeObjId].defaultVariant
+            if defaultVariant:
+                codeObjVariantMap[codeObjId] = defaultVariant
 
-    return child_ids, codeObjImplLayeringMap
+    return child_ids, codeObjVariantMap
 
 
 def create_settings_code_objs(section_names):
     sectionToTopLevelIds: dict[str, list[str]] = {}
     codeObjs: dict[str, Core] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
-    codeObjImplLayerings: dict[str, Layering] = {}
-    codeObjImplLayeringMaps: dict[str, dict[str, str]] = {}
+    codeObjVariants: dict[str, Variant] = {}
+    codeObjVariantMaps: dict[str, dict[str, str]] = {}
     presetCodeObjImplNames: dict[str, BaseCodeObjImplUnion] = {}
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
         if isclass(d) and issubclass(d, BaseModel):
-            sectionToTopLevelIds[s], codeObjImplLayeringMaps[s] = process_model_fields(
+            sectionToTopLevelIds[s], codeObjVariantMaps[s] = process_model_fields(
                 d,
                 codeObjs,
                 codeObjImpls,
-                codeObjImplLayerings,
+                codeObjVariants,
                 presetCodeObjImplNames,
             )
         else:
             sectionToTopLevelIds[s] = []
-            codeObjImplLayeringMaps[s] = {}
+            codeObjVariantMaps[s] = {}
 
     return (
         sectionToTopLevelIds,
         codeObjs,
         codeObjImpls,
-        codeObjImplLayerings,
-        codeObjImplLayeringMaps,
+        codeObjVariants,
+        codeObjVariantMaps,
     )
 
 
@@ -146,37 +146,37 @@ def create_settings_project_state(settings_path: Path):
         sectionToTopLevelIds,
         codeObjs,
         codeObjImpls,
-        codeObjImplLayerings,
-        codeObjImplLayeringMaps,
+        codeObjVariants,
+        codeObjVariantMaps,
     ) = create_settings_code_objs(section_names)
 
     sections: dict[str, Core] = {}
     sectionImpls: dict[str, BaseSectionImplUnion] = {}
-    sectionImplLayerings: dict[str, Layering] = {}
-    sectionImplLayeringMap: dict[str, str] = {}
+    sectionVariants: dict[str, Variant] = {}
+    sectionVariantMap: dict[str, str] = {}
     for k in section_names:
         sectionImpl = DictSectionImpl(
             size=SectionSize(width=550),
             isJsonSource=True,
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
-            codeObjImplLayeringMap=codeObjImplLayeringMaps[k],
+            codeObjVariantMap=codeObjVariantMaps[k],
             topLevelParamIds=sectionToTopLevelIds[k],
         )
-        sectionImplLayering = Layering(
+        sectionVariant = Variant(
             name=str(settings_path.relative_to(CWD)),
             impl=sectionImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(sectionImpl),
         )
         section = Core(
             name=k,
-            implLayerings=[sectionImplLayering.id],
-            defaultImplLayering=sectionImplLayering.id,
+            variants=[sectionVariant.id],
+            defaultVariant=sectionVariant.id,
         )
 
         sectionImpls[sectionImpl.id] = sectionImpl
-        sectionImplLayerings[sectionImplLayering.id] = sectionImplLayering
-        sectionImplLayeringMap[section.id] = sectionImplLayering.id
+        sectionVariants[sectionVariant.id] = sectionVariant
+        sectionVariantMap[section.id] = sectionVariant.id
         sections[section.id] = section
 
     projectConfigChildren = {
@@ -186,7 +186,7 @@ def create_settings_project_state(settings_path: Path):
     projectConfig = ProjectConfig(
         name="settings",
         topLevelSections=projectConfigChildren,
-        sectionImplLayeringMap=sectionImplLayeringMap,
+        sectionVariantMap=sectionVariantMap,
         viewport=None,
     )
 
@@ -194,8 +194,8 @@ def create_settings_project_state(settings_path: Path):
         projectConfig=projectConfig,
         sections=sections,
         sectionImpls=sectionImpls,
-        sectionImplLayerings=sectionImplLayerings,
+        sectionVariants=sectionVariants,
         codeObjs=codeObjs,
         codeObjImpls=codeObjImpls,
-        codeObjImplLayerings=codeObjImplLayerings,
+        codeObjVariants=codeObjVariants,
     )

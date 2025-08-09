@@ -234,12 +234,12 @@ class ProjectManager:
     @enqueue_method
     async def load_json_sources(
         self,
-        section_impl_layering_ids: list[str] | None = None,
+        section_variant_ids: list[str] | None = None,
     ):
         load_json_sources_into_data_structures(
             self.settings_file.settings,
             self.project_state_backend,
-            section_impl_layering_ids,
+            section_variant_ids,
         )
         for configId in self.project_state_backend.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(

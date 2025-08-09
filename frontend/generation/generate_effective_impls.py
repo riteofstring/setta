@@ -13,7 +13,7 @@ def generate_set_effective_impl_value_overload(impl_name: str, args_name: str) -
 def set_effective_impl_value(
     impl: {impl_name},
     core: Core,
-    layering: Layering,
+    variant: Variant,
     args: {args_name}
 ) -> {impl_name}: ..."""
 
@@ -99,7 +99,7 @@ def generate_effective_impl_overloads():
 from typing import overload, Any, TypeVar, Callable, Any
 from pydantic import BaseModel
 
-from setta.types.core import Core, Layering
+from setta.types.core import Core, Variant
 from setta.types.section_impls import (
     {", ".join(section_impl_imports)}
 )
@@ -120,10 +120,10 @@ T = TypeVar("T", bound=BaseModel)
 def get_effective_impl(
     impl: T,
     core: Core,
-    layering: Layering,
+    variant: Variant,
 ) -> T:
     return impl.model_copy(
-        update={{**core.sharedModifier, **layering.modifier}}, deep=True
+        update={{**core.sharedModifier, **variant.modifier}}, deep=True
     )
 
 """
@@ -154,7 +154,7 @@ def get_effective_impl(
 def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
-    layering: Layering,
+    variant: Variant,
     args: dict[str, Any | Callable[[Any], Any]],
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     \"\"\"Set a value in the effective implementation.
@@ -176,12 +176,12 @@ def set_effective_impl_value(
             current = getattr(impl, k, None)
             setattr(impl, k, v(current) if callable(v) else v)
         elif k in core.unsharedKeys:
-            current = layering.modifier.get(k)
-            layering.modifier[k] = v(current) if callable(v) else v
+            current = variant.modifier.get(k)
+            variant.modifier[k] = v(current) if callable(v) else v
         else:
             current = core.sharedModifier.get(k)
             core.sharedModifier[k] = v(current) if callable(v) else v
-    return get_effective_impl(impl, core, layering)
+    return get_effective_impl(impl, core, variant)
 """
 
     # Combine all parts

@@ -8,7 +8,7 @@ from pydantic import (
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME
 from setta.database.utils import create_new_id
-from setta.types.core import Core, Layering
+from setta.types.core import Core, Variant
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
@@ -46,7 +46,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     genCodeSuffix: str = f"s = {GEN_CODE_CLASS_NAME}()"
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
-    sectionImplLayeringMap: dict[str, str] = Field(default_factory=dict)
+    sectionVariantMap: dict[str, str] = Field(default_factory=dict)
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
@@ -54,12 +54,12 @@ class ProjectStateCore(BaseModel, extra="forbid"):
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    sectionImplLayerings: dict[str, Layering] = Field(default_factory=dict)
+    sectionVariants: dict[str, Variant] = Field(default_factory=dict)
     codeObjs: dict[str, Core] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = Field(
         default_factory=dict
     )
-    codeObjImplLayerings: dict[str, Layering] = Field(default_factory=dict)
+    codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):

@@ -6,12 +6,12 @@ from setta.types.project_state import (
 )
 
 
-def update_impl_layerings(
-    p: ProjectStateSingleConfig, implLayerings: list[str], new_impl: BaseCodeObjImpl
+def update_variants(
+    p: ProjectStateSingleConfig, variant_ids: list[str], new_impl: BaseCodeObjImpl
 ):
-    for impl_layering_id in implLayerings:
-        impl_layering = p.codeObjImplLayerings[impl_layering_id]
-        impl = p.codeObjImpls[impl_layering.impl]
-        p.codeObjImpls[impl_layering.impl] = impl.model_copy(
+    for variant_id in variant_ids:
+        variant = p.codeObjVariants[variant_id]
+        impl = p.codeObjImpls[variant.impl]
+        p.codeObjImpls[variant.impl] = impl.model_copy(
             update=new_impl.model_dump(exclude_unset=True)
         )

@@ -12,8 +12,8 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import (
     Core,
-    Layering,
-    compute_initial_default_layering,
+    Variant,
+    compute_initial_default_variant,
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
@@ -35,7 +35,7 @@ from setta.types.generated.unions import (
     BaseSectionWithParamsImplUnion,
 )
 from setta.types.impl_helpers import (
-    update_impl_layerings,
+    update_variants,
 )
 from setta.types.project_state import (
     ProjectStateBackend,
@@ -70,10 +70,10 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
     section_impl_ids: set[str] = set()
-    section_impl_layering_ids: set[str] = set()
+    section_variant_ids: set[str] = set()
     code_obj_ids: set[str] = set()
     code_obj_impl_ids: set[str] = set()
-    code_obj_impl_layering_ids: set[str] = set()
+    code_obj_variant_ids: set[str] = set()
 
     # Start with top-level sections from project config
     sections_to_process: set[str] = set(project_config.topLevelSections.keys())
@@ -88,21 +88,21 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
         section_ids.add(section_id)
         section = p.sections[section_id]
 
-        for impl_layering_id in section.implLayerings:
-            if impl_layering_id in section_impl_layering_ids:
+        for variant_id in section.variants:
+            if variant_id in section_variant_ids:
                 continue
-            section_impl_layering_ids.add(impl_layering_id)
-            impl_layering = p.sectionImplLayerings[impl_layering_id]
-            section_impl_ids.add(impl_layering.impl)
-            section_impl_ids.update(impl_layering.nonPresetImpls)
-            impl = p.sectionImpls[impl_layering.impl]
-            effective_impl = get_effective_impl(impl, section, impl_layering)
+            section_variant_ids.add(variant_id)
+            variant = p.sectionVariants[variant_id]
+            section_impl_ids.add(variant.impl)
+            section_impl_ids.update(variant.nonPresetImpls)
+            impl = p.sectionImpls[variant.impl]
+            effective_impl = get_effective_impl(impl, section, variant)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
                 sections_to_process.update(effective_impl.children)
             elif isinstance(effective_impl, BaseSectionWithParamsImpl):
-                code_objs_to_process.update(effective_impl.codeObjImplLayeringMap)
+                code_objs_to_process.update(effective_impl.codeObjVariantMap)
 
     # Process code_objs recursively
     while code_objs_to_process:
@@ -113,15 +113,15 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
         code_obj_ids.add(obj_id)
         obj = p.codeObjs[obj_id]
 
-        for impl_layering_id in obj.implLayerings:
-            if impl_layering_id in code_obj_impl_layering_ids:
+        for variant_id in obj.variants:
+            if variant_id in code_obj_variant_ids:
                 continue
-            code_obj_impl_layering_ids.add(impl_layering_id)
-            impl_layering = p.codeObjImplLayerings[impl_layering_id]
-            code_obj_impl_ids.add(impl_layering.impl)
-            code_obj_impl_ids.update(impl_layering.nonPresetImpls)
-            base_impl = p.codeObjImpls[impl_layering.impl]
-            effective_impl = get_effective_impl(base_impl, obj, impl_layering)
+            code_obj_variant_ids.add(variant_id)
+            variant = p.codeObjVariants[variant_id]
+            code_obj_impl_ids.add(variant.impl)
+            code_obj_impl_ids.update(variant.nonPresetImpls)
+            base_impl = p.codeObjImpls[variant.impl]
+            effective_impl = get_effective_impl(base_impl, obj, variant)
             if isinstance(effective_impl, BaseParentCodeObjImpl):
                 code_objs_to_process.update(effective_impl.children)
 
@@ -129,14 +129,10 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
     return ProjectStateSingleConfig(
         sections={x: p.sections[x] for x in section_ids},
         sectionImpls={x: p.sectionImpls[x] for x in section_impl_ids},
-        sectionImplLayerings={
-            x: p.sectionImplLayerings[x] for x in section_impl_layering_ids
-        },
+        sectionVariants={x: p.sectionVariants[x] for x in section_variant_ids},
         codeObjs={x: p.codeObjs[x] for x in code_obj_ids},
         codeObjImpls={x: p.codeObjImpls[x] for x in code_obj_impl_ids},
-        codeObjImplLayerings={
-            x: p.codeObjImplLayerings[x] for x in code_obj_impl_layering_ids
-        },
+        codeObjVariants={x: p.codeObjVariants[x] for x in code_obj_variant_ids},
         projectConfig=project_config,
         modCount=p.modCount,
     )
@@ -148,10 +144,10 @@ def merge_single_config_into_backend(
     return ProjectStateBackend(
         sections={**x.sections, **config.sections},
         sectionImpls={**x.sectionImpls, **config.sectionImpls},
-        sectionImplLayerings={**x.sectionImplLayerings, **config.sectionImplLayerings},
+        sectionVariants={**x.sectionVariants, **config.sectionVariants},
         codeObjs={**x.codeObjs, **config.codeObjs},
         codeObjImpls={**x.codeObjImpls, **config.codeObjImpls},
-        codeObjImplLayerings={**x.codeObjImplLayerings, **config.codeObjImplLayerings},
+        codeObjVariants={**x.codeObjVariants, **config.codeObjVariants},
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,
@@ -169,26 +165,26 @@ def get_effective_section_impl(
     if section_impl is None:
         if section_id is None:
             raise ValueError("Either section_id or section_impl must be provided")
-        impl_layering = get_section_impl_layering(p, section_id)
-        base_impl = p.sectionImpls[impl_layering.impl]
-        return get_effective_impl(base_impl, p.sections[section_id], impl_layering)
+        variant = get_section_variant(p, section_id)
+        base_impl = p.sectionImpls[variant.impl]
+        return get_effective_impl(base_impl, p.sections[section_id], variant)
     return section_impl
 
 
-def get_section_impl_layering(
+def get_section_variant(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
-    impl_layering_id = p.projectConfig.sectionImplLayeringMap[section_id]
-    return p.sectionImplLayerings[impl_layering_id]
+    variant_id = p.projectConfig.sectionVariantMap[section_id]
+    return p.sectionVariants[variant_id]
 
 
 def get_section_base_impl(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
-    layering = get_section_impl_layering(p, section_id)
-    return p.sectionImpls[layering.impl]
+    variant = get_section_variant(p, section_id)
+    return p.sectionImpls[variant.impl]
 
 
 def get_section_callable(
@@ -235,7 +231,7 @@ def get_top_level_param_ids(
     raise TypeError
 
 
-def get_code_obj_impl_layering(
+def get_code_obj_variants(
     p: ProjectStateSingleConfig,
     codeObjId: str,
     section_id: str | None = None,
@@ -243,9 +239,9 @@ def get_code_obj_impl_layering(
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering_id = section_impl.codeObjImplLayeringMap[codeObjId]
-        code_obj_impl_layering = p.codeObjImplLayerings[code_obj_impl_layering_id]
-        return code_obj_impl_layering
+        code_obj_variant_id = section_impl.codeObjVariantMap[codeObjId]
+        code_obj_variant = p.codeObjVariants[code_obj_variant_id]
+        return code_obj_variant
     raise TypeError
 
 
@@ -257,12 +253,12 @@ def get_effective_code_obj_impl(
 ):
     section_impl = get_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_impl_layering = get_code_obj_impl_layering(
+        code_obj_variant = get_code_obj_variants(
             p, codeObjId, section_impl=section_impl
         )
-        base_impl = p.codeObjImpls[code_obj_impl_layering.impl]
+        base_impl = p.codeObjImpls[code_obj_variant.impl]
         code_obj_impl = get_effective_impl(
-            base_impl, p.codeObjs[codeObjId], code_obj_impl_layering
+            base_impl, p.codeObjs[codeObjId], code_obj_variant
         )
         return code_obj_impl
     raise TypeError
@@ -316,7 +312,7 @@ def callable_has_been_selected_before(
 ):
     section_impl = get_effective_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
-        for c in section_impl.codeObjImplLayeringMap.keys():
+        for c in section_impl.codeObjVariantMap.keys():
             if p.codeObjs[c].name == callableName:
                 return c
     return None
@@ -328,33 +324,33 @@ def add_code_obj(
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
-    section_layering = get_section_impl_layering(p, section_id)
-    base_section_impl = p.sectionImpls[section_layering.impl]
+    section_variant = get_section_variant(p, section_id)
+    base_section_impl = p.sectionImpls[section_variant.impl]
     section_core = p.sections[section_id]
     if not (isinstance(base_section_impl, BaseSectionWithParamsImplUnion)):
         raise TypeError
-    code_obj_impl_layering = Layering(
+    code_obj_variant = Variant(
         impl=code_obj_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
     )
-    code_obj.implLayerings.append(code_obj_impl_layering.id)
-    if not code_obj.defaultImplLayering:
-        code_obj.defaultImplLayering = code_obj_impl_layering.id
+    code_obj.variants.append(code_obj_variant.id)
+    if not code_obj.defaultVariant:
+        code_obj.defaultVariant = code_obj_variant.id
     p.codeObjs[code_obj.id] = code_obj
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
-    p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
+    p.codeObjVariants[code_obj_variant.id] = code_obj_variant
 
     set_effective_impl_value(
         base_section_impl,
         section_core,
-        section_layering,
+        section_variant,
         {
-            "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
-                {code_obj.id: code_obj_impl_layering.id}
+            "codeObjVariantMap": get_code_obj_variant_map_update_fn(
+                {code_obj.id: code_obj_variant.id}
             )
         },
     )
-    return code_obj_impl_layering
+    return code_obj_variant
 
 
 def add_children_of_callable(
@@ -364,11 +360,11 @@ def add_children_of_callable(
     new_params: list[Core],
     new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
 ):
-    callable_code_obj_layering = get_code_obj_impl_layering(p, callable_id, section_id)
+    callable_code_obj_variant = get_code_obj_variants(p, callable_id, section_id)
     callable_code_obj_impl = get_effective_impl(
-        p.codeObjImpls[callable_code_obj_layering.impl],
+        p.codeObjImpls[callable_code_obj_variant.impl],
         p.codeObjs[callable_id],
-        callable_code_obj_layering,
+        callable_code_obj_variant,
     )
     if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
         raise TypeError
@@ -385,19 +381,19 @@ def add_children_of_callable(
         existing = existing_param_core.get(new_param.name)
         new_param_impl = new_param_impl_map[new_param.id]
         if existing:
-            update_impl_layerings(p, existing.implLayerings, new_param_impl)
+            update_variants(p, existing.variants, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    base_impl = p.codeObjImpls[callable_code_obj_layering.impl]
+    base_impl = p.codeObjImpls[callable_code_obj_variant.impl]
     code_obj_core = p.codeObjs[callable_id]
     if isinstance(base_impl, BaseParentCodeObjImplUnion):
         set_effective_impl_value(
             base_impl,
             code_obj_core,
-            callable_code_obj_layering,
+            callable_code_obj_variant,
             {"children": param_ids_in_order},
         )
 
@@ -408,14 +404,14 @@ def set_param_entered_value(
     paramId: str,
     value: str,
 ):
-    code_obj_impl_layering = get_code_obj_impl_layering(p, paramId, sectionId)
-    base_impl = (p.codeObjImpls[code_obj_impl_layering.impl],)
+    code_obj_impl_variant = get_code_obj_variants(p, paramId, sectionId)
+    base_impl = (p.codeObjImpls[code_obj_impl_variant.impl],)
     code_obj_core = p.codeObjs[paramId]
     if isinstance(base_impl, BaseChildlessCodeObjImplUnion):
         set_effective_impl_value(
             base_impl,
             code_obj_core,
-            code_obj_impl_layering,
+            code_obj_impl_variant,
             {"value": value},
         )
     raise TypeError
@@ -467,20 +463,18 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),
         impl_overrides,
     )
-    layering = Layering(
-        impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl)
-    )
+    variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     if not core_overrides:
         core_overrides = {}
     core = Core(
         name=get_default_section_core_name(impl_type),
-        **compute_initial_default_layering(layering),
+        **compute_initial_default_variant(variant),
         **core_overrides,
     )
-    p.projectConfig.sectionImplLayeringMap[core.id] = layering.id
+    p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
-    p.sectionImplLayerings[layering.id] = layering
+    p.sectionVariants[variant.id] = variant
 
     return core.id
 
@@ -508,9 +502,9 @@ def create_child_sections(
     numChildren: int,
     startIdx: int | None,
 ):
-    layering = get_section_impl_layering(p, parentId)
+    variant = get_section_variant(p, parentId)
     core = p.sections[parentId]
-    baseImpl = p.sectionImpls[layering.impl]
+    baseImpl = p.sectionImpls[variant.impl]
     effectiveImpl = get_effective_section_impl(p, parentId)
     if not isinstance(effectiveImpl, BaseParentSectionImpl) or not isinstance(
         baseImpl, BaseParentSectionImpl
@@ -527,7 +521,7 @@ def create_child_sections(
     set_effective_impl_value(
         baseImpl,
         core,
-        get_section_impl_layering(p, parentId),
+        get_section_variant(p, parentId),
         {
             "children": lambda currChildren: insert_into_array(
                 currChildren, startIdx, newIds
@@ -566,15 +560,15 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         # delete from parent's current children list
         if impl.parentId:
             parent_core = p.sections[impl.parentId]
-            parent_layering = get_section_impl_layering(p, impl.parentId)
-            parent_base_impl = p.sectionImpls[parent_layering.impl]
+            parent_variant = get_section_variant(p, impl.parentId)
+            parent_base_impl = p.sectionImpls[parent_variant.impl]
             if not isinstance(parent_base_impl, BaseParentSectionImpl):
                 raise ValueError(f"parent_base_impl: {parent_base_impl}")
 
             set_effective_impl_value(
                 parent_base_impl,
                 parent_core,
-                parent_layering,
+                parent_variant,
                 {"children": lambda currChildren: [x for x in currChildren if x != id]},
             )
 
@@ -610,7 +604,7 @@ def check_if_section_is_still_used_somewhere(
     for s in p.sectionImpls.values():
         if isinstance(s, BaseParentSectionImpl) and id in s.children:
             return True
-    for s in p.sectionImplLayerings.values():
+    for s in p.sectionVariants.values():
         if "children" in s.modifier and id in s.modifier["children"]:
             return True
     return False
@@ -637,10 +631,10 @@ def get_section_descendants_from_all_versions(
 ):
     output: list[str] = []
     core = p.sections[sectionId]
-    for layeringId in core.implLayerings:
-        layering = p.sectionImplLayerings[layeringId]
-        base_impl = p.sectionImpls[layering.impl]
-        impl = get_effective_impl(base_impl, core, layering)
+    for variantId in core.variants:
+        variant = p.sectionVariants[variantId]
+        base_impl = p.sectionImpls[variant.impl]
+        impl = get_effective_impl(base_impl, core, variant)
         if isinstance(impl, BaseParentSectionImpl):
             output.extend(impl.children)
     return output
@@ -656,35 +650,35 @@ def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
             deep=True,
         )
 
-    newImplLayering = Layering(
+    newVariant = Variant(
         impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
     )
     core = p.sections[sectionId]
 
     if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
-        newCodeObjImplLayeringMap: dict[str, str] = {}
-        for codeObjId, codeObjLayeringId in newBaseImpl.codeObjImplLayeringMap.items():
-            newCodeObjImplLayeringMap[codeObjId] = create_new_code_obj_version(
-                p, codeObjId, codeObjLayeringId
+        newCodeObjVariantMap: dict[str, str] = {}
+        for codeObjId, codeObjVariantId in newBaseImpl.codeObjVariantMap.items():
+            newCodeObjVariantMap[codeObjId] = create_new_code_obj_version(
+                p, codeObjId, codeObjVariantId
             )
         set_effective_impl_value(
             newBaseImpl,
             core,
-            newImplLayering,
-            {"codeObjImplLayeringMap": newCodeObjImplLayeringMap},
+            newVariant,
+            {"codeObjVariantMap": newCodeObjVariantMap},
         )
 
-    core.implLayerings.append(newImplLayering.id)
+    core.variants.append(newVariant.id)
     p.sectionImpls[newBaseImpl.id] = newBaseImpl
-    p.sectionImplLayerings[newImplLayering.id] = newImplLayering
-    p.projectConfig.sectionImplLayeringMap[sectionId] = newImplLayering.id
+    p.sectionVariants[newVariant.id] = newVariant
+    p.projectConfig.sectionVariantMap[sectionId] = newVariant.id
 
 
 def create_new_code_obj_version(
-    p: ProjectStateSingleConfig, codeObjId: str, codeObjLayeringId: str
+    p: ProjectStateSingleConfig, codeObjId: str, codeObjVariantId: str
 ):
-    layering = p.codeObjImplLayerings[codeObjLayeringId]
-    currBaseImpl = p.codeObjImpls[layering.impl]
+    variant = p.codeObjVariants[codeObjVariantId]
+    currBaseImpl = p.codeObjImpls[variant.impl]
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
     else:
@@ -696,15 +690,15 @@ def create_new_code_obj_version(
             deep=True,
         )
 
-    newImplLayering = Layering(
+    newVariant = Variant(
         impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
     )
     core = p.codeObjs[codeObjId]
 
-    core.implLayerings.append(newImplLayering.id)
+    core.variants.append(newVariant.id)
     p.codeObjImpls[newBaseImpl.id] = newBaseImpl
-    p.codeObjImplLayerings[newImplLayering.id] = newImplLayering
-    return newImplLayering.id
+    p.codeObjVariants[newVariant.id] = newVariant
+    return newVariant.id
 
 
 def change_param_impl(
@@ -714,8 +708,8 @@ def change_param_impl(
     paramInfoId: str,
     selectedId: str,
 ):
-    layering = get_code_obj_impl_layering(p, paramInfoId, sectionId)
-    old_impl = p.codeObjImpls[layering.impl]
+    variant = get_code_obj_variants(p, paramInfoId, sectionId)
+    old_impl = p.codeObjImpls[variant.impl]
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -725,11 +719,11 @@ def change_param_impl(
         )
         p.codeObjImpls[impl.id] = impl
 
-    layering.impl = impl.id
-    if not impl.isPreset and impl.id not in layering.nonPresetImpls:
-        layering.nonPresetImpls.append(impl.id)
+    variant.impl = impl.id
+    if not impl.isPreset and impl.id not in variant.nonPresetImpls:
+        variant.nonPresetImpls.append(impl.id)
 
-    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], layering)
+    maybe_convert_code_obj_value(old_impl, impl, p.codeObjs[paramInfoId], variant)
 
 
 def update_param_impl_config(
@@ -738,11 +732,11 @@ def update_param_impl_config(
     paramInfoId: str,
     newConfig: dict,
 ):
-    layering = get_code_obj_impl_layering(p, paramInfoId, sectionId)
-    impl = p.codeObjImpls[layering.impl]
+    variant = get_code_obj_variants(p, paramInfoId, sectionId)
+    impl = p.codeObjImpls[variant.impl]
     for k, v in newConfig.items():
         setattr(impl, k, v)
-    maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], layering)
+    maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
 
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
@@ -753,14 +747,14 @@ def get_user_default_section_from_settings(settings: SettingsState, x: SectionTy
     return getattr(settings, x[0].lower() + x[1:] + "SectionDefault")
 
 
-def maybe_convert_code_obj_value(old_impl, new_impl, core, layering):
+def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
     if isinstance(old_impl, BaseChildlessCodeObjImplUnion) and isinstance(
         new_impl, BaseChildlessCodeObjImplUnion
     ):
-        old_effective_impl = get_effective_impl(old_impl, core, layering)
+        old_effective_impl = get_effective_impl(old_impl, core, variant)
         old_value = old_effective_impl.value
         new_value = convert_code_obj_value(new_impl, old_value)
-        set_effective_impl_value(new_impl, core, layering, {"value": new_value})
+        set_effective_impl_value(new_impl, core, variant, {"value": new_value})
 
 
 def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
@@ -800,7 +794,7 @@ def is_color_hex(string):
 
 
 # use this if lambda function isn't sufficient for the type checker
-def get_code_obj_impl_layering_map_update_fn(newMappings: dict[str, str]):
+def get_code_obj_variant_map_update_fn(newMappings: dict[str, str]):
     def fn(currMap: dict[str, str]):
         return {**currMap, **newMappings}
 

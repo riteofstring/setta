@@ -707,7 +707,7 @@ export function getCodeObjDefault(settings: SettingsState, codeObjType: CodeObjT
 """
 
 
-def create_impl_core_layering_bundled_types():
+def create_impl_core_variant_bundled_types():
     classes = get_impl_classes()
     code = ""
     for c in classes.values():
@@ -792,7 +792,7 @@ export type ObjectValues<T> = T[keyof T]
 
     ts_code += create_type_predicate_fns_from_sets(all_sets)
     ts_code += create_default_getter_functions()
-    ts_code += create_impl_core_layering_bundled_types()
+    ts_code += create_impl_core_variant_bundled_types()
 
     with open(output_file, "w") as f:
         f.write(ts_code)

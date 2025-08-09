@@ -9,7 +9,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Layering, compute_initial_nonPresetImpls
+from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -25,7 +25,7 @@ from setta.types.generated.unions import (
     BaseDictSectionImplUnion,
     BaseSectionImplUnion,
 )
-from setta.types.helpers import get_code_obj_impl_layering_map_update_fn
+from setta.types.helpers import get_code_obj_variant_map_update_fn
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -42,60 +42,57 @@ class ProcessedJSONObject(BaseModel):
     sectionImpl: BaseDictSectionImpl
     codeObjs: dict[str, Core] = Field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = Field(default_factory=dict)
-    codeObjImplLayerings: dict[str, Layering] = Field(default_factory=dict)
+    codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
 
 
 class LoadJSONSourceObject(BaseModel, extra="forbid"):
     sections: dict[str, Core]
     sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionImplLayerings: dict[str, Layering]
+    sectionVariants: dict[str, Variant]
     codeObjs: dict[str, Core]
     codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjImplLayerings: dict[str, Layering]
+    codeObjVariants: dict[str, Variant]
 
 
 def load_json_sources_into_data_structures(
     settings: SettingsState,
     p: ProjectStateBackend | ProjectStateSingleConfig | LoadJSONSourceObject,
-    section_impl_layering_ids: list[str] | None = None,
+    section_variant_ids: list[str] | None = None,
 ):
     processed = set()
     for section in p.sections.values():
-        for layering_id in section.implLayerings:
-            if layering_id in processed:
+        for variant_id in section.variants:
+            if variant_id in processed:
                 continue
-            processed.add(layering_id)
-            layering = p.sectionImplLayerings[layering_id]
-            base_impl = p.sectionImpls[layering.impl]
-            impl = get_effective_impl(p.sectionImpls[layering.impl], section, layering)
+            processed.add(variant_id)
+            variant = p.sectionVariants[variant_id]
+            base_impl = p.sectionImpls[variant.impl]
+            impl = get_effective_impl(p.sectionImpls[variant.impl], section, variant)
             if (
                 not isinstance(base_impl, BaseDictSectionImplUnion)
                 or not isinstance(impl, BaseDictSectionImplUnion)
                 or not impl.isJsonSource
-                or (
-                    section_impl_layering_ids
-                    and layering_id not in section_impl_layering_ids
-                )
+                or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
             new_data, isMissing = load_json_source(
-                settings, layering.name, impl.jsonSourceKeys
+                settings, variant.name, impl.jsonSourceKeys
             )
             impl = set_effective_impl_value(
-                base_impl, section, layering, {"jsonSourceMissing": isMissing}
+                base_impl, section, variant, {"jsonSourceMissing": isMissing}
             )
             if isMissing:
                 continue
             merge_into_existing(
-                layering.name,
+                variant.name,
                 new_data,
                 section,
                 base_impl,
                 impl,
-                layering,
+                variant,
                 p.codeObjs,
                 p.codeObjImpls,
-                p.codeObjImplLayerings,
+                p.codeObjVariants,
             )
 
 
@@ -105,16 +102,16 @@ def merge_into_existing(
     section: Core,
     base_section_impl: BaseDictSectionImplUnion,
     section_impl: BaseDictSectionImplUnion,
-    section_impl_layering: Layering,
+    section_variant: Variant,
     codeObjs: dict[str, Core],
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjImplLayerings: dict[str, Layering],
+    codeObjVariants: dict[str, Variant],
 ):
     ancestor_paths = build_ancestor_paths(
         codeObjs,
         codeObjImpls,
-        codeObjImplLayerings,
-        section_impl.codeObjImplLayeringMap,
+        codeObjVariants,
+        section_impl.codeObjVariantMap,
         section_impl.topLevelParamIds,
     )
     jsonSourceMetadata_to_id: dict[str, str] = {}
@@ -126,8 +123,8 @@ def merge_into_existing(
     new_ancestor_paths = build_ancestor_paths(
         new_data.codeObjs,
         new_data.codeObjImpls,
-        new_data.codeObjImplLayerings,
-        new_data.sectionImpl.codeObjImplLayeringMap,
+        new_data.codeObjVariants,
+        new_data.sectionImpl.codeObjVariantMap,
         new_data.sectionImpl.topLevelParamIds,
     )
     new_jsonSourceMetadata_to_id: dict[str, str] = {}
@@ -141,32 +138,32 @@ def merge_into_existing(
         existingCodeObjId = jsonSourceMetadata_to_id.get(
             createMetadataJsonString(filename, new_ancestor_paths[newId])
         )
-        newLayeringId = new_data.sectionImpl.codeObjImplLayeringMap[newId]
-        newLayering = new_data.codeObjImplLayerings[newLayeringId]
-        newImpl = new_data.codeObjImpls[newLayering.impl]
+        newVariantId = new_data.sectionImpl.codeObjVariantMap[newId]
+        newVariant = new_data.codeObjVariants[newVariantId]
+        newImpl = new_data.codeObjImpls[newVariant.impl]
         if not existingCodeObjId:
             section_impl = set_effective_impl_value(
                 base_section_impl,
                 section,
-                section_impl_layering,
+                section_variant,
                 {
-                    "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
-                        {newId: newLayeringId}
+                    "codeObjVariantMap": get_code_obj_variant_map_update_fn(
+                        {newId: newVariantId}
                     )
                 },
             )
-            codeObjImplLayerings[newLayeringId] = newLayering
+            codeObjVariants[newVariantId] = newVariant
             codeObjImpls[newImpl.id] = newImpl
             codeObjs[newId] = newCodeObj
         else:
             replacements[newId] = (existingCodeObjId, newImpl)
 
     for newId, (existingCodeObjId, newImpl) in replacements.items():
-        layeringId = section_impl.codeObjImplLayeringMap[existingCodeObjId]
-        layering = codeObjImplLayerings[layeringId]
+        variantId = section_impl.codeObjVariantMap[existingCodeObjId]
+        variant = codeObjVariants[variantId]
         codeObjCore = codeObjs[existingCodeObjId]
-        baseCodeObjImpl = codeObjImpls[layering.impl]
-        impl = get_effective_impl(baseCodeObjImpl, codeObjCore, layering)
+        baseCodeObjImpl = codeObjImpls[variant.impl]
+        impl = get_effective_impl(baseCodeObjImpl, codeObjCore, variant)
         if (
             isinstance(baseCodeObjImpl, NestedParamCodeObjImpl)
             and isinstance(impl, NestedParamCodeObjImpl)
@@ -175,7 +172,7 @@ def merge_into_existing(
             impl = set_effective_impl_value(
                 baseCodeObjImpl,
                 codeObjCore,
-                layering,
+                variant,
                 {
                     "children": [
                         replacements[c][0] if c in replacements else c
@@ -189,7 +186,7 @@ def merge_into_existing(
             and isinstance(newImpl, BaseChildlessCodeObjImplUnion)
         ):
             impl = set_effective_impl_value(
-                baseCodeObjImpl, codeObjCore, layering, {"value": newImpl.value}
+                baseCodeObjImpl, codeObjCore, variant, {"value": newImpl.value}
             )
         else:
             raise TypeError
@@ -197,18 +194,18 @@ def merge_into_existing(
     for metadataString, id in jsonSourceMetadata_to_id.items():
         newId = new_jsonSourceMetadata_to_id.get(metadataString)
         if not newId:
-            layeringId = section_impl.codeObjImplLayeringMap[id]
-            layering = codeObjImplLayerings[layeringId]
-            impl = codeObjImpls[layering.impl]
-            del section_impl.codeObjImplLayeringMap[id]
+            variantId = section_impl.codeObjVariantMap[id]
+            variant = codeObjVariants[variantId]
+            impl = codeObjImpls[variant.impl]
+            del section_impl.codeObjVariantMap[id]
             del codeObjs[id]
             del codeObjImpls[impl.id]
-            del codeObjImplLayerings[layeringId]
+            del codeObjVariants[variantId]
 
     set_effective_impl_value(
         base_section_impl,
         section,
-        section_impl_layering,
+        section_variant,
         {
             "topLevelParamIds": [
                 replacements[c][0] if c in replacements else c
@@ -284,7 +281,7 @@ def add_to_processed_json_object(
         codeObjImpl = create_code_obj_impl(
             CodeObjType.NestedParam, settings.nestedParamCodeObjDefault
         )
-        codeObjImplLayering = Layering(
+        codeObjVariant = Variant(
             impl=codeObjImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
         )
@@ -294,21 +291,21 @@ def add_to_processed_json_object(
             settings.textParamCodeObjDefault,
             {"value": json.dumps(value)},
         )
-        codeObjImplLayering = Layering(
+        codeObjVariant = Variant(
             impl=codeObjImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(codeObjImpl),
         )
-    layeringId = codeObjImplLayering.id
+    variantId = codeObjVariant.id
     codeObj = Core(
         name=key,
-        implLayerings=[layeringId],
-        defaultImplLayering=layeringId,
+        variants=[variantId],
+        defaultVariant=variantId,
     )
 
-    output.sectionImpl.codeObjImplLayeringMap[codeObj.id] = layeringId
+    output.sectionImpl.codeObjVariantMap[codeObj.id] = variantId
     output.codeObjs[codeObj.id] = codeObj
     output.codeObjImpls[codeObjImpl.id] = codeObjImpl
-    output.codeObjImplLayerings[layeringId] = codeObjImplLayering
+    output.codeObjVariants[variantId] = codeObjVariant
     return codeObj, codeObjImpl
 
 
