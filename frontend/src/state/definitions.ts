@@ -259,7 +259,6 @@ export const useMisc = withProjectState(
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
         chartDisplayedSeriesNames: {}, //sectionId to series names
-        nodeInternalsWidthHeightWasNull: false,
       })),
     ),
   ),

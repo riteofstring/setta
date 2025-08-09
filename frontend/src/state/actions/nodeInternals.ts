@@ -6,9 +6,14 @@ import _ from "lodash";
 import {
   useMisc,
   useNodeInternals,
+  useProjectState,
   useSectionRefs,
   ZustandNodeInternalsState,
 } from "state/definitions";
+import {
+  createTopLevelSectionLayoutDict,
+  debounced_route_update_from_frontend_top_level_section_layout,
+} from "./sectionInfos";
 
 type NodeDimensionsUpdate = Array<{
   id: string;
@@ -75,7 +80,13 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   }
 
   useNodeInternals.setState({ x: newNodes });
-  useMisc.setState({ nodeInternalsWidthHeightWasNull: prevWidthHeightWasNull });
+  debounced_route_update_from_frontend_top_level_section_layout({
+    projectConfigId: useProjectState.getState().projectConfig.id,
+    topLevelSections: createTopLevelSectionLayoutDict(
+      useProjectState.getState().sections,
+      useNodeInternals.getState().x,
+    ),
+  });
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering

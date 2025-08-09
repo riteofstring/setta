@@ -11,6 +11,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
   route_get_json_source_path_to_be_deleted,
+  route_update_from_frontend_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
@@ -607,3 +608,6 @@ export function createTopLevelSectionLayoutDict(
   }
   return topLevelSections;
 }
+
+export const debounced_route_update_from_frontend_top_level_section_layout =
+  _.debounce(route_update_from_frontend_top_level_section_layout, 500);
