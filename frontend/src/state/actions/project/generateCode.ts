@@ -1,10 +1,8 @@
-import { sendMessage } from "state/actions/websocketReceive";
 import { useProjectState } from "state/definitions";
 import { SETTINGS_PROJECT_NAME } from "utils/constants";
-import {
-  createWebsocketMsgUpdateBackendProjectState,
-  createWebsocketMsgUpdateBackendProjectStateContent,
-} from "utils/generatedTypes";
+import { res200 } from "utils/endpointUtils";
+import { route_update_from_frontend } from "utils/generatedEndpoints";
+import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
 import { getProjectData } from "./saveProject";
 
@@ -40,13 +38,17 @@ export const updateBackendProjectState = asyncDebounce(async () => {
   const projectState = await getProjectDataToGenerateCode({});
   const requestRenameRefactor =
     useProjectState.getState().requestRenameRefactor;
-  const content = createWebsocketMsgUpdateBackendProjectStateContent({
+  const res = await route_update_from_frontend({
+    messageId: createNewId(),
     projectState,
     requestRenameRefactor,
   });
-  sendMessage(createWebsocketMsgUpdateBackendProjectState({ content }));
+  console.log(res);
   // have to reset requestRenameRefactor to false, in case it was set to true
   useProjectState.setState((state) => {
     state.requestRenameRefactor = false;
+    if (res200(res)) {
+      state.modCount = res.data.modCount;
+    }
   });
 }, 200);

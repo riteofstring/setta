@@ -13,7 +13,6 @@ from setta.types.websocket import (
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgSpecificFileWatcherUpdate,
     WebsocketMsgTerminalMetadata,
-    WebsocketMsgUpdateBackendProjectState,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
@@ -33,7 +32,6 @@ WebsocketMsgUnion = Union[
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateSettings,
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgUpdateBackendProjectState,
 ]
 
 WebsocketMsgUnionWithDiscriminator = Annotated[
@@ -57,7 +55,6 @@ WebsocketMsgTypeSet = set(
         "TerminalMetadata",
         "UpdateSettings",
         "CurrentAddressUpdate",
-        "UpdateBackendProjectState",
     ]
 )
 
@@ -101,9 +98,7 @@ FrontendWebsocketMsgTypeSet = set(
     ]
 )
 
-BackendWebsocketMsgUnion = Union[
-    WebsocketMsgCurrentAddressUpdate, WebsocketMsgUpdateBackendProjectState
-]
+BackendWebsocketMsgUnion = Union[WebsocketMsgCurrentAddressUpdate]
 
 BackendWebsocketMsgUnionWithDiscriminator = Annotated[
     BackendWebsocketMsgUnion, Field(discriminator="messageType")
@@ -111,4 +106,4 @@ BackendWebsocketMsgUnionWithDiscriminator = Annotated[
 
 BackendWebsocketMsgTypeAdapter = TypeAdapter(BackendWebsocketMsgUnionWithDiscriminator)
 
-BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate", "UpdateBackendProjectState"])
+BackendWebsocketMsgTypeSet = set(["CurrentAddressUpdate"])

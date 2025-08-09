@@ -33,7 +33,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
 
 class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
-    UpdateBackendProjectState = "UpdateBackendProjectState"
 
 
 class WebsocketConnectionType(str, Enum):
@@ -157,16 +156,4 @@ class WebsocketMsgCurrentAddressUpdate(BackendWebsocketMsg):
     content: str
     messageType: Literal[WebsocketMsgTypeForBackend.CurrentAddressUpdate] = (
         WebsocketMsgTypeForBackend.CurrentAddressUpdate
-    )
-
-
-class WebsocketMsgUpdateBackendProjectStateContent(BaseModel):
-    projectState: ProjectStateSingleConfig
-    requestRenameRefactor: bool
-
-
-class WebsocketMsgUpdateBackendProjectState(BackendWebsocketMsg):
-    content: WebsocketMsgUpdateBackendProjectStateContent
-    messageType: Literal[WebsocketMsgTypeForBackend.UpdateBackendProjectState] = (
-        WebsocketMsgTypeForBackend.UpdateBackendProjectState
     )

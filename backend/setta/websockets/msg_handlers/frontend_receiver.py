@@ -7,7 +7,6 @@ from setta.types.generated.websocket_unions import (
 from setta.types.websocket import (
     WebsocketMsgAllDependencies,
     WebsocketMsgCurrentAddressUpdate,
-    WebsocketMsgUpdateBackendProjectState,
 )
 from setta.websockets.msg_handlers.base import (
     BaseWebsocketMsgReceiver,
@@ -36,12 +35,6 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)
-        elif isinstance(m, WebsocketMsgUpdateBackendProjectState):
-            await self.project_manager.update_from_frontend(
-                messageId=m.id,
-                projectState=m.content.projectState,
-                requestRenameRefactor=m.content.requestRenameRefactor,
-            )
 
         # if message.get("messageType") == C.WS_CALL_INTERACTIVE_FNS:
         #     print("WMHFrontend process_message", message, flush=True)

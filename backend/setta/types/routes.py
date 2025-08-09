@@ -79,3 +79,4 @@ class Route(str, Enum):
     CREATE_NEW_SECTION_VERSION = "/createNewSectionVersion"
     UNDO = "/undo"
     REDO = "/redo"
+    UPDATE_FROM_FRONTEND = "/updateFromFrontend"

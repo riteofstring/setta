@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 from setta.types.simplified_states import Position
 
@@ -101,3 +102,14 @@ class UndoRequest(BaseModel):
 
 class RedoRequest(BaseModel):
     steps: int
+
+
+class UpdateFromFrontendRequest(BaseModel):
+    messageId: str | None
+    projectState: ProjectStateSingleConfig
+    requestRenameRefactor: bool = False
+
+
+class UpdateFromFrontendReturn(BaseModel):
+    success: bool
+    modCount: int

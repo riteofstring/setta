@@ -390,3 +390,9 @@ export async function route_redo(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/redo", x);
 }
+
+export async function route_update_from_frontend(
+  x: gt.UpdateFromFrontendRequest,
+): Promise<ResponseDataAndStatus<gt.UpdateFromFrontendReturn>> {
+  return await post("/updateFromFrontend", x);
+}

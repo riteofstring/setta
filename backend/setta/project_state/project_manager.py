@@ -34,6 +34,8 @@ from setta.project_state.project_manager_types import (
     SetCallableRequest,
     TextFieldCompletionRequest,
     UndoRequest,
+    UpdateFromFrontendRequest,
+    UpdateFromFrontendReturn,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -205,14 +207,14 @@ class ProjectManager:
         await self.update(projectState)
 
     @enqueue_method
-    async def update_from_frontend(
-        self,
-        messageId: str | None,
-        projectState: ProjectStateSingleConfig,
-        requestRenameRefactor: bool = False,
-    ):
+    async def update_from_frontend(self, x: UpdateFromFrontendRequest):
         self.add_new_history_entry()
-        await self.update(projectState, requestRenameRefactor, messageId)
+        success = await self.update(
+            x.projectState, x.requestRenameRefactor, x.messageId
+        )
+        return UpdateFromFrontendReturn(
+            success=success, modCount=self.project_state_backend.modCount
+        )
 
     @enqueue_method
     async def load_json_sources(
@@ -236,6 +238,13 @@ class ProjectManager:
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
+        if self.project_state_backend.modCount != projectState.modCount:
+            print(
+                "\n\n\nmodCount mismatch!",
+                self.project_state_backend.modCount,
+                projectState.modCount,
+            )
+            return False
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
@@ -285,8 +294,10 @@ class ProjectManager:
                 self.code_dict[projectConfigId][sectionId] = section_code
 
         self.delete_unused_files(project_temp_folder)
+        projectState.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
-        self.project_state_backend.modCount += 1
+        print("\n\n\nincremented modcount!", self.project_state_backend.modCount, projectState.modCount)
+        return True
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
