@@ -4,17 +4,6 @@ import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
 
-export function getNodes(s = null) {
-  const source = s ? s.x : useNodeInternals.getState().x;
-  const result = [];
-  for (const n of source.values()) {
-    if (n.visibility) {
-      result.push(n);
-    }
-  }
-  return result;
-}
-
 export function addNodes(nodes) {
   const newNodes = getNewNodes();
   for (const n of nodes) {

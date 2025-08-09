@@ -1,6 +1,7 @@
-import { getNodes, updateNodePositions } from "state/actions/nodeInternals";
+import { updateNodePositions } from "state/actions/nodeInternals";
 import {
   useLocalStorage,
+  useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
@@ -15,8 +16,8 @@ export const updatePositions = (params: {
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
   const activeSectionIds = useProjectState.getState().activeIds;
-  const selectedNodes = getNodes().filter((n) =>
-    activeSectionIds.includes(n.id),
+  const selectedNodes = activeSectionIds.filter((n) =>
+    useNodeInternals.getState().x.has(n),
   );
   // by default a node moves 5px on each key press, or 20px if shift is pressed
   // if snap grid is enabled, we use that for the velocity.
