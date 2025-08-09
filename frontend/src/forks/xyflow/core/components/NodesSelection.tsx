@@ -4,8 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useEffect, useRef } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
-import { getNodes } from "state/actions/nodeInternals";
-import { useProjectState } from "state/definitions";
+import { useNodeInternals, useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import { arrowKeyDiffs } from "./wrapNode";
@@ -29,9 +28,8 @@ function _NodesSelection({ x, y, width, height }) {
 
   const onContextMenu = (event) => {
     const activeSectionIds = useProjectState.getState().activeIds;
-    const selectedNodeIds = getNodes()
-      .filter((n) => activeSectionIds.includes(n.id))
-      .map((n) => n.id);
+    const nodes = useNodeInternals.getState().x;
+    const selectedNodeIds = activeSectionIds.filter((x) => nodes.has(x));
     openSelectionContextMenu(event, selectedNodeIds);
   };
 
