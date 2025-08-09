@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useEffect } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import {
@@ -102,6 +103,7 @@ function CustomResizableCore({
       setSectionResizeEvent(sectionId, "end", state);
     });
     useMisc.setState({ mouseDownDraggingSection: false });
+    updateBackendProjectState();
   }
 
   const heightResizable =

@@ -10,6 +10,7 @@ import potpack from "potpack";
 import { useNodeInternals, useSettings } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getNewNodes } from "../nodeInternals";
+import { updateBackendProjectState } from "../project/generateCode";
 
 export function setZIndices(
   sectionIds: Array<string>,
@@ -38,6 +39,10 @@ export function setZIndices(
   }
 
   useNodeInternals.setState({ x: newValues });
+
+  if (incrementVersion) {
+    updateBackendProjectState();
+  }
 }
 
 export function goToSection(sectionId: string) {
