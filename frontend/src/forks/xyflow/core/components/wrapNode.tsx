@@ -26,10 +26,7 @@ const _NodeWrapper = ({
   xPos,
   yPos,
   selected,
-  style,
   isDraggable: _isDraggable,
-  isSelectable,
-  isFocusable,
   resizeObserver,
   zIndex,
   visibility,
@@ -40,7 +37,7 @@ const _NodeWrapper = ({
     return impl.positionAndSizeLocked;
   });
   const isDraggable = _isDraggable && !positionAndSizeLocked;
-  const hasPointerEvents = isSelectable || isDraggable;
+  const hasPointerEvents = true;
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (isInputDOMNode(event) || useFloatingBox.getState().isEnabled) {
@@ -79,7 +76,6 @@ const _NodeWrapper = ({
     nodeRef,
     disabled: !isDraggable,
     nodeId: id,
-    isSelectable,
   });
 
   return (
@@ -90,9 +86,6 @@ const _NodeWrapper = ({
           // this is overwritable by passing `nopan` as a class name
           [NO_PAN_CLASS_NAME]: isDraggable,
         },
-        {
-          selectable: isSelectable,
-        },
       ])}
       ref={nodeRef}
       style={{
@@ -100,13 +93,12 @@ const _NodeWrapper = ({
         pointerEvents: hasPointerEvents ? "all" : "none",
         visibility,
         zIndex,
-        ...style,
       }}
       data-id={id}
       data-testid={`rf__node-${id}`}
-      onKeyDown={isFocusable ? onKeyDown : undefined}
-      tabIndex={isFocusable ? 0 : undefined}
-      role={isFocusable ? "button" : undefined}
+      // onKeyDown={isFocusable ? onKeyDown : undefined}
+      // tabIndex={isFocusable ? 0 : undefined}
+      // role={isFocusable ? "button" : undefined}
     >
       <SectionContainer sectionId={id} isTopLevel={true} />
     </div>

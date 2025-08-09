@@ -11,15 +11,12 @@ export const updatePositions = (params: {
   y: number;
   isShiftPressed: boolean;
 }) => {
-  const { nodesSelectionDims, nodesDraggable, shiftNodesSelection } =
-    useReactFlow.getState();
+  const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
   const activeSectionIds = useProjectState.getState().activeIds;
-  const selectedNodes = getNodes().filter(
-    (n) =>
-      activeSectionIds.includes(n.id) &&
-      (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
+  const selectedNodes = getNodes().filter((n) =>
+    activeSectionIds.includes(n.id),
   );
   // by default a node moves 5px on each key press, or 20px if shift is pressed
   // if snap grid is enabled, we use that for the velocity.

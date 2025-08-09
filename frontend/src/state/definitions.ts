@@ -1,3 +1,4 @@
+import { Node } from "forks/xyflow/core/types";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -148,9 +149,11 @@ export const useModal = withProjectState(
   ),
 );
 
+type ZustandNodeInternalsState = { x: Map<string, Node> };
+
 export const useNodeInternals = withProjectState(
   createWithEqualityFn(
-    withResetFn(() => ({
+    withResetFn<ZustandNodeInternalsState>(() => ({
       x: new Map(),
     })),
   ),

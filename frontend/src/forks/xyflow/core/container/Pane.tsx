@@ -44,7 +44,6 @@ const wrapHandler = (
 
 const selector = (s: ReactFlowState) => ({
   userSelectionActive: s.userSelectionActive,
-  elementsSelectable: s.elementsSelectable,
   dragging: s.paneDragging,
 });
 
@@ -52,10 +51,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   const container = useRef<HTMLDivElement | null>(null);
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
-  const { userSelectionActive, elementsSelectable } = useReactFlow(
-    selector,
-    shallow,
-  );
+  const { userSelectionActive } = useReactFlow(selector, shallow);
 
   const resetUserSelection = () => {
     useReactFlow.setState({
@@ -96,7 +92,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     containerBounds.current = domNode?.getBoundingClientRect();
 
     if (
-      !elementsSelectable ||
       !isSelecting ||
       event.button !== 0 ||
       event.target !== container.current ||
@@ -190,8 +185,7 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     resetUserSelection();
   };
 
-  const hasActiveSelection =
-    elementsSelectable && (isSelecting || userSelectionActive);
+  const hasActiveSelection = isSelecting || userSelectionActive;
 
   return (
     <div

@@ -57,7 +57,6 @@ const ZoomPane = ({
   panOnScrollSpeed = 0.5,
   panOnScrollMode = PanOnScrollModeEnum.free,
   zoomOnDoubleClick = true,
-  elementsSelectable,
   panOnDrag = true,
   panActivationKeyPressed,
   zoomActivationKeyPressed,
@@ -365,7 +364,6 @@ const ZoomPane = ({
     panOnScroll,
     zoomOnDoubleClick,
     panOnDrag,
-    elementsSelectable,
     panActivationKeyPressed,
     zoomActivationKeyPressed,
   ]);

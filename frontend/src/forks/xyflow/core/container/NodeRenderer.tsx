@@ -13,19 +13,11 @@ import { containerStyle } from "../styles";
 import type { ReactFlowState } from "../types";
 
 const selector = (s: ReactFlowState) => ({
-  nodesDraggable: s.nodesDraggable,
-  nodesFocusable: s.nodesFocusable,
-  elementsSelectable: s.elementsSelectable,
   panActivationKeyPressed: s.panActivationKeyPressed,
 });
 
 const NodeRenderer = ({}) => {
-  const {
-    nodesDraggable,
-    nodesFocusable,
-    elementsSelectable,
-    panActivationKeyPressed,
-  } = useReactFlow(selector, shallow);
+  const { panActivationKeyPressed } = useReactFlow(selector, shallow);
   // The getNodes selector has to use the "shallow" comparison
   // and not _.isEqual, otherwise it only re-renders every other update,
   // even though the MiniMap component uses the exact same hook and comparison fn
@@ -60,21 +52,6 @@ const NodeRenderer = ({}) => {
   return (
     <div className="react-flow__nodes" style={containerStyle}>
       {nodes.map((node) => {
-        const isDraggable = !!(
-          !panActivationKeyPressed &&
-          (node.draggable ||
-            (nodesDraggable && typeof node.draggable === "undefined"))
-        );
-        const isSelectable = !!(
-          !panActivationKeyPressed &&
-          (node.selectable ||
-            (elementsSelectable && typeof node.selectable === "undefined"))
-        );
-        const isFocusable = !!(
-          node.focusable ||
-          (nodesFocusable && typeof node.focusable === "undefined")
-        );
-
         const posX = node.position?.x ?? 0;
         const posY = node.position?.y ?? 0;
 
@@ -82,13 +59,10 @@ const NodeRenderer = ({}) => {
           <NodeWrapper
             key={node.id}
             id={node.id}
-            style={node.style}
             xPos={posX}
             yPos={posY}
             selected={activeSectionIds.includes(node.id)}
-            isDraggable={isDraggable}
-            isSelectable={isSelectable}
-            isFocusable={isFocusable}
+            isDraggable={!panActivationKeyPressed}
             resizeObserver={resizeObserver}
             zIndex={node.tempZIndex}
             visibility={readyToBeVisible ? "visible" : "hidden"}

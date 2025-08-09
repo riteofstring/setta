@@ -96,10 +96,6 @@ export type ReactFlowStore = {
   userSelectionActive: boolean;
   userSelectionRect: SelectionRect | null;
 
-  nodesDraggable: boolean;
-  nodesFocusable: boolean;
-  elementsSelectable: boolean;
-
   multiSelectionActive: boolean;
 
   fitViewOnInit: boolean;

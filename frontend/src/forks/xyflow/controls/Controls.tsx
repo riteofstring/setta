@@ -34,10 +34,6 @@ function useZoomReached() {
 const Controls = () => {
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const { minZoomReached, maxZoomReached } = useZoomReached();
-  const isInteractive = useReactFlow(
-    (s) => s.nodesDraggable || s.elementsSelectable,
-    shallow,
-  );
   const fitViewOnInit = useReactFlow((x) => x.fitViewOnInit);
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showMinimap = useLocalStorage((x) => x.showMinimap);

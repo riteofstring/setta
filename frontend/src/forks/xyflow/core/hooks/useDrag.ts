@@ -27,15 +27,9 @@ type UseDragParams = {
   nodeRef: RefObject<Element>;
   disabled?: boolean;
   nodeId?: string;
-  isSelectable?: boolean;
 };
 
-function useDrag({
-  nodeRef,
-  disabled = false,
-  nodeId,
-  isSelectable,
-}: UseDragParams) {
+function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
   const [dragging, setDragging] = useState<boolean>(false);
   const dragItems = useRef<NodeDragItem[]>([]);
   const lastPos = useRef<{ x: number | null; y: number | null }>({
@@ -128,13 +122,11 @@ function useDrag({
       };
 
       const startDrag = (event: UseDragEvent) => {
-        const { multiSelectionActive, nodesDraggable } =
-          useReactFlow.getState();
+        const { multiSelectionActive } = useReactFlow.getState();
         const nodeInternals = useNodeInternals.getState().x;
         dragStarted.current = true;
 
         if (
-          !isSelectable &&
           !multiSelectionActive &&
           nodeId &&
           !useProjectState.getState().activeIds.includes(nodeId)
@@ -145,12 +137,7 @@ function useDrag({
 
         const pointerPos = getPointerPosition(event);
         lastPos.current = pointerPos;
-        dragItems.current = getDragItems(
-          nodeInternals,
-          nodesDraggable,
-          pointerPos,
-          nodeId,
-        );
+        dragItems.current = getDragItems(nodeInternals, pointerPos, nodeId);
 
         if (dragItems.current) {
           raiseTempZIndex(dragItems.current);
@@ -253,7 +240,7 @@ function useDrag({
         };
       }
     }
-  }, [nodeRef, disabled, isSelectable, nodeId, getPointerPosition]);
+  }, [nodeRef, disabled, nodeId, getPointerPosition]);
 
   return dragging;
 }

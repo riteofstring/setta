@@ -22,7 +22,6 @@ export function hasSelector(
 // looks for all selected nodes and created a NodeDragItem for each of them
 export function getDragItems(
   nodeInternals: NodeInternals,
-  nodesDraggable: boolean,
   mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
@@ -31,10 +30,9 @@ export function getDragItems(
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
-        ((!nodeId && activeSections.includes(n.id)) ||
-          (draggedNodeIsActive && activeSections.includes(n.id)) ||
-          (!draggedNodeIsActive && n.id === nodeId)) &&
-        (n.draggable || (nodesDraggable && typeof n.draggable === "undefined")),
+        (!nodeId && activeSections.includes(n.id)) ||
+        (draggedNodeIsActive && activeSections.includes(n.id)) ||
+        (!draggedNodeIsActive && n.id === nodeId),
     )
     .map((n) => ({
       id: n.id,
