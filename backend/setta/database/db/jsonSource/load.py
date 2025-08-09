@@ -1,4 +1,3 @@
-import copy
 import json
 import logging
 
@@ -26,6 +25,7 @@ from setta.types.generated.unions import (
     BaseDictSectionImplUnion,
     BaseSectionImplUnion,
 )
+from setta.types.helpers import get_code_obj_impl_layering_map_update_fn
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
@@ -150,10 +150,9 @@ def merge_into_existing(
                 section,
                 section_impl_layering,
                 {
-                    "codeObjImplLayeringMap": {
-                        **copy.deepcopy(section_impl.codeObjImplLayeringMap),
-                        newId: newLayeringId,
-                    }
+                    "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
+                        {newId: newLayeringId}
+                    )
                 },
             )
             codeObjImplLayerings[newLayeringId] = newLayering

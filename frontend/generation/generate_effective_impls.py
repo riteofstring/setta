@@ -87,14 +87,16 @@ def generate_effective_impl_overloads():
         elif cls.is_for_code_obj:
             code_obj_impl_imports.append(cls.original_name)
         args_imports.append(cls.args_name)
+        args_imports.append(cls.args_with_callable_name)
     for u in sorted_union_names:
         args_imports.append(u.replace("Union", "Args"))
+        args_imports.append(u.replace("Union", "ArgsWithCallable"))
 
     # Generate imports using triple quotes
     imports = f"""# Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import overload, Any, TypeVar
+from typing import overload, Any, TypeVar, Callable, Any
 from pydantic import BaseModel
 
 from setta.types.core import Core, Layering
@@ -134,14 +136,16 @@ def get_effective_impl(
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 cls.original_name,
-                cls.args_name,
+                cls.args_with_callable_name,
             )
         )
 
     # Then, union overloads (already sorted by specificity)
     for u in sorted_union_names:
         set_overloads_list.append(
-            generate_set_effective_impl_value_overload(u, u.replace("Union", "Args"))
+            generate_set_effective_impl_value_overload(
+                u, u.replace("Union", "ArgsWithCallable")
+            )
         )
 
     set_overloads = "".join(set_overloads_list)
@@ -151,25 +155,32 @@ def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: dict,
+    args: dict[str, Any | Callable[[Any], Any]],
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     \"\"\"Set a value in the effective implementation.
-    
+
     The value is set in the appropriate location based on:
     - If impl is not a preset: directly on the impl
     - If key is in unsharedKeys: in the modifier
     - Otherwise: in the core's sharedModifier
-    
+
+    Args is a dict where each value can be either:
+    - A direct value to set
+    - A callable that takes the current value and returns a new value
+
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     \"\"\"
     for k, v in args.items():
         if not impl.isPreset:
-            setattr(impl, k, v)
+            current = getattr(impl, k, None)
+            setattr(impl, k, v(current) if callable(v) else v)
         elif k in core.unsharedKeys:
-            layering.modifier[k] = v
+            current = layering.modifier.get(k)
+            layering.modifier[k] = v(current) if callable(v) else v
         else:
-            core.sharedModifier[k] = v
+            current = core.sharedModifier.get(k)
+            core.sharedModifier[k] = v(current) if callable(v) else v
     return get_effective_impl(impl, core, layering)
 """
 

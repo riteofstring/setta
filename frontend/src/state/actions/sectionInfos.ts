@@ -25,11 +25,11 @@ import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
 // Generic function with constraints
-export function getEffectiveImpl<K extends keyof ImplArgsBundleMap>(
-  impl: ImplArgsBundleMap[K]["impl"],
+export function getEffectiveImpl<T>(
+  impl: T,
   core: Core,
   layering: Layering,
-): ImplArgsBundleMap[K]["impl"] {
+): T {
   const effective = _.cloneDeep(impl);
   Object.assign(effective, { ...core.sharedModifier, ...layering.modifier });
   return effective;
@@ -71,7 +71,7 @@ export function getEffectiveSectionImpl(
     if (!baseImpl || !core) {
       throw new Error();
     }
-    return getEffectiveImpl<"BaseSectionUnion">(baseImpl, core, implLayering);
+    return getEffectiveImpl(baseImpl, core, implLayering);
   }
   return sectionImpl;
 }
@@ -128,7 +128,7 @@ export function getEffectiveCodeObjImpl(
   if (!baseImpl || !core) {
     throw new Error();
   }
-  return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
+  return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
 export function getEffectiveImplFromLayeringMap(
@@ -148,7 +148,7 @@ export function getEffectiveImplFromLayeringMap(
   if (!baseImpl || !core) {
     throw new Error();
   }
-  return getEffectiveImpl<"BaseCodeObjUnion">(baseImpl, core, implLayering);
+  return getEffectiveImpl(baseImpl, core, implLayering);
 }
 
 export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(

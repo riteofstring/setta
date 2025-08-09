@@ -331,15 +331,7 @@ def add_code_obj(
     section_layering = get_section_impl_layering(p, section_id)
     base_section_impl = p.sectionImpls[section_layering.impl]
     section_core = p.sections[section_id]
-    section_impl = get_effective_impl(
-        base_section_impl,
-        section_core,
-        section_layering,
-    )
-    if not (
-        isinstance(base_section_impl, BaseSectionWithParamsImplUnion)
-        and isinstance(section_impl, BaseSectionWithParamsImplUnion)
-    ):
+    if not (isinstance(base_section_impl, BaseSectionWithParamsImplUnion)):
         raise TypeError
     code_obj_impl_layering = Layering(
         impl=code_obj_impl.id,
@@ -352,18 +344,17 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
 
-    section_impl = set_effective_impl_value(
+    set_effective_impl_value(
         base_section_impl,
         section_core,
         section_layering,
         {
-            "codeObjImplLayeringMap": {
-                **section_impl.codeObjImplLayeringMap,
-                code_obj.id: code_obj_impl_layering.id,
-            }
+            "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
+                {code_obj.id: code_obj_impl_layering.id}
+            )
         },
     )
-    return section_impl, code_obj_impl_layering
+    return code_obj_impl_layering
 
 
 def add_children_of_callable(
@@ -397,7 +388,7 @@ def add_children_of_callable(
             update_impl_layerings(p, existing.implLayerings, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:
-            section_impl, _ = add_code_obj(p, section_id, new_param, new_param_impl)
+            add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
     base_impl = p.codeObjImpls[callable_code_obj_layering.impl]
@@ -409,8 +400,6 @@ def add_children_of_callable(
             callable_code_obj_layering,
             {"children": param_ids_in_order},
         )
-
-    return section_impl
 
 
 def set_param_entered_value(
@@ -535,12 +524,15 @@ def create_child_sections(
     if startIdx is None:
         startIdx = len(effectiveImpl.children)
 
-    currChildren = effectiveImpl.children
     set_effective_impl_value(
         baseImpl,
         core,
         get_section_impl_layering(p, parentId),
-        {"children": insert_into_array(currChildren, startIdx, newIds)},
+        {
+            "children": lambda currChildren: insert_into_array(
+                currChildren, startIdx, newIds
+            )
+        },
     )
     return newIds
 
@@ -573,23 +565,17 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         impl = get_effective_section_impl(p, id)
         # delete from parent's current children list
         if impl.parentId:
-            parent_effective_impl = get_effective_section_impl(p, impl.parentId)
             parent_core = p.sections[impl.parentId]
             parent_layering = get_section_impl_layering(p, impl.parentId)
             parent_base_impl = p.sectionImpls[parent_layering.impl]
-            if not isinstance(
-                parent_effective_impl, BaseParentSectionImpl
-            ) or not isinstance(parent_base_impl, BaseParentSectionImpl):
-                raise ValueError(
-                    f"parent_effective_impl: {parent_effective_impl}\nparent_base_impl: {parent_base_impl}"
-                )
+            if not isinstance(parent_base_impl, BaseParentSectionImpl):
+                raise ValueError(f"parent_base_impl: {parent_base_impl}")
 
-            new_children = [x for x in parent_effective_impl.children if x != id]
             set_effective_impl_value(
                 parent_base_impl,
                 parent_core,
                 parent_layering,
-                {"children": new_children},
+                {"children": lambda currChildren: [x for x in currChildren if x != id]},
             )
 
         still_used = check_if_section_is_still_used_somewhere(p, id)
@@ -811,3 +797,11 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
 def is_color_hex(string):
     pattern = r"^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
     return bool(re.match(pattern, string))
+
+
+# use this if lambda function isn't sufficient for the type checker
+def get_code_obj_impl_layering_map_update_fn(newMappings: dict[str, str]):
+    def fn(currMap: dict[str, str]):
+        return {**currMap, **newMappings}
+
+    return fn

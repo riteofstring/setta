@@ -1,4 +1,3 @@
-import copy
 from pathlib import Path
 
 from lsprotocol import types as LSPTypes
@@ -37,6 +36,7 @@ from setta.types.helpers import (
     callable_has_been_selected_before,
     callable_is_already_selected,
     get_code_obj_impl_layering,
+    get_code_obj_impl_layering_map_update_fn,
     get_effective_section_impl,
     get_section_impl_layering,
     get_section_path_full_name,
@@ -184,7 +184,7 @@ class ProjectGenPythonCode(PythonCode):
                 settings.codeCallableCodeObjDefault,
             )
             callable_code_obj = Core(name=callableName)
-            section_impl, callable_code_obj_impl_layering = add_code_obj(
+            callable_code_obj_impl_layering = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_base_impl
             )
         else:
@@ -211,21 +211,19 @@ class ProjectGenPythonCode(PythonCode):
             {"description": documentation},
         )
 
-        section_impl = add_children_of_callable(
+        add_children_of_callable(
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
 
-        newCodeObjImplLayeringMap = copy.deepcopy(section_impl.codeObjImplLayeringMap)
-        newCodeObjImplLayeringMap[callable_code_obj.id] = (
-            callable_code_obj_impl_layering.id
-        )
         set_effective_impl_value(
             base_section_impl,
             section_core,
             section_layering,
             {
                 "callable": callable_code_obj.id,
-                "codeObjImplLayeringMap": newCodeObjImplLayeringMap,
+                "codeObjImplLayeringMap": get_code_obj_impl_layering_map_update_fn(
+                    {callable_code_obj.id: callable_code_obj_impl_layering.id}
+                ),
             },
         )
 

@@ -3871,6 +3871,34 @@ export function createBaseArtifactSectionImplArgs(
   return BaseArtifactSectionImplArgsSchema.parse(options);
 }
 
+export const BaseArtifactSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type BaseArtifactSectionImplArgsWithCallable = z.infer<
+  typeof BaseArtifactSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseArtifactSectionImplArgsWithCallable(
+  options: Partial<BaseArtifactSectionImplArgsWithCallable> = {},
+): BaseArtifactSectionImplArgsWithCallable {
+  return BaseArtifactSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -3899,6 +3927,34 @@ export function createBaseCanvasSectionImplArgs(
   return BaseCanvasSectionImplArgsSchema.parse(options);
 }
 
+export const BaseCanvasSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  renderedValue: z.union([z.any(), z.any()]).optional(),
+});
+
+export type BaseCanvasSectionImplArgsWithCallable = z.infer<
+  typeof BaseCanvasSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseCanvasSectionImplArgsWithCallable(
+  options: Partial<BaseCanvasSectionImplArgsWithCallable> = {},
+): BaseCanvasSectionImplArgsWithCallable {
+  return BaseCanvasSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseChildlessCodeObjImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -3922,6 +3978,31 @@ export function createBaseChildlessCodeObjImplArgs(
   return BaseChildlessCodeObjImplArgsSchema.parse(options);
 }
 
+export const BaseChildlessCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+});
+
+export type BaseChildlessCodeObjImplArgsWithCallable = z.infer<
+  typeof BaseChildlessCodeObjImplArgsWithCallableSchema
+>;
+
+export function createBaseChildlessCodeObjImplArgsWithCallable(
+  options: Partial<BaseChildlessCodeObjImplArgsWithCallable> = {},
+): BaseChildlessCodeObjImplArgsWithCallable {
+  return BaseChildlessCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseCodeObjImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -3936,6 +4017,24 @@ export function createBaseCodeObjImplArgs(
   options: Partial<BaseCodeObjImplArgs> = {},
 ): BaseCodeObjImplArgs {
   return BaseCodeObjImplArgsSchema.parse(options);
+}
+
+export const BaseCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type BaseCodeObjImplArgsWithCallable = z.infer<
+  typeof BaseCodeObjImplArgsWithCallableSchema
+>;
+
+export function createBaseCodeObjImplArgsWithCallable(
+  options: Partial<BaseCodeObjImplArgsWithCallable> = {},
+): BaseCodeObjImplArgsWithCallable {
+  return BaseCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const BaseCodeSectionImplArgsSchema = z.object({
@@ -3964,6 +4063,34 @@ export function createBaseCodeSectionImplArgs(
   options: Partial<BaseCodeSectionImplArgs> = {},
 ): BaseCodeSectionImplArgs {
   return BaseCodeSectionImplArgsSchema.parse(options);
+}
+
+export const BaseCodeSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  code: z.union([z.string(), z.any()]).optional(),
+});
+
+export type BaseCodeSectionImplArgsWithCallable = z.infer<
+  typeof BaseCodeSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseCodeSectionImplArgsWithCallable(
+  options: Partial<BaseCodeSectionImplArgsWithCallable> = {},
+): BaseCodeSectionImplArgsWithCallable {
+  return BaseCodeSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const BaseDictSectionImplArgsSchema = z.object({
@@ -4006,6 +4133,52 @@ export function createBaseDictSectionImplArgs(
   return BaseDictSectionImplArgsSchema.parse(options);
 }
 
+export const BaseDictSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  codeObjImplLayeringMap: z
+    .union([z.record(z.string(), z.string()), z.any()])
+    .optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  paramFilter: z.union([z.string(), z.any()]).optional(),
+  columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
+  pinnedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto"), z.any()])
+    .optional(),
+  selectedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  ignoreTypeErrors: z
+    .union([z.record(z.string(), z.boolean()), z.any()])
+    .optional(),
+  topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
+  isJsonSource: z.union([z.boolean(), z.any()]).optional(),
+  jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
+  jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type BaseDictSectionImplArgsWithCallable = z.infer<
+  typeof BaseDictSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseDictSectionImplArgsWithCallable(
+  options: Partial<BaseDictSectionImplArgsWithCallable> = {},
+): BaseDictSectionImplArgsWithCallable {
+  return BaseDictSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseParamCodeObjImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -4027,6 +4200,29 @@ export function createBaseParamCodeObjImplArgs(
   return BaseParamCodeObjImplArgsSchema.parse(options);
 }
 
+export const BaseParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+});
+
+export type BaseParamCodeObjImplArgsWithCallable = z.infer<
+  typeof BaseParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createBaseParamCodeObjImplArgsWithCallable(
+  options: Partial<BaseParamCodeObjImplArgsWithCallable> = {},
+): BaseParamCodeObjImplArgsWithCallable {
+  return BaseParamCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseParentCodeObjImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -4044,6 +4240,25 @@ export function createBaseParentCodeObjImplArgs(
   options: Partial<BaseParentCodeObjImplArgs> = {},
 ): BaseParentCodeObjImplArgs {
   return BaseParentCodeObjImplArgsSchema.parse(options);
+}
+
+export const BaseParentCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type BaseParentCodeObjImplArgsWithCallable = z.infer<
+  typeof BaseParentCodeObjImplArgsWithCallableSchema
+>;
+
+export function createBaseParentCodeObjImplArgsWithCallable(
+  options: Partial<BaseParentCodeObjImplArgsWithCallable> = {},
+): BaseParentCodeObjImplArgsWithCallable {
+  return BaseParentCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const BaseParentSectionImplArgsSchema = z.object({
@@ -4074,6 +4289,34 @@ export function createBaseParentSectionImplArgs(
   return BaseParentSectionImplArgsSchema.parse(options);
 }
 
+export const BaseParentSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type BaseParentSectionImplArgsWithCallable = z.infer<
+  typeof BaseParentSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseParentSectionImplArgsWithCallable(
+  options: Partial<BaseParentSectionImplArgsWithCallable> = {},
+): BaseParentSectionImplArgsWithCallable {
+  return BaseParentSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const BaseSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -4097,6 +4340,33 @@ export function createBaseSectionImplArgs(
   options: Partial<BaseSectionImplArgs> = {},
 ): BaseSectionImplArgs {
   return BaseSectionImplArgsSchema.parse(options);
+}
+
+export const BaseSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type BaseSectionImplArgsWithCallable = z.infer<
+  typeof BaseSectionImplArgsWithCallableSchema
+>;
+
+export function createBaseSectionImplArgsWithCallable(
+  options: Partial<BaseSectionImplArgsWithCallable> = {},
+): BaseSectionImplArgsWithCallable {
+  return BaseSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const BaseSectionWithParamsImplArgsSchema = z.object({
@@ -4135,6 +4405,48 @@ export function createBaseSectionWithParamsImplArgs(
   return BaseSectionWithParamsImplArgsSchema.parse(options);
 }
 
+export const BaseSectionWithParamsImplArgsWithCallableSchema = z.object({
+  type: z.union([z.any(), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  codeObjImplLayeringMap: z
+    .union([z.record(z.string(), z.string()), z.any()])
+    .optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  paramFilter: z.union([z.string(), z.any()]).optional(),
+  columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
+  pinnedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto"), z.any()])
+    .optional(),
+  selectedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  ignoreTypeErrors: z
+    .union([z.record(z.string(), z.boolean()), z.any()])
+    .optional(),
+});
+
+export type BaseSectionWithParamsImplArgsWithCallable = z.infer<
+  typeof BaseSectionWithParamsImplArgsWithCallableSchema
+>;
+
+export function createBaseSectionWithParamsImplArgsWithCallable(
+  options: Partial<BaseSectionWithParamsImplArgsWithCallable> = {},
+): BaseSectionWithParamsImplArgsWithCallable {
+  return BaseSectionWithParamsImplArgsWithCallableSchema.parse(options);
+}
+
 export const BrowserSectionImplArgsSchema = z.object({
   type: z.literal("Browser").optional(),
   id: z.string().optional(),
@@ -4161,6 +4473,34 @@ export function createBrowserSectionImplArgs(
   options: Partial<BrowserSectionImplArgs> = {},
 ): BrowserSectionImplArgs {
   return BrowserSectionImplArgsSchema.parse(options);
+}
+
+export const BrowserSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Browser"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  hideColumn: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type BrowserSectionImplArgsWithCallable = z.infer<
+  typeof BrowserSectionImplArgsWithCallableSchema
+>;
+
+export function createBrowserSectionImplArgsWithCallable(
+  options: Partial<BrowserSectionImplArgsWithCallable> = {},
+): BrowserSectionImplArgsWithCallable {
+  return BrowserSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const CallableSectionImplArgsSchema = z.object({
@@ -4201,6 +4541,50 @@ export function createCallableSectionImplArgs(
   return CallableSectionImplArgsSchema.parse(options);
 }
 
+export const CallableSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Callable"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  codeObjImplLayeringMap: z
+    .union([z.record(z.string(), z.string()), z.any()])
+    .optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  paramFilter: z.union([z.string(), z.any()]).optional(),
+  columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
+  pinnedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto"), z.any()])
+    .optional(),
+  selectedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  ignoreTypeErrors: z
+    .union([z.record(z.string(), z.boolean()), z.any()])
+    .optional(),
+  callable: z.union([z.string(), z.null(), z.any()]).optional(),
+  hideParams: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type CallableSectionImplArgsWithCallable = z.infer<
+  typeof CallableSectionImplArgsWithCallableSchema
+>;
+
+export function createCallableSectionImplArgsWithCallable(
+  options: Partial<CallableSectionImplArgsWithCallable> = {},
+): CallableSectionImplArgsWithCallable {
+  return CallableSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const ChartSectionImplArgsSchema = z.object({
   type: z.literal("Chart").optional(),
   id: z.string().optional(),
@@ -4229,6 +4613,36 @@ export function createChartSectionImplArgs(
   return ChartSectionImplArgsSchema.parse(options);
 }
 
+export const ChartSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Chart"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
+  renderedValue: z.union([z.any(), z.any()]).optional(),
+  chartSettings: z.union([ChartSettingsSchema, z.any()]).optional(),
+});
+
+export type ChartSectionImplArgsWithCallable = z.infer<
+  typeof ChartSectionImplArgsWithCallableSchema
+>;
+
+export function createChartSectionImplArgsWithCallable(
+  options: Partial<ChartSectionImplArgsWithCallable> = {},
+): ChartSectionImplArgsWithCallable {
+  return ChartSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const ChatSectionImplArgsSchema = z.object({
   type: z.literal("Chat").optional(),
   id: z.string().optional(),
@@ -4254,6 +4668,33 @@ export function createChatSectionImplArgs(
   return ChatSectionImplArgsSchema.parse(options);
 }
 
+export const ChatSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Chat"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type ChatSectionImplArgsWithCallable = z.infer<
+  typeof ChatSectionImplArgsWithCallableSchema
+>;
+
+export function createChatSectionImplArgsWithCallable(
+  options: Partial<ChatSectionImplArgsWithCallable> = {},
+): ChatSectionImplArgsWithCallable {
+  return ChatSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const CodeCallableCodeObjImplArgsSchema = z.object({
   type: z.literal("CodeCallable").optional(),
   id: z.string().optional(),
@@ -4271,6 +4712,25 @@ export function createCodeCallableCodeObjImplArgs(
   options: Partial<CodeCallableCodeObjImplArgs> = {},
 ): CodeCallableCodeObjImplArgs {
   return CodeCallableCodeObjImplArgsSchema.parse(options);
+}
+
+export const CodeCallableCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("CodeCallable"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type CodeCallableCodeObjImplArgsWithCallable = z.infer<
+  typeof CodeCallableCodeObjImplArgsWithCallableSchema
+>;
+
+export function createCodeCallableCodeObjImplArgsWithCallable(
+  options: Partial<CodeCallableCodeObjImplArgsWithCallable> = {},
+): CodeCallableCodeObjImplArgsWithCallable {
+  return CodeCallableCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const CodeParamCodeObjImplArgsSchema = z.object({
@@ -4294,6 +4754,31 @@ export function createCodeParamCodeObjImplArgs(
   options: Partial<CodeParamCodeObjImplArgs> = {},
 ): CodeParamCodeObjImplArgs {
   return CodeParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const CodeParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("CodeParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+});
+
+export type CodeParamCodeObjImplArgsWithCallable = z.infer<
+  typeof CodeParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createCodeParamCodeObjImplArgsWithCallable(
+  options: Partial<CodeParamCodeObjImplArgsWithCallable> = {},
+): CodeParamCodeObjImplArgsWithCallable {
+  return CodeParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const CodeSectionImplArgsSchema = z.object({
@@ -4323,6 +4808,35 @@ export function createCodeSectionImplArgs(
   return CodeSectionImplArgsSchema.parse(options);
 }
 
+export const CodeSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Code"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  code: z.union([z.string(), z.any()]).optional(),
+  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.any()]).optional(),
+});
+
+export type CodeSectionImplArgsWithCallable = z.infer<
+  typeof CodeSectionImplArgsWithCallableSchema
+>;
+
+export function createCodeSectionImplArgsWithCallable(
+  options: Partial<CodeSectionImplArgsWithCallable> = {},
+): CodeSectionImplArgsWithCallable {
+  return CodeSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const ColorPickerParamCodeObjImplArgsSchema = z.object({
   type: z.literal("ColorPickerParam").optional(),
   id: z.string().optional(),
@@ -4345,6 +4859,32 @@ export function createColorPickerParamCodeObjImplArgs(
   options: Partial<ColorPickerParamCodeObjImplArgs> = {},
 ): ColorPickerParamCodeObjImplArgs {
   return ColorPickerParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const ColorPickerParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("ColorPickerParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+  choices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
+});
+
+export type ColorPickerParamCodeObjImplArgsWithCallable = z.infer<
+  typeof ColorPickerParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createColorPickerParamCodeObjImplArgsWithCallable(
+  options: Partial<ColorPickerParamCodeObjImplArgsWithCallable> = {},
+): ColorPickerParamCodeObjImplArgsWithCallable {
+  return ColorPickerParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const DictRootSectionImplArgsSchema = z.object({
@@ -4373,6 +4913,34 @@ export function createDictRootSectionImplArgs(
   options: Partial<DictRootSectionImplArgs> = {},
 ): DictRootSectionImplArgs {
   return DictRootSectionImplArgsSchema.parse(options);
+}
+
+export const DictRootSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("DictRoot"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type DictRootSectionImplArgsWithCallable = z.infer<
+  typeof DictRootSectionImplArgsWithCallableSchema
+>;
+
+export function createDictRootSectionImplArgsWithCallable(
+  options: Partial<DictRootSectionImplArgsWithCallable> = {},
+): DictRootSectionImplArgsWithCallable {
+  return DictRootSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const DictSectionImplArgsSchema = z.object({
@@ -4413,6 +4981,52 @@ export function createDictSectionImplArgs(
   return DictSectionImplArgsSchema.parse(options);
 }
 
+export const DictSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Dict"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  codeObjImplLayeringMap: z
+    .union([z.record(z.string(), z.string()), z.any()])
+    .optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  paramFilter: z.union([z.string(), z.any()]).optional(),
+  columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
+  pinnedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto"), z.any()])
+    .optional(),
+  selectedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  ignoreTypeErrors: z
+    .union([z.record(z.string(), z.boolean()), z.any()])
+    .optional(),
+  topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
+  isJsonSource: z.union([z.boolean(), z.any()]).optional(),
+  jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
+  jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type DictSectionImplArgsWithCallable = z.infer<
+  typeof DictSectionImplArgsWithCallableSchema
+>;
+
+export function createDictSectionImplArgsWithCallable(
+  options: Partial<DictSectionImplArgsWithCallable> = {},
+): DictSectionImplArgsWithCallable {
+  return DictSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const DrawSectionImplArgsSchema = z.object({
   type: z.literal("Draw").optional(),
   id: z.string().optional(),
@@ -4441,6 +5055,36 @@ export function createDrawSectionImplArgs(
   return DrawSectionImplArgsSchema.parse(options);
 }
 
+export const DrawSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Draw"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
+  renderedValue: z.union([z.any(), z.any()]).optional(),
+  canvasSettings: z.union([DrawAreaCanvasSettingsSchema, z.any()]).optional(),
+});
+
+export type DrawSectionImplArgsWithCallable = z.infer<
+  typeof DrawSectionImplArgsWithCallableSchema
+>;
+
+export function createDrawSectionImplArgsWithCallable(
+  options: Partial<DrawSectionImplArgsWithCallable> = {},
+): DrawSectionImplArgsWithCallable {
+  return DrawSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const DropdownParamCodeObjImplArgsSchema = z.object({
   type: z.literal("DropdownParam").optional(),
   id: z.string().optional(),
@@ -4463,6 +5107,32 @@ export function createDropdownParamCodeObjImplArgs(
   options: Partial<DropdownParamCodeObjImplArgs> = {},
 ): DropdownParamCodeObjImplArgs {
   return DropdownParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const DropdownParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("DropdownParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+  choices: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type DropdownParamCodeObjImplArgsWithCallable = z.infer<
+  typeof DropdownParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createDropdownParamCodeObjImplArgsWithCallable(
+  options: Partial<DropdownParamCodeObjImplArgsWithCallable> = {},
+): DropdownParamCodeObjImplArgsWithCallable {
+  return DropdownParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const GenPythonCodeSectionImplArgsSchema = z.object({
@@ -4491,6 +5161,34 @@ export function createGenPythonCodeSectionImplArgs(
   options: Partial<GenPythonCodeSectionImplArgs> = {},
 ): GenPythonCodeSectionImplArgs {
   return GenPythonCodeSectionImplArgsSchema.parse(options);
+}
+
+export const GenPythonCodeSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("GenPythonCode"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  code: z.union([z.string(), z.any()]).optional(),
+});
+
+export type GenPythonCodeSectionImplArgsWithCallable = z.infer<
+  typeof GenPythonCodeSectionImplArgsWithCallableSchema
+>;
+
+export function createGenPythonCodeSectionImplArgsWithCallable(
+  options: Partial<GenPythonCodeSectionImplArgsWithCallable> = {},
+): GenPythonCodeSectionImplArgsWithCallable {
+  return GenPythonCodeSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const GlobalVariablesSectionImplArgsSchema = z.object({
@@ -4533,6 +5231,52 @@ export function createGlobalVariablesSectionImplArgs(
   return GlobalVariablesSectionImplArgsSchema.parse(options);
 }
 
+export const GlobalVariablesSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("GlobalVariables"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  codeObjImplLayeringMap: z
+    .union([z.record(z.string(), z.string()), z.any()])
+    .optional(),
+  hideUnpinnedParams: z.union([z.boolean(), z.any()]).optional(),
+  paramFilter: z.union([z.string(), z.any()]).optional(),
+  columnWidth: z.union([z.number(), z.null(), z.any()]).optional(),
+  configLanguage: z.union([z.enum(ConfigLanguageEnum), z.any()]).optional(),
+  pinnedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  pinnedAreaHeight: z
+    .union([z.number(), z.literal("auto"), z.any()])
+    .optional(),
+  selectedParams: z.union([z.array(z.string()), z.any()]).optional(),
+  ignoreTypeErrors: z
+    .union([z.record(z.string(), z.boolean()), z.any()])
+    .optional(),
+  topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
+  isJsonSource: z.union([z.boolean(), z.any()]).optional(),
+  jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
+  jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type GlobalVariablesSectionImplArgsWithCallable = z.infer<
+  typeof GlobalVariablesSectionImplArgsWithCallableSchema
+>;
+
+export function createGlobalVariablesSectionImplArgsWithCallable(
+  options: Partial<GlobalVariablesSectionImplArgsWithCallable> = {},
+): GlobalVariablesSectionImplArgsWithCallable {
+  return GlobalVariablesSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const GroupSectionImplArgsSchema = z.object({
   type: z.literal("Group").optional(),
   id: z.string().optional(),
@@ -4560,6 +5304,35 @@ export function createGroupSectionImplArgs(
   return GroupSectionImplArgsSchema.parse(options);
 }
 
+export const GroupSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Group"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+  isHorizontalOrientation: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type GroupSectionImplArgsWithCallable = z.infer<
+  typeof GroupSectionImplArgsWithCallableSchema
+>;
+
+export function createGroupSectionImplArgsWithCallable(
+  options: Partial<GroupSectionImplArgsWithCallable> = {},
+): GroupSectionImplArgsWithCallable {
+  return GroupSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const IFrameSectionImplArgsSchema = z.object({
   type: z.literal("IFrame").optional(),
   id: z.string().optional(),
@@ -4583,6 +5356,33 @@ export function createIFrameSectionImplArgs(
   options: Partial<IFrameSectionImplArgs> = {},
 ): IFrameSectionImplArgs {
   return IFrameSectionImplArgsSchema.parse(options);
+}
+
+export const IFrameSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("IFrame"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type IFrameSectionImplArgsWithCallable = z.infer<
+  typeof IFrameSectionImplArgsWithCallableSchema
+>;
+
+export function createIFrameSectionImplArgsWithCallable(
+  options: Partial<IFrameSectionImplArgsWithCallable> = {},
+): IFrameSectionImplArgsWithCallable {
+  return IFrameSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const ImageSectionImplArgsSchema = z.object({
@@ -4609,6 +5409,34 @@ export function createImageSectionImplArgs(
   options: Partial<ImageSectionImplArgs> = {},
 ): ImageSectionImplArgs {
   return ImageSectionImplArgsSchema.parse(options);
+}
+
+export const ImageSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Image"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type ImageSectionImplArgsWithCallable = z.infer<
+  typeof ImageSectionImplArgsWithCallableSchema
+>;
+
+export function createImageSectionImplArgsWithCallable(
+  options: Partial<ImageSectionImplArgsWithCallable> = {},
+): ImageSectionImplArgsWithCallable {
+  return ImageSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const ListRootSectionImplArgsSchema = z.object({
@@ -4639,6 +5467,34 @@ export function createListRootSectionImplArgs(
   return ListRootSectionImplArgsSchema.parse(options);
 }
 
+export const ListRootSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("ListRoot"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type ListRootSectionImplArgsWithCallable = z.infer<
+  typeof ListRootSectionImplArgsWithCallableSchema
+>;
+
+export function createListRootSectionImplArgsWithCallable(
+  options: Partial<ListRootSectionImplArgsWithCallable> = {},
+): ListRootSectionImplArgsWithCallable {
+  return ListRootSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const NestedParamCodeObjImplArgsSchema = z.object({
   type: z.literal("NestedParam").optional(),
   id: z.string().optional(),
@@ -4659,6 +5515,30 @@ export function createNestedParamCodeObjImplArgs(
   options: Partial<NestedParamCodeObjImplArgs> = {},
 ): NestedParamCodeObjImplArgs {
   return NestedParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const NestedParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("NestedParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  children: z.union([z.array(z.string()), z.any()]).optional(),
+});
+
+export type NestedParamCodeObjImplArgsWithCallable = z.infer<
+  typeof NestedParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createNestedParamCodeObjImplArgsWithCallable(
+  options: Partial<NestedParamCodeObjImplArgsWithCallable> = {},
+): NestedParamCodeObjImplArgsWithCallable {
+  return NestedParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const PasswordParamCodeObjImplArgsSchema = z.object({
@@ -4682,6 +5562,31 @@ export function createPasswordParamCodeObjImplArgs(
   options: Partial<PasswordParamCodeObjImplArgs> = {},
 ): PasswordParamCodeObjImplArgs {
   return PasswordParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const PasswordParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("PasswordParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+});
+
+export type PasswordParamCodeObjImplArgsWithCallable = z.infer<
+  typeof PasswordParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createPasswordParamCodeObjImplArgsWithCallable(
+  options: Partial<PasswordParamCodeObjImplArgsWithCallable> = {},
+): PasswordParamCodeObjImplArgsWithCallable {
+  return PasswordParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const SliderParamCodeObjImplArgsSchema = z.object({
@@ -4710,6 +5615,34 @@ export function createSliderParamCodeObjImplArgs(
   return SliderParamCodeObjImplArgsSchema.parse(options);
 }
 
+export const SliderParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("SliderParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+  min: z.union([z.int(), z.any()]).optional(),
+  max: z.union([z.int(), z.any()]).optional(),
+  step: z.union([z.int(), z.any()]).optional(),
+});
+
+export type SliderParamCodeObjImplArgsWithCallable = z.infer<
+  typeof SliderParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createSliderParamCodeObjImplArgsWithCallable(
+  options: Partial<SliderParamCodeObjImplArgsWithCallable> = {},
+): SliderParamCodeObjImplArgsWithCallable {
+  return SliderParamCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
 export const SocialSectionImplArgsSchema = z.object({
   type: z.literal("Social").optional(),
   id: z.string().optional(),
@@ -4736,6 +5669,34 @@ export function createSocialSectionImplArgs(
   return SocialSectionImplArgsSchema.parse(options);
 }
 
+export const SocialSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Social"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  social: z.union([z.string(), z.any()]).optional(),
+});
+
+export type SocialSectionImplArgsWithCallable = z.infer<
+  typeof SocialSectionImplArgsWithCallableSchema
+>;
+
+export function createSocialSectionImplArgsWithCallable(
+  options: Partial<SocialSectionImplArgsWithCallable> = {},
+): SocialSectionImplArgsWithCallable {
+  return SocialSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const SwitchParamCodeObjImplArgsSchema = z.object({
   type: z.literal("SwitchParam").optional(),
   id: z.string().optional(),
@@ -4757,6 +5718,31 @@ export function createSwitchParamCodeObjImplArgs(
   options: Partial<SwitchParamCodeObjImplArgs> = {},
 ): SwitchParamCodeObjImplArgs {
   return SwitchParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const SwitchParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("SwitchParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+});
+
+export type SwitchParamCodeObjImplArgsWithCallable = z.infer<
+  typeof SwitchParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createSwitchParamCodeObjImplArgsWithCallable(
+  options: Partial<SwitchParamCodeObjImplArgsWithCallable> = {},
+): SwitchParamCodeObjImplArgsWithCallable {
+  return SwitchParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const TerminalSectionImplArgsSchema = z.object({
@@ -4784,6 +5770,33 @@ export function createTerminalSectionImplArgs(
   options: Partial<TerminalSectionImplArgs> = {},
 ): TerminalSectionImplArgs {
   return TerminalSectionImplArgsSchema.parse(options);
+}
+
+export const TerminalSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("Terminal"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type TerminalSectionImplArgsWithCallable = z.infer<
+  typeof TerminalSectionImplArgsWithCallableSchema
+>;
+
+export function createTerminalSectionImplArgsWithCallable(
+  options: Partial<TerminalSectionImplArgsWithCallable> = {},
+): TerminalSectionImplArgsWithCallable {
+  return TerminalSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const TextBlockSectionImplArgsSchema = z.object({
@@ -4817,6 +5830,37 @@ export function createTextBlockSectionImplArgs(
   return TextBlockSectionImplArgsSchema.parse(options);
 }
 
+export const TextBlockSectionImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("TextBlock"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  parentId: z.union([z.string(), z.null(), z.any()]).optional(),
+  isFrozen: z.union([z.boolean(), z.any()]).optional(),
+  visibility: z.union([VisibilitySchema, z.any()]).optional(),
+  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
+  size: z.union([SectionSizeSchema, z.any()]).optional(),
+  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
+  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
+  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
+  isMinimized: z.union([z.boolean(), z.any()]).optional(),
+  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  format: z.union([z.enum(TextBlockFormatEnum), z.any()]).optional(),
+  headingAsSectionName: z.union([z.boolean(), z.any()]).optional(),
+  displayMode: z.union([z.enum(TextBlockDisplayModeEnum), z.any()]).optional(),
+  text: z.union([z.string(), z.any()]).optional(),
+});
+
+export type TextBlockSectionImplArgsWithCallable = z.infer<
+  typeof TextBlockSectionImplArgsWithCallableSchema
+>;
+
+export function createTextBlockSectionImplArgsWithCallable(
+  options: Partial<TextBlockSectionImplArgsWithCallable> = {},
+): TextBlockSectionImplArgsWithCallable {
+  return TextBlockSectionImplArgsWithCallableSchema.parse(options);
+}
+
 export const TextParamCodeObjImplArgsSchema = z.object({
   type: z.literal("TextParam").optional(),
   id: z.string().optional(),
@@ -4838,6 +5882,31 @@ export function createTextParamCodeObjImplArgs(
   options: Partial<TextParamCodeObjImplArgs> = {},
 ): TextParamCodeObjImplArgs {
   return TextParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const TextParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("TextParam"), z.any()]).optional(),
+  id: z.union([z.string(), z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+});
+
+export type TextParamCodeObjImplArgsWithCallable = z.infer<
+  typeof TextParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createTextParamCodeObjImplArgsWithCallable(
+  options: Partial<TextParamCodeObjImplArgsWithCallable> = {},
+): TextParamCodeObjImplArgsWithCallable {
+  return TextParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const ArtifactWithIdSchema = z.object({

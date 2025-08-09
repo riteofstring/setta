@@ -296,7 +296,6 @@ class ProjectManager:
         self.delete_unused_files(project_temp_folder)
         projectState.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
-        print("\n\n\nincremented modcount!", self.project_state_backend.modCount, projectState.modCount)
         return True
 
     @enqueue_method

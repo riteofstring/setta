@@ -1,7 +1,7 @@
 # Auto-generated effective impl overloads - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import TypeVar, overload
+from typing import Any, Callable, TypeVar, overload
 
 from pydantic import BaseModel
 
@@ -18,43 +18,43 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Layering
 from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseArtifactSectionImplArgs,
-    BaseCanvasSectionImplArgs,
-    BaseChildlessCodeObjImplArgs,
-    BaseCodeObjImplArgs,
-    BaseCodeSectionImplArgs,
-    BaseDictSectionImplArgs,
-    BaseParamCodeObjImplArgs,
-    BaseParentCodeObjImplArgs,
-    BaseParentSectionImplArgs,
-    BaseSectionImplArgs,
-    BaseSectionWithParamsImplArgs,
-    BrowserSectionImplArgs,
-    CallableSectionImplArgs,
-    ChartSectionImplArgs,
-    ChatSectionImplArgs,
-    CodeCallableCodeObjImplArgs,
-    CodeParamCodeObjImplArgs,
-    CodeSectionImplArgs,
-    ColorPickerParamCodeObjImplArgs,
-    DictRootSectionImplArgs,
-    DictSectionImplArgs,
-    DrawSectionImplArgs,
-    DropdownParamCodeObjImplArgs,
-    GenPythonCodeSectionImplArgs,
-    GlobalVariablesSectionImplArgs,
-    GroupSectionImplArgs,
-    IFrameSectionImplArgs,
-    ImageSectionImplArgs,
-    ListRootSectionImplArgs,
-    NestedParamCodeObjImplArgs,
-    PasswordParamCodeObjImplArgs,
-    SliderParamCodeObjImplArgs,
-    SocialSectionImplArgs,
-    SwitchParamCodeObjImplArgs,
-    TerminalSectionImplArgs,
-    TextBlockSectionImplArgs,
-    TextParamCodeObjImplArgs,
+    BaseArtifactSectionImplArgsWithCallable,
+    BaseCanvasSectionImplArgsWithCallable,
+    BaseChildlessCodeObjImplArgsWithCallable,
+    BaseCodeObjImplArgsWithCallable,
+    BaseCodeSectionImplArgsWithCallable,
+    BaseDictSectionImplArgsWithCallable,
+    BaseParamCodeObjImplArgsWithCallable,
+    BaseParentCodeObjImplArgsWithCallable,
+    BaseParentSectionImplArgsWithCallable,
+    BaseSectionImplArgsWithCallable,
+    BaseSectionWithParamsImplArgsWithCallable,
+    BrowserSectionImplArgsWithCallable,
+    CallableSectionImplArgsWithCallable,
+    ChartSectionImplArgsWithCallable,
+    ChatSectionImplArgsWithCallable,
+    CodeCallableCodeObjImplArgsWithCallable,
+    CodeParamCodeObjImplArgsWithCallable,
+    CodeSectionImplArgsWithCallable,
+    ColorPickerParamCodeObjImplArgsWithCallable,
+    DictRootSectionImplArgsWithCallable,
+    DictSectionImplArgsWithCallable,
+    DrawSectionImplArgsWithCallable,
+    DropdownParamCodeObjImplArgsWithCallable,
+    GenPythonCodeSectionImplArgsWithCallable,
+    GlobalVariablesSectionImplArgsWithCallable,
+    GroupSectionImplArgsWithCallable,
+    IFrameSectionImplArgsWithCallable,
+    ImageSectionImplArgsWithCallable,
+    ListRootSectionImplArgsWithCallable,
+    NestedParamCodeObjImplArgsWithCallable,
+    PasswordParamCodeObjImplArgsWithCallable,
+    SliderParamCodeObjImplArgsWithCallable,
+    SocialSectionImplArgsWithCallable,
+    SwitchParamCodeObjImplArgsWithCallable,
+    TerminalSectionImplArgsWithCallable,
+    TextBlockSectionImplArgsWithCallable,
+    TextParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.unions import (
     BaseArtifactSectionImplUnion,
@@ -107,238 +107,265 @@ def set_effective_impl_value(
     impl: CallableSectionImpl,
     core: Core,
     layering: Layering,
-    args: CallableSectionImplArgs,
+    args: CallableSectionImplArgsWithCallable,
 ) -> CallableSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: DictSectionImpl, core: Core, layering: Layering, args: DictSectionImplArgs
+    impl: DictSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: DictSectionImplArgsWithCallable,
 ) -> DictSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: ListRootSectionImpl,
     core: Core,
     layering: Layering,
-    args: ListRootSectionImplArgs,
+    args: ListRootSectionImplArgsWithCallable,
 ) -> ListRootSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: DictRootSectionImpl,
     core: Core,
     layering: Layering,
-    args: DictRootSectionImplArgs,
+    args: DictRootSectionImplArgsWithCallable,
 ) -> DictRootSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: GroupSectionImpl, core: Core, layering: Layering, args: GroupSectionImplArgs
+    impl: GroupSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: GroupSectionImplArgsWithCallable,
 ) -> GroupSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: ImageSectionImpl, core: Core, layering: Layering, args: ImageSectionImplArgs
+    impl: ImageSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: ImageSectionImplArgsWithCallable,
 ) -> ImageSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: ChartSectionImpl, core: Core, layering: Layering, args: ChartSectionImplArgs
+    impl: ChartSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: ChartSectionImplArgsWithCallable,
 ) -> ChartSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: DrawSectionImpl, core: Core, layering: Layering, args: DrawSectionImplArgs
+    impl: DrawSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: DrawSectionImplArgsWithCallable,
 ) -> DrawSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: TextBlockSectionImpl,
     core: Core,
     layering: Layering,
-    args: TextBlockSectionImplArgs,
+    args: TextBlockSectionImplArgsWithCallable,
 ) -> TextBlockSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: SocialSectionImpl, core: Core, layering: Layering, args: SocialSectionImplArgs
+    impl: SocialSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: SocialSectionImplArgsWithCallable,
 ) -> SocialSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: GlobalVariablesSectionImpl,
     core: Core,
     layering: Layering,
-    args: GlobalVariablesSectionImplArgs,
+    args: GlobalVariablesSectionImplArgsWithCallable,
 ) -> GlobalVariablesSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: CodeSectionImpl, core: Core, layering: Layering, args: CodeSectionImplArgs
+    impl: CodeSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: CodeSectionImplArgsWithCallable,
 ) -> CodeSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: GenPythonCodeSectionImpl,
     core: Core,
     layering: Layering,
-    args: GenPythonCodeSectionImplArgs,
+    args: GenPythonCodeSectionImplArgsWithCallable,
 ) -> GenPythonCodeSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: TerminalSectionImpl,
     core: Core,
     layering: Layering,
-    args: TerminalSectionImplArgs,
+    args: TerminalSectionImplArgsWithCallable,
 ) -> TerminalSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: IFrameSectionImpl, core: Core, layering: Layering, args: IFrameSectionImplArgs
+    impl: IFrameSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: IFrameSectionImplArgsWithCallable,
 ) -> IFrameSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: ChatSectionImpl, core: Core, layering: Layering, args: ChatSectionImplArgs
+    impl: ChatSectionImpl,
+    core: Core,
+    layering: Layering,
+    args: ChatSectionImplArgsWithCallable,
 ) -> ChatSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BrowserSectionImpl,
     core: Core,
     layering: Layering,
-    args: BrowserSectionImplArgs,
+    args: BrowserSectionImplArgsWithCallable,
 ) -> BrowserSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: CodeCallableCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: CodeCallableCodeObjImplArgs,
+    args: CodeCallableCodeObjImplArgsWithCallable,
 ) -> CodeCallableCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: CodeParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: CodeParamCodeObjImplArgs,
+    args: CodeParamCodeObjImplArgsWithCallable,
 ) -> CodeParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: TextParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: TextParamCodeObjImplArgs,
+    args: TextParamCodeObjImplArgsWithCallable,
 ) -> TextParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: SliderParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: SliderParamCodeObjImplArgs,
+    args: SliderParamCodeObjImplArgsWithCallable,
 ) -> SliderParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: SwitchParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: SwitchParamCodeObjImplArgs,
+    args: SwitchParamCodeObjImplArgsWithCallable,
 ) -> SwitchParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: ColorPickerParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: ColorPickerParamCodeObjImplArgs,
+    args: ColorPickerParamCodeObjImplArgsWithCallable,
 ) -> ColorPickerParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: DropdownParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: DropdownParamCodeObjImplArgs,
+    args: DropdownParamCodeObjImplArgsWithCallable,
 ) -> DropdownParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: PasswordParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: PasswordParamCodeObjImplArgs,
+    args: PasswordParamCodeObjImplArgsWithCallable,
 ) -> PasswordParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: NestedParamCodeObjImpl,
     core: Core,
     layering: Layering,
-    args: NestedParamCodeObjImplArgs,
+    args: NestedParamCodeObjImplArgsWithCallable,
 ) -> NestedParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseCanvasSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseCanvasSectionImplArgs,
+    args: BaseCanvasSectionImplArgsWithCallable,
 ) -> BaseCanvasSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseCodeSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseCodeSectionImplArgs,
+    args: BaseCodeSectionImplArgsWithCallable,
 ) -> BaseCodeSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseDictSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseDictSectionImplArgs,
+    args: BaseDictSectionImplArgsWithCallable,
 ) -> BaseDictSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParentCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseParentCodeObjImplArgs,
+    args: BaseParentCodeObjImplArgsWithCallable,
 ) -> BaseParentCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseArtifactSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseArtifactSectionImplArgs,
+    args: BaseArtifactSectionImplArgsWithCallable,
 ) -> BaseArtifactSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseParentSectionImplArgs,
+    args: BaseParentSectionImplArgsWithCallable,
 ) -> BaseParentSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseSectionWithParamsImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseSectionWithParamsImplArgs,
+    args: BaseSectionWithParamsImplArgsWithCallable,
 ) -> BaseSectionWithParamsImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseChildlessCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseChildlessCodeObjImplArgs,
+    args: BaseChildlessCodeObjImplArgsWithCallable,
 ) -> BaseChildlessCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParamCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseParamCodeObjImplArgs,
+    args: BaseParamCodeObjImplArgsWithCallable,
 ) -> BaseParamCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseCodeObjImplArgs,
+    args: BaseCodeObjImplArgsWithCallable,
 ) -> BaseCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
     impl: BaseSectionImplUnion,
     core: Core,
     layering: Layering,
-    args: BaseSectionImplArgs,
+    args: BaseSectionImplArgsWithCallable,
 ) -> BaseSectionImplUnion: ...
 def set_effective_impl_value(
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     layering: Layering,
-    args: dict,
+    args: dict[str, Any | Callable[[Any], Any]],
 ) -> BaseSectionImplUnion | BaseCodeObjImplUnion:
     """Set a value in the effective implementation.
 
@@ -347,14 +374,21 @@ def set_effective_impl_value(
     - If key is in unsharedKeys: in the modifier
     - Otherwise: in the core's sharedModifier
 
+    Args is a dict where each value can be either:
+    - A direct value to set
+    - A callable that takes the current value and returns a new value
+
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     """
     for k, v in args.items():
         if not impl.isPreset:
-            setattr(impl, k, v)
+            current = getattr(impl, k, None)
+            setattr(impl, k, v(current) if callable(v) else v)
         elif k in core.unsharedKeys:
-            layering.modifier[k] = v
+            current = layering.modifier.get(k)
+            layering.modifier[k] = v(current) if callable(v) else v
         else:
-            core.sharedModifier[k] = v
+            current = core.sharedModifier.get(k)
+            core.sharedModifier[k] = v(current) if callable(v) else v
     return get_effective_impl(impl, core, layering)

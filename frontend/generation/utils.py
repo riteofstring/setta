@@ -250,6 +250,10 @@ class BaseClassInfoForGeneration(ABC):
         return [p.__name__ + "Args" for p in self.parents]
 
     @property
+    def parent_args_with_callable_class_names(self) -> list[str]:
+        return [p.__name__ + "ArgsWithCallable" for p in self.parents]
+
+    @property
     @abstractmethod
     def is_for_section(self) -> bool:
         pass
@@ -277,8 +281,8 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
         return self.original_name + "Args"
 
     @property
-    def impl_fields_name(self) -> str:
-        return self.base_name + "ImplFields"
+    def args_with_callable_name(self) -> str:
+        return self.original_name + "ArgsWithCallable"
 
     @property
     def impl_name(self) -> str:

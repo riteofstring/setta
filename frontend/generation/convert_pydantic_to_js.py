@@ -4,6 +4,7 @@ import importlib
 import inspect
 import pkgutil
 import types
+from collections.abc import Callable as ABCCallable
 from collections.abc import Sequence as ABCSequence
 from datetime import datetime
 from pathlib import Path
@@ -387,11 +388,14 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         Path: "z.string()",
         AnyUrl: "z.url()",
         WebSocket: "WebSocket",
-        Callable: "z.function()",
+        Callable: "z.any()",  # zod 4 doesn't support z.function()
+        ABCCallable: "z.any()",  # zod 4 doesn't support z.function(),
     }
 
     if python_type in type_map:
         return type_map[python_type], type_definitions
+    if origin in type_map:
+        return type_map[origin], type_definitions
 
     # Try to get the name for other types
     if hasattr(python_type, "__name__"):

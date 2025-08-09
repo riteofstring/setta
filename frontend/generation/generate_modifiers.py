@@ -20,6 +20,7 @@ def create_model_args_as_typed_dict(
     typed_dict_parent_names,
     exclusions: list[str] | None = None,
     required_args: list[str] | None = None,
+    include_callable_with_type=False,
 ):
     if exclusions is None:
         exclusions = []
@@ -45,6 +46,8 @@ def create_model_args_as_typed_dict(
                 continue
 
         annotation = python_type_to_str(field_info.annotation)
+        if include_callable_with_type:
+            annotation += f" | Callable[[{annotation}], {annotation}]"
         if field_name not in required_args:
             annotation = f"NotRequired[{annotation}]"
         attributes.append(f"{field_name}: {annotation}")
@@ -66,7 +69,7 @@ class {typed_dict_name}({parent_class}):
 
 def get_imports_str():
     return """
-from typing import TypedDict, Literal, Any, NotRequired, overload
+from typing import TypedDict, Literal, Any, NotRequired, overload, Callable
 from setta.types.section_impls import (
     ChartSettings,
     DrawAreaCanvasSettings,
@@ -102,6 +105,17 @@ def generate_impl_args_as_typed_dicts(
             ],
             c.args_name,
             c.parent_args_class_names,
+        )
+
+        code += create_model_args_as_typed_dict(
+            c,
+            [
+                setta.types.section_impls.BaseSectionImpl,
+                setta.types.code_obj_impls.BaseCodeObjImpl,
+            ],
+            c.args_with_callable_name,
+            c.parent_args_with_callable_class_names,
+            include_callable_with_type=True,
         )
 
     code = ruff_format(code)
