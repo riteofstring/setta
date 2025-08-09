@@ -9,37 +9,6 @@ import type {
 import type { Node } from "./nodes";
 import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
 
-export type FitView = (fitViewOptions?: FitViewOptions) => boolean;
-
-export type Project = (position: XYPosition) => XYPosition;
-
-export type OnNodesDelete = (nodes: Node[]) => void;
-
-export type OnMove = (
-  event: MouseEvent | TouchEvent,
-  viewport: Viewport,
-) => void;
-export type OnMoveStart = OnMove;
-export type OnMoveEnd = OnMove;
-
-export type ZoomInOut = (options?: ViewportHelperFunctionOptions) => void;
-export type ZoomTo = (
-  zoomLevel: number,
-  options?: ViewportHelperFunctionOptions,
-) => void;
-export type GetZoom = () => number;
-export type GetViewport = () => Viewport;
-export type SetViewport = (
-  viewport: Viewport,
-  options?: ViewportHelperFunctionOptions,
-) => void;
-export type SetCenter = (
-  x: number,
-  y: number,
-  options?: SetCenterOptions,
-) => void;
-export type FitBounds = (bounds: Rect, options?: FitBoundsOptions) => void;
-
 export type FitViewOptions = {
   padding?: number;
   minZoom?: number;
@@ -53,26 +22,6 @@ export type Viewport = {
   y: number;
   zoom: number;
 };
-
-export type SnapGrid = [number, number];
-
-export type ViewportHelperFunctionOptions = {
-  duration?: number;
-};
-
-export type SetCenterOptions = ViewportHelperFunctionOptions & {
-  zoom?: number;
-};
-
-export type FitBoundsOptions = ViewportHelperFunctionOptions & {
-  padding?: number;
-};
-
-export type UnselectNodesAndEdgesParams = {
-  nodes?: Node[];
-};
-
-export type OnViewportChange = (viewport: Viewport) => void;
 
 export type ReactFlowStore = {
   width: number;
@@ -115,14 +64,6 @@ export type ReactFlowActions = {
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;
 
-export type UpdateNodeInternals = (nodeId: string | string[]) => void;
-
-export type OnSelectionChangeParams = {
-  nodes: Node[];
-};
-
-export type OnSelectionChangeFunc = (params: OnSelectionChangeParams) => void;
-
 export type PanelPosition =
   | "top-left"
   | "top-center"
@@ -137,5 +78,3 @@ export type SelectionRect = Rect & {
   startX: number;
   startY: number;
 };
-
-export type OnError = (id: string, message: string) => void;
