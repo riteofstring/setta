@@ -1,6 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { fitView } from "forks/xyflow/core/store/utils";
-import { Node } from "forks/xyflow/core/types";
 import { getDimensions } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import { useMisc, useNodeInternals, useSectionRefs } from "state/definitions";
@@ -16,7 +15,7 @@ export function getNodes(s = null) {
   return result;
 }
 
-export function addNodes(nodes: Array<Node>) {
+export function addNodes(nodes) {
   const newNodes = getNewNodes();
   for (const n of nodes) {
     newNodes.set(n.id, n);

@@ -36,7 +36,7 @@ export function loadSectionIntoState({
     });
   });
 
-  const nodes: Array<Node> = [];
+  const nodes = [];
   for (const [id, n] of Object.entries(topLevelMapping)) {
     nodes.push({
       id,
