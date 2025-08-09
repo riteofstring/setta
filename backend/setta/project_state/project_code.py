@@ -1,3 +1,4 @@
+import copy
 from pathlib import Path
 
 from lsprotocol import types as LSPTypes
@@ -183,7 +184,7 @@ class ProjectGenPythonCode(PythonCode):
                 settings.codeCallableCodeObjDefault,
             )
             callable_code_obj = Core(name=callableName)
-            callable_code_obj_impl_layering = add_code_obj(
+            section_impl, callable_code_obj_impl_layering = add_code_obj(
                 project_state, sectionId, callable_code_obj, callable_base_impl
             )
         else:
@@ -210,14 +211,22 @@ class ProjectGenPythonCode(PythonCode):
             {"description": documentation},
         )
 
-        add_children_of_callable(
+        section_impl = add_children_of_callable(
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
+        )
+
+        newCodeObjImplLayeringMap = copy.deepcopy(section_impl.codeObjImplLayeringMap)
+        newCodeObjImplLayeringMap[callable_code_obj.id] = (
+            callable_code_obj_impl_layering.id
         )
         set_effective_impl_value(
             base_section_impl,
             section_core,
             section_layering,
-            {"callable": callable_code_obj.id},
+            {
+                "callable": callable_code_obj.id,
+                "codeObjImplLayeringMap": newCodeObjImplLayeringMap,
+            },
         )
 
     async def gen_code_prefix_completion(self, fullText, position):

@@ -102,11 +102,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
                 # Add child sections to process list
                 sections_to_process.update(effective_impl.children)
             elif isinstance(effective_impl, BaseSectionWithParamsImpl):
-                if isinstance(effective_impl, CallableSectionImpl):
-                    if effective_impl.callable:
-                        code_objs_to_process.add(effective_impl.callable)
-                elif isinstance(effective_impl, DictSectionImpl):
-                    code_objs_to_process.update(effective_impl.topLevelParamIds)
+                code_objs_to_process.update(effective_impl.codeObjImplLayeringMap)
 
     # Process code_objs recursively
     while code_objs_to_process:
@@ -356,7 +352,7 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjImplLayerings[code_obj_impl_layering.id] = code_obj_impl_layering
 
-    set_effective_impl_value(
+    section_impl = set_effective_impl_value(
         base_section_impl,
         section_core,
         section_layering,
@@ -367,7 +363,7 @@ def add_code_obj(
             }
         },
     )
-    return code_obj_impl_layering
+    return section_impl, code_obj_impl_layering
 
 
 def add_children_of_callable(
@@ -401,7 +397,7 @@ def add_children_of_callable(
             update_impl_layerings(p, existing.implLayerings, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:
-            add_code_obj(p, section_id, new_param, new_param_impl)
+            section_impl, _ = add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
     base_impl = p.codeObjImpls[callable_code_obj_layering.impl]
@@ -413,6 +409,8 @@ def add_children_of_callable(
             callable_code_obj_layering,
             {"children": param_ids_in_order},
         )
+
+    return section_impl
 
 
 def set_param_entered_value(
