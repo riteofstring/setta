@@ -105,7 +105,7 @@ class RedoRequest(BaseModel):
 
 
 class UpdateFromFrontendRequest(BaseModel):
-    messageId: str | None
+    messageId: str | None = None
     projectState: ProjectStateSingleConfig
     requestRenameRefactor: bool = False
 

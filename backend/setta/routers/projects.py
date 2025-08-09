@@ -16,6 +16,8 @@ from setta.database.db.projects.saveAs import (
     save_as_new_project_config,
 )
 from setta.database.export_db.export_db import maybe_export_database
+from setta.project_state.project_manager_types import UpdateFromFrontendRequest
+from setta.project_state.save_load import save
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers import (
@@ -110,59 +112,46 @@ async def route_load_project_config(
         print("[DEBUG] route_load_project_config finished", flush=True)
 
 
-# Steps for manual saving (ctrl-s)
-# 1. Try update_from_frontend. If there's a conflict then return failure, because we don't want to save something that doesn't match what the user is seeing.
-# 2. Make a backup of the current sqlite db (if user has enabled backups.)
-# 3. Save project_manager.project_backend_state
-# 4. Export to yaml etc (if user has this enabled).
-
-
-# Steps for autosave (debounced)
-# 1. After every undo-able update, run steps 2-4 in the above.
-
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
     x: ProjectSaveRequest, background_tasks: BackgroundTasks, state: AppStateFromRequest
 ):
-    with state.dbe.session as db:
-        notification = None
-        try:
-            # Perform existing save operations
-            settings = state.settings_file.settings.backend
-            maybe_create_backup(
-                state.dbe.path,
-                settings.autobackup,
-                settings.autobackupFreq,
-                settings.autobackupKeepLastN,
+    try:
+        req = UpdateFromFrontendRequest(messageId=None, projectState=x.project)
+        update_success = await state.project_manager.update_from_frontend(
+            req,
+            trigger_autosave=False,
+        )
+        if not update_success:
+            notification = SettaNotification(
+                projectConfigId=x.project.projectConfig.id,
+                message="Save failed due to update conflict",
+                temporary=True,
             )
-            await state.project_manager.update_from_frontend(None, x.project)
-            save_project_state(db, state.project_manager.project_state_backend)
-            maybe_export_database(
-                db,
-                state.dbe.path,
-                settings.exportDbRawOnSave,
-                settings.exportDbReadableOnSave,
-                settings.exportDbReadableWithVariantsOnSave,
+        else:
+            save(
+                state.settings_file.settings,
+                state.dbe,
+                state.project_manager.project_state_backend,
             )
-            # Return success response with notification
             notification = SettaNotification(
                 projectConfigId=x.project.projectConfig.id,
                 message="Saved!",
                 temporary=True,
             )
 
-        except Exception:
-            notification = SettaNotification(
-                projectConfigId=x.project.projectConfig.id,
-                message="Failed to save",
-                type=SettaNotificationType.error,
-                temporary=True,
-            )
-
-        background_tasks.add_task(
-            state.wmh_frontend_sender.broadcast_notification,
-            notification,
+    except Exception:
+        notification = SettaNotification(
+            projectConfigId=x.project.projectConfig.id,
+            message="Failed to save",
+            type=SettaNotificationType.error,
+            temporary=True,
         )
+
+    background_tasks.add_task(
+        state.wmh_frontend_sender.broadcast_notification,
+        notification,
+    )
 
 
 @router.post(Route.CREATE_PROJECT_CONFIG)

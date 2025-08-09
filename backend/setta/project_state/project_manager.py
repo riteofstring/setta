@@ -38,6 +38,7 @@ from setta.project_state.project_manager_types import (
     UpdateFromFrontendRequest,
     UpdateParamImplConfigRequest,
 )
+from setta.project_state.save_load import save
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
     change_param_impl,
@@ -82,9 +83,10 @@ class ProjectManager:
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
+        self.dbe = dbe
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        with dbe.session as db:
+        with self.dbe.session as db:
             self.history: History[ProjectStateBackend] = History(
                 load_project_state(db),
             )
@@ -210,19 +212,15 @@ class ProjectManager:
         await self.update(projectState)
 
     @enqueue_method
-    async def update_from_frontend(self, x: UpdateFromFrontendRequest):
-        self.add_new_history_entry()
+    async def update_from_frontend(
+        self, x: UpdateFromFrontendRequest, trigger_autosave=True
+    ):
+        self.add_new_history_entry(trigger_autosave)
         success = await self.update(
             x.projectState, x.requestRenameRefactor, x.messageId
         )
         await self.websocket_msg_handler.broadcast_project_state(x.projectState)
-        if not success:
-            notification = SettaNotification(
-                message="Update conflict",
-                type=SettaNotificationType.error,
-                temporary=True,
-            )
-            await self.websocket_msg_handler.broadcast_notification(notification)
+        return success
 
     @enqueue_method
     async def load_json_sources(
@@ -636,9 +634,10 @@ class ProjectManager:
     def project_state_backend(self, x: ProjectStateBackend):
         self.history.set_current(x)
 
-    def add_new_history_entry(self):
+    def add_new_history_entry(self, trigger_autosave=True):
         self.history.add_current_copy()
-        self.autosave_debouncer.trigger()
+        if trigger_autosave:
+            self.autosave_debouncer.trigger()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
@@ -666,8 +665,15 @@ class ProjectManager:
 
     @enqueue_method
     async def autosave(self):
-        print("\n\n\n\n**********AUTOSAVE************")
-        notification = SettaNotification(
-            message="Autosaved!", type=SettaNotificationType.save, temporary=True
-        )
+        try:
+            save(self.settings_file.settings, self.dbe, self.project_state_backend)
+            notification = SettaNotification(
+                message="Autosaved!", type=SettaNotificationType.save, temporary=True
+            )
+        except:
+            notification = SettaNotification(
+                message="Failed to autosave",
+                type=SettaNotificationType.error,
+                temporary=True,
+            )
         await self.websocket_msg_handler.broadcast_notification(notification)
