@@ -124,7 +124,7 @@ async def route_save_project(
         )
         if not update_success:
             notification = SettaNotification(
-                projectConfigId=x.project.projectConfig.id,
+                projectConfigId=x.projectState.projectConfig.id,
                 message="Save failed due to update conflict",
                 temporary=True,
             )
@@ -135,14 +135,14 @@ async def route_save_project(
                 state.project_manager.project_state_backend,
             )
             notification = SettaNotification(
-                projectConfigId=x.project.projectConfig.id,
+                projectConfigId=x.projectState.projectConfig.id,
                 message="Saved!",
                 temporary=True,
             )
 
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.project.projectConfig.id,
+            projectConfigId=x.projectState.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
             temporary=True,

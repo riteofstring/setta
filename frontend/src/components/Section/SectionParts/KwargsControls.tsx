@@ -7,6 +7,7 @@ import {
   getAllSelectedParamIds,
   pinSelectedKwargs,
 } from "state/actions/kwargs";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getSectionVariant,
@@ -86,7 +87,7 @@ export function KwargsControls({
   );
 }
 
-function ParamFilter({ sectionId }) {
+function ParamFilter({ sectionId }: { sectionId: string }) {
   const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -109,6 +110,7 @@ function ParamFilter({ sectionId }) {
         paramFilter: e.target.value,
       });
     });
+    updateBackendProjectState();
   }
 
   return (

@@ -90,7 +90,8 @@ export async function saveProject() {
     });
   } else {
     route_save_project({
-      project: await getProjectDataForSaving(),
+      projectState: await getProjectDataForSaving(),
+      modCount: useProjectState.getState().modCount,
     });
   }
 }
