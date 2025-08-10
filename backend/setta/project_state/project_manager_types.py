@@ -123,6 +123,11 @@ class UpdateFromFrontendTopLevelSectionLayout(BaseModel):
     modCount: int
 
 
+class AddKwargRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

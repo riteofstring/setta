@@ -1,6 +1,5 @@
 import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
 import { useEffect, useState } from "react";
-import { saveKwargsAsCollection } from "state/actions/kwargs";
 import { useModal } from "state/definitions";
 
 export function SaveCustomArgumentsModal({ open, modalType }) {
@@ -17,10 +16,10 @@ export function SaveCustomArgumentsModal({ open, modalType }) {
 
   function onClickSaveCustomArguments({ filename }) {
     const sectionId = useModal.getState().modalData;
-    saveKwargsAsCollection({
-      sectionId,
-      name: filename,
-    });
+    // saveKwargsAsCollection({
+    //   sectionId,
+    //   name: filename,
+    // });
   }
 
   return (

@@ -84,3 +84,4 @@ class Route(str, Enum):
     UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT = (
         "/updateFromFrontendTopLevelSectionLayout"
     )
+    ADD_KWARG = "/addKwarg"

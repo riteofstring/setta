@@ -19,6 +19,7 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.project_manager_types import (
+    AddKwargRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -43,6 +44,7 @@ from setta.project_state.project_manager_types import (
 from setta.project_state.save_load import save
 from setta.project_state.utils import create_timestamped_folder
 from setta.types.helpers import (
+    add_kwarg,
     change_param_impl,
     convert_backend_to_single_config,
     create_child_sections,
@@ -494,6 +496,13 @@ class ProjectManager:
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def add_kwarg(self, x: AddKwargRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        add_kwarg(self.settings_file.settings, project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):

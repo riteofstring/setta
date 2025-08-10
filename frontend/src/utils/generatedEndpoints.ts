@@ -408,3 +408,9 @@ export async function route_update_from_frontend_top_level_section_layout(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/updateFromFrontendTopLevelSectionLayout", x);
 }
+
+export async function route_add_kwarg(
+  x: gt.AddKwargRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/addKwarg", x);
+}

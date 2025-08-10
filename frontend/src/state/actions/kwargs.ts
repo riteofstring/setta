@@ -1,68 +1,5 @@
 import { useProjectState } from "state/definitions";
-import { findAllParametersAndPathMaps } from "utils/getDescendants";
-import { addCodeInfo, deleteCodeInfo } from "./codeInfo";
-import { getCodeInfoCol, getSectionVariant } from "./sectionInfos";
-
-export function addKwarg({
-  sectionId,
-  name = "",
-  parentId = null,
-  insertIdx = null,
-  state,
-}) {
-  const kwargInfo = createCodeInfo({
-    name,
-    rcType: CodeInfoTypeEnum.PARAMETER,
-    editable: true,
-  });
-  addCodeInfo({
-    sectionId,
-    info: kwargInfo,
-    parent: parentId,
-    insertIdx,
-    state,
-  });
-  return kwargInfo.id;
-}
-
-export function deleteLastKwarg({ sectionId, parentId = null, state }) {
-  const kwargIds = getKwargIds(sectionId, parentId, state);
-  const numKwargs = kwargIds.length;
-  if (numKwargs === 0) {
-    return;
-  }
-  const kwargId = kwargIds[numKwargs - 1];
-  deleteCodeInfo(sectionId, [kwargId], state);
-}
-
-export function deleteSelectedKwargs(sectionId) {
-  useProjectState.setState((x) => {
-    const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
-    deleteCodeInfo(sectionId, selectedParamIds, x);
-  });
-}
-
-export function saveKwargsAsCollection({ sectionId, name }) {
-  // // TODO: update this because children are no longer stored in codeInfo
-  // const { ids: children } = getParamIds(sectionId);
-  // const collection = newCodeInfo({
-  //   name,
-  //   rcType: C.COLLECTION,
-  // });
-  // dbSaveCodeInfo({
-  //   codeInfo: { [collection.id]: collection },
-  // });
-}
-
-export function pinSelectedKwargs(sectionId) {
-  useProjectState.setState((x) => {
-    const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
-    for (const p of selectedParamIds) {
-      x.codeInfo[p].isPinned = !x.codeInfo[p].isPinned;
-      x.codeInfo[p].isSelected = false;
-    }
-  });
-}
+import { getCodeInfoCol } from "./sectionInfos";
 
 export function toggleParamSelected(sectionId, paramInfoId) {
   useProjectState.setState((x) => {
@@ -96,23 +33,4 @@ function setAttrOfSelfAndDescendants(state, codeInfoChildren, id, attr, value) {
     state[paramId][attr] = value;
     setAttrOfSelfAndDescendants(state, codeInfoChildren, paramId, attr, value);
   }
-}
-
-function getKwargIds(sectionId, codeInfoId, _state) {
-  const state = _state ?? useProjectState.getState();
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
-}
-
-export function getAllSelectedParamIds(sectionId, state) {
-  const codeInfoState = state.codeInfo;
-  const { selectedItem } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-  const { ids, pathMap } = findAllParametersAndPathMaps({
-    allCodeInfo: codeInfoState,
-    codeInfoChildren,
-    startingId: selectedItem,
-    additionalOutputCondition: (c) => c?.isSelected,
-  });
-  return { ids, pathMap };
 }

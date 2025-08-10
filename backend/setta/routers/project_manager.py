@@ -1,5 +1,6 @@
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
+    AddKwargRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -167,3 +168,8 @@ async def route_update_from_frontend_top_level_section_layout(
     x: UpdateFromFrontendTopLevelSectionLayout, state: AppStateFromRequest
 ):
     await state.project_manager.update_from_frontend_top_level_section_layout(x)
+
+
+@router.post(Route.ADD_KWARG)
+async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
+    await state.project_manager.add_kwarg(x)

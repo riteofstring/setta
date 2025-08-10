@@ -30,6 +30,8 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
+    CodeCallableCodeObjImplArgsWithCallable,
+    TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -51,6 +53,7 @@ from setta.types.project_state import (
     TopLevelSectionLayout,
 )
 from setta.types.section_impls import (
+    BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
@@ -183,7 +186,7 @@ def get_curr_section_variant(
 
 
 def get_curr_effective_section_impl(
-    p: ProjectStateSingleConfig,
+    p: ProjectStateCore,
     section_id: str,
 ):
     variant = get_curr_section_variant(p, section_id)
@@ -193,7 +196,7 @@ def get_curr_effective_section_impl(
 
 
 def get_curr_effective_section_impl_with_type_guard(
-    project_state: ProjectStateSingleConfig,
+    project_state: ProjectStateCore,
     section_id: str,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
@@ -823,3 +826,200 @@ def get_code_obj_variant_map_update_fn(newMappings: dict[str, str]):
         return {**currMap, **newMappings}
 
     return fn
+
+
+def create_kwarg_objs(
+    settings: SettingsState, p: ProjectStateSingleConfig, sectionId: str
+):
+    newImpl = create_code_obj_impl(
+        CodeObjType.TextParam,
+        settings.textParamCodeObjDefault,
+        TextParamCodeObjImplArgs(coreNameEditable=True),
+    )
+    newCore = Core(name="")
+    add_code_obj(p, sectionId, newCore, newImpl)
+    return newCore.id
+
+
+def add_kwarg(settings: SettingsState, p: ProjectStateSingleConfig, sectionId: str):
+    sectionImpl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    if isinstance(sectionImpl, CallableSectionImpl):
+        return add_kwarg_to_callable_section(settings, p, sectionId, sectionImpl)
+    elif isinstance(sectionImpl, BaseDictSectionImpl):
+        return add_kwarg_to_dict_section(p, sectionId, sectionImpl)
+    raise TypeError
+
+
+def add_kwarg_to_callable_section(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    sectionImpl: CallableSectionImpl,
+):
+    callableId = sectionImpl.callable
+    if not callableId:
+        raise ValueError
+
+    newId = create_kwarg_objs(settings, p, sectionId)
+
+    set_curr_effective_code_obj_impl_value(
+        p,
+        sectionId,
+        callableId,
+        CodeCallableCodeObjImplArgsWithCallable(
+            children=lambda currChildren: [*currChildren, newId]
+        ),
+    )
+
+    return newId
+
+
+def add_kwarg_to_dict_section(
+    p: ProjectStateCore,
+    sectionId: str,
+    sectionImpl: BaseDictSectionImpl,
+):
+    pass
+
+
+# function onClickAddKwargFn(sectionId, objInfoId) {
+#   return () => {
+#     useProjectState.setState((state) => {
+#       function callbackFn({ sectionId, parentId, idx, state }) {
+#         addKwarg({ sectionId, parentId, insertIdx: idx + 1, state });
+#       }
+
+#       const paramsAreSelected = helperForAddDeleteKwarg(
+#         sectionId,
+#         state,
+#         callbackFn,
+#       );
+#       if (!paramsAreSelected) {
+#         addKwarg({ sectionId, parentId: objInfoId, state });
+#       }
+#     });
+#   };
+# }
+
+# function onClickDeleteKwargFn(sectionId, objInfoId) {
+#   return () => {
+#     useProjectState.setState((state) => {
+#       let kwargIds = [];
+
+#       function callbackFn({ codeInfoChildren, parentId, idx }) {
+#         if (parentId) {
+#           kwargIds.push(codeInfoChildren[parentId][idx + 1]);
+#         }
+#       }
+
+#       const paramsAreSelected = helperForAddDeleteKwarg(
+#         sectionId,
+#         state,
+#         callbackFn,
+#       );
+#       if (paramsAreSelected) {
+#         deleteCodeInfo(sectionId, kwargIds, state);
+#       } else {
+#         deleteLastKwarg({
+#           sectionId,
+#           parentId: objInfoId,
+#           state,
+#         });
+#       }
+#     });
+#   };
+# }
+
+# function helperForAddDeleteKwarg(sectionId, state, callbackFn) {
+#   const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, state);
+#   if (selectedParamIds.length > 0) {
+#     const { codeInfoColId } = getSectionVariant(sectionId, state);
+#     const codeInfoChildren = state.codeInfoCols[codeInfoColId].children;
+#     for (const p of selectedParamIds) {
+#       let parentId, idx;
+#       for (const [id, children] of Object.entries(codeInfoChildren)) {
+#         if (children.includes(p)) {
+#           parentId = id;
+#           idx = children.indexOf(p);
+#           break;
+#         }
+#       }
+#       callbackFn({ codeInfoChildren, sectionId, parentId, idx, state });
+#     }
+#     return true;
+#   }
+#   return false;
+# }
+
+
+# export function deleteSelectedKwargs(sectionId) {
+#   useProjectState.setState((x) => {
+#     const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
+#     deleteCodeInfo(sectionId, selectedParamIds, x);
+#   });
+# }
+
+
+# export function deleteLastKwarg({ sectionId, parentId = null, state }) {
+#   const kwargIds = getKwargIds(sectionId, parentId, state);
+#   const numKwargs = kwargIds.length;
+#   if (numKwargs === 0) {
+#     return;
+#   }
+#   const kwargId = kwargIds[numKwargs - 1];
+#   deleteCodeInfo(sectionId, [kwargId], state);
+# }
+
+
+# export function addKwarg({
+#   sectionId,
+#   name = "",
+#   parentId = null,
+#   insertIdx = null,
+#   state,
+# }) {
+#   const kwargInfo = createCodeInfo({
+#     name,
+#     rcType: CodeInfoTypeEnum.PARAMETER,
+#     editable: true,
+#   });
+#   addCodeInfo({
+#     sectionId,
+#     info: kwargInfo,
+#     parent: parentId,
+#     insertIdx,
+#     state,
+#   });
+#   return kwargInfo.id;
+# }
+
+# export function pinSelectedKwargs(sectionId) {
+#   useProjectState.setState((x) => {
+#     const { ids: selectedParamIds } = getAllSelectedParamIds(sectionId, x);
+#     for (const p of selectedParamIds) {
+#       x.codeInfo[p].isPinned = !x.codeInfo[p].isPinned;
+#       x.codeInfo[p].isSelected = false;
+#     }
+#   });
+# }
+
+# function getKwargIds(sectionId, codeInfoId, _state) {
+#   const state = _state ?? useProjectState.getState();
+#   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+#   return codeInfoChildren[codeInfoId].filter((x) => state.codeInfo[x].editable);
+# }
+
+# export function getAllSelectedParamIds(sectionId, state) {
+#   const codeInfoState = state.codeInfo;
+#   const { selectedItem } = getSectionVariant(sectionId, state);
+#   const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
+#   const { ids, pathMap } = findAllParametersAndPathMaps({
+#     allCodeInfo: codeInfoState,
+#     codeInfoChildren,
+#     startingId: selectedItem,
+#     additionalOutputCondition: (c) => c?.isSelected,
+#   });
+#   return { ids, pathMap };
+# }
