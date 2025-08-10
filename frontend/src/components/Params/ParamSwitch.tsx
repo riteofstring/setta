@@ -2,7 +2,7 @@ import _ from "lodash";
 import React, { useCallback } from "react";
 import { toggleParamSelected } from "state/actions/kwargs";
 import {
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import {
@@ -46,14 +46,12 @@ function _ParamSwitch(props) {
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const codeObjImpl = getCurrEffectiveCodeObjImpl(
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
         x,
         sectionId,
         paramInfoId,
+        isBaseParamCodeObjImpl,
       );
-      if (!isBaseParamCodeObjImpl(codeObjImpl)) {
-        throw new Error();
-      }
       const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
       return {
         paramIsSelected: impl.selectedParams.includes(paramInfoId),

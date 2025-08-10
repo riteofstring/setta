@@ -2,7 +2,7 @@ import _ from "lodash";
 import { useEffect, useState } from "react";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   setEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -11,10 +11,12 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const enteredValue = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId);
-    if (!isBaseChildlessCodeObjImpl(impl)) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      x,
+      sectionId,
+      paramInfoId,
+      isBaseChildlessCodeObjImpl,
+    );
     return impl.value;
   });
   const [value, setValue] = useState(enteredValue);

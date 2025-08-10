@@ -99,6 +99,23 @@ export function getCurrEffectiveCodeObjImpl(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
+export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  typeGuard: (impl) => impl is T,
+): T {
+  const effective = getCurrEffectiveCodeObjImpl(p, sectionId, codeObjId);
+
+  if (!typeGuard(effective)) {
+    throw new Error(
+      `Code obj implementation failed type guard for section ${sectionId}, codeObj ${codeObjId}`,
+    );
+  }
+
+  return effective;
+}
+
 export function getEffectiveImplFromVariantMap(
   id: string,
   impls: ZustandProjectState["codeObjImpls"],

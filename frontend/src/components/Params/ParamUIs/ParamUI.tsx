@@ -1,7 +1,7 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
@@ -80,14 +80,12 @@ export function ParamUI({
         sectionId,
         isBaseSectionWithParamsImpl,
       );
-      const codeObjImpl = getCurrEffectiveCodeObjImpl(
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
         x,
         sectionId,
         paramInfoId,
+        isBaseChildlessCodeObjImpl,
       );
-      if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
-        throw new Error();
-      }
       return {
         codeObjType: codeObjImpl.type,
         configLanguage: impl.configLanguage,
