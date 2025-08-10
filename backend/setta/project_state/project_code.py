@@ -36,7 +36,7 @@ from setta.types.helpers import (
     callable_has_been_selected_before,
     callable_is_already_selected,
     get_code_obj_variant_map_update_fn,
-    get_code_obj_variants,
+    get_curr_code_obj_variant,
     get_curr_effective_section_impl,
     get_curr_section_variant,
     get_section_path_full_name,
@@ -189,8 +189,10 @@ class ProjectGenPythonCode(PythonCode):
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
-            callable_code_obj_variant = get_code_obj_variants(
-                project_state, callable_code_obj.id, section_impl=section_impl
+            callable_code_obj_variant = get_curr_code_obj_variant(
+                project_state,
+                sectionId,
+                callable_code_obj.id,
             )
             callable_base_impl = project_state.codeObjImpls[
                 callable_code_obj_variant.impl

@@ -13,11 +13,11 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.helpers import (
-    get_code_obj_children_ids,
-    get_curr_effective_code_obj_impl,
+    get_curr_code_obj_children_ids,
+    get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
-    get_section_callable,
-    get_top_level_param_ids,
+    get_curr_section_callable_code_obj,
+    get_curr_top_level_param_ids,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -177,7 +177,7 @@ class DependencyGraph:
         return graph_key
 
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
-        callable = get_section_callable(p, sectionId)
+        callable = get_curr_section_callable_code_obj(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
                 callable.name, SELF_IDENTIFIER, keep_attr_only=True
@@ -192,7 +192,7 @@ class DependencyGraph:
         parent_node: Node | None = None,
         isTopLevel=False,
     ):
-        paramIds = get_top_level_param_ids(p, sectionId)
+        paramIds = get_curr_top_level_param_ids(p, sectionId)
         return self.export_params(
             p,
             sectionId,
@@ -214,10 +214,10 @@ class DependencyGraph:
             graph_key = self.create_graph_key(sectionId, pid)
             param_node = self.get_node(graph_key)
             if not param_node:
-                code_obj_impl = get_curr_effective_code_obj_impl(p, pid, sectionId)
-                if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
-                    continue
-                param_children = get_code_obj_children_ids(p, pid, sectionId)
+                code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+                    p, pid, sectionId, BaseParamCodeObjImpl
+                )
+                param_children = get_curr_code_obj_children_ids(p, pid, sectionId)
                 name = p.codeObjs[pid].name
                 value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
