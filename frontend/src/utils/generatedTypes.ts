@@ -2794,7 +2794,6 @@ export const ProjectStateSingleConfigSchema = z.object({
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
   projectConfig: ProjectConfigSchema,
-  modCount: z.int().default(0),
 });
 
 export type ProjectStateSingleConfig = z.infer<
@@ -2807,9 +2806,24 @@ export function createProjectStateSingleConfig(
   return ProjectStateSingleConfigSchema.parse(options);
 }
 
+export const UpdateFrontendProjectStateSchema = z.object({
+  projectState: ProjectStateSingleConfigSchema,
+  modCount: z.int(),
+});
+
+export type UpdateFrontendProjectState = z.infer<
+  typeof UpdateFrontendProjectStateSchema
+>;
+
+export function createUpdateFrontendProjectState(
+  options: Partial<UpdateFrontendProjectState> = {},
+): UpdateFrontendProjectState {
+  return UpdateFrontendProjectStateSchema.parse(options);
+}
+
 export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigSchema,
+  content: UpdateFrontendProjectStateSchema,
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
@@ -6411,7 +6425,6 @@ export const ProjectStateBackendSchema = z.object({
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
   projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
-  modCount: z.int().default(0),
 });
 
 export type ProjectStateBackend = z.infer<typeof ProjectStateBackendSchema>;
@@ -7189,6 +7202,7 @@ export const UpdateFromFrontendRequestSchema = z.object({
   messageId: z.union([z.string(), z.null()]).default(null),
   projectState: ProjectStateSingleConfigSchema,
   requestRenameRefactor: z.boolean().default(false),
+  modCount: z.int(),
 });
 
 export type UpdateFromFrontendRequest = z.infer<
@@ -7204,6 +7218,7 @@ export function createUpdateFromFrontendRequest(
 export const UpdateFromFrontendTopLevelSectionLayoutSchema = z.object({
   projectConfigId: z.string(),
   topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
+  modCount: z.int(),
 });
 
 export type UpdateFromFrontendTopLevelSectionLayout = z.infer<

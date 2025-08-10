@@ -86,6 +86,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
       useProjectState.getState().sections,
       useNodeInternals.getState().x,
     ),
+    modCount: useProjectState.getState().modCount,
   });
 
   const miscState = useMisc.getState();

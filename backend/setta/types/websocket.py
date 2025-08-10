@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
@@ -117,8 +118,14 @@ class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
     )
 
 
+@dataclass
+class UpdateFrontendProjectState:
+    projectState: ProjectStateSingleConfig
+    modCount: int
+
+
 class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
-    content: ProjectStateSingleConfig
+    content: UpdateFrontendProjectState
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )

@@ -85,7 +85,6 @@ GenericBaseCodeObjImplType = TypeVar(
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
     project_config = p.projectConfigs[projectConfigId]
-
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
     section_impl_ids: set[str] = set()
@@ -111,11 +110,11 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             if variant_id in section_variant_ids:
                 continue
             section_variant_ids.add(variant_id)
-            variant = p.sectionVariants[variant_id]
-            section_impl_ids.add(variant.impl)
+            variant, impl, effective_impl = get_variant_base_and_effective_section_impl(
+                p, section, variant_id
+            )
+            section_impl_ids.add(impl.id)
             section_impl_ids.update(variant.nonPresetImpls)
-            impl = p.sectionImpls[variant.impl]
-            effective_impl = get_effective_impl(impl, section, variant)
 
             if isinstance(effective_impl, BaseParentSectionImpl):
                 # Add child sections to process list
@@ -136,11 +135,12 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
             if variant_id in code_obj_variant_ids:
                 continue
             code_obj_variant_ids.add(variant_id)
-            variant = p.codeObjVariants[variant_id]
-            code_obj_impl_ids.add(variant.impl)
+            variant, base_impl, effective_impl = (
+                get_variant_base_and_effective_code_obj_impl(p, obj, variant_id)
+            )
+            code_obj_impl_ids.add(base_impl.id)
             code_obj_impl_ids.update(variant.nonPresetImpls)
-            base_impl = p.codeObjImpls[variant.impl]
-            effective_impl = get_effective_impl(base_impl, obj, variant)
+
             if isinstance(effective_impl, BaseParentCodeObjImpl):
                 code_objs_to_process.update(effective_impl.children)
 
@@ -153,7 +153,6 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
         codeObjImpls={x: p.codeObjImpls[x] for x in code_obj_impl_ids},
         codeObjVariants={x: p.codeObjVariants[x] for x in code_obj_variant_ids},
         projectConfig=project_config,
-        modCount=p.modCount,
     )
 
 
@@ -172,7 +171,6 @@ def merge_single_config_into_backend(
             config.projectConfig.id: config.projectConfig,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
-        modCount=config.modCount,
     )
 
 

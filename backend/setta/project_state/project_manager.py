@@ -103,6 +103,7 @@ class ProjectManager:
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
+        self.modCount = 0
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
@@ -209,7 +210,7 @@ class ProjectManager:
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
         if projectState.projectConfig.id in self.gen_code:
             return
-        await self.update(projectState)
+        await self.update(projectState, self.modCount)
 
     @enqueue_method
     async def update_from_frontend(
@@ -217,15 +218,19 @@ class ProjectManager:
     ):
         self.add_new_history_entry(trigger_autosave)
         success = await self.update(
-            x.projectState, x.requestRenameRefactor, x.messageId
+            x.projectState, x.modCount, x.requestRenameRefactor, x.messageId
         )
-        await self.websocket_msg_handler.broadcast_project_state(x.projectState)
+        await self.websocket_msg_handler.broadcast_project_state(
+            x.projectState, self.modCount
+        )
         return success
 
     @enqueue_method
     async def update_from_frontend_top_level_section_layout(
         self, x: UpdateFromFrontendTopLevelSectionLayout
     ):
+        if x.modCount != self.modCount:
+            return
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
@@ -249,15 +254,11 @@ class ProjectManager:
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
+        modCount: int,
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
-        if self.project_state_backend.modCount != projectState.modCount:
-            print(
-                "\n\n\nmodCount mismatch!",
-                self.project_state_backend.modCount,
-                projectState.modCount,
-            )
+        if self.modCount != modCount:
             return False
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
@@ -308,7 +309,7 @@ class ProjectManager:
                 self.code_dict[projectConfigId][sectionId] = section_code
 
         self.delete_unused_files(project_temp_folder)
-        projectState.modCount += 1
+        self.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
         return True
 
@@ -626,8 +627,10 @@ class ProjectManager:
     async def update_and_broadcast_project_state(
         self, project_state: ProjectStateSingleConfig
     ):
-        await self.update(project_state)
-        await self.websocket_msg_handler.broadcast_project_state(project_state)
+        await self.update(project_state, self.modCount)
+        await self.websocket_msg_handler.broadcast_project_state(
+            project_state, self.modCount
+        )
 
     @property
     def project_state_backend(self):

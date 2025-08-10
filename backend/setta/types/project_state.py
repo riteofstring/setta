@@ -65,7 +65,6 @@ class ProjectStateCore(BaseModel, extra="forbid"):
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):
     projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
     defaultProjectConfigId: str | None = None
-    modCount: int = 0
 
     @model_validator(mode="after")
     def validator_ensure_default_project_id(self):
@@ -88,7 +87,6 @@ class ProjectStateBackend(ProjectStateCore, extra="forbid"):
 
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
-    modCount: int = 0
 
 
 class ProjectMetadata(BaseModel):

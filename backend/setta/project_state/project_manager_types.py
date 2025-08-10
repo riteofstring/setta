@@ -108,6 +108,7 @@ class UpdateFromFrontendRequest(BaseModel):
     messageId: str | None = None
     projectState: ProjectStateSingleConfig
     requestRenameRefactor: bool = False
+    modCount: int
 
 
 class GetLatestProjectStateRequest(BaseModel):
@@ -117,3 +118,4 @@ class GetLatestProjectStateRequest(BaseModel):
 class UpdateFromFrontendTopLevelSectionLayout(BaseModel):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]
+    modCount: int

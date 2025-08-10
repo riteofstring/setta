@@ -23,6 +23,7 @@ import {
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
   SectionType,
+  UpdateFrontendProjectState,
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -328,13 +329,13 @@ export function setAllPreviewVariantIdsToNull() {
 }
 
 export function processProjectStateUpdateFromBackend(
-  projectState: ProjectStateSingleConfig,
+  msg: UpdateFrontendProjectState,
 ) {
   const projectConfigId = useProjectState.getState().projectConfig.id;
-  if (projectState.projectConfig.id !== projectConfigId) {
+  if (msg.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  useProjectState.setState(projectState);
+  useProjectState.setState({ ...msg.projectState, modCount: msg.modCount });
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),
