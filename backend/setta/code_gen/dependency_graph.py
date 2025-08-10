@@ -15,6 +15,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.helpers import (
+    get_code_obj_core,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_section_callable_code_obj,
@@ -219,7 +220,7 @@ class DependencyGraph:
                 code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
                     p, pid, sectionId, BaseParamCodeObjImpl
                 )
-                name = p.codeObjs[pid].name
+                name = get_code_obj_core(p, pid).name
                 value = ""
                 if isinstance(code_obj_impl, BaseChildlessCodeObjImpl):
                     value = code_obj_impl.value

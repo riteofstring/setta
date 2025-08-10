@@ -31,7 +31,11 @@ from setta.types.generated.unions import (
     BaseDictSectionImplUnion,
 )
 from setta.types.helpers import (
+    get_code_obj_core,
+    get_code_obj_impl,
+    get_code_obj_variant,
     get_code_obj_variant_map_update_fn,
+    get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.project_state import (
@@ -85,33 +89,29 @@ def load_json_sources_into_data_structures(
             if isMissing:
                 continue
             merge_into_existing(
+                p,
                 variant.name,
                 new_data,
                 section,
                 base_impl,
                 impl,
                 variant,
-                p.codeObjs,
-                p.codeObjImpls,
-                p.codeObjVariants,
             )
 
 
 def merge_into_existing(
+    p: ProjectStateCore,
     filename: str,
     new_data: ProcessedJSONObject,
     section: Core,
     base_section_impl: BaseDictSectionImplUnion,
     section_impl: BaseDictSectionImplUnion,
     section_variant: Variant,
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
 ):
     ancestor_paths = build_ancestor_paths(
-        codeObjs,
-        codeObjImpls,
-        codeObjVariants,
+        p.codeObjs,
+        p.codeObjImpls,
+        p.codeObjVariants,
         section_impl.codeObjVariantMap,
         section_impl.topLevelParamIds,
     )
@@ -153,18 +153,18 @@ def merge_into_existing(
                     )
                 ),
             )
-            codeObjVariants[newVariantId] = newVariant
-            codeObjImpls[newImpl.id] = newImpl
-            codeObjs[newId] = newCodeObj
+            p.codeObjVariants[newVariantId] = newVariant
+            p.codeObjImpls[newImpl.id] = newImpl
+            p.codeObjs[newId] = newCodeObj
         else:
             replacements[newId] = (existingCodeObjId, newImpl)
 
     for newId, (existingCodeObjId, newImpl) in replacements.items():
         variantId = section_impl.codeObjVariantMap[existingCodeObjId]
-        variant = codeObjVariants[variantId]
-        codeObjCore = codeObjs[existingCodeObjId]
-        baseCodeObjImpl = codeObjImpls[variant.impl]
-        impl = get_effective_impl(baseCodeObjImpl, codeObjCore, variant)
+        codeObjCore = get_code_obj_core(p, existingCodeObjId)
+        variant, baseCodeObjImpl, impl = get_variant_base_and_effective_code_obj_impl(
+            p, codeObjCore, variantId
+        )
         if (
             isinstance(baseCodeObjImpl, NestedParamCodeObjImpl)
             and isinstance(impl, NestedParamCodeObjImpl)
@@ -199,12 +199,12 @@ def merge_into_existing(
         newId = new_jsonSourceMetadata_to_id.get(metadataString)
         if not newId:
             variantId = section_impl.codeObjVariantMap[id]
-            variant = codeObjVariants[variantId]
-            impl = codeObjImpls[variant.impl]
+            variant = get_code_obj_variant(p, variantId)
+            impl = get_code_obj_impl(p, variant.impl)
             del section_impl.codeObjVariantMap[id]
-            del codeObjs[id]
-            del codeObjImpls[impl.id]
-            del codeObjVariants[variantId]
+            del p.codeObjs[id]
+            del p.codeObjImpls[impl.id]
+            del p.codeObjVariants[variantId]
 
     set_effective_impl_value(
         base_section_impl,
