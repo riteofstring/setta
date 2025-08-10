@@ -132,34 +132,10 @@ export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   sectionId: string,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
-  const bundle = getSectionImplCoreVariantBundle<K>(state, sectionId);
-  return setEffectiveImplValue<K>(
-    bundle.impl,
-    bundle.core,
-    bundle.variant,
-    args,
-  );
-}
-
-export function getSectionImplCoreVariantBundle<
-  K extends keyof ImplArgsBundleMap,
->(
-  p: ZustandProjectState,
-  sectionId: string,
-): {
-  impl: ImplArgsBundleMap[K]["impl"];
-  core: Core;
-  variant: Variant;
-} {
-  const variant = getCurrSectionVariant(p, sectionId);
-  const impl = p.sectionImpls[variant.impl];
-  const core = getSectionCore(p, sectionId);
-
-  if (!impl) {
-    throw new Error(`Missing section data for sectionId: ${sectionId}`);
-  }
-
-  return { impl, core, variant };
+  const variant = getCurrSectionVariant(state, sectionId);
+  const impl = getSectionImpl(state, variant.impl);
+  const core = getSectionCore(state, sectionId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
 export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
@@ -168,39 +144,10 @@ export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   codeObjId: string,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
-  const bundle = getCodeObjImplCoreVariantBundle<K>(
-    state,
-    sectionId,
-    codeObjId,
-  );
-  return setEffectiveImplValue<K>(
-    bundle.impl,
-    bundle.core,
-    bundle.variant,
-    args,
-  );
-}
-
-export function getCodeObjImplCoreVariantBundle<
-  K extends keyof ImplArgsBundleMap,
->(
-  p: ZustandProjectState,
-  sectionId: string,
-  codeObjId: string,
-): {
-  impl: ImplArgsBundleMap[K]["impl"];
-  core: Core;
-  variant: Variant;
-} {
-  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
-  const impl = p.codeObjImpls[variant.impl];
-  const core = getCodeObjCore(p, codeObjId);
-
-  if (!impl || !core) {
-    throw new Error(`Missing section data for sectionId: ${sectionId}`);
-  }
-
-  return { impl, core, variant };
+  const variant = getCurrCodeObjVariant(state, sectionId, codeObjId);
+  const impl = getCodeObjImpl(state, variant.impl);
+  const core = getCodeObjCore(state, codeObjId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {
@@ -219,10 +166,7 @@ export function getSectionImpl(p: ZustandProjectState, implId: string) {
   return impl;
 }
 
-export function getSectionVariant(
-  p: ZustandProjectState,
-  variantId: string,
-) {
+export function getSectionVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.sectionVariants[variantId];
   if (!variant) {
     throw new Error();
@@ -246,10 +190,7 @@ export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   return impl;
 }
 
-export function getCodeObjVariant(
-  p: ZustandProjectState,
-  variantId: string,
-) {
+export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   const variant = p.codeObjVariants[variantId];
   if (!variant) {
     throw new Error();

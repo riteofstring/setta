@@ -23,9 +23,10 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getEffectiveImpl,
-  getCurrEffectiveSectionImpl,
+  getSectionImpl,
   getSectionShouldRender,
   getSectionVariant,
   getSectionViewingEditingModeVisibility,
@@ -248,10 +249,7 @@ function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
   for (const section of Object.values(state.sections)) {
     for (const variantId of section.variants) {
       const variant = getSectionVariant(state, variantId);
-      const baseImpl = state.sectionImpls[variant.impl];
-      if (!baseImpl) {
-        throw new Error();
-      }
+      const baseImpl = getSectionImpl(state, variant.impl);
       const impl = getEffectiveImpl(baseImpl, section, variant);
       if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
         filenameSet.add(variant.name);
@@ -274,7 +272,9 @@ function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
 function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
   const codeBlockIds: Array<string> = [];
   for (const s of Object.values(state.sections)) {
-    if (getCurrEffectiveSectionImpl(state, s.id).type === SectionTypeEnum.Code) {
+    if (
+      getCurrEffectiveSectionImpl(state, s.id).type === SectionTypeEnum.Code
+    ) {
       codeBlockIds.push(s.id);
     }
   }
