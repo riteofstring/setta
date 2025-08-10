@@ -1,0 +1,75 @@
+import { useEffect, useState } from "react";
+import { Navigate, useLocation, useParams } from "react-router-dom";
+import { useLoadSettings } from "state/actions/settings";
+import { openWebSocket } from "state/actions/websocketReceive";
+import { useProjectLoading, useSettings } from "state/definitions";
+import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
+import { res200 } from "utils/endpointUtils";
+import { router_get_default_project_config_name } from "utils/generatedEndpoints";
+
+export function GlobalWrapper({ children }) {
+  useOpenCloseWebsocket();
+  useSetHTMLTitle();
+  const settingsLoaded = useLoadSettings();
+  return settingsLoaded && children;
+}
+
+export function IndexRouteComponent() {
+  const showDefaultConfigOnLoad = useSettings(
+    (x) => x.backend.showDefaultConfigOnLoad,
+  );
+  const defaultProjectConfigName = useDefaultProjectConfigName();
+  if (defaultProjectConfigName === undefined) {
+    return null;
+  }
+
+  if (!showDefaultConfigOnLoad || defaultProjectConfigName === null) {
+    return <Navigate to={HOME_ROUTER_PATH} replace />;
+  }
+
+  return <Navigate to={defaultProjectConfigName} replace />;
+}
+
+function useSetHTMLTitle() {
+  const { pathname } = useLocation();
+  const { projectConfigName } = useParams();
+  const projectIs404 = useProjectLoading((x) => x.projectIs404);
+  useEffect(() => {
+    if (pathname === HOME_ROUTER_PATH) {
+      document.title = "Home";
+    } else if (pathname === SETTINGS_ROUTER_PATH) {
+      document.title = "Settings";
+    } else if (projectConfigName) {
+      document.title = projectIs404 ? "Not Found" : projectConfigName;
+    } else {
+      document.title = "setta.dev";
+    }
+  }, [pathname, projectConfigName, projectIs404]);
+}
+
+function useOpenCloseWebsocket() {
+  const location = useLocation();
+
+  useEffect(() => {
+    openWebSocket(location.pathname);
+  }, [location.pathname]);
+}
+
+function useDefaultProjectConfigName() {
+  const [defaultProjectConfigName, setDefaultProjectConfigName] = useState<
+    string | null | undefined
+  >(undefined);
+
+  async function fn() {
+    const res = await router_get_default_project_config_name();
+    if (res200(res)) {
+      setDefaultProjectConfigName(res.data);
+    }
+  }
+
+  useEffect(() => {
+    fn();
+  }, []);
+
+  return defaultProjectConfigName;
+}

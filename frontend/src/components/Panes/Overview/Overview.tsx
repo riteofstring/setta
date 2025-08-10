@@ -1,0 +1,147 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+import { PaneContainer } from "components/Utils/PaneContainer";
+import Controls from "forks/xyflow/controls/Controls";
+import { BiHelpCircle } from "react-icons/bi";
+import { HiOutlineEye } from "react-icons/hi";
+import { IoChatbox } from "react-icons/io5";
+import { MdNotificationsNone, MdOutlineSmartToy } from "react-icons/md";
+import { useLocalStorage } from "state/definitions";
+import {
+  OverviewTabName,
+  OverviewTabNameEnum,
+  OverviewTabNamePrettified,
+  PaneNameEnum,
+} from "utils/constants";
+import { overviewPaneOnKeyDown } from "utils/tabbingLogic";
+import {
+  onOverviewResizeStop,
+  onOverviewTabClick,
+  TabButton,
+} from "../paneFns";
+import { NotificationsArea } from "./NotificationsArea";
+import { ProjectConfigs } from "./ProjectConfigs";
+import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
+import { ProjectLLMSettings } from "./ProjectLevelAI/ProjectLLMSettings";
+import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
+import { ViewingEditingMode } from "./ViewingEditingMode";
+
+export function Overview() {
+  const { selectedTabName, vis, width } = useLocalStorage((x) => ({
+    selectedTabName: x.overviewTab,
+    vis: x.overviewVis,
+    width: x.overviewWidth,
+  }));
+  const commonProps = {
+    vis,
+    selectedTabName,
+    onTabClick: onOverviewTabClick,
+    className:
+      "flex h-10 w-10 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
+    requiredTabs: null,
+  };
+
+  // The ProjectOverviewButtonDiv div id is used when tabbing from document.body
+  return (
+    <div
+      id="OverviewPane"
+      className="contents"
+      onKeyDown={overviewPaneOnKeyDown}
+    >
+      <div className="absolute left-0 z-[19] flex h-[calc(100%_-_48px)] w-[50px] flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-3 dark:border-setta-850 dark:bg-setta-900">
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.Overview}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Project Overview" })}
+          icon={<i className="gg-list  !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectConfigs}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Config Preview" })}
+          icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ViewModes}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
+          icon={<HiOutlineEye size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.Notifications}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Notifications" })}
+          icon={<MdNotificationsNone size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectAIChat}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+          icon={<IoChatbox size={20} />}
+        />
+        <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectAISettings}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+          icon={<MdOutlineSmartToy size={20} />}
+        />
+        <Controls />
+        <a
+          href="https://docs.setta.dev"
+          target="_blank"
+          className="focus-visible:ring-light-blue-500 absolute bottom-2 left-1 flex h-10 w-10 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 dark:text-setta-600 dark:hover:text-setta-500"
+          rel="noreferrer"
+        >
+          <BiHelpCircle />
+        </a>
+      </div>
+      <PaneContainer
+        paneName={PaneNameEnum.overview}
+        right={false}
+        onResizeStop={onOverviewResizeStop}
+        vis={vis}
+        width={width}
+        minimumWidth={250}
+      >
+        {vis && <TabsVisible selectedTabName={selectedTabName} />}
+      </PaneContainer>
+    </div>
+  );
+}
+
+function TabsVisible({
+  selectedTabName,
+}: {
+  selectedTabName: OverviewTabName;
+}) {
+  const title = OverviewTabNamePrettified[selectedTabName];
+  return (
+    <div
+      className="mx-[1px] flex h-full min-h-0 w-[calc(100%_-_3rem)] min-w-0 flex-1
+    flex-col overflow-hidden pl-1.5"
+    >
+      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+        {title}
+      </h2>
+      <TabContent selectedTabName={selectedTabName} />
+    </div>
+  );
+}
+
+function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
+  switch (selectedTabName) {
+    case OverviewTabNameEnum.Overview:
+      return <ProjectOverview />;
+    case OverviewTabNameEnum.ProjectConfigs:
+      return <ProjectConfigs />;
+    case OverviewTabNameEnum.ViewModes:
+      return <ViewingEditingMode />;
+    case OverviewTabNameEnum.Notifications:
+      return <NotificationsArea />;
+    case OverviewTabNameEnum.ProjectAIChat:
+      return <ProjectChat />;
+    case OverviewTabNameEnum.ProjectAISettings:
+      return <ProjectLLMSettings />;
+    default:
+      return selectedTabName satisfies never;
+  }
+}
