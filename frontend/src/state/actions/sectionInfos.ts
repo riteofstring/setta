@@ -619,4 +619,15 @@ export function createTopLevelSectionLayoutDict(
 }
 
 export const debounced_route_update_from_frontend_top_level_section_layout =
-  _.debounce(route_update_from_frontend_top_level_section_layout, 500);
+  _.debounce(
+    () =>
+      route_update_from_frontend_top_level_section_layout({
+        projectConfigId: useProjectState.getState().projectConfig.id,
+        topLevelSections: createTopLevelSectionLayoutDict(
+          useProjectState.getState().sections,
+          useNodeInternals.getState().x,
+        ),
+        modCount: useProjectState.getState().modCount,
+      }),
+    500,
+  );
