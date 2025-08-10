@@ -216,7 +216,7 @@ class DependencyGraph:
             param_node = self.get_node(graph_key)
             if not param_node:
                 code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
-                    p, pid, sectionId, BaseParamCodeObjImpl
+                    p, sectionId, pid, BaseParamCodeObjImpl
                 )
                 name = p.codeObjs[pid].name
                 value = ""
