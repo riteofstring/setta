@@ -14,7 +14,9 @@ import {
   route_update_from_frontend_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
+  BaseCodeObjImplUnion,
   BaseSectionImplUnion,
+  CodeObjType,
   Core,
   ImplArgsBundleMap,
   isBaseParentSectionImpl,
@@ -131,6 +133,23 @@ export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   }
 
   return effective;
+}
+
+export function getCurrEffectiveCodeObjImplOfType<T extends CodeObjType>(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  expectedType: T,
+): Extract<BaseCodeObjImplUnion, { type: T }> {
+  const impl = getCurrEffectiveCodeObjImpl(p, sectionId, codeObjId);
+
+  if (impl.type !== expectedType) {
+    throw new Error(
+      `Expected section type ${expectedType}, got ${impl.type} for section ${sectionId}`,
+    );
+  }
+
+  return impl as Extract<BaseCodeObjImplUnion, { type: T }>;
 }
 
 export function getEffectiveImplFromVariantMap(

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplOfType,
   getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import {
@@ -141,11 +141,12 @@ export function useParamCodeObjUIConfig<T extends CodeObjType>(
   type: T,
 ): T extends keyof typeof UI_CONFIG_EXTRACTORS ? ExtractorResult<T> : {} {
   return useProjectState((x) => {
-    const codeObjImpl = getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId);
-    if (codeObjImpl.type !== type) {
-      throw new Error();
-    }
-
+    const codeObjImpl = getCurrEffectiveCodeObjImplOfType(
+      x,
+      sectionId,
+      paramInfoId,
+      type,
+    );
     const extractor =
       UI_CONFIG_EXTRACTORS[type as keyof typeof UI_CONFIG_EXTRACTORS];
     if (!extractor) {
