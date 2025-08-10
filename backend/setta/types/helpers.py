@@ -65,7 +65,14 @@ class ProjectNameTaken(Exception):
     pass
 
 
-T = TypeVar("T")
+GenericBaseSectionImplType = TypeVar(
+    "GenericBaseSectionImplType", bound=BaseSectionImpl
+)
+
+
+GenericBaseCodeObjImplType = TypeVar(
+    "GenericBaseCodeObjImplType", bound=BaseCodeObjImpl
+)
 
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
@@ -182,11 +189,11 @@ def get_curr_effective_section_impl(
 def get_curr_effective_section_impl_with_type_guard(
     project_state: ProjectStateSingleConfig,
     section_id: str,
-    impl_type: T,
-) -> T:
+    impl_type: type[GenericBaseSectionImplType],
+) -> GenericBaseSectionImplType:
     impl = get_curr_effective_section_impl(project_state, section_id)
 
-    if not isinstance(impl, type(impl_type)):
+    if not isinstance(impl, impl_type):
         raise ValueError(f"Section {section_id} failed type guard")
 
     return impl
@@ -217,11 +224,11 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     project_state: ProjectStateSingleConfig,
     sectionId: str,
     codeObjId: str,
-    impl_type: T,
-) -> T:
+    impl_type: type[GenericBaseCodeObjImplType],
+) -> GenericBaseCodeObjImplType:
     impl = get_curr_effective_code_obj_impl(project_state, sectionId, codeObjId)
 
-    if not isinstance(impl, type(impl_type)):
+    if not isinstance(impl, impl_type):
         raise ValueError(f"Section {sectionId}, codeObj {codeObjId} failed type guard")
 
     return impl
@@ -233,15 +240,6 @@ def get_section_core(p: ProjectStateSingleConfig, sectionId: str):
 
 def get_section_impl(p: ProjectStateSingleConfig, implId: str):
     return p.sectionImpls[implId]
-
-
-def get_section_impl_with_type_guard(
-    p: ProjectStateSingleConfig, implId: str, impl_type: type[T]
-) -> T:
-    impl = get_section_impl(p, implId)
-    if not isinstance(impl, impl_type):
-        raise TypeError
-    return impl
 
 
 def get_section_variant(p: ProjectStateSingleConfig, variantId: str):
@@ -359,10 +357,10 @@ def add_code_obj(
     code_obj_impl: BaseCodeObjImplUnion,
 ):
     section_variant = get_curr_section_variant(p, section_id)
-    base_section_impl = get_section_impl_with_type_guard(
-        p, section_variant.impl, BaseSectionWithParamsImplUnion
-    )
+    base_section_impl = get_section_impl(p, section_variant.impl)
     section_core = get_section_core(p, section_id)
+    if not isinstance(base_section_impl, BaseSectionWithParamsImplUnion):
+        raise TypeError
     code_obj_variant = Variant(
         impl=code_obj_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
