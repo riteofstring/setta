@@ -343,17 +343,6 @@ def get_curr_top_level_param_ids(
     raise TypeError
 
 
-def get_curr_code_obj_children_ids(
-    p: ProjectStateSingleConfig,
-    codeObjId: str,
-    section_id: str,
-) -> list[str]:
-    code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
-        p, section_id, codeObjId, BaseParentCodeObjImpl
-    )
-    return code_obj_impl.children
-
-
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = section_impl.parentId

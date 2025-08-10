@@ -8,16 +8,18 @@ from setta.code_gen.utils import (
     sanitize_name,
 )
 from setta.types.code_obj_impls import (
+    BaseChildlessCodeObjImpl,
     BaseParamCodeObjImpl,
+    BaseParentCodeObjImpl,
     CodeObjType,
     ParameterPassingStyle,
 )
 from setta.types.helpers import (
-    get_curr_code_obj_children_ids,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
+    get_section_core,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -128,7 +130,7 @@ class DependencyGraph:
         section_node = self.get_node(graph_key)
         if not section_node:
             sectionImpl = get_curr_effective_section_impl(p, id)
-            name = p.sections[id].name
+            name = get_section_core(p, id).name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
                 value, potential_refs = self.export_section_callable(p, id)
@@ -217,9 +219,10 @@ class DependencyGraph:
                 code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
                     p, pid, sectionId, BaseParamCodeObjImpl
                 )
-                param_children = get_curr_code_obj_children_ids(p, pid, sectionId)
                 name = p.codeObjs[pid].name
-                value = code_obj_impl.value
+                value = ""
+                if isinstance(code_obj_impl, BaseChildlessCodeObjImpl):
+                    value = code_obj_impl.value
                 full_path_name = self.create_full_path_name(parent_node, idx, name)
                 potential_refs = find_undefined_special_var_expressions(
                     value, SELF_IDENTIFIER, keep_attr_only=True
@@ -236,9 +239,10 @@ class DependencyGraph:
                     passing_style=code_obj_impl.passingStyle,
                     deps={},
                 )
-                param_node.deps = self.export_params(
-                    p, sectionId, param_children, parent_node=param_node
-                )
+                if isinstance(code_obj_impl, BaseParentCodeObjImpl):
+                    param_node.deps = self.export_params(
+                        p, sectionId, code_obj_impl.children, parent_node=param_node
+                    )
                 self.add_to_graph(graph_key, param_node)
             output_deps[graph_key] = param_node.has_name_and_value
         return output_deps
