@@ -207,12 +207,12 @@ export function findAllParametersOfCallableSection(
   impl: CallableSectionImpl,
   conditions: ConditionFunctions,
 ) {
-  const { callable, codeObjImplLayeringMap } = impl;
+  const { callable, codeObjVariantMap } = impl;
   return _findAllDescendants(
     p.codeObjImpls,
     p.codeObjs,
     p.codeObjVariants,
-    codeObjImplLayeringMap,
+    codeObjVariantMap,
     callable ? [callable] : [],
     conditions,
   );
@@ -223,12 +223,12 @@ export function findAllParametersOfBaseDictSection(
   impl: BaseDictSectionImpl,
   conditions: ConditionFunctions,
 ) {
-  const { topLevelParamIds, codeObjImplLayeringMap } = impl;
+  const { topLevelParamIds, codeObjVariantMap } = impl;
   return _findAllDescendants(
     p.codeObjImpls,
     p.codeObjs,
     p.codeObjVariants,
-    codeObjImplLayeringMap,
+    codeObjVariantMap,
     topLevelParamIds,
     conditions,
   );

@@ -221,9 +221,9 @@ export function getBaseSectionImpl(p: ZustandProjectState, implId: string) {
 
 export function getSectionVariant(
   p: ZustandProjectState,
-  implLayeringId: string,
+  variantId: string,
 ) {
-  const variant = p.sectionVariants[implLayeringId];
+  const variant = p.sectionVariants[variantId];
   if (!variant) {
     throw new Error();
   }
@@ -248,9 +248,9 @@ export function getBaseCodeObjImpl(p: ZustandProjectState, implId: string) {
 
 export function getCodeObjVariant(
   p: ZustandProjectState,
-  implLayeringId: string,
+  variantId: string,
 ) {
-  const variant = p.codeObjVariants[implLayeringId];
+  const variant = p.codeObjVariants[variantId];
   if (!variant) {
     throw new Error();
   }

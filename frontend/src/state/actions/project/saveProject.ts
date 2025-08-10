@@ -60,10 +60,10 @@ export function getProjectData({
 
   const {
     sectionImpls,
-    sectionVariants: sectionImplLayerings,
+    sectionVariants,
     codeObjs,
     codeObjImpls,
-    codeObjVariants: codeObjImplLayerings,
+    codeObjVariants,
     modCount,
   } = useProjectState.getState();
 
@@ -73,10 +73,10 @@ export function getProjectData({
     projectConfig,
     sections,
     sectionImpls,
-    sectionImplLayerings,
+    sectionVariants,
     codeObjs,
     codeObjImpls,
-    codeObjImplLayerings,
+    codeObjVariants,
     modCount,
   };
 
