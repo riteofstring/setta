@@ -4,7 +4,7 @@ import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
 import {
-  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -103,10 +103,11 @@ function ResizablePinnedArea({
   handleColumnResizeStart,
 }) {
   const { sectionHeight, height } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (!isBaseSectionWithParamsImpl(impl)) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
     return {
       sectionHeight: impl.size.height,
       height: impl.pinnedAreaHeight,
@@ -191,10 +192,11 @@ function GetUnpinnedParams({
 }) {
   const { ref, isScrollable } = useIsScrollable();
   const hideUnpinnedParams = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (!isBaseSectionWithParamsImpl(impl)) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
     return impl.hideUnpinnedParams;
   });
 

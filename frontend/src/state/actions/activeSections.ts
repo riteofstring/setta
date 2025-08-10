@@ -1,7 +1,10 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { getCurrEffectiveSectionImpl, getHighestAncestor } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getHighestAncestor,
+} from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
@@ -54,7 +57,9 @@ export function setTopLevelNonGroupSectionsAsActive() {
   const { topLevelSections } = p.projectConfig;
   const nonGroup: Array<string> = [];
   for (const sectionId of Object.keys(topLevelSections)) {
-    if (getCurrEffectiveSectionImpl(p, sectionId).type !== SectionTypeEnum.Group) {
+    if (
+      getCurrEffectiveSectionImpl(p, sectionId).type !== SectionTypeEnum.Group
+    ) {
       nonGroup.push(sectionId);
     }
   }

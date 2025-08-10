@@ -1,5 +1,3 @@
- 
-
 import type { XYPosition } from ".";
 
 // interface for the user node items

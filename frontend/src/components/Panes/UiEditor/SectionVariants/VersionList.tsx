@@ -7,9 +7,9 @@ import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
-  getSectionImpl,
   getEffectiveImpl,
   getSectionCore,
+  getSectionImpl,
   getSectionVariant,
   updateProjectState,
 } from "state/actions/sectionInfos";

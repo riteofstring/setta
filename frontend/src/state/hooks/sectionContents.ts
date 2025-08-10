@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
 import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
@@ -14,10 +17,11 @@ import { findAllParametersOfSection } from "utils/getDescendants";
 
 export function useParamIdsAndNamesForSidePane(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (!isBaseSectionWithParamsImpl(impl)) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
     const { ids, pathMap } = findAllParametersOfSection(x, impl, {
       output: isBaseChildlessCodeObjImpl,
       paramPath: isBaseParamCodeObjImpl,

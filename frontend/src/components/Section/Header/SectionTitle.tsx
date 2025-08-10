@@ -2,6 +2,7 @@ import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
   getSectionCore,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
@@ -111,10 +112,11 @@ function getSiblingHasName(sectionId: string, newName: string) {
   const { parentId } = impl;
   let siblingIds: Iterable<string>;
   if (parentId) {
-    const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
-    if (!isBaseParentSectionImpl(parentImpl)) {
-      throw new Error();
-    }
+    const parentImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      parentId,
+      isBaseParentSectionImpl,
+    );
     siblingIds = parentImpl.children;
   } else {
     siblingIds = useNodeInternals.getState().x.keys();

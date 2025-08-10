@@ -6,7 +6,7 @@ import {
   SettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
-import { getCurrEffectiveSectionImpl } from "./sectionInfos";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "./sectionInfos";
 
 export async function requestTypeCheck(userRequested = false) {
   if (userRequested) {
@@ -31,11 +31,12 @@ export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
     if (!paramInfoId) {
       continue;
     }
-    const impl = getCurrEffectiveSectionImpl(p, sectionId);
-    if (
-      isBaseSectionWithParamsImpl(impl) &&
-      impl.ignoreTypeErrors[paramInfoId]
-    ) {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      p,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    if (impl.ignoreTypeErrors[paramInfoId]) {
       continue;
     }
     if (!(sectionId in typeErrors)) {

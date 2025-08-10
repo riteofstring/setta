@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   BaseSectionImplUnion,
@@ -14,16 +17,19 @@ export function useListElementIdx(sectionId: string) {
     if (!parentId) {
       throw new Error();
     }
-    const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
-    if (!isBaseParentSectionImpl(parentImpl)) {
-      throw new Error();
-    }
+    const parentImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      parentId,
+      isBaseParentSectionImpl,
+    );
     return parentImpl.children.indexOf(sectionId);
   });
 }
 
 export function useSectionImplIsFrozen(sectionId: string) {
-  return useProjectState((x) => getCurrEffectiveSectionImpl(x, sectionId).isFrozen);
+  return useProjectState(
+    (x) => getCurrEffectiveSectionImpl(x, sectionId).isFrozen,
+  );
 }
 
 export function useTextBlockTextAndEditability(sectionId: string) {

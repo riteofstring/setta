@@ -3,7 +3,7 @@ import React, { useCallback } from "react";
 import { toggleParamSelected } from "state/actions/kwargs";
 import {
   getCurrEffectiveCodeObjImpl,
-  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import {
   useMisc,
@@ -41,10 +41,11 @@ function _ParamSwitch(props) {
 
   const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
     useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      if (!isBaseSectionWithParamsImpl(impl)) {
-        throw new Error();
-      }
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        x,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
         sectionId,

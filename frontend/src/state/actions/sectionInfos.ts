@@ -55,6 +55,22 @@ export function getCurrEffectiveSectionImpl(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
+export function getCurrEffectiveSectionImplWithTypeGuard<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  typeGuard: (impl) => impl is T,
+): T {
+  const effective = getCurrEffectiveSectionImpl(p, sectionId);
+
+  if (!typeGuard(effective)) {
+    throw new Error(
+      `Section implementation failed type guard for section ${sectionId}`,
+    );
+  }
+
+  return effective;
+}
+
 export function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,

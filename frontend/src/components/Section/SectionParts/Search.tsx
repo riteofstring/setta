@@ -6,7 +6,7 @@ import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
-  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -75,10 +75,11 @@ function SectionSearchCore({
     description,
     configLanguage,
   } = useProjectState((x) => {
-    const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (!isBaseSectionWithParamsImpl(sectionImpl)) {
-      throw new Error();
-    }
+    const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
