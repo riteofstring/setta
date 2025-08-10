@@ -64,7 +64,6 @@ export function getProjectData({
     codeObjs,
     codeObjImpls,
     codeObjVariants,
-    modCount,
   } = useProjectState.getState();
 
   console.log(useProjectState.getState());
@@ -77,7 +76,6 @@ export function getProjectData({
     codeObjs,
     codeObjImpls,
     codeObjVariants,
-    modCount,
   };
 
   return output;

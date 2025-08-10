@@ -43,6 +43,7 @@ export const updateBackendProjectState = asyncDebounce(
     await route_update_from_frontend({
       messageId: createNewId(),
       projectState,
+      modCount: useProjectState.getState().modCount,
       requestRenameRefactor,
     });
     // have to reset requestRenameRefactor to false, in case it was set to true
