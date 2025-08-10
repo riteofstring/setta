@@ -23,9 +23,11 @@ from setta.types.generated.effective_impls import (
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
+    BaseCodeObjImplArgs,
     BaseCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
+    BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
 )
@@ -204,6 +206,15 @@ def get_curr_effective_section_impl_with_type_guard(
     return impl
 
 
+def get_variant_effective_section_impl(
+    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+):
+    variant = get_section_variant(p, variantId)
+    impl = get_section_impl(p, variant.impl)
+    core = get_section_core(p, sectionId)
+    return get_effective_impl(impl, core, variant)
+
+
 def get_curr_code_obj_variant(
     p: ProjectStateSingleConfig, sectionId: str, codeObjId: str
 ):
@@ -239,6 +250,11 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
+def get_variant_base_code_obj_impl(p: ProjectStateSingleConfig, variantId: str):
+    variant = p.codeObjVariants[variantId]
+    return p.codeObjImpls[variant.impl]
+
+
 def set_effective_section_impl_value(
     p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
 ):
@@ -270,6 +286,11 @@ def get_section_impl(p: ProjectStateSingleConfig, implId: str):
 
 def get_section_variant(p: ProjectStateSingleConfig, variantId: str):
     return p.sectionVariants[variantId]
+
+
+def get_curr_section_base_impl(p: ProjectStateSingleConfig, sectionId: str):
+    variant = get_curr_section_variant(p, sectionId)
+    return get_section_impl(p, variant.impl)
 
 
 def get_code_obj_core(p: ProjectStateSingleConfig, codeObjId: str):
@@ -397,9 +418,10 @@ def add_code_obj(
         p,
         section_id,
         BaseSectionWithParamsImplArgsWithCallable(
-            codeObjVariantMap=get_code_obj_variant_map_update_fn(
-                {code_obj.id: code_obj_variant.id}
-            )
+            codeObjVariantMap=lambda currMap: {
+                **currMap,
+                code_obj.id: code_obj_variant.id,
+            }
         ),
     )
 
@@ -605,13 +627,13 @@ def check_if_section_is_still_used_somewhere(
     p: ProjectStateSingleConfig, sectionId: str
 ):
     for s in p.sections.values():
-        if "children" in s.sharedModifier and sectionId in s.sharedModifier["children"]:
+        if sectionId in s.sharedModifier.get("children", []):
             return True
     for s in p.sectionImpls.values():
         if isinstance(s, BaseParentSectionImpl) and sectionId in s.children:
             return True
     for s in p.sectionVariants.values():
-        if "children" in s.modifier and sectionId in s.modifier["children"]:
+        if sectionId in s.modifier.get("children", []):
             return True
     return False
 
@@ -638,21 +660,21 @@ def get_section_descendants_from_all_variants(
     output: list[str] = []
     core = p.sections[sectionId]
     for variantId in core.variants:
-        variant = p.sectionVariants[variantId]
-        base_impl = p.sectionImpls[variant.impl]
-        impl = get_effective_impl(base_impl, core, variant)
+        impl = get_variant_effective_section_impl(p, sectionId, variantId)
         if isinstance(impl, BaseParentSectionImpl):
             output.extend(impl.children)
     return output
 
 
-def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
-    currBaseImpl = get_section_base_impl(p, sectionId)
+def create_new_section_variant(p: ProjectStateSingleConfig, sectionId: str):
+    currBaseImpl = get_curr_section_base_impl(p, sectionId)
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
     else:
         newBaseImpl = currBaseImpl.model_copy(
-            update={"id": create_new_id(), "name": generate_memorable_string()},
+            update=BaseSectionImplArgs(
+                id=create_new_id(), name=generate_memorable_string()
+            ),
             deep=True,
         )
 
@@ -671,7 +693,9 @@ def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
             newBaseImpl,
             core,
             newVariant,
-            {"codeObjVariantMap": newCodeObjVariantMap},
+            BaseSectionWithParamsImplArgsWithCallable(
+                codeObjVariantMap=newCodeObjVariantMap
+            ),
         )
 
     core.variants.append(newVariant.id)
@@ -683,16 +707,15 @@ def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
 def create_new_code_obj_version(
     p: ProjectStateSingleConfig, codeObjId: str, codeObjVariantId: str
 ):
-    variant = p.codeObjVariants[codeObjVariantId]
-    currBaseImpl = p.codeObjImpls[variant.impl]
+    currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
     else:
         newBaseImpl = currBaseImpl.model_copy(
-            update={
-                "id": create_new_id(),
-                "name": generate_memorable_string(),
-            },
+            update=BaseCodeObjImplArgs(
+                id=create_new_id(),
+                name=generate_memorable_string(),
+            ),
             deep=True,
         )
 
@@ -719,7 +742,7 @@ def change_param_impl(
         sectionId,
         paramInfoId,
     )
-    old_impl = p.codeObjImpls[variant.impl]
+    old_impl = get_code_obj_impl(p, variant.impl)
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -747,7 +770,7 @@ def update_param_impl_config(
         sectionId,
         paramInfoId,
     )
-    impl = p.codeObjImpls[variant.impl]
+    impl = get_code_obj_impl(p, variant.impl)
     for k, v in newConfig.items():
         setattr(impl, k, v)
     maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
@@ -768,7 +791,12 @@ def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
         old_effective_impl = get_effective_impl(old_impl, core, variant)
         old_value = old_effective_impl.value
         new_value = convert_code_obj_value(new_impl, old_value)
-        set_effective_impl_value(new_impl, core, variant, {"value": new_value})
+        set_effective_impl_value(
+            new_impl,
+            core,
+            variant,
+            BaseChildlessCodeObjImplArgsWithCallable(value=new_value),
+        )
 
 
 def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):

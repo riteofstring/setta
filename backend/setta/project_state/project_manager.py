@@ -46,7 +46,7 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
     create_child_sections,
     create_child_sections_via_incrementer,
-    create_new_section_version,
+    create_new_section_variant,
     create_top_level_section,
     delete_child_sections_via_decrementer,
     delete_sections,
@@ -493,7 +493,7 @@ class ProjectManager:
     async def create_new_section_version(self, x: CreateNewSectionVersionRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        create_new_section_version(project_state, x.sectionId)
+        create_new_section_variant(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):
