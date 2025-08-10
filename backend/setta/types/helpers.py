@@ -157,21 +157,13 @@ def merge_single_config_into_backend(
     )
 
 
-def get_effective_section_impl(
-    p: ProjectStateSingleConfig,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
-):
-    if section_impl is None:
-        if section_id is None:
-            raise ValueError("Either section_id or section_impl must be provided")
-        variant = get_section_variant(p, section_id)
-        base_impl = p.sectionImpls[variant.impl]
-        return get_effective_impl(base_impl, p.sections[section_id], variant)
-    return section_impl
+def get_curr_effective_section_impl(p: ProjectStateSingleConfig, section_id: str):
+    variant = get_curr_section_variant(p, section_id)
+    base_impl = p.sectionImpls[variant.impl]
+    return get_effective_impl(base_impl, p.sections[section_id], variant)
 
 
-def get_section_variant(
+def get_curr_section_variant(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
@@ -179,33 +171,23 @@ def get_section_variant(
     return p.sectionVariants[variant_id]
 
 
-def get_section_base_impl(
+def get_curr_section_callable(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
-    variant = get_section_variant(p, section_id)
-    return p.sectionImpls[variant.impl]
+    section_impl = get_curr_effective_section_impl(p, section_id)
+    if not isinstance(section_impl, CallableSectionImpl):
+        raise TypeError
+    if section_impl.callable:
+        return p.codeObjs[section_impl.callable]
+    return None
 
 
-def get_section_callable(
+def get_curr_section_children_ids(
     p: ProjectStateSingleConfig,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
+    section_id: str,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
-    if isinstance(section_impl, CallableSectionImpl):
-        if section_impl.callable:
-            return p.codeObjs[section_impl.callable]
-        return None
-    raise TypeError
-
-
-def get_section_children_ids(
-    p: ProjectStateSingleConfig,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
-):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     if isinstance(section_impl, BaseParentSectionImpl):
         return section_impl.children
     raise TypeError
@@ -213,12 +195,11 @@ def get_section_children_ids(
 
 def get_top_level_param_ids(
     p: ProjectStateSingleConfig,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
+    section_id: str,
 ) -> list[str]:
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     if isinstance(section_impl, CallableSectionImpl):
-        callable = get_section_callable(p, section_impl=section_impl)
+        callable = get_curr_section_callable(p, section_id)
         if not callable:
             return []
         code_obj_impl = get_effective_code_obj_impl(
@@ -234,10 +215,9 @@ def get_top_level_param_ids(
 def get_code_obj_variants(
     p: ProjectStateSingleConfig,
     codeObjId: str,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
+    section_id: str,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_variant_id = section_impl.codeObjVariantMap[codeObjId]
         code_obj_variant = p.codeObjVariants[code_obj_variant_id]
@@ -247,11 +227,10 @@ def get_code_obj_variants(
 
 def get_effective_code_obj_impl(
     p: ProjectStateSingleConfig,
+    section_id: str,
     codeObjId: str,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_variant = get_code_obj_variants(
             p, codeObjId, section_impl=section_impl
@@ -277,7 +256,7 @@ def get_code_obj_children_ids(
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    section_impl = get_effective_section_impl(p, section_id)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = section_impl.parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -286,14 +265,14 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     output = ""
     while parent_id:
         if isinstance(section_impl, ListRootSectionImpl):
-            idx = get_section_children_ids(p, parent_id).index(section_id)
+            idx = get_curr_section_children_ids(p, parent_id).index(section_id)
             output = f"[{idx}]{output}"
         else:
             child_name = p.sections[child_id].name
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = get_effective_section_impl(p, parent_id).parentId
+        parent_id = get_curr_effective_section_impl(p, parent_id).parentId
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
@@ -303,14 +282,14 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
 def callable_is_already_selected(
     p: ProjectStateSingleConfig, sectionId: str, callableName: str
 ):
-    selected_item = get_section_callable(p, sectionId)
+    selected_item = get_curr_section_callable(p, sectionId)
     return selected_item and selected_item.name == callableName
 
 
 def callable_has_been_selected_before(
     p: ProjectStateSingleConfig, sectionId: str, callableName: str
 ):
-    section_impl = get_effective_section_impl(p, sectionId)
+    section_impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
         for c in section_impl.codeObjVariantMap.keys():
             if p.codeObjs[c].name == callableName:
@@ -641,7 +620,8 @@ def get_section_descendants_from_all_versions(
 
 
 def create_new_section_version(p: ProjectStateSingleConfig, sectionId: str):
-    currBaseImpl = get_section_base_impl(p, sectionId)
+    variant = get_curr_section_variant(p, sectionId)
+    currBaseImpl = p.sectionImpls[variant.impl]
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
     else:

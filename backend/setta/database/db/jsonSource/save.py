@@ -48,7 +48,7 @@ def save_json_source_data(
             for paramId in impl.topLevelParamIds:
                 recursively_add_keys(
                     p,
-                    impl,
+                    section.id,
                     paramId,
                     impl.jsonSourceKeys,
                     ancestor_paths,
@@ -128,13 +128,13 @@ def build_ancestor_paths(
 
 def recursively_add_keys(
     p: ProjectStateSingleConfig,
-    section_impl: BaseDictSectionImplUnion,
+    sectionId: str,
     paramId: str,
     jsonSourceKeys: list[str],
     ancestor_paths: dict[str, list[str]],
     output_dict: dict,
 ):
-    codeObjImpl = get_effective_code_obj_impl(p, paramId, section_impl=section_impl)
+    codeObjImpl = get_effective_code_obj_impl(p, sectionId, paramId)
     if isinstance(codeObjImpl, BaseChildlessCodeObjImpl):
         value = try_json(codeObjImpl.value)
     elif isinstance(codeObjImpl, BaseParentCodeObjImpl):
@@ -149,7 +149,7 @@ def recursively_add_keys(
     if isinstance(codeObjImpl, NestedParamCodeObjImpl):
         for childId in codeObjImpl.children:
             recursively_add_keys(
-                p, section_impl, childId, jsonSourceKeys, ancestor_paths, output_dict
+                p, sectionId, childId, jsonSourceKeys, ancestor_paths, output_dict
             )
 
 

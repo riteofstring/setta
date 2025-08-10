@@ -15,8 +15,8 @@ from setta.types.code_obj_impls import (
 from setta.types.helpers import (
     get_code_obj_children_ids,
     get_effective_code_obj_impl,
-    get_effective_section_impl,
-    get_section_callable,
+    get_curr_effective_section_impl,
+    get_curr_section_callable,
     get_top_level_param_ids,
 )
 from setta.types.project_state import (
@@ -176,7 +176,7 @@ class DependencyGraph:
         return graph_key
 
     def export_section_callable(self, p: ProjectStateSingleConfig, sectionId: str):
-        callable = get_section_callable(p, sectionId)
+        callable = get_curr_section_callable(p, sectionId)
         if callable:
             potential_refs = find_undefined_special_var_expressions(
                 callable.name, SELF_IDENTIFIER, keep_attr_only=True
@@ -213,7 +213,7 @@ class DependencyGraph:
             graph_key = self.create_graph_key(sectionId, pid)
             param_node = self.get_node(graph_key)
             if not param_node:
-                code_obj_impl = get_effective_code_obj_impl(p, pid, sectionId)
+                code_obj_impl = get_effective_code_obj_impl(p, sectionId, pid)
                 if not isinstance(code_obj_impl, BaseParamCodeObjImpl):
                     continue
                 param_children = get_code_obj_children_ids(p, pid, sectionId)
