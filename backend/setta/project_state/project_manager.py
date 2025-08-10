@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
@@ -208,22 +209,24 @@ class ProjectManager:
 
     @enqueue_method
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
-        if projectState.projectConfig.id in self.gen_code:
-            return
-        await self.update(projectState, self.modCount)
+        if projectState.projectConfig.id not in self.gen_code:
+            await self.update(projectState)
+        return ProjectStateSingleConfigWithModCount(
+            projectState=projectState, modCount=self.modCount
+        )
 
     @enqueue_method
     async def update_from_frontend(
         self, x: UpdateFromFrontendRequest, trigger_autosave=True
     ):
-        self.add_new_history_entry(trigger_autosave)
-        success = await self.update(
-            x.projectState, x.modCount, x.requestRenameRefactor, x.messageId
-        )
+        matching = self.modCount == x.modCount
+        if matching:
+            self.add_new_history_entry(trigger_autosave)
+            await self.update(x.projectState, x.requestRenameRefactor, x.messageId)
         await self.websocket_msg_handler.broadcast_project_state(
             x.projectState, self.modCount
         )
-        return success
+        return matching
 
     @enqueue_method
     async def update_from_frontend_top_level_section_layout(
@@ -254,12 +257,9 @@ class ProjectManager:
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
-        modCount: int,
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
-        if self.modCount != modCount:
-            return False
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
@@ -311,7 +311,6 @@ class ProjectManager:
         self.delete_unused_files(project_temp_folder)
         self.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
-        return True
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
@@ -627,7 +626,7 @@ class ProjectManager:
     async def update_and_broadcast_project_state(
         self, project_state: ProjectStateSingleConfig
     ):
-        await self.update(project_state, self.modCount)
+        await self.update(project_state)
         await self.websocket_msg_handler.broadcast_project_state(
             project_state, self.modCount
         )
@@ -665,8 +664,11 @@ class ProjectManager:
 
     @enqueue_method
     async def get_latest_project_state(self, x: GetLatestProjectStateRequest):
-        return convert_backend_to_single_config(
+        projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
+        )
+        return ProjectStateSingleConfigWithModCount(
+            projectState=projectState, modCount=self.modCount
         )
 
     @enqueue_method

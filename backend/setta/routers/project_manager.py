@@ -12,6 +12,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
@@ -23,7 +24,6 @@ from setta.project_state.project_manager_types import (
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -158,7 +158,7 @@ async def route_update_from_frontend(
 @router.post(Route.GET_LATEST_PROJECT_STATE)
 async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, state: AppStateFromRequest
-) -> ProjectStateSingleConfig:
+) -> ProjectStateSingleConfigWithModCount:
     return await state.project_manager.get_latest_project_state(x)
 
 

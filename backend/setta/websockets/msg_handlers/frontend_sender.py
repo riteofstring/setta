@@ -9,7 +9,7 @@ from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.specific_file_watcher import FileWatcherUpdate
 from setta.types.websocket import (
-    UpdateFrontendProjectState,
+    ProjectStateSingleConfigWithModCount,
     WebsocketConnectionType,
     WebsocketMsgArtifact,
     WebsocketMsgLLMStreamingResponse,
@@ -78,7 +78,7 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgUpdateFrontendProjectState(
-                content=UpdateFrontendProjectState(
+                content=ProjectStateSingleConfigWithModCount(
                     projectState=projectState, modCount=modCount
                 )
             ),

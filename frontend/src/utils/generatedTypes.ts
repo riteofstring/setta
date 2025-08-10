@@ -2806,24 +2806,24 @@ export function createProjectStateSingleConfig(
   return ProjectStateSingleConfigSchema.parse(options);
 }
 
-export const UpdateFrontendProjectStateSchema = z.object({
+export const ProjectStateSingleConfigWithModCountSchema = z.object({
   projectState: ProjectStateSingleConfigSchema,
   modCount: z.int(),
 });
 
-export type UpdateFrontendProjectState = z.infer<
-  typeof UpdateFrontendProjectStateSchema
+export type ProjectStateSingleConfigWithModCount = z.infer<
+  typeof ProjectStateSingleConfigWithModCountSchema
 >;
 
-export function createUpdateFrontendProjectState(
-  options: Partial<UpdateFrontendProjectState> = {},
-): UpdateFrontendProjectState {
-  return UpdateFrontendProjectStateSchema.parse(options);
+export function createProjectStateSingleConfigWithModCount(
+  options: Partial<ProjectStateSingleConfigWithModCount> = {},
+): ProjectStateSingleConfigWithModCount {
+  return ProjectStateSingleConfigWithModCountSchema.parse(options);
 }
 
 export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: UpdateFrontendProjectStateSchema,
+  content: ProjectStateSingleConfigWithModCountSchema,
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
@@ -7342,18 +7342,6 @@ export function createProjectLoadRequest(
   options: Partial<ProjectLoadRequest> = {},
 ): ProjectLoadRequest {
   return ProjectLoadRequestSchema.parse(options);
-}
-
-export const ProjectSaveRequestSchema = z.object({
-  project: ProjectStateSingleConfigSchema,
-});
-
-export type ProjectSaveRequest = z.infer<typeof ProjectSaveRequestSchema>;
-
-export function createProjectSaveRequest(
-  options: Partial<ProjectSaveRequest> = {},
-): ProjectSaveRequest {
-  return ProjectSaveRequestSchema.parse(options);
 }
 
 export const SaveAsExistingProjectConfigRequestSchema = z.object({

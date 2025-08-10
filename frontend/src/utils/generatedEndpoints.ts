@@ -9,12 +9,12 @@ export async function route_load_all_project_metadata(): Promise<
 
 export async function route_load_project_config(
   x: gt.ProjectLoadRequest,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithModCount>> {
   return await post("/loadProjectConfig", x);
 }
 
 export async function route_save_project(
-  x: gt.ProjectSaveRequest,
+  x: gt.ProjectStateSingleConfigWithModCount,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/saveProject", x);
 }
@@ -399,7 +399,7 @@ export async function route_update_from_frontend(
 
 export async function route_get_latest_project_state(
   x: gt.GetLatestProjectStateRequest,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithModCount>> {
   return await post("/getLatestProjectState", x);
 }
 

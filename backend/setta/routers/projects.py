@@ -14,7 +14,10 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.project_state.project_manager_types import UpdateFromFrontendRequest
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithModCount,
+    UpdateFromFrontendRequest,
+)
 from setta.project_state.save_load import save
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -25,7 +28,7 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import ProjectMetadata, ProjectStateSingleConfig
+from setta.types.project_state import ProjectMetadata
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -33,10 +36,6 @@ router = SettaAPIRouter()
 
 class ProjectLoadRequest(BaseModel):
     projectConfigName: str
-
-
-class ProjectSaveRequest(BaseModel):
-    project: ProjectStateSingleConfig
 
 
 class SaveAsNewProjectConfigRequest(BaseModel):
@@ -92,13 +91,12 @@ def route_load_all_project_metadata(state: AppStateFromRequest) -> ProjectMetada
 @router.post(Route.LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest, state: AppStateFromRequest
-) -> ProjectStateSingleConfig:
+) -> ProjectStateSingleConfigWithModCount:
     try:
         projectState = state.project_manager.project_state_backend
         projectConfigId = confirm_config_name(projectState, x.projectConfigName)
         projectState = convert_backend_to_single_config(projectState, projectConfigId)
-        await state.project_manager.maybe_init_project_config(projectState)
-        return projectState
+        return await state.project_manager.maybe_init_project_config(projectState)
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
@@ -112,10 +110,14 @@ async def route_load_project_config(
 
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
-    x: ProjectSaveRequest, background_tasks: BackgroundTasks, state: AppStateFromRequest
+    x: ProjectStateSingleConfigWithModCount,
+    background_tasks: BackgroundTasks,
+    state: AppStateFromRequest,
 ):
     try:
-        req = UpdateFromFrontendRequest(messageId=None, projectState=x.project)
+        req = UpdateFromFrontendRequest(
+            projectState=x.projectState, modCount=x.modCount
+        )
         update_success = await state.project_manager.update_from_frontend(
             req,
             trigger_autosave=False,

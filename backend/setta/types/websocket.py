@@ -1,10 +1,12 @@
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithModCount,
+)
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
@@ -13,7 +15,6 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.specific_file_watcher import FileWatcherUpdate
 
 
@@ -118,14 +119,8 @@ class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
     )
 
 
-@dataclass
-class UpdateFrontendProjectState:
-    projectState: ProjectStateSingleConfig
-    modCount: int
-
-
 class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
-    content: UpdateFrontendProjectState
+    content: ProjectStateSingleConfigWithModCount
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )

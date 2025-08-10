@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 from pydantic import BaseModel
 
 from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
@@ -118,4 +120,10 @@ class GetLatestProjectStateRequest(BaseModel):
 class UpdateFromFrontendTopLevelSectionLayout(BaseModel):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]
+    modCount: int
+
+
+@dataclass
+class ProjectStateSingleConfigWithModCount:
+    projectState: ProjectStateSingleConfig
     modCount: int

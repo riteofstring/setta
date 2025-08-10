@@ -17,7 +17,7 @@ import {
   route_load_project_config,
   route_load_settings_project,
 } from "utils/generatedEndpoints";
-import { ProjectStateSingleConfig } from "utils/generatedTypes";
+import { ProjectStateSingleConfigWithModCount } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -39,7 +39,10 @@ export async function loadSettingsProjectConfig() {
   }
 }
 
-export async function loadProjectState(p: ProjectStateSingleConfig) {
+export async function loadProjectState(
+  pWithModCount: ProjectStateSingleConfigWithModCount,
+) {
+  const p = pWithModCount.projectState;
   if (!p.projectConfig.viewport) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -50,7 +53,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState(p);
+  useProjectState.setState({ ...p, modCount: pWithModCount.modCount });
   useSectionColumnWidth.setState(_.mapValues(p.sections, (x) => x.columnWidth));
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
