@@ -13,7 +13,7 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
   });
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionUnion">(state, sectionId, {
+      setEffectiveSectionImplValue(state, sectionId, {
         isMinimized: !isMinimized,
       });
     });

@@ -7834,18 +7834,8 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseSectionImplArgs>;
   };
 
-  BaseSectionUnion: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplArgs>;
-  };
-
   BaseSectionWithParams: {
     impl: BaseSectionWithParamsImpl;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplArgs>;
-  };
-
-  BaseSectionWithParamsUnion: {
-    impl: BaseSectionWithParamsImplUnion;
     args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplArgs>;
   };
 
@@ -7854,18 +7844,8 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseArtifactSectionImplArgs>;
   };
 
-  BaseArtifactSectionUnion: {
-    impl: BaseArtifactSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseArtifactSectionImplArgs>;
-  };
-
   BaseCanvasSection: {
     impl: BaseCanvasSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseCanvasSectionImplArgs>;
-  };
-
-  BaseCanvasSectionUnion: {
-    impl: BaseCanvasSectionImplUnion;
     args: ImplArgsBundleWithUpdaters<BaseCanvasSectionImplArgs>;
   };
 
@@ -7874,28 +7854,13 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseCodeSectionImplArgs>;
   };
 
-  BaseCodeSectionUnion: {
-    impl: BaseCodeSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeSectionImplArgs>;
-  };
-
   BaseParentSection: {
     impl: BaseParentSectionImpl;
     args: ImplArgsBundleWithUpdaters<BaseParentSectionImplArgs>;
   };
 
-  BaseParentSectionUnion: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplArgs>;
-  };
-
   BaseDictSection: {
     impl: BaseDictSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplArgs>;
-  };
-
-  BaseDictSectionUnion: {
-    impl: BaseDictSectionImplUnion;
     args: ImplArgsBundleWithUpdaters<BaseDictSectionImplArgs>;
   };
 
@@ -7989,18 +7954,8 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseCodeObjImplArgs>;
   };
 
-  BaseCodeObjUnion: {
-    impl: BaseCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplArgs>;
-  };
-
   BaseParamCodeObj: {
     impl: BaseParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseParamCodeObjImplArgs>;
-  };
-
-  BaseParamCodeObjUnion: {
-    impl: BaseParamCodeObjImplUnion;
     args: ImplArgsBundleWithUpdaters<BaseParamCodeObjImplArgs>;
   };
 
@@ -8009,18 +7964,8 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplArgs>;
   };
 
-  BaseChildlessCodeObjUnion: {
-    impl: BaseChildlessCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplArgs>;
-  };
-
   BaseParentCodeObj: {
     impl: BaseParentCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseParentCodeObjImplArgs>;
-  };
-
-  BaseParentCodeObjUnion: {
-    impl: BaseParentCodeObjImplUnion;
     args: ImplArgsBundleWithUpdaters<BaseParentCodeObjImplArgs>;
   };
 

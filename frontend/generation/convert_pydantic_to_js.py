@@ -713,13 +713,6 @@ def create_impl_core_variant_bundled_types():
         args: ImplArgsBundleWithUpdaters<{c.args_name}>;
     }}
 """
-        if not c.type_has_default:
-            code += f"""
-    {c.base_name}Union: {{
-        impl: {c.original_name}Union;
-        args: ImplArgsBundleWithUpdaters<{c.args_name}>;
-    }}
-"""
 
     code = f"""
 type ImplArgsBundleWithUpdaters<T> = {{

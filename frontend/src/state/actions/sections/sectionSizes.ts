@@ -129,7 +129,7 @@ export function setSectionSize(
   size: Partial<SectionSize>,
   state: ZustandProjectState,
 ) {
-  setEffectiveSectionImplValue<"BaseSection">(state, sectionId, {
+  setEffectiveSectionImplValue(state, sectionId, {
     size: (currSize) =>
       createSectionSize({
         ...currSize,

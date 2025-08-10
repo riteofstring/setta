@@ -27,7 +27,7 @@ export function LockPositionButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionUnion">(state, sectionId, {
+      setEffectiveSectionImplValue(state, sectionId, {
         positionAndSizeLocked: !positionAndSizeLocked,
       });
     });
