@@ -11,7 +11,9 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
     BaseDictSectionImplUnion,
 )
-from setta.types.helpers import get_curr_effective_code_obj_impl
+from setta.types.helpers import (
+    get_variant_base_code_obj_impl,
+)
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
@@ -134,9 +136,8 @@ def recursively_add_keys(
     ancestor_paths: dict[str, list[str]],
     output_dict: dict,
 ):
-    codeObjImpl = get_curr_effective_code_obj_impl(
-        p, paramId, section_impl=section_impl
-    )
+    codeObjVariantId = section_impl.codeObjVariantMap[paramId]
+    codeObjImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
     if isinstance(codeObjImpl, BaseChildlessCodeObjImpl):
         value = try_json(codeObjImpl.value)
     elif isinstance(codeObjImpl, BaseParentCodeObjImpl):
