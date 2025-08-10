@@ -11,7 +11,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.generated.effective_impls import (
-    get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -31,9 +30,6 @@ from setta.types.generated.unions import (
     BaseDictSectionImplUnion,
 )
 from setta.types.helpers import (
-    get_code_obj_core,
-    get_code_obj_impl,
-    get_code_obj_variant,
     get_code_obj_variant_map_update_fn,
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
@@ -161,7 +157,7 @@ def merge_into_existing(
 
     for newId, (existingCodeObjId, newImpl) in replacements.items():
         variantId = section_impl.codeObjVariantMap[existingCodeObjId]
-        codeObjCore = get_code_obj_core(p, existingCodeObjId)
+        codeObjCore = p.codeObjs[existingCodeObjId]
         variant, baseCodeObjImpl, impl = get_variant_base_and_effective_code_obj_impl(
             p, codeObjCore, variantId
         )
@@ -199,8 +195,8 @@ def merge_into_existing(
         newId = new_jsonSourceMetadata_to_id.get(metadataString)
         if not newId:
             variantId = section_impl.codeObjVariantMap[id]
-            variant = get_code_obj_variant(p, variantId)
-            impl = get_code_obj_impl(p, variant.impl)
+            variant = p.codeObjVariants[variantId]
+            impl = p.codeObjImpls[variant.impl]
             del section_impl.codeObjVariantMap[id]
             del p.codeObjs[id]
             del p.codeObjImpls[impl.id]

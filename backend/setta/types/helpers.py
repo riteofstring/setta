@@ -189,8 +189,8 @@ def get_curr_effective_section_impl(
     section_id: str,
 ):
     variant = get_curr_section_variant(p, section_id)
-    base_impl = get_section_impl(p, variant.impl)
-    core = get_section_core(p, section_id)
+    base_impl = p.sectionImpls[variant.impl]
+    core = p.sections[section_id]
     return get_effective_impl(base_impl, core, variant)
 
 
@@ -210,9 +210,9 @@ def get_curr_effective_section_impl_with_type_guard(
 def get_variant_effective_section_impl(
     p: ProjectStateSingleConfig, sectionId: str, variantId: str
 ):
-    variant = get_section_variant(p, variantId)
-    impl = get_section_impl(p, variant.impl)
-    core = get_section_core(p, sectionId)
+    variant = p.sectionVariants[variantId]
+    impl = p.sectionImpls[variant.impl]
+    core = p.sections[sectionId]
     return get_effective_impl(impl, core, variant)
 
 
@@ -232,7 +232,7 @@ def get_curr_code_obj_variant(
         p, sectionId, BaseSectionWithParamsImpl
     )
     variant_id = section_impl.codeObjVariantMap[codeObjId]
-    return get_code_obj_variant(p, variant_id)
+    return p.codeObjVariants[variant_id]
 
 
 def get_curr_effective_code_obj_impl(
@@ -241,8 +241,8 @@ def get_curr_effective_code_obj_impl(
     codeObjId: str,
 ):
     variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    baseImpl = get_code_obj_impl(p, variant.impl)
-    core = get_code_obj_core(p, codeObjId)
+    baseImpl = p.codeObjImpls[variant.impl]
+    core = p.codeObjs[codeObjId]
     return get_effective_impl(baseImpl, core, variant)
 
 
@@ -278,8 +278,8 @@ def set_curr_effective_section_impl_value(
     p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
 ):
     variant = get_curr_section_variant(p, sectionId)
-    impl = get_section_impl(p, variant.impl)
-    core = get_section_core(p, sectionId)
+    impl = p.sectionImpls[variant.impl]
+    core = p.sections[sectionId]
     set_effective_impl_value(impl, core, variant, args)
 
 
@@ -290,38 +290,14 @@ def set_curr_effective_code_obj_impl_value(
     args: BaseCodeObjImplArgsWithCallable,
 ):
     variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    impl = get_code_obj_impl(p, variant.impl)
-    core = get_code_obj_core(p, sectionId)
+    impl = p.codeObjImpls[variant.impl]
+    core = p.codeObjs[codeObjId]
     set_effective_impl_value(impl, core, variant, args)
-
-
-def get_section_core(p: ProjectStateSingleConfig, sectionId: str):
-    return p.sections[sectionId]
-
-
-def get_section_impl(p: ProjectStateSingleConfig, implId: str):
-    return p.sectionImpls[implId]
-
-
-def get_section_variant(p: ProjectStateSingleConfig, variantId: str):
-    return p.sectionVariants[variantId]
 
 
 def get_curr_section_base_impl(p: ProjectStateSingleConfig, sectionId: str):
     variant = get_curr_section_variant(p, sectionId)
-    return get_section_impl(p, variant.impl)
-
-
-def get_code_obj_core(p: ProjectStateCore, codeObjId: str):
-    return p.codeObjs[codeObjId]
-
-
-def get_code_obj_impl(p: ProjectStateCore, implId: str):
-    return p.codeObjImpls[implId]
-
-
-def get_code_obj_variant(p: ProjectStateCore, variantId: str):
-    return p.codeObjVariants[variantId]
+    return p.sectionImpls[variant.impl]
 
 
 def get_curr_section_callable_code_obj(p: ProjectStateSingleConfig, section_id: str):
@@ -750,7 +726,7 @@ def change_param_impl(
         sectionId,
         paramInfoId,
     )
-    old_impl = get_code_obj_impl(p, variant.impl)
+    old_impl = p.codeObjImpls[variant.impl]
     impl = p.codeObjImpls.get(selectedId, None)
     if not impl:
         # selectedId will be the CodeObjType name
@@ -778,7 +754,7 @@ def update_param_impl_config(
         sectionId,
         paramInfoId,
     )
-    impl = get_code_obj_impl(p, variant.impl)
+    impl = p.codeObjImpls[variant.impl]
     for k, v in newConfig.items():
         setattr(impl, k, v)
     maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)

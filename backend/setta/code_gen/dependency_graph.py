@@ -15,12 +15,10 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
 )
 from setta.types.helpers import (
-    get_code_obj_core,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
-    get_section_core,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -131,7 +129,7 @@ class DependencyGraph:
         section_node = self.get_node(graph_key)
         if not section_node:
             sectionImpl = get_curr_effective_section_impl(p, id)
-            name = get_section_core(p, id).name
+            name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
                 value, potential_refs = self.export_section_callable(p, id)
@@ -220,7 +218,7 @@ class DependencyGraph:
                 code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
                     p, pid, sectionId, BaseParamCodeObjImpl
                 )
-                name = get_code_obj_core(p, pid).name
+                name = p.codeObjs[pid].name
                 value = ""
                 if isinstance(code_obj_impl, BaseChildlessCodeObjImpl):
                     value = code_obj_impl.value
