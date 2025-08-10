@@ -6,7 +6,6 @@ from typing import TypeVar, assert_never
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
-    BaseParamCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
@@ -26,8 +25,8 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
+    BaseParentSectionImplArgsWithCallable,
     BaseSectionImplArgsWithCallable,
-    BaseSectionWithParamsImplArgs,
     BaseSectionWithParamsImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -39,8 +38,6 @@ from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
-    BaseParentCodeObjImplUnion,
-    BaseSectionWithParamsImplUnion,
 )
 from setta.types.impl_helpers import (
     update_variants,
@@ -454,26 +451,6 @@ def set_param_entered_value(
     )
 
 
-def get_top_level_sections(p: ProjectStateSingleConfig):
-    output: dict[str, Core] = {}
-    projectConfig = p.projectConfig
-    for c in projectConfig.topLevelSections.keys():
-        output[c] = p.sections[c]
-    return output
-
-
-def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
-    param_ids = get_curr_top_level_param_ids(p, sectionId)
-    output: list[tuple[Core, BaseParamCodeObjImpl]] = []
-    for x in param_ids:
-        codeObj = p.codeObjs[x]
-        codeObjImpl = get_curr_effective_code_obj_impl(p, sectionId, x)
-        if not isinstance(codeObjImpl, BaseParamCodeObjImpl):
-            raise TypeError
-        output.append((codeObj, codeObjImpl))
-    return output
-
-
 def confirm_config_name(p: ProjectStateBackend, projectConfigName: str):
     for projectConfigId, config in p.projectConfigs.items():
         if projectConfigName == config.name:
@@ -539,14 +516,9 @@ def create_child_sections(
     numChildren: int,
     startIdx: int | None,
 ):
-    variant = get_curr_section_variant(p, parentId)
-    core = p.sections[parentId]
-    baseImpl = p.sectionImpls[variant.impl]
-    effectiveImpl = get_curr_effective_section_impl(p, parentId)
-    if not isinstance(effectiveImpl, BaseParentSectionImpl) or not isinstance(
-        baseImpl, BaseParentSectionImpl
-    ):
-        raise ValueError
+    effectiveImpl = get_curr_effective_section_impl_with_type_guard(
+        p, parentId, BaseParentSectionImpl
+    )
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
         create_section(settings, p, impl_type, {"size": size, "parentId": parentId})
@@ -555,16 +527,16 @@ def create_child_sections(
     if startIdx is None:
         startIdx = len(effectiveImpl.children)
 
-    set_effective_impl_value(
-        baseImpl,
-        core,
-        get_curr_section_variant(p, parentId),
-        {
-            "children": lambda currChildren: insert_into_array(
+    set_effective_section_impl_value(
+        p,
+        parentId,
+        BaseParentSectionImplArgsWithCallable(
+            children=lambda currChildren: insert_into_array(
                 currChildren, startIdx, newIds
             )
-        },
+        ),
     )
+
     return newIds
 
 
@@ -583,9 +555,9 @@ def create_child_sections_via_incrementer(
         parentId = impl.parentId
         if not parentId:
             raise ValueError
-        parentImpl = get_curr_effective_section_impl(p, parentId)
-        if not isinstance(parentImpl, BaseParentSectionImpl):
-            raise ValueError
+        parentImpl = get_curr_effective_section_impl_with_type_guard(
+            p, parentId, BaseParentSectionImpl
+        )
         startIdx = parentImpl.children.index(calledBy) + 1
     create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
@@ -596,17 +568,12 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         impl = get_curr_effective_section_impl(p, id)
         # delete from parent's current children list
         if impl.parentId:
-            parent_core = p.sections[impl.parentId]
-            parent_variant = get_curr_section_variant(p, impl.parentId)
-            parent_base_impl = p.sectionImpls[parent_variant.impl]
-            if not isinstance(parent_base_impl, BaseParentSectionImpl):
-                raise ValueError(f"parent_base_impl: {parent_base_impl}")
-
-            set_effective_impl_value(
-                parent_base_impl,
-                parent_core,
-                parent_variant,
-                {"children": lambda currChildren: [x for x in currChildren if x != id]},
+            set_effective_section_impl_value(
+                p,
+                impl.parentId,
+                BaseParentSectionImplArgsWithCallable(
+                    children=lambda currChildren: [x for x in currChildren if x != id]
+                ),
             )
 
         still_used = check_if_section_is_still_used_somewhere(p, id)
@@ -623,9 +590,11 @@ def delete_child_sections_via_decrementer(
     if isinstance(impl, BaseParentSectionImpl):
         sectionIds = impl.children[:numChildren]
     else:
-        parentImpl = get_curr_effective_section_impl(p, impl.parentId)
-        if not isinstance(parentImpl, BaseParentSectionImpl):
+        if not impl.parentId:
             raise ValueError
+        parentImpl = get_curr_effective_section_impl_with_type_guard(
+            p, impl.parentId, BaseParentSectionImpl
+        )
         startIdx = parentImpl.children.index(calledBy) + 1
         sectionIds = parentImpl.children[startIdx : startIdx + numChildren]
 
@@ -636,13 +605,13 @@ def check_if_section_is_still_used_somewhere(
     p: ProjectStateSingleConfig, sectionId: str
 ):
     for s in p.sections.values():
-        if "children" in s.sharedModifier and id in s.sharedModifier["children"]:
+        if "children" in s.sharedModifier and sectionId in s.sharedModifier["children"]:
             return True
     for s in p.sectionImpls.values():
-        if isinstance(s, BaseParentSectionImpl) and id in s.children:
+        if isinstance(s, BaseParentSectionImpl) and sectionId in s.children:
             return True
     for s in p.sectionVariants.values():
-        if "children" in s.modifier and id in s.modifier["children"]:
+        if "children" in s.modifier and sectionId in s.modifier["children"]:
             return True
     return False
 
@@ -656,14 +625,14 @@ def get_all_sections_for_deletion_or_copying(
     while idx < len(idsToDelete):
         currId = idsToDelete[idx]
         if currId not in visited:
-            currChildren = get_section_descendants_from_all_versions(p, currId)
+            currChildren = get_section_descendants_from_all_variants(p, currId)
             idsToDelete.extend(currChildren)
             visited.add(currId)
         idx += 1
     return set(idsToDelete)
 
 
-def get_section_descendants_from_all_versions(
+def get_section_descendants_from_all_variants(
     p: ProjectStateSingleConfig, sectionId: str
 ):
     output: list[str] = []

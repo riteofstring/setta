@@ -52,7 +52,6 @@ from setta.types.helpers import (
     delete_sections,
     # create_sections,
     get_curr_effective_section_impl,
-    get_top_level_sections,
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
@@ -401,11 +400,6 @@ class ProjectManager:
         if self.gen_code.get(projectConfigId):
             return self.gen_code[projectConfigId].get_gen_python_code()
         return ""
-
-    @enqueue_method
-    async def get_top_level_sections(self, projectConfigId: str):
-        project_state = self.get_single_config_state(projectConfigId)
-        return get_top_level_sections(project_state)
 
     @enqueue_method
     async def change_param_impl(self, x: ChangeParamImplRequest):

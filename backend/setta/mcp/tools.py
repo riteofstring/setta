@@ -5,7 +5,6 @@ from setta.mcp.tool_setup import setta_tool
 from setta.server_state import SettaFastAPIState
 from setta.terminals.run_code import run_code
 from setta.types.ai import ID
-from setta.types.helpers import get_children_of_callable
 from setta.types.simplified_states import (
     SimplifiedCodeInfo,
     SimplifiedSection,
