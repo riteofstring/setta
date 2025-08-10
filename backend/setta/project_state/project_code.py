@@ -25,8 +25,11 @@ from setta.project_state.lsp_response_handlers.signatureHelp import (
 from setta.types.code_obj_impls import CodeCallableCodeObjImpl, CodeObjType
 from setta.types.core import Core
 from setta.types.generated.effective_impls import (
-    get_effective_impl,
     set_effective_impl_value,
+)
+from setta.types.generated.impl_args_as_typed_dicts import (
+    CallableSectionImplArgsWithCallable,
+    CodeCallableCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
@@ -35,18 +38,16 @@ from setta.types.helpers import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
-    get_code_obj_variant_map_update_fn,
     get_curr_code_obj_variant,
     get_curr_effective_section_impl,
-    get_curr_section_variant,
     get_section_path_full_name,
+    set_effective_section_impl_value,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
-    CallableSectionImpl,
     CodeSectionImpl,
 )
 
@@ -123,27 +124,11 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_variant = get_curr_section_variant(project_state, sectionId)
-        base_section_impl = project_state.sectionImpls[section_variant.impl]
-        section_core = project_state.sections[sectionId]
-        section_impl = get_effective_impl(
-            base_section_impl,
-            section_core,
-            section_variant,
-        )
-
-        if not (
-            isinstance(base_section_impl, CallableSectionImpl)
-            and isinstance(section_impl, CallableSectionImpl)
-        ):
-            raise TypeError
-
         if callableName == "":
-            section_impl = set_effective_impl_value(
-                base_section_impl,
-                section_core,
-                section_variant,
-                {"callable": None},
+            set_effective_section_impl_value(
+                project_state,
+                sectionId,
+                CallableSectionImplArgsWithCallable(callable=None),
             )
 
         prev_selected = callable_has_been_selected_before(
@@ -151,11 +136,10 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if prev_selected and not refetchParams:
-            section_impl = set_effective_impl_value(
-                base_section_impl,
-                section_core,
-                section_variant,
-                {"callable": prev_selected},
+            set_effective_section_impl_value(
+                project_state,
+                sectionId,
+                CallableSectionImplArgsWithCallable(callable=prev_selected),
             )
             return
 
@@ -210,23 +194,23 @@ class ProjectGenPythonCode(PythonCode):
             callable_base_impl,
             callable_code_obj,
             callable_code_obj_variant,
-            {"description": documentation},
+            CodeCallableCodeObjImplArgsWithCallable(description=documentation),
         )
 
         add_children_of_callable(
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
 
-        set_effective_impl_value(
-            base_section_impl,
-            section_core,
-            section_variant,
-            {
-                "callable": callable_code_obj.id,
-                "codeObjVariantMap": get_code_obj_variant_map_update_fn(
-                    {callable_code_obj.id: callable_code_obj_variant.id}
-                ),
-            },
+        set_effective_section_impl_value(
+            project_state,
+            sectionId,
+            CallableSectionImplArgsWithCallable(
+                callable=callable_code_obj.id,
+                codeObjVariantMap=lambda currMap: {
+                    **currMap,
+                    callable_code_obj.id: callable_code_obj_variant.id,
+                },
+            ),
         )
 
     async def gen_code_prefix_completion(self, fullText, position):
