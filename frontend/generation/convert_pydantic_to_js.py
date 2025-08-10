@@ -36,7 +36,6 @@ from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 from setta.types.code_obj_impls import BaseCodeObjImpl
 from setta.types.section_impls import BaseSectionImpl
-from setta.types.websocket import WebsocketMsg
 from setta.utils.utils import get_absolute_path
 
 from .utils import format_generated_code, get_impl_classes
@@ -646,9 +645,6 @@ def create_type_predicate_fns_from_sets(all_sets):
             input_type = "BaseSectionImplUnion"
         elif issubclass(actual_type, BaseCodeObjImpl):
             input_type = "BaseCodeObjImplUnion"
-        elif issubclass(actual_type, WebsocketMsg):
-            input_type = "WebsocketMsgUnion"
-            discriminator = "messageType"
         else:
             continue
 

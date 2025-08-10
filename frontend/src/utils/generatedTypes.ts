@@ -7752,22 +7752,6 @@ export function isBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
-export function isBackendWebsocketMsg(
-  x: WebsocketMsgUnion,
-): x is BackendWebsocketMsgUnion {
-  return BackendWebsocketMsgTypeSet.has(x.messageType);
-}
-
-export function isFrontendWebsocketMsg(
-  x: WebsocketMsgUnion,
-): x is FrontendWebsocketMsgUnion {
-  return FrontendWebsocketMsgTypeSet.has(x.messageType);
-}
-
-export function isWebsocketMsg(x: WebsocketMsgUnion): x is WebsocketMsgUnion {
-  return WebsocketMsgTypeSet.has(x.messageType);
-}
-
 export function getSectionDefault(
   settings: SettingsState,
   sectionType: SectionType,
