@@ -296,7 +296,7 @@ class ProjectManager:
         for sectionId in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, sectionId)
             if isinstance(section_impl, CodeSectionImpl):
-                section_code = self.create_code_obj(
+                section_code = self.create_project_code(
                     project_temp_folder, projectState, sectionId, section_impl
                 )
 
@@ -511,7 +511,7 @@ class ProjectManager:
                     except Exception as e:
                         print(f"Error deleting file {file_path}: {e}")
 
-    def create_code_obj(
+    def create_project_code(
         self,
         project_temp_folder: Path,
         project_state: ProjectStateSingleConfig,

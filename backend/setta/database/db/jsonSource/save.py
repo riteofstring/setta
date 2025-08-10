@@ -12,6 +12,7 @@ from setta.types.generated.unions import (
     BaseDictSectionImplUnion,
 )
 from setta.types.helpers import (
+    get_variant_base_and_effective_section_impl,
     get_variant_base_code_obj_impl,
 )
 from setta.types.project_state import (
@@ -30,9 +31,9 @@ def save_json_source_data(
             if variant_id in processed:
                 continue
             processed.add(variant_id)
-            variant = p.sectionVariants[variant_id]
-            base_impl = p.sectionImpls[variant.impl]
-            impl = get_effective_impl(base_impl, section, variant)
+            variant, _, impl = get_variant_base_and_effective_section_impl(
+                p, section, variant_id
+            )
             if (
                 not isinstance(impl, BaseDictSectionImplUnion)
                 or not impl.isJsonSource

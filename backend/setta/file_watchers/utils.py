@@ -6,8 +6,10 @@ from dotenv import dotenv_values
 
 from setta.database.settings_file import SettingsFile
 from setta.project_state.project_manager import ProjectManager
-from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.types.helpers import get_variant_base_and_effective_section_impl
+from setta.types.project_state import (
+    ProjectStateCore,
+)
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.types.specific_file_watcher import (
     FileWatcherCoreUpdate,
@@ -100,9 +102,7 @@ async def maybe_read_json_source_contents(
         await settings_file.load_and_broadcast_settings()
 
 
-def get_json_source_variants(
-    p: ProjectStateBackend | ProjectStateSingleConfig, coreUpdate: FileWatcherCoreUpdate
-):
+def get_json_source_variants(p: ProjectStateCore, coreUpdate: FileWatcherCoreUpdate):
     variantsToLoad: list[str] = []
     processed = set()
     for section in p.sections.values():
@@ -110,9 +110,9 @@ def get_json_source_variants(
             if variant_id in variantsToLoad:
                 continue
             processed.add(variant_id)
-            variant = p.sectionVariants[variant_id]
-            base_impl = p.sectionImpls[variant.impl]
-            impl = get_effective_impl(base_impl, section, variant)
+            variant, _, impl = get_variant_base_and_effective_section_impl(
+                p, section, variant_id
+            )
             if (
                 not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource

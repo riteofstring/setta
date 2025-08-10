@@ -46,6 +46,7 @@ from setta.types.impl_helpers import (
 )
 from setta.types.project_state import (
     ProjectStateBackend,
+    ProjectStateCore,
     ProjectStateSingleConfig,
     TopLevelSectionLayout,
 )
@@ -213,6 +214,15 @@ def get_variant_effective_section_impl(
     impl = get_section_impl(p, variant.impl)
     core = get_section_core(p, sectionId)
     return get_effective_impl(impl, core, variant)
+
+
+def get_variant_base_and_effective_section_impl(
+    p: ProjectStateCore, core: Core, variant_id: str
+):
+    variant = p.sectionVariants[variant_id]
+    base_impl = p.sectionImpls[variant.impl]
+    impl = get_effective_impl(base_impl, core, variant)
+    return variant, base_impl, impl
 
 
 def get_curr_code_obj_variant(

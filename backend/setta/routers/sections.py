@@ -8,7 +8,6 @@ from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
 from setta.database.db.jsonSource.load import (
-    LoadJSONSourceObject,
     load_json_sources_into_data_structures,
 )
 from setta.database.db.jsonSource.save import save_json_source_data
@@ -19,6 +18,7 @@ from setta.database.db.sections.copy import (
 from setta.file_watchers.utils import get_content_processor
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.project_state import ProjectStateCore
 from setta.types.routes import Route
 from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.generate_new_filename import generate_new_filename
@@ -39,7 +39,7 @@ class SectionToYamlRequest(BaseModel):
 
 
 class LoadSectionJSONSourceRequest(BaseModel):
-    project: LoadJSONSourceObject
+    project: ProjectStateCore
     variantIdsToLoad: list[str]
 
 

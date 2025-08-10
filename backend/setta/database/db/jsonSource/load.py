@@ -17,6 +17,7 @@ from setta.types.generated.effective_impls import (
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
+    DictSectionImplArgs,
     NestedParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -28,12 +29,13 @@ from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
     BaseDictSectionImplUnion,
-    BaseSectionImplUnion,
 )
-from setta.types.helpers import get_code_obj_variant_map_update_fn
+from setta.types.helpers import (
+    get_code_obj_variant_map_update_fn,
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.project_state import (
-    ProjectStateBackend,
-    ProjectStateSingleConfig,
+    ProjectStateCore,
 )
 from setta.types.section_impls import (
     BaseDictSectionImpl,
@@ -50,18 +52,9 @@ class ProcessedJSONObject(BaseModel):
     codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
 
 
-class LoadJSONSourceObject(BaseModel, extra="forbid"):
-    sections: dict[str, Core]
-    sectionImpls: dict[str, BaseSectionImplUnion]
-    sectionVariants: dict[str, Variant]
-    codeObjs: dict[str, Core]
-    codeObjImpls: dict[str, BaseCodeObjImplUnion]
-    codeObjVariants: dict[str, Variant]
-
-
 def load_json_sources_into_data_structures(
     settings: SettingsState,
-    p: ProjectStateBackend | ProjectStateSingleConfig | LoadJSONSourceObject,
+    p: ProjectStateCore,
     section_variant_ids: list[str] | None = None,
 ):
     processed = set()
@@ -70,9 +63,9 @@ def load_json_sources_into_data_structures(
             if variant_id in processed:
                 continue
             processed.add(variant_id)
-            variant = p.sectionVariants[variant_id]
-            base_impl = p.sectionImpls[variant.impl]
-            impl = get_effective_impl(base_impl, section, variant)
+            variant, base_impl, impl = get_variant_base_and_effective_section_impl(
+                p, section, variant_id
+            )
             if (
                 not isinstance(base_impl, BaseDictSectionImplUnion)
                 or not isinstance(impl, BaseDictSectionImplUnion)
@@ -254,7 +247,7 @@ def process_json_object(
         sectionImpl=create_section_impl(
             SectionType.Dict,
             settings.dictSectionDefault,
-            {"isJsonSource": True, "jsonSourceKeys": jsonSourceKeys},
+            DictSectionImplArgs(isJsonSource=True, jsonSourceKeys=jsonSourceKeys),
         )
     )
 
