@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockText } from "state/hooks/sectionVariants";
@@ -20,7 +20,7 @@ import {
 
 function _TextBlock({ sectionId }) {
   const displayMode = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.TextBlock) {
       throw new Error();
     }

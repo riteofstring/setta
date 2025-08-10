@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
@@ -9,7 +9,7 @@ import { SectionSearch } from "../SectionParts/Search";
 
 function _CallableArea({ sectionId, bgColor }) {
   const { callable, hideParams } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.Callable) {
       throw new Error();
     }

@@ -1,5 +1,5 @@
 import React from "react";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ChartAreaSettings } from "./ChartAreaSettings";
@@ -23,7 +23,7 @@ export const SectionConfig = React.memo(_SectionConfig);
 
 function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
   const sectionType = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.type;
   });
   switch (sectionType) {

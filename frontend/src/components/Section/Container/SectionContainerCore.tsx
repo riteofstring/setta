@@ -1,6 +1,6 @@
 import _ from "lodash";
 import React from "react";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -16,7 +16,7 @@ function _SectionContainerCore({ sectionId, viewingEditingMode }) {
     isInOtherProjectConfigs,
     positionAndSizeLocked,
   } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
       isActiveSection: x.activeIds.includes(sectionId),
       sectionTypeName: impl.type,

@@ -7,7 +7,7 @@ import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
@@ -21,7 +21,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.Code) {
       throw new Error();
     }
@@ -58,7 +58,7 @@ function BashCodeArea({ sectionId, language }) {
 
 function _GenPythonCodeArea({ sectionId }) {
   const code = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.GenPythonCode) {
       throw new Error();
     }
@@ -108,7 +108,7 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.Code) {
       throw new Error();
     }
@@ -173,7 +173,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
 
 export function useCodeAreaHeight({ sectionId }) {
   const height = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.size.height;
   });
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);

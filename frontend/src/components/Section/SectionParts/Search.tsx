@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import {
   getCodeObjCore,
-  getEffectiveCodeObjImpl,
-  getEffectiveSectionImpl,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -75,14 +75,14 @@ function SectionSearchCore({
     description,
     configLanguage,
   } = useProjectState((x) => {
-    const sectionImpl = getEffectiveSectionImpl(x, sectionId);
+    const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
     if (!isBaseSectionWithParamsImpl(sectionImpl)) {
       throw new Error();
     }
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getEffectiveCodeObjImpl(x, callable, sectionId, sectionImpl);
+      const impl = getCurrEffectiveCodeObjImpl(x, callable, sectionId, sectionImpl);
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }

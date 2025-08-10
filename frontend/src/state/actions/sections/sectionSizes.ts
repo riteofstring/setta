@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   getHighestAncestor,
   getSectionDescendants,
   setEffectiveSectionImplValue,
@@ -31,7 +31,7 @@ function setAllOtherWidths(
 ) {
   // We want to stop width propagation as soon as we hit a horizontal group.
   const parentIdGetter = (id: string) => {
-    const impl = getEffectiveSectionImpl(state, id);
+    const impl = getCurrEffectiveSectionImpl(state, id);
     if (
       impl.parentId &&
       impl.type === SectionTypeEnum.Group &&

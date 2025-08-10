@@ -1,7 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -13,7 +13,7 @@ import {
 
 export function RenderTextBlock({ sectionId }) {
   const { displayMode, format, implIsFrozen } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.TextBlock) {
       throw new Error();
     }
@@ -46,7 +46,7 @@ export function RenderTextBlock({ sectionId }) {
 
 export function ConvertFormat({ sectionId }) {
   const format = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (impl.type !== SectionTypeEnum.TextBlock) {
       throw new Error();
     }

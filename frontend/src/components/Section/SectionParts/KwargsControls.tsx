@@ -8,7 +8,7 @@ import {
   pinSelectedKwargs,
 } from "state/actions/kwargs";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   getSectionVariant,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -88,7 +88,7 @@ export function KwargsControls({
 
 function ParamFilter({ sectionId }) {
   const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (!isBaseSectionWithParamsImpl(impl)) {
       throw new Error();
     }

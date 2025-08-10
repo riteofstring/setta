@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getEffectiveCodeObjImpl,
-  getEffectiveSectionImpl,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -75,11 +75,11 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const { codeObjType, configLanguage, defaultVal, disabledOrFrozen } =
     useProjectState((x) => {
-      const impl = getEffectiveSectionImpl(x, sectionId);
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
       if (!isBaseSectionWithParamsImpl(impl)) {
         throw new Error();
       }
-      const codeObjImpl = getEffectiveCodeObjImpl(
+      const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
         paramInfoId,
         sectionId,

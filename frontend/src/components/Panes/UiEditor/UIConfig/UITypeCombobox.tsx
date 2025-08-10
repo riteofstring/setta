@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  getBaseCodeObjImpl,
+  getCodeObjImpl,
   getCurrCodeObjVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -61,7 +61,7 @@ function useNonPresetImplsForParam(sectionId: string, paramInfoId: string) {
     const variant = getCurrCodeObjVariant(x, sectionId, paramInfoId);
     const prevImpls: Record<string, string> = {};
     for (const i of variant.nonPresetImpls) {
-      const impl = getBaseCodeObjImpl(x, i);
+      const impl = getCodeObjImpl(x, i);
       prevImpls[impl.type] = impl.id;
     }
 

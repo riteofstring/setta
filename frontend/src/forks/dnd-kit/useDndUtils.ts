@@ -6,7 +6,7 @@ import {
 } from "forks/dnd-kit/dndState";
 import _ from "lodash";
 import { useEffect } from "react";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useSectionImplIsFrozen } from "state/hooks/sectionVariants";
 import colors from "tailwindcss/colors";
@@ -49,12 +49,12 @@ export function useDisableSortable(sectionId: string) {
 
   function activeIdInAncestorSet(activeId: string) {
     const state = useProjectState.getState();
-    let { parentId } = getEffectiveSectionImpl(state, sectionId);
+    let { parentId } = getCurrEffectiveSectionImpl(state, sectionId);
     while (parentId) {
       if (activeId === parentId) {
         return true;
       }
-      ({ parentId } = getEffectiveSectionImpl(state, parentId));
+      ({ parentId } = getCurrEffectiveSectionImpl(state, parentId));
     }
     return false;
   }

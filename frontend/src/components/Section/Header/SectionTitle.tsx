@@ -1,7 +1,7 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   getSectionCore,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
@@ -89,7 +89,7 @@ function setSectionName(sectionId: string, name: string) {
 
 function useTitleIsEditable(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
 
     const uneditableTypes: Array<SectionType> = [
       SectionTypeEnum.GlobalVariables,
@@ -107,11 +107,11 @@ function useTitleIsEditable(sectionId: string) {
 
 function getSiblingHasName(sectionId: string, newName: string) {
   const state = useProjectState.getState();
-  const impl = getEffectiveSectionImpl(state, sectionId);
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
   const { parentId } = impl;
   let siblingIds: Iterable<string>;
   if (parentId) {
-    const parentImpl = getEffectiveSectionImpl(state, parentId);
+    const parentImpl = getCurrEffectiveSectionImpl(state, parentId);
     if (!isBaseParentSectionImpl(parentImpl)) {
       throw new Error();
     }

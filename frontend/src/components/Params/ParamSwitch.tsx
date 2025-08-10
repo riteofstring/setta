@@ -2,8 +2,8 @@ import _ from "lodash";
 import React, { useCallback } from "react";
 import { toggleParamSelected } from "state/actions/kwargs";
 import {
-  getEffectiveCodeObjImpl,
-  getEffectiveSectionImpl,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveSectionImpl,
 } from "state/actions/sectionInfos";
 import {
   useMisc,
@@ -41,11 +41,11 @@ function _ParamSwitch(props) {
 
   const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
     useProjectState((x) => {
-      const impl = getEffectiveSectionImpl(x, sectionId);
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
       if (!isBaseSectionWithParamsImpl(impl)) {
         throw new Error();
       }
-      const codeObjImpl = getEffectiveCodeObjImpl(
+      const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
         paramInfoId,
         sectionId,

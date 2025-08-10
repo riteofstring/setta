@@ -1,7 +1,7 @@
 import _ from "lodash";
 import React from "react";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewingEditingModeVisibility,
 } from "state/actions/sectionInfos";
@@ -23,7 +23,7 @@ function _SectionContainer({
   const { visibility, viewingEditingMode, isGroup } = useProjectState((x) => {
     const { visibility, viewingEditingMode } =
       getSectionViewingEditingModeVisibility(sectionId, x);
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
       visibility,
       viewingEditingMode,

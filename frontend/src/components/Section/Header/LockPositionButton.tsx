@@ -2,7 +2,7 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import _ from "lodash";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -10,7 +10,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
       isGroup: impl.type === SectionTypeEnum.Group,
       positionAndSizeLocked: impl.positionAndSizeLocked,

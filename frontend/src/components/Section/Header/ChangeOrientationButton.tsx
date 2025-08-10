@@ -4,7 +4,7 @@ import {
   TbArrowBigRightLinesFilled,
 } from "react-icons/tb";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -12,7 +12,7 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function ChangeOrientationButton({ sectionId }) {
   const isHorizontalOrientation = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
   });
 

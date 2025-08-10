@@ -45,12 +45,12 @@ export function getCurrSectionVariant(
   return getSectionVariant(p, variantId);
 }
 
-export function getEffectiveSectionImpl(
+export function getCurrEffectiveSectionImpl(
   p: ZustandProjectState,
   sectionId: string,
 ) {
   const variant = getCurrSectionVariant(p, sectionId);
-  const baseImpl = getBaseSectionImpl(p, variant.impl);
+  const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
   return getEffectiveImpl(baseImpl, core, variant);
 }
@@ -61,7 +61,7 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
 ) {
   // Check if sectionId exists in the map
-  const sectionImpl = getEffectiveSectionImpl(p, sectionId);
+  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId);
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     throw new Error();
   }
@@ -72,13 +72,13 @@ export function getCurrCodeObjVariant(
   return getCodeObjVariant(p, variantId);
 }
 
-export function getEffectiveCodeObjImpl(
+export function getCurrEffectiveCodeObjImpl(
   p: ZustandProjectState,
   codeObjId: string,
   sectionId: string,
 ) {
   const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
-  const baseImpl = getBaseCodeObjImpl(p, variant.impl);
+  const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
 }
@@ -211,7 +211,7 @@ export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   return section;
 }
 
-export function getBaseSectionImpl(p: ZustandProjectState, implId: string) {
+export function getSectionImpl(p: ZustandProjectState, implId: string) {
   const impl = p.sectionImpls[implId];
   if (!impl) {
     throw new Error();
@@ -238,7 +238,7 @@ export function getCodeObjCore(p: ZustandProjectState, codeObjId: string) {
   return codeObj;
 }
 
-export function getBaseCodeObjImpl(p: ZustandProjectState, implId: string) {
+export function getCodeObjImpl(p: ZustandProjectState, implId: string) {
   const impl = p.codeObjImpls[implId];
   if (!impl) {
     throw new Error();
@@ -262,7 +262,7 @@ export function getSectionInfo(sectionId) {
 }
 
 export function getSectionParentId(sectionId: string) {
-  return getEffectiveSectionImpl(useProjectState.getState(), sectionId)
+  return getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
     .parentId;
 }
 
@@ -295,7 +295,7 @@ export function getSectionDescendants(
   while (idx < ids.length) {
     const currId = ids[idx];
     if (currId) {
-      const impl = getEffectiveSectionImpl(state, currId);
+      const impl = getCurrEffectiveSectionImpl(state, currId);
       if (isBaseParentSectionImpl(impl)) {
         ids.push(...impl.children);
       }
@@ -416,7 +416,7 @@ function getDisplayedSectionIdToChildrenHelper(
     const { children } = sectionImpl;
     output[sectionId] = children;
     for (const childId of children) {
-      const childImpl = getEffectiveSectionImpl(state, childId);
+      const childImpl = getCurrEffectiveSectionImpl(state, childId);
       getDisplayedSectionIdToChildrenHelper(childId, childImpl, state, output);
     }
   } else {
@@ -427,7 +427,7 @@ function getDisplayedSectionIdToChildrenHelper(
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
   for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
-    const impl = getEffectiveSectionImpl(state, sectionId);
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
@@ -513,7 +513,7 @@ export function getSectionViewingEditingModeVisibility(
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
-  const sectionImpl = getEffectiveSectionImpl(state, sectionId);
+  const sectionImpl = getCurrEffectiveSectionImpl(state, sectionId);
   const visibility =
     sectionImpl.visibility[getSectionVisibilityKey(viewingEditingMode)];
   return {
@@ -555,13 +555,13 @@ export function getAncestorSameVisibility(
   state: ZustandProjectState,
 ) {
   const { viewingEditingMode } = state.projectConfig;
-  let impl = getEffectiveSectionImpl(state, sectionId);
+  let impl = getCurrEffectiveSectionImpl(state, sectionId);
   let { parentId } = impl;
   const key = getSectionVisibilityKey(viewingEditingMode);
   const targetVisibility = impl.visibility[key];
 
   while (parentId) {
-    impl = getEffectiveSectionImpl(state, parentId);
+    impl = getCurrEffectiveSectionImpl(state, parentId);
     if (impl.visibility[key] === targetVisibility) {
       return true;
     }

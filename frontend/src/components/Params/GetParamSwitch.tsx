@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
@@ -21,7 +21,7 @@ export function GetParamSwitch({
   // TODO: make this more efficient
   const filteredIds = useProjectState((x) => {
     let matches = paramIds;
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (!isBaseSectionWithParamsImpl(impl)) {
       throw new Error();
     }

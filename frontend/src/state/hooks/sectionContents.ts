@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import {
   getParamIdsToShowInArea,
   paramNameFromPathArray,
@@ -14,7 +14,7 @@ import { findAllParametersOfSection } from "utils/getDescendants";
 
 export function useParamIdsAndNamesForSidePane(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     if (!isBaseSectionWithParamsImpl(impl)) {
       throw new Error();
     }
@@ -37,7 +37,7 @@ export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
   return useProjectState((x) => {
     return getParamIdsToShowInArea(
       x,
-      getEffectiveSectionImpl(x, sectionId),
+      getCurrEffectiveSectionImpl(x, sectionId),
       isPinned,
     );
   }, _.isEqual);

@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import {
   BaseSectionImplUnion,
@@ -9,12 +9,12 @@ import {
 
 export function useListElementIdx(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const { parentId } = impl;
     if (!parentId) {
       throw new Error();
     }
-    const parentImpl = getEffectiveSectionImpl(x, parentId);
+    const parentImpl = getCurrEffectiveSectionImpl(x, parentId);
     if (!isBaseParentSectionImpl(parentImpl)) {
       throw new Error();
     }
@@ -23,12 +23,12 @@ export function useListElementIdx(sectionId: string) {
 }
 
 export function useSectionImplIsFrozen(sectionId: string) {
-  return useProjectState((x) => getEffectiveSectionImpl(x, sectionId).isFrozen);
+  return useProjectState((x) => getCurrEffectiveSectionImpl(x, sectionId).isFrozen);
 }
 
 export function useTextBlockTextAndEditability(sectionId: string) {
   return useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return {
       ...getTextBlockText(sectionId, x, impl),
       isFrozen: impl.isFrozen,
@@ -41,7 +41,7 @@ export function getTextBlockText(
   state: ZustandProjectState,
   _impl: BaseSectionImplUnion | null = null,
 ) {
-  const impl = _impl ?? getEffectiveSectionImpl(state, sectionId);
+  const impl = _impl ?? getCurrEffectiveSectionImpl(state, sectionId);
   if (impl.type !== SectionTypeEnum.TextBlock) {
     throw new Error();
   }

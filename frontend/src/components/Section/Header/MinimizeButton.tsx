@@ -1,14 +1,14 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  getEffectiveSectionImpl,
+  getCurrEffectiveSectionImpl,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, sectionId);
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.isMinimized;
   });
   function onClick() {

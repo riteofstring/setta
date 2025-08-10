@@ -7,7 +7,7 @@ import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
-  getBaseSectionImpl,
+  getSectionImpl,
   getEffectiveImpl,
   getSectionCore,
   getSectionVariant,
@@ -120,7 +120,7 @@ function OneItem({
 }) {
   const { name, isFrozen, isJsonSource } = useProjectState((x) => {
     const variant = getSectionVariant(x, id);
-    const baseImpl = getBaseSectionImpl(x, variant.impl);
+    const baseImpl = getSectionImpl(x, variant.impl);
     const core = getSectionCore(x, sectionId);
     const impl = getEffectiveImpl(baseImpl, core, variant);
     return {

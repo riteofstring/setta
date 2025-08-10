@@ -4,7 +4,7 @@ import { useFloatingBox } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import type { CSSProperties, KeyboardEvent } from "react";
 import { memo, useEffect, useRef } from "react";
-import { getEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import {
   NO_PAN_CLASS_NAME,
@@ -37,7 +37,7 @@ const _NodeWrapper = ({
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
   const positionAndSizeLocked = useProjectState((x) => {
-    const impl = getEffectiveSectionImpl(x, id);
+    const impl = getCurrEffectiveSectionImpl(x, id);
     return impl.positionAndSizeLocked;
   });
   const isDraggable = _isDraggable && !positionAndSizeLocked;
