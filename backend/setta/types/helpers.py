@@ -25,6 +25,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgs,
     BaseCodeObjImplArgsWithCallable,
+    BaseDictSectionImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
     BaseSectionImplArgs,
@@ -848,7 +849,7 @@ def add_kwarg(settings: SettingsState, p: ProjectStateSingleConfig, sectionId: s
     if isinstance(sectionImpl, CallableSectionImpl):
         return add_kwarg_to_callable_section(settings, p, sectionId, sectionImpl)
     elif isinstance(sectionImpl, BaseDictSectionImpl):
-        return add_kwarg_to_dict_section(p, sectionId, sectionImpl)
+        return add_kwarg_to_dict_section(settings, p, sectionId)
     raise TypeError
 
 
@@ -877,11 +878,21 @@ def add_kwarg_to_callable_section(
 
 
 def add_kwarg_to_dict_section(
-    p: ProjectStateCore,
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
     sectionId: str,
-    sectionImpl: BaseDictSectionImpl,
 ):
-    pass
+    newId = create_kwarg_objs(settings, p, sectionId)
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseDictSectionImplArgsWithCallable(
+            topLevelParamIds=lambda curr: [*curr, newId]
+        ),
+    )
+
+    return newId
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {
