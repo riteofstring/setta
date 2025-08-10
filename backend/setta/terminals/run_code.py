@@ -17,6 +17,9 @@ async def run_code(
     terminal_id = None
 
     command = await project_manager.create_run_command(projectConfigId, sectionId)
+    if not command:
+        return None
+
     if cliId:
         await websocket_msg_handler.send_command(command, cliId)
     else:
