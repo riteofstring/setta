@@ -8,6 +8,7 @@ import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
@@ -21,10 +22,11 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.Code) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Code,
+    );
     return impl.codeLanguage;
   });
 
@@ -58,10 +60,11 @@ function BashCodeArea({ sectionId, language }) {
 
 function _GenPythonCodeArea({ sectionId }) {
   const code = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.GenPythonCode) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.GenPythonCode,
+    );
     return impl.code;
   });
 
@@ -108,10 +111,11 @@ function ReadOnlyCoreCodeArea({ sectionId, code, language }) {
 
 function CoreCodeArea({ sectionId, language, completionsFn }) {
   const { value, variantIsFrozen } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.Code) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Code,
+    );
     return {
       value: impl.code,
       variantIsFrozen: false,

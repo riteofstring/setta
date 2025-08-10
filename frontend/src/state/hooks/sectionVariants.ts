@@ -1,6 +1,7 @@
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useProjectState, ZustandProjectState } from "state/definitions";
@@ -47,10 +48,13 @@ export function getTextBlockText(
   state: ZustandProjectState,
   _impl: BaseSectionImplUnion | null = null,
 ) {
-  const impl = _impl ?? getCurrEffectiveSectionImpl(state, sectionId);
-  if (impl.type !== SectionTypeEnum.TextBlock) {
-    throw new Error();
-  }
+  const impl =
+    _impl ??
+    getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.TextBlock,
+    );
   return {
     format: impl.format,
     headingAsSectionName: impl.headingAsSectionName,

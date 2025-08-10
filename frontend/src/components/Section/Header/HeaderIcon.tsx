@@ -11,6 +11,7 @@ import { SiGnubash, SiPython } from "react-icons/si";
 import { TbFolderFilled } from "react-icons/tb";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
   getSectionType,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -179,10 +180,11 @@ function ListElementIcon({ sectionId }: { sectionId: string }) {
 
 function TextBlockIcon({ sectionId }) {
   const format = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.TextBlock) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.TextBlock,
+    );
     return impl.format;
   });
 

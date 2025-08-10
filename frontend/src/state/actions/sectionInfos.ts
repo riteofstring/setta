@@ -20,6 +20,7 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
+  SectionType,
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -69,6 +70,22 @@ export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   }
 
   return effective;
+}
+
+export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
+  p: ZustandProjectState,
+  sectionId: string,
+  expectedType: T,
+): Extract<BaseSectionImplUnion, { type: T }> {
+  const impl = getCurrEffectiveSectionImpl(p, sectionId);
+
+  if (impl.type !== expectedType) {
+    throw new Error(
+      `Expected section type ${expectedType}, got ${impl.type} for section ${sectionId}`,
+    );
+  }
+
+  return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
 export function getCurrCodeObjVariant(

@@ -1,7 +1,7 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
-  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -9,10 +9,11 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function HideShowParamsButton({ sectionId }) {
   const { hasParams, hideParams } = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    if (impl.type !== SectionTypeEnum.Callable) {
-      throw new Error();
-    }
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Callable,
+    );
     return { hasParams: false, hideParams: impl.hideParams };
   }, _.isEqual);
 
