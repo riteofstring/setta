@@ -4,10 +4,7 @@ import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { res200 } from "utils/endpointUtils";
 import { route_docstring_to_markdown } from "utils/generatedEndpoints";
-import {
-  createTextBlockSectionImplArgs,
-  TextBlockFormatEnum,
-} from "utils/generatedTypes";
+import { TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function TextBlockSettings({ sectionId }) {
   const { format, text, isFrozen, headingAsSectionName } =
@@ -22,28 +19,20 @@ export function TextBlockSettings({ sectionId }) {
       newText = text;
     }
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createTextBlockSectionImplArgs({
-          text: newText,
-          format: v
-            ? TextBlockFormatEnum.Markdown
-            : TextBlockFormatEnum.Plaintext,
-        }),
-      );
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        text: newText,
+        format: v
+          ? TextBlockFormatEnum.Markdown
+          : TextBlockFormatEnum.Plaintext,
+      });
     });
   }
 
   async function onChangeHeadingAsSectionName(v) {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createTextBlockSectionImplArgs({
-          headingAsSectionName: v,
-        }),
-      );
+      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        headingAsSectionName: v,
+      });
     });
   }
 

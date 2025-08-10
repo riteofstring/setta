@@ -5,10 +5,7 @@ import {
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  createCallableSectionImplArgs,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function HideShowParamsButton({ sectionId }) {
   const { hasParams, hideParams } = useProjectState((x) => {
@@ -22,13 +19,9 @@ export function HideShowParamsButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createCallableSectionImplArgs({
-          hideParams: !hideParams,
-        }),
-      );
+      setEffectiveSectionImplValue<"CallableSection">(state, sectionId, {
+        hideParams: !hideParams,
+      });
     });
   }
 

@@ -6,10 +6,7 @@ import {
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  createBaseSectionImplArgs,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function LockPositionButton({ sectionId }) {
   const { isGroup, positionAndSizeLocked } = useProjectState((x) => {
@@ -30,13 +27,9 @@ export function LockPositionButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createBaseSectionImplArgs({
-          positionAndSizeLocked: !positionAndSizeLocked,
-        }),
-      );
+      setEffectiveSectionImplValue(state, sectionId, {
+        positionAndSizeLocked: !positionAndSizeLocked,
+      });
     });
     updateBackendProjectState();
   }

@@ -8,10 +8,7 @@ import {
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  createGroupSectionImplArgs,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function ChangeOrientationButton({ sectionId }) {
   const isHorizontalOrientation = useProjectState((x) => {
@@ -21,13 +18,9 @@ export function ChangeOrientationButton({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createGroupSectionImplArgs({
-          isHorizontalOrientation: !isHorizontalOrientation,
-        }),
-      );
+      setEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
+        isHorizontalOrientation: !isHorizontalOrientation,
+      });
     });
   }
 

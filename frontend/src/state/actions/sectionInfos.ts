@@ -18,6 +18,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  ImplArgsBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -171,12 +172,12 @@ export function getEffectiveImplFromVariantMap(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function setEffectiveImplValue(
-  impl,
+export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
+  impl: ImplArgsBundleMap[K]["impl"],
   core: Core,
   variant: Variant,
-  args,
-) {
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
     // Resolve the value if it's a function
     const resolvedValue =
@@ -195,27 +196,27 @@ export function setEffectiveImplValue(
   return getEffectiveImpl(impl, core, variant);
 }
 
-export function setEffectiveSectionImplValue(
+export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
-  args,
-) {
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
   const core = getSectionCore(state, sectionId);
-  return setEffectiveImplValue(impl, core, variant, args);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
-export function setEffectiveCodeObjImplValue(
+export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  args,
-) {
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
   const variant = getCurrCodeObjVariant(state, sectionId, codeObjId);
   const impl = getCodeObjImpl(state, variant.impl);
   const core = getCodeObjCore(state, codeObjId);
-  return setEffectiveImplValue(impl, core, variant, args);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {

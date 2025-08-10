@@ -5,7 +5,6 @@ import {
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { createBaseSectionImplArgs } from "utils/generatedTypes";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useProjectState((x) => {
@@ -14,13 +13,9 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
   });
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue(
-        state,
-        sectionId,
-        createBaseSectionImplArgs({
-          isMinimized: !isMinimized,
-        }),
-      );
+      setEffectiveSectionImplValue(state, sectionId, {
+        isMinimized: !isMinimized,
+      });
     });
     updateBackendProjectState();
   }

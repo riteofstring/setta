@@ -18,10 +18,7 @@ import {
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_code_area_completion } from "utils/generatedEndpoints";
-import {
-  createCodeSectionImplArgs,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
@@ -309,11 +306,7 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
 
 const debouncedSetCode = _.debounce((sectionId, value) => {
   useProjectState.setState((x) => {
-    setEffectiveSectionImplValue(
-      x,
-      sectionId,
-      createCodeSectionImplArgs({ code: value }),
-    );
+    setEffectiveSectionImplValue<"CodeSection">(x, sectionId, { code: value });
   });
 }, 50);
 
