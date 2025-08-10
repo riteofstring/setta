@@ -22,6 +22,14 @@ from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseChildlessCodeObjImplArgsWithCallable,
+    BaseCodeObjImplArgsWithCallable,
+    BaseParentCodeObjImplArgsWithCallable,
+    BaseSectionImplArgsWithCallable,
+    BaseSectionWithParamsImplArgs,
+    BaseSectionWithParamsImplArgsWithCallable,
+)
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
@@ -234,6 +242,27 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
+def set_effective_section_impl_value(
+    p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
+):
+    variant = get_curr_section_variant(p, sectionId)
+    impl = get_section_impl(p, variant.impl)
+    core = get_section_core(p, sectionId)
+    set_effective_impl_value(impl, core, variant, args)
+
+
+def set_effective_code_obj_impl_value(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    codeObjId: str,
+    args: BaseCodeObjImplArgsWithCallable,
+):
+    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
+    impl = get_code_obj_impl(p, variant.impl)
+    core = get_code_obj_core(p, sectionId)
+    set_effective_impl_value(impl, core, variant, args)
+
+
 def get_section_core(p: ProjectStateSingleConfig, sectionId: str):
     return p.sections[sectionId]
 
@@ -356,11 +385,6 @@ def add_code_obj(
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
-    section_variant = get_curr_section_variant(p, section_id)
-    base_section_impl = get_section_impl(p, section_variant.impl)
-    section_core = get_section_core(p, section_id)
-    if not isinstance(base_section_impl, BaseSectionWithParamsImplUnion):
-        raise TypeError
     code_obj_variant = Variant(
         impl=code_obj_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
@@ -372,16 +396,16 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjVariants[code_obj_variant.id] = code_obj_variant
 
-    set_effective_impl_value(
-        base_section_impl,
-        section_core,
-        section_variant,
-        {
-            "codeObjVariantMap": get_code_obj_variant_map_update_fn(
+    set_effective_section_impl_value(
+        p,
+        section_id,
+        BaseSectionWithParamsImplArgsWithCallable(
+            codeObjVariantMap=get_code_obj_variant_map_update_fn(
                 {code_obj.id: code_obj_variant.id}
             )
-        },
+        ),
     )
+
     return code_obj_variant
 
 
@@ -392,27 +416,15 @@ def add_children_of_callable(
     new_params: list[Core],
     new_param_impl_map: dict[str, BaseParamCodeObjImplUnion],
 ):
-    callable_code_obj_variant = get_curr_code_obj_variant(
-        p,
-        section_id,
-        callable_id,
+    callable_code_obj_impl = get_curr_effective_code_obj_impl_with_type_guard(
+        p, section_id, callable_id, CodeCallableCodeObjImpl
     )
-    callable_code_obj_impl = get_effective_impl(
-        p.codeObjImpls[callable_code_obj_variant.impl],
-        p.codeObjs[callable_id],
-        callable_code_obj_variant,
-    )
-    if not isinstance(callable_code_obj_impl, CodeCallableCodeObjImpl):
-        raise TypeError
     existing_param_core: dict[str, Core] = {}
     for c in callable_code_obj_impl.children:
         match = p.codeObjs[c]
         existing_param_core[match.name] = match
 
     param_ids_in_order = []
-    section_impl = get_curr_effective_section_impl(p, section_id)
-    if not isinstance(section_impl, CallableSectionImpl):
-        raise TypeError
     for new_param in new_params:
         existing = existing_param_core.get(new_param.name)
         new_param_impl = new_param_impl_map[new_param.id]
@@ -423,15 +435,12 @@ def add_children_of_callable(
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    base_impl = p.codeObjImpls[callable_code_obj_variant.impl]
-    code_obj_core = p.codeObjs[callable_id]
-    if isinstance(base_impl, BaseParentCodeObjImplUnion):
-        set_effective_impl_value(
-            base_impl,
-            code_obj_core,
-            callable_code_obj_variant,
-            {"children": param_ids_in_order},
-        )
+    set_effective_code_obj_impl_value(
+        p,
+        section_id,
+        callable_id,
+        BaseParentCodeObjImplArgsWithCallable(children=param_ids_in_order),
+    )
 
 
 def set_param_entered_value(
@@ -440,21 +449,9 @@ def set_param_entered_value(
     paramId: str,
     value: str,
 ):
-    code_obj_impl_variant = get_curr_code_obj_variant(
-        p,
-        sectionId,
-        paramId,
+    set_effective_code_obj_impl_value(
+        p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
     )
-    base_impl = (p.codeObjImpls[code_obj_impl_variant.impl],)
-    code_obj_core = p.codeObjs[paramId]
-    if isinstance(base_impl, BaseChildlessCodeObjImplUnion):
-        set_effective_impl_value(
-            base_impl,
-            code_obj_core,
-            code_obj_impl_variant,
-            {"value": value},
-        )
-    raise TypeError
 
 
 def get_top_level_sections(p: ProjectStateSingleConfig):
