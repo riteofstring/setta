@@ -41,7 +41,7 @@ from setta.types.helpers import (
     get_curr_code_obj_variant,
     get_curr_effective_section_impl,
     get_section_path_full_name,
-    set_effective_section_impl_value,
+    set_curr_effective_section_impl_value,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
@@ -125,7 +125,7 @@ class ProjectGenPythonCode(PythonCode):
             return
 
         if callableName == "":
-            set_effective_section_impl_value(
+            set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
                 CallableSectionImplArgsWithCallable(callable=None),
@@ -136,7 +136,7 @@ class ProjectGenPythonCode(PythonCode):
         )
 
         if prev_selected and not refetchParams:
-            set_effective_section_impl_value(
+            set_curr_effective_section_impl_value(
                 project_state,
                 sectionId,
                 CallableSectionImplArgsWithCallable(callable=prev_selected),
@@ -201,7 +201,7 @@ class ProjectGenPythonCode(PythonCode):
             project_state, sectionId, callable_code_obj.id, codeObjs, codeObjImplMap
         )
 
-        set_effective_section_impl_value(
+        set_curr_effective_section_impl_value(
             project_state,
             sectionId,
             CallableSectionImplArgsWithCallable(

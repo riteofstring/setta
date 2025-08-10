@@ -255,7 +255,7 @@ def get_variant_base_code_obj_impl(p: ProjectStateSingleConfig, variantId: str):
     return p.codeObjImpls[variant.impl]
 
 
-def set_effective_section_impl_value(
+def set_curr_effective_section_impl_value(
     p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
 ):
     variant = get_curr_section_variant(p, sectionId)
@@ -264,7 +264,7 @@ def set_effective_section_impl_value(
     set_effective_impl_value(impl, core, variant, args)
 
 
-def set_effective_code_obj_impl_value(
+def set_curr_effective_code_obj_impl_value(
     p: ProjectStateSingleConfig,
     sectionId: str,
     codeObjId: str,
@@ -403,7 +403,7 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjVariants[code_obj_variant.id] = code_obj_variant
 
-    set_effective_section_impl_value(
+    set_curr_effective_section_impl_value(
         p,
         section_id,
         BaseSectionWithParamsImplArgsWithCallable(
@@ -443,7 +443,7 @@ def add_children_of_callable(
             add_code_obj(p, section_id, new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
-    set_effective_code_obj_impl_value(
+    set_curr_effective_code_obj_impl_value(
         p,
         section_id,
         callable_id,
@@ -457,7 +457,7 @@ def set_param_entered_value(
     paramId: str,
     value: str,
 ):
-    set_effective_code_obj_impl_value(
+    set_curr_effective_code_obj_impl_value(
         p, sectionId, paramId, BaseChildlessCodeObjImplArgsWithCallable(value=value)
     )
 
@@ -538,7 +538,7 @@ def create_child_sections(
     if startIdx is None:
         startIdx = len(effectiveImpl.children)
 
-    set_effective_section_impl_value(
+    set_curr_effective_section_impl_value(
         p,
         parentId,
         BaseParentSectionImplArgsWithCallable(
@@ -579,7 +579,7 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         impl = get_curr_effective_section_impl(p, id)
         # delete from parent's current children list
         if impl.parentId:
-            set_effective_section_impl_value(
+            set_curr_effective_section_impl_value(
                 p,
                 impl.parentId,
                 BaseParentSectionImplArgsWithCallable(
