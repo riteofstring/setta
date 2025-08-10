@@ -19,7 +19,10 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  createBaseSectionWithParamsImplArgs,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import { GetParamSwitch } from "./GetParamSwitch";
 
 function _ParamGroupContainer({ sectionId }: { sectionId: string }) {
@@ -121,9 +124,13 @@ function ResizablePinnedArea({
       sizeMode: { height: SIZE_MODE.any },
     });
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
-        pinnedAreaHeight: height,
-      });
+      setEffectiveSectionImplValue(
+        state,
+        sectionId,
+        createBaseSectionWithParamsImplArgs({
+          pinnedAreaHeight: height,
+        }),
+      );
     });
   }
 

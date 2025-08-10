@@ -15,7 +15,10 @@ import {
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { TextBlockFormatEnum } from "utils/generatedTypes";
+import {
+  createTextBlockSectionImplArgs,
+  TextBlockFormatEnum,
+} from "utils/generatedTypes";
 
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
@@ -60,10 +63,10 @@ const _MarkdownEditorCore = React.forwardRef(
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
         useProjectState.setState((state) => {
-          const impl = setEffectiveSectionImplValue<"TextBlockSection">(
+          const impl = setEffectiveSectionImplValue(
             state,
             sectionId,
-            { text: v },
+            createTextBlockSectionImplArgs({ text: v }),
           );
           if (impl.headingAsSectionName) {
             const section = getSectionCore(state, sectionId);

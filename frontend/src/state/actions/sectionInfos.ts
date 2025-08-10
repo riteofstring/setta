@@ -18,7 +18,6 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
-  ImplArgsBundleMap,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
@@ -172,12 +171,12 @@ export function getEffectiveImplFromVariantMap(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
-  impl: ImplArgsBundleMap[K]["impl"],
+export function setEffectiveImplValue(
+  impl,
   core: Core,
   variant: Variant,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args,
+) {
   for (const [k, v] of Object.entries(args)) {
     // Resolve the value if it's a function
     const resolvedValue =
@@ -196,27 +195,27 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   return getEffectiveImpl(impl, core, variant);
 }
 
-export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
+export function setEffectiveSectionImplValue(
   state: ZustandProjectState,
   sectionId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args,
+) {
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
   const core = getSectionCore(state, sectionId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl, core, variant, args);
 }
 
-export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
+export function setEffectiveCodeObjImplValue(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
-  args: ImplArgsBundleMap[K]["args"],
-): ImplArgsBundleMap[K]["impl"] {
+  args,
+) {
   const variant = getCurrCodeObjVariant(state, sectionId, codeObjId);
   const impl = getCodeObjImpl(state, variant.impl);
   const core = getCodeObjCore(state, codeObjId);
-  return setEffectiveImplValue<K>(impl, core, variant, args);
+  return setEffectiveImplValue(impl, core, variant, args);
 }
 
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {

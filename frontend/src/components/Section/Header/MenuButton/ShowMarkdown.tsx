@@ -6,6 +6,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
+  createTextBlockSectionImplArgs,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -27,12 +28,16 @@ export function RenderTextBlock({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        displayMode:
-          displayMode === TextBlockDisplayModeEnum.render
-            ? TextBlockDisplayModeEnum.edit
-            : TextBlockDisplayModeEnum.render,
-      });
+      setEffectiveSectionImplValue(
+        state,
+        sectionId,
+        createTextBlockSectionImplArgs({
+          displayMode:
+            displayMode === TextBlockDisplayModeEnum.render
+              ? TextBlockDisplayModeEnum.edit
+              : TextBlockDisplayModeEnum.render,
+        }),
+      );
     });
   }
 
@@ -62,9 +67,13 @@ export function ConvertFormat({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        format: convertTo,
-      });
+      setEffectiveSectionImplValue(
+        state,
+        sectionId,
+        createTextBlockSectionImplArgs({
+          format: convertTo,
+        }),
+      );
     });
   }
 

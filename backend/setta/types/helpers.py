@@ -22,6 +22,10 @@ from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseSectionWithParamsImplArgs,
+    BaseSectionWithParamsImplArgsWithCallable,
+)
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
@@ -350,17 +354,19 @@ def callable_has_been_selected_before(
     return None
 
 
+def set_effective_section_impl_value(p: ProjectStateSingleConfig, sectionId: str, args):
+    section_variant = get_curr_section_variant(p, sectionId)
+    base_section_impl = get_section_impl(p, section_variant.impl)
+    section_core = get_section_core(p, sectionId)
+    set_effective_impl_value(base_section_impl, section_core, section_variant, args)
+
+
 def add_code_obj(
     p: ProjectStateSingleConfig,
     section_id: str,
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
-    section_variant = get_curr_section_variant(p, section_id)
-    base_section_impl = get_section_impl(p, section_variant.impl)
-    section_core = get_section_core(p, section_id)
-    if not isinstance(base_section_impl, BaseSectionWithParamsImplUnion):
-        raise TypeError
     code_obj_variant = Variant(
         impl=code_obj_impl.id,
         nonPresetImpls=compute_initial_nonPresetImpls(code_obj_impl),
