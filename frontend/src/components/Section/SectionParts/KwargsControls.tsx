@@ -5,7 +5,7 @@ import {
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
-import { route_add_kwarg } from "utils/generatedEndpoints";
+import { route_add_kwarg, route_delete_kwarg } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
@@ -16,8 +16,6 @@ export function KwargsControls({
 }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
-
-  const onClickDeleteKwarg = () => {};
 
   const onClickDeleteSelectedKwargs = () => {};
 
@@ -39,7 +37,12 @@ export function KwargsControls({
 
             <button
               className={classes}
-              onClick={onClickDeleteKwarg}
+              onClick={() =>
+                route_delete_kwarg({
+                  projectConfigId: useProjectState.getState().projectConfig.id,
+                  sectionId,
+                })
+              }
               tabIndex={0}
               disabled={variantIsFrozen}
             >

@@ -9,6 +9,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVersionRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
+    DeleteKwargRequest,
     DeleteSectionsRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -173,3 +174,8 @@ async def route_update_from_frontend_top_level_section_layout(
 @router.post(Route.ADD_KWARG)
 async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
     await state.project_manager.add_kwarg(x)
+
+
+@router.post(Route.DELETE_KWARG)
+async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
+    await state.project_manager.delete_kwarg(x)

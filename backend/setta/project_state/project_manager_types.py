@@ -128,6 +128,11 @@ class AddKwargRequest(BaseModel):
     sectionId: str
 
 
+class DeleteKwargRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

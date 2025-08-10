@@ -414,3 +414,9 @@ export async function route_add_kwarg(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/addKwarg", x);
 }
+
+export async function route_delete_kwarg(
+  x: gt.DeleteKwargRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteKwarg", x);
+}

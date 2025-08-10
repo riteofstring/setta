@@ -28,6 +28,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVersionRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
+    DeleteKwargRequest,
     DeleteSectionsRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -52,6 +53,7 @@ from setta.types.helpers import (
     create_new_section_variant,
     create_top_level_section,
     delete_child_sections_via_decrementer,
+    delete_kwarg,
     delete_sections,
     # create_sections,
     get_curr_effective_section_impl,
@@ -503,6 +505,13 @@ class ProjectManager:
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         add_kwarg(self.settings_file.settings, project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_kwarg(self, x: DeleteKwargRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_kwarg(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     def add_to_used_files(self, code_obj: Code):

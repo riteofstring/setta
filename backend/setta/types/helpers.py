@@ -895,6 +895,47 @@ def add_kwarg_to_dict_section(
     return newId
 
 
+def delete_kwarg(p: ProjectStateSingleConfig, sectionId: str):
+    sectionImpl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    if isinstance(sectionImpl, CallableSectionImpl):
+        return delete_kwarg_from_callable_section(p, sectionId, sectionImpl)
+    elif isinstance(sectionImpl, BaseDictSectionImpl):
+        return delete_kwarg_from_dict_section(p, sectionId)
+    raise TypeError
+
+
+def delete_kwarg_from_callable_section(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    sectionImpl: CallableSectionImpl,
+):
+    callableId = sectionImpl.callable
+    if not callableId:
+        raise ValueError
+
+    set_curr_effective_code_obj_impl_value(
+        p,
+        sectionId,
+        callableId,
+        CodeCallableCodeObjImplArgsWithCallable(
+            children=lambda currChildren: currChildren[:-1]
+        ),
+    )
+
+
+def delete_kwarg_from_dict_section(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseDictSectionImplArgsWithCallable(topLevelParamIds=lambda curr: curr[:-1]),
+    )
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {
