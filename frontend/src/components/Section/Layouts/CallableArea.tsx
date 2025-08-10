@@ -29,7 +29,6 @@ function _CallableArea({ sectionId, bgColor }) {
         <>
           <KwargsControls
             sectionId={sectionId}
-            objInfoId={callable}
             bgColor={bgColor}
           />
           <ParamGroupContainer sectionId={sectionId} />

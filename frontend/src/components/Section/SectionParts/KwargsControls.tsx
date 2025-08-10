@@ -9,11 +9,7 @@ import { route_add_kwarg, route_delete_kwarg } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
-export function KwargsControls({
-  sectionId,
-  objInfoId,
-  bgColor = "bg-transparent",
-}) {
+export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
   // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
   const variantIsFrozen = false;
 
