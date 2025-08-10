@@ -1,7 +1,7 @@
 import copy
 import math
 import re
-from typing import assert_never
+from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import (
@@ -44,6 +44,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import (
     BaseParentSectionImpl,
+    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     DictSectionImpl,
@@ -62,6 +63,9 @@ class ProjectNotFound(Exception):
 
 class ProjectNameTaken(Exception):
     pass
+
+
+T = TypeVar("T", bound=BaseSectionImpl)
 
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
@@ -157,21 +161,7 @@ def merge_single_config_into_backend(
     )
 
 
-def get_effective_section_impl(
-    p: ProjectStateSingleConfig,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
-):
-    if section_impl is None:
-        if section_id is None:
-            raise ValueError("Either section_id or section_impl must be provided")
-        variant = get_section_variant(p, section_id)
-        base_impl = p.sectionImpls[variant.impl]
-        return get_effective_impl(base_impl, p.sections[section_id], variant)
-    return section_impl
-
-
-def get_section_variant(
+def get_curr_section_variant(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
@@ -179,11 +169,65 @@ def get_section_variant(
     return p.sectionVariants[variant_id]
 
 
+def get_curr_effective_section_impl(
+    p: ProjectStateSingleConfig,
+    section_id: str,
+):
+    variant = get_curr_section_variant(p, section_id)
+    base_impl = get_section_impl(p, variant.impl)
+    core = get_section_core(p, section_id)
+    return get_effective_impl(base_impl, core, variant)
+
+
+def get_curr_effective_section_impl_with_type_guard(
+    project_state: ProjectStateSingleConfig, section_id: str, impl_type: type[T]
+) -> T:
+    impl = get_curr_effective_section_impl(project_state, section_id)
+
+    if not isinstance(impl, impl_type):
+        raise ValueError(f"Section {section_id} failed type guard")
+
+    return impl
+
+
+def get_curr_code_obj_variant(
+    p: ProjectStateSingleConfig, sectionId: str, codeObjId: str
+):
+    section_impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, BaseSectionWithParamsImpl
+    )
+    variant_id = section_impl.codeObjVariantMap[codeObjId]
+    return get_code_obj_variant(p, variant_id)
+
+
+def get_curr_effective_code_obj_impl(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    codeObjId: str,
+):
+    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
+    baseImpl = get_code_obj_impl(p, variant.impl)
+    core = get_code_obj_core(p, codeObjId)
+    return get_effective_impl(baseImpl, core, variant)
+
+
+def get_code_obj_core(p: ProjectStateSingleConfig, codeObjId: str):
+    return p.codeObjs[codeObjId]
+
+
+def get_code_obj_impl(p: ProjectStateSingleConfig, implId: str):
+    return p.codeObjImpls[implId]
+
+
+def get_code_obj_variant(p: ProjectStateSingleConfig, variantId: str):
+    return p.codeObjVariants[variantId]
+
+
 def get_section_base_impl(
     p: ProjectStateSingleConfig,
     section_id: str,
 ):
-    variant = get_section_variant(p, section_id)
+    variant = get_curr_section_variant(p, section_id)
     return p.sectionImpls[variant.impl]
 
 
@@ -192,7 +236,7 @@ def get_section_callable(
     section_id: str | None = None,
     section_impl: BaseSectionImplUnion | None = None,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
         if section_impl.callable:
             return p.codeObjs[section_impl.callable]
@@ -205,7 +249,7 @@ def get_section_children_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImplUnion | None = None,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseParentSectionImpl):
         return section_impl.children
     raise TypeError
@@ -216,12 +260,12 @@ def get_top_level_param_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImplUnion | None = None,
 ) -> list[str]:
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, CallableSectionImpl):
         callable = get_section_callable(p, section_impl=section_impl)
         if not callable:
             return []
-        code_obj_impl = get_effective_code_obj_impl(
+        code_obj_impl = get_curr_effective_code_obj_impl(
             p, callable.id, section_impl=section_impl
         )
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
@@ -237,30 +281,11 @@ def get_code_obj_variants(
     section_id: str | None = None,
     section_impl: BaseSectionImplUnion | None = None,
 ):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
+    section_impl = get_curr_effective_section_impl(p, section_id, section_impl)
     if isinstance(section_impl, BaseSectionWithParamsImpl):
         code_obj_variant_id = section_impl.codeObjVariantMap[codeObjId]
         code_obj_variant = p.codeObjVariants[code_obj_variant_id]
         return code_obj_variant
-    raise TypeError
-
-
-def get_effective_code_obj_impl(
-    p: ProjectStateSingleConfig,
-    codeObjId: str,
-    section_id: str | None = None,
-    section_impl: BaseSectionImplUnion | None = None,
-):
-    section_impl = get_effective_section_impl(p, section_id, section_impl)
-    if isinstance(section_impl, BaseSectionWithParamsImpl):
-        code_obj_variant = get_code_obj_variants(
-            p, codeObjId, section_impl=section_impl
-        )
-        base_impl = p.codeObjImpls[code_obj_variant.impl]
-        code_obj_impl = get_effective_impl(
-            base_impl, p.codeObjs[codeObjId], code_obj_variant
-        )
-        return code_obj_impl
     raise TypeError
 
 
@@ -270,14 +295,16 @@ def get_code_obj_children_ids(
     section_id: str | None = None,
     section_impl: BaseSectionImplUnion | None = None,
 ) -> list[str]:
-    code_obj_impl = get_effective_code_obj_impl(p, codeObjId, section_id, section_impl)
+    code_obj_impl = get_curr_effective_code_obj_impl(
+        p, codeObjId, section_id, section_impl
+    )
     if isinstance(code_obj_impl, BaseParentCodeObjImpl):
         return code_obj_impl.children
     return []
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    section_impl = get_effective_section_impl(p, section_id)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = section_impl.parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -293,7 +320,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = get_effective_section_impl(p, parent_id).parentId
+        parent_id = get_curr_effective_section_impl(p, parent_id).parentId
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
@@ -310,7 +337,7 @@ def callable_is_already_selected(
 def callable_has_been_selected_before(
     p: ProjectStateSingleConfig, sectionId: str, callableName: str
 ):
-    section_impl = get_effective_section_impl(p, sectionId)
+    section_impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(section_impl, CallableSectionImpl):
         for c in section_impl.codeObjVariantMap.keys():
             if p.codeObjs[c].name == callableName:
@@ -324,7 +351,7 @@ def add_code_obj(
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
-    section_variant = get_section_variant(p, section_id)
+    section_variant = get_curr_section_variant(p, section_id)
     base_section_impl = p.sectionImpls[section_variant.impl]
     section_core = p.sections[section_id]
     if not (isinstance(base_section_impl, BaseSectionWithParamsImplUnion)):
@@ -374,7 +401,7 @@ def add_children_of_callable(
         existing_param_core[match.name] = match
 
     param_ids_in_order = []
-    section_impl = get_effective_section_impl(p, section_id)
+    section_impl = get_curr_effective_section_impl(p, section_id)
     if not isinstance(section_impl, CallableSectionImpl):
         raise TypeError
     for new_param in new_params:
@@ -430,7 +457,7 @@ def get_children_of_callable(p: ProjectStateSingleConfig, sectionId: str):
     output: list[tuple[Core, BaseParamCodeObjImpl]] = []
     for x in param_ids:
         codeObj = p.codeObjs[x]
-        codeObjImpl = get_effective_code_obj_impl(p, sectionId, x)
+        codeObjImpl = get_curr_effective_code_obj_impl(p, sectionId, x)
         if not isinstance(codeObjImpl, BaseParamCodeObjImpl):
             raise TypeError
         output.append((codeObj, codeObjImpl))
@@ -502,10 +529,10 @@ def create_child_sections(
     numChildren: int,
     startIdx: int | None,
 ):
-    variant = get_section_variant(p, parentId)
+    variant = get_curr_section_variant(p, parentId)
     core = p.sections[parentId]
     baseImpl = p.sectionImpls[variant.impl]
-    effectiveImpl = get_effective_section_impl(p, parentId)
+    effectiveImpl = get_curr_effective_section_impl(p, parentId)
     if not isinstance(effectiveImpl, BaseParentSectionImpl) or not isinstance(
         baseImpl, BaseParentSectionImpl
     ):
@@ -521,7 +548,7 @@ def create_child_sections(
     set_effective_impl_value(
         baseImpl,
         core,
-        get_section_variant(p, parentId),
+        get_curr_section_variant(p, parentId),
         {
             "children": lambda currChildren: insert_into_array(
                 currChildren, startIdx, newIds
@@ -538,7 +565,7 @@ def create_child_sections_via_incrementer(
     impl_type: SectionType,
     numChildren: int,
 ):
-    impl = get_effective_section_impl(p, calledBy)
+    impl = get_curr_effective_section_impl(p, calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         parentId = calledBy
         startIdx = 0
@@ -546,7 +573,7 @@ def create_child_sections_via_incrementer(
         parentId = impl.parentId
         if not parentId:
             raise ValueError
-        parentImpl = get_effective_section_impl(p, parentId)
+        parentImpl = get_curr_effective_section_impl(p, parentId)
         if not isinstance(parentImpl, BaseParentSectionImpl):
             raise ValueError
         startIdx = parentImpl.children.index(calledBy) + 1
@@ -556,11 +583,11 @@ def create_child_sections_via_incrementer(
 def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
     for id in to_delete:
-        impl = get_effective_section_impl(p, id)
+        impl = get_curr_effective_section_impl(p, id)
         # delete from parent's current children list
         if impl.parentId:
             parent_core = p.sections[impl.parentId]
-            parent_variant = get_section_variant(p, impl.parentId)
+            parent_variant = get_curr_section_variant(p, impl.parentId)
             parent_base_impl = p.sectionImpls[parent_variant.impl]
             if not isinstance(parent_base_impl, BaseParentSectionImpl):
                 raise ValueError(f"parent_base_impl: {parent_base_impl}")
@@ -582,11 +609,11 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
 def delete_child_sections_via_decrementer(
     p: ProjectStateSingleConfig, calledBy: str, numChildren: int
 ):
-    impl = get_effective_section_impl(p, calledBy)
+    impl = get_curr_effective_section_impl(p, calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         sectionIds = impl.children[:numChildren]
     else:
-        parentImpl = get_effective_section_impl(p, impl.parentId)
+        parentImpl = get_curr_effective_section_impl(p, impl.parentId)
         if not isinstance(parentImpl, BaseParentSectionImpl):
             raise ValueError
         startIdx = parentImpl.children.index(calledBy) + 1

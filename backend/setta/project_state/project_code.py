@@ -37,9 +37,9 @@ from setta.types.helpers import (
     callable_is_already_selected,
     get_code_obj_variant_map_update_fn,
     get_code_obj_variants,
-    get_effective_section_impl,
+    get_curr_effective_section_impl,
+    get_curr_section_variant,
     get_section_path_full_name,
-    get_section_variant,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
@@ -123,7 +123,7 @@ class ProjectGenPythonCode(PythonCode):
         ):
             return
 
-        section_variant = get_section_variant(project_state, sectionId)
+        section_variant = get_curr_section_variant(project_state, sectionId)
         base_section_impl = project_state.sectionImpls[section_variant.impl]
         section_core = project_state.sections[sectionId]
         section_impl = get_effective_impl(
@@ -308,7 +308,7 @@ class ProjectPythonCode(PythonCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = get_effective_section_impl(project_state, sectionId)
+        section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
@@ -353,7 +353,7 @@ class ProjectBashCode(BashCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = get_effective_section_impl(project_state, sectionId)
+        section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code

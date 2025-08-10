@@ -30,7 +30,6 @@ import {
 import { openDeleteJSONSourceFileModal } from "./modal";
 import { waitForFileDeletion } from "./temporaryMiscState";
 
-// Generic function with constraints
 export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
   Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
@@ -96,10 +95,11 @@ export function getCurrCodeObjVariant(
   codeObjId: string,
 ) {
   // Check if sectionId exists in the map
-  const sectionImpl = getCurrEffectiveSectionImpl(p, sectionId);
-  if (!isBaseSectionWithParamsImpl(sectionImpl)) {
-    throw new Error();
-  }
+  const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
+    p,
+    sectionId,
+    isBaseSectionWithParamsImpl,
+  );
   const variantId = sectionImpl.codeObjVariantMap[codeObjId];
   if (variantId === undefined) {
     throw new Error();
