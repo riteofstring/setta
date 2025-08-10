@@ -14,6 +14,11 @@ from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
 )
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseChildlessCodeObjImplArgsWithCallable,
+    BaseDictSectionImplArgsWithCallable,
+    NestedParamCodeObjImplArgsWithCallable,
+)
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
@@ -67,7 +72,7 @@ def load_json_sources_into_data_structures(
             processed.add(variant_id)
             variant = p.sectionVariants[variant_id]
             base_impl = p.sectionImpls[variant.impl]
-            impl = get_effective_impl(p.sectionImpls[variant.impl], section, variant)
+            impl = get_effective_impl(base_impl, section, variant)
             if (
                 not isinstance(base_impl, BaseDictSectionImplUnion)
                 or not isinstance(impl, BaseDictSectionImplUnion)
@@ -79,7 +84,10 @@ def load_json_sources_into_data_structures(
                 settings, variant.name, impl.jsonSourceKeys
             )
             impl = set_effective_impl_value(
-                base_impl, section, variant, {"jsonSourceMissing": isMissing}
+                base_impl,
+                section,
+                variant,
+                BaseDictSectionImplArgsWithCallable(jsonSourceMissing=isMissing),
             )
             if isMissing:
                 continue
@@ -146,11 +154,11 @@ def merge_into_existing(
                 base_section_impl,
                 section,
                 section_variant,
-                {
-                    "codeObjVariantMap": get_code_obj_variant_map_update_fn(
+                BaseDictSectionImplArgsWithCallable(
+                    codeObjVariantMap=get_code_obj_variant_map_update_fn(
                         {newId: newVariantId}
                     )
-                },
+                ),
             )
             codeObjVariants[newVariantId] = newVariant
             codeObjImpls[newImpl.id] = newImpl
@@ -173,12 +181,12 @@ def merge_into_existing(
                 baseCodeObjImpl,
                 codeObjCore,
                 variant,
-                {
-                    "children": [
+                NestedParamCodeObjImplArgsWithCallable(
+                    children=[
                         replacements[c][0] if c in replacements else c
                         for c in newImpl.children
                     ]
-                },
+                ),
             )
         elif (
             isinstance(baseCodeObjImpl, BaseChildlessCodeObjImplUnion)
@@ -186,7 +194,10 @@ def merge_into_existing(
             and isinstance(newImpl, BaseChildlessCodeObjImplUnion)
         ):
             impl = set_effective_impl_value(
-                baseCodeObjImpl, codeObjCore, variant, {"value": newImpl.value}
+                baseCodeObjImpl,
+                codeObjCore,
+                variant,
+                BaseChildlessCodeObjImplArgsWithCallable(value=newImpl.value),
             )
         else:
             raise TypeError
@@ -206,12 +217,12 @@ def merge_into_existing(
         base_section_impl,
         section,
         section_variant,
-        {
-            "topLevelParamIds": [
+        BaseDictSectionImplArgsWithCallable(
+            topLevelParamIds=[
                 replacements[c][0] if c in replacements else c
                 for c in new_data.sectionImpl.topLevelParamIds
             ]
-        },
+        ),
     )
 
 
