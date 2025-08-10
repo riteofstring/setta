@@ -11,7 +11,7 @@ import { ParamUI } from "../ParamUIs/ParamUI";
 
 export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const enteredValue = useProjectState((x) => {
-    const impl = getCurrEffectiveCodeObjImpl(x, paramInfoId, sectionId, null);
+    const impl = getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId);
     if (!isBaseChildlessCodeObjImpl(impl)) {
       throw new Error();
     }

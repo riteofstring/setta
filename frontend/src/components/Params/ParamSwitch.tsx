@@ -47,9 +47,8 @@ function _ParamSwitch(props) {
       }
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
-        paramInfoId,
         sectionId,
-        impl,
+        paramInfoId,
       );
       if (!isBaseParamCodeObjImpl(codeObjImpl)) {
         throw new Error();

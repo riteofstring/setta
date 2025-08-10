@@ -7,7 +7,10 @@ import React, { useEffect, useRef } from "react";
 import { BiChevronUp, BiError } from "react-icons/bi";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
+import {
+  getCodeObjCore,
+  getCurrEffectiveCodeObjImpl,
+} from "state/actions/sectionInfos";
 import { useProjectState, useSectionColumnWidth } from "state/definitions";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
@@ -31,13 +34,12 @@ function _ParamContainer({
     (x) => {
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
-        paramInfoId,
         sectionId,
-        null,
+        paramInfoId,
       );
       return {
         description: codeObjImpl.description,
-        name: x.codeObjs[paramInfoId].name,
+        name: getCodeObjCore(x, paramInfoId).name,
       };
     },
     _.isEqual,

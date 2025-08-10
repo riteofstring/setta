@@ -82,7 +82,7 @@ function SectionSearchCore({
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImpl(x, callable, sectionId, sectionImpl);
+      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, callable);
       const { description } = impl;
       return { name: codeObj.name, description, configLanguage };
     }

@@ -74,8 +74,8 @@ export function getCurrCodeObjVariant(
 
 export function getCurrEffectiveCodeObjImpl(
   p: ZustandProjectState,
-  codeObjId: string,
   sectionId: string,
+  codeObjId: string,
 ) {
   const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
   const baseImpl = getCodeObjImpl(p, variant.impl);

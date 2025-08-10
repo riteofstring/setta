@@ -81,9 +81,8 @@ export function ParamUI({
       }
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
         x,
-        paramInfoId,
         sectionId,
-        impl,
+        paramInfoId,
       );
       if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
         throw new Error();

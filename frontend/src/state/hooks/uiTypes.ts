@@ -141,12 +141,7 @@ export function useParamCodeObjUIConfig<T extends CodeObjType>(
   type: T,
 ): T extends keyof typeof UI_CONFIG_EXTRACTORS ? ExtractorResult<T> : {} {
   return useProjectState((x) => {
-    const codeObjImpl = getCurrEffectiveCodeObjImpl(
-      x,
-      paramInfoId,
-      sectionId,
-      null,
-    );
+    const codeObjImpl = getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId);
     if (codeObjImpl.type !== type) {
       throw new Error();
     }
