@@ -6422,19 +6422,6 @@ export function createProjectStateBackend(
   return ProjectStateBackendSchema.parse(options);
 }
 
-export const ProjectMetadataSchema = z.object({
-  defaultProjectConfigId: z.union([z.string(), z.null()]),
-  projectMetadata: z.array(ProjectConfigSchema),
-});
-
-export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
-
-export function createProjectMetadata(
-  options: Partial<ProjectMetadata> = {},
-): ProjectMetadata {
-  return ProjectMetadataSchema.parse(options);
-}
-
 export const ProjectStateCoreSchema = z.object({
   sections: z.record(z.string(), CoreSchema).default({}),
   sectionImpls: z
@@ -6488,6 +6475,19 @@ export function createProjectStateCore(
   options: Partial<ProjectStateCore> = {},
 ): ProjectStateCore {
   return ProjectStateCoreSchema.parse(options);
+}
+
+export const ProjectMetadataSchema = z.object({
+  defaultProjectConfigId: z.union([z.string(), z.null()]),
+  projectMetadata: z.array(ProjectConfigSchema),
+});
+
+export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
+
+export function createProjectMetadata(
+  options: Partial<ProjectMetadata> = {},
+): ProjectMetadata {
+  return ProjectMetadataSchema.parse(options);
 }
 
 export const BaseArtifactSectionImplSchema = z.object({
@@ -7467,59 +7467,8 @@ export function createGetJSONSourcePathToBeDeleted(
   return GetJSONSourcePathToBeDeletedSchema.parse(options);
 }
 
-export const LoadJSONSourceObjectSchema = z.object({
-  sections: z.record(z.string(), CoreSchema),
-  sectionImpls: z.record(
-    z.string(),
-    z.union([
-      CallableSectionImplSchema,
-      DictSectionImplSchema,
-      ListRootSectionImplSchema,
-      DictRootSectionImplSchema,
-      GroupSectionImplSchema,
-      ImageSectionImplSchema,
-      ChartSectionImplSchema,
-      DrawSectionImplSchema,
-      TextBlockSectionImplSchema,
-      SocialSectionImplSchema,
-      GlobalVariablesSectionImplSchema,
-      CodeSectionImplSchema,
-      GenPythonCodeSectionImplSchema,
-      TerminalSectionImplSchema,
-      IFrameSectionImplSchema,
-      ChatSectionImplSchema,
-      BrowserSectionImplSchema,
-    ]),
-  ),
-  sectionVariants: z.record(z.string(), VariantSchema),
-  codeObjs: z.record(z.string(), CoreSchema),
-  codeObjImpls: z.record(
-    z.string(),
-    z.union([
-      CodeCallableCodeObjImplSchema,
-      CodeParamCodeObjImplSchema,
-      TextParamCodeObjImplSchema,
-      SliderParamCodeObjImplSchema,
-      SwitchParamCodeObjImplSchema,
-      ColorPickerParamCodeObjImplSchema,
-      DropdownParamCodeObjImplSchema,
-      PasswordParamCodeObjImplSchema,
-      NestedParamCodeObjImplSchema,
-    ]),
-  ),
-  codeObjVariants: z.record(z.string(), VariantSchema),
-});
-
-export type LoadJSONSourceObject = z.infer<typeof LoadJSONSourceObjectSchema>;
-
-export function createLoadJSONSourceObject(
-  options: Partial<LoadJSONSourceObject> = {},
-): LoadJSONSourceObject {
-  return LoadJSONSourceObjectSchema.parse(options);
-}
-
 export const LoadSectionJSONSourceRequestSchema = z.object({
-  project: LoadJSONSourceObjectSchema,
+  project: ProjectStateCoreSchema,
   variantIdsToLoad: z.array(z.string()),
 });
 
