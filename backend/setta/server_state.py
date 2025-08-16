@@ -40,10 +40,14 @@ class SettaFastAPIState:
             self.lsp_writers,
             self.wmh_frontend_sender,
             self.settings_file,
+            self.specific_file_watcher,
             self.dbe,
         )
         settings_project_manager = SettingsProjectManager(
-            self.lsp_writers, self.wmh_frontend_sender, self.settings_file
+            self.lsp_writers,
+            self.wmh_frontend_sender,
+            self.settings_file,
+            self.specific_file_watcher,
         )
         self.project_manager_switcher = ProjectManagerSwitcher(
             project_manager, settings_project_manager

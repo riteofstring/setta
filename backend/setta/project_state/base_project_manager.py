@@ -9,6 +9,8 @@ from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.file_watchers.utils import get_content_processor
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
 from setta.project_state.history import History
@@ -53,6 +55,7 @@ from setta.types.helpers import (
     delete_child_sections_via_decrementer,
     delete_kwarg,
     delete_sections,
+    get_json_source_files_to_watch,
     maybe_update_gen_python_code_section,
     # create_sections,
     merge_single_config_into_backend,
@@ -70,6 +73,7 @@ from setta.types.project_state import (
 from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position, SimplifiedSectionCreation
+from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -81,10 +85,12 @@ class BaseProjectManager(ABC):
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
         settings_file: SettingsFile,
+        specific_file_watcher: SpecificFileWatcher,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
+        self.specific_file_watcher = specific_file_watcher
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
@@ -707,6 +713,17 @@ class BaseProjectManager(ABC):
     def save(self):
         pass
 
+    def maybe_watch_json_source_files(self, projectState: ProjectStateSingleConfig):
+        filename_set = get_json_source_files_to_watch(projectState)
+        self.specific_file_watcher.update_watch_list(
+            filename_set,
+            FileWatchGroupName.jsonSource,
+            get_content_processor(
+                state.project_manager_switcher,
+                x.fileWatchGroupName,
+            ),
+        )
+
 
 #   useProjectState.subscribe(
 #     jsonFilenameSubscriptionFn,
@@ -719,21 +736,6 @@ class BaseProjectManager(ABC):
 #       equalityFn: _.isEqual,
 #     },
 #   );
-
-# function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
-#   const filenameSet: Set<string> = new Set();
-#   for (const section of Object.values(state.sections)) {
-#     for (const variantId of section.variants) {
-#       const variant = getSectionVariant(state, variantId);
-#       const baseImpl = getSectionImpl(state, variant.impl);
-#       const impl = getEffectiveImpl(baseImpl, section, variant);
-#       if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
-#         filenameSet.add(variant.name);
-#       }
-#     }
-#   }
-#   return Array.from(filenameSet);
-# }
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
@@ -767,48 +769,10 @@ class BaseProjectManager(ABC):
 #     )
 
 
-# @router.post(Route.FILE_WATCH_GEN_PYTHON_CODE)
-# async def route_file_watch_gen_python_code(
-#     x: FileWatchGenPythonCodeRequest, state: AppStateFromRequest
-# ):
-#     filepaths = []
-
-#     if x.watch:
-#         path = await state.project_manager_switcher.main.get_gen_python_code_path(
-#             x.projectConfigId
-#         )
-#         if not path:
-#             raise HTTPException(status_code=404, detail="Path not found")
-#         filepaths = [str(path)]
-
-#     state.specific_file_watcher.update_watch_list(
-#         filepaths,
-#         FileWatchGroupName.genPythonCode,
-#         get_content_processor(
-#             state.project_manager_switcher,
-#             FileWatchGroupName.genPythonCode,
-#         ),
-#     )
-
-
 # async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
 #   const { fileContent } = updatedFileInfo;
 #   useAIStore.setState({
 #     apiKeys: fileContent,
 #     apiKeysInitialLoadComplete: true,
-#   });
-# }
-
-# function genPythonCodeUpdateHandler(
-#   updatedFileInfo: FileWatcherUpdateGenPythonCode,
-# ) {
-#   const { fileContent } = updatedFileInfo;
-#   useProjectState.setState((state) => {
-#     const sectionId = state.singletonSections.genPythonCode;
-#     if (sectionId) {
-#       setEffectiveSectionImplValue<"GenPythonCodeSection">(state, sectionId, {
-#         code: fileContent,
-#       });
-#     }
 #   });
 # }

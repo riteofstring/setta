@@ -14,7 +14,10 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
-from setta.types.section_impls import SectionType
+from setta.types.section_impls import (
+    GenPythonCodeSectionImpl,
+    GlobalVariablesSectionImpl,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -126,14 +129,12 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if output.globalVariables and output.genPythonCode:
                 break
             sectionImpl = self.get_curr_effective_section_impl(s.id)
-            if (
-                not output.globalVariables
-                and sectionImpl.type == SectionType.GlobalVariables
+            if not output.globalVariables and isinstance(
+                sectionImpl, GlobalVariablesSectionImpl
             ):
                 output.globalVariables = s.id
-            elif (
-                not output.genPythonCode
-                and sectionImpl.type == SectionType.GenPythonCode
+            elif not output.genPythonCode and isinstance(
+                sectionImpl, GenPythonCodeSectionImpl
             ):
                 output.genPythonCode = s.id
         self.singletonSections = output

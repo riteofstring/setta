@@ -1,6 +1,7 @@
 from setta.database.db.projects.load import load_project_state
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
+from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPWriters
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.save_load import save
@@ -13,10 +14,13 @@ class ProjectManager(BaseProjectManager):
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
         settings_file: SettingsFile,
+        specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
     ):
         self.dbe = dbe
-        super().__init__(lsp_writers, websocket_msg_handler, settings_file)
+        super().__init__(
+            lsp_writers, websocket_msg_handler, settings_file, specific_file_watcher
+        )
 
     def load_initial_state(self):
         with self.dbe.session as db:

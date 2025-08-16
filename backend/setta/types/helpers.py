@@ -928,6 +928,16 @@ def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str)
     )
 
 
+def get_json_source_files_to_watch(p: ProjectStateSingleConfig):
+    filename_set = set()
+    for s in p.sections.values():
+        for v in s.variants:
+            variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
+            if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
+                filename_set.add(variant.name)
+    return filename_set
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

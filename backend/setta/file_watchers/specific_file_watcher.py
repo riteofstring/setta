@@ -3,6 +3,7 @@ import glob
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Iterable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -11,7 +12,6 @@ from setta.file_watchers.utils import FileWatcherUpdateHandler
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
-    FileWatchGroupName,
 )
 from setta.utils.constants import CWD
 from setta.utils.utils import ensure_str_path
@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class MockFileEvent:
-    """Simple mock for a FileSystemEvent to use when firing immediate events."""
-
     def __init__(self, src_path: Path):
         self.src_path = str(src_path)
         self.dest_path = str(src_path)
@@ -29,53 +27,28 @@ class MockFileEvent:
 
 
 class SpecificFileWatcher:
-    """File watcher that monitors specific files and notifies via a single callback."""
-
     def __init__(self):
-        """
-        Initialize the file watcher for specific files.
-
-        Args:
-            callback: Function to call when any watched file changes
-                     Callback receives (file_path, event_type) where event_type is
-                     one of 'created', 'modified', 'deleted', or 'moved'
-        """
         self.observer = Observer()
-        # map from fileWatchGroupName to set of filepaths
-        self.watched_files: dict[FileWatchGroupName, set[Path]] = defaultdict(set)
-        self.file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler] = {}
+        self.file_watcher_update_handlers: dict[Path, set[FileWatcherUpdateHandler]] = (
+            defaultdict(set)
+        )
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
             asyncio.get_event_loop(),
-            self.watched_files,
             self.file_watcher_update_handlers,
             self.file_to_patterns,
         )
 
-    def request_read(self, file_watch_group_name: FileWatchGroupName, abs_path: Path):
+    def request_read(self, abs_path: Path):
         mock_event = MockFileEvent(abs_path)
-        self.handler._send_event(file_watch_group_name, mock_event, "readRequested")
+        self.handler._send_event(mock_event, "readRequested")
 
     def add_file(
         self,
         file_path: Path,
-        file_watch_group_name: FileWatchGroupName,
         file_watcher_update_handler: FileWatcherUpdateHandler,
         fire_immediately: bool = True,
     ):
-        """
-        Add a specific file to watch.
-
-        Args:
-            file_path: Path to the file to watch
-            file_watch_group_name: Name of the group to add this file to
-            file_watcher_update_handler:
-            fire_immediately: If True, trigger an event for this file right away
-
-        Returns:
-            bool: True if the file was added, False if it doesn't exist
-        """
-        # Convert to Path if string
         file_path = Path(file_path)
 
         if not file_path.exists():
@@ -83,27 +56,15 @@ class SpecificFileWatcher:
 
         absolute_path = file_path.resolve()
         dir_path = absolute_path.parent
-        is_new_file = absolute_path not in self.watched_files[file_watch_group_name]
 
-        # Add file to watched files if not already there
-        if is_new_file:
-            self.watched_files[file_watch_group_name].add(absolute_path)
-            self.file_watcher_update_handlers[absolute_path] = (
-                file_watcher_update_handler
-            )
-        else:
-            # Already watching this file - update processor if provided
-            self.file_watcher_update_handlers[absolute_path] = (
-                file_watcher_update_handler
-            )
+        self.file_watcher_update_handlers[absolute_path].add(
+            file_watcher_update_handler
+        )
 
-        # Schedule the directory for watching if needed
         dir_path_str = str(dir_path)
         if not self.observer.emitters:
-            # No directories are being watched yet
             self.observer.schedule(self.handler, dir_path_str, recursive=False)
         else:
-            # Check if the directory is already being watched
             is_dir_watched = False
             for emitter in self.observer.emitters:
                 if emitter.watch.path == dir_path_str:
@@ -113,55 +74,28 @@ class SpecificFileWatcher:
             if not is_dir_watched:
                 self.observer.schedule(self.handler, dir_path_str, recursive=False)
 
-        # If requested, fire an immediate event
         if fire_immediately:
-            self.request_read(file_watch_group_name, absolute_path)
+            self.request_read(absolute_path)
 
         return True
 
-    def remove_file(self, file_path: Path, file_watch_group_name: FileWatchGroupName):
-        """
-        Remove a file from being watched.
-
-        Args:
-            file_path: Path to the file
-            file_watch_group_name: Name of the group to remove this file from
-        """
-        # Convert to Path if string
+    def remove_file(
+        self,
+        file_path: Path,
+        file_watcher_update_handler: FileWatcherUpdateHandler,
+    ):
         absolute_path = Path(file_path).resolve()
-
-        if absolute_path in self.watched_files[file_watch_group_name]:
-            self.watched_files[file_watch_group_name].discard(absolute_path)
-
-            # Check if file is still being watched in any group
-            still_watched = any(
-                absolute_path in files for files in self.watched_files.values()
+        if absolute_path in self.file_watcher_update_handlers:
+            self.file_watcher_update_handlers[absolute_path].discard(
+                file_watcher_update_handler
             )
-
-            # Only remove the processor if file is no longer watched in any group
-            if not still_watched and absolute_path in self.file_watcher_update_handlers:
-                del self.file_watcher_update_handlers[absolute_path]
 
     def update_watch_list(
         self,
-        filepaths_and_glob_patterns: list[str],
-        file_watch_group_name: FileWatchGroupName,
+        filepaths_and_glob_patterns: Iterable[str],
         file_watcher_update_handler: FileWatcherUpdateHandler,
         fire_immediately: bool = True,
     ):
-        """
-        Update the entire list of files being watched with a single function call.
-        This efficiently handles adding new files and removing files that are no longer needed.
-
-        Args:
-            filepaths_and_glob_patterns: List of file paths that should be watched
-            file_watch_group_name: Name of the group for these files
-            content_processor:
-            fire_immediately: If True, trigger an event for each added file right away
-
-        Returns:
-            Dict containing 'added' and 'removed' lists of file paths
-        """
         file_paths = self.get_actual_file_paths_to_watch(filepaths_and_glob_patterns)
 
         # Convert all input paths to absolute paths (only if they exist)
@@ -170,7 +104,7 @@ class SpecificFileWatcher:
         }
 
         # Calculate differences
-        files_to_add = absolute_paths - self.watched_files[file_watch_group_name]
+        files_to_add = absolute_paths - self.file[file_watch_group_name]
         files_to_remove = self.watched_files[file_watch_group_name] - absolute_paths
 
         # Track which files were successfully added
@@ -194,7 +128,9 @@ class SpecificFileWatcher:
         # Return information about what changed
         return {"added": added_files, "removed": list(files_to_remove)}
 
-    def get_actual_file_paths_to_watch(self, filepaths_and_glob_patterns: list[str]):
+    def get_actual_file_paths_to_watch(
+        self, filepaths_and_glob_patterns: Iterable[str]
+    ):
         actual_filepaths: set[Path] = set()
         # Expand glob patterns and build the mapping
         for pattern in filepaths_and_glob_patterns:
@@ -231,8 +167,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        watched_files_ref: dict[FileWatchGroupName, set[Path]],
-        file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler],
+        file_watcher_update_handlers: dict[Path, set[FileWatcherUpdateHandler]],
         file_to_patterns: dict[Path, set[str]],
     ):
         """
@@ -246,60 +181,21 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             file_to_patterns: Reference to the dict of file to pattern mappings
         """
         self.loop = loop
-        self.watched_files_ref = watched_files_ref
         self.file_watcher_update_handlers = file_watcher_update_handlers
         self.file_to_patterns = file_to_patterns
 
     def on_created(self, event: FileSystemEvent):
-        """Handle file creation event."""
-        if not event.is_directory:
-            file_path = Path(ensure_str_path(event.src_path)).resolve()
-            for file_watch_group_name, filepaths in self.watched_files_ref.items():
-                if file_path in filepaths:
-                    self._send_event(event, "created")
-                    break
+        self._send_event(event, "created")
 
     def on_modified(self, event: FileSystemEvent):
-        """Handle file modification event."""
-        if not event.is_directory:
-            file_path = Path(ensure_str_path(event.src_path)).resolve()
-            for file_watch_group_name, filepaths in self.watched_files_ref.items():
-                if file_path in filepaths:
-                    self._send_event(event, "modified")
-                    break
+        self._send_event(event, "modified")
 
     def on_deleted(self, event: FileSystemEvent):
-        """Handle file deletion event."""
-        if not event.is_directory:
-            file_path = Path(ensure_str_path(event.src_path)).resolve()
-            for file_watch_group_name, filepaths in self.watched_files_ref.items():
-                if file_path in filepaths:
-                    self._send_event(event, "deleted")
-                    break
+        self._send_event(event, "deleted")
 
     def on_moved(self, event: FileSystemEvent):
-        """Handle file move event."""
-        if not event.is_directory:
-            # For moved events, we need to check both source and destination
-            src_path = Path(ensure_str_path(event.src_path)).resolve()
-            dest_path = (
-                Path(ensure_str_path(event.dest_path)).resolve()
-                if hasattr(event, "dest_path")
-                else None
-            )
-
-            # If the source was being watched, notify about the move
-            for file_watch_group_name, filepaths in self.watched_files_ref.items():
-                if src_path in filepaths:
-                    self._send_event(event, "moved")
-                    break
-
-            # If the destination is also being watched, notify about modification
-            for file_watch_group_name, filepaths in self.watched_files_ref.items():
-                if dest_path and dest_path in filepaths and dest_path != src_path:
-                    # Create a modified event for the destination
-                    self._send_event(event, "modified")
-                    break
+        # TODO
+        pass
 
     def _send_event(
         self,
@@ -313,6 +209,9 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             event: The file system event
             event_type: The type of event ('created', 'modified', 'deleted', 'moved', 'readRequested')
         """
+        if event.is_directory:
+            return
+
         logger.debug("_send_event")
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
@@ -335,13 +234,13 @@ class SpecificFileEventHandler(FileSystemEventHandler):
                 dest_rel_path = dest_abs_path
 
         if dest_abs_path:
-            handler = self.file_watcher_update_handlers.get(dest_abs_path)
+            handlers = self.file_watcher_update_handlers[dest_abs_path]
             file_to_read = dest_abs_path
         else:
-            handler = self.file_watcher_update_handlers.get(abs_path)
+            handlers = self.file_watcher_update_handlers[abs_path]
             file_to_read = abs_path
 
-        if not handler:
+        if len(handlers) == 0:
             return
 
         core_update = FileWatcherCoreUpdate(
@@ -354,5 +253,11 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         )
 
         self.loop.call_soon_threadsafe(
-            lambda: self.loop.create_task(handler(core_update, file_to_read))
+            lambda: self.loop.create_task(
+                self.call_handlers(handlers, core_update, file_to_read)
+            )
         )
+
+    async def call_handlers(self, handlers, core_update, file_to_read):
+        for h in handlers:
+            await h(core_update, file_to_read)
