@@ -3,7 +3,7 @@ import { route_run_code } from "utils/generatedEndpoints";
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
-  if (sectionId === singletonSections.GenPythonCode) {
+  if (sectionId === singletonSections.genPythonCode) {
     sectionId = null;
   }
   await route_run_code({

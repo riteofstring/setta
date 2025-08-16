@@ -269,9 +269,7 @@ function getSectionIsGroup(sectionId) {
 
 function getSectionIsGlobalVariables(sectionId) {
   return (
-    useProjectState.getState().singletonSections[
-      UITypeNameEnum.GLOBAL_VARIABLES
-    ] === sectionId
+    useProjectState.getState().singletonSections.globalVariables === sectionId
   );
 }
 

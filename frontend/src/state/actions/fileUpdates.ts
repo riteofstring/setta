@@ -6,7 +6,6 @@ import {
   FileWatcherUpdateGenPythonCode,
   FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
-  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { setEffectiveSectionImplValue } from "./sectionInfos";
 
@@ -60,7 +59,7 @@ function genPythonCodeUpdateHandler(
 ) {
   const { fileContent } = updatedFileInfo;
   useProjectState.setState((state) => {
-    const sectionId = state.singletonSections[SectionTypeEnum.GenPythonCode];
+    const sectionId = state.singletonSections.genPythonCode;
     if (sectionId) {
       setEffectiveSectionImplValue<"GenPythonCodeSection">(state, sectionId, {
         code: fileContent,

@@ -28,7 +28,7 @@ export function useCreateSectionsList() {
     { name: "Text", specificProps: { type: SectionTypeEnum.TextBlock } },
   ];
 
-  if (!singletonSections[SectionTypeEnum.GlobalVariables]) {
+  if (!singletonSections.globalVariables) {
     sectionGroupItems.push({
       name: "Global Variables",
       specificProps: { type: SectionTypeEnum.GlobalVariables },
@@ -56,7 +56,7 @@ export function useCreateSectionsList() {
     },
   ];
 
-  if (!singletonSections[SectionTypeEnum.GenPythonCode]) {
+  if (!singletonSections.genPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
       specificProps: {

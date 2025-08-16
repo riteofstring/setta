@@ -2444,7 +2444,7 @@ export const SettaNotificationSchema = z.object({
     .enum(SettaNotificationTypeEnum)
     .default(SettaNotificationTypeEnum.info),
   message: z.string(),
-  temporary: z.boolean().default(false),
+  temporary: z.boolean().default(true),
   timestamp: z.iso.datetime().default(get_now_timestamp),
   metadata: z.record(z.string(), z.any()).default({}),
   read_status: z.boolean().default(false),
@@ -2695,6 +2695,19 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
   return VariantSchema.parse(options);
 }
 
+export const SingletonSectionsSchema = z.object({
+  globalVariables: z.union([z.string(), z.null()]).default(null),
+  genPythonCode: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
+
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return SingletonSectionsSchema.parse(options);
+}
+
 export const ViewportSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -2795,6 +2808,7 @@ export const ProjectStateSingleConfigSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
+  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
   projectConfig: ProjectConfigSchema,
 });
 
@@ -6465,6 +6479,7 @@ export const ProjectStateBackendSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
+  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
   projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
 });
@@ -6522,6 +6537,7 @@ export const ProjectStateCoreSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
+  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
 });
 
 export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;

@@ -14,9 +14,9 @@ import {
   BaseSectionImplUnion,
   ChatMetadata,
   createProjectConfig,
+  createSingletonSections,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
-  SectionTypeEnum,
   SettaNotification,
   SettingsState,
   WebsocketConnectionInfo,
@@ -66,12 +66,6 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandSingletonSections = {
-  [SectionTypeEnum.GlobalVariables]: string | null;
-  [SectionTypeEnum.GenPythonCode]: string | null;
-  temporaryTerminalGroup: string | null;
-};
-
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
@@ -81,7 +75,7 @@ export type ZustandProjectState = {
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
   codeObjVariants: ProjectStateSingleConfig["codeObjVariants"];
   activeIds: Array<string>;
-  singletonSections: ZustandSingletonSections;
+  singletonSections: ProjectStateSingleConfig["singletonSections"];
   modCount: number;
 };
 
@@ -100,11 +94,7 @@ export const useProjectState = withProjectState(
           codeObjImpls: {},
           codeObjVariants: {},
           artifactGroups: {},
-          singletonSections: {
-            [SectionTypeEnum.GlobalVariables]: null,
-            [SectionTypeEnum.GenPythonCode]: null,
-            temporaryTerminalGroup: null,
-          },
+          singletonSections: createSingletonSections(),
           requestRenameRefactor: false,
           activeIds: [],
           modCount: 0,

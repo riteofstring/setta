@@ -36,6 +36,11 @@ class TopLevelSectionLayout(BaseModel, extra="forbid"):
     h: float | None = None
 
 
+class SingletonSections(BaseModel, extra="forbid"):
+    globalVariables: str | None = None
+    genPythonCode: str | None = None
+
+
 class ProjectConfig(BaseModel, extra="forbid"):
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
@@ -60,6 +65,7 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         default_factory=dict
     )
     codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
+    singletonSections: SingletonSections = Field(default_factory=SingletonSections)
 
 
 class ProjectStateBackend(ProjectStateCore, extra="forbid"):
@@ -92,3 +98,61 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 class ProjectMetadata(BaseModel):
     defaultProjectConfigId: str | None
     projectMetadata: list[ProjectConfig]
+
+
+
+# useProjectState.subscribe(
+#     singletonSectionsSubscriptionFn,
+#     (x) => {
+#       useProjectState.setState((state) => {
+#         state.singletonSections = x;
+#       });
+#       route_file_watch_gen_python_code({
+#         watch: Boolean(x[SectionTypeEnum.GenPythonCode]),
+#         projectConfigId: useProjectState.getState().projectConfig.id,
+#       });
+#     },
+#     { equalityFn: _.isEqual },
+#   );
+
+
+# function singletonSectionsSubscriptionFn(state: ZustandProjectState) {
+#   const output: ZustandSingletonSections = {
+#     [SectionTypeEnum.GlobalVariables]: null,
+#     [SectionTypeEnum.GenPythonCode]: null,
+#     temporaryTerminalGroup: null,
+#   };
+#   for (const s of Object.values(state.sections)) {
+#     if (
+#       output[SectionTypeEnum.GlobalVariables] &&
+#       output[SectionTypeEnum.GenPythonCode] &&
+#       output.temporaryTerminalGroup
+#     ) {
+#       break;
+#     }
+
+#     const sectionImpl = getCurrEffectiveSectionImpl(state, s.id);
+
+#     if (
+#       !output[SectionTypeEnum.GlobalVariables] &&
+#       sectionImpl.type === SectionTypeEnum.GlobalVariables
+#     ) {
+#       output[SectionTypeEnum.GlobalVariables] = s.id;
+#     }
+#     if (
+#       !output[SectionTypeEnum.GenPythonCode] &&
+#       sectionImpl.type === SectionTypeEnum.GenPythonCode
+#     ) {
+#       output[SectionTypeEnum.GenPythonCode] = s.id;
+#     }
+#     // TODO: need better way of knowing if it's the temporaryTerminalGroup
+#     if (
+#       !output.temporaryTerminalGroup &&
+#       sectionImpl.type === SectionTypeEnum.Group &&
+#       s.isTemporary
+#     ) {
+#       output.temporaryTerminalGroup = s.id;
+#     }
+#   }
+#   return output;
+# }

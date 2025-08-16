@@ -9,12 +9,8 @@ import {
   useProjectState,
   ZustandAIStore,
   ZustandProjectState,
-  ZustandSingletonSections,
 } from "state/definitions";
-import {
-  route_file_watch_gen_python_code,
-  route_file_watch_list,
-} from "utils/generatedEndpoints";
+import { route_file_watch_list } from "utils/generatedEndpoints";
 import { FileWatchGroupNameEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
@@ -33,20 +29,6 @@ import {
 } from "./actions/sectionInfos";
 
 export function subscribe() {
-  useProjectState.subscribe(
-    singletonSectionsSubscriptionFn,
-    (x) => {
-      useProjectState.setState((state) => {
-        state.singletonSections = x;
-      });
-      route_file_watch_gen_python_code({
-        watch: Boolean(x[SectionTypeEnum.GenPythonCode]),
-        projectConfigId: useProjectState.getState().projectConfig.id,
-      });
-    },
-    { equalityFn: _.isEqual },
-  );
-
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
     (x) => {
@@ -171,47 +153,6 @@ export function subscribe() {
       fireImmediately: true,
     },
   );
-}
-
-function singletonSectionsSubscriptionFn(state: ZustandProjectState) {
-  const output: ZustandSingletonSections = {
-    [SectionTypeEnum.GlobalVariables]: null,
-    [SectionTypeEnum.GenPythonCode]: null,
-    temporaryTerminalGroup: null,
-  };
-  for (const s of Object.values(state.sections)) {
-    if (
-      output[SectionTypeEnum.GlobalVariables] &&
-      output[SectionTypeEnum.GenPythonCode] &&
-      output.temporaryTerminalGroup
-    ) {
-      break;
-    }
-
-    const sectionImpl = getCurrEffectiveSectionImpl(state, s.id);
-
-    if (
-      !output[SectionTypeEnum.GlobalVariables] &&
-      sectionImpl.type === SectionTypeEnum.GlobalVariables
-    ) {
-      output[SectionTypeEnum.GlobalVariables] = s.id;
-    }
-    if (
-      !output[SectionTypeEnum.GenPythonCode] &&
-      sectionImpl.type === SectionTypeEnum.GenPythonCode
-    ) {
-      output[SectionTypeEnum.GenPythonCode] = s.id;
-    }
-    // TODO: need better way of knowing if it's the temporaryTerminalGroup
-    if (
-      !output.temporaryTerminalGroup &&
-      sectionImpl.type === SectionTypeEnum.Group &&
-      s.isTemporary
-    ) {
-      output.temporaryTerminalGroup = s.id;
-    }
-  }
-  return output;
 }
 
 function reactFitViewOnInitSubscriptionFn(state) {
