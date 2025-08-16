@@ -13,22 +13,19 @@ from setta.types.project_state import (
 from setta.types.section_impls import BaseDictSectionImpl
 from setta.types.specific_file_watcher import (
     FileWatcherCoreUpdate,
-    FileWatcherUpdate,
     FileWatcherUpdateAPIKeys,
     FileWatcherUpdateJSONSource,
     FileWatchGroupName,
 )
 from setta.utils.constants import C
 
-FileWatcherUpdateHandler = Callable[
-    [FileWatcherCoreUpdate, Path], Coroutine[Any, Any, FileWatcherUpdate]
-]
+FileWatcherCallback = Callable[[FileWatcherCoreUpdate, Path], Coroutine[Any, Any, None]]
 
 
 def get_content_processor(
     project_manager_switcher: ProjectManagerSwitcher,
     file_watch_group_name: FileWatchGroupName,
-) -> FileWatcherUpdateHandler:
+) -> FileWatcherCallback:
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
             return get_content_processor_json_source(project_manager_switcher)
