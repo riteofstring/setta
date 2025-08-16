@@ -3,7 +3,6 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.lsp.managers import LSPWriters
 from setta.project_state.base_project_manager import BaseProjectManager
-from setta.project_state.history import History
 from setta.project_state.save_load import save
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -19,11 +18,9 @@ class ProjectManager(BaseProjectManager):
         self.dbe = dbe
         super().__init__(lsp_writers, websocket_msg_handler, settings_file)
 
-    def initialize_history(self):
+    def init_history_entry(self):
         with self.dbe.session as db:
-            return History(
-                load_project_state(db),
-            )
+            return load_project_state(db)
 
     def save(self):
         save(self.settings_file.settings, self.dbe, self.project_state_backend)
