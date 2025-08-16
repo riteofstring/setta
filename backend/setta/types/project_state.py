@@ -42,7 +42,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
-    genCodeSpecs: PythonGenCodeSpecs = Field(default_factory=PythonGenCodeSpecs)
+    genCodeSpecs: PythonGenCodeSpecs | None = Field(default_factory=PythonGenCodeSpecs)
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionVariantMap: dict[str, str] = Field(default_factory=dict)

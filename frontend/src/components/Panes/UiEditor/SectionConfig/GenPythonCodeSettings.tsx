@@ -100,13 +100,16 @@ function GenCodeEditor({
 
 // Main component using the generic editor twice
 export function GenPythonCodeSettings() {
-  const { prefixValue, suffixValue } = useProjectState(
-    (x) => ({
-      prefixValue: x.projectConfig.genCodeSpecs.prefix,
-      suffixValue: x.projectConfig.genCodeSpecs.suffix,
-    }),
-    _.isEqual,
-  );
+  const { prefixValue, suffixValue } = useProjectState((x) => {
+    if (x.projectConfig.genCodeSpecs) {
+      return {
+        prefixValue: x.projectConfig.genCodeSpecs.prefix,
+        suffixValue: x.projectConfig.genCodeSpecs.suffix,
+      };
+    } else {
+      return { prefixValue: "", suffixValue: "" };
+    }
+  }, _.isEqual);
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,14 +132,18 @@ export function GenPythonCodeSettings() {
 
 export function setGenCodePrefix(value: string) {
   useProjectState.setState((state) => {
-    state.projectConfig.genCodeSpecs.prefix = value;
+    if (state.projectConfig.genCodeSpecs) {
+      state.projectConfig.genCodeSpecs.prefix = value;
+    }
   });
   updateBackendProjectState();
 }
 
 export function setGenCodeSuffix(value: string) {
   useProjectState.setState((state) => {
-    state.projectConfig.genCodeSpecs.suffix = value;
+    if (state.projectConfig.genCodeSpecs) {
+      state.projectConfig.genCodeSpecs.suffix = value;
+    }
   });
   updateBackendProjectState();
 }
