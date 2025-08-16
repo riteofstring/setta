@@ -154,7 +154,6 @@ async def route_create_new_section_version(
     ).create_new_section_version(x)
     notification = SettaNotification(
         message="New Version Created",
-        temporary=True,
     )
     await state.wmh_frontend_sender.broadcast_notification(notification)
 
@@ -180,7 +179,6 @@ async def route_update_from_frontend(
         notification = SettaNotification(
             message="Update conflict",
             type=SettaNotificationType.error,
-            temporary=True,
         )
         await state.wmh_frontend_sender.broadcast_notification(notification)
 

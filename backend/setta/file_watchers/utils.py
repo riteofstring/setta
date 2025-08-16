@@ -6,6 +6,7 @@ from dotenv import dotenv_values
 
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.helpers import get_variant_base_and_effective_section_impl
+from setta.types.notifications import SettaNotification
 from setta.types.project_state import (
     ProjectStateCore,
 )
@@ -89,6 +90,12 @@ async def maybe_read_json_source_contents(
         variantsToLoad = get_json_source_variants(p, coreUpdate)
         if len(variantsToLoad) > 0:
             await project_manager.load_json_sources(variantsToLoad)
+            notification = SettaNotification(
+                message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+            )
+            await project_manager.websocket_msg_handler.broadcast_notification(
+                notification
+            )
 
 
 def get_json_source_variants(p: ProjectStateCore, coreUpdate: FileWatcherCoreUpdate):

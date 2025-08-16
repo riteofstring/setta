@@ -691,13 +691,12 @@ class BaseProjectManager(ABC):
         try:
             self.save()
             notification = SettaNotification(
-                message="Autosaved!", type=SettaNotificationType.save, temporary=True
+                message="Autosaved!", type=SettaNotificationType.save
             )
         except:
             notification = SettaNotification(
                 message="Failed to autosave",
                 type=SettaNotificationType.error,
-                temporary=True,
             )
         await self.websocket_msg_handler.broadcast_notification(notification)
 

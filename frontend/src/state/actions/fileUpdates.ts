@@ -4,12 +4,10 @@ import { route_load_section_json_source } from "utils/generatedEndpoints";
 import {
   FileWatcherUpdateAPIKeys,
   FileWatcherUpdateGenPythonCode,
-  FileWatcherUpdateJSONSource,
   FileWatcherUpdateUnion,
   FileWatchGroupNameEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { addTemporaryNotification } from "./notifications";
 import { setEffectiveSectionImplValue } from "./sectionInfos";
 
 export async function updateWithFileChanges(
@@ -19,7 +17,7 @@ export async function updateWithFileChanges(
 
   switch (fileWatchGroupName) {
     case FileWatchGroupNameEnum.jsonSource:
-      return jsonSourceUpdateHandler(updatedFileInfo);
+      return;
     case FileWatchGroupNameEnum.apiKeys:
       return apiKeyUpdateHandler(updatedFileInfo);
     case FileWatchGroupNameEnum.genPythonCode:
@@ -47,13 +45,6 @@ export async function loadJsonContents(variantIdsToLoad: Array<string>) {
   }
 
   return { variants, codeInfo, codeInfoCols };
-}
-
-function jsonSourceUpdateHandler(updatedFileInfo: FileWatcherUpdateJSONSource) {
-  const {
-    coreUpdate: { relPath, eventType },
-  } = updatedFileInfo;
-  addTemporaryNotification(`${relPath} ${eventType}`);
 }
 
 async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {

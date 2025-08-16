@@ -126,14 +126,12 @@ async def route_save_project(
             notification = SettaNotification(
                 projectConfigId=x.projectState.projectConfig.id,
                 message="Save failed due to update conflict",
-                temporary=True,
             )
         else:
             project_manager.save()
             notification = SettaNotification(
                 projectConfigId=x.projectState.projectConfig.id,
                 message="Saved!",
-                temporary=True,
             )
 
     except Exception:
@@ -141,7 +139,6 @@ async def route_save_project(
             projectConfigId=x.projectState.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
-            temporary=True,
         )
 
     background_tasks.add_task(

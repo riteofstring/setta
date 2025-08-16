@@ -117,13 +117,12 @@ async def route_set_llm_api_keys(
         load_dotenv(override=True)
 
         print("Successfully updated API keys in .env file", flush=True)
-        notification = SettaNotification(message="Saved LLM API keys", temporary=True)
+        notification = SettaNotification(message="Saved LLM API keys")
 
     except Exception:
         notification = SettaNotification(
             message="Error saving LLM API keys",
             type=SettaNotificationType.error,
-            temporary=True,
         )
 
     await state.wmh_frontend_sender.broadcast_notification(notification)
@@ -167,7 +166,6 @@ async def route_get_llm_chat(
                 projectConfigId=x.projectConfigId,
                 message="Chat not found!",
                 type=SettaNotificationType.error,
-                temporary=True,
             )
             background_tasks.add_task(
                 state.wmh_frontend_sender.broadcast_notification,

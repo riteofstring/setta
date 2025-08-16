@@ -74,7 +74,7 @@ class SettaFastMCP(FastMCP):
         app.mount(msg_path, app=sse_transport.handle_post_message)
 
         self.add_setta_tools()
-        content = SettaNotification(message="MCP Server Ready", temporary=True)
+        content = SettaNotification(message="MCP Server Ready")
         asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
     def add_setta_tools(self):

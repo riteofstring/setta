@@ -40,7 +40,7 @@ class LSPReaders:
     def __init__(self, servers, websocket_msg_handler: WMHFrontendSender):
         def initialization_callback():
             content = SettaNotification(
-                message="Language Server Started", temporary=True
+                message="Language Server Started",
             )
             asyncio.create_task(websocket_msg_handler.broadcast_notification(content))
 
