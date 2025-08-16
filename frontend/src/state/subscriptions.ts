@@ -2,16 +2,13 @@ import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useAIStore,
   useArtifacts,
   useMisc,
   useNodeInternals,
   useProjectState,
-  ZustandAIStore,
   ZustandProjectState,
 } from "state/definitions";
-import { route_file_watch_list } from "utils/generatedEndpoints";
-import { FileWatchGroupNameEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { getNamePathTypeKey } from "./actions/artifacts";
 import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
@@ -21,10 +18,7 @@ import {
 import {
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
-  getEffectiveImpl,
-  getSectionImpl,
   getSectionShouldRender,
-  getSectionVariant,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
 
@@ -35,18 +29,6 @@ export function subscribe() {
       updateDndChildren(x);
     },
     { equalityFn: _.isEqual },
-  );
-
-  useProjectState.subscribe(
-    jsonFilenameSubscriptionFn,
-    (filepaths) =>
-      route_file_watch_list({
-        filepaths,
-        fileWatchGroupName: FileWatchGroupNameEnum.jsonSource,
-      }),
-    {
-      equalityFn: _.isEqual,
-    },
   );
 
   // useProjectState.subscribe(
@@ -140,19 +122,6 @@ export function subscribe() {
       equalityFn: _.isEqual,
     },
   );
-
-  useAIStore.subscribe(
-    apiKeysFilepathSubscriptionFn,
-    (filepaths) =>
-      route_file_watch_list({
-        filepaths,
-        fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
-      }),
-    {
-      equalityFn: _.isEqual,
-      fireImmediately: true,
-    },
-  );
 }
 
 function reactFitViewOnInitSubscriptionFn(state) {
@@ -185,21 +154,6 @@ function artifactWhoModifiedSubscriptionFn(state) {
   return output;
 }
 
-function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
-  const filenameSet: Set<string> = new Set();
-  for (const section of Object.values(state.sections)) {
-    for (const variantId of section.variants) {
-      const variant = getSectionVariant(state, variantId);
-      const baseImpl = getSectionImpl(state, variant.impl);
-      const impl = getEffectiveImpl(baseImpl, section, variant);
-      if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
-        filenameSet.add(variant.name);
-      }
-    }
-  }
-  return Array.from(filenameSet);
-}
-
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
   const output: Record<string, boolean> = {};
   for (const id of Object.keys(state.projectConfig.topLevelSections)) {
@@ -220,8 +174,4 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
     }
   }
   return codeBlockIds;
-}
-
-function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
-  return [state.apiKeysFilepath];
 }

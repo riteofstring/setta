@@ -133,18 +133,6 @@ export async function route_delete_file(
   return await post("/deleteFile", x);
 }
 
-export async function route_file_watch_list(
-  x: gt.FileWatchListRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/fileWatchList", x);
-}
-
-export async function route_file_watch_gen_python_code(
-  x: gt.FileWatchGenPythonCodeRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/fileWatchGenPythonCode", x);
-}
-
 export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {

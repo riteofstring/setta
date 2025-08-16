@@ -15,8 +15,6 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from setta.file_watchers.utils import get_content_processor
-from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.project_state import ProjectStateCore
 from setta.types.routes import Route
@@ -154,40 +152,3 @@ def route_delete_file(x: DeleteFileRequest):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Failed to delete file: {str(e)}",
         )
-
-
-@router.post(Route.FILE_WATCH_LIST)
-def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
-    # x.filepaths is the current list of file paths or glob patterns that should be watched
-    state.specific_file_watcher.update_watch_list(
-        x.filepaths,
-        x.fileWatchGroupName,
-        get_content_processor(
-            state.project_manager_switcher,
-            x.fileWatchGroupName,
-        ),
-    )
-
-
-@router.post(Route.FILE_WATCH_GEN_PYTHON_CODE)
-async def route_file_watch_gen_python_code(
-    x: FileWatchGenPythonCodeRequest, state: AppStateFromRequest
-):
-    filepaths = []
-
-    if x.watch:
-        path = await state.project_manager_switcher.main.get_gen_python_code_path(
-            x.projectConfigId
-        )
-        if not path:
-            raise HTTPException(status_code=404, detail="Path not found")
-        filepaths = [str(path)]
-
-    state.specific_file_watcher.update_watch_list(
-        filepaths,
-        FileWatchGroupName.genPythonCode,
-        get_content_processor(
-            state.project_manager_switcher,
-            FileWatchGroupName.genPythonCode,
-        ),
-    )

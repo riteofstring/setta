@@ -703,3 +703,86 @@ class BaseProjectManager(ABC):
     @abstractmethod
     def save(self):
         pass
+
+
+#   useProjectState.subscribe(
+#     jsonFilenameSubscriptionFn,
+#     (filepaths) =>
+#       route_file_watch_list({
+#         filepaths,
+#         fileWatchGroupName: FileWatchGroupNameEnum.jsonSource,
+#       }),
+#     {
+#       equalityFn: _.isEqual,
+#     },
+#   );
+
+# function jsonFilenameSubscriptionFn(state: ZustandProjectState) {
+#   const filenameSet: Set<string> = new Set();
+#   for (const section of Object.values(state.sections)) {
+#     for (const variantId of section.variants) {
+#       const variant = getSectionVariant(state, variantId);
+#       const baseImpl = getSectionImpl(state, variant.impl);
+#       const impl = getEffectiveImpl(baseImpl, section, variant);
+#       if (impl.type === SectionTypeEnum.Dict && impl.isJsonSource) {
+#         filenameSet.add(variant.name);
+#       }
+#     }
+#   }
+#   return Array.from(filenameSet);
+# }
+
+
+# function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
+#   return [state.apiKeysFilepath];
+# }
+
+#   useAIStore.subscribe(
+#     apiKeysFilepathSubscriptionFn,
+#     (filepaths) =>
+#       route_file_watch_list({
+#         filepaths,
+#         fileWatchGroupName: FileWatchGroupNameEnum.apiKeys,
+#       }),
+#     {
+#       equalityFn: _.isEqual,
+#       fireImmediately: true,
+#     },
+#   );
+
+
+# @router.post(Route.FILE_WATCH_LIST)
+# def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
+#     # x.filepaths is the current list of file paths or glob patterns that should be watched
+#     state.specific_file_watcher.update_watch_list(
+#         x.filepaths,
+#         x.fileWatchGroupName,
+#         get_content_processor(
+#             state.project_manager_switcher,
+#             x.fileWatchGroupName,
+#         ),
+#     )
+
+
+# @router.post(Route.FILE_WATCH_GEN_PYTHON_CODE)
+# async def route_file_watch_gen_python_code(
+#     x: FileWatchGenPythonCodeRequest, state: AppStateFromRequest
+# ):
+#     filepaths = []
+
+#     if x.watch:
+#         path = await state.project_manager_switcher.main.get_gen_python_code_path(
+#             x.projectConfigId
+#         )
+#         if not path:
+#             raise HTTPException(status_code=404, detail="Path not found")
+#         filepaths = [str(path)]
+
+#     state.specific_file_watcher.update_watch_list(
+#         filepaths,
+#         FileWatchGroupName.genPythonCode,
+#         get_content_processor(
+#             state.project_manager_switcher,
+#             FileWatchGroupName.genPythonCode,
+#         ),
+#     )
