@@ -1,13 +1,35 @@
-from setta.project_state.history import History
-from setta.project_state.project_manager import ProjectManager
+import logging
+
+from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
+from setta.database.db.jsonSource.save import save_json_source_data
+from setta.project_state.base_project_manager import BaseProjectManager
+from setta.types.helpers import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
+from setta.types.project_state import ProjectStateBackend
+from setta.utils.utils import save_json_to_file
+
+logger = logging.getLogger(__name__)
 
 
-class SettingsProjectManager(ProjectManager):
-    def initialize_history(self):
-        with self.dbe.session as db:
-            return History(
-                load_project_state(db),
-            )
+class SettingsProjectManager(BaseProjectManager):
+    def load_initial_state(self):
+        logger.debug("Loading settings project")
+        p = self.settings_file.seed_settings_project()
+        load_json_sources_into_data_structures(self.settings_file.settings, p)
+        return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):
-        save(self.settings_file.settings, self.dbe, self.project_state_backend)
+        default_id = self.project_state_backend.defaultProjectConfigId
+        if not default_id:
+            raise ValueError
+
+        p = convert_backend_to_single_config(
+            self.project_state_backend,
+            default_id,
+        )
+        save_json_source_data(p)
+        save_json_to_file(
+            self.settings_file.path_default_settings_project, p.model_dump()
+        )

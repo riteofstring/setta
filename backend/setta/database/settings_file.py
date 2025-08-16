@@ -100,16 +100,3 @@ class SettingsFile:
             )
         with open(self.path_default_settings_project, "r") as f:
             return ProjectStateSingleConfig.model_validate(json.load(f))
-
-    # def load_settings_project(self):
-    #     logger.debug("Loading settings project")
-    #     p = self.seed_settings_project()
-    #     load_json_sources_into_data_structures(self.settings, p)
-    #     self.project_state = p
-    #     return p
-
-    # async def save_settings_project(self, p: ProjectStateSingleConfig):
-    #     save_json_source_data(p)
-    #     save_json_to_file(self.path_default_settings_project, p.model_dump())
-    #     await self.load_and_broadcast_settings_project()
-    #     await self.load_and_broadcast_settings()

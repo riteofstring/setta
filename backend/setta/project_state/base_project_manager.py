@@ -87,7 +87,7 @@ class BaseProjectManager(ABC):
         self.settings_file = settings_file
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
-        self.history = History(self.init_history_entry())
+        self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
             str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
@@ -104,7 +104,7 @@ class BaseProjectManager(ABC):
         self.modCount = 0
 
     @abstractmethod
-    def init_history_entry(self) -> ProjectStateBackend:
+    def load_initial_state(self) -> ProjectStateBackend:
         pass
 
     async def _process_queue(self):

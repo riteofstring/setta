@@ -18,7 +18,7 @@ class ProjectManager(BaseProjectManager):
         self.dbe = dbe
         super().__init__(lsp_writers, websocket_msg_handler, settings_file)
 
-    def init_history_entry(self):
+    def load_initial_state(self):
         with self.dbe.session as db:
             return load_project_state(db)
 
