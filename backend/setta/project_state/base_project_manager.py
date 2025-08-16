@@ -53,6 +53,7 @@ from setta.types.helpers import (
     delete_child_sections_via_decrementer,
     delete_kwarg,
     delete_sections,
+    maybe_update_gen_python_code_section,
     # create_sections,
     merge_single_config_into_backend,
     set_param_entered_value,
@@ -260,6 +261,7 @@ class BaseProjectManager(ABC):
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
     ):
+        projectState.validate_singleton_sections()
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
@@ -277,7 +279,7 @@ class BaseProjectManager(ABC):
 
         projectConfigName = projectConfig.name
         project_temp_folder = self.temp_folder / projectConfigName
-        self.gen_code[projectConfigId] = ProjectGenPythonCode(
+        new_gen_code = ProjectGenPythonCode(
             project_temp_folder,
             self.lsp_writers,
             self.websocket_msg_handler,
@@ -285,8 +287,10 @@ class BaseProjectManager(ABC):
             dep_graph,
             code_generator,
         )
-        await self.gen_code[projectConfigId].update_file()
-        self.add_to_used_files(self.gen_code[projectConfigId])
+        await new_gen_code.update_file()
+        maybe_update_gen_python_code_section(projectState, new_gen_code.code)
+        self.add_to_used_files(new_gen_code)
+        self.gen_code[projectConfigId] = new_gen_code
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
@@ -310,7 +314,6 @@ class BaseProjectManager(ABC):
 
         self.delete_unused_files(project_temp_folder)
         self.modCount += 1
-        projectState.validate_singleton_sections()
         self.project_state_backend = self.get_new_project_state_backend(projectState)
 
     @enqueue_method
@@ -399,7 +402,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def get_gen_python_code(self, projectConfigId: str):
         if self.gen_code.get(projectConfigId):
-            return self.gen_code[projectConfigId].get_gen_python_code()
+            return self.gen_code[projectConfigId].code
         return ""
 
     @enqueue_method

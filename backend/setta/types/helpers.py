@@ -32,6 +32,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
+    GenPythonCodeSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -915,6 +916,15 @@ def delete_kwarg_from_dict_section(
         p,
         sectionId,
         BaseDictSectionImplArgsWithCallable(topLevelParamIds=lambda curr: curr[:-1]),
+    )
+
+
+def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str):
+    sectionId = p.singletonSections.genPythonCode
+    if not sectionId:
+        return
+    set_curr_effective_section_impl_value(
+        p, sectionId, GenPythonCodeSectionImplArgsWithCallable(code=code)
     )
 
 

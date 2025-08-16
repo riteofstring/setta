@@ -69,7 +69,7 @@ class ProjectGenPythonCode(PythonCode):
         self.code_generator = code_generator
 
     async def update_file(self):
-        await super().update_file(self.code_generator.code)
+        await super().update_file(self.code)
 
     async def insert_code_at_position(
         self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
@@ -80,7 +80,7 @@ class ProjectGenPythonCode(PythonCode):
         if start is None:
             return None
         position += start
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         return line, col
 
     async def text_field_completion(
@@ -103,7 +103,7 @@ class ProjectGenPythonCode(PythonCode):
                 ),
                 request_id,
             )
-            return process_completion_response(response, self.code_generator.code)
+            return process_completion_response(response, self.code)
 
     async def clear_text_field_completion(
         self, sectionId: str, paramInfoId: str | None
@@ -215,7 +215,7 @@ class ProjectGenPythonCode(PythonCode):
     async def gen_code_prefix_completion(self, fullText, position):
         self.code_generator.set_gen_code_prefix(fullText)
         await self.update_file()
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
@@ -231,7 +231,7 @@ class ProjectGenPythonCode(PythonCode):
     async def gen_code_suffix_completion(self, fullText, position):
         position += self.code_generator.set_gen_code_suffix(fullText)
         await self.update_file()
-        line, col = position_to_line_col(self.code_generator.code, position)
+        line, col = position_to_line_col(self.code, position)
         request_id = create_new_id()
         response = await self.lsp_writer.send_and_wait(
             self.lsp_writer.send_autocomplete_request(
@@ -245,7 +245,7 @@ class ProjectGenPythonCode(PythonCode):
         return process_completion_response(response, fullText)
 
     async def type_check(self):
-        await self.send_document_open_request(self.code_generator.code)
+        await self.send_document_open_request(self.code)
 
     async def diagnostics_callback(
         self, lsp_response: LSPTypes.TextDocumentPublishDiagnosticsNotification
@@ -272,11 +272,12 @@ class ProjectGenPythonCode(PythonCode):
     def get_gen_python_code_path(self):
         return self.temp_file
 
-    def get_gen_python_code(self):
+    @property
+    def code(self):
         return self.code_generator.code
 
     def write_to_folder(self, folder: Path):
-        return super().write_to_folder(self.code_generator.code, folder)
+        return super().write_to_folder(self.code, folder)
 
 
 class ProjectPythonCode(PythonCode):
