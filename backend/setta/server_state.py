@@ -8,6 +8,8 @@ from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
 from setta.project_state.project_manager import ProjectManager
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.terminals.terminals import Terminals
 from setta.utils.constants import C
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
@@ -39,6 +41,12 @@ class SettaFastAPIState:
             self.wmh_frontend_sender,
             self.settings_file,
             self.dbe,
+        )
+        self.settings_project_manager = SettingsProjectManager(
+            self.lsp_writers, self.wmh_frontend_sender, self.settings_file
+        )
+        self.project_manager_switcher = ProjectManagerSwitcher(
+            self.project_manager, self.settings_project_manager
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,

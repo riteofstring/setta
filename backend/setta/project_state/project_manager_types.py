@@ -99,10 +99,12 @@ class CreateNewSectionVersionRequest(BaseModel):
 
 
 class UndoRequest(BaseModel):
+    projectConfigId: str
     steps: int
 
 
 class RedoRequest(BaseModel):
+    projectConfigId: str
     steps: int
 
 

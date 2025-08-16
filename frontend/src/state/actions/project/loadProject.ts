@@ -15,7 +15,6 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
   route_load_project_config,
-  route_load_settings_project,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfigWithModCount } from "utils/generatedTypes";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
@@ -23,16 +22,6 @@ import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
-    return await loadProjectState(res.data);
-  } else {
-    return false;
-  }
-}
-
-export async function loadSettingsProjectConfig() {
-  const res = await route_load_settings_project();
-  if (res200(res)) {
-    console.log(res.data);
     return await loadProjectState(res.data);
   } else {
     return false;

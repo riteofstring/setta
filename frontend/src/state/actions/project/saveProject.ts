@@ -6,12 +6,10 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
-import { SETTINGS_PROJECT_NAME } from "utils/constants";
 import {
   route_save_as_existing_project_config,
   route_save_as_new_project_config,
   route_save_project,
-  route_save_settings_project,
 } from "utils/generatedEndpoints";
 import {
   ProjectStateSingleConfig,
@@ -83,17 +81,10 @@ export function getProjectData({
 
 export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
-
-  if (useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME) {
-    await route_save_settings_project({
-      settingsProject: getProjectData({}),
-    });
-  } else {
-    route_save_project({
-      projectState: await getProjectDataForSaving(),
-      modCount: useProjectState.getState().modCount,
-    });
-  }
+  route_save_project({
+    projectState: await getProjectDataForSaving(),
+    modCount: useProjectState.getState().modCount,
+  });
 }
 
 export async function saveAsNewProjectConfig({ newConfigName, withRefs }) {

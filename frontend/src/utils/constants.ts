@@ -1,3 +1,4 @@
+import { C } from "./c";
 import { ObjectValues, SectionType, SectionTypeEnum } from "./generatedTypes";
 
 export const NO_CONTEXT_MENU = import.meta.env.MODE === "ncm";
@@ -113,8 +114,7 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-export const SETTINGS_PROJECT_NAME = "settings";
-export const SETTINGS_ROUTER_PATH = `/${SETTINGS_PROJECT_NAME}`;
+export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
 
 export function pathRelativeToProject(projectConfigName) {
   return `../${projectConfigName}`;

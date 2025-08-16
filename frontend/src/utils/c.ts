@@ -46,6 +46,7 @@ export class C {
   ];
   static SETTA_MCP_TOOL_ERROR = "SETTA_MCP_TOOL_ERROR";
   static SETTA_TERMINAL_READY = "SETTA_TERMINAL_READY";
+  static SETTINGS_PROJECT_NAME = "settings";
   static WS_CALL_INTERACTIVE_FNS = "WS_CALL_INTERACTIVE_FNS";
   static WS_PROJECT_DATA = "projectData";
   static WS_RUN_CODE = "runCode";

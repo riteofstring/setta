@@ -1,5 +1,4 @@
 import { useProjectState } from "state/definitions";
-import { SETTINGS_PROJECT_NAME } from "utils/constants";
 import { route_update_from_frontend } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
 import { asyncDebounce } from "utils/utils";
@@ -32,11 +31,6 @@ async function getProjectDataToGenerateCode({
 
 export const updateBackendProjectState = asyncDebounce(
   async () => {
-    if (
-      useProjectState.getState().projectConfig.name === SETTINGS_PROJECT_NAME
-    ) {
-      return;
-    }
     const projectState = await getProjectDataToGenerateCode({});
     const requestRenameRefactor =
       useProjectState.getState().requestRenameRefactor;

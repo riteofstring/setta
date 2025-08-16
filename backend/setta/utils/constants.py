@@ -30,6 +30,7 @@ class C:
     DEFAULT_PORT = 8000
     DEV_MODE_FRONTEND_PORT = 3000
     DEFAULT_DB_PATH = SETTA_FILES_FOLDER / "setta.db"
+    SETTINGS_PROJECT_NAME = "settings"
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST

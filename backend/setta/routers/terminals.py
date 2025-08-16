@@ -90,7 +90,7 @@ async def route_run_code(
         x.projectConfigId,
         x.sectionId,
         x.cliId,
-        state.project_manager,
+        state.project_manager_switcher.get(x.projectConfigId),
         state.terminals,
         state.wmh_cli_sender,
     )

@@ -7170,6 +7170,7 @@ export function createGetLatestProjectStateRequest(
 }
 
 export const RedoRequestSchema = z.object({
+  projectConfigId: z.string(),
   steps: z.int(),
 });
 
@@ -7215,6 +7216,7 @@ export function createTextFieldCompletionRequest(
 }
 
 export const UndoRequestSchema = z.object({
+  projectConfigId: z.string(),
   steps: z.int(),
 });
 
@@ -7570,20 +7572,6 @@ export function createSectionsMakeCopyRequest(
   options: Partial<SectionsMakeCopyRequest> = {},
 ): SectionsMakeCopyRequest {
   return SectionsMakeCopyRequestSchema.parse(options);
-}
-
-export const SaveSettingsProjectRequestSchema = z.object({
-  settingsProject: ProjectStateSingleConfigSchema,
-});
-
-export type SaveSettingsProjectRequest = z.infer<
-  typeof SaveSettingsProjectRequestSchema
->;
-
-export function createSaveSettingsProjectRequest(
-  options: Partial<SaveSettingsProjectRequest> = {},
-): SaveSettingsProjectRequest {
-  return SaveSettingsProjectRequestSchema.parse(options);
 }
 
 export const SaveSettingsRequestSchema = z.object({
