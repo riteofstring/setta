@@ -64,13 +64,9 @@ async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
   });
 }
 
-// IMPORTANT TODO: This can be called before the project has loaded,
-// and therefore singletonsections won't be populated.
-// So the update won't result in anything.
 function genPythonCodeUpdateHandler(
   updatedFileInfo: FileWatcherUpdateGenPythonCode,
 ) {
-  console.log("genPythonCodeUpdateHandler", updatedFileInfo)
   const { fileContent } = updatedFileInfo;
   useProjectState.setState((state) => {
     const sectionId = state.singletonSections[SectionTypeEnum.GenPythonCode];

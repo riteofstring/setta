@@ -95,9 +95,15 @@ async def route_run_code(
         state.wmh_cli_sender,
     )
 
-    notification = SettaNotification(
-        projectConfigId=x.projectConfigId, message="Started", temporary=True
-    )
+    if terminal_id:
+        notification = SettaNotification(
+            projectConfigId=x.projectConfigId, message="Started", temporary=True
+        )
+    else:
+        notification = SettaNotification(
+            projectConfigId=x.projectConfigId, message="No code to run!", temporary=True
+        )
+
     background_tasks.add_task(
         state.wmh_frontend_sender.broadcast_notification,
         notification,
