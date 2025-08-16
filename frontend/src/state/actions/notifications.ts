@@ -5,6 +5,7 @@ import {
   SettaNotification,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { getCurrProjectConfigId } from "./sectionInfos";
 
 export const DEFAULT_TEMP_TIMEOUT = 2000;
 

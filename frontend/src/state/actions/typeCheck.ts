@@ -6,7 +6,10 @@ import {
   SettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
-import { getCurrEffectiveSectionImplWithTypeGuard } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+} from "./sectionInfos";
 
 export async function requestTypeCheck(userRequested = false) {
   if (userRequested) {

@@ -633,5 +633,5 @@ export const debounced_route_update_from_frontend_top_level_section_layout =
   );
 
 export function getCurrProjectConfigId() {
-  return getCurrProjectConfigId();
+  return useProjectState.getState().projectConfig.id;
 }
