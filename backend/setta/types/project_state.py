@@ -6,9 +6,9 @@ from pydantic import (
     model_validator,
 )
 
+from setta.code_gen.utils import GEN_CODE_CLASS_NAME
 from setta.database.utils import create_new_id
 from setta.types.core import Core, Variant
-from setta.types.gen_code_specs import PythonGenCodeSpecs
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
@@ -42,7 +42,8 @@ class ProjectConfig(BaseModel, extra="forbid"):
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
     viewport: Viewport | None = Field(default_factory=Viewport)
     viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
-    genCodeSpecs: PythonGenCodeSpecs = Field(default_factory=PythonGenCodeSpecs)
+    genCodePrefix: str = ""
+    genCodeSuffix: str = f"s = {GEN_CODE_CLASS_NAME}()"
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionVariantMap: dict[str, str] = Field(default_factory=dict)

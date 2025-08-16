@@ -2,7 +2,7 @@ import asyncio
 import copy
 import shutil
 from pathlib import Path
-from typing import Coroutine
+from typing import Coroutine, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -95,8 +95,10 @@ class ProjectManager:
             self.history: History[ProjectStateBackend] = History(
                 load_project_state(db),
             )
-        self.gen_code: dict[str, ProjectGenPythonCode | None] = {}
-        self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
+        self.gen_code: dict[str, ProjectGenPythonCode] = {}
+        self.code_dict: dict[
+            str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
+        ] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
@@ -193,28 +195,21 @@ class ProjectManager:
     ):
         target_folder = create_timestamped_folder(CODE_FOLDER)
         gen_code = self.gen_code[projectConfigId]
-        if not sectionId:
-            sectionId = self.project_state_backend.projectConfigs[
-                projectConfigId
-            ].entryCodeBlockId
-
-        # No generated code and no entry code block
-        # So return early
-        if not gen_code and not sectionId:
-            return None
-
-        gen_code_path = gen_code.write_to_folder(target_folder) if gen_code else None
+        gen_code_path = gen_code.write_to_folder(target_folder)
 
         code_dict = self.code_dict[projectConfigId]
         code_paths = {}
         for sid, c in code_dict.items():
             code_paths[sid] = c.write_to_folder(target_folder)
 
+        if not sectionId:
+            sectionId = self.project_state_backend.projectConfigs[
+                projectConfigId
+            ].entryCodeBlockId
+
         if sectionId:
             return code_dict[sectionId].get_run_command(code_paths[sectionId])
-        elif gen_code and gen_code_path:
-            return gen_code.get_run_command(gen_code_path)
-        return None
+        return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
@@ -273,42 +268,36 @@ class ProjectManager:
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
-        projectConfigName = projectConfig.name
-        project_temp_folder = self.temp_folder / projectConfigName
-
-        existing_gen_code = self.gen_code.get(projectConfigId)
-        if existing_gen_code:
+        if self.gen_code.get(projectConfigId):
             await self.maybe_do_rename_refactor(
                 messageId, requestRenameRefactor, projectConfigId, dep_graph
             )
-            existing_gen_code.callback_cleanup()
+            self.gen_code[projectConfigId].callback_cleanup()
 
-        if projectConfig.genCodeSpecs:
-            code_generator = PythonCodeGenerator(
-                dep_graph,
-                projectConfig.genCodeSpecs.prefix,
-                projectConfig.genCodeSpecs.suffix,
-            )
-            code_generator.generate_code()
+        code_generator = PythonCodeGenerator(
+            dep_graph, projectConfig.genCodePrefix, projectConfig.genCodeSuffix
+        )
+        code_generator.generate_code()
 
-            new_gen_code = ProjectGenPythonCode(
-                project_temp_folder,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                projectConfigId,
-                dep_graph,
-                code_generator,
-            )
-            await new_gen_code.update_file()
-            self.add_to_used_files(new_gen_code)
-            self.gen_code[projectConfigId] = new_gen_code
+        projectConfigName = projectConfig.name
+        project_temp_folder = self.temp_folder / projectConfigName
+        self.gen_code[projectConfigId] = ProjectGenPythonCode(
+            project_temp_folder,
+            self.lsp_writers,
+            self.websocket_msg_handler,
+            projectConfigId,
+            dep_graph,
+            code_generator,
+        )
+        await self.gen_code[projectConfigId].update_file()
+        self.add_to_used_files(self.gen_code[projectConfigId])
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
                 if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
-
         self.code_dict[projectConfigId] = {}
+
         for sectionId in projectState.sections.keys():
             section_impl = get_curr_effective_section_impl(projectState, sectionId)
             if isinstance(section_impl, CodeSectionImpl):
@@ -329,33 +318,26 @@ class ProjectManager:
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
-        gen_code = self.gen_code[projectConfigId]
-        if gen_code:
-            await gen_code.type_check()
+        await self.gen_code[projectConfigId].type_check()
 
     @enqueue_method
     async def text_field_completion(self, x: TextFieldCompletionRequest):
-        gen_code = self.gen_code[x.projectConfigId]
-        if gen_code:
-            return await gen_code.text_field_completion(
-                x.sectionId, x.paramInfoId, x.fullText, x.position
-            )
+        return await self.gen_code[x.projectConfigId].text_field_completion(
+            x.sectionId, x.paramInfoId, x.fullText, x.position
+        )
 
     @enqueue_method
     async def clear_text_field_completion(self, x: ClearTextFieldCompletionRequest):
-        gen_code = self.gen_code[x.projectConfigId]
-        if gen_code:
-            await gen_code.clear_text_field_completion(x.sectionId, x.paramInfoId)
+        await self.gen_code[x.projectConfigId].clear_text_field_completion(
+            x.sectionId, x.paramInfoId
+        )
 
     @enqueue_method
     async def set_callable(self, x: SetCallableRequest):
-        gen_code = self.gen_code[x.projectConfigId]
-        if not gen_code:
-            return
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
 
-        await gen_code.set_callable(
+        await self.gen_code[x.projectConfigId].set_callable(
             self.settings_file.settings,
             project_state,
             x.sectionId,
@@ -376,16 +358,24 @@ class ProjectManager:
     @enqueue_method
     async def gen_code_prefix_completion(self, x: GenCodePrefixCompletionRequest):
         print("*************gen_code_prefix_autocomplete\n\n\n", flush=True)
-        gen_code = self.gen_code[x.projectConfigId]
-        if gen_code:
-            return await gen_code.gen_code_prefix_completion(x.fullText, x.position)
+        return await self.gen_code[x.projectConfigId].gen_code_prefix_completion(
+            x.fullText, x.position
+        )
 
     @enqueue_method
     async def gen_code_suffix_completion(self, x: GenCodeSuffixCompletionRequest):
         print("*************gen_code_suffix_autocomplete\n\n\n", flush=True)
-        gen_code = self.gen_code[x.projectConfigId]
-        if gen_code:
-            return await gen_code.gen_code_suffix_completion(x.fullText, x.position)
+        return await self.gen_code[x.projectConfigId].gen_code_suffix_completion(
+            x.fullText, x.position
+        )
+
+    @enqueue_method
+    async def set_gen_code_prefix(self, projectConfigId: str, value: str):
+        print("*************set_gen_code_prefix\n\n\n", flush=True)
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(projectConfigId)
+        project_state.projectConfig.genCodePrefix = value
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_param_values(
@@ -405,16 +395,14 @@ class ProjectManager:
 
     @enqueue_method
     async def get_gen_python_code_path(self, projectConfigId: str):
-        gen_code = self.gen_code[projectConfigId]
-        if gen_code:
-            return gen_code.get_gen_python_code_path()
+        if self.gen_code.get(projectConfigId):
+            return self.gen_code[projectConfigId].get_gen_python_code_path()
         return None
 
     @enqueue_method
     async def get_gen_python_code(self, projectConfigId: str):
-        gen_code = self.gen_code[projectConfigId]
-        if gen_code:
-            return gen_code.get_gen_python_code()
+        if self.gen_code.get(projectConfigId):
+            return self.gen_code[projectConfigId].get_gen_python_code()
         return ""
 
     @enqueue_method

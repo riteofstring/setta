@@ -102,8 +102,8 @@ function GenCodeEditor({
 export function GenPythonCodeSettings() {
   const { prefixValue, suffixValue } = useProjectState(
     (x) => ({
-      prefixValue: x.projectConfig.genCodeSpecs.prefix,
-      suffixValue: x.projectConfig.genCodeSpecs.suffix,
+      prefixValue: x.projectConfig.genCodePrefix,
+      suffixValue: x.projectConfig.genCodeSuffix,
     }),
     _.isEqual,
   );
@@ -129,14 +129,14 @@ export function GenPythonCodeSettings() {
 
 export function setGenCodePrefix(value: string) {
   useProjectState.setState((state) => {
-    state.projectConfig.genCodeSpecs.prefix = value;
+    state.projectConfig.genCodePrefix = value;
   });
   updateBackendProjectState();
 }
 
 export function setGenCodeSuffix(value: string) {
   useProjectState.setState((state) => {
-    state.projectConfig.genCodeSpecs.suffix = value;
+    state.projectConfig.genCodeSuffix = value;
   });
   updateBackendProjectState();
 }
