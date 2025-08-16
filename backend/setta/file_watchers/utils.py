@@ -35,23 +35,26 @@ def get_content_processor(
         case FileWatchGroupName.jsonSource:
             return get_content_processor_json_source(project_manager, settings_file)
         case FileWatchGroupName.genPythonCode:
-            return content_processor_gen_python_code
+            return get_content_processor_gen_python_code(project_manager)
         case FileWatchGroupName.apiKeys:
             return content_processor_api_keys
         case _:
             assert_never(file_watch_group_name)
 
 
-async def content_processor_gen_python_code(
-    coreUpdate: FileWatcherCoreUpdate,
-    file_to_read: Path,
-):
-    with open(file_to_read, "r", encoding="utf-8") as f:
-        raw_content = f.read()
-    return FileWatcherUpdateGenPythonCode(
-        coreUpdate=coreUpdate,
-        fileContent=raw_content,
-    )
+def get_content_processor_gen_python_code(project_manager: ProjectManager):
+    async def content_processor_gen_python_code(
+        coreUpdate: FileWatcherCoreUpdate,
+        file_to_read: Path,
+    ):
+        with open(file_to_read, "r", encoding="utf-8") as f:
+            raw_content = f.read()
+        return FileWatcherUpdateGenPythonCode(
+            coreUpdate=coreUpdate,
+            fileContent=raw_content,
+        )
+    return content_processor_gen_python_code
+    
 
 
 async def content_processor_api_keys(

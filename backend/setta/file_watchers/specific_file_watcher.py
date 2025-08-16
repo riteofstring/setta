@@ -17,17 +17,8 @@ from setta.types.specific_file_watcher import (
 )
 from setta.utils.constants import CWD
 from setta.utils.utils import ensure_str_path
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
-
-
-def create_specific_file_watcher(websocket_msg_handler: WMHFrontendSender):
-    async def event_callback(event_info: FileWatcherUpdate):
-        logger.debug(f"event_callback {event_info}")
-        await websocket_msg_handler.broadcast_file_updates(event_info)
-
-    return SpecificFileWatcher(event_callback)
 
 
 class MockFileEvent:
@@ -42,7 +33,10 @@ class MockFileEvent:
 class SpecificFileWatcher:
     """File watcher that monitors specific files and notifies via a single callback."""
 
-    def __init__(self, event_callback: Callable[[FileWatcherUpdate], Awaitable[None]]):
+    def __init__(
+        self,
+        event_callback: Callable[[FileWatcherUpdate], Awaitable[None]] | None = None,
+    ):
         """
         Initialize the file watcher for specific files.
 
@@ -57,11 +51,11 @@ class SpecificFileWatcher:
         self.file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler] = {}
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
-            event_callback,
             asyncio.get_event_loop(),
             self.watched_files,
             self.file_watcher_update_handlers,
             self.file_to_patterns,
+            event_callback,
         )
 
     def request_read_all_files(self):
@@ -250,27 +244,27 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        callback: Callable[[FileWatcherUpdate], Awaitable[None]],
         loop: asyncio.AbstractEventLoop,
         watched_files_ref: dict[FileWatchGroupName, set[Path]],
         file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler],
         file_to_patterns: dict[Path, set[str]],
+        callback: Callable[[FileWatcherUpdate], Awaitable[None]] | None = None,
     ):
         """
         Initialize the event handler.
 
         Args:
-            callback: Function to call when a watched file changes
             loop: Asyncio event loop for async callbacks
             watched_files_ref: Reference to the dict of files being watched
             file_watcher_update_handlers: Reference to the dict of file update handlers
             file_to_patterns: Reference to the dict of file to pattern mappings
+            callback: Optional function to call when a watched file changes
         """
-        self.callback = callback
         self.loop = loop
         self.watched_files_ref = watched_files_ref
         self.file_watcher_update_handlers = file_watcher_update_handlers
         self.file_to_patterns = file_to_patterns
+        self.callback = callback
 
     def on_created(self, event: FileSystemEvent):
         """Handle file creation event."""
@@ -385,5 +379,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
     async def process_file_watch_update(self, core_update, file_to_read, handler):
         file_watch_update = await handler(core_update, file_to_read)
-        logger.debug(f"will send {file_watch_update}")
-        await self.callback(file_watch_update)
+        if self.callback:
+            logger.debug(f"will send {file_watch_update}")
+            await self.callback(file_watch_update)
