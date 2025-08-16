@@ -163,8 +163,7 @@ def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
         x.filepaths,
         x.fileWatchGroupName,
         get_content_processor(
-            state.project_manager,
-            state.settings_file,
+            state.project_manager_switcher,
             x.fileWatchGroupName,
         ),
     )
@@ -177,7 +176,9 @@ async def route_file_watch_gen_python_code(
     filepaths = []
 
     if x.watch:
-        path = await state.project_manager.get_gen_python_code_path(x.projectConfigId)
+        path = await state.project_manager_switcher.main.get_gen_python_code_path(
+            x.projectConfigId
+        )
         if not path:
             raise HTTPException(status_code=404, detail="Path not found")
         filepaths = [str(path)]
@@ -186,8 +187,7 @@ async def route_file_watch_gen_python_code(
         filepaths,
         FileWatchGroupName.genPythonCode,
         get_content_processor(
-            state.project_manager,
-            state.settings_file,
+            state.project_manager_switcher,
             FileWatchGroupName.genPythonCode,
         ),
     )

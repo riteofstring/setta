@@ -38,3 +38,7 @@ class ProjectManagerSwitcher:
         if not projectConfigId:
             raise ProjectNotFound
         return projectConfigId
+
+    @property
+    def project_managers(self) -> list[BaseProjectManager]:
+        return [self.main, self.settings]

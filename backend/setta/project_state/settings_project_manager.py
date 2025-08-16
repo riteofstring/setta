@@ -33,3 +33,10 @@ class SettingsProjectManager(BaseProjectManager):
         save_json_to_file(
             self.settings_file.path_default_settings_project, p.model_dump()
         )
+
+    async def load_json_sources(
+        self,
+        section_variant_ids: list[str] | None = None,
+    ):
+        await super().load_json_sources(section_variant_ids)
+        await self.settings_file.load_and_broadcast_settings()

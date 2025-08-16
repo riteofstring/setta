@@ -4,8 +4,7 @@ from typing import Awaitable, Callable, assert_never
 
 from dotenv import dotenv_values
 
-from setta.database.settings_file import SettingsFile
-from setta.project_state.project_manager import ProjectManager
+from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.helpers import get_variant_base_and_effective_section_impl
 from setta.types.project_state import (
     ProjectStateCore,
@@ -27,13 +26,12 @@ FileWatcherUpdateHandler = Callable[
 
 
 def get_content_processor(
-    project_manager: ProjectManager,
-    settings_file: SettingsFile,
+    project_manager_switcher: ProjectManagerSwitcher,
     file_watch_group_name: FileWatchGroupName,
 ) -> FileWatcherUpdateHandler:
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
-            return get_content_processor_json_source(project_manager, settings_file)
+            return get_content_processor_json_source(project_manager_switcher)
         case FileWatchGroupName.genPythonCode:
             return content_processor_gen_python_code
         case FileWatchGroupName.apiKeys:
@@ -64,15 +62,11 @@ async def content_processor_api_keys(
     return FileWatcherUpdateAPIKeys(coreUpdate=coreUpdate, fileContent=fileContent)
 
 
-def get_content_processor_json_source(
-    project_manager: ProjectManager, settings_file: SettingsFile
-):
+def get_content_processor_json_source(project_manager_switcher: ProjectManagerSwitcher):
     async def content_processor_json_source(
         coreUpdate: FileWatcherCoreUpdate, file_to_read: Path
     ):
-        await maybe_read_json_source_contents(
-            project_manager, settings_file, coreUpdate
-        )
+        await maybe_read_json_source_contents(project_manager_switcher, coreUpdate)
         return FileWatcherUpdateJSONSource(coreUpdate=coreUpdate, fileContent=None)
 
     return content_processor_json_source
@@ -87,19 +81,14 @@ def get_llm_api_keys_from_env_vars(env_vars: dict[str, str | None]):
 
 
 async def maybe_read_json_source_contents(
-    project_manager: ProjectManager,
-    settings_file: SettingsFile,
+    project_manager_switcher: ProjectManagerSwitcher,
     coreUpdate: FileWatcherCoreUpdate,
 ):
-    p = project_manager.project_state_backend
-    variantsToLoad = get_json_source_variants(p, coreUpdate)
-    if len(variantsToLoad) > 0:
-        await project_manager.load_json_sources(variantsToLoad)
-
-    variantsToLoad = get_json_source_variants(settings_file.project_state, coreUpdate)
-    if len(variantsToLoad) > 0:
-        await settings_file.load_and_broadcast_settings_project()
-        await settings_file.load_and_broadcast_settings()
+    for project_manager in project_manager_switcher.project_managers:
+        p = project_manager.project_state_backend
+        variantsToLoad = get_json_source_variants(p, coreUpdate)
+        if len(variantsToLoad) > 0:
+            await project_manager.load_json_sources(variantsToLoad)
 
 
 def get_json_source_variants(p: ProjectStateCore, coreUpdate: FileWatcherCoreUpdate):
