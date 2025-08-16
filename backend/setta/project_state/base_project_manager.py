@@ -54,7 +54,6 @@ from setta.types.helpers import (
     delete_kwarg,
     delete_sections,
     # create_sections,
-    get_curr_effective_section_impl,
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
@@ -296,7 +295,7 @@ class BaseProjectManager(ABC):
         self.code_dict[projectConfigId] = {}
 
         for sectionId in projectState.sections.keys():
-            section_impl = get_curr_effective_section_impl(projectState, sectionId)
+            section_impl = projectState.get_curr_effective_section_impl(sectionId)
             if isinstance(section_impl, CodeSectionImpl):
                 section_code = self.create_project_code(
                     project_temp_folder, projectState, sectionId, section_impl
@@ -311,6 +310,7 @@ class BaseProjectManager(ABC):
 
         self.delete_unused_files(project_temp_folder)
         self.modCount += 1
+        projectState.validate_singleton_sections()
         self.project_state_backend = self.get_new_project_state_backend(projectState)
 
     @enqueue_method
@@ -599,14 +599,14 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[project_config_id] = (
             new_project_config
         )
-        self.project_state_backend.ensure_default_project_id()
+        self.project_state_backend.validate_default_project_id()
         return new_project_config.name
 
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[str]):
         for id in project_config_ids:
             del self.project_state_backend.projectConfigs[id]
-        self.project_state_backend.ensure_default_project_id()
+        self.project_state_backend.validate_default_project_id()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: str):

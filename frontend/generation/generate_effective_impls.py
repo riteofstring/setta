@@ -151,7 +151,7 @@ def get_effective_impl(
     set_overloads = "".join(set_overloads_list)
 
     set_impl = """
-def set_effective_impl_value(
+def set_effective_impl_value( # type: ignore
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     variant: Variant,

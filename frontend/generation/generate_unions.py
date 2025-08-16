@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 import setta.types.code_obj_impls
@@ -91,16 +92,23 @@ def generate_websocket_unions(output_file: Path):
 
 
 if __name__ == "__main__":
-    generate_unions(
-        output_file=(
-            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-            / "unions.py"
+    if len(sys.argv) != 2:
+        raise ValueError
+
+    if sys.argv[1] == "unions":
+        generate_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "unions.py"
+            )
         )
-    )
-    # has to be done separately due to import dependencies
-    generate_websocket_unions(
-        output_file=(
-            get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
-            / "websocket_unions.py"
+    elif sys.argv[1] == "websocket_unions":
+        # has to be done separately due to import dependencies
+        generate_websocket_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "websocket_unions.py"
+            )
         )
-    )
+    else:
+        raise ValueError

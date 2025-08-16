@@ -9,10 +9,12 @@ from pydantic import (
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME
 from setta.database.utils import create_new_id
 from setta.types.core import Core, Variant
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
+from setta.types.section_impls import SectionType
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -65,19 +67,21 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         default_factory=dict
     )
     codeObjVariants: dict[str, Variant] = Field(default_factory=dict)
-    singletonSections: SingletonSections = Field(default_factory=SingletonSections)
 
 
-class ProjectStateBackend(ProjectStateCore, extra="forbid"):
+class ProjectStateBackend(
+    ProjectStateCore,
+    extra="forbid",
+):
     projectConfigs: dict[str, ProjectConfig] = Field(default_factory=dict)
     defaultProjectConfigId: str | None = None
 
     @model_validator(mode="after")
-    def validator_ensure_default_project_id(self):
-        self.ensure_default_project_id()
+    def _validate_default_project_id(self):
+        self.validate_default_project_id()
         return self
 
-    def ensure_default_project_id(self):
+    def validate_default_project_id(self):
         if self.projectConfigs:
             # If projects exist, use first key when defaultProjectConfigId is None
             if (
@@ -93,12 +97,52 @@ class ProjectStateBackend(ProjectStateCore, extra="forbid"):
 
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
+    singletonSections: SingletonSections = Field(default_factory=SingletonSections)
+
+    def get_curr_section_variant(
+        self,
+        section_id: str,
+    ):
+        variant_id = self.projectConfig.sectionVariantMap[section_id]
+        return self.sectionVariants[variant_id]
+
+    def get_curr_effective_section_impl(
+        self,
+        section_id: str,
+    ):
+        variant = self.get_curr_section_variant(section_id)
+        base_impl = self.sectionImpls[variant.impl]
+        core = self.sections[section_id]
+        return get_effective_impl(base_impl, core, variant)
+
+    @model_validator(mode="after")
+    def _validate_singleton_sections(self):
+        self.validate_singleton_sections()
+        return self
+
+    def validate_singleton_sections(self):
+        output = SingletonSections()
+        for s in self.sections.values():
+            if output.globalVariables and output.genPythonCode:
+                break
+            sectionImpl = self.get_curr_effective_section_impl(s.id)
+            if (
+                not output.globalVariables
+                and sectionImpl.type == SectionType.GlobalVariables
+            ):
+                output.globalVariables = s.id
+            elif (
+                not output.genPythonCode
+                and sectionImpl.type == SectionType.GenPythonCode
+            ):
+                output.genPythonCode = s.id
+        self.singletonSections = output
+        return self
 
 
 class ProjectMetadata(BaseModel):
     defaultProjectConfigId: str | None
     projectMetadata: list[ProjectConfig]
-
 
 
 # useProjectState.subscribe(

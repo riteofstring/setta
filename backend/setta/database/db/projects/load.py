@@ -10,4 +10,4 @@ def load_project_state(db: Session):
     p = db.get(ProjectStateTable, 1)
     if not p or not p.state:
         return ProjectStateBackend()
-    return ProjectStateBackend.model_validate(p.state)
+    return ProjectStateBackend(**p.state)

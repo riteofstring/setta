@@ -2695,19 +2695,6 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
   return VariantSchema.parse(options);
 }
 
-export const SingletonSectionsSchema = z.object({
-  globalVariables: z.union([z.string(), z.null()]).default(null),
-  genPythonCode: z.union([z.string(), z.null()]).default(null),
-});
-
-export type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
-
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return SingletonSectionsSchema.parse(options);
-}
-
 export const ViewportSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -2763,6 +2750,19 @@ export function createProjectConfig(
   return ProjectConfigSchema.parse(options);
 }
 
+export const SingletonSectionsSchema = z.object({
+  globalVariables: z.union([z.string(), z.null()]).default(null),
+  genPythonCode: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
+
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return SingletonSectionsSchema.parse(options);
+}
+
 export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), CoreSchema).default({}),
   sectionImpls: z
@@ -2808,8 +2808,8 @@ export const ProjectStateSingleConfigSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
-  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
   projectConfig: ProjectConfigSchema,
+  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
 });
 
 export type ProjectStateSingleConfig = z.infer<
@@ -6479,7 +6479,6 @@ export const ProjectStateBackendSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
-  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
   projectConfigs: z.record(z.string(), ProjectConfigSchema).default({}),
   defaultProjectConfigId: z.union([z.string(), z.null()]).default(null),
 });
@@ -6537,7 +6536,6 @@ export const ProjectStateCoreSchema = z.object({
     )
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
-  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
 });
 
 export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;

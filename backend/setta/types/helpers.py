@@ -178,30 +178,12 @@ def merge_single_config_into_backend(
     )
 
 
-def get_curr_section_variant(
-    p: ProjectStateSingleConfig,
-    section_id: str,
-):
-    variant_id = p.projectConfig.sectionVariantMap[section_id]
-    return p.sectionVariants[variant_id]
-
-
-def get_curr_effective_section_impl(
-    p: ProjectStateCore,
-    section_id: str,
-):
-    variant = get_curr_section_variant(p, section_id)
-    base_impl = p.sectionImpls[variant.impl]
-    core = p.sections[section_id]
-    return get_effective_impl(base_impl, core, variant)
-
-
 def get_curr_effective_section_impl_with_type_guard(
-    project_state: ProjectStateCore,
+    project_state: ProjectStateSingleConfig,
     section_id: str,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
-    impl = get_curr_effective_section_impl(project_state, section_id)
+    impl = project_state.get_curr_effective_section_impl(section_id)
 
     if not isinstance(impl, impl_type):
         raise ValueError(f"Section {section_id} failed type guard")
@@ -279,7 +261,7 @@ def get_variant_base_and_effective_code_obj_impl(
 def set_curr_effective_section_impl_value(
     p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
 ):
-    variant = get_curr_section_variant(p, sectionId)
+    variant = p.get_curr_section_variant(sectionId)
     impl = p.sectionImpls[variant.impl]
     core = p.sections[sectionId]
     set_effective_impl_value(impl, core, variant, args)
@@ -298,7 +280,7 @@ def set_curr_effective_code_obj_impl_value(
 
 
 def get_curr_section_base_impl(p: ProjectStateSingleConfig, sectionId: str):
-    variant = get_curr_section_variant(p, sectionId)
+    variant = p.get_curr_section_variant(sectionId)
     return p.sectionImpls[variant.impl]
 
 
@@ -341,7 +323,7 @@ def get_curr_top_level_param_ids(
 
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    section_impl = get_curr_effective_section_impl(p, section_id)
+    section_impl = p.get_curr_effective_section_impl(section_id)
     parent_id = section_impl.parentId
     if not parent_id:
         return p.sections[section_id].name
@@ -357,7 +339,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = get_curr_effective_section_impl(p, parent_id).parentId
+        parent_id = p.get_curr_effective_section_impl(parent_id).parentId
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
@@ -555,7 +537,7 @@ def create_child_sections_via_incrementer(
     impl_type: SectionType,
     numChildren: int,
 ):
-    impl = get_curr_effective_section_impl(p, calledBy)
+    impl = p.get_curr_effective_section_impl(calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         parentId = calledBy
         startIdx = 0
@@ -573,7 +555,7 @@ def create_child_sections_via_incrementer(
 def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
     for id in to_delete:
-        impl = get_curr_effective_section_impl(p, id)
+        impl = p.get_curr_effective_section_impl(id)
         # delete from parent's current children list
         if impl.parentId:
             set_curr_effective_section_impl_value(
@@ -594,7 +576,7 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
 def delete_child_sections_via_decrementer(
     p: ProjectStateSingleConfig, calledBy: str, numChildren: int
 ):
-    impl = get_curr_effective_section_impl(p, calledBy)
+    impl = p.get_curr_effective_section_impl(calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         sectionIds = impl.children[:numChildren]
     else:

@@ -361,7 +361,7 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseSectionImplArgsWithCallable,
 ) -> BaseSectionImplUnion: ...
-def set_effective_impl_value(
+def set_effective_impl_value(  # type: ignore
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,
     variant: Variant,

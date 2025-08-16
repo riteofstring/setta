@@ -7,7 +7,6 @@ from setta.project_state.settings_project import create_settings_project_state
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers import (
     get_curr_effective_section_impl_with_type_guard,
-    get_curr_section_variant,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -58,7 +57,7 @@ class SettingsFile:
             with open(path, "r") as f:
                 output[settings_slice] = json.load(f)[settings_slice]
 
-        self.settings = SettingsState.model_validate(output)
+        self.settings = SettingsState(**output)
         return self.settings
 
     async def load_and_broadcast_settings(self):
@@ -83,7 +82,7 @@ class SettingsFile:
                 p, sectionId, DictSectionImpl
             )
             if impl.jsonSourceKeys == [slice]:
-                variant = get_curr_section_variant(p, sectionId)
+                variant = p.get_curr_section_variant(sectionId)
                 return Path(variant.name)
         return None
 
@@ -99,4 +98,4 @@ class SettingsFile:
                 self.obj_seed_settings_project.model_dump(),
             )
         with open(self.path_default_settings_project, "r") as f:
-            return ProjectStateSingleConfig.model_validate(json.load(f))
+            return ProjectStateSingleConfig(**json.load(f))
