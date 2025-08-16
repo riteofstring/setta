@@ -31,7 +31,9 @@ class SettaFastAPIState:
         self.dbe = DBE(C.DB_PATH)
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
-        self.specific_file_watcher = SpecificFileWatcher()
+        self.specific_file_watcher = create_specific_file_watcher(
+            self.wmh_frontend_sender
+        )
         self.project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
