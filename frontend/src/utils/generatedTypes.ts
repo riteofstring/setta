@@ -361,13 +361,6 @@ export const FileEventTypeEnum = {
 
 export type FileEventType = ObjectValues<typeof FileEventTypeEnum>;
 
-export const FileWatchGroupNameEnum = {
-  jsonSource: "jsonSource",
-  apiKeys: "apiKeys",
-} as const;
-
-export type FileWatchGroupName = ObjectValues<typeof FileWatchGroupNameEnum>;
-
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -3738,84 +3731,6 @@ export function createWebsocketMsgUnionWithDiscriminator(
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
-export const FileWatcherCoreUpdateSchema = z.object({
-  absPath: z.string(),
-  relPath: z.string(),
-  eventType: z.enum(FileEventTypeEnum),
-  matchingGlobPatterns: z.array(z.string()),
-  destAbsPath: z.union([z.string(), z.null()]).default(null),
-  destRelPath: z.union([z.string(), z.null()]).default(null),
-});
-
-export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
-
-export function createFileWatcherCoreUpdate(
-  options: Partial<FileWatcherCoreUpdate> = {},
-): FileWatcherCoreUpdate {
-  return FileWatcherCoreUpdateSchema.parse(options);
-}
-
-export const FileWatcherUpdateJSONSourceSchema = z.object({
-  fileWatchGroupName: z
-    .literal("jsonSource")
-    .default(FileWatchGroupNameEnum.jsonSource),
-  coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.null().default(null),
-});
-
-export type FileWatcherUpdateJSONSource = z.infer<
-  typeof FileWatcherUpdateJSONSourceSchema
->;
-
-export function createFileWatcherUpdateJSONSource(
-  options: Partial<FileWatcherUpdateJSONSource> = {},
-): FileWatcherUpdateJSONSource {
-  return FileWatcherUpdateJSONSourceSchema.parse(options);
-}
-
-export const FileWatcherUpdateAPIKeysSchema = z.object({
-  fileWatchGroupName: z
-    .literal("apiKeys")
-    .default(FileWatchGroupNameEnum.apiKeys),
-  coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.record(z.string(), z.string()),
-});
-
-export type FileWatcherUpdateAPIKeys = z.infer<
-  typeof FileWatcherUpdateAPIKeysSchema
->;
-
-export function createFileWatcherUpdateAPIKeys(
-  options: Partial<FileWatcherUpdateAPIKeys> = {},
-): FileWatcherUpdateAPIKeys {
-  return FileWatcherUpdateAPIKeysSchema.parse(options);
-}
-
-export const FileWatcherUpdateUnionSchema = z.union([
-  FileWatcherUpdateJSONSourceSchema,
-  FileWatcherUpdateAPIKeysSchema,
-]);
-
-export type FileWatcherUpdateUnion = z.infer<
-  typeof FileWatcherUpdateUnionSchema
->;
-
-export const FileWatcherUpdateUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("fileWatchGroupName", [
-    FileWatcherUpdateJSONSourceSchema,
-    FileWatcherUpdateAPIKeysSchema,
-  ]);
-
-export type FileWatcherUpdateUnionWithDiscriminator = z.infer<
-  typeof FileWatcherUpdateUnionWithDiscriminatorSchema
->;
-
-export function createFileWatcherUpdateUnionWithDiscriminator(
-  options: Partial<FileWatcherUpdateUnionWithDiscriminator> = {},
-): FileWatcherUpdateUnionWithDiscriminator {
-  return FileWatcherUpdateUnionWithDiscriminatorSchema.parse(options);
-}
-
 export const BaseArtifactSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -6363,6 +6278,24 @@ export function createBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplSchema.parse(options);
 }
 
+export const FileWatcherCoreUpdateSchema = z.object({
+  absPath: z.string(),
+  relPath: z.string(),
+  eventType: z.enum(FileEventTypeEnum),
+  matchingGlobPatterns: z.array(z.string()),
+  destAbsPath: z.union([z.string(), z.null()]).default(null),
+  destRelPath: z.union([z.string(), z.null()]).default(null),
+  fileToRead: z.string(),
+});
+
+export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
+
+export function createFileWatcherCoreUpdate(
+  options: Partial<FileWatcherCoreUpdate> = {},
+): FileWatcherCoreUpdate {
+  return FileWatcherCoreUpdateSchema.parse(options);
+}
+
 export const PositionSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -6620,20 +6553,6 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
-}
-
-export const FileWatcherUpdateSchema = z.object({
-  fileWatchGroupName: z.any(),
-  coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.any(),
-});
-
-export type FileWatcherUpdate = z.infer<typeof FileWatcherUpdateSchema>;
-
-export function createFileWatcherUpdate(
-  options: Partial<FileWatcherUpdate> = {},
-): FileWatcherUpdate {
-  return FileWatcherUpdateSchema.parse(options);
 }
 
 export const BackendWebsocketMsgSchema = z.object({
@@ -7424,34 +7343,6 @@ export function createDeleteFileRequest(
   options: Partial<DeleteFileRequest> = {},
 ): DeleteFileRequest {
   return DeleteFileRequestSchema.parse(options);
-}
-
-export const FileWatchGenPythonCodeRequestSchema = z.object({
-  projectConfigId: z.string(),
-  watch: z.boolean(),
-});
-
-export type FileWatchGenPythonCodeRequest = z.infer<
-  typeof FileWatchGenPythonCodeRequestSchema
->;
-
-export function createFileWatchGenPythonCodeRequest(
-  options: Partial<FileWatchGenPythonCodeRequest> = {},
-): FileWatchGenPythonCodeRequest {
-  return FileWatchGenPythonCodeRequestSchema.parse(options);
-}
-
-export const FileWatchListRequestSchema = z.object({
-  filepaths: z.array(z.string()),
-  fileWatchGroupName: z.enum(FileWatchGroupNameEnum),
-});
-
-export type FileWatchListRequest = z.infer<typeof FileWatchListRequestSchema>;
-
-export function createFileWatchListRequest(
-  options: Partial<FileWatchListRequest> = {},
-): FileWatchListRequest {
-  return FileWatchListRequestSchema.parse(options);
 }
 
 export const GetJSONSourcePathToBeDeletedSchema = z.object({

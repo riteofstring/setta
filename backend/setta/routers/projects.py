@@ -119,8 +119,7 @@ async def route_save_project(
         )
         project_manager = state.project_manager_switcher.get(x.projectState)
         update_success = await project_manager.update_from_frontend(
-            req,
-            trigger_autosave=False,
+            req, trigger_autosave=False, updateFileWatcher=False
         )
         if not update_success:
             notification = SettaNotification(

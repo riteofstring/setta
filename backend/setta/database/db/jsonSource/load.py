@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Iterable
 
 from pydantic import BaseModel, Field
 
@@ -55,7 +56,7 @@ class ProcessedJSONObject(BaseModel):
 def load_json_sources_into_data_structures(
     settings: SettingsState,
     p: ProjectStateCore,
-    section_variant_ids: list[str] | None = None,
+    section_variant_ids: Iterable[str] | None = None,
 ):
     processed = set()
     for section in p.sections.values():

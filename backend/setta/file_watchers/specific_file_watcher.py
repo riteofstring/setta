@@ -2,12 +2,12 @@ import asyncio
 import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Any, Callable, Coroutine
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 from watchdog.observers.api import ObservedWatch
 
-from setta.file_watchers.utils import FileWatcherCallback
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
@@ -16,6 +16,10 @@ from setta.utils.constants import CWD
 from setta.utils.utils import ensure_str_path
 
 logger = logging.getLogger(__name__)
+
+
+FileWatcherCallback = Callable[[FileWatcherCoreUpdate], Coroutine[Any, Any, None]]
+CallbacksDict = dict[Path, list[FileWatcherCallback]]
 
 
 class MockFileEvent:
@@ -29,7 +33,7 @@ class SpecificFileWatcher:
     def __init__(self):
         self.observer = Observer()
         self.watched_dirs: dict[Path, ObservedWatch] = {}
-        self.callbacks: dict[Path, set[FileWatcherCallback]] = defaultdict(set)
+        self.callbacks: CallbacksDict = defaultdict(list)
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
             asyncio.get_event_loop(),
@@ -43,7 +47,7 @@ class SpecificFileWatcher:
 
     def update_callbacks(
         self,
-        callbacks: dict[Path, set[FileWatcherCallback]],
+        callbacks: CallbacksDict,
         fire_immediately: bool = True,
     ):
         self.callbacks.clear()
@@ -65,6 +69,7 @@ class SpecificFileWatcher:
 
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
+        print("\n\ndirs_to_add", dirs_to_add)
         for dir_path in dirs_to_add:
             watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
             self.watched_dirs[dir_path] = watch
@@ -88,7 +93,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        callbacks: dict[Path, set[FileWatcherCallback]],
+        callbacks: CallbacksDict,
         file_to_patterns: dict[Path, set[str]],
     ):
         self.loop = loop
@@ -116,6 +121,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
 
+        print("\n\nsend_event")
         logger.debug("_send_event")
         # Get absolute path
         abs_path = Path(ensure_str_path(event.src_path)).resolve()
@@ -154,14 +160,15 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             matchingGlobPatterns=list(self.file_to_patterns.get(abs_path, [])),
             destAbsPath=dest_abs_path,
             destRelPath=dest_rel_path,
+            fileToRead=file_to_read,
         )
 
         self.loop.call_soon_threadsafe(
-            lambda: self.loop.create_task(
-                self.call_handlers(handlers, core_update, file_to_read)
-            )
+            lambda: self.loop.create_task(self.call_handlers(handlers, core_update))
         )
 
-    async def call_handlers(self, handlers, core_update, file_to_read):
+    async def call_handlers(
+        self, handlers: list[FileWatcherCallback], core_update: FileWatcherCoreUpdate
+    ):
         for h in handlers:
-            await h(core_update, file_to_read)
+            await h(core_update)

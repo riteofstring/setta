@@ -66,6 +66,7 @@ from setta.types.section_impls import (
     SectionType,
 )
 from setta.types.simplified_states import Position
+from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array
 
@@ -936,6 +937,30 @@ def get_json_source_files_to_watch(p: ProjectStateSingleConfig):
             if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
                 filename_set.add(variant.name)
     return filename_set
+
+
+def get_variants_for_json_source_update(
+    p: ProjectStateCore, coreUpdate: FileWatcherCoreUpdate
+):
+    variantsToLoad: set[str] = set()
+    processed = set()
+    for section in p.sections.values():
+        for variant_id in section.variants:
+            if variant_id in variantsToLoad:
+                continue
+            processed.add(variant_id)
+            variant, _, impl = get_variant_base_and_effective_section_impl(
+                p, section, variant_id
+            )
+            if (
+                not isinstance(impl, BaseDictSectionImpl)
+                or not impl.isJsonSource
+                or variant.name != str(coreUpdate.relPath)
+            ):
+                continue
+
+            variantsToLoad.add(variant_id)
+    return variantsToLoad
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

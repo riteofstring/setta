@@ -18,7 +18,6 @@ from setta.database.db.sections.copy import (
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.project_state import ProjectStateCore
 from setta.types.routes import Route
-from setta.types.specific_file_watcher import FileWatchGroupName
 from setta.utils.generate_new_filename import generate_new_filename
 
 router = SettaAPIRouter()
@@ -60,16 +59,6 @@ class GetJSONSourcePathToBeDeleted(BaseModel):
 
 class DeleteFileRequest(BaseModel):
     filepath: str
-
-
-class FileWatchListRequest(BaseModel):
-    filepaths: list[str]
-    fileWatchGroupName: FileWatchGroupName
-
-
-class FileWatchGenPythonCodeRequest(BaseModel):
-    projectConfigId: str
-    watch: bool
 
 
 @router.post(Route.COPY_SECTIONS)

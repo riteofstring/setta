@@ -19,3 +19,4 @@ class FileWatcherCoreUpdate(BaseModel):
     matchingGlobPatterns: list[str]
     destAbsPath: Path | None = None
     destRelPath: Path | None = None
+    fileToRead: Path

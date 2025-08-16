@@ -3,14 +3,16 @@ import copy
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Coroutine, Union
+from typing import Coroutine, Iterable, Union
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.settings_file import SettingsFile
-from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
-from setta.file_watchers.utils import get_content_processor
+from setta.file_watchers.specific_file_watcher import (
+    FileWatcherCallback,
+    SpecificFileWatcher,
+)
 from setta.lsp.managers import LSPWriters
 from setta.project_state.code import Code
 from setta.project_state.history import History
@@ -56,6 +58,7 @@ from setta.types.helpers import (
     delete_kwarg,
     delete_sections,
     get_json_source_files_to_watch,
+    get_variants_for_json_source_update,
     maybe_update_gen_python_code_section,
     # create_sections,
     merge_single_config_into_backend,
@@ -73,7 +76,7 @@ from setta.types.project_state import (
 from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position, SimplifiedSectionCreation
-from setta.types.specific_file_watcher import FileWatchGroupName
+from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -224,12 +227,17 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def update_from_frontend(
-        self, x: UpdateFromFrontendRequest, trigger_autosave=True
+        self,
+        x: UpdateFromFrontendRequest,
+        trigger_autosave=True,
+        updateFileWatcher=True,
     ):
         matching = self.modCount == x.modCount
         if matching:
             self.add_new_history_entry(trigger_autosave)
-            await self.update(x.projectState, x.requestRenameRefactor, x.messageId)
+            await self.update(
+                x.projectState, x.requestRenameRefactor, x.messageId, updateFileWatcher
+            )
         await self.websocket_msg_handler.broadcast_project_state(
             x.projectState, self.modCount
         )
@@ -248,7 +256,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def load_json_sources(
         self,
-        section_variant_ids: list[str] | None = None,
+        section_variant_ids: Iterable[str] | None = None,
     ):
         load_json_sources_into_data_structures(
             self.settings_file.settings,
@@ -259,13 +267,17 @@ class BaseProjectManager(ABC):
             singleConfig = convert_backend_to_single_config(
                 self.project_state_backend, configId
             )
-            await self.update_and_broadcast_project_state(singleConfig)
+            # Don't update file watcher here because otherwise it'll be an infinite loop
+            await self.update_and_broadcast_project_state(
+                singleConfig, updateFileWatcher=False
+            )
 
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
         requestRenameRefactor: bool = False,
         messageId: str | None = None,
+        updateFileWatcher: bool = True,
     ):
         projectState.validate_singleton_sections()
         self.used_files = set()
@@ -321,6 +333,8 @@ class BaseProjectManager(ABC):
         self.delete_unused_files(project_temp_folder)
         self.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
+        if updateFileWatcher:
+            self.maybe_watch_json_source_files(projectState)
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
@@ -648,9 +662,9 @@ class BaseProjectManager(ABC):
         return merge_single_config_into_backend(self.project_state_backend, x)
 
     async def update_and_broadcast_project_state(
-        self, project_state: ProjectStateSingleConfig
+        self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
     ):
-        await self.update(project_state)
+        await self.update(project_state, updateFileWatcher=updateFileWatcher)
         await self.websocket_msg_handler.broadcast_project_state(
             project_state, self.modCount
         )
@@ -715,27 +729,25 @@ class BaseProjectManager(ABC):
 
     def maybe_watch_json_source_files(self, projectState: ProjectStateSingleConfig):
         filename_set = get_json_source_files_to_watch(projectState)
-        self.specific_file_watcher.update_watch_list(
-            filename_set,
-            FileWatchGroupName.jsonSource,
-            get_content_processor(
-                state.project_manager_switcher,
-                x.fileWatchGroupName,
-            ),
-        )
+        callbacks = {
+            Path(k).resolve(): [self.get_json_source_file_watcher_callback()]
+            for k in filename_set
+        }
+        self.specific_file_watcher.update_callbacks(callbacks, fire_immediately=False)
 
+    def get_json_source_file_watcher_callback(self) -> FileWatcherCallback:
+        async def fn(coreUpdate: FileWatcherCoreUpdate):
+            variantsToLoad = get_variants_for_json_source_update(
+                self.project_state_backend, coreUpdate
+            )
+            if len(variantsToLoad) > 0:
+                await self.load_json_sources(variantsToLoad)
+                notification = SettaNotification(
+                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+                )
+                await self.websocket_msg_handler.broadcast_notification(notification)
 
-#   useProjectState.subscribe(
-#     jsonFilenameSubscriptionFn,
-#     (filepaths) =>
-#       route_file_watch_list({
-#         filepaths,
-#         fileWatchGroupName: FileWatchGroupNameEnum.jsonSource,
-#       }),
-#     {
-#       equalityFn: _.isEqual,
-#     },
-#   );
+        return fn
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
@@ -754,19 +766,6 @@ class BaseProjectManager(ABC):
 #       fireImmediately: true,
 #     },
 #   );
-
-
-# @router.post(Route.FILE_WATCH_LIST)
-# def route_file_watch_list(x: FileWatchListRequest, state: AppStateFromRequest):
-#     # x.filepaths is the current list of file paths or glob patterns that should be watched
-#     state.specific_file_watcher.update_watch_list(
-#         x.filepaths,
-#         x.fileWatchGroupName,
-#         get_content_processor(
-#             state.project_manager_switcher,
-#             x.fileWatchGroupName,
-#         ),
-#     )
 
 
 # async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {

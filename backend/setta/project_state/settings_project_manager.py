@@ -1,4 +1,5 @@
 import logging
+from typing import Iterable
 
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
@@ -36,7 +37,7 @@ class SettingsProjectManager(BaseProjectManager):
 
     async def load_json_sources(
         self,
-        section_variant_ids: list[str] | None = None,
+        section_variant_ids: Iterable[str] | None = None,
     ):
         await super().load_json_sources(section_variant_ids)
         await self.settings_file.load_and_broadcast_settings()
