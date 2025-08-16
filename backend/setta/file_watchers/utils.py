@@ -48,6 +48,7 @@ async def content_processor_gen_python_code(
 ):
     with open(file_to_read, "r", encoding="utf-8") as f:
         raw_content = f.read()
+    print("\n\n\ncontent_processor_gen_python_code", raw_content)
     return FileWatcherUpdateGenPythonCode(
         coreUpdate=coreUpdate,
         fileContent=raw_content,

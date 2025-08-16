@@ -58,6 +58,7 @@ export const openWebSocket = _.debounce(
             projectConfigId: useProjectState.getState().projectConfig.id,
           });
           if (res200(res)) {
+            console.log("latest project state", res.data)
             processProjectStateUpdateFromBackend(res.data);
           }
         }

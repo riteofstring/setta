@@ -23,6 +23,7 @@ import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
+    console.log("loadProject", res.data)
     return await loadProjectState(res.data);
   } else {
     return false;
