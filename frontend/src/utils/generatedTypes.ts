@@ -101,7 +101,6 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "LSPDiagnostics",
   "Notification",
   "ReturnRenameRefactorResults",
-  "SpecificFileWatcherUpdate",
   "TerminalMetadata",
   "UUIDMappingForLLM",
   "UpdateFrontendProjectState",
@@ -117,7 +116,6 @@ export const WebsocketMsgTypeSet = new Set([
   "LSPDiagnostics",
   "Notification",
   "ReturnRenameRefactorResults",
-  "SpecificFileWatcherUpdate",
   "TerminalMetadata",
   "UUIDMappingForLLM",
   "UpdateFrontendProjectState",
@@ -366,7 +364,6 @@ export type FileEventType = ObjectValues<typeof FileEventTypeEnum>;
 export const FileWatchGroupNameEnum = {
   jsonSource: "jsonSource",
   apiKeys: "apiKeys",
-  genPythonCode: "genPythonCode",
 } as const;
 
 export type FileWatchGroupName = ObjectValues<typeof FileWatchGroupNameEnum>;
@@ -396,7 +393,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LSPDiagnostics: "LSPDiagnostics",
   TerminalMetadata: "TerminalMetadata",
   AllDependencies: "AllDependencies",
-  SpecificFileWatcherUpdate: "SpecificFileWatcherUpdate",
   Notification: "Notification",
   LLMStreamingResponse: "LLMStreamingResponse",
   UUIDMappingForLLM: "UUIDMappingForLLM",
@@ -2855,55 +2851,6 @@ export function createWebsocketMsgUpdateFrontendProjectState(
   return WebsocketMsgUpdateFrontendProjectStateSchema.parse(options);
 }
 
-export const FileWatcherCoreUpdateSchema = z.object({
-  absPath: z.string(),
-  relPath: z.string(),
-  eventType: z.enum(FileEventTypeEnum),
-  matchingGlobPatterns: z.array(z.string()),
-  destAbsPath: z.union([z.string(), z.null()]).default(null),
-  destRelPath: z.union([z.string(), z.null()]).default(null),
-});
-
-export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
-
-export function createFileWatcherCoreUpdate(
-  options: Partial<FileWatcherCoreUpdate> = {},
-): FileWatcherCoreUpdate {
-  return FileWatcherCoreUpdateSchema.parse(options);
-}
-
-export const FileWatcherUpdateSchema = z.object({
-  fileWatchGroupName: z.any(),
-  coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.any(),
-});
-
-export type FileWatcherUpdate = z.infer<typeof FileWatcherUpdateSchema>;
-
-export function createFileWatcherUpdate(
-  options: Partial<FileWatcherUpdate> = {},
-): FileWatcherUpdate {
-  return FileWatcherUpdateSchema.parse(options);
-}
-
-export const WebsocketMsgSpecificFileWatcherUpdateSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: FileWatcherUpdateSchema,
-  messageType: z
-    .literal("SpecificFileWatcherUpdate")
-    .default(WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate),
-});
-
-export type WebsocketMsgSpecificFileWatcherUpdate = z.infer<
-  typeof WebsocketMsgSpecificFileWatcherUpdateSchema
->;
-
-export function createWebsocketMsgSpecificFileWatcherUpdate(
-  options: Partial<WebsocketMsgSpecificFileWatcherUpdate> = {},
-): WebsocketMsgSpecificFileWatcherUpdate {
-  return WebsocketMsgSpecificFileWatcherUpdateSchema.parse(options);
-}
-
 export const WebsocketMsgAllDependenciesSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
   content: z.any(),
@@ -3712,7 +3659,6 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgSpecificFileWatcherUpdateSchema,
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
@@ -3732,7 +3678,6 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgSpecificFileWatcherUpdateSchema,
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
@@ -3757,7 +3702,6 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgLSPDiagnosticsSchema,
   WebsocketMsgReturnRenameRefactorResultsSchema,
   WebsocketMsgUpdateFrontendProjectStateSchema,
-  WebsocketMsgSpecificFileWatcherUpdateSchema,
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
@@ -3777,7 +3721,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgLSPDiagnosticsSchema,
     WebsocketMsgReturnRenameRefactorResultsSchema,
     WebsocketMsgUpdateFrontendProjectStateSchema,
-    WebsocketMsgSpecificFileWatcherUpdateSchema,
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
@@ -3793,6 +3736,23 @@ export function createWebsocketMsgUnionWithDiscriminator(
   options: Partial<WebsocketMsgUnionWithDiscriminator> = {},
 ): WebsocketMsgUnionWithDiscriminator {
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
+}
+
+export const FileWatcherCoreUpdateSchema = z.object({
+  absPath: z.string(),
+  relPath: z.string(),
+  eventType: z.enum(FileEventTypeEnum),
+  matchingGlobPatterns: z.array(z.string()),
+  destAbsPath: z.union([z.string(), z.null()]).default(null),
+  destRelPath: z.union([z.string(), z.null()]).default(null),
+});
+
+export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
+
+export function createFileWatcherCoreUpdate(
+  options: Partial<FileWatcherCoreUpdate> = {},
+): FileWatcherCoreUpdate {
+  return FileWatcherCoreUpdateSchema.parse(options);
 }
 
 export const FileWatcherUpdateJSONSourceSchema = z.object({
@@ -3831,28 +3791,9 @@ export function createFileWatcherUpdateAPIKeys(
   return FileWatcherUpdateAPIKeysSchema.parse(options);
 }
 
-export const FileWatcherUpdateGenPythonCodeSchema = z.object({
-  fileWatchGroupName: z
-    .literal("genPythonCode")
-    .default(FileWatchGroupNameEnum.genPythonCode),
-  coreUpdate: FileWatcherCoreUpdateSchema,
-  fileContent: z.string(),
-});
-
-export type FileWatcherUpdateGenPythonCode = z.infer<
-  typeof FileWatcherUpdateGenPythonCodeSchema
->;
-
-export function createFileWatcherUpdateGenPythonCode(
-  options: Partial<FileWatcherUpdateGenPythonCode> = {},
-): FileWatcherUpdateGenPythonCode {
-  return FileWatcherUpdateGenPythonCodeSchema.parse(options);
-}
-
 export const FileWatcherUpdateUnionSchema = z.union([
   FileWatcherUpdateJSONSourceSchema,
   FileWatcherUpdateAPIKeysSchema,
-  FileWatcherUpdateGenPythonCodeSchema,
 ]);
 
 export type FileWatcherUpdateUnion = z.infer<
@@ -3863,7 +3804,6 @@ export const FileWatcherUpdateUnionWithDiscriminatorSchema =
   z.discriminatedUnion("fileWatchGroupName", [
     FileWatcherUpdateJSONSourceSchema,
     FileWatcherUpdateAPIKeysSchema,
-    FileWatcherUpdateGenPythonCodeSchema,
   ]);
 
 export type FileWatcherUpdateUnionWithDiscriminator = z.infer<
@@ -6680,6 +6620,20 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
+}
+
+export const FileWatcherUpdateSchema = z.object({
+  fileWatchGroupName: z.any(),
+  coreUpdate: FileWatcherCoreUpdateSchema,
+  fileContent: z.any(),
+});
+
+export type FileWatcherUpdate = z.infer<typeof FileWatcherUpdateSchema>;
+
+export function createFileWatcherUpdate(
+  options: Partial<FileWatcherUpdate> = {},
+): FileWatcherUpdate {
+  return FileWatcherUpdateSchema.parse(options);
 }
 
 export const BackendWebsocketMsgSchema = z.object({
