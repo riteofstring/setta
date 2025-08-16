@@ -36,27 +36,27 @@ class SettaFastAPIState:
         self.specific_file_watcher = create_specific_file_watcher(
             self.wmh_frontend_sender
         )
-        self.project_manager = ProjectManager(
+        project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
             self.settings_file,
             self.dbe,
         )
-        self.settings_project_manager = SettingsProjectManager(
+        settings_project_manager = SettingsProjectManager(
             self.lsp_writers, self.wmh_frontend_sender, self.settings_file
         )
         self.project_manager_switcher = ProjectManagerSwitcher(
-            self.project_manager, self.settings_project_manager
+            project_manager, settings_project_manager
         )
         self.wmh_frontend_receiver = WMHFrontendReceiver(
             self.websocket_manager,
-            self.project_manager,
+            project_manager,
             self.script_metadata,
             self.specific_file_watcher,
         )
         self.wmh_cli_receiver = WMHCLIReceiver(self.websocket_manager)
         self.wmh_python_script_receiver = WMHPythonScriptReceiver(
-            self.websocket_manager, self.script_metadata, self.project_manager
+            self.websocket_manager, self.script_metadata, project_manager
         )
         self.wmh_python_logger_receiver = WMHPythonLoggerReceiver(
             self.websocket_manager

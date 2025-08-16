@@ -174,7 +174,7 @@ async def route_update_from_frontend(
     x: UpdateFromFrontendRequest, state: AppStateFromRequest
 ):
     success = await state.project_manager_switcher.get(
-        x.projectState.projectConfig.id
+        x.projectState
     ).update_from_frontend(x)
     if not success:
         notification = SettaNotification(
