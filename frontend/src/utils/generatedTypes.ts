@@ -189,10 +189,6 @@ export const SectionTypeEnum = {
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
-export const GenCodeLanguageEnum = { python: "python" } as const;
-
-export type GenCodeLanguage = ObjectValues<typeof GenCodeLanguageEnum>;
-
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
@@ -2711,20 +2707,6 @@ export function createViewport(options: Partial<Viewport> = {}): Viewport {
   return ViewportSchema.parse(options);
 }
 
-export const PythonGenCodeSpecsSchema = z.object({
-  type: z.literal("python").default(GenCodeLanguageEnum.python),
-  prefix: z.string().default("" as const),
-  suffix: z.string().default("s = S()" as const),
-});
-
-export type PythonGenCodeSpecs = z.infer<typeof PythonGenCodeSpecsSchema>;
-
-export function createPythonGenCodeSpecs(
-  options: Partial<PythonGenCodeSpecs> = {},
-): PythonGenCodeSpecs {
-  return PythonGenCodeSpecsSchema.parse(options);
-}
-
 export const TopLevelSectionLayoutSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -2751,7 +2733,8 @@ export const ProjectConfigSchema = z.object({
   viewingEditingMode: z
     .enum(ViewingEditingModeEnum)
     .default(ViewingEditingModeEnum.DEV),
-  genCodeSpecs: PythonGenCodeSpecsSchema.default(createPythonGenCodeSpecs),
+  genCodePrefix: z.string().default("" as const),
+  genCodeSuffix: z.string().default("s = S()" as const),
   entryCodeBlockId: z.union([z.string(), z.null()]).default(null),
   topLevelSections: z
     .record(z.string(), TopLevelSectionLayoutSchema)

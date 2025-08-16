@@ -188,7 +188,6 @@ def create_settings_project_state(settings_path: Path):
         topLevelSections=projectConfigChildren,
         sectionVariantMap=sectionVariantMap,
         viewport=None,
-        genCodeSpecs=None,
     )
 
     return ProjectStateSingleConfig(

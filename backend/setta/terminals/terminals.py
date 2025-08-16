@@ -211,7 +211,7 @@ class Terminals:
     def set_terminal_start_time(self, id):
         self.PTY_PIDS[id]["start"] = time.time()
 
-    def get_free_terminal(self, projectConfigId: str):
+    def get_free_terminal(self, projectConfigId):
         for k, v in self.PTY_PIDS.items():
             if (
                 v["projectConfigId"] == projectConfigId
@@ -228,7 +228,7 @@ class Terminals:
                 output.append(k)
         return output
 
-    async def run_command_in_terminal(self, terminal_id: str, command: str):
+    async def run_command_in_terminal(self, terminal_id, command):
         info = self.PTY_PIDS[terminal_id]
         await info["terminalPromptIsReady"].wait()
         info["process"].write(f"\x15{command}\n")
