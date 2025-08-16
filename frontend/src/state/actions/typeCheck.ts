@@ -13,7 +13,7 @@ export async function requestTypeCheck(userRequested = false) {
     addTemporaryNotification("Checking types...");
     useTypeErrors.setState({ userRequested });
   }
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   route_type_check({ projectConfigId });
 }
 

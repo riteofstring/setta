@@ -3,7 +3,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import { useCallback, useState } from "react";
 import { setActiveSectionIdAndUpdateZIndex } from "state/actions/activeSections";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
-import { useProjectState } from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
@@ -191,7 +191,7 @@ function getTextFieldCompletionsFn(
       paramInfoId,
     });
 
-    const projectConfigId = useProjectState.getState().projectConfig.id;
+    const projectConfigId = getCurrProjectConfigId();
 
     const res = await route_text_field_completion({
       projectConfigId,

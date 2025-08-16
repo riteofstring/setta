@@ -7,6 +7,7 @@ import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -118,7 +119,7 @@ function SectionSearchCore({
   function onBlur() {
     if (shouldResetValueOnBlur.current) {
       setValueAndCheckConsistency(codeInfoName, true);
-      const projectConfigId = useProjectState.getState().projectConfig.id;
+      const projectConfigId = getCurrProjectConfigId();
       route_clear_text_field_completion({
         projectConfigId,
         sectionId,
@@ -209,7 +210,7 @@ export async function setCallable(
   refetchParams = false,
 ) {
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   const res = await route_set_callable({
     projectConfigId,
     sectionId,

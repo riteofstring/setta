@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore, useProjectState } from "state/definitions";
 import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
@@ -27,7 +28,7 @@ export function getDefaultChatDetails() {
 }
 
 export async function getLLMChat(chatId: string) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
     const { messages, toolResults, waitingForResponse } = res.data;
@@ -85,7 +86,7 @@ export async function submitMessage(message: string, deepThink) {
   const state = useAIStore.getState();
 
   const res = await route_get_llm_response({
-    projectConfigId: useProjectState.getState().projectConfig.id,
+    projectConfigId: getCurrProjectConfigId(),
     model: state.userSelectedLLM,
     message: userMessage,
     deepThink,

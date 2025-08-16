@@ -5,7 +5,10 @@ import {
 } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import React from "react";
-import { getCurrCodeObjVariant } from "state/actions/sectionInfos";
+import {
+  getCurrCodeObjVariant,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
@@ -104,7 +107,7 @@ function _UIElement({
       throw new Error();
     }
     route_change_param_impl({
-      projectConfigId: useProjectState.getState().projectConfig.id,
+      projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,
       selectedId,

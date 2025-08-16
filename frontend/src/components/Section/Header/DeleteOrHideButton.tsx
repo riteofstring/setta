@@ -2,6 +2,7 @@ import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
   getSectionVisibilityKey,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -24,7 +25,7 @@ export function DeleteOrHideButton({
 
   const onClick = () => {
     route_delete_sections({
-      projectConfigId: useProjectState.getState().projectConfig.id,
+      projectConfigId: getCurrProjectConfigId(),
       sectionIds: [sectionId],
     });
     // useProjectState.setState((state) => {

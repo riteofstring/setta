@@ -5,6 +5,7 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
@@ -52,7 +53,7 @@ function GenCodeEditor({
 
   const completionsFn = useCallback(() => {
     const fn = async (fullText: string, position: number) => {
-      const projectConfigId = useProjectState.getState().projectConfig.id;
+      const projectConfigId = getCurrProjectConfigId();
       const res = await completionRoute({
         projectConfigId,
         fullText,

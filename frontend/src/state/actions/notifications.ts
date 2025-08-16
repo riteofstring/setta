@@ -1,4 +1,4 @@
-import { useNotifications, useProjectState } from "state/definitions";
+import { useNotifications } from "state/definitions";
 import { C } from "utils/c";
 import {
   createSettaNotification,
@@ -44,8 +44,7 @@ export function addNotificationFromWebsocketMsg(
 ) {
   if (
     !notification ||
-    (notification.projectConfigId !==
-      useProjectState.getState().projectConfig.id &&
+    (notification.projectConfigId !== getCurrProjectConfigId() &&
       notification.projectConfigId !== C.NOTIFICATION_IS_FOR_ALL_PROJECTS)
   ) {
     return;
@@ -61,7 +60,7 @@ export const addTemporaryNotification = (
   type: SettaNotificationTypeEnum = SettaNotificationTypeEnum.info,
 ) => {
   const notification = createSettaNotification({
-    projectConfigId: useProjectState.getState().projectConfig.id,
+    projectConfigId: getCurrProjectConfigId(),
     timestamp: new Date().toISOString(),
     type,
     message,

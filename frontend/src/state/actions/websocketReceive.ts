@@ -9,7 +9,7 @@ import {
   clearAllWebsocketConnections,
   setWebsocketConnections,
 } from "state/actions/websocketConnectionList";
-import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
+import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import { route_get_latest_project_state } from "utils/generatedEndpoints";
@@ -28,7 +28,10 @@ import {
   updateInteractiveDependencies,
 } from "./interactive";
 import { processRenameRefactorResults } from "./referenceRenaming";
-import { processProjectStateUpdateFromBackend } from "./sectionInfos";
+import {
+  getCurrProjectConfigId,
+  processProjectStateUpdateFromBackend,
+} from "./sectionInfos";
 import { updateSettings } from "./settings";
 
 let wss: WebSocket | null;
@@ -51,10 +54,10 @@ export const openWebSocket = _.debounce(
           }),
         );
         wasOpen = true;
-        const projectConfigId = useProjectState.getState().projectConfig.id;
+        const projectConfigId = getCurrProjectConfigId();
         if (projectConfigId !== NULL_PROJECT_CONFIG_ID) {
           const res = await route_get_latest_project_state({
-            projectConfigId: useProjectState.getState().projectConfig.id,
+            projectConfigId: getCurrProjectConfigId(),
           });
           if (res200(res)) {
             processProjectStateUpdateFromBackend(res.data);

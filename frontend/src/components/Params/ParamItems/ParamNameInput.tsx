@@ -1,7 +1,5 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
-import _ from "lodash";
-import { getSectionVariant } from "state/actions/sectionInfos";
-import { useMisc, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -40,7 +38,7 @@ export function ParamNameInput({
 
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = false
+  const isDisabled = false;
 
   return (
     <>

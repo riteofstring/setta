@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
@@ -312,7 +313,7 @@ const debouncedSetCode = _.debounce((sectionId, value) => {
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {
-    const projectConfigId = useProjectState.getState().projectConfig.id;
+    const projectConfigId = getCurrProjectConfigId();
     const res = await route_code_area_completion({
       projectConfigId,
       sectionId,

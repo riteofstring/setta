@@ -22,8 +22,8 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
+  ProjectStateSingleConfigWithModCount,
   SectionType,
-  UpdateFrontendProjectState,
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -329,9 +329,9 @@ export function setAllPreviewVariantIdsToNull() {
 }
 
 export function processProjectStateUpdateFromBackend(
-  msg: UpdateFrontendProjectState,
+  msg: ProjectStateSingleConfigWithModCount,
 ) {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
+  const projectConfigId = getCurrProjectConfigId();
   if (msg.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
@@ -592,7 +592,7 @@ export function getCurrentSectionConfigs(
 
 export function deleteAllActiveSections() {
   route_delete_sections({
-    projectConfigId: useProjectState.getState().projectConfig.id,
+    projectConfigId: getCurrProjectConfigId(),
     sectionIds: useProjectState.getState().activeIds,
   });
 }
@@ -622,7 +622,7 @@ export const debounced_route_update_from_frontend_top_level_section_layout =
   _.debounce(
     () =>
       route_update_from_frontend_top_level_section_layout({
-        projectConfigId: useProjectState.getState().projectConfig.id,
+        projectConfigId: getCurrProjectConfigId(),
         topLevelSections: createTopLevelSectionLayoutDict(
           useProjectState.getState().sections,
           useNodeInternals.getState().x,
@@ -631,3 +631,7 @@ export const debounced_route_update_from_frontend_top_level_section_layout =
       }),
     500,
   );
+
+export function getCurrProjectConfigId() {
+  return getCurrProjectConfigId();
+}

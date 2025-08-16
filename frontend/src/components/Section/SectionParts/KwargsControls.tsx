@@ -2,6 +2,7 @@ import _ from "lodash";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
@@ -35,7 +36,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
               className={classes}
               onClick={() =>
                 route_delete_kwarg({
-                  projectConfigId: useProjectState.getState().projectConfig.id,
+                  projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 })
               }
@@ -48,7 +49,7 @@ export function KwargsControls({ sectionId, bgColor = "bg-transparent" }) {
               className={classes}
               onClick={() =>
                 route_add_kwarg({
-                  projectConfigId: useProjectState.getState().projectConfig.id,
+                  projectConfigId: getCurrProjectConfigId(),
                   sectionId,
                 })
               }

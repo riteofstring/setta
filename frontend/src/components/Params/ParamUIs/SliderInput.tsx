@@ -2,7 +2,7 @@ import * as Slider from "@radix-ui/react-slider";
 import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { useProjectState } from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   SliderConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -26,7 +26,7 @@ export function SliderInputConfigForParam({
 
   function onChange(newConfig: SliderConfigForFrontend) {
     route_update_param_impl_config({
-      projectConfigId: useProjectState.getState().projectConfig.id,
+      projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,
       newConfig,

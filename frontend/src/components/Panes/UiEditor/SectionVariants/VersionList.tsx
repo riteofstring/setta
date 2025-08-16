@@ -6,6 +6,7 @@ import { HiHome } from "react-icons/hi";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
+  getCurrProjectConfigId,
   getEffectiveImpl,
   getSectionCore,
   getSectionImpl,
@@ -25,7 +26,7 @@ export function VersionList({ sectionId }) {
 
   function onClickAddVersionButton() {
     route_create_new_section_version({
-      projectConfigId: useProjectState.getState().projectConfig.id,
+      projectConfigId: getCurrProjectConfigId(),
       sectionId,
     });
   }

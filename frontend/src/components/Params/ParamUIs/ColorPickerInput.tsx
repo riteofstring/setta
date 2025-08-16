@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useProjectState } from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   ColorPickerConfigForFrontend,
   useParamCodeObjUIConfig,
@@ -23,7 +23,7 @@ export function ColorPickerInputConfigForParam({
 
   function onChange(newConfig: ColorPickerConfigForFrontend) {
     route_update_param_impl_config({
-      projectConfigId: useProjectState.getState().projectConfig.id,
+      projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,
       newConfig,
