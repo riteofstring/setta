@@ -1,4 +1,3 @@
-from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.project_state.project_manager import ProjectManager
 from setta.types.generated.websocket_unions import (
     BackendWebsocketMsgTypeAdapter,
@@ -21,12 +20,10 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
         websocket_manager: WebsocketManager,
         project_manager: ProjectManager,
         script_metadata: ScriptMetadata,
-        specific_file_watcher: SpecificFileWatcher,
     ):
         self.websocket_manager = websocket_manager
         self.project_manager = project_manager
         self.script_metadata = script_metadata
-        self.specific_file_watcher = specific_file_watcher
 
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(
@@ -49,4 +46,3 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             WebsocketMsgAllDependencies(content=self.script_metadata.dependencies),
             websocket_id,
         )
-        self.specific_file_watcher.request_read_all_files()

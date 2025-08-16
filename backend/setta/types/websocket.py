@@ -15,7 +15,6 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.specific_file_watcher import FileWatcherUpdate
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -23,7 +22,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LSPDiagnostics = "LSPDiagnostics"
     TerminalMetadata = "TerminalMetadata"
     AllDependencies = "AllDependencies"
-    SpecificFileWatcherUpdate = "SpecificFileWatcherUpdate"
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
     UUIDMappingForLLM = "UUIDMappingForLLM"
@@ -123,13 +121,6 @@ class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
     content: ProjectStateSingleConfigWithModCount
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
-    )
-
-
-class WebsocketMsgSpecificFileWatcherUpdate(FrontendWebsocketMsg):
-    content: FileWatcherUpdate
-    messageType: Literal[WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate] = (
-        WebsocketMsgTypeForFrontend.SpecificFileWatcherUpdate
     )
 
 

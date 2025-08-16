@@ -23,7 +23,6 @@ import {
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
-import { updateWithFileChanges } from "./fileUpdates";
 import {
   updateInteractiveArtifacts,
   updateInteractiveDependencies,
@@ -116,8 +115,6 @@ function receiveMessage(message: string) {
       return addNotificationFromWebsocketMsg(m.content);
     case WebsocketMsgTypeForFrontendEnum.ReturnRenameRefactorResults:
       return processRenameRefactorResults(m.content);
-    case WebsocketMsgTypeForFrontendEnum.SpecificFileWatcherUpdate:
-      return updateWithFileChanges(m.content);
     case WebsocketMsgTypeForFrontendEnum.TerminalMetadata:
       // TODO
       return null;

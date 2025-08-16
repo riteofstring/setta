@@ -1,6 +1,6 @@
 from io import StringIO
 from pathlib import Path
-from typing import Awaitable, Callable, assert_never
+from typing import Any, Callable, Coroutine, assert_never
 
 from dotenv import dotenv_values
 
@@ -15,14 +15,13 @@ from setta.types.specific_file_watcher import (
     FileWatcherCoreUpdate,
     FileWatcherUpdate,
     FileWatcherUpdateAPIKeys,
-    FileWatcherUpdateGenPythonCode,
     FileWatcherUpdateJSONSource,
     FileWatchGroupName,
 )
 from setta.utils.constants import C
 
 FileWatcherUpdateHandler = Callable[
-    [FileWatcherCoreUpdate, Path], Awaitable[FileWatcherUpdate]
+    [FileWatcherCoreUpdate, Path], Coroutine[Any, Any, FileWatcherUpdate]
 ]
 
 
@@ -33,24 +32,10 @@ def get_content_processor(
     match file_watch_group_name:
         case FileWatchGroupName.jsonSource:
             return get_content_processor_json_source(project_manager_switcher)
-        case FileWatchGroupName.genPythonCode:
-            return content_processor_gen_python_code
         case FileWatchGroupName.apiKeys:
             return content_processor_api_keys
         case _:
             assert_never(file_watch_group_name)
-
-
-async def content_processor_gen_python_code(
-    coreUpdate: FileWatcherCoreUpdate,
-    file_to_read: Path,
-):
-    with open(file_to_read, "r", encoding="utf-8") as f:
-        raw_content = f.read()
-    return FileWatcherUpdateGenPythonCode(
-        coreUpdate=coreUpdate,
-        fileContent=raw_content,
-    )
 
 
 async def content_processor_api_keys(

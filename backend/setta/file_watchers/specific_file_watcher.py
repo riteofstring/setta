@@ -3,7 +3,6 @@ import glob
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Awaitable, Callable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -12,22 +11,12 @@ from setta.file_watchers.utils import FileWatcherUpdateHandler
 from setta.types.specific_file_watcher import (
     FileEventType,
     FileWatcherCoreUpdate,
-    FileWatcherUpdate,
     FileWatchGroupName,
 )
 from setta.utils.constants import CWD
 from setta.utils.utils import ensure_str_path
-from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
-
-
-def create_specific_file_watcher(websocket_msg_handler: WMHFrontendSender):
-    async def event_callback(event_info: FileWatcherUpdate):
-        logger.debug(f"event_callback {event_info}")
-        await websocket_msg_handler.broadcast_file_updates(event_info)
-
-    return SpecificFileWatcher(event_callback)
 
 
 class MockFileEvent:
@@ -42,7 +31,7 @@ class MockFileEvent:
 class SpecificFileWatcher:
     """File watcher that monitors specific files and notifies via a single callback."""
 
-    def __init__(self, event_callback: Callable[[FileWatcherUpdate], Awaitable[None]]):
+    def __init__(self):
         """
         Initialize the file watcher for specific files.
 
@@ -57,20 +46,11 @@ class SpecificFileWatcher:
         self.file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler] = {}
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
-            event_callback,
             asyncio.get_event_loop(),
             self.watched_files,
             self.file_watcher_update_handlers,
             self.file_to_patterns,
         )
-
-    def request_read_all_files(self):
-        for file_watch_group_name, filepaths in self.watched_files.items():
-            for f in filepaths:
-                mock_event = MockFileEvent(f)
-                self.handler._send_event(
-                    file_watch_group_name, mock_event, "readRequested"
-                )
 
     def request_read(self, file_watch_group_name: FileWatchGroupName, abs_path: Path):
         mock_event = MockFileEvent(abs_path)
@@ -250,7 +230,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        callback: Callable[[FileWatcherUpdate], Awaitable[None]],
         loop: asyncio.AbstractEventLoop,
         watched_files_ref: dict[FileWatchGroupName, set[Path]],
         file_watcher_update_handlers: dict[Path, FileWatcherUpdateHandler],
@@ -266,7 +245,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             file_watcher_update_handlers: Reference to the dict of file update handlers
             file_to_patterns: Reference to the dict of file to pattern mappings
         """
-        self.callback = callback
         self.loop = loop
         self.watched_files_ref = watched_files_ref
         self.file_watcher_update_handlers = file_watcher_update_handlers
@@ -278,7 +256,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             file_path = Path(ensure_str_path(event.src_path)).resolve()
             for file_watch_group_name, filepaths in self.watched_files_ref.items():
                 if file_path in filepaths:
-                    self._send_event(file_watch_group_name, event, "created")
+                    self._send_event(event, "created")
                     break
 
     def on_modified(self, event: FileSystemEvent):
@@ -287,7 +265,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             file_path = Path(ensure_str_path(event.src_path)).resolve()
             for file_watch_group_name, filepaths in self.watched_files_ref.items():
                 if file_path in filepaths:
-                    self._send_event(file_watch_group_name, event, "modified")
+                    self._send_event(event, "modified")
                     break
 
     def on_deleted(self, event: FileSystemEvent):
@@ -296,7 +274,7 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             file_path = Path(ensure_str_path(event.src_path)).resolve()
             for file_watch_group_name, filepaths in self.watched_files_ref.items():
                 if file_path in filepaths:
-                    self._send_event(file_watch_group_name, event, "deleted")
+                    self._send_event(event, "deleted")
                     break
 
     def on_moved(self, event: FileSystemEvent):
@@ -313,19 +291,18 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             # If the source was being watched, notify about the move
             for file_watch_group_name, filepaths in self.watched_files_ref.items():
                 if src_path in filepaths:
-                    self._send_event(file_watch_group_name, event, "moved")
+                    self._send_event(event, "moved")
                     break
 
             # If the destination is also being watched, notify about modification
             for file_watch_group_name, filepaths in self.watched_files_ref.items():
                 if dest_path and dest_path in filepaths and dest_path != src_path:
                     # Create a modified event for the destination
-                    self._send_event(file_watch_group_name, event, "modified")
+                    self._send_event(event, "modified")
                     break
 
     def _send_event(
         self,
-        file_watch_group_name: FileWatchGroupName,
         event: FileSystemEvent | MockFileEvent,
         event_type: str,
     ):
@@ -333,7 +310,6 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         Process and send the event to the callback.
 
         Args:
-            file_watch_group_name: Group name for the file
             event: The file system event
             event_type: The type of event ('created', 'modified', 'deleted', 'moved', 'readRequested')
         """
@@ -378,12 +354,5 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         )
 
         self.loop.call_soon_threadsafe(
-            lambda: self.loop.create_task(
-                self.process_file_watch_update(core_update, file_to_read, handler)
-            )
+            lambda: self.loop.create_task(handler(core_update, file_to_read))
         )
-
-    async def process_file_watch_update(self, core_update, file_to_read, handler):
-        file_watch_update = await handler(core_update, file_to_read)
-        logger.debug(f"will send {file_watch_update}")
-        await self.callback(file_watch_update)

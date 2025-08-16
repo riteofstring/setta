@@ -3,7 +3,6 @@ import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
-import { loadJsonContents } from "state/actions/fileUpdates";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,

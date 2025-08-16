@@ -786,3 +786,26 @@ class BaseProjectManager(ABC):
 #             FileWatchGroupName.genPythonCode,
 #         ),
 #     )
+
+
+# async function apiKeyUpdateHandler(updatedFileInfo: FileWatcherUpdateAPIKeys) {
+#   const { fileContent } = updatedFileInfo;
+#   useAIStore.setState({
+#     apiKeys: fileContent,
+#     apiKeysInitialLoadComplete: true,
+#   });
+# }
+
+# function genPythonCodeUpdateHandler(
+#   updatedFileInfo: FileWatcherUpdateGenPythonCode,
+# ) {
+#   const { fileContent } = updatedFileInfo;
+#   useProjectState.setState((state) => {
+#     const sectionId = state.singletonSections.genPythonCode;
+#     if (sectionId) {
+#       setEffectiveSectionImplValue<"GenPythonCodeSection">(state, sectionId, {
+#         code: fileContent,
+#       });
+#     }
+#   });
+# }

@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 class FileWatchGroupName(str, Enum):
     jsonSource = "jsonSource"
     apiKeys = "apiKeys"
-    genPythonCode = "genPythonCode"
 
 
 class FileEventType(str, Enum):
@@ -46,17 +45,9 @@ class FileWatcherUpdateAPIKeys(FileWatcherUpdate):
     fileWatchGroupName: Literal[FileWatchGroupName.apiKeys] = FileWatchGroupName.apiKeys
 
 
-class FileWatcherUpdateGenPythonCode(FileWatcherUpdate):
-    fileContent: str
-    fileWatchGroupName: Literal[FileWatchGroupName.genPythonCode] = (
-        FileWatchGroupName.genPythonCode
-    )
-
-
 FileWatcherUpdateUnion = Union[
     FileWatcherUpdateJSONSource,
     FileWatcherUpdateAPIKeys,
-    FileWatcherUpdateGenPythonCode,
 ]
 
 FileWatcherUpdateUnionWithDiscriminator = Annotated[
