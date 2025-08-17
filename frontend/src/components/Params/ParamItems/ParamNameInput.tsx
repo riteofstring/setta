@@ -1,6 +1,13 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
+import _ from "lodash";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
+import {
+  getCodeObjCore,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function ParamNameInput({
@@ -11,23 +18,29 @@ export function ParamNameInput({
   hasChildren,
   onMouseDown,
 }) {
-  // const {
-  //   configLanguage,
-  //   name: value,
-  //   variantIsFrozen,
-  // } = useProjectState((x) => {
-  //   const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
-  //   return {
-  //     variantIsFrozen: isFrozen,
-  //     configLanguage,
-  //     name: x.codeInfo[paramInfoId].name,
-  //   };
-  // }, _.isEqual);
+  const {
+    configLanguage,
+    name: value,
+    // variantIsFrozen,
+  } = useProjectState((x) => {
+    // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    return {
+      // variantIsFrozen: isFrozen,
+      configLanguage: impl.configLanguage,
+      name: getCodeObjCore(x, paramInfoId).name,
+    };
+  }, _.isEqual);
 
-  function onChange(v) {
+  function onChange(v: string) {
     useProjectState.setState((state) => {
-      state.codeInfo[paramInfoId].name = v;
+      getCodeObjCore(state, paramInfoId).name = v;
     });
+    updateBackendProjectState();
   }
 
   function onEscape(completionResult) {
@@ -45,14 +58,14 @@ export function ParamNameInput({
       <TextInputCodeMirror
         sectionId={sectionId}
         paramInfoId={paramInfoId}
-        // value={value}
+        value={value}
         defaultVal={"Please Enter Key"}
         onChange={onChange}
         onEscape={onEscape}
         dummyCodeClassName={`${NO_PAN_CLASS_NAME} ${bg} ${border} min-w-0 self-end truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} nodrag peer/nameinput ${!isDisabled ? "cursor-text select-text" : ""} break-words py-[.125rem] font-mono text-xs [tab-size:4] [word-break:break-word] dark:focus-visible:border-blue-400`}
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag cursor-text self-end select-text [&_*]:!outline-0 [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs min-w-0 truncate placeholder:text-setta-300 dark:placeholder:text-setta-600 py-[.125rem] ${hasChildren ? "section-key-value grid-row-start-1 px-[2px]" : "section-key"} peer/nameinput font-mono dark:focus-visible:border-blue-400`}
         color="green"
-        // language={configLanguage}
+        language={configLanguage}
         autocomplete={false}
         isKeyName={true}
         // isDisabled={isDisabled}
