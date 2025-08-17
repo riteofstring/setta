@@ -1023,28 +1023,6 @@ def toggle_variant_json_source(
     )
 
 
-# export async function deleteSectionVariantAndMaybeJsonFile(
-#   sectionId: string,
-#   variantId: string,
-#   isCurr: boolean,
-# ) {
-#   const state = useProjectState.getState();
-#   const { name: variantName, isJsonSource } = state.variants[variantId];
-#   if (isJsonSource) {
-#     const res = await route_get_json_source_path_to_be_deleted({ variantName });
-#     if (res200(res)) {
-#       openDeleteJSONSourceFileModal(res.data);
-#       const wasDeleted = await waitForFileDeletion(res.data);
-#       if (wasDeleted) {
-#         deleteSectionVariant(sectionId, variantId, isCurr);
-#       }
-#     }
-#   } else {
-#     deleteSectionVariant(sectionId, variantId, isCurr);
-#   }
-# }
-
-
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

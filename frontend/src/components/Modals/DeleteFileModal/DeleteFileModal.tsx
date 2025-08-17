@@ -1,6 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
-import { addTemporaryNotification } from "state/actions/notifications";
 import {
   fileDeletionRequestId,
   setTemporaryMiscState,
@@ -21,10 +20,8 @@ export function DeleteFileModal() {
     if (res200(res)) {
       // allows function that opened modal to find out if file was deleted
       setTemporaryMiscState(fileDeletionRequestId(filepath), true);
-      addTemporaryNotification("Deleted file");
     } else {
       setTemporaryMiscState(fileDeletionRequestId(filepath), false);
-      addTemporaryNotification("File deletion failed");
     }
     setModalOpen(false);
   };
