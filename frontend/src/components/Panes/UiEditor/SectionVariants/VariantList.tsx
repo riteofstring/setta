@@ -3,24 +3,23 @@ import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
+import { openDeleteJSONSourceFileModal } from "state/actions/modal";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrProjectConfigId,
   getSectionCore,
   getSectionVariant,
   getVariantBaseAndEffectiveSectionImpl,
-  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
   route_delete_section_variant_or_ask,
+  route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
-import {
-  ConfigLanguageEnum,
-  isBaseDictSectionImpl,
-} from "utils/generatedTypes";
+import { isBaseDictSectionImpl } from "utils/generatedTypes";
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -201,21 +200,11 @@ function OneVariant({
             }`}
             onClick={(e) => {
               e.stopPropagation(); // so that you can click on it without clicking on the variant
-              useProjectState.setState((state) => {
-                const newIsJsonSource = !isJsonSource;
-                const newConfigLanguage = newIsJsonSource
-                  ? ConfigLanguageEnum.json
-                  : ConfigLanguageEnum.python;
-                setEffectiveSectionImplValue<"BaseDictSection">(
-                  state,
-                  sectionId,
-                  {
-                    isJsonSource: newIsJsonSource,
-                    configLanguage: newConfigLanguage,
-                  },
-                );
+              route_toggle_variant_json_source({
+                projectConfigId: getCurrProjectConfigId(),
+                sectionId,
+                variantId: id,
               });
-              updateBackendProjectState();
             }}
           >
             <FiFileText />
@@ -261,13 +250,16 @@ function OneVariantEditing({
     conditionToSetName,
   );
 
-  function onClickDelete(e) {
+  async function onClickDelete(e) {
     e.stopPropagation();
-    route_delete_section_variant_or_ask({
+    const res = await route_delete_section_variant_or_ask({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId: id,
     });
+    if (res200(res) && res.data) {
+      openDeleteJSONSourceFileModal(res.data);
+    }
   }
 
   return (

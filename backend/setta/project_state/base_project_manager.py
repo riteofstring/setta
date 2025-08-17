@@ -3,7 +3,7 @@ import copy
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Coroutine, Iterable, Union
+from typing import Coroutine, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -41,6 +41,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
+    ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
     UpdateFromFrontendTopLevelSectionLayout,
@@ -66,6 +67,7 @@ from setta.types.helpers import (
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
+    toggle_variant_json_source,
     update_param_impl_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
@@ -100,9 +102,7 @@ class BaseProjectManager(ABC):
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
-        self.code_dict: dict[
-            str, dict[str, Union[ProjectPythonCode, ProjectBashCode]]
-        ] = {}
+        self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
         self.used_files: set[Path] = set()
         self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
@@ -652,7 +652,17 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def delete_section_variant_or_ask(self, x: DeleteSectionVariantRequestOrAsk):
         project_state = self.get_single_config_state(x.projectConfigId)
-        delete_section_variant_or_ask(project_state, x.sectionId, x.variantId)
+        filepath_to_delete = delete_section_variant_or_ask(
+            project_state, x.sectionId, x.variantId
+        )
+        if filepath_to_delete:
+            return str(filepath_to_delete)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_variant_json_source(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

@@ -68,7 +68,6 @@ def sort_unions_by_specificity(union_data, debug=False):
 def generate_effective_impl_overloads():
     """Generate overloaded effective impl functions."""
     classes = get_impl_classes()
-    classes = {k: v for k, v in classes.items() if v.type_has_default}
 
     # Get unions with their actual objects
     section_unions = get_impl_unions(["Section", "Impl"])
@@ -132,7 +131,8 @@ def get_effective_impl(
     set_overloads_list = []
 
     # First, specific class overloads
-    for cls in classes.values():
+    non_base_classes = {k: v for k, v in classes.items() if v.type_has_default}
+    for cls in non_base_classes.values():
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 cls.original_name,
@@ -142,9 +142,16 @@ def get_effective_impl(
 
     # Then, union overloads (already sorted by specificity)
     for u in sorted_union_names:
+        # add union
         set_overloads_list.append(
             generate_set_effective_impl_value_overload(
                 u, u.replace("Union", "ArgsWithCallable")
+            )
+        )
+        # add base class too
+        set_overloads_list.append(
+            generate_set_effective_impl_value_overload(
+                u.replace("Union", ""), u.replace("Union", "ArgsWithCallable")
             )
         )
 

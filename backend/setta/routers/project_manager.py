@@ -19,6 +19,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetCallableRequest,
     TextFieldCompletionRequest,
+    ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
     UpdateFromFrontendTopLevelSectionLayout,
@@ -215,7 +216,18 @@ async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)
 async def route_delete_section_variant_or_ask(
     x: DeleteSectionVariantRequestOrAsk, state: AppStateFromRequest
+) -> str | None:
+    filepath_to_delete = await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).delete_section_variant_or_ask(x)
+    if filepath_to_delete:
+        return filepath_to_delete
+
+
+@router.post(Route.TOGGLE_VARIANT_JSON_SOURCE)
+async def route_toggle_variant_json_source(
+    x: ToggleVariantJSONSourceRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(
         x.projectConfigId
-    ).delete_section_variant_or_ask(x)
+    ).toggle_variant_json_source(x)

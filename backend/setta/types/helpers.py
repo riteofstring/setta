@@ -1,6 +1,7 @@
 import copy
 import math
 import re
+from pathlib import Path
 from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
@@ -60,6 +61,7 @@ from setta.types.section_impls import (
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
+    ConfigLanguage,
     DictSectionImpl,
     ListRootSectionImpl,
     SectionSize,
@@ -208,6 +210,20 @@ def get_variant_base_and_effective_section_impl(
     variant = p.sectionVariants[variant_id]
     base_impl = p.sectionImpls[variant.impl]
     impl = get_effective_impl(base_impl, core, variant)
+    return variant, base_impl, impl
+
+
+def get_variant_base_and_effective_section_impl_with_type_guard(
+    p: ProjectStateCore,
+    core: Core,
+    variant_id: str,
+    impl_type: type[GenericBaseSectionImplType],
+) -> tuple[Variant, GenericBaseSectionImplType, GenericBaseSectionImplType]:
+    variant, base_impl, impl = get_variant_base_and_effective_section_impl(
+        p, core, variant_id
+    )
+    if not isinstance(base_impl, impl_type) or not isinstance(impl, impl_type):
+        raise TypeError
     return variant, base_impl, impl
 
 
@@ -969,7 +985,7 @@ def delete_section_variant_or_ask(
     core = p.sections[sectionId]
     variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-        return
+        return Path(variant.name).resolve()
     delete_section_variant(p, sectionId, variantId)
 
 
@@ -984,6 +1000,27 @@ def delete_section_variant(p: ProjectStateSingleConfig, sectionId: str, variantI
         p.projectConfig.sectionVariantMap[sectionId] = core.variants[0]
 
     del p.sectionVariants[variantId]
+
+
+def toggle_variant_json_source(
+    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+):
+    core = p.sections[sectionId]
+    variant, base_impl, _ = get_variant_base_and_effective_section_impl_with_type_guard(
+        p, core, variantId, BaseDictSectionImpl
+    )
+    newIsJsonSource = not base_impl.isJsonSource
+    newConfigLanguage = (
+        ConfigLanguage.json if newIsJsonSource else ConfigLanguage.python
+    )
+    set_effective_impl_value(
+        base_impl,
+        core,
+        variant,
+        BaseDictSectionImplArgsWithCallable(
+            isJsonSource=newIsJsonSource, configLanguage=newConfigLanguage
+        ),
+    )
 
 
 # export async function deleteSectionVariantAndMaybeJsonFile(

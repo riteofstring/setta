@@ -141,6 +141,12 @@ class DeleteSectionVariantRequestOrAsk(BaseModel):
     variantId: str
 
 
+class ToggleVariantJSONSourceRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

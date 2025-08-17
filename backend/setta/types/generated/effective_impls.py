@@ -6,6 +6,10 @@ from typing import Any, Callable, TypeVar, overload
 from pydantic import BaseModel
 
 from setta.types.code_obj_impls import (
+    BaseChildlessCodeObjImpl,
+    BaseCodeObjImpl,
+    BaseParamCodeObjImpl,
+    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
@@ -70,6 +74,13 @@ from setta.types.generated.unions import (
     BaseSectionWithParamsImplUnion,
 )
 from setta.types.section_impls import (
+    BaseArtifactSectionImpl,
+    BaseCanvasSectionImpl,
+    BaseCodeSectionImpl,
+    BaseDictSectionImpl,
+    BaseParentSectionImpl,
+    BaseSectionImpl,
+    BaseSectionWithParamsImpl,
     BrowserSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
@@ -293,11 +304,25 @@ def set_effective_impl_value(
 ) -> BaseCanvasSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseCanvasSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseCanvasSectionImplArgsWithCallable,
+) -> BaseCanvasSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseCodeSectionImplUnion,
     core: Core,
     variant: Variant,
     args: BaseCodeSectionImplArgsWithCallable,
 ) -> BaseCodeSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseCodeSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseCodeSectionImplArgsWithCallable,
+) -> BaseCodeSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseDictSectionImplUnion,
@@ -307,11 +332,25 @@ def set_effective_impl_value(
 ) -> BaseDictSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseDictSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseDictSectionImplArgsWithCallable,
+) -> BaseDictSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseParentCodeObjImplUnion,
     core: Core,
     variant: Variant,
     args: BaseParentCodeObjImplArgsWithCallable,
 ) -> BaseParentCodeObjImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseParentCodeObjImplArgsWithCallable,
+) -> BaseParentCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseArtifactSectionImplUnion,
@@ -321,11 +360,25 @@ def set_effective_impl_value(
 ) -> BaseArtifactSectionImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseArtifactSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseArtifactSectionImplArgsWithCallable,
+) -> BaseArtifactSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,
     core: Core,
     variant: Variant,
     args: BaseParentSectionImplArgsWithCallable,
 ) -> BaseParentSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseParentSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseParentSectionImplArgsWithCallable,
+) -> BaseParentSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseSectionWithParamsImplUnion,
@@ -335,11 +388,25 @@ def set_effective_impl_value(
 ) -> BaseSectionWithParamsImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseSectionWithParamsImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseSectionWithParamsImplArgsWithCallable,
+) -> BaseSectionWithParamsImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseChildlessCodeObjImplUnion,
     core: Core,
     variant: Variant,
     args: BaseChildlessCodeObjImplArgsWithCallable,
 ) -> BaseChildlessCodeObjImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseChildlessCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseChildlessCodeObjImplArgsWithCallable,
+) -> BaseChildlessCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParamCodeObjImplUnion,
@@ -349,6 +416,13 @@ def set_effective_impl_value(
 ) -> BaseParamCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseParamCodeObjImplArgsWithCallable,
+) -> BaseParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseCodeObjImplUnion,
     core: Core,
     variant: Variant,
@@ -356,11 +430,25 @@ def set_effective_impl_value(
 ) -> BaseCodeObjImplUnion: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseCodeObjImplArgsWithCallable,
+) -> BaseCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseSectionImplUnion,
     core: Core,
     variant: Variant,
     args: BaseSectionImplArgsWithCallable,
 ) -> BaseSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseSectionImplArgsWithCallable,
+) -> BaseSectionImpl: ...
 def set_effective_impl_value(  # type: ignore
     impl: BaseSectionImplUnion | BaseCodeObjImplUnion,
     core: Core,

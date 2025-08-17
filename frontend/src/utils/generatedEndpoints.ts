@@ -387,6 +387,12 @@ export async function route_delete_kwarg(
 
 export async function route_delete_section_variant_or_ask(
   x: gt.DeleteSectionVariantRequestOrAsk,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/deleteSectionVariantOrAsk", x);
+}
+
+export async function route_toggle_variant_json_source(
+  x: gt.ToggleVariantJSONSourceRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleVariantJsonSource", x);
 }
