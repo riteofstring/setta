@@ -179,7 +179,17 @@ class DependencyGraph:
                 )
                 node.deps = self.export_section_params(p, id, parent_node=node)
                 self.add_to_graph(graph_key, node)
-            # elif type == UITypeName.TEXT_BLOCK:
+            elif isinstance(sectionImpl, TextBlockSectionImpl):
+                node = SectionNode(
+                    id=id,
+                    name=name,
+                    full_path_name=full_path_name,
+                    type=sectionImpl.type,
+                    isTopLevel=isTopLevel,
+                    value=sectionImpl.text,
+                    deps={},
+                )
+                self.add_to_graph(graph_key, node)
             #     variant = get_selected_section_variant(p, id)
             #     info["value"] = variant["description"]
             #     info["dependencies"] = []

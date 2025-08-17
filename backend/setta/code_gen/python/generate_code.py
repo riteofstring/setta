@@ -167,6 +167,8 @@ class PythonCodeGenerator:
                 return self.construct_list(node.deps)
             case SectionType.DictRoot | SectionType.Group | SectionType.Dict:
                 return self.construct_dict(node.deps)
+            case SectionType.TextBlock:
+                return repr(node.value)
             case _:
                 return None
 
