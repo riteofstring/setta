@@ -6,7 +6,7 @@ import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 import { HeaderIcon } from "../HeaderIcon";
 import { AddArtifactByFilepath } from "./AddArtifactByFilepath";
 import { ClearValues } from "./ClearValues";
-import { CreateNewVersionButton } from "./CreateNewVersionButton";
+import { CreateNewVariantButton } from "./CreateNewVariantButton";
 import { HideColumn } from "./HideColumn";
 import { HideShowParamsButton } from "./HideShowParamsButton";
 import { HideShowUnpinnedParamsButton } from "./HideShowUnpinnedParamsButton";
@@ -88,12 +88,12 @@ function getMenuItems(uiTypeName) {
       return [
         RenderTextBlock,
         ConvertFormat,
-        CreateNewVersionButton,
+        CreateNewVariantButton,
         ResetToDefaultVersion,
       ];
     case SectionTypeEnum.Callable:
       return [
-        CreateNewVersionButton,
+        CreateNewVariantButton,
         HideShowParamsButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
@@ -101,8 +101,9 @@ function getMenuItems(uiTypeName) {
         ResetToDefaultVersion,
       ];
     case SectionTypeEnum.GlobalVariables:
+    case SectionTypeEnum.Dict:
       return [
-        CreateNewVersionButton,
+        CreateNewVariantButton,
         HideShowUnpinnedParamsButton,
         ShowYaml,
         ClearValues,
@@ -111,7 +112,7 @@ function getMenuItems(uiTypeName) {
     case SectionTypeEnum.ListRoot:
     case SectionTypeEnum.DictRoot:
     case SectionTypeEnum.Code:
-      return [CreateNewVersionButton, ResetToDefaultVersion];
+      return [CreateNewVariantButton, ResetToDefaultVersion];
     case SectionTypeEnum.Group:
       return [UngroupButton];
     case SectionTypeEnum.Draw:
