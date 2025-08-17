@@ -6,7 +6,7 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
@@ -45,14 +45,6 @@ const _MarkdownEditorCore = React.forwardRef(
     const { format, text, isFrozen } =
       useTextBlockTextAndEditability(sectionId);
 
-    const [localText, setLocalText] = useState(text);
-
-    useEffect(() => {
-      if (text !== localText) {
-        setLocalText(text);
-      }
-    }, [text]);
-
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
         route_set_text_block_text({
@@ -65,7 +57,6 @@ const _MarkdownEditorCore = React.forwardRef(
     );
 
     function onChange(v) {
-      setLocalText(v);
       debouncedSetText(sectionId, v);
     }
 

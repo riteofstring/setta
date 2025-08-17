@@ -128,16 +128,8 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     useCodeAreaHeight({ sectionId });
 
   const theme = useCodeMirrorStyle();
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    if (value !== localValue) {
-      setLocalValue(value);
-    }
-  }, [value]);
 
   function onChange(v) {
-    setLocalValue(v);
     debouncedSetCode(sectionId, v);
   }
 
@@ -165,7 +157,7 @@ function CoreCodeArea({ sectionId, language, completionsFn }) {
     >
       <CodeMirror
         maxHeight={maxHeight}
-        value={localValue}
+        value={value}
         theme={theme}
         extensions={extensions}
         onChange={onChange}

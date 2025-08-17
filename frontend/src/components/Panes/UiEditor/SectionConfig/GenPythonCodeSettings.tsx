@@ -3,7 +3,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
@@ -32,13 +32,6 @@ function GenCodeEditor({
   onChange: (x: string) => void;
 }) {
   const theme = useCodeMirrorStyle();
-  const [localValue, setLocalValue] = useState(value);
-
-  useEffect(() => {
-    if (value !== localValue) {
-      setLocalValue(value);
-    }
-  }, [value]);
 
   const debouncedSetGlobalState = useCallback(
     _.debounce((v) => {
@@ -46,11 +39,6 @@ function GenCodeEditor({
     }, 50),
     [onChange],
   );
-
-  function localOnChange(v) {
-    setLocalValue(v);
-    debouncedSetGlobalState(v);
-  }
 
   const completionsFn = useCallback(() => {
     const fn = async (fullText: string, position: number) => {
@@ -88,10 +76,10 @@ function GenCodeEditor({
         tabIndex={0}
       >
         <CodeMirror
-          value={localValue}
+          value={value}
           theme={theme}
           extensions={extensions}
-          onChange={localOnChange}
+          onChange={debouncedSetGlobalState}
           indentWithTab={false} // I take care of this in getExtensions
           basicSetup={{ tabSize: 4 }}
         />
