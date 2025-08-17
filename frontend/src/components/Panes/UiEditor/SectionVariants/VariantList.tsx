@@ -10,12 +10,15 @@ import {
   getSectionCore,
   getSectionVariant,
   getVariantBaseAndEffectiveSectionImpl,
-  updateProjectState,
+  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_create_new_section_variant } from "utils/generatedEndpoints";
-import { isBaseDictSectionImpl } from "utils/generatedTypes";
+import {
+  ConfigLanguageEnum,
+  isBaseDictSectionImpl,
+} from "utils/generatedTypes";
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -116,19 +119,24 @@ function OneVariant({
   isCurr: boolean;
   isDefault: boolean;
 }) {
-  const { name, isFrozen, isJsonSource } = useProjectState((x) => {
-    const { variant, impl } = getVariantBaseAndEffectiveSectionImpl(
-      x,
-      getSectionCore(x, sectionId),
-      id,
-    );
-    const isJsonSource = isBaseDictSectionImpl(impl) && impl.isJsonSource;
-    return {
-      name: variant.name,
-      isFrozen: variant.isFrozen,
-      isJsonSource,
-    };
-  }, _.isEqual);
+  const { name, isFrozen, isJsonSource, canUseJsonSource } = useProjectState(
+    (x) => {
+      const { variant, impl } = getVariantBaseAndEffectiveSectionImpl(
+        x,
+        getSectionCore(x, sectionId),
+        id,
+      );
+      const canUseJsonSource = isBaseDictSectionImpl(impl);
+      const isJsonSource = canUseJsonSource && impl.isJsonSource;
+      return {
+        name: variant.name,
+        isFrozen: variant.isFrozen,
+        isJsonSource,
+        canUseJsonSource,
+      };
+    },
+    _.isEqual,
+  );
 
   return (
     <li
@@ -183,25 +191,35 @@ function OneVariant({
         >
           <FaRegSnowflake />
         </button>
-        <button
-          className={`cursor-pointer bg-transparent ${
-            isJsonSource
-              ? "text-orange-500"
-              : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
-          }`}
-          onClick={(e) => {
-            e.stopPropagation();
-            const newIsJsonSource = !isJsonSource;
-            const newConfigLanguage = newIsJsonSource ? "json" : "python";
-            useProjectState.setState((state) => {
-              state.variants[id].isJsonSource = newIsJsonSource;
-              state.variants[id].configLanguage = newConfigLanguage;
-            });
-            maybeLoadJsonContents(id);
-          }}
-        >
-          <FiFileText />
-        </button>
+        {canUseJsonSource && (
+          <button
+            className={`cursor-pointer bg-transparent ${
+              isJsonSource
+                ? "text-orange-500"
+                : "text-transparent hover:!text-orange-400 group-hover/versionitem:text-setta-400/50"
+            }`}
+            onClick={(e) => {
+              e.stopPropagation(); // so that you can click on it without clicking on the variant
+              useProjectState.setState((state) => {
+                const newIsJsonSource = !isJsonSource;
+                const newConfigLanguage = newIsJsonSource
+                  ? ConfigLanguageEnum.json
+                  : ConfigLanguageEnum.python;
+                setEffectiveSectionImplValue<"BaseDictSection">(
+                  state,
+                  sectionId,
+                  {
+                    isJsonSource: newIsJsonSource,
+                    configLanguage: newConfigLanguage,
+                  },
+                );
+              });
+              updateBackendProjectState();
+            }}
+          >
+            <FiFileText />
+          </button>
+        )}
       </div>
     </li>
   );
@@ -275,20 +293,4 @@ function OneVariantEditing({
       )}
     </li>
   );
-}
-
-async function maybeLoadJsonContents(variantId) {
-  if (useProjectState.getState().variants[variantId].isJsonSource) {
-    const { variants, codeInfo, codeInfoCols } = await loadJsonContents([
-      variantId,
-    ]);
-    useProjectState.setState((state) => {
-      updateProjectState({
-        variants,
-        codeInfo,
-        codeInfoCols,
-        state,
-      });
-    });
-  }
 }
