@@ -7,15 +7,15 @@ import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   deleteSectionVariantAndMaybeJsonFile,
   getCurrProjectConfigId,
-  getEffectiveImpl,
   getSectionCore,
-  getSectionImpl,
   getSectionVariant,
+  getVariantBaseAndEffectiveSectionImpl,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_create_new_section_variant } from "utils/generatedEndpoints";
+import { isBaseDictSectionImpl } from "utils/generatedTypes";
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -117,14 +117,16 @@ function OneVariant({
   isDefault: boolean;
 }) {
   const { name, isFrozen, isJsonSource } = useProjectState((x) => {
-    const variant = getSectionVariant(x, id);
-    const baseImpl = getSectionImpl(x, variant.impl);
-    const core = getSectionCore(x, sectionId);
-    const impl = getEffectiveImpl(baseImpl, core, variant);
+    const { variant, impl } = getVariantBaseAndEffectiveSectionImpl(
+      x,
+      getSectionCore(x, sectionId),
+      id,
+    );
+    const isJsonSource = isBaseDictSectionImpl(impl) && impl.isJsonSource;
     return {
       name: variant.name,
       isFrozen: impl.isFrozen,
-      isJsonSource: false,
+      isJsonSource,
     };
   }, _.isEqual);
 

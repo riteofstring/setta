@@ -90,6 +90,17 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
+export function getVariantBaseAndEffectiveSectionImpl(
+  p: ZustandProjectState,
+  core: Core,
+  variantId: string,
+) {
+  const variant = getSectionVariant(p, variantId);
+  const baseImpl = getSectionImpl(p, variant.impl);
+  const impl = getEffectiveImpl(baseImpl, core, variant);
+  return { variant, baseImpl, impl };
+}
+
 export function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
