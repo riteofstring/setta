@@ -123,6 +123,7 @@ class BaseCanvasSectionImpl(BaseSectionImpl):
 
 class BaseCodeSectionImpl(BaseSectionImpl):
     code: str = ""
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class BaseParentSectionImpl(BaseSectionImpl):
@@ -198,7 +199,6 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
     codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class GenPythonCodeSectionImpl(BaseCodeSectionImpl):

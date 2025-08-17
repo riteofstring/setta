@@ -52,6 +52,7 @@ class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid
 
 class UserDefaultBaseCodeSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     code: str = ""
+    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class UserDefaultBaseParentSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -127,7 +128,6 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
     codeLanguage: CodeLanguage = CodeLanguage.python
-    size: SectionSize = Field(default_factory=lambda: SectionSize(width=500))
 
 
 class UserDefaultGenPythonCodeSectionImpl(
