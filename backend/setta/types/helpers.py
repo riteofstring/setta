@@ -71,6 +71,7 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
     SectionSize,
     SectionType,
+    TextBlockSectionImpl,
 )
 from setta.types.simplified_states import Position
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
@@ -1026,13 +1027,27 @@ def compute_initial_default_variant(variant: Variant):
 
 
 def set_text_block_text(p: ProjectStateSingleConfig, sectionId: str, text: str):
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, TextBlockSectionImpl
+    )
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(text=text)
     )
-        # if (impl.headingAsSectionName) {
-        #     const section = getSectionCore(state, sectionId);
-        #     section.name = getFirstHeadingOrText(v) ?? section.name;
-        #   }
+    if impl.headingAsSectionName:
+        first_heading = get_first_heading_or_text(text)
+        if first_heading:
+            p.sections[sectionId].name = first_heading
+
+
+def get_first_heading_or_text(markdown: str):
+    trimmed_markdown = markdown.lstrip()
+    heading_match = re.search(r"(^|\n)(#+)\s*(.*?)(?=\n|$)", trimmed_markdown)
+
+    if heading_match:
+        # Return the heading text (group 3 captures the text after # and spaces)
+        return heading_match.group(3).strip()
+
+    return None
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

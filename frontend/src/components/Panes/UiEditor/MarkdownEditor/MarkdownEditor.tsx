@@ -105,18 +105,3 @@ const _MarkdownEditorCore = React.forwardRef(
 );
 
 const MarkdownEditorCore = React.memo(_MarkdownEditorCore);
-
-function getFirstHeadingOrText(markdown) {
-  // Trim leading whitespace
-  const trimmedMarkdown = markdown.trimStart();
-
-  // Look for the first heading anywhere in the text
-  const headingMatch = trimmedMarkdown.match(/(^|\n)(#+)\s*(.*?)(?=\n|$)/);
-
-  if (headingMatch) {
-    // Return the heading text (group 3 captures the text after # and spaces)
-    return headingMatch[3].trim();
-  }
-
-  return null;
-}
