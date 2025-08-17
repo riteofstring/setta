@@ -385,7 +385,7 @@ def create_{impl_category}_{fn_type}(type: {input_type}, {additional_args}):
     return code
 
 
-def get_impl_unions(name_filters: list[str]):
+def get_impl_unions(name_filters: list[str], exclusion_filters: list[str]):
     import setta.types.generated.unions
 
     unions = []
@@ -395,6 +395,8 @@ def get_impl_unions(name_filters: list[str]):
             continue
 
         if not all(n in name for n in name_filters):
+            continue
+        if any(n in name for n in exclusion_filters):
             continue
 
         attr = getattr(setta.types.generated.unions, name)

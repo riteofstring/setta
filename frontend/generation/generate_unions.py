@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import setta.types.code_obj_impls
+import setta.types.generated.impl_args_as_typed_dicts
 import setta.types.section_impls
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
@@ -68,6 +69,20 @@ def generate_unions(output_file):
         "type",
         setta.types.code_obj_impls,
         lambda x: x,
+    )
+    code += construct_unions(
+        setta.types.section_impls,
+        setta.types.section_impls.BaseSectionImpl,
+        "type",
+        setta.types.generated.impl_args_as_typed_dicts,
+        lambda x: f"{x}Args",
+    )
+    code += construct_unions(
+        setta.types.code_obj_impls,
+        setta.types.code_obj_impls.BaseCodeObjImpl,
+        "type",
+        setta.types.generated.impl_args_as_typed_dicts,
+        lambda x: f"{x}Args",
     )
 
     code = ruff_format(code)

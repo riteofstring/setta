@@ -70,8 +70,8 @@ def generate_effective_impl_overloads():
     classes = get_impl_classes()
 
     # Get unions with their actual objects
-    section_unions = get_impl_unions(["Section", "Impl"])
-    code_obj_unions = get_impl_unions(["CodeObj", "Impl"])
+    section_unions = get_impl_unions(["Section", "Impl"], ["Args"])
+    code_obj_unions = get_impl_unions(["CodeObj", "Impl"], ["Args"])
     all_union_data = section_unions + code_obj_unions
 
     # Sort unions by specificity

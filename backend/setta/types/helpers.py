@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
-from setta.project_state.project_manager_types import SectionImplArgsUnion
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -46,6 +45,7 @@ from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
+    BaseSectionImplArgsUnion,
 )
 from setta.types.impl_helpers import (
     update_variants,
@@ -477,7 +477,7 @@ def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
-    impl_overrides: SectionImplArgsUnion | None = None,
+    impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
 ):
     impl = create_section_impl(  # type: ignore
@@ -506,7 +506,7 @@ def create_top_level_section(
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
     position: Position,
-    impl_overrides: SectionImplArgsUnion | None = None,
+    impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
 ):
     sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
