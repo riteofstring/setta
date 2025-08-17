@@ -337,10 +337,10 @@ export async function route_delete_child_sections_via_decrementer(
   return await post("/deleteChildSectionsViaDecrementer", x);
 }
 
-export async function route_create_new_section_version(
-  x: gt.CreateNewSectionVersionRequest,
+export async function route_create_new_section_variant(
+  x: gt.CreateNewSectionVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createNewSectionVersion", x);
+  return await post("/createNewSectionVariant", x);
 }
 
 export async function route_undo(

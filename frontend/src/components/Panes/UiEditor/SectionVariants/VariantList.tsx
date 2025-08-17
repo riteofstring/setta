@@ -15,17 +15,17 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { route_create_new_section_version } from "utils/generatedEndpoints";
+import { route_create_new_section_variant } from "utils/generatedEndpoints";
 
-export function VersionList({ sectionId }) {
+export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
 
   function onClickEditButton() {
     setIsEditing(!isEditing);
   }
 
-  function onClickAddVersionButton() {
-    route_create_new_section_version({
+  function onClickAddVariantButton() {
+    route_create_new_section_variant({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
     });
@@ -38,9 +38,9 @@ export function VersionList({ sectionId }) {
         {!isEditing && (
           <button
             className="flex cursor-pointer items-center justify-center gap-1 rounded-md  px-2 py-1 text-xs font-bold text-setta-400 hover:bg-setta-500/20 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-400"
-            onClick={onClickAddVersionButton}
+            onClick={onClickAddVariantButton}
           >
-            Add Version
+            Add Variant
           </button>
         )}
         <button
@@ -55,59 +55,57 @@ export function VersionList({ sectionId }) {
         className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
         // onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
       >
-        <EVItems sectionId={sectionId} isEditing={isEditing} />
+        <VariantListCore sectionId={sectionId} isEditing={isEditing} />
       </ul>
     </section>
   );
 }
 
-function EVItems({
+function VariantListCore({
   sectionId,
   isEditing,
 }: {
   sectionId: string;
   isEditing: boolean;
 }) {
-  const { currVersionId, versionIds, defaultVersionId } = useProjectState(
+  const { currVariantId, variantIds, defaultVariantId } = useProjectState(
     (x) => {
       const sectionCore = getSectionCore(x, sectionId);
       const { variants, defaultVariant } = sectionCore;
       const currVariant = x.projectConfig.sectionVariantMap[sectionId];
       return {
-        currVersionId: currVariant,
-        versionIds: variants,
-        defaultVersionId: defaultVariant,
+        currVariantId: currVariant,
+        variantIds: variants,
+        defaultVariantId: defaultVariant,
       };
     },
     _.isEqual,
   );
 
-  console.log("versionIds", versionIds);
-
   if (isEditing) {
-    return versionIds.map((e) => (
-      <OneItemEditing
+    return variantIds.map((e) => (
+      <OneVariantEditing
         key={e}
         sectionId={sectionId}
         id={e}
-        isCurr={currVersionId === e}
-        deletable={versionIds.length > 1}
+        isCurr={currVariantId === e}
+        deletable={variantIds.length > 1}
       />
     ));
   }
 
-  return versionIds.map((e) => (
-    <OneItem
+  return variantIds.map((e) => (
+    <OneVariant
       key={e}
       sectionId={sectionId}
       id={e}
-      isCurr={currVersionId === e}
-      isDefault={e === defaultVersionId}
+      isCurr={currVariantId === e}
+      isDefault={e === defaultVariantId}
     />
   ));
 }
 
-function OneItem({
+function OneVariant({
   sectionId,
   id,
   isCurr,
@@ -207,7 +205,7 @@ function OneItem({
   );
 }
 
-function OneItemEditing({
+function OneVariantEditing({
   sectionId,
   id,
   isCurr,

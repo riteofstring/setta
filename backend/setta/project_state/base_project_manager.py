@@ -28,7 +28,7 @@ from setta.project_state.project_manager_types import (
     CodeAreaCompletionRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
-    CreateNewSectionVersionRequest,
+    CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteKwargRequest,
@@ -514,7 +514,7 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def create_new_section_version(self, x: CreateNewSectionVersionRequest):
+    async def create_new_section_variant(self, x: CreateNewSectionVariantRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         create_new_section_variant(project_state, x.sectionId)

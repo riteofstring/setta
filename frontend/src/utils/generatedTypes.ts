@@ -306,7 +306,7 @@ export const RouteEnum = {
   DELETE_SECTIONS: "/deleteSections",
   CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
   DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
-  CREATE_NEW_SECTION_VERSION: "/createNewSectionVersion",
+  CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
   UNDO: "/undo",
   REDO: "/redo",
   UPDATE_FROM_FRONTEND: "/updateFromFrontend",
@@ -6933,19 +6933,19 @@ export function createCreateChildSectionsViaIncrementerRequest(
   return CreateChildSectionsViaIncrementerRequestSchema.parse(options);
 }
 
-export const CreateNewSectionVersionRequestSchema = z.object({
+export const CreateNewSectionVariantRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
 
-export type CreateNewSectionVersionRequest = z.infer<
-  typeof CreateNewSectionVersionRequestSchema
+export type CreateNewSectionVariantRequest = z.infer<
+  typeof CreateNewSectionVariantRequestSchema
 >;
 
-export function createCreateNewSectionVersionRequest(
-  options: Partial<CreateNewSectionVersionRequest> = {},
-): CreateNewSectionVersionRequest {
-  return CreateNewSectionVersionRequestSchema.parse(options);
+export function createCreateNewSectionVariantRequest(
+  options: Partial<CreateNewSectionVariantRequest> = {},
+): CreateNewSectionVariantRequest {
+  return CreateNewSectionVariantRequestSchema.parse(options);
 }
 
 export const CreateTopLevelSectionRequestSchema = z.object({

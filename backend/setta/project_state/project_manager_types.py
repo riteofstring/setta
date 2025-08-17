@@ -93,7 +93,7 @@ class DeleteChildSectionsViaDecrementerRequest(BaseModel):
     numChildren: int
 
 
-class CreateNewSectionVersionRequest(BaseModel):
+class CreateNewSectionVariantRequest(BaseModel):
     projectConfigId: str
     sectionId: str
 

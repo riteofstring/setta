@@ -24,7 +24,7 @@ import {
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
-import { VersionList } from "./SectionVariants/VersionList";
+import { VariantList } from "./SectionVariants/VariantList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
@@ -147,7 +147,7 @@ function TabContent({
     case UIEditorTabNameEnum.InfoConfig:
       return <MarkdownEditorInPane sectionId={sectionId} />;
     case UIEditorTabNameEnum.SectionVariantsConfig:
-      return <VersionList sectionId={sectionId} />;
+      return <VariantList sectionId={sectionId} />;
     default:
       return selectedTabName satisfies never;
   }

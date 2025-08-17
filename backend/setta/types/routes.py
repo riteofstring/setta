@@ -72,7 +72,7 @@ class Route(str, Enum):
     DELETE_SECTIONS = "/deleteSections"
     CREATE_CHILD_SECTIONS_VIA_INCREMENTER = "/createChildSectionsViaIncrementer"
     DELETE_CHILD_SECTIONS_VIA_DECREMENTER = "/deleteChildSectionsViaDecrementer"
-    CREATE_NEW_SECTION_VERSION = "/createNewSectionVersion"
+    CREATE_NEW_SECTION_VARIANT = "/createNewSectionVariant"
     UNDO = "/undo"
     REDO = "/redo"
     UPDATE_FROM_FRONTEND = "/updateFromFrontend"

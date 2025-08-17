@@ -6,7 +6,7 @@ from setta.project_state.project_manager_types import (
     CodeAreaCompletionRequest,
     CreateChildSectionsRequest,
     CreateChildSectionsViaIncrementerRequest,
-    CreateNewSectionVersionRequest,
+    CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
     DeleteKwargRequest,
@@ -145,15 +145,15 @@ async def route_delete_child_sections_via_decrementer(
     ).delete_child_sections_via_decrementer(x)
 
 
-@router.post(Route.CREATE_NEW_SECTION_VERSION)
-async def route_create_new_section_version(
-    x: CreateNewSectionVersionRequest, state: AppStateFromRequest
+@router.post(Route.CREATE_NEW_SECTION_VARIANT)
+async def route_create_new_section_variant(
+    x: CreateNewSectionVariantRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(
         x.projectConfigId
-    ).create_new_section_version(x)
+    ).create_new_section_variant(x)
     notification = SettaNotification(
-        message="New Version Created",
+        message="New Variant Created",
     )
     await state.wmh_frontend_sender.broadcast_notification(notification)
 
