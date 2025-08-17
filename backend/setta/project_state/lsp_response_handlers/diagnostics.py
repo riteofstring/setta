@@ -1,3 +1,4 @@
+from pprint import pprint
 import re
 from typing import Callable
 
@@ -15,6 +16,7 @@ def process_gen_code_diagnostics(
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
 ):
+    pprint(diagnostics)
     positions = convert_diagnostic_line_cols_to_positions(
         code_generator.code, diagnostics
     )
@@ -39,7 +41,7 @@ def process_gen_code_diagnostic(
         )
     elif d.code == "reportCallIssue":
         return process_report_call_issue(
-            position.start, message, code_generator, dep_graph
+            position.start, position.end, message, code_generator, dep_graph
         )
     return []
 
@@ -54,12 +56,13 @@ def process_report_argument_type(
     problem_var = code_generator.code[start:end]
     graph_key = code_generator.reverse_var_name_mapping.get(problem_var)
     if graph_key:
-        return [get_message_with_ids(message, graph_key, dep_graph)]
+        return [create_message_with_ids(message, graph_key, dep_graph)]
     return []
 
 
 def process_report_call_issue(
     start: int,
+    end: int,
     message: str,
     code_generator: PythonCodeGenerator,
     dep_graph: DependencyGraph,
@@ -68,8 +71,10 @@ def process_report_call_issue(
         return process_positional_argument_issue(
             start, message, code_generator, dep_graph
         )
+    elif "No parameter named" in message:
+        return process_incorrect_argument_issue(start, end)
     elif "parameter" in message:
-        return process_named_argument_issue(start, message, code_generator, dep_graph)
+        return process_missing_argument_issue(start, message, code_generator, dep_graph)
     return []
 
 
@@ -90,10 +95,13 @@ def _process_argument_issue(
         dep_graph: DependencyGraph instance
         param_filter: Function that takes a param and returns True if it should be included
     """
+    print("start", start)
     graph_key = code_generator.value_pos_start_to_graph_key.get(start)
+    print("graph_key", graph_key)
     if not graph_key:
         return []
     node = dep_graph.graph.get(graph_key)
+    print("node", node)
     if not node:
         return []
 
@@ -105,7 +113,9 @@ def _process_argument_issue(
         if not param or not isinstance(param, ParamNode):
             continue
         if param_filter(param):
-            missing_deps.append(get_message_with_ids(message, dep_graph_key, dep_graph))
+            missing_deps.append(
+                create_message_with_ids(message, dep_graph_key, dep_graph)
+            )
     return missing_deps
 
 
@@ -124,7 +134,19 @@ def process_positional_argument_issue(
     )
 
 
-def process_named_argument_issue(
+def process_incorrect_argument_issue(
+    start: int,
+    end: int,
+    code_generator: PythonCodeGenerator,
+):
+    incorrect_name = code_generator.code[start:end]
+    # graph_key = code_generator.value_pos_start_to_graph_key.get(start)
+    # if not graph_key:
+    #     return []
+    # return [create_message_with_ids(message, graph_key, dep_graph)]
+
+
+def process_missing_argument_issue(
     start: int,
     message: str,
     code_generator: PythonCodeGenerator,
@@ -140,7 +162,7 @@ def process_named_argument_issue(
     )
 
 
-def get_message_with_ids(
+def create_message_with_ids(
     message: str, graph_key: GraphKeyType, dep_graph: DependencyGraph
 ):
     x = dep_graph.extract_ids_from_graph_key(graph_key)
