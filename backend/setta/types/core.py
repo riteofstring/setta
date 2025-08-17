@@ -29,6 +29,7 @@ class Variant(BaseModel, extra="forbid"):
     impl: str
     nonPresetImpls: list[str]
     modifier: dict = Field(default_factory=dict)
+    isFrozen: bool = False
 
 
 def compute_initial_default_variant(variant: Variant):

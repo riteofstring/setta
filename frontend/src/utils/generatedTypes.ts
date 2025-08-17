@@ -2672,6 +2672,7 @@ export const VariantSchema = z.object({
   impl: z.string(),
   nonPresetImpls: z.array(z.string()),
   modifier: z.record(z.string(), z.any()).default({}),
+  isFrozen: z.boolean().default(false),
 });
 
 export type Variant = z.infer<typeof VariantSchema>;

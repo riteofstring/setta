@@ -125,7 +125,7 @@ function OneVariant({
     const isJsonSource = isBaseDictSectionImpl(impl) && impl.isJsonSource;
     return {
       name: variant.name,
-      isFrozen: impl.isFrozen,
+      isFrozen: variant.isFrozen,
       isJsonSource,
     };
   }, _.isEqual);
@@ -158,11 +158,11 @@ function OneVariant({
               : "text-transparent hover:!text-setta-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // so that you can click on it without clicking on the variant
             useProjectState.setState((x) => {
-              const section = getSectionCore(x, sectionId);
-              section.defaultVariant = id;
+              getSectionCore(x, sectionId).defaultVariant = id;
             });
+            updateBackendProjectState();
           }}
         >
           <HiHome />
@@ -174,11 +174,11 @@ function OneVariant({
               : "text-transparent hover:!text-blue-400 group-hover/versionitem:text-setta-400/50"
           }`}
           onClick={(e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // so that you can click on it without clicking on the variant
             useProjectState.setState((x) => {
-              const variant = getSectionVariant(x, id);
-              variant.modifier.isFrozen = !isFrozen;
+              getSectionVariant(x, id).isFrozen = !isFrozen;
             });
+            updateBackendProjectState();
           }}
         >
           <FaRegSnowflake />
