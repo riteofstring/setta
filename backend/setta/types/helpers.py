@@ -335,7 +335,7 @@ def get_curr_top_level_param_ids(
         code_obj_impl = get_curr_effective_code_obj_impl(p, section_id, callableId)
         if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
             return code_obj_impl.children
-    elif isinstance(section_impl, DictSectionImpl):
+    elif isinstance(section_impl, BaseDictSectionImpl):
         return section_impl.topLevelParamIds
     raise TypeError
 
