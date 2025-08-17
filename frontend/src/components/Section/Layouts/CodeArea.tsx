@@ -6,6 +6,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -309,6 +310,7 @@ const debouncedSetCode = _.debounce((sectionId, value) => {
   useProjectState.setState((x) => {
     setEffectiveSectionImplValue<"CodeSection">(x, sectionId, { code: value });
   });
+  updateBackendProjectState();
 }, 50);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
