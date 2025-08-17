@@ -97,12 +97,6 @@ export async function route_section_to_yaml(
   return await post("/sectionToYaml", x);
 }
 
-export async function route_load_section_json_source(
-  x: gt.LoadSectionJSONSourceRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/loadSectionJSONSource", x);
-}
-
 export async function route_new_json_version_name(
   x: gt.NewJSONVersionNameRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -113,12 +107,6 @@ export async function route_create_file(
   x: gt.CreateFileRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/createFile", x);
-}
-
-export async function route_save_section_json_source(
-  x: gt.SaveSectionJSONSourceRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/saveSectionJsonSource", x);
 }
 
 export async function route_get_json_source_path_to_be_deleted(

@@ -1,10 +1,7 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_new_json_version_name,
-  route_save_section_json_source,
-} from "utils/generatedEndpoints";
+import { route_new_json_version_name } from "utils/generatedEndpoints";
 import { createRandomName } from "utils/idNameCreation";
 import { maybeRunGuiToYaml } from "./guiToYaml";
 import { getSectionVariant } from "./sectionInfos";

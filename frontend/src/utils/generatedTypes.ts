@@ -271,10 +271,8 @@ export const RouteEnum = {
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
   SECTION_TO_YAML: "/sectionToYaml",
-  LOAD_SECTION_JSON_SOURCE: "/loadSectionJSONSource",
   DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
   NEW_JSON_VERSION_NAME: "/newJsonVersionName",
-  SAVE_SECTION_JSON_SOURCE: "/saveSectionJsonSource",
   SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
   FILTER_DATA_FOR_JSON_EXPORT: "/filterDataForJSONExport",
   ADD_DEFAULT_DATA_FOR_JSON_IMPORT: "/addDefaultDataForJSONImport",
@@ -284,8 +282,6 @@ export const RouteEnum = {
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
-  FILE_WATCH_LIST: "/fileWatchList",
-  FILE_WATCH_GEN_PYTHON_CODE: "/fileWatchGenPythonCode",
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
@@ -7359,21 +7355,6 @@ export function createGetJSONSourcePathToBeDeleted(
   return GetJSONSourcePathToBeDeletedSchema.parse(options);
 }
 
-export const LoadSectionJSONSourceRequestSchema = z.object({
-  project: ProjectStateCoreSchema,
-  variantIdsToLoad: z.array(z.string()),
-});
-
-export type LoadSectionJSONSourceRequest = z.infer<
-  typeof LoadSectionJSONSourceRequestSchema
->;
-
-export function createLoadSectionJSONSourceRequest(
-  options: Partial<LoadSectionJSONSourceRequest> = {},
-): LoadSectionJSONSourceRequest {
-  return LoadSectionJSONSourceRequestSchema.parse(options);
-}
-
 export const NewJSONVersionNameRequestSchema = z.object({
   filename: z.string(),
 });
@@ -7386,21 +7367,6 @@ export function createNewJSONVersionNameRequest(
   options: Partial<NewJSONVersionNameRequest> = {},
 ): NewJSONVersionNameRequest {
   return NewJSONVersionNameRequestSchema.parse(options);
-}
-
-export const SaveSectionJSONSourceRequestSchema = z.object({
-  project: z.record(z.string(), z.any()),
-  variantId: z.string(),
-});
-
-export type SaveSectionJSONSourceRequest = z.infer<
-  typeof SaveSectionJSONSourceRequestSchema
->;
-
-export function createSaveSectionJSONSourceRequest(
-  options: Partial<SaveSectionJSONSourceRequest> = {},
-): SaveSectionJSONSourceRequest {
-  return SaveSectionJSONSourceRequestSchema.parse(options);
 }
 
 export const SectionToYamlRequestSchema = z.object({

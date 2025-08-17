@@ -7,16 +7,11 @@ from pydantic import BaseModel
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
-from setta.database.db.jsonSource.load import (
-    load_json_sources_into_data_structures,
-)
-from setta.database.db.jsonSource.save import save_json_source_data
 from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.project_state import ProjectStateCore
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename
 
@@ -33,16 +28,6 @@ class SectionToYamlRequest(BaseModel):
     sectionVariant: dict
     pinnedIds: dict[str, list[str]]
     unpinnedIds: dict[str, list[str]]
-
-
-class LoadSectionJSONSourceRequest(BaseModel):
-    project: ProjectStateCore
-    variantIdsToLoad: list[str]
-
-
-class SaveSectionJSONSourceRequest(BaseModel):
-    project: dict
-    variantId: str
 
 
 class NewJSONVersionNameRequest(BaseModel):
@@ -91,15 +76,6 @@ def route_section_to_yaml(x: SectionToYamlRequest):
     }
 
 
-@router.post(Route.LOAD_SECTION_JSON_SOURCE)
-def route_load_section_json_source(x: LoadSectionJSONSourceRequest):
-    load_json_sources_into_data_structures(
-        x.project,
-        variant_ids=x.variantIdsToLoad,
-    )
-    return {"project": x.project}
-
-
 @router.post(Route.NEW_JSON_VERSION_NAME)
 def route_new_json_version_name(x: NewJSONVersionNameRequest):
     new_filename = generate_new_filename(x.filename)
@@ -112,11 +88,6 @@ def route_new_json_version_name(x: NewJSONVersionNameRequest):
 def route_create_file(x: CreateFileRequest):
     Path(x.filepath).parent.mkdir(parents=True, exist_ok=True)
     Path(x.filepath).touch()
-
-
-@router.post(Route.SAVE_SECTION_JSON_SOURCE)
-def route_save_section_json_source(x: SaveSectionJSONSourceRequest):
-    save_json_source_data(x.project, [x.variantId])
 
 
 @router.post(Route.GET_JSON_SOURCE_PATH_TO_BE_DELETED)
