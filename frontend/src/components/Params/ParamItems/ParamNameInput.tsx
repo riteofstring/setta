@@ -1,12 +1,13 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCodeObjCore,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
+import { route_set_code_obj_name } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { focusOnSection } from "utils/tabbingLogic";
 
@@ -37,10 +38,7 @@ export function ParamNameInput({
   }, _.isEqual);
 
   function onChange(v: string) {
-    useProjectState.setState((state) => {
-      getCodeObjCore(state, paramInfoId).name = v;
-    });
-    updateBackendProjectState();
+    debouncedSetParamName(paramInfoId, v);
   }
 
   function onEscape(completionResult) {
@@ -77,3 +75,11 @@ export function ParamNameInput({
     </>
   );
 }
+
+const debouncedSetParamName = _.debounce((codeObjId, name) => {
+  route_set_code_obj_name({
+    projectConfigId: getCurrProjectConfigId(),
+    codeObjId,
+    name,
+  });
+}, 200);

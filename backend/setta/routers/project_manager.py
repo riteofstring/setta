@@ -19,6 +19,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetCodeObjNameRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -275,3 +276,8 @@ async def route_set_param_entered_value(
     await state.project_manager_switcher.get(x.projectConfigId).set_param_entered_value(
         x
     )
+
+
+@router.post(Route.SET_CODE_OBJ_NAME)
+async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)

@@ -41,6 +41,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetCodeObjNameRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -422,6 +423,12 @@ class BaseProjectManager(ABC):
             x.paramInfoId,
             x.value,
         )
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_code_obj_name(self, x: SetCodeObjNameRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.codeObjs[x.codeObjId].name = x.name
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

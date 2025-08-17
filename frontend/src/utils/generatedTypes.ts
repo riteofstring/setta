@@ -409,6 +409,7 @@ export const RouteEnum = {
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_CODE_OBJ_NAME: "/setCodeObjName",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7649,6 +7650,20 @@ export function createSetCallableRequest(
   options: Partial<SetCallableRequest> = {},
 ): SetCallableRequest {
   return SetCallableRequestSchema.parse(options);
+}
+
+export const SetCodeObjNameRequestSchema = z.object({
+  projectConfigId: z.string(),
+  codeObjId: z.string(),
+  name: z.string(),
+});
+
+export type SetCodeObjNameRequest = z.infer<typeof SetCodeObjNameRequestSchema>;
+
+export function createSetCodeObjNameRequest(
+  options: Partial<SetCodeObjNameRequest> = {},
+): SetCodeObjNameRequest {
+  return SetCodeObjNameRequestSchema.parse(options);
 }
 
 export const SetGenCodePrefixRequestSchema = z.object({

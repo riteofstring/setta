@@ -420,3 +420,9 @@ export async function route_set_param_entered_value(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setParamEnteredValue", x);
 }
+
+export async function route_set_code_obj_name(
+  x: gt.SetCodeObjNameRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCodeObjName", x);
+}

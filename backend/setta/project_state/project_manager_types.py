@@ -179,6 +179,12 @@ class SetParamEnteredValueRequest(BaseModel):
     value: str
 
 
+class SetCodeObjNameRequest(BaseModel):
+    projectConfigId: str
+    codeObjId: str
+    name: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig
