@@ -43,6 +43,7 @@ from setta.project_state.project_manager_types import (
     SetCallableRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetParamEnteredValueRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
@@ -409,6 +410,18 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.genCodeSuffix = x.genCodeSuffix
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_param_entered_value(self, x: SetParamEnteredValueRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_param_entered_value(
+            project_state,
+            x.sectionId,
+            x.paramInfoId,
+            x.value,
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

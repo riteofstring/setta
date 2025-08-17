@@ -408,6 +408,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
+  SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7678,6 +7679,23 @@ export function createSetGenCodeSuffixRequest(
   options: Partial<SetGenCodeSuffixRequest> = {},
 ): SetGenCodeSuffixRequest {
   return SetGenCodeSuffixRequestSchema.parse(options);
+}
+
+export const SetParamEnteredValueRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.string(),
+  value: z.string(),
+});
+
+export type SetParamEnteredValueRequest = z.infer<
+  typeof SetParamEnteredValueRequestSchema
+>;
+
+export function createSetParamEnteredValueRequest(
+  options: Partial<SetParamEnteredValueRequest> = {},
+): SetParamEnteredValueRequest {
+  return SetParamEnteredValueRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

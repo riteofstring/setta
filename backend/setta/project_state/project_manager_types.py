@@ -172,6 +172,13 @@ class SetGenCodeSuffixRequest(BaseModel):
     genCodeSuffix: str
 
 
+class SetParamEnteredValueRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str
+    value: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

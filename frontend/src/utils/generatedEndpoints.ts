@@ -414,3 +414,9 @@ export async function route_set_gen_code_suffix(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setGenCodeSuffix", x);
 }
+
+export async function route_set_param_entered_value(
+  x: gt.SetParamEnteredValueRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setParamEnteredValue", x);
+}

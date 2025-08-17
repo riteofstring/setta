@@ -1,11 +1,11 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
-  setEffectiveCodeObjImplValue,
+  getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
@@ -46,16 +46,13 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 }
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, vStr) => {
-    useProjectState.setState((state) => {
-      setEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
-        state,
-        sectionId,
-        paramInfoId,
-        { value: vStr },
-      );
+  (sectionId, paramInfoId, value) => {
+    route_set_param_entered_value({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      paramInfoId,
+      value,
     });
-    updateBackendProjectState();
   },
-  50,
+  200,
 );

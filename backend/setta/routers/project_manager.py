@@ -21,6 +21,7 @@ from setta.project_state.project_manager_types import (
     SetCallableRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetParamEnteredValueRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
@@ -265,3 +266,12 @@ async def route_set_gen_code_suffix(
     x: SetGenCodeSuffixRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_suffix(x)
+
+
+@router.post(Route.SET_PARAM_ENTERED_VALUE)
+async def route_set_param_entered_value(
+    x: SetParamEnteredValueRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_param_entered_value(
+        x
+    )

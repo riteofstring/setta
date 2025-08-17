@@ -87,3 +87,4 @@ class Route(str, Enum):
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
     SET_GEN_CODE_PREFIX = "/setGenCodePrefix"
     SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"
+    SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
