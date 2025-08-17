@@ -1,29 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 
 export function useEditableOnSubmit(
-  initialValue,
-  onSetTitle,
-  condition,
-  onChangeReceivesValue = false,
+  initialValue: string,
+  onSetTitle: (x: string) => void,
+  condition: (x: string) => boolean | Promise<boolean>,
   allowEmpty = false,
 ) {
   const [inputValue, setInputValue] = useState(initialValue);
   const blurTriggeredByEscapeKey = useRef(false);
 
-  function onChange(e) {
-    if (onChangeReceivesValue) {
+  function onChange(e: React.ChangeEvent<HTMLInputElement> | string) {
+    if (typeof e === "string") {
       setInputValue(e);
     } else {
       setInputValue(e.target.value);
     }
   }
 
-  async function onBlur(event) {
+  async function onBlur(event: React.FocusEvent<HTMLInputElement>) {
     if (blurTriggeredByEscapeKey.current) {
       blurTriggeredByEscapeKey.current = false;
       return;
     }
-    blurTriggeredByEscapeKey.current = false;
     const v = event.target.value;
     if ((allowEmpty || v != "") && v != initialValue && (await condition(v))) {
       onSetTitle(v);
@@ -32,13 +30,13 @@ export function useEditableOnSubmit(
     }
   }
 
-  function onKeyDown(event) {
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.code === "Escape") {
       blurTriggeredByEscapeKey.current = true;
-      event.target.blur();
+      event.currentTarget.blur();
       setInputValue(initialValue);
     } else if (event.code === "Enter") {
-      event.target.blur();
+      event.currentTarget.blur();
     }
   }
 
@@ -46,5 +44,5 @@ export function useEditableOnSubmit(
     setInputValue(initialValue);
   }, [initialValue]);
 
-  return [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey];
+  return { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey };
 }

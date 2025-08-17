@@ -62,7 +62,7 @@ function EditableTitle({
     return !getSiblingHasName(sectionId, value);
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
+  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
     useEditableOnSubmit(sectionName, onTitleInputChange, condition);
 
   return (

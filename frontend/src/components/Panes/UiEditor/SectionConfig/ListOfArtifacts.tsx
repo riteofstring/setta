@@ -303,7 +303,7 @@ function EditableArtifactName({ id, name }) {
     });
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey] =
+  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
     useEditableOnSubmit(name, onTitleInputChange, () => true);
 
   // TODO: fix the border and margin on this. its hacky, and is probably overriding something else to achieve the underline during edit.

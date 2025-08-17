@@ -256,7 +256,7 @@ function OneVariantEditing({
     return true;
   }
 
-  const [inputValue, onChange, onBlur, onKeyDown] = useEditableOnSubmit(
+  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     name,
     onSetName,
     conditionToSetName,
