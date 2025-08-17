@@ -490,7 +490,7 @@ class BaseProjectManager(ABC):
             project_state,
             SectionType.Terminal,
             Position(),
-            core_overrides={"id": terminalId},
+            core_args={"id": terminalId},
         )
         await self.update_and_broadcast_project_state(project_state)
 

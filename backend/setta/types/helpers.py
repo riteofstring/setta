@@ -506,9 +506,9 @@ def create_top_level_section(
     impl_type: SectionType,
     position: Position,
     impl_overrides: dict | None = None,
-    core_overrides: dict | None = None,
+    core_args: CoreArgs | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
+    sectionId = create_section(settings, p, impl_type, impl_overrides, core_args)
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )

@@ -657,52 +657,6 @@ export function is{type_name}(x: {input_type}): x is {type_name}Union{{
     return code
 
 
-def create_default_getter_functions():
-    """Generate getSectionDefault and getCodeObjDefault functions."""
-    from setta.types.code_obj_impls import CodeObjType
-    from setta.types.section_impls import SectionType
-
-    # Generate getSectionDefault
-    section_cases = []
-    for section_type in SectionType:
-        field_name = (
-            section_type.value[0].lower() + section_type.value[1:] + "SectionDefault"
-        )
-        section_cases.append(f"""    case SectionTypeEnum.{section_type.value}:
-      return settings.{field_name};""")
-
-    section_cases_str = "\n".join(section_cases)
-
-    # Generate getCodeObjDefault
-    code_obj_cases = []
-    for code_obj_type in CodeObjType:
-        field_name = (
-            code_obj_type.value[0].lower() + code_obj_type.value[1:] + "CodeObjDefault"
-        )
-        code_obj_cases.append(f"""    case CodeObjTypeEnum.{code_obj_type.value}:
-      return settings.{field_name};""")
-
-    code_obj_cases_str = "\n".join(code_obj_cases)
-
-    return f"""
-export function getSectionDefault(settings: SettingsState, sectionType: SectionType) {{
-  switch (sectionType) {{
-{section_cases_str}
-    default:
-      return sectionType satisfies never;
-  }}
-}}
-
-export function getCodeObjDefault(settings: SettingsState, codeObjType: CodeObjType) {{
-  switch (codeObjType) {{
-{code_obj_cases_str}
-    default:
-      return codeObjType satisfies never;
-  }}
-}}
-"""
-
-
 def create_impl_core_variant_bundled_types():
     classes = get_impl_classes()
     code = ""
@@ -780,7 +734,6 @@ export type ObjectValues<T> = T[keyof T]
         ts_code += dataclass_to_zod(x, processed_types)
 
     ts_code += create_type_predicate_fns_from_sets(all_sets)
-    ts_code += create_default_getter_functions()
     ts_code += create_impl_core_variant_bundled_types()
 
     with open(output_file, "w") as f:
