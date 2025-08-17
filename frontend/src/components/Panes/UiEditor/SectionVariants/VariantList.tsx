@@ -236,17 +236,13 @@ function OneVariantEditing({
   isCurr: boolean;
   deletable: boolean;
 }) {
-  const name = useProjectState((x) => {
-    const variant = getSectionVariant(x, id);
-    return variant.name;
-  }, _.isEqual);
+  const name = useProjectState((x) => getSectionVariant(x, id).name);
 
   function onSetName(v: string) {
     useProjectState.setState((x) => {
-      const variant = getSectionVariant(x, id);
-      variant.name = v;
+      getSectionVariant(x, id).name = v;
     });
-    // maybeLoadJsonContents(id);
+    updateBackendProjectState();
   }
 
   function conditionToSetName(v: string) {
