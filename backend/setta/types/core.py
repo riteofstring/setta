@@ -32,10 +32,6 @@ class Variant(BaseModel, extra="forbid"):
     isFrozen: bool = False
 
 
-def compute_initial_default_variant(variant: Variant):
-    return {"variants": [variant.id], "defaultVariant": variant.id}
-
-
 def compute_initial_nonPresetImpls(impl: BaseCodeObjImpl | BaseSectionImpl):
     return [] if impl.isPreset else [impl.id]
 

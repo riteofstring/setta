@@ -5796,6 +5796,79 @@ export function createTextParamCodeObjImplArgsWithCallable(
   return TextParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
+export const CoreArgsSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  variants: z.array(z.string()).optional(),
+  defaultVariant: z.union([z.string(), z.null()]).optional(),
+  sharedModifier: z.record(z.string(), z.any()).optional(),
+  unsharedKeys: z
+    .array(
+      z.literal([
+        "artifactGroupIds",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "callable",
+        "canvasSettings",
+        "chartSettings",
+        "children",
+        "choices",
+        "code",
+        "codeLanguage",
+        "codeObjVariantMap",
+        "columnWidth",
+        "configLanguage",
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "displayMode",
+        "format",
+        "headingAsSectionName",
+        "hideColumn",
+        "hideParams",
+        "hideUnpinnedParams",
+        "id",
+        "ignoreTypeErrors",
+        "isFrozen",
+        "isHorizontalOrientation",
+        "isInOtherProjectConfigs",
+        "isJsonSource",
+        "isMinimized",
+        "isPreset",
+        "jsonSourceKeys",
+        "jsonSourceMissing",
+        "max",
+        "min",
+        "name",
+        "paramFilter",
+        "parentId",
+        "passingStyle",
+        "pinnedAreaHeight",
+        "pinnedParams",
+        "positionAndSizeLocked",
+        "renderedValue",
+        "selectedParams",
+        "size",
+        "social",
+        "step",
+        "text",
+        "topLevelParamIds",
+        "type",
+        "value",
+        "visibility",
+      ]),
+    )
+    .optional(),
+});
+
+export type CoreArgs = z.infer<typeof CoreArgsSchema>;
+
+export function createCoreArgs(options: Partial<CoreArgs> = {}): CoreArgs {
+  return CoreArgsSchema.parse(options);
+}
+
 export const ArtifactWithIdSchema = z.object({
   name: z.string(),
   path: z.string(),

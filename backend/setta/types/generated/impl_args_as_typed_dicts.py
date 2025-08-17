@@ -20,6 +20,73 @@ from setta.types.section_impls import (
 )
 
 
+class CoreArgs(TypedDict):
+    id: NotRequired[str]
+    name: NotRequired[str]
+    variants: NotRequired[list[str]]
+    defaultVariant: NotRequired[str | None]
+    sharedModifier: NotRequired[dict[str, Any]]
+    unsharedKeys: NotRequired[
+        list[
+            Literal[
+                "artifactGroupIds",
+                "aspectRatio",
+                "aspectRatioExtraHeight",
+                "aspectRatioExtraWidth",
+                "callable",
+                "canvasSettings",
+                "chartSettings",
+                "children",
+                "choices",
+                "code",
+                "codeLanguage",
+                "codeObjVariantMap",
+                "columnWidth",
+                "configLanguage",
+                "coreNameEditable",
+                "coreNameType",
+                "defaultVal",
+                "description",
+                "displayMode",
+                "format",
+                "headingAsSectionName",
+                "hideColumn",
+                "hideParams",
+                "hideUnpinnedParams",
+                "id",
+                "ignoreTypeErrors",
+                "isFrozen",
+                "isHorizontalOrientation",
+                "isInOtherProjectConfigs",
+                "isJsonSource",
+                "isMinimized",
+                "isPreset",
+                "jsonSourceKeys",
+                "jsonSourceMissing",
+                "max",
+                "min",
+                "name",
+                "paramFilter",
+                "parentId",
+                "passingStyle",
+                "pinnedAreaHeight",
+                "pinnedParams",
+                "positionAndSizeLocked",
+                "renderedValue",
+                "selectedParams",
+                "size",
+                "social",
+                "step",
+                "text",
+                "topLevelParamIds",
+                "type",
+                "value",
+                "visibility",
+            ]
+        ]
+    ]
+
+
 class BaseSectionImplArgs(TypedDict):
     type: NotRequired[Any]
     id: NotRequired[str]

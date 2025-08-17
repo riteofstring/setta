@@ -128,7 +128,7 @@ def python_type_to_str(python_type):
             key_ts_type = python_type_to_str(args[0])
             value_ts_type = python_type_to_str(args[1])
             return f"dict[{key_ts_type}, {value_ts_type}]"
-        return "dict[string, Any]"
+        return "dict[str, Any]"
 
     # Handle set/Set types
     if origin in (set, Set):

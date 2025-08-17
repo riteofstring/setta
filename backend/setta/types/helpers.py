@@ -14,7 +14,6 @@ from setta.types.code_obj_impls import (
 from setta.types.core import (
     Core,
     Variant,
-    compute_initial_default_variant,
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
@@ -33,6 +32,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
+    CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
 )
@@ -62,7 +62,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ConfigLanguage,
-    DictSectionImpl,
     ListRootSectionImpl,
     SectionSize,
     SectionType,
@@ -478,7 +477,7 @@ def create_section(
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
     impl_overrides: dict | None = None,
-    core_overrides: dict | None = None,
+    core_args: CoreArgs | None = None,
 ):
     impl = create_section_impl(
         impl_type,
@@ -486,13 +485,13 @@ def create_section(
         impl_overrides,
     )
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
-    if not core_overrides:
-        core_overrides = {}
-    core = Core(
-        name=get_default_section_core_name(impl_type),
+    default_core_args: CoreArgs = {
+        "name": get_default_section_core_name(impl_type),
         **compute_initial_default_variant(variant),
-        **core_overrides,
-    )
+    }
+    if core_args:
+        default_core_args.update(core_args)
+    core = Core(**default_core_args)
     p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
@@ -1021,6 +1020,10 @@ def toggle_variant_json_source(
             isJsonSource=newIsJsonSource, configLanguage=newConfigLanguage
         ),
     )
+
+
+def compute_initial_default_variant(variant: Variant):
+    return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {
