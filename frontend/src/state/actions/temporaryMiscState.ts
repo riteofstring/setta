@@ -51,21 +51,3 @@ export function listenForCanvasToBase64Requests(sectionId, fnCanvasToBase64) {
   );
   return unsub;
 }
-
-export async function waitForFileDeletion(filepath) {
-  let wasDeleted = false;
-
-  await callFnAndWait({
-    id: fileDeletionRequestId(filepath),
-    condition: (x) => {
-      wasDeleted = x;
-      return true;
-    },
-  });
-
-  return wasDeleted;
-}
-
-export function fileDeletionRequestId(filepath) {
-  return `${filepath}-delete-request`;
-}

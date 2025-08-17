@@ -1,15 +1,11 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
-import {
-  fileDeletionRequestId,
-  setTemporaryMiscState,
-} from "state/actions/temporaryMiscState";
 import { useModal } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_delete_file } from "utils/generatedEndpoints";
 
 export function DeleteFileModal() {
-  const filepath = useModal((x) => x.modalData);
+  const { filepath, callback } = useModal((x) => x.modalData);
 
   const handleCancel = () => {
     setModalOpen(false);
@@ -18,10 +14,7 @@ export function DeleteFileModal() {
   const handleConfirm = async () => {
     const res = await route_delete_file({ filepath });
     if (res200(res)) {
-      // allows function that opened modal to find out if file was deleted
-      setTemporaryMiscState(fileDeletionRequestId(filepath), true);
-    } else {
-      setTemporaryMiscState(fileDeletionRequestId(filepath), false);
+      callback(res.data);
     }
     setModalOpen(false);
   };

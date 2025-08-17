@@ -117,7 +117,7 @@ export async function route_get_json_source_path_to_be_deleted(
 
 export async function route_delete_file(
   x: gt.DeleteFileRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/deleteFile", x);
 }
 

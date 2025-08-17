@@ -258,7 +258,9 @@ function OneVariantEditing({
       variantId: id,
     });
     if (res200(res) && res.data) {
-      openDeleteJSONSourceFileModal(res.data);
+      openDeleteJSONSourceFileModal(res.data, (successfulDeletion) =>
+        console.log("successfulDeletion", successfulDeletion),
+      );
     }
   }
 

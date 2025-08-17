@@ -41,8 +41,11 @@ export function openRenameReferencesModal(changedValues) {
   openModal(MODAL_TYPE.RENAME_REFERENCES, changedValues);
 }
 
-export function openDeleteJSONSourceFileModal(filepath: string) {
-  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, filepath);
+export function openDeleteJSONSourceFileModal(
+  filepath: string,
+  callback: (successfulDeletion: boolean) => void | Promise<void>,
+) {
+  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, { filepath, callback });
 }
 
 export function openAddArtifactByFilepathModal(sectionId) {
