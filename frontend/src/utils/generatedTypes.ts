@@ -278,7 +278,7 @@ export const RouteEnum = {
   ADD_DEFAULT_DATA_FOR_JSON_IMPORT: "/addDefaultDataForJSONImport",
   GET_JSON_SOURCE_PATH_TO_BE_DELETED: "/getJsonSourcePathToBeDeleted",
   CREATE_FILE: "/createFile",
-  DELETE_FILE: "/deleteFile",
+  DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
@@ -6981,6 +6981,23 @@ export function createDeleteChildSectionsViaDecrementerRequest(
   options: Partial<DeleteChildSectionsViaDecrementerRequest> = {},
 ): DeleteChildSectionsViaDecrementerRequest {
   return DeleteChildSectionsViaDecrementerRequestSchema.parse(options);
+}
+
+export const DeleteJSONSourceFileAndVariantSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  variantId: z.string(),
+  filepath: z.string(),
+});
+
+export type DeleteJSONSourceFileAndVariant = z.infer<
+  typeof DeleteJSONSourceFileAndVariantSchema
+>;
+
+export function createDeleteJSONSourceFileAndVariant(
+  options: Partial<DeleteJSONSourceFileAndVariant> = {},
+): DeleteJSONSourceFileAndVariant {
+  return DeleteJSONSourceFileAndVariantSchema.parse(options);
 }
 
 export const DeleteKwargRequestSchema = z.object({

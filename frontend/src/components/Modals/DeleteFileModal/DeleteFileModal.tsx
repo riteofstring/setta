@@ -1,21 +1,23 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { setModalOpen } from "state/actions/modal";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_delete_file } from "utils/generatedEndpoints";
+import { route_delete_json_source_file_and_variant } from "utils/generatedEndpoints";
 
-export function DeleteFileModal() {
-  const { filepath, callback } = useModal((x) => x.modalData);
+export function DeleteJSONSourceVariantModal() {
+  const { sectionId, variantId, filepath } = useModal((x) => x.modalData);
 
   const handleCancel = () => {
     setModalOpen(false);
   };
 
   const handleConfirm = async () => {
-    const res = await route_delete_file({ filepath });
-    if (res200(res)) {
-      callback(res.data);
-    }
+    await route_delete_json_source_file_and_variant({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      variantId,
+      filepath,
+    });
     setModalOpen(false);
   };
 
@@ -39,7 +41,6 @@ export function DeleteFileModal() {
           <p className="text-lg">{filepath}</p>
         </div>
       </Dialog.Description>
-      {/* Fixed footer section */}
       <div className="flex w-full justify-end space-x-3 border-t border-setta-200 pt-4 dark:border-setta-700">
         <button
           onClick={handleCancel}

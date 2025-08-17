@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
+    DeleteJSONSourceFileAndVariant,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantRequestOrAsk,
@@ -58,6 +59,7 @@ from setta.types.helpers import (
     create_top_level_section,
     delete_child_sections_via_decrementer,
     delete_kwarg,
+    delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
     get_json_source_files_to_watch,
@@ -664,6 +666,36 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_json_source_file_and_variant(
+        self, x: DeleteJSONSourceFileAndVariant
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        success = False
+        notification = None
+        try:
+            Path(x.filepath).unlink()
+            success = True
+        except FileNotFoundError:
+            notification = SettaNotification(
+                message=f"File '{x.filepath}' not found",
+                type=SettaNotificationType.error,
+            )
+        except OSError as e:
+            notification = SettaNotification(
+                message=f"Failed to delete file: {str(e)}",
+                type=SettaNotificationType.error,
+            )
+        if success:
+            delete_section_variant(project_state, x.sectionId, x.variantId)
+            await self.update_and_broadcast_project_state(project_state)
+            notification = SettaNotification(
+                message="Variant and file deleted",
+                type=SettaNotificationType.info,
+            )
+        if notification:
+            await self.websocket_msg_handler.broadcast_notification(notification)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

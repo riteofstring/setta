@@ -44,7 +44,7 @@ class Route(str, Enum):
     ADD_DEFAULT_DATA_FOR_JSON_IMPORT = "/addDefaultDataForJSONImport"
     GET_JSON_SOURCE_PATH_TO_BE_DELETED = "/getJsonSourcePathToBeDeleted"
     CREATE_FILE = "/createFile"
-    DELETE_FILE = "/deleteFile"
+    DELETE_JSON_SOURCE_FILE_AND_VARIANT = "/deleteJsonSourceFileAndVariant"
     CHECK_IF_FILE_EXISTS = "/checkIfFileExists"
     LOAD_ARTIFACT_FROM_DISK = "/loadArtifactFromDisk"
     RESTART_LANGUAGE_SERVER = "/restartLanguageServer"

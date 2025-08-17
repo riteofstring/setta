@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-from fastapi import BackgroundTasks
 from pydantic import BaseModel
 
 from setta.code_gen.yaml.section_dict import (
@@ -11,9 +10,7 @@ from setta.database.db.sections.copy import (
     copy_relative_positions,
     copy_sections_and_other_info,
 )
-from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename
 
@@ -95,38 +92,3 @@ def route_create_file(x: CreateFileRequest):
 @router.post(Route.GET_JSON_SOURCE_PATH_TO_BE_DELETED)
 def route_get_json_source_path_to_be_deleted(x: GetJSONSourcePathToBeDeleted) -> str:
     return os.path.abspath(x.variantName)
-
-
-@router.post(Route.DELETE_FILE)
-def route_delete_file(
-    x: DeleteFileRequest,
-    background_tasks: BackgroundTasks,
-    state: AppStateFromRequest,
-) -> bool:
-    file = Path(x.filepath)
-    success = False
-    if not file.exists():
-        notification = SettaNotification(
-            message=f"File '{x.filepath}' not found", type=SettaNotificationType.error
-        )
-
-    else:
-        try:
-            file.unlink()
-            notification = SettaNotification(
-                message=f"File '{x.filepath}' deleted successfully",
-                type=SettaNotificationType.error,
-            )
-            success = True
-        except Exception as e:
-            notification = SettaNotification(
-                message=f"Failed to delete file: {str(e)}",
-                type=SettaNotificationType.error,
-            )
-
-    background_tasks.add_task(
-        state.wmh_frontend_sender.broadcast_notification,
-        notification,
-    )
-
-    return success

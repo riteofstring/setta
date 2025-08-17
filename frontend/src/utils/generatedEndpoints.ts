@@ -115,12 +115,6 @@ export async function route_get_json_source_path_to_be_deleted(
   return await post("/getJsonSourcePathToBeDeleted", x);
 }
 
-export async function route_delete_file(
-  x: gt.DeleteFileRequest,
-): Promise<ResponseDataAndStatus<boolean>> {
-  return await post("/deleteFile", x);
-}
-
 export async function route_delete_terminals(
   x: gt.DeleteTerminalsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -395,4 +389,10 @@ export async function route_toggle_variant_json_source(
   x: gt.ToggleVariantJSONSourceRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleVariantJsonSource", x);
+}
+
+export async function route_delete_json_source_file_and_variant(
+  x: gt.DeleteJSONSourceFileAndVariant,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteJsonSourceFileAndVariant", x);
 }

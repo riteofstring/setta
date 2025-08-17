@@ -147,6 +147,13 @@ class ToggleVariantJSONSourceRequest(BaseModel):
     variantId: str
 
 
+class DeleteJSONSourceFileAndVariant(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+    filepath: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

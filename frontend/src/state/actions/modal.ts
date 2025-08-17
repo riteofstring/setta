@@ -42,10 +42,15 @@ export function openRenameReferencesModal(changedValues) {
 }
 
 export function openDeleteJSONSourceFileModal(
+  sectionId: string,
+  variantId: string,
   filepath: string,
-  callback: (successfulDeletion: boolean) => void | Promise<void>,
 ) {
-  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, { filepath, callback });
+  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, {
+    sectionId,
+    variantId,
+    filepath,
+  });
 }
 
 export function openAddArtifactByFilepathModal(sectionId) {

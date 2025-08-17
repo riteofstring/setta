@@ -3,7 +3,7 @@ import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 import { AddArtifactByFilepathModal } from "./AddArtifactByFilepathModal/AddArtifactByFilepathModal";
-import { DeleteFileModal } from "./DeleteFileModal/DeleteFileModal";
+import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import { FileMenuSaveAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
@@ -58,7 +58,7 @@ function ModalContent({ open }) {
     case MODAL_TYPE.RENAME_REFERENCES.title:
       return <RenameReferencesModal open={open} />;
     case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
-      return <DeleteFileModal open={open} />;
+      return <DeleteJSONSourceVariantModal open={open} />;
     case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
       return <AddArtifactByFilepathModal open={open} />;
     default:

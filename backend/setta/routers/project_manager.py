@@ -9,6 +9,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
+    DeleteJSONSourceFileAndVariant,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantRequestOrAsk,
@@ -231,3 +232,12 @@ async def route_toggle_variant_json_source(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).toggle_variant_json_source(x)
+
+
+@router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
+async def route_delete_json_source_file_and_variant(
+    x: DeleteJSONSourceFileAndVariant, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).delete_json_source_file_and_variant(x)
