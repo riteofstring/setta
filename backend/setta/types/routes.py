@@ -84,3 +84,4 @@ class Route(str, Enum):
     DELETE_KWARG = "/deleteKwarg"
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
     TOGGLE_VARIANT_JSON_SOURCE = "/toggleVariantJsonSource"
+    SET_TEXT_BLOCK_TEXT = "/setTextBlockText"

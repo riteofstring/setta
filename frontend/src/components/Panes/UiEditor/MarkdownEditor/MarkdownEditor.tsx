@@ -7,14 +7,10 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
-import {
-  getSectionCore,
-  setEffectiveSectionImplValue,
-} from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
+import { route_set_text_block_text } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
 
 export function MarkdownEditorInPane({ sectionId }) {
@@ -59,18 +55,11 @@ const _MarkdownEditorCore = React.forwardRef(
 
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
-        useProjectState.setState((state) => {
-          const impl = setEffectiveSectionImplValue<"TextBlockSection">(
-            state,
-            sectionId,
-            { text: v },
-          );
-          if (impl.headingAsSectionName) {
-            const section = getSectionCore(state, sectionId);
-            section.name = getFirstHeadingOrText(v) ?? section.name;
-          }
+        route_set_text_block_text({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          text: v,
         });
-        updateBackendProjectState();
       }, 200),
       [],
     );

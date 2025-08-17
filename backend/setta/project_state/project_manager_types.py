@@ -149,11 +149,17 @@ class ToggleVariantJSONSourceRequest(BaseModel):
     variantId: str
 
 
-class DeleteJSONSourceFileAndVariant(BaseModel):
+class DeleteJSONSourceFileAndVariantRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     variantId: str
     filepath: str
+
+
+class SetTextBlockTextRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    text: str
 
 
 @dataclass

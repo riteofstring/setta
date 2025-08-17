@@ -34,6 +34,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
+    TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -1022,6 +1023,16 @@ def toggle_variant_json_source(
 
 def compute_initial_default_variant(variant: Variant):
     return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
+
+
+def set_text_block_text(p: ProjectStateSingleConfig, sectionId: str, text: str):
+    set_curr_effective_section_impl_value(
+        p, sectionId, TextBlockSectionImplArgsWithCallable(text=text)
+    )
+        # if (impl.headingAsSectionName) {
+        #     const section = getSectionCore(state, sectionId);
+        #     section.name = getFirstHeadingOrText(v) ?? section.name;
+        #   }
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

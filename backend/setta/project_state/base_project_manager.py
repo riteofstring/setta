@@ -31,7 +31,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
-    DeleteJSONSourceFileAndVariant,
+    DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantRequestOrAsk,
@@ -41,6 +41,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
@@ -69,6 +70,7 @@ from setta.types.helpers import (
     merge_single_config_into_backend,
     set_param_entered_value,
     set_project_config_name,
+    set_text_block_text,
     toggle_variant_json_source,
     update_param_impl_config,
 )
@@ -673,7 +675,7 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def delete_json_source_file_and_variant(
-        self, x: DeleteJSONSourceFileAndVariant
+        self, x: DeleteJSONSourceFileAndVariantRequest
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = False
@@ -700,6 +702,12 @@ class BaseProjectManager(ABC):
             )
         if notification:
             await self.websocket_msg_handler.broadcast_notification(notification)
+
+    @enqueue_method
+    async def set_text_block_text(self, x: SetTextBlockTextRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_text(project_state, x.sectionId, x.text)
+        await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

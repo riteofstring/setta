@@ -392,7 +392,13 @@ export async function route_toggle_variant_json_source(
 }
 
 export async function route_delete_json_source_file_and_variant(
-  x: gt.DeleteJSONSourceFileAndVariant,
+  x: gt.DeleteJSONSourceFileAndVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteJsonSourceFileAndVariant", x);
+}
+
+export async function route_set_text_block_text(
+  x: gt.SetTextBlockTextRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockText", x);
 }

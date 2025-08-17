@@ -9,7 +9,7 @@ from setta.project_state.project_manager_types import (
     CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     DeleteChildSectionsViaDecrementerRequest,
-    DeleteJSONSourceFileAndVariant,
+    DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
     DeleteSectionVariantRequestOrAsk,
@@ -19,6 +19,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
@@ -236,8 +237,15 @@ async def route_toggle_variant_json_source(
 
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
 async def route_delete_json_source_file_and_variant(
-    x: DeleteJSONSourceFileAndVariant, state: AppStateFromRequest
+    x: DeleteJSONSourceFileAndVariantRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).delete_json_source_file_and_variant(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_TEXT)
+async def route_set_text_block_text(
+    x: SetTextBlockTextRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_text_block_text(x)

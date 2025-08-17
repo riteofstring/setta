@@ -405,6 +405,7 @@ export const RouteEnum = {
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
+  SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7514,21 +7515,21 @@ export function createDeleteChildSectionsViaDecrementerRequest(
   return DeleteChildSectionsViaDecrementerRequestSchema.parse(options);
 }
 
-export const DeleteJSONSourceFileAndVariantSchema = z.object({
+export const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
   filepath: z.string(),
 });
 
-export type DeleteJSONSourceFileAndVariant = z.infer<
-  typeof DeleteJSONSourceFileAndVariantSchema
+export type DeleteJSONSourceFileAndVariantRequest = z.infer<
+  typeof DeleteJSONSourceFileAndVariantRequestSchema
 >;
 
-export function createDeleteJSONSourceFileAndVariant(
-  options: Partial<DeleteJSONSourceFileAndVariant> = {},
-): DeleteJSONSourceFileAndVariant {
-  return DeleteJSONSourceFileAndVariantSchema.parse(options);
+export function createDeleteJSONSourceFileAndVariantRequest(
+  options: Partial<DeleteJSONSourceFileAndVariantRequest> = {},
+): DeleteJSONSourceFileAndVariantRequest {
+  return DeleteJSONSourceFileAndVariantRequestSchema.parse(options);
 }
 
 export const DeleteKwargRequestSchema = z.object({
@@ -7645,6 +7646,22 @@ export function createSetCallableRequest(
   options: Partial<SetCallableRequest> = {},
 ): SetCallableRequest {
   return SetCallableRequestSchema.parse(options);
+}
+
+export const SetTextBlockTextRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  text: z.string(),
+});
+
+export type SetTextBlockTextRequest = z.infer<
+  typeof SetTextBlockTextRequestSchema
+>;
+
+export function createSetTextBlockTextRequest(
+  options: Partial<SetTextBlockTextRequest> = {},
+): SetTextBlockTextRequest {
+  return SetTextBlockTextRequestSchema.parse(options);
 }
 
 export const TextFieldCompletionRequestSchema = z.object({
