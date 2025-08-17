@@ -5,7 +5,6 @@ import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
-  deleteSectionVariantAndMaybeJsonFile,
   getCurrProjectConfigId,
   getSectionCore,
   getSectionVariant,
@@ -14,7 +13,10 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import { route_create_new_section_variant } from "utils/generatedEndpoints";
+import {
+  route_create_new_section_variant,
+  route_delete_section_variant,
+} from "utils/generatedEndpoints";
 import {
   ConfigLanguageEnum,
   isBaseDictSectionImpl,
@@ -91,7 +93,6 @@ function VariantListCore({
         key={e}
         sectionId={sectionId}
         id={e}
-        isCurr={currVariantId === e}
         deletable={variantIds.length > 1}
       />
     ));
@@ -228,12 +229,10 @@ function OneVariant({
 function OneVariantEditing({
   sectionId,
   id,
-  isCurr,
   deletable,
 }: {
   sectionId: string;
   id: string;
-  isCurr: boolean;
   deletable: boolean;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
@@ -264,7 +263,11 @@ function OneVariantEditing({
 
   function onClickDelete(e) {
     e.stopPropagation();
-    deleteSectionVariantAndMaybeJsonFile(sectionId, id, isCurr);
+    route_delete_section_variant({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      variantId: id,
+    });
   }
 
   return (

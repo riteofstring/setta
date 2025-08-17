@@ -135,6 +135,12 @@ class DeleteKwargRequest(BaseModel):
     sectionId: str
 
 
+class DeleteSectionVariantRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

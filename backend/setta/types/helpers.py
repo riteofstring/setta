@@ -963,6 +963,51 @@ def get_variants_for_json_source_update(
     return variantsToLoad
 
 
+def delete_section_variant_or_ask(
+    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+):
+    core = p.sections[sectionId]
+    variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
+    if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
+        return
+    delete_section_variant(p, sectionId, variantId)
+
+
+def delete_section_variant(p: ProjectStateSingleConfig, sectionId: str, variantId: str):
+    core = p.sections[sectionId]
+    if len(core.variants) < 2:
+        return  # can't delete variant if there's only 1
+    core.variants = [v for v in core.variants if v != variantId]
+    if core.defaultVariant == variantId:
+        core.defaultVariant = core.variants[0]
+    if p.get_curr_section_variant(sectionId).id == variantId:
+        p.projectConfig.sectionVariantMap[sectionId] = core.variants[0]
+
+    del p.sectionVariants[variantId]
+
+
+# export async function deleteSectionVariantAndMaybeJsonFile(
+#   sectionId: string,
+#   variantId: string,
+#   isCurr: boolean,
+# ) {
+#   const state = useProjectState.getState();
+#   const { name: variantName, isJsonSource } = state.variants[variantId];
+#   if (isJsonSource) {
+#     const res = await route_get_json_source_path_to_be_deleted({ variantName });
+#     if (res200(res)) {
+#       openDeleteJSONSourceFileModal(res.data);
+#       const wasDeleted = await waitForFileDeletion(res.data);
+#       if (wasDeleted) {
+#         deleteSectionVariant(sectionId, variantId, isCurr);
+#       }
+#     }
+#   } else {
+#     deleteSectionVariant(sectionId, variantId, isCurr);
+#   }
+# }
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

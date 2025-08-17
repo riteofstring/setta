@@ -384,3 +384,9 @@ export async function route_delete_kwarg(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteKwarg", x);
 }
+
+export async function route_delete_section_variant(
+  x: gt.DeleteSectionVariantRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteSectionVariant", x);
+}

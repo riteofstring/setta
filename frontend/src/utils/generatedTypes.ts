@@ -315,6 +315,7 @@ export const RouteEnum = {
     "/updateFromFrontendTopLevelSectionLayout",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
+  DELETE_SECTION_VARIANT: "/deleteSectionVariant",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -6992,6 +6993,22 @@ export function createDeleteKwargRequest(
   options: Partial<DeleteKwargRequest> = {},
 ): DeleteKwargRequest {
   return DeleteKwargRequestSchema.parse(options);
+}
+
+export const DeleteSectionVariantRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  variantId: z.string(),
+});
+
+export type DeleteSectionVariantRequest = z.infer<
+  typeof DeleteSectionVariantRequestSchema
+>;
+
+export function createDeleteSectionVariantRequest(
+  options: Partial<DeleteSectionVariantRequest> = {},
+): DeleteSectionVariantRequest {
+  return DeleteSectionVariantRequestSchema.parse(options);
 }
 
 export const DeleteSectionsRequestSchema = z.object({

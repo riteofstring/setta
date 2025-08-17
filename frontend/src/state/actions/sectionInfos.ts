@@ -7,10 +7,8 @@ import {
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import {
   route_delete_sections,
-  route_get_json_source_path_to_be_deleted,
   route_update_from_frontend_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
@@ -28,8 +26,6 @@ import {
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
-import { openDeleteJSONSourceFileModal } from "./modal";
-import { waitForFileDeletion } from "./temporaryMiscState";
 
 export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -486,41 +482,6 @@ export function getCodeChildrenAndParentCodeInfoId(
     : createCodeInfoCol().children;
 
   return { codeInfoChildren, parentCodeInfoId };
-}
-
-export async function deleteSectionVariantAndMaybeJsonFile(
-  sectionId,
-  variantId,
-  isCurr,
-) {
-  const state = useProjectState.getState();
-  const { name: variantName, isJsonSource } = state.variants[variantId];
-  if (isJsonSource) {
-    const res = await route_get_json_source_path_to_be_deleted({ variantName });
-    if (res200(res)) {
-      openDeleteJSONSourceFileModal(res.data);
-      const wasDeleted = await waitForFileDeletion(res.data);
-      if (wasDeleted) {
-        deleteSectionVariant(sectionId, variantId, isCurr);
-      }
-    }
-  } else {
-    deleteSectionVariant(sectionId, variantId, isCurr);
-  }
-}
-
-function deleteSectionVariant(sectionId, variantId, isCurr) {
-  useProjectState.setState((state) => {
-    const section = state.sections[sectionId];
-    section.variantIds = section.variantIds.filter((v) => v !== variantId);
-    if (section.defaultVariantId === variantId) {
-      section.defaultVariantId = section.variantIds[0];
-    }
-    if (isCurr) {
-      section.variantId = section.variantIds[0];
-    }
-    delete state.variants[variantId];
-  });
 }
 
 export function getSectionShouldRender(

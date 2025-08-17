@@ -11,6 +11,7 @@ from setta.project_state.project_manager_types import (
     DeleteChildSectionsViaDecrementerRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
+    DeleteSectionVariantRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -209,3 +210,12 @@ async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
 @router.post(Route.DELETE_KWARG)
 async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).delete_kwarg(x)
+
+
+@router.post(Route.DELETE_SECTION_VARIANT)
+async def route_delete_section_variant(
+    x: DeleteSectionVariantRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).delete_section_variant(
+        x
+    )

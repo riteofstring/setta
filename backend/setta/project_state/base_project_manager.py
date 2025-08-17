@@ -33,6 +33,7 @@ from setta.project_state.project_manager_types import (
     DeleteChildSectionsViaDecrementerRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
+    DeleteSectionVariantRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -56,6 +57,7 @@ from setta.types.helpers import (
     create_top_level_section,
     delete_child_sections_via_decrementer,
     delete_kwarg,
+    delete_section_variant,
     delete_sections,
     get_json_source_files_to_watch,
     get_variants_for_json_source_update,
@@ -645,6 +647,12 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(projectConfigId)
         create_sections(project_state, sections)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def delete_section_variant(self, x: DeleteSectionVariantRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
