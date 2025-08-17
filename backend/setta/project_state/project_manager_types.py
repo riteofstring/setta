@@ -135,7 +135,7 @@ class DeleteKwargRequest(BaseModel):
     sectionId: str
 
 
-class DeleteSectionVariantRequest(BaseModel):
+class DeleteSectionVariantRequestOrAsk(BaseModel):
     projectConfigId: str
     sectionId: str
     variantId: str

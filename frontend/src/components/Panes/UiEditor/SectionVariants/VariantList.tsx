@@ -15,7 +15,7 @@ import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
   route_create_new_section_variant,
-  route_delete_section_variant,
+  route_delete_section_variant_or_ask,
 } from "utils/generatedEndpoints";
 import {
   ConfigLanguageEnum,
@@ -263,7 +263,7 @@ function OneVariantEditing({
 
   function onClickDelete(e) {
     e.stopPropagation();
-    route_delete_section_variant({
+    route_delete_section_variant_or_ask({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId: id,

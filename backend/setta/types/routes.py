@@ -82,4 +82,4 @@ class Route(str, Enum):
     )
     ADD_KWARG = "/addKwarg"
     DELETE_KWARG = "/deleteKwarg"
-    DELETE_SECTION_VARIANT = "/deleteSectionVariant"
+    DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
