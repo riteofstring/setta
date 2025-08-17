@@ -91,7 +91,6 @@ function SectionSearchCore({
     return { name: "", description: "", configLanguage };
   }, _.isEqual);
 
-  const [value, setValue] = useState(codeInfoName);
   const [valueNameInconsistent, setValueNameInconsistent] = useState(false);
   const shouldResetValueOnBlur = useRef(false);
 
@@ -103,7 +102,6 @@ function SectionSearchCore({
   );
 
   function setValueAndCheckConsistency(value, cancelDebounced = false) {
-    setValue(value);
     if (cancelDebounced) {
       debouncedSetValueNameInconsistent.cancel();
       setValueNameInconsistent(false);
@@ -136,7 +134,7 @@ function SectionSearchCore({
     }
   }
 
-  function onTab(completionResult) {
+  function onTab(value, completionResult) {
     if (!completionResult && value) {
       shouldResetValueOnBlur.current = false;
       onEnter(value);
@@ -147,11 +145,11 @@ function SectionSearchCore({
     setValueAndCheckConsistency(value);
   }
 
-  function _onEnter() {
+  function _onEnter(value) {
     onEnter(value);
   }
 
-  function _onShiftEnter() {
+  function _onShiftEnter(value) {
     onShiftEnter(value);
   }
 
@@ -174,7 +172,7 @@ function SectionSearchCore({
         dummyDivId={divId}
         sectionId={sectionId}
         paramInfoId={null}
-        value={value}
+        value={codeInfoName}
         onBlur={onBlur}
         onChange={onChange}
         dummyCodeClassName={`${dummyCodeClassName} ${valueNameInconsistentStyle}`}
