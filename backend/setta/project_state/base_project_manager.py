@@ -447,7 +447,11 @@ class BaseProjectManager(ABC):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
-            self.settings_file.settings, project_state, x.implType, x.position
+            self.settings_file.settings,
+            project_state,
+            x.implType,
+            x.position,
+            x.implOverrides,
         )
         await self.update_and_broadcast_project_state(project_state)
         return sectionId
@@ -490,7 +494,7 @@ class BaseProjectManager(ABC):
             project_state,
             SectionType.Terminal,
             Position(),
-            core_args={"id": terminalId},
+            core_overrides={"id": terminalId},
         )
         await self.update_and_broadcast_project_state(project_state)
 

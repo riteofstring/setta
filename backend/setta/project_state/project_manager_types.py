@@ -1,10 +1,50 @@
 from dataclasses import dataclass
+from typing import Union
 
 from pydantic import BaseModel
 
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BrowserSectionImplArgs,
+    CallableSectionImplArgs,
+    ChartSectionImplArgs,
+    ChatSectionImplArgs,
+    CodeSectionImplArgs,
+    DictRootSectionImplArgs,
+    DictSectionImplArgs,
+    DrawSectionImplArgs,
+    GenPythonCodeSectionImplArgs,
+    GlobalVariablesSectionImplArgs,
+    GroupSectionImplArgs,
+    IFrameSectionImplArgs,
+    ImageSectionImplArgs,
+    ListRootSectionImplArgs,
+    SocialSectionImplArgs,
+    TerminalSectionImplArgs,
+    TextBlockSectionImplArgs,
+)
 from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
 from setta.types.section_impls import SectionType
 from setta.types.simplified_states import Position
+
+SectionImplArgsUnion = Union[
+    CallableSectionImplArgs,
+    DictSectionImplArgs,
+    ListRootSectionImplArgs,
+    DictRootSectionImplArgs,
+    GroupSectionImplArgs,
+    ImageSectionImplArgs,
+    ChartSectionImplArgs,
+    DrawSectionImplArgs,
+    TextBlockSectionImplArgs,
+    SocialSectionImplArgs,
+    GlobalVariablesSectionImplArgs,
+    CodeSectionImplArgs,
+    GenPythonCodeSectionImplArgs,
+    TerminalSectionImplArgs,
+    IFrameSectionImplArgs,
+    ChatSectionImplArgs,
+    BrowserSectionImplArgs,
+]
 
 
 class ClearTextFieldCompletionRequest(BaseModel):
@@ -64,6 +104,7 @@ class UpdateParamImplConfigRequest(BaseModel):
 class CreateTopLevelSectionRequest(BaseModel):
     projectConfigId: str
     implType: SectionType
+    implOverrides: SectionImplArgsUnion
     position: Position
 
 

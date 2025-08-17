@@ -5,7 +5,7 @@ import { PartialImplWithType } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
-  specificProps: PartialImplWithType;
+  implSpecs: PartialImplWithType;
 };
 
 export function useCreateSectionsList() {
@@ -14,52 +14,52 @@ export function useCreateSectionsList() {
     _.isEqual,
   );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    { name: "Callable", specificProps: { type: SectionTypeEnum.Callable } },
-    { name: "Dict", specificProps: { type: SectionTypeEnum.Dict } },
+    { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
+    { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
     {
       name: "List of Objects",
-      specificProps: { type: SectionTypeEnum.ListRoot },
+      implSpecs: { type: SectionTypeEnum.ListRoot },
     },
     {
       name: "Dict of Objects",
-      specificProps: { type: SectionTypeEnum.DictRoot },
+      implSpecs: { type: SectionTypeEnum.DictRoot },
     },
-    { name: "Group", specificProps: { type: SectionTypeEnum.Group } },
-    { name: "Text", specificProps: { type: SectionTypeEnum.TextBlock } },
+    { name: "Group", implSpecs: { type: SectionTypeEnum.Group } },
+    { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
   ];
 
   if (!singletonSections.globalVariables) {
     sectionGroupItems.push({
       name: "Global Variables",
-      specificProps: { type: SectionTypeEnum.GlobalVariables },
+      implSpecs: { type: SectionTypeEnum.GlobalVariables },
     });
   }
 
   const codeGroupItems: Array<CreateSectionsContextMenuInfo> = [
     {
       name: "Python Code",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.Code,
         codeLanguage: CodeLanguageEnum.python,
       },
     },
     {
       name: "Bash Script",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.Code,
         codeLanguage: CodeLanguageEnum.bash,
       },
     },
     {
       name: "Terminal",
-      specificProps: { type: SectionTypeEnum.Terminal },
+      implSpecs: { type: SectionTypeEnum.Terminal },
     },
   ];
 
   if (!singletonSections.genPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
-      specificProps: {
+      implSpecs: {
         type: SectionTypeEnum.GenPythonCode,
       },
     });

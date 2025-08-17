@@ -15,12 +15,11 @@ import { ContextMenuCore } from "./ContextMenuCore";
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
-  function onClick(
-    specificProps: CreateSectionsContextMenuInfo["specificProps"],
-  ) {
+  function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
     route_create_top_level_section({
       projectConfigId: getCurrProjectConfigId(),
-      implType: specificProps.type,
+      implType: implSpecs.type,
+      implOverrides: implSpecs,
       position: screenToFlowPosition({ x, y }),
     });
     closeAllContextMenus();
@@ -54,7 +53,7 @@ function DropdownGroup({
 }: {
   name: string;
   items: Array<CreateSectionsContextMenuInfo>;
-  onClick: (x: CreateSectionsContextMenuInfo["specificProps"]) => void;
+  onClick: (x: CreateSectionsContextMenuInfo["implSpecs"]) => void;
 }) {
   return (
     <DropdownMenu.Group className="[&:not(:first-child)]:mt-1.5">
@@ -62,7 +61,7 @@ function DropdownGroup({
         {name}
       </DropdownMenu.Label>
       {items.map((e) => (
-        <Item key={e.name} onClick={() => onClick(e.specificProps)}>
+        <Item key={e.name} onClick={() => onClick(e.implSpecs)}>
           {e.name}
         </Item>
       ))}

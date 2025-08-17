@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
+from setta.project_state.project_manager_types import SectionImplArgsUnion
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     BaseParentCodeObjImpl,
@@ -476,21 +477,21 @@ def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
-    impl_overrides: dict | None = None,
-    core_args: CoreArgs | None = None,
+    impl_overrides: SectionImplArgsUnion | None = None,
+    core_overrides: CoreArgs | None = None,
 ):
-    impl = create_section_impl(
-        impl_type,
+    impl = create_section_impl(  # type: ignore
+        impl_type,  # type: ignore
         get_user_default_section_from_settings(settings, impl_type),
-        impl_overrides,
+        impl_overrides,  # type: ignore
     )
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {
         "name": get_default_section_core_name(impl_type),
         **compute_initial_default_variant(variant),
     }
-    if core_args:
-        default_core_args.update(core_args)
+    if core_overrides:
+        default_core_args.update(core_overrides)
     core = Core(**default_core_args)
     p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
@@ -505,10 +506,10 @@ def create_top_level_section(
     p: ProjectStateSingleConfig,
     impl_type: SectionType,
     position: Position,
-    impl_overrides: dict | None = None,
-    core_args: CoreArgs | None = None,
+    impl_overrides: SectionImplArgsUnion | None = None,
+    core_overrides: CoreArgs | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type, impl_overrides, core_args)
+    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )

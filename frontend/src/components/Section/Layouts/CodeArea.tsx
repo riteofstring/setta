@@ -32,8 +32,6 @@ function _CodeArea({ sectionId }) {
     return impl.codeLanguage;
   });
 
-  console.log("language", language)
-
   switch (language) {
     case "python":
       return <PythonCodeArea sectionId={sectionId} language={language} />;
