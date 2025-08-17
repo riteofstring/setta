@@ -85,3 +85,5 @@ class Route(str, Enum):
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
     TOGGLE_VARIANT_JSON_SOURCE = "/toggleVariantJsonSource"
     SET_TEXT_BLOCK_TEXT = "/setTextBlockText"
+    SET_GEN_CODE_PREFIX = "/setGenCodePrefix"
+    SET_GEN_CODE_SUFFIX = "/setGenCodeSuffix"

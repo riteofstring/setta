@@ -162,6 +162,16 @@ class SetTextBlockTextRequest(BaseModel):
     text: str
 
 
+class SetGenCodePrefixRequest(BaseModel):
+    projectConfigId: str
+    genCodePrefix: str
+
+
+class SetGenCodeSuffixRequest(BaseModel):
+    projectConfigId: str
+    genCodeSuffix: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

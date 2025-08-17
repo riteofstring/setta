@@ -406,6 +406,8 @@ export const RouteEnum = {
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
   TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
   SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
+  SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7646,6 +7648,36 @@ export function createSetCallableRequest(
   options: Partial<SetCallableRequest> = {},
 ): SetCallableRequest {
   return SetCallableRequestSchema.parse(options);
+}
+
+export const SetGenCodePrefixRequestSchema = z.object({
+  projectConfigId: z.string(),
+  genCodePrefix: z.string(),
+});
+
+export type SetGenCodePrefixRequest = z.infer<
+  typeof SetGenCodePrefixRequestSchema
+>;
+
+export function createSetGenCodePrefixRequest(
+  options: Partial<SetGenCodePrefixRequest> = {},
+): SetGenCodePrefixRequest {
+  return SetGenCodePrefixRequestSchema.parse(options);
+}
+
+export const SetGenCodeSuffixRequestSchema = z.object({
+  projectConfigId: z.string(),
+  genCodeSuffix: z.string(),
+});
+
+export type SetGenCodeSuffixRequest = z.infer<
+  typeof SetGenCodeSuffixRequestSchema
+>;
+
+export function createSetGenCodeSuffixRequest(
+  options: Partial<SetGenCodeSuffixRequest> = {},
+): SetGenCodeSuffixRequest {
+  return SetGenCodeSuffixRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

@@ -41,6 +41,8 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetGenCodePrefixRequest,
+    SetGenCodeSuffixRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
@@ -396,11 +398,17 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method
-    async def set_gen_code_prefix(self, projectConfigId: str, value: str):
-        print("*************set_gen_code_prefix\n\n\n", flush=True)
+    async def set_gen_code_prefix(self, x: SetGenCodePrefixRequest):
         self.add_new_history_entry()
-        project_state = self.get_single_config_state(projectConfigId)
-        project_state.projectConfig.genCodePrefix = value
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.genCodePrefix = x.genCodePrefix
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_gen_code_suffix(self, x: SetGenCodeSuffixRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.genCodeSuffix = x.genCodeSuffix
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

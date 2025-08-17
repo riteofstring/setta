@@ -19,6 +19,8 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
+    SetGenCodePrefixRequest,
+    SetGenCodeSuffixRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleVariantJSONSourceRequest,
@@ -249,3 +251,17 @@ async def route_set_text_block_text(
     x: SetTextBlockTextRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).set_text_block_text(x)
+
+
+@router.post(Route.SET_GEN_CODE_PREFIX)
+async def route_set_gen_code_prefix(
+    x: SetGenCodePrefixRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_prefix(x)
+
+
+@router.post(Route.SET_GEN_CODE_SUFFIX)
+async def route_set_gen_code_suffix(
+    x: SetGenCodeSuffixRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_gen_code_suffix(x)

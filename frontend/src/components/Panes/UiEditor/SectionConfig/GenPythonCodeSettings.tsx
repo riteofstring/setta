@@ -4,13 +4,14 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import { useCallback, useEffect, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
+  route_set_gen_code_prefix,
+  route_set_gen_code_suffix,
 } from "utils/generatedEndpoints";
 import {
   CodeMirrorCompletion,
@@ -129,15 +130,15 @@ export function GenPythonCodeSettings() {
 }
 
 export function setGenCodePrefix(value: string) {
-  useProjectState.setState((state) => {
-    state.projectConfig.genCodePrefix = value;
+  route_set_gen_code_prefix({
+    projectConfigId: getCurrProjectConfigId(),
+    genCodePrefix: value,
   });
-  updateBackendProjectState();
 }
 
 export function setGenCodeSuffix(value: string) {
-  useProjectState.setState((state) => {
-    state.projectConfig.genCodeSuffix = value;
+  route_set_gen_code_suffix({
+    projectConfigId: getCurrProjectConfigId(),
+    genCodeSuffix: value,
   });
-  updateBackendProjectState();
 }

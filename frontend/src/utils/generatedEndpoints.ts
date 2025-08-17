@@ -402,3 +402,15 @@ export async function route_set_text_block_text(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockText", x);
 }
+
+export async function route_set_gen_code_prefix(
+  x: gt.SetGenCodePrefixRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setGenCodePrefix", x);
+}
+
+export async function route_set_gen_code_suffix(
+  x: gt.SetGenCodeSuffixRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setGenCodeSuffix", x);
+}
