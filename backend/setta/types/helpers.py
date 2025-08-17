@@ -40,7 +40,11 @@ from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
     create_section_impl,
 )
-from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.settings_state import (
+    SettingsState,
+    get_user_default_code_obj_from_settings,
+    get_user_default_section_from_settings,
+)
 from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
@@ -482,7 +486,7 @@ def create_section(
 ):
     impl = create_section_impl(  # type: ignore
         impl_type,  # type: ignore
-        get_user_default_section_from_settings(settings, impl_type),
+        get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
@@ -734,7 +738,8 @@ def change_param_impl(
         # selectedId will be the CodeObjType name
         type = CodeObjType[selectedId]
         impl = create_code_obj_impl(
-            type=type, defaults=get_user_default_code_obj_from_settings(settings, type)
+            type=type,  # type: ignore
+            defaults=get_user_default_code_obj_from_settings(settings, type),  # type: ignore
         )
         p.codeObjImpls[impl.id] = impl
 
@@ -760,14 +765,6 @@ def update_param_impl_config(
     for k, v in newConfig.items():
         setattr(impl, k, v)
     maybe_convert_code_obj_value(impl, impl, p.codeObjs[paramInfoId], variant)
-
-
-def get_user_default_code_obj_from_settings(settings: SettingsState, x: CodeObjType):
-    return getattr(settings, x[0].lower() + x[1:] + "CodeObjDefault")
-
-
-def get_user_default_section_from_settings(settings: SettingsState, x: SectionType):
-    return getattr(settings, x[0].lower() + x[1:] + "SectionDefault")
 
 
 def maybe_convert_code_obj_value(old_impl, new_impl, core, variant):
