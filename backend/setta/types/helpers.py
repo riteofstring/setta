@@ -1,9 +1,8 @@
 import copy
-from dataclasses import dataclass
 import math
 import re
 from pathlib import Path
-from typing import Literal, TypeVar, Union, assert_never
+from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
 from setta.types.code_obj_impls import (
@@ -32,26 +31,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
-    BrowserSectionImplArgs,
-    CallableSectionImplArgs,
-    ChartSectionImplArgs,
-    ChatSectionImplArgs,
     CodeCallableCodeObjImplArgsWithCallable,
-    CodeSectionImplArgs,
     CoreArgs,
-    DictRootSectionImplArgs,
-    DictSectionImplArgs,
-    DrawSectionImplArgs,
-    GenPythonCodeSectionImplArgs,
     GenPythonCodeSectionImplArgsWithCallable,
-    GlobalVariablesSectionImplArgs,
-    GroupSectionImplArgs,
-    IFrameSectionImplArgs,
-    ImageSectionImplArgs,
-    ListRootSectionImplArgs,
-    SocialSectionImplArgs,
-    TerminalSectionImplArgs,
-    TextBlockSectionImplArgs,
     TextParamCodeObjImplArgs,
 )
 from setta.types.generated.impl_creation_fns import (
@@ -63,25 +45,6 @@ from setta.types.generated.unions import (
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
     BaseParamCodeObjImplUnion,
-)
-from setta.types.generated.user_defaults import (
-    UserDefaultBrowserSectionImpl,
-    UserDefaultCallableSectionImpl,
-    UserDefaultChartSectionImpl,
-    UserDefaultChatSectionImpl,
-    UserDefaultCodeSectionImpl,
-    UserDefaultDictRootSectionImpl,
-    UserDefaultDictSectionImpl,
-    UserDefaultDrawSectionImpl,
-    UserDefaultGenPythonCodeSectionImpl,
-    UserDefaultGlobalVariablesSectionImpl,
-    UserDefaultGroupSectionImpl,
-    UserDefaultIFrameSectionImpl,
-    UserDefaultImageSectionImpl,
-    UserDefaultListRootSectionImpl,
-    UserDefaultSocialSectionImpl,
-    UserDefaultTerminalSectionImpl,
-    UserDefaultTextBlockSectionImpl,
 )
 from setta.types.impl_helpers import (
     update_variants,
@@ -125,130 +88,6 @@ GenericBaseSectionImplType = TypeVar(
 GenericBaseCodeObjImplType = TypeVar(
     "GenericBaseCodeObjImplType", bound=BaseCodeObjImpl
 )
-
-
-@dataclass
-class CallableSectionConfig:
-    type: Literal[SectionType.Callable]
-    overrides: CallableSectionImplArgs | None = None
-
-
-@dataclass
-class DictSectionConfig:
-    type: Literal[SectionType.Dict]
-    overrides: DictSectionImplArgs | None = None
-
-
-@dataclass
-class ListRootSectionConfig:
-    type: Literal[SectionType.ListRoot]
-    overrides: ListRootSectionImplArgs | None = None
-
-
-@dataclass
-class DictRootSectionConfig:
-    type: Literal[SectionType.DictRoot]
-    overrides: DictRootSectionImplArgs | None = None
-
-
-@dataclass
-class GroupSectionConfig:
-    type: Literal[SectionType.Group]
-    overrides: GroupSectionImplArgs | None = None
-
-
-@dataclass
-class ImageSectionConfig:
-    type: Literal[SectionType.Image]
-    overrides: ImageSectionImplArgs | None = None
-
-
-@dataclass
-class ChartSectionConfig:
-    type: Literal[SectionType.Chart]
-    overrides: ChartSectionImplArgs | None = None
-
-
-@dataclass
-class DrawSectionConfig:
-    type: Literal[SectionType.Draw]
-    overrides: DrawSectionImplArgs | None = None
-
-
-@dataclass
-class TextBlockSectionConfig:
-    type: Literal[SectionType.TextBlock]
-    overrides: TextBlockSectionImplArgs | None = None
-
-
-@dataclass
-class SocialSectionConfig:
-    type: Literal[SectionType.Social]
-    overrides: SocialSectionImplArgs | None = None
-
-
-@dataclass
-class GlobalVariablesSectionConfig:
-    type: Literal[SectionType.GlobalVariables]
-    overrides: GlobalVariablesSectionImplArgs | None = None
-
-
-@dataclass
-class CodeSectionConfig:
-    type: Literal[SectionType.Code]
-    overrides: CodeSectionImplArgs | None = None
-
-
-@dataclass
-class GenPythonCodeSectionConfig:
-    type: Literal[SectionType.GenPythonCode]
-    overrides: GenPythonCodeSectionImplArgs | None = None
-
-
-@dataclass
-class TerminalSectionConfig:
-    type: Literal[SectionType.Terminal]
-    overrides: TerminalSectionImplArgs | None = None
-
-
-@dataclass
-class IFrameSectionConfig:
-    type: Literal[SectionType.IFrame]
-    overrides: IFrameSectionImplArgs | None = None
-
-
-@dataclass
-class ChatSectionConfig:
-    type: Literal[SectionType.Chat]
-    overrides: ChatSectionImplArgs | None = None
-
-
-@dataclass
-class BrowserSectionConfig:
-    type: Literal[SectionType.Browser]
-    overrides: BrowserSectionImplArgs | None = None
-
-
-# Union of all config types
-SectionConfig = Union[
-    CallableSectionConfig,
-    DictSectionConfig,
-    ListRootSectionConfig,
-    DictRootSectionConfig,
-    GroupSectionConfig,
-    ImageSectionConfig,
-    ChartSectionConfig,
-    DrawSectionConfig,
-    TextBlockSectionConfig,
-    SocialSectionConfig,
-    GlobalVariablesSectionConfig,
-    CodeSectionConfig,
-    GenPythonCodeSectionConfig,
-    TerminalSectionConfig,
-    IFrameSectionConfig,
-    ChatSectionConfig,
-    BrowserSectionConfig,
-]
 
 
 def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
@@ -633,126 +472,21 @@ def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newNam
     p.projectConfigs[projectConfigId].name = newName
 
 
-def create_section_impl_with_init_obj(settings: SettingsState, config: SectionConfig):
-    """
-    Type-safe wrapper for create_section_impl.
-    The config object ensures that type, defaults, and overrides are correctly matched.
-    """
-    match config.type:
-        case SectionType.Callable:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Dict:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.ListRoot:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.DictRoot:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Group:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Image:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Chart:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Draw:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.TextBlock:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Social:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.GlobalVariables:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Code:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.GenPythonCode:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Terminal:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.IFrame:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Chat:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-        case SectionType.Browser:
-            return create_section_impl(
-                config.type,
-                get_user_default_section_from_settings(settings, config.type),
-                config.overrides,
-            )
-
-
 def create_section(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
-    impl_init_obj: SectionConfig,
+    impl_type: SectionType,
+    impl_overrides: dict | None = None,
     core_args: CoreArgs | None = None,
 ):
-    impl = create_section_impl_with_init_obj(settings, impl_init_obj)
+    impl = create_section_impl(
+        impl_type,
+        get_user_default_section_from_settings(settings, impl_type),
+        impl_overrides,
+    )
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {
-        "name": get_default_section_core_name(impl.type),
+        "name": get_default_section_core_name(impl_type),
         **compute_initial_default_variant(variant),
     }
     if core_args:
