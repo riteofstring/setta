@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
+    ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
@@ -329,3 +330,10 @@ async def route_set_default_section_variant(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_default_section_variant(x)
+
+
+@router.post(Route.TOGGLE_VARIANT_FROZEN)
+async def route_toggle_variant_frozen(
+    x: ToggleVariantFrozenRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).toggle_variant_frozen(x)

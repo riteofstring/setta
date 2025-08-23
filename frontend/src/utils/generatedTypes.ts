@@ -416,6 +416,7 @@ export const RouteEnum = {
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7843,6 +7844,21 @@ export function createTogglePositionLockRequest(
   options: Partial<TogglePositionLockRequest> = {},
 ): TogglePositionLockRequest {
   return TogglePositionLockRequestSchema.parse(options);
+}
+
+export const ToggleVariantFrozenRequestSchema = z.object({
+  projectConfigId: z.string(),
+  variantId: z.string(),
+});
+
+export type ToggleVariantFrozenRequest = z.infer<
+  typeof ToggleVariantFrozenRequestSchema
+>;
+
+export function createToggleVariantFrozenRequest(
+  options: Partial<ToggleVariantFrozenRequest> = {},
+): ToggleVariantFrozenRequest {
+  return ToggleVariantFrozenRequestSchema.parse(options);
 }
 
 export const ToggleVariantJSONSourceRequestSchema = z.object({

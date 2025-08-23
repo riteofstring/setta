@@ -19,6 +19,7 @@ import {
   route_delete_section_variant_or_ask,
   route_set_default_section_variant,
   route_set_section_variant,
+  route_toggle_variant_frozen,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
 import { isBaseDictSectionImpl } from "utils/generatedTypes";
@@ -196,7 +197,10 @@ function OneVariant({
             useProjectState.setState((x) => {
               getSectionVariant(x, id).isFrozen = !isFrozen;
             });
-            updateBackendProjectState();
+            route_toggle_variant_frozen({
+              projectConfigId: getCurrProjectConfigId(),
+              variantId: id,
+            });
           }}
         >
           <FaRegSnowflake />

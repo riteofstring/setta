@@ -53,6 +53,7 @@ from setta.project_state.project_manager_types import (
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
+    ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
@@ -87,6 +88,7 @@ from setta.types.helpers import (
     set_text_block_text,
     toggle_minimized,
     toggle_position_lock,
+    toggle_variant_frozen,
     toggle_variant_json_source,
     update_param_impl_config,
 )
@@ -747,6 +749,12 @@ class BaseProjectManager(ABC):
     async def toggle_variant_json_source(self, x: ToggleVariantJSONSourceRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_variant_json_source(project_state, x.sectionId, x.variantId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_variant_frozen(self, x: ToggleVariantFrozenRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_variant_frozen(project_state, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

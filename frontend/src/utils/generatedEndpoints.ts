@@ -462,3 +462,9 @@ export async function route_set_default_section_variant(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setDefaultSectionVariant", x);
 }
+
+export async function route_toggle_variant_frozen(
+  x: gt.ToggleVariantFrozenRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleVariantFrozen", x);
+}

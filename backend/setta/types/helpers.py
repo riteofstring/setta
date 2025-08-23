@@ -1023,6 +1023,10 @@ def toggle_variant_json_source(
     )
 
 
+def toggle_variant_frozen(p: ProjectStateSingleConfig, variantId: str):
+    p.sectionVariants[variantId].isFrozen = not p.sectionVariants[variantId].isFrozen
+
+
 def compute_initial_default_variant(variant: Variant):
     return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
 
