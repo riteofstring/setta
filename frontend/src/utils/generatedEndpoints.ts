@@ -432,3 +432,9 @@ export async function route_toggle_position_lock(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/togglePositionLock", x);
 }
+
+export async function route_set_code(
+  x: gt.SetCodeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setCode", x);
+}

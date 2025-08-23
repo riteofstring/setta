@@ -42,6 +42,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
+    SetCodeRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -73,6 +74,7 @@ from setta.types.helpers import (
     maybe_update_gen_python_code_section,
     # create_sections,
     merge_single_config_into_backend,
+    set_code,
     set_param_entered_value,
     set_project_config_name,
     set_text_block_text,
@@ -437,6 +439,12 @@ class BaseProjectManager(ABC):
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_code(self, x: SetCodeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_code(project_state, x.sectionId, x.code)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

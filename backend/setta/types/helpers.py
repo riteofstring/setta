@@ -25,6 +25,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgs,
     BaseCodeObjImplArgsWithCallable,
+    BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
     BaseParentSectionImplArgsWithCallable,
@@ -1055,6 +1056,14 @@ def toggle_position_lock(p: ProjectStateSingleConfig, sectionId: str):
         p,
         sectionId,
         BaseSectionImplArgsWithCallable(positionAndSizeLocked=lambda curr: not curr),
+    )
+
+
+def set_code(p: ProjectStateSingleConfig, sectionId: str, code: str):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseCodeSectionImplArgsWithCallable(code=code),
     )
 
 

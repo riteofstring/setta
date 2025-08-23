@@ -20,6 +20,7 @@ from setta.project_state.project_manager_types import (
     RedoRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
+    SetCodeRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -289,3 +290,8 @@ async def route_toggle_position_lock(
     x: TogglePositionLockRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_position_lock(x)
+
+
+@router.post(Route.SET_CODE)
+async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_code(x)

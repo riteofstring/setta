@@ -411,6 +411,7 @@ export const RouteEnum = {
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
+  SET_CODE: "/setCode",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7665,6 +7666,20 @@ export function createSetCodeObjNameRequest(
   options: Partial<SetCodeObjNameRequest> = {},
 ): SetCodeObjNameRequest {
   return SetCodeObjNameRequestSchema.parse(options);
+}
+
+export const SetCodeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  code: z.string(),
+});
+
+export type SetCodeRequest = z.infer<typeof SetCodeRequestSchema>;
+
+export function createSetCodeRequest(
+  options: Partial<SetCodeRequest> = {},
+): SetCodeRequest {
+  return SetCodeRequestSchema.parse(options);
 }
 
 export const SetGenCodePrefixRequestSchema = z.object({

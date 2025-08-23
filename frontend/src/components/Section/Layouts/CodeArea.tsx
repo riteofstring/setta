@@ -6,12 +6,10 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
 import _ from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useResizeEvent } from "state/definitions";
 import {
@@ -19,7 +17,10 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { route_code_area_completion } from "utils/generatedEndpoints";
+import {
+  route_code_area_completion,
+  route_set_code,
+} from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _CodeArea({ sectionId }) {
@@ -298,12 +299,13 @@ export function codeAreaTabOnEnterKeyHandlers(wrapperRef) {
   return { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv };
 }
 
-const debouncedSetCode = _.debounce((sectionId, value) => {
-  useProjectState.setState((x) => {
-    setEffectiveSectionImplValue<"CodeSection">(x, sectionId, { code: value });
+const debouncedSetCode = _.debounce((sectionId, code) => {
+  route_set_code({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+    code,
   });
-  updateBackendProjectState();
-}, 50);
+}, 200);
 
 function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {

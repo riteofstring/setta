@@ -90,3 +90,4 @@ class Route(str, Enum):
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     TOGGLE_POSITION_LOCK = "/togglePositionLock"
+    SET_CODE = "/setCode"
