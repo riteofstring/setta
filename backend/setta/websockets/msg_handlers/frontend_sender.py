@@ -8,7 +8,6 @@ from setta.types.lsp import (
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.websocket import (
-    ProjectStateSingleConfigWithModCount,
     WebsocketConnectionType,
     WebsocketMsgArtifact,
     WebsocketMsgLLMStreamingResponse,
@@ -71,15 +70,9 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             messageId,
         )
 
-    async def broadcast_project_state(
-        self, projectState: ProjectStateSingleConfig, modCount: int
-    ):
+    async def broadcast_project_state(self, projectState: ProjectStateSingleConfig):
         await self.websocket_manager.broadcast(
-            WebsocketMsgUpdateFrontendProjectState(
-                content=ProjectStateSingleConfigWithModCount(
-                    projectState=projectState, modCount=modCount
-                )
-            ),
+            WebsocketMsgUpdateFrontendProjectState(content=projectState),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 

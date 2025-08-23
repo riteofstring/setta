@@ -1,5 +1,3 @@
-from dataclasses import dataclass
-
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
@@ -114,7 +112,6 @@ class UpdateFromFrontendRequest(BaseModel):
     messageId: str | None = None
     projectState: ProjectStateSingleConfig
     requestRenameRefactor: bool = False
-    modCount: int
 
 
 class GetLatestProjectStateRequest(BaseModel):
@@ -232,9 +229,3 @@ class SetSectionVariantNameRequest(BaseModel):
 class SetSectionSizesRequest(BaseModel):
     projectConfigId: str
     sectionSizes: dict[str, SectionSize]
-
-
-@dataclass
-class ProjectStateSingleConfigWithModCount:
-    projectState: ProjectStateSingleConfig
-    modCount: int

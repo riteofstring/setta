@@ -4,9 +4,6 @@ from typing import Any, Literal
 from fastapi import WebSocket
 from pydantic import BaseModel, ConfigDict
 
-from setta.project_state.project_manager_types import (
-    ProjectStateSingleConfigWithModCount,
-)
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
@@ -15,6 +12,7 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
+from setta.types.project_state import ProjectStateSingleConfig
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -118,7 +116,7 @@ class WebsocketMsgReturnRenameRefactorResults(FrontendWebsocketMsg):
 
 
 class WebsocketMsgUpdateFrontendProjectState(FrontendWebsocketMsg):
-    content: ProjectStateSingleConfigWithModCount
+    content: ProjectStateSingleConfig
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateFrontendProjectState] = (
         WebsocketMsgTypeForFrontend.UpdateFrontendProjectState
     )

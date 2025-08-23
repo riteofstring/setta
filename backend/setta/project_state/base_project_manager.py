@@ -38,7 +38,6 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
-    ProjectStateSingleConfigWithModCount,
     RedoRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
@@ -137,7 +136,6 @@ class BaseProjectManager(ABC):
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
-        self.modCount = 0
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -248,9 +246,7 @@ class BaseProjectManager(ABC):
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
         if projectState.projectConfig.id not in self.gen_code:
             await self.update(projectState)
-        return ProjectStateSingleConfigWithModCount(
-            projectState=projectState, modCount=self.modCount
-        )
+        return projectState
 
     @enqueue_method
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayout):
@@ -342,7 +338,6 @@ class BaseProjectManager(ABC):
                 self.code_dict[projectConfigId][sectionId] = section_code
 
         self.delete_unused_files(project_temp_folder)
-        self.modCount += 1
         self.project_state_backend = self.get_new_project_state_backend(projectState)
         if updateFileWatcher:
             self.maybe_watch_json_source_files(projectState)
@@ -805,7 +800,7 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         await self.websocket_msg_handler.broadcast_project_state(
-            project_state, self.modCount
+            project_state,
         )
 
     @property
@@ -844,9 +839,7 @@ class BaseProjectManager(ABC):
         projectState = convert_backend_to_single_config(
             self.project_state_backend, x.projectConfigId
         )
-        return ProjectStateSingleConfigWithModCount(
-            projectState=projectState, modCount=self.modCount
-        )
+        return projectState
 
     @enqueue_method
     async def autosave(self):

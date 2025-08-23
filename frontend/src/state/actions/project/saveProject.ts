@@ -82,8 +82,7 @@ export function getProjectData({
 export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
   route_save_project({
-    projectState: await getProjectDataForSaving(),
-    modCount: useProjectState.getState().modCount,
+    ...(await getProjectDataForSaving()),
   });
 }
 

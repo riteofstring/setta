@@ -76,7 +76,6 @@ export type ZustandProjectState = {
   codeObjVariants: ProjectStateSingleConfig["codeObjVariants"];
   activeIds: Array<string>;
   singletonSections: ProjectStateSingleConfig["singletonSections"];
-  modCount: number;
 };
 
 export const NULL_PROJECT_CONFIG_ID = "null";
@@ -97,12 +96,13 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           requestRenameRefactor: false,
           activeIds: [],
-          modCount: 0,
         })),
       ),
     ),
   ),
 );
+
+// export const usePendingOperations = withProjectState(withResetFn(() => ({})));
 
 export const useHomePageSearch = createWithEqualityFn(
   withResetFn(() => ({

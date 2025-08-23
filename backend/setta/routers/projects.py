@@ -12,7 +12,6 @@ from setta.database.db.projects.saveAs import (
     save_as_new_project_config,
 )
 from setta.project_state.project_manager_types import (
-    ProjectStateSingleConfigWithModCount,
     UpdateFromFrontendRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -23,7 +22,7 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import ProjectMetadata
+from setta.types.project_state import ProjectMetadata, ProjectStateSingleConfig
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -86,7 +85,7 @@ def route_load_all_project_metadata(state: AppStateFromRequest) -> ProjectMetada
 @router.post(Route.LOAD_PROJECT_CONFIG)
 async def route_load_project_config(
     x: ProjectLoadRequest, state: AppStateFromRequest
-) -> ProjectStateSingleConfigWithModCount:
+) -> ProjectStateSingleConfig:
     try:
         projectConfigId = state.project_manager_switcher.get_config_id_by_name(
             x.projectConfigName
@@ -109,15 +108,13 @@ async def route_load_project_config(
 
 @router.post(Route.SAVE_PROJECT)
 async def route_save_project(
-    x: ProjectStateSingleConfigWithModCount,
+    x: ProjectStateSingleConfig,
     background_tasks: BackgroundTasks,
     state: AppStateFromRequest,
 ):
     try:
-        req = UpdateFromFrontendRequest(
-            projectState=x.projectState, modCount=x.modCount
-        )
-        project_manager = state.project_manager_switcher.get(x.projectState)
+        req = UpdateFromFrontendRequest(projectState=x)
+        project_manager = state.project_manager_switcher.get(x)
         # TODO: pending operations should finish first.
         # This endpoint shouldn't just take frontend state as it could be incorrect.
         # update_success = await project_manager.update_from_frontend(
@@ -126,19 +123,19 @@ async def route_save_project(
         update_success = False
         if not update_success:
             notification = SettaNotification(
-                projectConfigId=x.projectState.projectConfig.id,
+                projectConfigId=x.projectConfig.id,
                 message="Save failed due to update conflict",
             )
         else:
             project_manager.save()
             notification = SettaNotification(
-                projectConfigId=x.projectState.projectConfig.id,
+                projectConfigId=x.projectConfig.id,
                 message="Saved!",
             )
 
     except Exception:
         notification = SettaNotification(
-            projectConfigId=x.projectState.projectConfig.id,
+            projectConfigId=x.projectConfig.id,
             message="Failed to save",
             type=SettaNotificationType.error,
         )

@@ -3966,24 +3966,9 @@ export function createProjectStateSingleConfig(
   return ProjectStateSingleConfigSchema.parse(options);
 }
 
-export const ProjectStateSingleConfigWithModCountSchema = z.object({
-  projectState: ProjectStateSingleConfigSchema,
-  modCount: z.int(),
-});
-
-export type ProjectStateSingleConfigWithModCount = z.infer<
-  typeof ProjectStateSingleConfigWithModCountSchema
->;
-
-export function createProjectStateSingleConfigWithModCount(
-  options: Partial<ProjectStateSingleConfigWithModCount> = {},
-): ProjectStateSingleConfigWithModCount {
-  return ProjectStateSingleConfigWithModCountSchema.parse(options);
-}
-
 export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigWithModCountSchema,
+  content: ProjectStateSingleConfigSchema,
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),
@@ -7936,23 +7921,6 @@ export function createUndoRequest(
   return UndoRequestSchema.parse(options);
 }
 
-export const UpdateFromFrontendRequestSchema = z.object({
-  messageId: z.union([z.string(), z.null()]).default(null),
-  projectState: ProjectStateSingleConfigSchema,
-  requestRenameRefactor: z.boolean().default(false),
-  modCount: z.int(),
-});
-
-export type UpdateFromFrontendRequest = z.infer<
-  typeof UpdateFromFrontendRequestSchema
->;
-
-export function createUpdateFromFrontendRequest(
-  options: Partial<UpdateFromFrontendRequest> = {},
-): UpdateFromFrontendRequest {
-  return UpdateFromFrontendRequestSchema.parse(options);
-}
-
 export const UpdateParamImplConfigRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
@@ -8124,6 +8092,22 @@ export function createSetProjectConfigNameRequest(
   options: Partial<SetProjectConfigNameRequest> = {},
 ): SetProjectConfigNameRequest {
   return SetProjectConfigNameRequestSchema.parse(options);
+}
+
+export const UpdateFromFrontendRequestSchema = z.object({
+  messageId: z.union([z.string(), z.null()]).default(null),
+  projectState: ProjectStateSingleConfigSchema,
+  requestRenameRefactor: z.boolean().default(false),
+});
+
+export type UpdateFromFrontendRequest = z.infer<
+  typeof UpdateFromFrontendRequestSchema
+>;
+
+export function createUpdateFromFrontendRequest(
+  options: Partial<UpdateFromFrontendRequest> = {},
+): UpdateFromFrontendRequest {
+  return UpdateFromFrontendRequestSchema.parse(options);
 }
 
 export const CreateFileRequestSchema = z.object({
