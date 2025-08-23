@@ -12,6 +12,7 @@ import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { route_set_text_block_text } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 
 export function MarkdownEditorInPane({ sectionId }) {
   const wrapperRef = useRef(); // used by onTabOnEnterKeyHandlers
@@ -48,6 +49,7 @@ const _MarkdownEditorCore = React.forwardRef(
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
         route_set_text_block_text({
+          messageId: createNewId(),
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           text: v,

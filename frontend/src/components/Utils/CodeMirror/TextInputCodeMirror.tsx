@@ -6,6 +6,7 @@ import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { res200 } from "utils/endpointUtils";
 import { route_text_field_completion } from "utils/generatedEndpoints";
+import { createNewId } from "utils/idNameCreation";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
@@ -194,6 +195,7 @@ function getTextFieldCompletionsFn(
     const projectConfigId = getCurrProjectConfigId();
 
     const res = await route_text_field_completion({
+      messageId: createNewId(),
       projectConfigId,
       sectionId,
       paramInfoId,

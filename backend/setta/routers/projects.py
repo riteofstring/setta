@@ -113,7 +113,6 @@ async def route_save_project(
     state: AppStateFromRequest,
 ):
     try:
-        req = UpdateFromFrontendRequest(projectState=x)
         project_manager = state.project_manager_switcher.get(x)
         # TODO: pending operations should finish first.
         # This endpoint shouldn't just take frontend state as it could be incorrect.

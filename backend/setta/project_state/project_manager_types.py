@@ -1,25 +1,29 @@
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
-from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
+from setta.types.project_state import TopLevelSectionLayout
 from setta.types.section_impls import SectionSize, SectionType
 from setta.types.simplified_states import Position
 
 
-class ClearTextFieldCompletionRequest(BaseModel):
+class ProjectManagerRequest(BaseModel):
+    messageId: str
+
+
+class ClearTextFieldCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str | None
 
 
-class SetCallableRequest(BaseModel):
+class SetCallableRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     callableName: str
     refetchParams: bool
 
 
-class TextFieldCompletionRequest(BaseModel):
+class TextFieldCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str | None

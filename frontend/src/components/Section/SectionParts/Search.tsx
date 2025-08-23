@@ -19,6 +19,7 @@ import {
   route_set_callable,
 } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import { focusOnSection } from "utils/tabbingLogic";
 
 export function SectionSearch({
@@ -119,6 +120,7 @@ function SectionSearchCore({
       setValueAndCheckConsistency(codeInfoName, true);
       const projectConfigId = getCurrProjectConfigId();
       route_clear_text_field_completion({
+        messageId: createNewId(),
         projectConfigId,
         sectionId,
         paramInfoId: null,
@@ -210,6 +212,7 @@ export async function setCallable(
   const setToNotWaiting = setParametersRequestWaitingForLSP(sectionId);
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_set_callable({
+    messageId: createNewId(),
     projectConfigId,
     sectionId,
     callableName,

@@ -563,6 +563,7 @@ export function getCurrentSectionConfigs(
 
 export function deleteAllActiveSections() {
   route_delete_sections({
+    messageId: createNewId(),
     projectConfigId: getCurrProjectConfigId(),
     sectionIds: useProjectState.getState().activeIds,
   });
@@ -592,6 +593,7 @@ export function createTopLevelSectionLayoutDict(
 export const debounced_route_set_top_level_section_layout = _.debounce(
   () =>
     route_set_top_level_section_layout({
+      messageId: createNewId(),
       projectConfigId: getCurrProjectConfigId(),
       topLevelSections: createTopLevelSectionLayoutDict(
         useProjectState.getState().sections,

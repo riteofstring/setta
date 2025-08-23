@@ -22,6 +22,7 @@ import {
   route_set_code,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 
 function _CodeArea({ sectionId }) {
   const language = useProjectState((x) => {
@@ -311,6 +312,7 @@ function getPythonCodeAreaCompletionsFn(sectionId) {
   const fn = async (fullText: string, position: number) => {
     const projectConfigId = getCurrProjectConfigId();
     const res = await route_code_area_completion({
+      messageId: createNewId(),
       projectConfigId,
       sectionId,
       fullText,
