@@ -26,6 +26,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
     SetSectionParamFilterRequest,
+    SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
@@ -337,3 +338,12 @@ async def route_toggle_variant_frozen(
     x: ToggleVariantFrozenRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_variant_frozen(x)
+
+
+@router.post(Route.SET_SECTION_VARIANT_NAME)
+async def route_set_section_variant_name(
+    x: SetSectionVariantNameRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_section_variant_name(x)

@@ -224,6 +224,12 @@ class ToggleVariantFrozenRequest(BaseModel):
     variantId: str
 
 
+class SetSectionVariantNameRequest(BaseModel):
+    projectConfigId: str
+    variantId: str
+    name: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

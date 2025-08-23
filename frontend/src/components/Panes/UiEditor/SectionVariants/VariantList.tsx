@@ -4,7 +4,6 @@ import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { openDeleteJSONSourceFileModal } from "state/actions/modal";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrProjectConfigId,
   getSectionCore,
@@ -19,6 +18,7 @@ import {
   route_delete_section_variant_or_ask,
   route_set_default_section_variant,
   route_set_section_variant,
+  route_set_section_variant_name,
   route_toggle_variant_frozen,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
@@ -244,7 +244,11 @@ function OneVariantEditing({
     useProjectState.setState((x) => {
       getSectionVariant(x, id).name = v;
     });
-    updateBackendProjectState();
+    route_set_section_variant_name({
+      projectConfigId: getCurrProjectConfigId(),
+      variantId: id,
+      name: v,
+    });
   }
 
   function conditionToSetName(v: string) {

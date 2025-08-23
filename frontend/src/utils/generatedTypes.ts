@@ -416,6 +416,7 @@ export const RouteEnum = {
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  SET_SECTION_VARIANT_NAME: "setSectionVariantName",
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
 } as const;
 
@@ -7764,6 +7765,22 @@ export function createSetSectionParamFilterRequest(
   options: Partial<SetSectionParamFilterRequest> = {},
 ): SetSectionParamFilterRequest {
   return SetSectionParamFilterRequestSchema.parse(options);
+}
+
+export const SetSectionVariantNameRequestSchema = z.object({
+  projectConfigId: z.string(),
+  variantId: z.string(),
+  name: z.string(),
+});
+
+export type SetSectionVariantNameRequest = z.infer<
+  typeof SetSectionVariantNameRequestSchema
+>;
+
+export function createSetSectionVariantNameRequest(
+  options: Partial<SetSectionVariantNameRequest> = {},
+): SetSectionVariantNameRequest {
+  return SetSectionVariantNameRequestSchema.parse(options);
 }
 
 export const SetSectionVariantRequestSchema = z.object({

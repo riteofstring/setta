@@ -468,3 +468,9 @@ export async function route_toggle_variant_frozen(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleVariantFrozen", x);
 }
+
+export async function route_set_section_variant_name(
+  x: gt.SetSectionVariantNameRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("setSectionVariantName", x);
+}

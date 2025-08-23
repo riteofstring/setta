@@ -1097,6 +1097,10 @@ def set_default_section_variant(
     p.sections[sectionId].defaultVariant = variantId
 
 
+def set_section_variant_name(p: ProjectStateSingleConfig, variantId: str, name: str):
+    p.sectionVariants[variantId].name = name
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {
