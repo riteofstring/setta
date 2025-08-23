@@ -77,9 +77,7 @@ class Route(str, Enum):
     REDO = "/redo"
     UPDATE_FROM_FRONTEND = "/updateFromFrontend"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
-    UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT = (
-        "/updateFromFrontendTopLevelSectionLayout"
-    )
+    SET_TOP_LEVEL_SECTION_LAYOUT = "/setTopLevelSectionLayout"
     ADD_KWARG = "/addKwarg"
     DELETE_KWARG = "/deleteKwarg"
     DELETE_SECTION_VARIANT_OR_ASK = "/deleteSectionVariantOrAsk"
@@ -97,3 +95,4 @@ class Route(str, Enum):
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"
     SET_SECTION_VARIANT_NAME = "setSectionVariantName"
     TOGGLE_VARIANT_FROZEN = "/toggleVariantFrozen"
+    SET_TOP_LEVEL_SECTION_LAYOUT

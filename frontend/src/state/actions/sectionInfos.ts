@@ -9,7 +9,7 @@ import {
 } from "state/definitions";
 import {
   route_delete_sections,
-  route_update_from_frontend_top_level_section_layout,
+  route_set_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
   BaseCodeObjImplUnion,
@@ -590,19 +590,17 @@ export function createTopLevelSectionLayoutDict(
   return topLevelSections;
 }
 
-export const debounced_route_update_from_frontend_top_level_section_layout =
-  _.debounce(
-    () =>
-      route_update_from_frontend_top_level_section_layout({
-        projectConfigId: getCurrProjectConfigId(),
-        topLevelSections: createTopLevelSectionLayoutDict(
-          useProjectState.getState().sections,
-          useNodeInternals.getState().x,
-        ),
-        modCount: useProjectState.getState().modCount,
-      }),
-    500,
-  );
+export const debounced_route_set_top_level_section_layout = _.debounce(
+  () =>
+    route_set_top_level_section_layout({
+      projectConfigId: getCurrProjectConfigId(),
+      topLevelSections: createTopLevelSectionLayoutDict(
+        useProjectState.getState().sections,
+        useNodeInternals.getState().x,
+      ),
+    }),
+  500,
+);
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;

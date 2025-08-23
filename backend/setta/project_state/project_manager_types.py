@@ -121,10 +121,9 @@ class GetLatestProjectStateRequest(BaseModel):
     projectConfigId: str
 
 
-class UpdateFromFrontendTopLevelSectionLayout(BaseModel):
+class SetTopLevelSectionLayout(BaseModel):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]
-    modCount: int
 
 
 class AddKwargRequest(BaseModel):

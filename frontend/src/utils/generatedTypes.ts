@@ -399,8 +399,7 @@ export const RouteEnum = {
   REDO: "/redo",
   UPDATE_FROM_FRONTEND: "/updateFromFrontend",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
-  UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT:
-    "/updateFromFrontendTopLevelSectionLayout",
+  SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
   ADD_KWARG: "/addKwarg",
   DELETE_KWARG: "/deleteKwarg",
   DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
@@ -7815,6 +7814,21 @@ export function createSetTextBlockTextRequest(
   return SetTextBlockTextRequestSchema.parse(options);
 }
 
+export const SetTopLevelSectionLayoutSchema = z.object({
+  projectConfigId: z.string(),
+  topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
+});
+
+export type SetTopLevelSectionLayout = z.infer<
+  typeof SetTopLevelSectionLayoutSchema
+>;
+
+export function createSetTopLevelSectionLayout(
+  options: Partial<SetTopLevelSectionLayout> = {},
+): SetTopLevelSectionLayout {
+  return SetTopLevelSectionLayoutSchema.parse(options);
+}
+
 export const TextFieldCompletionRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
@@ -7922,22 +7936,6 @@ export function createUpdateFromFrontendRequest(
   options: Partial<UpdateFromFrontendRequest> = {},
 ): UpdateFromFrontendRequest {
   return UpdateFromFrontendRequestSchema.parse(options);
-}
-
-export const UpdateFromFrontendTopLevelSectionLayoutSchema = z.object({
-  projectConfigId: z.string(),
-  topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
-  modCount: z.int(),
-});
-
-export type UpdateFromFrontendTopLevelSectionLayout = z.infer<
-  typeof UpdateFromFrontendTopLevelSectionLayoutSchema
->;
-
-export function createUpdateFromFrontendTopLevelSectionLayout(
-  options: Partial<UpdateFromFrontendTopLevelSectionLayout> = {},
-): UpdateFromFrontendTopLevelSectionLayout {
-  return UpdateFromFrontendTopLevelSectionLayoutSchema.parse(options);
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({

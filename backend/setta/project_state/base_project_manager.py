@@ -51,6 +51,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
+    SetTopLevelSectionLayout,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -58,7 +59,6 @@ from setta.project_state.project_manager_types import (
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
-    UpdateFromFrontendTopLevelSectionLayout,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -270,11 +270,7 @@ class BaseProjectManager(ABC):
         return matching
 
     @enqueue_method
-    async def update_from_frontend_top_level_section_layout(
-        self, x: UpdateFromFrontendTopLevelSectionLayout
-    ):
-        if x.modCount != self.modCount:
-            return
+    async def set_top_level_section_layout(self, x: SetTopLevelSectionLayout):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections

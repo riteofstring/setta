@@ -29,6 +29,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
+    SetTopLevelSectionLayout,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -36,7 +37,6 @@ from setta.project_state.project_manager_types import (
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
-    UpdateFromFrontendTopLevelSectionLayout,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -208,13 +208,13 @@ async def route_get_latest_project_state(
     ).get_latest_project_state(x)
 
 
-@router.post(Route.UPDATE_FROM_FRONTEND_TOP_LEVEL_SECTION_LAYOUT)
-async def route_update_from_frontend_top_level_section_layout(
-    x: UpdateFromFrontendTopLevelSectionLayout, state: AppStateFromRequest
+@router.post(Route.SET_TOP_LEVEL_SECTION_LAYOUT)
+async def route_set_top_level_section_layout(
+    x: SetTopLevelSectionLayout, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(
         x.projectConfigId
-    ).update_from_frontend_top_level_section_layout(x)
+    ).set_top_level_section_layout(x)
 
 
 @router.post(Route.ADD_KWARG)
