@@ -213,6 +213,12 @@ class SetSectionVariantRequest(BaseModel):
     variantId: str
 
 
+class SetDefaultSectionVariantRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

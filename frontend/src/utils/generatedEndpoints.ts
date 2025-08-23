@@ -456,3 +456,9 @@ export async function route_set_section_variant(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionVariant", x);
 }
+
+export async function route_set_default_section_variant(
+  x: gt.SetDefaultSectionVariantRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setDefaultSectionVariant", x);
+}

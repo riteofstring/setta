@@ -17,6 +17,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
   route_delete_section_variant_or_ask,
+  route_set_default_section_variant,
   route_set_section_variant,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
@@ -175,7 +176,11 @@ function OneVariant({
             useProjectState.setState((x) => {
               getSectionCore(x, sectionId).defaultVariant = id;
             });
-            updateBackendProjectState();
+            route_set_default_section_variant({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              variantId: id,
+            });
           }}
         >
           <HiHome />

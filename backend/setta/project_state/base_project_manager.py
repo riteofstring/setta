@@ -43,6 +43,7 @@ from setta.project_state.project_manager_types import (
     SetCallableRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -78,6 +79,7 @@ from setta.types.helpers import (
     # create_sections,
     merge_single_config_into_backend,
     set_code,
+    set_default_section_variant,
     set_param_entered_value,
     set_project_config_name,
     set_section_param_filter,
@@ -469,6 +471,12 @@ class BaseProjectManager(ABC):
     async def set_section_variant(self, x: SetSectionVariantRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_variant(project_state, x.sectionId, x.variantId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_default_section_variant(self, x: SetDefaultSectionVariantRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_default_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

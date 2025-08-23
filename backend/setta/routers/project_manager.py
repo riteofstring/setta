@@ -21,6 +21,7 @@ from setta.project_state.project_manager_types import (
     SetCallableRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
+    SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
@@ -319,3 +320,12 @@ async def route_set_section_variant(
     x: SetSectionVariantRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).set_section_variant(x)
+
+
+@router.post(Route.SET_DEFAULT_SECTION_VARIANT)
+async def route_set_default_section_variant(
+    x: SetDefaultSectionVariantRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_default_section_variant(x)

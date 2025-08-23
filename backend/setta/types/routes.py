@@ -94,3 +94,4 @@ class Route(str, Enum):
     SET_CODE = "/setCode"
     SET_SECTION_PARAM_FILTER = "/setSectionParamFilter"
     SET_SECTION_VARIANT = "/setSectionVariant"
+    SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"

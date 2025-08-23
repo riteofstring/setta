@@ -415,6 +415,7 @@ export const RouteEnum = {
   SET_CODE: "/setCode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
   SET_SECTION_VARIANT: "/setSectionVariant",
+  SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7683,6 +7684,22 @@ export function createSetCodeRequest(
   options: Partial<SetCodeRequest> = {},
 ): SetCodeRequest {
   return SetCodeRequestSchema.parse(options);
+}
+
+export const SetDefaultSectionVariantRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  variantId: z.string(),
+});
+
+export type SetDefaultSectionVariantRequest = z.infer<
+  typeof SetDefaultSectionVariantRequestSchema
+>;
+
+export function createSetDefaultSectionVariantRequest(
+  options: Partial<SetDefaultSectionVariantRequest> = {},
+): SetDefaultSectionVariantRequest {
+  return SetDefaultSectionVariantRequestSchema.parse(options);
 }
 
 export const SetGenCodePrefixRequestSchema = z.object({
