@@ -24,6 +24,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
+    SetSectionParamFilterRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     TogglePositionLockRequest,
@@ -295,3 +296,12 @@ async def route_toggle_position_lock(
 @router.post(Route.SET_CODE)
 async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code(x)
+
+
+@router.post(Route.SET_SECTION_PARAM_FILTER)
+async def route_set_section_param_filter(
+    x: SetSectionParamFilterRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_section_param_filter(x)

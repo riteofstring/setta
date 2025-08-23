@@ -1,12 +1,15 @@
 import _ from "lodash";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
-import { route_add_kwarg, route_delete_kwarg } from "utils/generatedEndpoints";
+import {
+  route_add_kwarg,
+  route_delete_kwarg,
+  route_set_section_param_filter,
+} from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 
@@ -102,7 +105,7 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
         paramFilter: e.target.value,
       });
     });
-    updateBackendProjectState();
+    debouncedSetSectionParamFilter(sectionId, e.target.value);
   }
 
   return (
@@ -125,3 +128,11 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
     </search>
   );
 }
+
+const debouncedSetSectionParamFilter = _.debounce((sectionId, value) => {
+  route_set_section_param_filter({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+    value,
+  });
+}, 200);

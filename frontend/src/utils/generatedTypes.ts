@@ -412,6 +412,7 @@ export const RouteEnum = {
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
   SET_CODE: "/setCode",
+  SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7727,6 +7728,22 @@ export function createSetParamEnteredValueRequest(
   options: Partial<SetParamEnteredValueRequest> = {},
 ): SetParamEnteredValueRequest {
   return SetParamEnteredValueRequestSchema.parse(options);
+}
+
+export const SetSectionParamFilterRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  value: z.string(),
+});
+
+export type SetSectionParamFilterRequest = z.infer<
+  typeof SetSectionParamFilterRequestSchema
+>;
+
+export function createSetSectionParamFilterRequest(
+  options: Partial<SetSectionParamFilterRequest> = {},
+): SetSectionParamFilterRequest {
+  return SetSectionParamFilterRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

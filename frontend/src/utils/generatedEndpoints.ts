@@ -438,3 +438,9 @@ export async function route_set_code(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCode", x);
 }
+
+export async function route_set_section_param_filter(
+  x: gt.SetSectionParamFilterRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionParamFilter", x);
+}

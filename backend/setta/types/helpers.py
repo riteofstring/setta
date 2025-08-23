@@ -1067,6 +1067,14 @@ def set_code(p: ProjectStateSingleConfig, sectionId: str, code: str):
     )
 
 
+def set_section_param_filter(p: ProjectStateSingleConfig, sectionId: str, value: str):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(paramFilter=value),
+    )
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {
