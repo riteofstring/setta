@@ -428,13 +428,13 @@ export async function route_set_code_obj_name(
 }
 
 export async function route_toggle_position_lock(
-  x: gt.ToggleMinimizedRequest,
+  x: gt.TogglePositionLockRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/togglePositionLock", x);
 }
 
 export async function route_toggle_minimized(
-  x: gt.TogglePositionLockRequest,
+  x: gt.ToggleMinimizedRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleMinimized", x);
 }
@@ -449,4 +449,10 @@ export async function route_set_section_param_filter(
   x: gt.SetSectionParamFilterRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionParamFilter", x);
+}
+
+export async function route_set_section_variant(
+  x: gt.SetSectionVariantRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionVariant", x);
 }

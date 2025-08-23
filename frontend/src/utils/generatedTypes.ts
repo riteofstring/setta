@@ -414,6 +414,7 @@ export const RouteEnum = {
   TOGGLE_MINIMIZED: "/toggleMinimized",
   SET_CODE: "/setCode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
+  SET_SECTION_VARIANT: "/setSectionVariant",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7745,6 +7746,22 @@ export function createSetSectionParamFilterRequest(
   options: Partial<SetSectionParamFilterRequest> = {},
 ): SetSectionParamFilterRequest {
   return SetSectionParamFilterRequestSchema.parse(options);
+}
+
+export const SetSectionVariantRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  variantId: z.string(),
+});
+
+export type SetSectionVariantRequest = z.infer<
+  typeof SetSectionVariantRequestSchema
+>;
+
+export function createSetSectionVariantRequest(
+  options: Partial<SetSectionVariantRequest> = {},
+): SetSectionVariantRequest {
+  return SetSectionVariantRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

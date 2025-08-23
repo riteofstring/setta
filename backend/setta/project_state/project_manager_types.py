@@ -207,6 +207,12 @@ class SetSectionParamFilterRequest(BaseModel):
     value: str
 
 
+class SetSectionVariantRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

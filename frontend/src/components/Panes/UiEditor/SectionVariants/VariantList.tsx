@@ -17,6 +17,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
   route_delete_section_variant_or_ask,
+  route_set_section_variant,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
 import { isBaseDictSectionImpl } from "utils/generatedTypes";
@@ -145,7 +146,11 @@ function OneVariant({
         useProjectState.setState((state) => {
           state.projectConfig.sectionVariantMap[sectionId] = id;
         });
-        updateBackendProjectState();
+        route_set_section_variant({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          variantId: id,
+        });
       }}
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >

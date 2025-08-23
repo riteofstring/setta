@@ -25,6 +25,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
     SetSectionParamFilterRequest,
+    SetSectionVariantRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
@@ -311,3 +312,10 @@ async def route_set_section_param_filter(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_section_param_filter(x)
+
+
+@router.post(Route.SET_SECTION_VARIANT)
+async def route_set_section_variant(
+    x: SetSectionVariantRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_section_variant(x)

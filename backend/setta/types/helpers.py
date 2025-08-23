@@ -1083,6 +1083,10 @@ def set_section_param_filter(p: ProjectStateSingleConfig, sectionId: str, value:
     )
 
 
+def set_section_variant(p: ProjectStateSingleConfig, sectionId: str, variantId: str):
+    p.projectConfig.sectionVariantMap[sectionId] = variantId
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

@@ -47,6 +47,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
     SetSectionParamFilterRequest,
+    SetSectionVariantRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
@@ -80,6 +81,7 @@ from setta.types.helpers import (
     set_param_entered_value,
     set_project_config_name,
     set_section_param_filter,
+    set_section_variant,
     set_text_block_text,
     toggle_minimized,
     toggle_position_lock,
@@ -461,6 +463,12 @@ class BaseProjectManager(ABC):
     async def set_section_param_filter(self, x: SetSectionParamFilterRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_param_filter(project_state, x.sectionId, x.value)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_variant(self, x: SetSectionVariantRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_variant(project_state, x.sectionId, x.variantId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
