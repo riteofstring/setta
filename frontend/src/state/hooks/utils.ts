@@ -77,3 +77,13 @@ export function useFileExists(delay) {
 
   return { fileExists, debouncedCheckIfFileExists };
 }
+
+export function useLocalValue<T>(globalValue: T) {
+  const [value, setValue] = useState(globalValue);
+
+  useEffect(() => {
+    setValue(globalValue);
+  }, [globalValue]);
+
+  return [value, setValue] as const;
+}

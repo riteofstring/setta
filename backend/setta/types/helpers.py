@@ -1050,6 +1050,14 @@ def get_first_heading_or_text(markdown: str):
     return None
 
 
+def toggle_position_lock(p: ProjectStateSingleConfig, sectionId: str):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionImplArgsWithCallable(positionAndSizeLocked=lambda curr: not curr),
+    )
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

@@ -410,6 +410,7 @@ export const RouteEnum = {
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
+  TOGGLE_POSITION_LOCK: "/togglePositionLock",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7745,6 +7746,21 @@ export function createTextFieldCompletionRequest(
   options: Partial<TextFieldCompletionRequest> = {},
 ): TextFieldCompletionRequest {
   return TextFieldCompletionRequestSchema.parse(options);
+}
+
+export const TogglePositionLockRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+});
+
+export type TogglePositionLockRequest = z.infer<
+  typeof TogglePositionLockRequestSchema
+>;
+
+export function createTogglePositionLockRequest(
+  options: Partial<TogglePositionLockRequest> = {},
+): TogglePositionLockRequest {
+  return TogglePositionLockRequestSchema.parse(options);
 }
 
 export const ToggleVariantJSONSourceRequestSchema = z.object({

@@ -47,6 +47,7 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
+    TogglePositionLockRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UpdateFromFrontendRequest,
@@ -75,6 +76,7 @@ from setta.types.helpers import (
     set_param_entered_value,
     set_project_config_name,
     set_text_block_text,
+    toggle_position_lock,
     toggle_variant_json_source,
     update_param_impl_config,
 )
@@ -429,6 +431,12 @@ class BaseProjectManager(ABC):
     async def set_code_obj_name(self, x: SetCodeObjNameRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.codeObjs[x.codeObjId].name = x.name
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_position_lock(self, x: TogglePositionLockRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_position_lock(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

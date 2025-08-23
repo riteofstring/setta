@@ -185,6 +185,11 @@ class SetCodeObjNameRequest(BaseModel):
     name: str
 
 
+class TogglePositionLockRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithModCount:
     projectState: ProjectStateSingleConfig

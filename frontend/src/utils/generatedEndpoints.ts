@@ -426,3 +426,9 @@ export async function route_set_code_obj_name(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setCodeObjName", x);
 }
+
+export async function route_toggle_position_lock(
+  x: gt.TogglePositionLockRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/togglePositionLock", x);
+}
