@@ -37,12 +37,11 @@ from setta.project_state.project_manager_types import (
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
-    UpdateFromFrontendRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.notifications import SettaNotification
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -183,21 +182,6 @@ async def route_undo(x: UndoRequest, state: AppStateFromRequest) -> None:
 @router.post(Route.REDO)
 async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
     await state.project_manager_switcher.get(x.projectConfigId).redo(x)
-
-
-@router.post(Route.UPDATE_FROM_FRONTEND)
-async def route_update_from_frontend(
-    x: UpdateFromFrontendRequest, state: AppStateFromRequest
-):
-    success = await state.project_manager_switcher.get(
-        x.projectState
-    ).update_from_frontend(x)
-    if not success:
-        notification = SettaNotification(
-            message="Update conflict",
-            type=SettaNotificationType.error,
-        )
-        await state.wmh_frontend_sender.broadcast_notification(notification)
 
 
 @router.post(Route.GET_LATEST_PROJECT_STATE)

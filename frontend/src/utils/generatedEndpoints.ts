@@ -349,12 +349,6 @@ export async function route_redo(
   return await post("/redo", x);
 }
 
-export async function route_update_from_frontend(
-  x: gt.UpdateFromFrontendRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateFromFrontend", x);
-}
-
 export async function route_get_latest_project_state(
   x: gt.GetLatestProjectStateRequest,
 ): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithModCount>> {

@@ -118,9 +118,12 @@ async def route_save_project(
             projectState=x.projectState, modCount=x.modCount
         )
         project_manager = state.project_manager_switcher.get(x.projectState)
-        update_success = await project_manager.update_from_frontend(
-            req, trigger_autosave=False, updateFileWatcher=False
-        )
+        # TODO: pending operations should finish first.
+        # This endpoint shouldn't just take frontend state as it could be incorrect.
+        # update_success = await project_manager.update_from_frontend(
+        #     req, trigger_autosave=False, updateFileWatcher=False
+        # )
+        update_success = False
         if not update_success:
             notification = SettaNotification(
                 projectConfigId=x.projectState.projectConfig.id,

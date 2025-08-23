@@ -75,7 +75,6 @@ class Route(str, Enum):
     CREATE_NEW_SECTION_VARIANT = "/createNewSectionVariant"
     UNDO = "/undo"
     REDO = "/redo"
-    UPDATE_FROM_FRONTEND = "/updateFromFrontend"
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
     SET_TOP_LEVEL_SECTION_LAYOUT = "/setTopLevelSectionLayout"
     ADD_KWARG = "/addKwarg"

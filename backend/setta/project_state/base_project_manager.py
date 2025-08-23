@@ -59,7 +59,6 @@ from setta.project_state.project_manager_types import (
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
-    UpdateFromFrontendRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -252,24 +251,6 @@ class BaseProjectManager(ABC):
         return ProjectStateSingleConfigWithModCount(
             projectState=projectState, modCount=self.modCount
         )
-
-    @enqueue_method
-    async def update_from_frontend(
-        self,
-        x: UpdateFromFrontendRequest,
-        trigger_autosave=True,
-        updateFileWatcher=True,
-    ):
-        matching = self.modCount == x.modCount
-        if matching:
-            self.add_new_history_entry(trigger_autosave)
-            await self.update(
-                x.projectState, x.requestRenameRefactor, x.messageId, updateFileWatcher
-            )
-        await self.websocket_msg_handler.broadcast_project_state(
-            x.projectState, self.modCount
-        )
-        return matching
 
     @enqueue_method
     async def set_top_level_section_layout(self, x: SetTopLevelSectionLayout):
