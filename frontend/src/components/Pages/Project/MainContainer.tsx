@@ -22,19 +22,18 @@ export function MainContainer() {
     }
   }, [doneLoading, is404]);
 
-  return (
+  return !doneLoading ? (
+    <LoadingSpinner />
+  ) : is404 ? (
+    <NotFound />
+  ) : (
     <>
-      {!doneLoading && <LoadingSpinner />}
-      {doneLoading && is404 ? (
-        <NotFound />
-      ) : (
-        <>
-          <Overview />
-          <UiEditor />
-          <GridWrapper>{doneLoading && <UIPage />}</GridWrapper>
-          <FloatingBox />
-        </>
-      )}
+      <Overview />
+      <UiEditor />
+      <GridWrapper>
+        <UIPage />
+      </GridWrapper>
+      <FloatingBox />
     </>
   );
 }
