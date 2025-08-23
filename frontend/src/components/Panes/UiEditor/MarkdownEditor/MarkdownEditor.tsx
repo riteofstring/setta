@@ -54,12 +54,12 @@ const _MarkdownEditorCore = React.forwardRef(
 
     useEffect(() => {
       if (!pendingValue || pendingValue === text) {
+        setPendingValue(null);
         return;
       }
       useProjectState.setState((state) => {
         frontendOp(state, sectionId, pendingValue);
       });
-      setPendingValue(null);
     }, [text]);
 
     const debouncedSetText = useCallback(
@@ -73,7 +73,7 @@ const _MarkdownEditorCore = React.forwardRef(
           sectionId,
           text: v,
         });
-      }, 50),
+      }, 200),
       [],
     );
 
