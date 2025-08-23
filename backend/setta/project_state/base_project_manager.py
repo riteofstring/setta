@@ -49,6 +49,7 @@ from setta.project_state.project_manager_types import (
     SetSectionParamFilterRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
+    ToggleMinimizedRequest,
     TogglePositionLockRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
@@ -80,6 +81,7 @@ from setta.types.helpers import (
     set_project_config_name,
     set_section_param_filter,
     set_text_block_text,
+    toggle_minimized,
     toggle_position_lock,
     toggle_variant_json_source,
     update_param_impl_config,
@@ -441,6 +443,12 @@ class BaseProjectManager(ABC):
     async def toggle_position_lock(self, x: TogglePositionLockRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_position_lock(project_state, x.sectionId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_minimized(self, x: ToggleMinimizedRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_minimized(project_state, x.sectionId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

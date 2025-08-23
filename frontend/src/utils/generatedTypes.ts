@@ -411,6 +411,7 @@ export const RouteEnum = {
   SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
   SET_CODE_OBJ_NAME: "/setCodeObjName",
   TOGGLE_POSITION_LOCK: "/togglePositionLock",
+  TOGGLE_MINIMIZED: "/toggleMinimized",
   SET_CODE: "/setCode",
   SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
 } as const;
@@ -7778,6 +7779,21 @@ export function createTextFieldCompletionRequest(
   options: Partial<TextFieldCompletionRequest> = {},
 ): TextFieldCompletionRequest {
   return TextFieldCompletionRequestSchema.parse(options);
+}
+
+export const ToggleMinimizedRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+});
+
+export type ToggleMinimizedRequest = z.infer<
+  typeof ToggleMinimizedRequestSchema
+>;
+
+export function createToggleMinimizedRequest(
+  options: Partial<ToggleMinimizedRequest> = {},
+): ToggleMinimizedRequest {
+  return ToggleMinimizedRequestSchema.parse(options);
 }
 
 export const TogglePositionLockRequestSchema = z.object({

@@ -1,10 +1,11 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { updateBackendProjectState } from "state/actions/project/generateCode";
 import {
   getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_toggle_minimized } from "utils/generatedEndpoints";
 
 export function MinimizeButton({ sectionId, twClasses, ...props }) {
   const isMinimized = useProjectState((x) => {
@@ -17,7 +18,10 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
         isMinimized: !isMinimized,
       });
     });
-    updateBackendProjectState();
+    route_toggle_minimized({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+    });
   }
 
   return (

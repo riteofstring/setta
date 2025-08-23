@@ -190,6 +190,11 @@ class TogglePositionLockRequest(BaseModel):
     sectionId: str
 
 
+class ToggleMinimizedRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+
+
 class SetCodeRequest(BaseModel):
     projectConfigId: str
     sectionId: str

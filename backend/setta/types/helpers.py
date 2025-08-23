@@ -1059,6 +1059,14 @@ def toggle_position_lock(p: ProjectStateSingleConfig, sectionId: str):
     )
 
 
+def toggle_minimized(p: ProjectStateSingleConfig, sectionId: str):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionImplArgsWithCallable(isMinimized=lambda curr: not curr),
+    )
+
+
 def set_code(p: ProjectStateSingleConfig, sectionId: str, code: str):
     set_curr_effective_section_impl_value(
         p,

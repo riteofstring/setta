@@ -27,6 +27,7 @@ from setta.project_state.project_manager_types import (
     SetSectionParamFilterRequest,
     SetTextBlockTextRequest,
     TextFieldCompletionRequest,
+    ToggleMinimizedRequest,
     TogglePositionLockRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
@@ -291,6 +292,11 @@ async def route_toggle_position_lock(
     x: TogglePositionLockRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_position_lock(x)
+
+
+@router.post(Route.TOGGLE_MINIMIZED)
+async def route_toggle_minimized(x: ToggleMinimizedRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).toggle_minimized(x)
 
 
 @router.post(Route.SET_CODE)

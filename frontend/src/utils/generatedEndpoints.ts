@@ -428,9 +428,15 @@ export async function route_set_code_obj_name(
 }
 
 export async function route_toggle_position_lock(
-  x: gt.TogglePositionLockRequest,
+  x: gt.ToggleMinimizedRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/togglePositionLock", x);
+}
+
+export async function route_toggle_minimized(
+  x: gt.TogglePositionLockRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleMinimized", x);
 }
 
 export async function route_set_code(
