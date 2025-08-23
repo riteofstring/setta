@@ -3,7 +3,6 @@ import { setModalOpen } from "state/actions/modal";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { route_delete_json_source_file_and_variant } from "utils/generatedEndpoints";
-import { createNewId } from "utils/idNameCreation";
 
 export function DeleteJSONSourceVariantModal() {
   const { sectionId, variantId, filepath } = useModal((x) => x.modalData);
@@ -14,7 +13,6 @@ export function DeleteJSONSourceVariantModal() {
 
   const handleConfirm = async () => {
     await route_delete_json_source_file_and_variant({
-      messageId: createNewId(),
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId,

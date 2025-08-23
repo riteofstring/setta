@@ -17,7 +17,6 @@ import {
   CodeMirrorCompletion,
   GenCodePrefixCompletionRequest,
 } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 
 function GenCodeEditor({
   label,
@@ -45,7 +44,6 @@ function GenCodeEditor({
     const fn = async (fullText: string, position: number) => {
       const projectConfigId = getCurrProjectConfigId();
       const res = await completionRoute({
-        messageId: createNewId(),
         projectConfigId,
         fullText,
         position,
@@ -121,7 +119,6 @@ export function GenPythonCodeSettings() {
 
 export function setGenCodePrefix(value: string) {
   route_set_gen_code_prefix({
-    messageId: createNewId(),
     projectConfigId: getCurrProjectConfigId(),
     genCodePrefix: value,
   });
@@ -129,7 +126,6 @@ export function setGenCodePrefix(value: string) {
 
 export function setGenCodeSuffix(value: string) {
   route_set_gen_code_suffix({
-    messageId: createNewId(),
     projectConfigId: getCurrProjectConfigId(),
     genCodeSuffix: value,
   });
