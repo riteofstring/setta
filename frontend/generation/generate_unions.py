@@ -90,6 +90,22 @@ def generate_unions(output_file):
     print(f"wrote to {output_file}")
 
 
+def generate_project_manager_update_request_unions(output_file: Path):
+    import setta.types.project_manager_types
+
+    code = construct_unions(
+        setta.types.project_manager_types,
+        setta.types.project_manager_types.BaseProjectManagerUpdateRequest,
+        "type",
+        setta.types.project_manager_types,
+        lambda x: x,
+    )
+
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 def generate_websocket_unions(output_file: Path):
     import setta.types.websocket
 
@@ -115,6 +131,14 @@ if __name__ == "__main__":
             output_file=(
                 get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
                 / "unions.py"
+            )
+        )
+    elif sys.argv[1] == "project_manager_update_request_unions":
+        # has to be done separately due to import dependencies
+        generate_project_manager_update_request_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "project_manager_update_request_unions.py"
             )
         )
     elif sys.argv[1] == "websocket_unions":
