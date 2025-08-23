@@ -69,7 +69,7 @@ export const useContextMenus = withProjectState(
 export type ZustandProjectState = {
   projectConfig: ProjectStateSingleConfig["projectConfig"];
   sections: ProjectStateSingleConfig["sections"];
-  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionImpls: ProjectStateSingleConfig["sectionImpls"];
   sectionVariants: ProjectStateSingleConfig["sectionVariants"];
   codeObjs: ProjectStateSingleConfig["codeObjs"];
   codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];

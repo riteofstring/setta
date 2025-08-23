@@ -340,13 +340,20 @@ export function setAllPreviewVariantIdsToNull() {
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
-  console.log("completedOpIds", x.completedOpIds);
-  console.log("pendingOps", usePendingOperations.getState().pending);
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  useProjectState.setState(x.projectState);
+  const pendingOps = usePendingOperations
+    .getState()
+    .pending.filter((opInfo) => !x.completedOpIds.includes(opInfo.opId));
+  usePendingOperations.setState({ pending: pendingOps });
+  useProjectState.setState(() => {
+    for (const opInfo of pendingOps) {
+      opInfo.op(x.projectState);
+    }
+    return x.projectState;
+  });
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),
