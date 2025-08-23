@@ -1,25 +1,29 @@
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
-from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
+from setta.types.project_state import TopLevelSectionLayout
 from setta.types.section_impls import SectionSize, SectionType
 from setta.types.simplified_states import Position
 
 
-class ClearTextFieldCompletionRequest(BaseModel):
+class ProjectManagerRequest(BaseModel):
+    opId: str
+
+
+class ClearTextFieldCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str | None
 
 
-class SetCallableRequest(BaseModel):
+class SetCallableRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     callableName: str
     refetchParams: bool
 
 
-class TextFieldCompletionRequest(BaseModel):
+class TextFieldCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str | None
@@ -27,47 +31,47 @@ class TextFieldCompletionRequest(BaseModel):
     position: int
 
 
-class CodeAreaCompletionRequest(BaseModel):
+class CodeAreaCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     fullText: str
     position: int
 
 
-class GenCodePrefixCompletionRequest(BaseModel):
+class GenCodePrefixCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     fullText: str
     position: int
 
 
-class GenCodeSuffixCompletionRequest(BaseModel):
+class GenCodeSuffixCompletionRequest(ProjectManagerRequest):
     projectConfigId: str
     fullText: str
     position: int
 
 
-class ChangeParamImplRequest(BaseModel):
+class ChangeParamImplRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str
     selectedId: str
 
 
-class UpdateParamImplConfigRequest(BaseModel):
+class UpdateParamImplConfigRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str
     newConfig: dict
 
 
-class CreateTopLevelSectionRequest(BaseModel):
+class CreateTopLevelSectionRequest(ProjectManagerRequest):
     projectConfigId: str
     implType: SectionType
     implOverrides: BaseSectionImplArgsUnion
     position: Position
 
 
-class CreateChildSectionsRequest(BaseModel):
+class CreateChildSectionsRequest(ProjectManagerRequest):
     projectConfigId: str
     parentId: str
     implType: SectionType
@@ -75,157 +79,151 @@ class CreateChildSectionsRequest(BaseModel):
     startIdx: int | None
 
 
-class CreateChildSectionsViaIncrementerRequest(BaseModel):
+class CreateChildSectionsViaIncrementerRequest(ProjectManagerRequest):
     projectConfigId: str
     calledBy: str
     numChildren: int
     implType: SectionType
 
 
-class DeleteSectionsRequest(BaseModel):
+class DeleteSectionsRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionIds: list[str]
 
 
-class DeleteChildSectionsViaDecrementerRequest(BaseModel):
+class DeleteChildSectionsViaDecrementerRequest(ProjectManagerRequest):
     projectConfigId: str
     calledBy: str
     numChildren: int
 
 
-class CreateNewSectionVariantRequest(BaseModel):
+class CreateNewSectionVariantRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
 
 
-class UndoRequest(BaseModel):
+class UndoRequest(ProjectManagerRequest):
     projectConfigId: str
     steps: int
 
 
-class RedoRequest(BaseModel):
+class RedoRequest(ProjectManagerRequest):
     projectConfigId: str
     steps: int
 
 
-class UpdateFromFrontendRequest(BaseModel):
-    messageId: str | None = None
-    projectState: ProjectStateSingleConfig
-    requestRenameRefactor: bool = False
-
-
-class GetLatestProjectStateRequest(BaseModel):
+class GetLatestProjectStateRequest(ProjectManagerRequest):
     projectConfigId: str
 
 
-class SetTopLevelSectionLayout(BaseModel):
+class SetTopLevelSectionLayout(ProjectManagerRequest):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]
 
 
-class AddKwargRequest(BaseModel):
+class AddKwargRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
 
 
-class DeleteKwargRequest(BaseModel):
+class DeleteKwargRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
 
 
-class DeleteSectionVariantRequestOrAsk(BaseModel):
-    projectConfigId: str
-    sectionId: str
-    variantId: str
-
-
-class ToggleVariantJSONSourceRequest(BaseModel):
+class DeleteSectionVariantRequestOrAsk(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     variantId: str
 
 
-class DeleteJSONSourceFileAndVariantRequest(BaseModel):
+class ToggleVariantJSONSourceRequest(ProjectManagerRequest):
+    projectConfigId: str
+    sectionId: str
+    variantId: str
+
+
+class DeleteJSONSourceFileAndVariantRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     variantId: str
     filepath: str
 
 
-class SetTextBlockTextRequest(BaseModel):
+class SetTextBlockTextRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     text: str
 
 
-class SetGenCodePrefixRequest(BaseModel):
+class SetGenCodePrefixRequest(ProjectManagerRequest):
     projectConfigId: str
     genCodePrefix: str
 
 
-class SetGenCodeSuffixRequest(BaseModel):
+class SetGenCodeSuffixRequest(ProjectManagerRequest):
     projectConfigId: str
     genCodeSuffix: str
 
 
-class SetParamEnteredValueRequest(BaseModel):
+class SetParamEnteredValueRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     paramInfoId: str
     value: str
 
 
-class SetCodeObjNameRequest(BaseModel):
+class SetCodeObjNameRequest(ProjectManagerRequest):
     projectConfigId: str
     codeObjId: str
     name: str
 
 
-class TogglePositionLockRequest(BaseModel):
+class TogglePositionLockRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
 
 
-class ToggleMinimizedRequest(BaseModel):
+class ToggleMinimizedRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
 
 
-class SetCodeRequest(BaseModel):
+class SetCodeRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     code: str
 
 
-class SetSectionParamFilterRequest(BaseModel):
+class SetSectionParamFilterRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     value: str
 
 
-class SetSectionVariantRequest(BaseModel):
+class SetSectionVariantRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     variantId: str
 
 
-class SetDefaultSectionVariantRequest(BaseModel):
+class SetDefaultSectionVariantRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     variantId: str
 
 
-class ToggleVariantFrozenRequest(BaseModel):
+class ToggleVariantFrozenRequest(ProjectManagerRequest):
     projectConfigId: str
     variantId: str
 
 
-class SetSectionVariantNameRequest(BaseModel):
+class SetSectionVariantNameRequest(ProjectManagerRequest):
     projectConfigId: str
     variantId: str
     name: str
 
 
-class SetSectionSizesRequest(BaseModel):
+class SetSectionSizesRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionSizes: dict[str, SectionSize]

@@ -11,9 +11,6 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
-from setta.project_state.project_manager_types import (
-    UpdateFromFrontendRequest,
-)
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers import (
@@ -113,7 +110,7 @@ async def route_save_project(
     state: AppStateFromRequest,
 ):
     try:
-        req = UpdateFromFrontendRequest(projectState=x)
+        # req = UpdateFromFrontendRequest(projectState=x)
         project_manager = state.project_manager_switcher.get(x)
         # TODO: pending operations should finish first.
         # This endpoint shouldn't just take frontend state as it could be incorrect.

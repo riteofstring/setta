@@ -48,7 +48,13 @@ from setta.types.section_impls import SectionType
 router = SettaAPIRouter()
 
 
+def is_project_manager_operation(func):
+    func.__is_setta_project_manager_operation__ = True
+    return func
+
+
 @router.post(Route.CLEAR_TEXT_FIELD_COMPLETION)
+@is_project_manager_operation
 async def route_clear_text_field_completion(
     x: ClearTextFieldCompletionRequest, state: AppStateFromRequest
 ) -> None:
@@ -58,11 +64,13 @@ async def route_clear_text_field_completion(
 
 
 @router.post(Route.SET_CALLABLE)
+@is_project_manager_operation
 async def route_set_callable(x: SetCallableRequest, state: AppStateFromRequest) -> None:
     await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
 
 
 @router.post(Route.TEXT_FIELD_COMPLETION)
+@is_project_manager_operation
 async def route_text_field_completion(
     x: TextFieldCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
@@ -72,6 +80,7 @@ async def route_text_field_completion(
 
 
 @router.post(Route.CODE_AREA_COMPLETION)
+@is_project_manager_operation
 async def route_code_area_completion(
     x: CodeAreaCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
@@ -81,6 +90,7 @@ async def route_code_area_completion(
 
 
 @router.post(Route.GEN_CODE_PREFIX_COMPLETION)
+@is_project_manager_operation
 async def route_gen_code_prefix_completion(
     x: GenCodePrefixCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
@@ -90,6 +100,7 @@ async def route_gen_code_prefix_completion(
 
 
 @router.post(Route.GEN_CODE_SUFFIX_COMPLETION)
+@is_project_manager_operation
 async def route_gen_code_suffix_completion(
     x: GenCodeSuffixCompletionRequest, state: AppStateFromRequest
 ) -> list[CodeMirrorCompletion]:
@@ -99,6 +110,7 @@ async def route_gen_code_suffix_completion(
 
 
 @router.post(Route.CHANGE_PARAM_IMPL)
+@is_project_manager_operation
 async def route_change_param_impl(
     x: ChangeParamImplRequest, state: AppStateFromRequest
 ):
@@ -108,6 +120,7 @@ async def route_change_param_impl(
 
 
 @router.post(Route.UPDATE_PARAM_IMPL_CONFIG)
+@is_project_manager_operation
 async def route_update_param_impl_config(
     x: UpdateParamImplConfigRequest, state: AppStateFromRequest
 ):
@@ -117,6 +130,7 @@ async def route_update_param_impl_config(
 
 
 @router.post(Route.CREATE_TOP_LEVEL_SECTION)
+@is_project_manager_operation
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, state: AppStateFromRequest
 ):
@@ -128,6 +142,7 @@ async def route_create_top_level_section(
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)
+@is_project_manager_operation
 async def route_create_child_sections(
     x: CreateChildSectionsRequest, state: AppStateFromRequest
 ):
@@ -137,6 +152,7 @@ async def route_create_child_sections(
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS_VIA_INCREMENTER)
+@is_project_manager_operation
 async def route_create_child_sections_via_incrementer(
     x: CreateChildSectionsViaIncrementerRequest, state: AppStateFromRequest
 ):
@@ -146,6 +162,7 @@ async def route_create_child_sections_via_incrementer(
 
 
 @router.post(Route.DELETE_SECTIONS)
+@is_project_manager_operation
 async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromRequest):
     return await state.project_manager_switcher.get(x.projectConfigId).delete_sections(
         x
@@ -153,6 +170,7 @@ async def route_delete_sections(x: DeleteSectionsRequest, state: AppStateFromReq
 
 
 @router.post(Route.DELETE_CHILD_SECTIONS_VIA_DECREMENTER)
+@is_project_manager_operation
 async def route_delete_child_sections_via_decrementer(
     x: DeleteChildSectionsViaDecrementerRequest, state: AppStateFromRequest
 ):
@@ -162,6 +180,7 @@ async def route_delete_child_sections_via_decrementer(
 
 
 @router.post(Route.CREATE_NEW_SECTION_VARIANT)
+@is_project_manager_operation
 async def route_create_new_section_variant(
     x: CreateNewSectionVariantRequest, state: AppStateFromRequest
 ):
@@ -175,16 +194,19 @@ async def route_create_new_section_variant(
 
 
 @router.post(Route.UNDO)
+@is_project_manager_operation
 async def route_undo(x: UndoRequest, state: AppStateFromRequest) -> None:
     await state.project_manager_switcher.get(x.projectConfigId).undo(x)
 
 
 @router.post(Route.REDO)
+@is_project_manager_operation
 async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
     await state.project_manager_switcher.get(x.projectConfigId).redo(x)
 
 
 @router.post(Route.GET_LATEST_PROJECT_STATE)
+@is_project_manager_operation
 async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, state: AppStateFromRequest
 ) -> ProjectStateSingleConfig:
@@ -194,6 +216,7 @@ async def route_get_latest_project_state(
 
 
 @router.post(Route.SET_TOP_LEVEL_SECTION_LAYOUT)
+@is_project_manager_operation
 async def route_set_top_level_section_layout(
     x: SetTopLevelSectionLayout, state: AppStateFromRequest
 ):
@@ -203,16 +226,19 @@ async def route_set_top_level_section_layout(
 
 
 @router.post(Route.ADD_KWARG)
+@is_project_manager_operation
 async def route_add_kwarg(x: AddKwargRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).add_kwarg(x)
 
 
 @router.post(Route.DELETE_KWARG)
+@is_project_manager_operation
 async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).delete_kwarg(x)
 
 
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)
+@is_project_manager_operation
 async def route_delete_section_variant_or_ask(
     x: DeleteSectionVariantRequestOrAsk, state: AppStateFromRequest
 ) -> str | None:
@@ -224,6 +250,7 @@ async def route_delete_section_variant_or_ask(
 
 
 @router.post(Route.TOGGLE_VARIANT_JSON_SOURCE)
+@is_project_manager_operation
 async def route_toggle_variant_json_source(
     x: ToggleVariantJSONSourceRequest, state: AppStateFromRequest
 ):
@@ -233,6 +260,7 @@ async def route_toggle_variant_json_source(
 
 
 @router.post(Route.DELETE_JSON_SOURCE_FILE_AND_VARIANT)
+@is_project_manager_operation
 async def route_delete_json_source_file_and_variant(
     x: DeleteJSONSourceFileAndVariantRequest, state: AppStateFromRequest
 ):
@@ -242,6 +270,7 @@ async def route_delete_json_source_file_and_variant(
 
 
 @router.post(Route.SET_TEXT_BLOCK_TEXT)
+@is_project_manager_operation
 async def route_set_text_block_text(
     x: SetTextBlockTextRequest, state: AppStateFromRequest
 ):
@@ -249,6 +278,7 @@ async def route_set_text_block_text(
 
 
 @router.post(Route.SET_GEN_CODE_PREFIX)
+@is_project_manager_operation
 async def route_set_gen_code_prefix(
     x: SetGenCodePrefixRequest, state: AppStateFromRequest
 ):
@@ -256,6 +286,7 @@ async def route_set_gen_code_prefix(
 
 
 @router.post(Route.SET_GEN_CODE_SUFFIX)
+@is_project_manager_operation
 async def route_set_gen_code_suffix(
     x: SetGenCodeSuffixRequest, state: AppStateFromRequest
 ):
@@ -263,6 +294,7 @@ async def route_set_gen_code_suffix(
 
 
 @router.post(Route.SET_PARAM_ENTERED_VALUE)
+@is_project_manager_operation
 async def route_set_param_entered_value(
     x: SetParamEnteredValueRequest, state: AppStateFromRequest
 ):
@@ -272,11 +304,13 @@ async def route_set_param_entered_value(
 
 
 @router.post(Route.SET_CODE_OBJ_NAME)
+@is_project_manager_operation
 async def route_set_code_obj_name(x: SetCodeObjNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code_obj_name(x)
 
 
 @router.post(Route.TOGGLE_POSITION_LOCK)
+@is_project_manager_operation
 async def route_toggle_position_lock(
     x: TogglePositionLockRequest, state: AppStateFromRequest
 ):
@@ -284,16 +318,19 @@ async def route_toggle_position_lock(
 
 
 @router.post(Route.TOGGLE_MINIMIZED)
+@is_project_manager_operation
 async def route_toggle_minimized(x: ToggleMinimizedRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_minimized(x)
 
 
 @router.post(Route.SET_CODE)
+@is_project_manager_operation
 async def route_set_code(x: SetCodeRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_code(x)
 
 
 @router.post(Route.SET_SECTION_PARAM_FILTER)
+@is_project_manager_operation
 async def route_set_section_param_filter(
     x: SetSectionParamFilterRequest, state: AppStateFromRequest
 ):
@@ -303,6 +340,7 @@ async def route_set_section_param_filter(
 
 
 @router.post(Route.SET_SECTION_VARIANT)
+@is_project_manager_operation
 async def route_set_section_variant(
     x: SetSectionVariantRequest, state: AppStateFromRequest
 ):
@@ -310,6 +348,7 @@ async def route_set_section_variant(
 
 
 @router.post(Route.SET_DEFAULT_SECTION_VARIANT)
+@is_project_manager_operation
 async def route_set_default_section_variant(
     x: SetDefaultSectionVariantRequest, state: AppStateFromRequest
 ):
@@ -319,6 +358,7 @@ async def route_set_default_section_variant(
 
 
 @router.post(Route.TOGGLE_VARIANT_FROZEN)
+@is_project_manager_operation
 async def route_toggle_variant_frozen(
     x: ToggleVariantFrozenRequest, state: AppStateFromRequest
 ):
@@ -326,6 +366,7 @@ async def route_toggle_variant_frozen(
 
 
 @router.post(Route.SET_SECTION_VARIANT_NAME)
+@is_project_manager_operation
 async def route_set_section_variant_name(
     x: SetSectionVariantNameRequest, state: AppStateFromRequest
 ):
@@ -335,6 +376,7 @@ async def route_set_section_variant_name(
 
 
 @router.post(Route.SET_SECTION_SIZES)
+@is_project_manager_operation
 async def route_set_section_sizes(
     x: SetSectionSizesRequest, state: AppStateFromRequest
 ):
