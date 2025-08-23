@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
 from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
-from setta.types.section_impls import SectionType
+from setta.types.section_impls import SectionSize, SectionType
 from setta.types.simplified_states import Position
 
 
@@ -227,6 +227,11 @@ class SetSectionVariantNameRequest(BaseModel):
     projectConfigId: str
     variantId: str
     name: str
+
+
+class SetSectionSizesRequest(BaseModel):
+    projectConfigId: str
+    sectionSizes: dict[str, SectionSize]
 
 
 @dataclass

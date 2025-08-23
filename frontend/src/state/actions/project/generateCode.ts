@@ -1,7 +1,3 @@
-import { useProjectState } from "state/definitions";
-import { route_update_from_frontend } from "utils/generatedEndpoints";
-import { createNewId } from "utils/idNameCreation";
-import { asyncDebounce } from "utils/utils";
 import { getProjectData } from "./saveProject";
 
 async function getProjectDataToGenerateCode({
@@ -28,23 +24,3 @@ async function getProjectDataToGenerateCode({
   // }
   return project;
 }
-
-export const updateBackendProjectState = asyncDebounce(
-  async () => {
-    const projectState = await getProjectDataToGenerateCode({});
-    const requestRenameRefactor =
-      useProjectState.getState().requestRenameRefactor;
-    await route_update_from_frontend({
-      messageId: createNewId(),
-      projectState,
-      modCount: useProjectState.getState().modCount,
-      requestRenameRefactor,
-    });
-    // have to reset requestRenameRefactor to false, in case it was set to true
-    useProjectState.setState((state) => {
-      state.requestRenameRefactor = false;
-    });
-  },
-  200,
-  { leading: true },
-);

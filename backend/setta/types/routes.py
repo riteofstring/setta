@@ -95,4 +95,4 @@ class Route(str, Enum):
     SET_DEFAULT_SECTION_VARIANT = "/setDefaultSectionVariant"
     SET_SECTION_VARIANT_NAME = "setSectionVariantName"
     TOGGLE_VARIANT_FROZEN = "/toggleVariantFrozen"
-    SET_TOP_LEVEL_SECTION_LAYOUT
+    SET_SECTION_SIZES = "/setSectionSizes"

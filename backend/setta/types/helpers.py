@@ -1101,6 +1101,15 @@ def set_section_variant_name(p: ProjectStateSingleConfig, variantId: str, name: 
     p.sectionVariants[variantId].name = name
 
 
+def set_section_sizes(
+    p: ProjectStateSingleConfig, sectionSizes: dict[str, SectionSize]
+):
+    for s, size in sectionSizes.items():
+        set_curr_effective_section_impl_value(
+            p, s, BaseSectionImplArgsWithCallable(size=size)
+        )
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

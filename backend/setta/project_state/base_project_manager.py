@@ -48,6 +48,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
     SetSectionParamFilterRequest,
+    SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
@@ -85,6 +86,7 @@ from setta.types.helpers import (
     set_param_entered_value,
     set_project_config_name,
     set_section_param_filter,
+    set_section_sizes,
     set_section_variant,
     set_section_variant_name,
     set_text_block_text,
@@ -274,6 +276,12 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
+
+    @enqueue_method
+    async def set_section_sizes(self, x: SetSectionSizesRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_sizes(project_state, x.sectionSizes)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def load_json_sources(

@@ -26,6 +26,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
     SetSectionParamFilterRequest,
+    SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
@@ -347,3 +348,10 @@ async def route_set_section_variant_name(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_section_variant_name(x)
+
+
+@router.post(Route.SET_SECTION_SIZES)
+async def route_set_section_sizes(
+    x: SetSectionSizesRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_section_sizes(x)

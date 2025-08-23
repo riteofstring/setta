@@ -474,3 +474,9 @@ export async function route_set_section_variant_name(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("setSectionVariantName", x);
 }
+
+export async function route_set_section_sizes(
+  x: gt.SetSectionSizesRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionSizes", x);
+}
