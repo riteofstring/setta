@@ -102,7 +102,15 @@ export const useProjectState = withProjectState(
   ),
 );
 
-// export const usePendingOperations = withProjectState(withResetFn(() => ({})));
+type ZustandPendingOperations = {
+  pending: Array<{ opId: string; op: (x: ZustandProjectState) => void }>;
+};
+
+export const usePendingOperations = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ZustandPendingOperations>(() => ({ pending: [] })),
+  ),
+);
 
 export const useHomePageSearch = createWithEqualityFn(
   withResetFn(() => ({

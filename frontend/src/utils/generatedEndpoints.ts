@@ -1,6 +1,5 @@
 import { post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
-import { createNewId } from "./idNameCreation";
 
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.ProjectMetadata>
@@ -255,237 +254,225 @@ export async function route_get_uuid_mapping_for_llm(): Promise<
 }
 
 export async function route_clear_text_field_completion(
-  x: Omit<gt.ClearTextFieldCompletionRequest, "opId">,
+  x: gt.ClearTextFieldCompletionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/clearTextFieldCompletion", { ...x, opId: createNewId() });
+  return await post("/clearTextFieldCompletion", x);
 }
 
 export async function route_set_callable(
-  x: Omit<gt.SetCallableRequest, "opId">,
+  x: gt.SetCallableRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setCallable", { ...x, opId: createNewId() });
+  return await post("/setCallable", x);
 }
 
 export async function route_text_field_completion(
-  x: Omit<gt.TextFieldCompletionRequest, "opId">,
+  x: gt.TextFieldCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post("/textFieldCompletion", { ...x, opId: createNewId() });
+  return await post("/textFieldCompletion", x);
 }
 
 export async function route_code_area_completion(
-  x: Omit<gt.CodeAreaCompletionRequest, "opId">,
+  x: gt.CodeAreaCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post("/codeAreaCompletion", { ...x, opId: createNewId() });
+  return await post("/codeAreaCompletion", x);
 }
 
 export async function route_gen_code_prefix_completion(
-  x: Omit<gt.GenCodePrefixCompletionRequest, "opId">,
+  x: gt.GenCodePrefixCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post("/genCodePrefixCompletion", { ...x, opId: createNewId() });
+  return await post("/genCodePrefixCompletion", x);
 }
 
 export async function route_gen_code_suffix_completion(
-  x: Omit<gt.GenCodeSuffixCompletionRequest, "opId">,
+  x: gt.GenCodeSuffixCompletionRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.CodeMirrorCompletion>>> {
-  return await post("/genCodeSuffixCompletion", { ...x, opId: createNewId() });
+  return await post("/genCodeSuffixCompletion", x);
 }
 
 export async function route_change_param_impl(
-  x: Omit<gt.ChangeParamImplRequest, "opId">,
+  x: gt.ChangeParamImplRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/changeParamImpl", { ...x, opId: createNewId() });
+  return await post("/changeParamImpl", x);
 }
 
 export async function route_update_param_impl_config(
-  x: Omit<gt.UpdateParamImplConfigRequest, "opId">,
+  x: gt.UpdateParamImplConfigRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/updateParamImplConfig", { ...x, opId: createNewId() });
+  return await post("/updateParamImplConfig", x);
 }
 
 export async function route_create_top_level_section(
-  x: Omit<gt.CreateTopLevelSectionRequest, "opId">,
+  x: gt.CreateTopLevelSectionRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createTopLevelSection", { ...x, opId: createNewId() });
+  return await post("/createTopLevelSection", x);
 }
 
 export async function route_create_child_sections(
-  x: Omit<gt.CreateChildSectionsRequest, "opId">,
+  x: gt.CreateChildSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createChildSections", { ...x, opId: createNewId() });
+  return await post("/createChildSections", x);
 }
 
 export async function route_create_child_sections_via_incrementer(
-  x: Omit<gt.CreateChildSectionsViaIncrementerRequest, "opId">,
+  x: gt.CreateChildSectionsViaIncrementerRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createChildSectionsViaIncrementer", {
-    ...x,
-    opId: createNewId(),
-  });
+  return await post("/createChildSectionsViaIncrementer", x);
 }
 
 export async function route_delete_sections(
-  x: Omit<gt.DeleteSectionsRequest, "opId">,
+  x: gt.DeleteSectionsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteSections", { ...x, opId: createNewId() });
+  return await post("/deleteSections", x);
 }
 
 export async function route_delete_child_sections_via_decrementer(
-  x: Omit<gt.DeleteChildSectionsViaDecrementerRequest, "opId">,
+  x: gt.DeleteChildSectionsViaDecrementerRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteChildSectionsViaDecrementer", {
-    ...x,
-    opId: createNewId(),
-  });
+  return await post("/deleteChildSectionsViaDecrementer", x);
 }
 
 export async function route_create_new_section_variant(
-  x: Omit<gt.CreateNewSectionVariantRequest, "opId">,
+  x: gt.CreateNewSectionVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/createNewSectionVariant", { ...x, opId: createNewId() });
+  return await post("/createNewSectionVariant", x);
 }
 
 export async function route_undo(
-  x: Omit<gt.UndoRequest, "opId">,
+  x: gt.UndoRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/undo", { ...x, opId: createNewId() });
+  return await post("/undo", x);
 }
 
 export async function route_redo(
-  x: Omit<gt.RedoRequest, "opId">,
+  x: gt.RedoRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/redo", { ...x, opId: createNewId() });
+  return await post("/redo", x);
 }
 
 export async function route_get_latest_project_state(
-  x: Omit<gt.GetLatestProjectStateRequest, "opId">,
+  x: gt.GetLatestProjectStateRequest,
 ): Promise<
   ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
 > {
-  return await post("/getLatestProjectState", { ...x, opId: createNewId() });
+  return await post("/getLatestProjectState", x);
 }
 
 export async function route_set_top_level_section_layout(
-  x: Omit<gt.SetTopLevelSectionLayoutRequest, "opId">,
+  x: gt.SetTopLevelSectionLayoutRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTopLevelSectionLayout", { ...x, opId: createNewId() });
+  return await post("/setTopLevelSectionLayout", x);
 }
 
 export async function route_add_kwarg(
-  x: Omit<gt.AddKwargRequest, "opId">,
+  x: gt.AddKwargRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/addKwarg", { ...x, opId: createNewId() });
+  return await post("/addKwarg", x);
 }
 
 export async function route_delete_kwarg(
-  x: Omit<gt.DeleteKwargRequest, "opId">,
+  x: gt.DeleteKwargRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteKwarg", { ...x, opId: createNewId() });
+  return await post("/deleteKwarg", x);
 }
 
 export async function route_delete_section_variant_or_ask(
-  x: Omit<gt.DeleteSectionVariantOrAskRequest, "opId">,
+  x: gt.DeleteSectionVariantOrAskRequest,
 ): Promise<ResponseDataAndStatus<string | null>> {
-  return await post("/deleteSectionVariantOrAsk", {
-    ...x,
-    opId: createNewId(),
-  });
+  return await post("/deleteSectionVariantOrAsk", x);
 }
 
 export async function route_toggle_variant_json_source(
-  x: Omit<gt.ToggleVariantJSONSourceRequest, "opId">,
+  x: gt.ToggleVariantJSONSourceRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleVariantJsonSource", { ...x, opId: createNewId() });
+  return await post("/toggleVariantJsonSource", x);
 }
 
 export async function route_delete_json_source_file_and_variant(
-  x: Omit<gt.DeleteJSONSourceFileAndVariantRequest, "opId">,
+  x: gt.DeleteJSONSourceFileAndVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteJsonSourceFileAndVariant", {
-    ...x,
-    opId: createNewId(),
-  });
+  return await post("/deleteJsonSourceFileAndVariant", x);
 }
 
 export async function route_set_text_block_text(
-  x: Omit<gt.SetTextBlockTextRequest, "opId">,
+  x: gt.SetTextBlockTextRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTextBlockText", { ...x, opId: createNewId() });
+  return await post("/setTextBlockText", x);
 }
 
 export async function route_set_gen_code_prefix(
-  x: Omit<gt.SetGenCodePrefixRequest, "opId">,
+  x: gt.SetGenCodePrefixRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setGenCodePrefix", { ...x, opId: createNewId() });
+  return await post("/setGenCodePrefix", x);
 }
 
 export async function route_set_gen_code_suffix(
-  x: Omit<gt.SetGenCodeSuffixRequest, "opId">,
+  x: gt.SetGenCodeSuffixRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setGenCodeSuffix", { ...x, opId: createNewId() });
+  return await post("/setGenCodeSuffix", x);
 }
 
 export async function route_set_param_entered_value(
-  x: Omit<gt.SetParamEnteredValueRequest, "opId">,
+  x: gt.SetParamEnteredValueRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setParamEnteredValue", { ...x, opId: createNewId() });
+  return await post("/setParamEnteredValue", x);
 }
 
 export async function route_set_code_obj_name(
-  x: Omit<gt.SetCodeObjNameRequest, "opId">,
+  x: gt.SetCodeObjNameRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setCodeObjName", { ...x, opId: createNewId() });
+  return await post("/setCodeObjName", x);
 }
 
 export async function route_toggle_position_lock(
-  x: Omit<gt.TogglePositionLockRequest, "opId">,
+  x: gt.TogglePositionLockRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/togglePositionLock", { ...x, opId: createNewId() });
+  return await post("/togglePositionLock", x);
 }
 
 export async function route_toggle_minimized(
-  x: Omit<gt.ToggleMinimizedRequest, "opId">,
+  x: gt.ToggleMinimizedRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleMinimized", { ...x, opId: createNewId() });
+  return await post("/toggleMinimized", x);
 }
 
 export async function route_set_code(
-  x: Omit<gt.SetCodeRequest, "opId">,
+  x: gt.SetCodeRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setCode", { ...x, opId: createNewId() });
+  return await post("/setCode", x);
 }
 
 export async function route_set_section_param_filter(
-  x: Omit<gt.SetSectionParamFilterRequest, "opId">,
+  x: gt.SetSectionParamFilterRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionParamFilter", { ...x, opId: createNewId() });
+  return await post("/setSectionParamFilter", x);
 }
 
 export async function route_set_section_variant(
-  x: Omit<gt.SetSectionVariantRequest, "opId">,
+  x: gt.SetSectionVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionVariant", { ...x, opId: createNewId() });
+  return await post("/setSectionVariant", x);
 }
 
 export async function route_set_default_section_variant(
-  x: Omit<gt.SetDefaultSectionVariantRequest, "opId">,
+  x: gt.SetDefaultSectionVariantRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setDefaultSectionVariant", { ...x, opId: createNewId() });
+  return await post("/setDefaultSectionVariant", x);
 }
 
 export async function route_toggle_variant_frozen(
-  x: Omit<gt.ToggleVariantFrozenRequest, "opId">,
+  x: gt.ToggleVariantFrozenRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/toggleVariantFrozen", { ...x, opId: createNewId() });
+  return await post("/toggleVariantFrozen", x);
 }
 
 export async function route_set_section_variant_name(
-  x: Omit<gt.SetSectionVariantNameRequest, "opId">,
+  x: gt.SetSectionVariantNameRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("setSectionVariantName", { ...x, opId: createNewId() });
+  return await post("setSectionVariantName", x);
 }
 
 export async function route_set_section_sizes(
-  x: Omit<gt.SetSectionSizesRequest, "opId">,
+  x: gt.SetSectionSizesRequest,
 ): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionSizes", { ...x, opId: createNewId() });
+  return await post("/setSectionSizes", x);
 }

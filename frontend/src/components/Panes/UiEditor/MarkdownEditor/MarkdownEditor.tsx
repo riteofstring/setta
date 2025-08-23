@@ -7,7 +7,11 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import React, { useCallback, useRef } from "react";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  addPendingOp,
+  getCurrProjectConfigId,
+  setEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { route_set_text_block_text } from "utils/generatedEndpoints";
@@ -47,7 +51,13 @@ const _MarkdownEditorCore = React.forwardRef(
 
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
+        const frontendOpId = addPendingOp((state) =>
+          setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+            text: v,
+          }),
+        );
         route_set_text_block_text({
+          frontendOpId,
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           text: v,

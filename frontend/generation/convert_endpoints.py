@@ -48,9 +48,6 @@ def get_path_input_output_types():
             "inputs": {},
             "output": None,
             "path": route.path,
-            "is_project_manager_operation": hasattr(
-                route.endpoint, "__is_setta_project_manager_operation__"
-            ),
         }
 
         # Get function signature and type hints
@@ -85,7 +82,7 @@ def get_path_input_output_types():
     return output
 
 
-def create_args(inputs, is_project_manager_operation):
+def create_args(inputs):
     args = []
     args_with_annotations = []
 
@@ -93,10 +90,6 @@ def create_args(inputs, is_project_manager_operation):
         if type is SettaFastAPIState:
             continue
         type_annotation = python_type_to_ts(type, {}, set())
-
-        if is_project_manager_operation:  # Assuming single input for operations
-            type_annotation = f"Omit<{type_annotation}, 'opId'>"
-
         args.append(name)
         args_with_annotations.append(f"{name}:{type_annotation}")
     return args, args_with_annotations
@@ -197,34 +190,18 @@ def python_type_to_ts(python_type, type_definitions: dict, processed_types: set)
 
 
 def create_ts_fn_def(
-    endpoint_path,
-    method,
-    fn_name,
-    args,
-    args_with_annotations,
-    output_annotation,
-    is_project_manager_operation,
+    endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
     definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path.replace(Route.PREFIX.value, "")
-
     if method == "POST":
         assert len(args) <= 1
         arg = args[0] if len(args) == 1 else ""
-
-        # For operation endpoints, add opId to the body
-        if is_project_manager_operation and arg:
-            body = f"{{ ...{arg}, opId: createNewId() }}"
-        else:
-            body = arg
-
         definition += f"""{{
-            return await post("{endpoint_path_without_prefix}", {body})
+            return await post("{endpoint_path_without_prefix}", {arg})
         }}
     """
     elif method == "GET":
-        if is_project_manager_operation:
-            raise ValueError
         args = f"{{ {','.join(args)} }}" if len(args) > 0 else ""
         definition += f"""{{
             return await get("{endpoint_path_without_prefix}", {args})
@@ -239,7 +216,6 @@ def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
 import {{ get, post, ResponseDataAndStatus }} from "./endpointUtils"
-import {{ createNewId }} from "./idNameCreation"
 
 """
 
@@ -249,9 +225,7 @@ def main(output_path):
     ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
         output_annotation = python_type_to_ts(s["output"], {}, set())
-        args, args_with_annotations = create_args(
-            s["inputs"], s["is_project_manager_operation"]
-        )
+        args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(
             s["path"],
             s["method"],
@@ -259,7 +233,6 @@ def main(output_path):
             args,
             args_with_annotations,
             output_annotation,
-            s["is_project_manager_operation"],
         )
 
     with open(output_path, "w") as f:

@@ -1,7 +1,9 @@
 import _ from "lodash";
 import {
+  addPendingOp,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
+  setEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_set_param_entered_value } from "utils/generatedEndpoints";
@@ -38,7 +40,16 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 
 const debouncedSetParamEnteredValue = _.debounce(
   (sectionId, paramInfoId, value) => {
+    const frontendOpId = addPendingOp((state) =>
+      setEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        state,
+        sectionId,
+        paramInfoId,
+        { value: value },
+      ),
+    );
     route_set_param_entered_value({
+      frontendOpId,
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,

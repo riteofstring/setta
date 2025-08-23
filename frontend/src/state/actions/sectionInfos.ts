@@ -3,6 +3,7 @@ import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   useNodeInternals,
+  usePendingOperations,
   useProjectState,
   ZustandNodeInternalsState,
   ZustandProjectState,
@@ -26,6 +27,7 @@ import {
   ViewingEditingMode,
   ViewingEditingModeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 
 export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
@@ -339,6 +341,7 @@ export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
   console.log("completedOpIds", x.completedOpIds);
+  console.log("pendingOps", usePendingOperations.getState().pending);
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
@@ -605,4 +608,12 @@ export const debounced_route_set_top_level_section_layout = _.debounce(
 
 export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
+}
+
+export function addPendingOp(op: (x: ZustandProjectState) => void) {
+  const opId = createNewId();
+  usePendingOperations.setState((state) => ({
+    pending: [...state.pending, { op, opId }],
+  }));
+  return opId;
 }

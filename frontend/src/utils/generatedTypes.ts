@@ -7363,7 +7363,6 @@ export function createTypeCheckRequest(
 }
 
 export const AddKwargRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
@@ -7377,7 +7376,6 @@ export function createAddKwargRequest(
 }
 
 export const ChangeParamImplRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.string(),
@@ -7395,7 +7393,6 @@ export function createChangeParamImplRequest(
 }
 
 export const ClearTextFieldCompletionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.union([z.string(), z.null()]),
@@ -7412,7 +7409,6 @@ export function createClearTextFieldCompletionRequest(
 }
 
 export const CodeAreaCompletionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   fullText: z.string(),
@@ -7430,7 +7426,6 @@ export function createCodeAreaCompletionRequest(
 }
 
 export const CreateChildSectionsRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   parentId: z.string(),
   implType: z.enum(SectionTypeEnum),
@@ -7449,7 +7444,6 @@ export function createCreateChildSectionsRequest(
 }
 
 export const CreateChildSectionsViaIncrementerRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   calledBy: z.string(),
   numChildren: z.int(),
@@ -7467,7 +7461,6 @@ export function createCreateChildSectionsViaIncrementerRequest(
 }
 
 export const CreateNewSectionVariantRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
@@ -7483,7 +7476,6 @@ export function createCreateNewSectionVariantRequest(
 }
 
 export const CreateTopLevelSectionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   implType: z.enum(SectionTypeEnum),
   implOverrides: z.union([
@@ -7519,7 +7511,6 @@ export function createCreateTopLevelSectionRequest(
 }
 
 export const DeleteChildSectionsViaDecrementerRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   calledBy: z.string(),
   numChildren: z.int(),
@@ -7536,7 +7527,6 @@ export function createDeleteChildSectionsViaDecrementerRequest(
 }
 
 export const DeleteJSONSourceFileAndVariantRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
@@ -7554,7 +7544,6 @@ export function createDeleteJSONSourceFileAndVariantRequest(
 }
 
 export const DeleteKwargRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
@@ -7568,7 +7557,6 @@ export function createDeleteKwargRequest(
 }
 
 export const DeleteSectionVariantOrAskRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
@@ -7585,7 +7573,6 @@ export function createDeleteSectionVariantOrAskRequest(
 }
 
 export const DeleteSectionsRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionIds: z.array(z.string()),
 });
@@ -7599,7 +7586,6 @@ export function createDeleteSectionsRequest(
 }
 
 export const GenCodePrefixCompletionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   fullText: z.string(),
   position: z.int(),
@@ -7616,7 +7602,6 @@ export function createGenCodePrefixCompletionRequest(
 }
 
 export const GenCodeSuffixCompletionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   fullText: z.string(),
   position: z.int(),
@@ -7633,7 +7618,6 @@ export function createGenCodeSuffixCompletionRequest(
 }
 
 export const GetLatestProjectStateRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
 });
 
@@ -7648,7 +7632,6 @@ export function createGetLatestProjectStateRequest(
 }
 
 export const RedoRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   steps: z.int(),
 });
@@ -7662,7 +7645,6 @@ export function createRedoRequest(
 }
 
 export const SetCallableRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   callableName: z.string(),
@@ -7678,7 +7660,6 @@ export function createSetCallableRequest(
 }
 
 export const SetCodeObjNameRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   codeObjId: z.string(),
   name: z.string(),
@@ -7693,7 +7674,6 @@ export function createSetCodeObjNameRequest(
 }
 
 export const SetCodeRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   code: z.string(),
@@ -7708,7 +7688,6 @@ export function createSetCodeRequest(
 }
 
 export const SetDefaultSectionVariantRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
@@ -7725,7 +7704,6 @@ export function createSetDefaultSectionVariantRequest(
 }
 
 export const SetGenCodePrefixRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   genCodePrefix: z.string(),
 });
@@ -7741,7 +7719,6 @@ export function createSetGenCodePrefixRequest(
 }
 
 export const SetGenCodeSuffixRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   genCodeSuffix: z.string(),
 });
@@ -7757,7 +7734,7 @@ export function createSetGenCodeSuffixRequest(
 }
 
 export const SetParamEnteredValueRequestSchema = z.object({
-  opId: z.string(),
+  frontendOpId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.string(),
@@ -7775,7 +7752,6 @@ export function createSetParamEnteredValueRequest(
 }
 
 export const SetSectionParamFilterRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   value: z.string(),
@@ -7792,7 +7768,6 @@ export function createSetSectionParamFilterRequest(
 }
 
 export const SetSectionSizesRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionSizes: z.record(z.string(), SectionSizeSchema),
 });
@@ -7808,7 +7783,6 @@ export function createSetSectionSizesRequest(
 }
 
 export const SetSectionVariantNameRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   variantId: z.string(),
   name: z.string(),
@@ -7825,7 +7799,6 @@ export function createSetSectionVariantNameRequest(
 }
 
 export const SetSectionVariantRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
@@ -7842,7 +7815,7 @@ export function createSetSectionVariantRequest(
 }
 
 export const SetTextBlockTextRequestSchema = z.object({
-  opId: z.string(),
+  frontendOpId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   text: z.string(),
@@ -7859,7 +7832,6 @@ export function createSetTextBlockTextRequest(
 }
 
 export const SetTopLevelSectionLayoutRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
 });
@@ -7875,7 +7847,6 @@ export function createSetTopLevelSectionLayoutRequest(
 }
 
 export const TextFieldCompletionRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.union([z.string(), z.null()]),
@@ -7894,7 +7865,6 @@ export function createTextFieldCompletionRequest(
 }
 
 export const ToggleMinimizedRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
@@ -7910,7 +7880,6 @@ export function createToggleMinimizedRequest(
 }
 
 export const TogglePositionLockRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
 });
@@ -7926,7 +7895,6 @@ export function createTogglePositionLockRequest(
 }
 
 export const ToggleVariantFrozenRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   variantId: z.string(),
 });
@@ -7942,7 +7910,6 @@ export function createToggleVariantFrozenRequest(
 }
 
 export const ToggleVariantJSONSourceRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
@@ -7959,7 +7926,6 @@ export function createToggleVariantJSONSourceRequest(
 }
 
 export const UndoRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   steps: z.int(),
 });
@@ -7973,7 +7939,6 @@ export function createUndoRequest(
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({
-  opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.string(),
