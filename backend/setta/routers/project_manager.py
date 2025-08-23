@@ -57,6 +57,10 @@ async def route_project_manager_update(
             ).clear_text_field_completion(x)
         case ProjectManagerUpdateType.SetCallable:
             await state.project_manager_switcher.get(x.projectConfigId).set_callable(x)
+        case ProjectManagerUpdateType.TextFieldCompletion:
+            return await state.project_manager_switcher.get(
+                x.projectConfigId
+            ).text_field_completion(x)
         case _:
             assert_never(x.type)
 

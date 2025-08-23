@@ -14,6 +14,7 @@ from setta.project_state.code import (
     PythonCode,
 )
 from setta.project_state.lsp_response_handlers.completion import (
+    CodeMirrorCompletion,
     process_completion_response,
 )
 from setta.project_state.lsp_response_handlers.diagnostics import (
@@ -85,7 +86,7 @@ class ProjectGenPythonCode(PythonCode):
 
     async def text_field_completion(
         self, sectionId: str, paramInfoId: str | None, fullText: str, position: int
-    ):
+    ) -> list[CodeMirrorCompletion]:
         line_col = await self.insert_code_at_position(
             sectionId, paramInfoId, fullText, position
         )
