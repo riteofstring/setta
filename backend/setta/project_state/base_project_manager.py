@@ -21,34 +21,7 @@ from setta.project_state.project_code import (
     ProjectGenPythonCode,
     ProjectPythonCode,
 )
-from setta.project_state.utils import create_timestamped_folder
-from setta.types.helpers import (
-    add_kwarg,
-    change_param_impl,
-    convert_backend_to_single_config,
-    create_child_sections,
-    create_child_sections_via_incrementer,
-    create_new_section_variant,
-    create_top_level_section,
-    delete_child_sections_via_decrementer,
-    delete_kwarg,
-    delete_section_variant,
-    delete_section_variant_or_ask,
-    delete_sections,
-    get_json_source_files_to_watch,
-    get_variants_for_json_source_update,
-    maybe_update_gen_python_code_section,
-    # create_sections,
-    merge_single_config_into_backend,
-    set_param_entered_value,
-    set_project_config_name,
-    set_text_block_text,
-    toggle_position_lock,
-    toggle_variant_json_source,
-    update_param_impl_config,
-)
-from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_manager_types import (
+from setta.project_state.project_manager_types import (
     AddKwargRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -81,6 +54,33 @@ from setta.types.project_manager_types import (
     UpdateFromFrontendTopLevelSectionLayout,
     UpdateParamImplConfigRequest,
 )
+from setta.project_state.utils import create_timestamped_folder
+from setta.types.helpers import (
+    add_kwarg,
+    change_param_impl,
+    convert_backend_to_single_config,
+    create_child_sections,
+    create_child_sections_via_incrementer,
+    create_new_section_variant,
+    create_top_level_section,
+    delete_child_sections_via_decrementer,
+    delete_kwarg,
+    delete_section_variant,
+    delete_section_variant_or_ask,
+    delete_sections,
+    get_json_source_files_to_watch,
+    get_variants_for_json_source_update,
+    maybe_update_gen_python_code_section,
+    # create_sections,
+    merge_single_config_into_backend,
+    set_param_entered_value,
+    set_project_config_name,
+    set_text_block_text,
+    toggle_position_lock,
+    toggle_variant_json_source,
+    update_param_impl_config,
+)
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
     ProjectConfig,
     ProjectMetadata,

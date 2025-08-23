@@ -11,6 +11,10 @@ from setta.database.db.projects.saveAs import (
     save_as_existing_project_config,
     save_as_new_project_config,
 )
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithModCount,
+    UpdateFromFrontendRequest,
+)
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers import (
@@ -19,10 +23,6 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_manager_types import (
-    ProjectStateSingleConfigWithModCount,
-    UpdateFromFrontendRequest,
-)
 from setta.types.project_state import ProjectMetadata
 from setta.types.routes import Route
 

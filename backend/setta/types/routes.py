@@ -59,6 +59,7 @@ class Route(str, Enum):
     GET_UUID_MAPPING_FOR_LLM = "/getUUIDMappingForLLM"
     RUN_CODE = "/runCode"
     TYPE_CHECK = "/typeCheck"
+    CLEAR_TEXT_FIELD_COMPLETION = "/clearTextFieldCompletion"
     SET_CALLABLE = "/setCallable"
     TEXT_FIELD_COMPLETION = "/textFieldCompletion"
     CODE_AREA_COMPLETION = "/codeAreaCompletion"
@@ -89,4 +90,3 @@ class Route(str, Enum):
     SET_PARAM_ENTERED_VALUE = "/setParamEnteredValue"
     SET_CODE_OBJ_NAME = "/setCodeObjName"
     TOGGLE_POSITION_LOCK = "/togglePositionLock"
-    PROJECT_MANAGER_UPDATE = "/projectManagerUpdate"
