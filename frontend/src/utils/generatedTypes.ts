@@ -3966,9 +3966,24 @@ export function createProjectStateSingleConfig(
   return ProjectStateSingleConfigSchema.parse(options);
 }
 
+export const ProjectStateSingleConfigWithCompletedOpIdsSchema = z.object({
+  projectState: ProjectStateSingleConfigSchema,
+  completedOpIds: z.array(z.string()),
+});
+
+export type ProjectStateSingleConfigWithCompletedOpIds = z.infer<
+  typeof ProjectStateSingleConfigWithCompletedOpIdsSchema
+>;
+
+export function createProjectStateSingleConfigWithCompletedOpIds(
+  options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {},
+): ProjectStateSingleConfigWithCompletedOpIds {
+  return ProjectStateSingleConfigWithCompletedOpIdsSchema.parse(options);
+}
+
 export const WebsocketMsgUpdateFrontendProjectStateSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
-  content: ProjectStateSingleConfigSchema,
+  content: ProjectStateSingleConfigWithCompletedOpIdsSchema,
   messageType: z
     .literal("UpdateFrontendProjectState")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateFrontendProjectState),

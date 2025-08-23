@@ -16,6 +16,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    ProjectStateSingleConfigWithCompletedOpIds,
     RedoRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
@@ -29,7 +30,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
-    SetTopLevelSectionLayout,
+    SetTopLevelSectionLayoutRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -41,7 +42,6 @@ from setta.project_state.project_manager_types import (
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -209,16 +209,19 @@ async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
 @is_project_manager_operation
 async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, state: AppStateFromRequest
-) -> ProjectStateSingleConfig:
-    return await state.project_manager_switcher.get(
+) -> ProjectStateSingleConfigWithCompletedOpIds:
+    projectState = await state.project_manager_switcher.get(
         x.projectConfigId
     ).get_latest_project_state(x)
+    return ProjectStateSingleConfigWithCompletedOpIds(
+        projectState=projectState, completedOpIds=[]
+    )
 
 
 @router.post(Route.SET_TOP_LEVEL_SECTION_LAYOUT)
 @is_project_manager_operation
 async def route_set_top_level_section_layout(
-    x: SetTopLevelSectionLayout, state: AppStateFromRequest
+    x: SetTopLevelSectionLayoutRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(
         x.projectConfigId

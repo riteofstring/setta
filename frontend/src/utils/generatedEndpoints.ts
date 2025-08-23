@@ -358,7 +358,9 @@ export async function route_redo(
 
 export async function route_get_latest_project_state(
   x: Omit<gt.GetLatestProjectStateRequest, "opId">,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
+> {
   return await post("/getLatestProjectState", { ...x, opId: createNewId() });
 }
 

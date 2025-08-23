@@ -51,7 +51,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
-    SetTopLevelSectionLayout,
+    SetTopLevelSectionLayoutRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -136,6 +136,7 @@ class BaseProjectManager(ABC):
         self.queue_task = asyncio.create_task(self._process_queue())
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
+        self.completed_op_ids_since_last_broadcast: list[str] = []
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -249,7 +250,7 @@ class BaseProjectManager(ABC):
         return projectState
 
     @enqueue_method
-    async def set_top_level_section_layout(self, x: SetTopLevelSectionLayout):
+    async def set_top_level_section_layout(self, x: SetTopLevelSectionLayoutRequest):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
@@ -800,8 +801,9 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         await self.websocket_msg_handler.broadcast_project_state(
-            project_state,
+            project_state, self.completed_op_ids_since_last_broadcast
         )
+        self.completed_op_ids_since_last_broadcast = []
 
     @property
     def project_state_backend(self):

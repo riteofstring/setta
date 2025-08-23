@@ -20,6 +20,7 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ProjectStateSingleConfig,
+  ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
   Variant,
   ViewingEditingMode,
@@ -335,13 +336,14 @@ export function setAllPreviewVariantIdsToNull() {
 }
 
 export function processProjectStateUpdateFromBackend(
-  projectState: ProjectStateSingleConfig,
+  x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
+  console.log("completedOpIds", x.completedOpIds);
   const projectConfigId = getCurrProjectConfigId();
-  if (projectState.projectConfig.id !== projectConfigId) {
+  if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  useProjectState.setState(projectState);
+  useProjectState.setState(x.projectState);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
       useProjectState.getState(),

@@ -1,7 +1,9 @@
+from dataclasses import dataclass
+
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
-from setta.types.project_state import TopLevelSectionLayout
+from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
 from setta.types.section_impls import SectionSize, SectionType
 from setta.types.simplified_states import Position
 
@@ -116,7 +118,7 @@ class GetLatestProjectStateRequest(ProjectManagerRequest):
     projectConfigId: str
 
 
-class SetTopLevelSectionLayout(ProjectManagerRequest):
+class SetTopLevelSectionLayoutRequest(ProjectManagerRequest):
     projectConfigId: str
     topLevelSections: dict[str, TopLevelSectionLayout]
 
@@ -227,3 +229,9 @@ class SetSectionVariantNameRequest(ProjectManagerRequest):
 class SetSectionSizesRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionSizes: dict[str, SectionSize]
+
+
+@dataclass
+class ProjectStateSingleConfigWithCompletedOpIds:
+    projectState: ProjectStateSingleConfig
+    completedOpIds: list[str]

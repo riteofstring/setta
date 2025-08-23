@@ -1,3 +1,6 @@
+from setta.project_state.project_manager_types import (
+    ProjectStateSingleConfigWithCompletedOpIds,
+)
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
@@ -70,9 +73,15 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             messageId,
         )
 
-    async def broadcast_project_state(self, projectState: ProjectStateSingleConfig):
+    async def broadcast_project_state(
+        self, projectState: ProjectStateSingleConfig, completedOpIds: list[str]
+    ):
         await self.websocket_manager.broadcast(
-            WebsocketMsgUpdateFrontendProjectState(content=projectState),
+            WebsocketMsgUpdateFrontendProjectState(
+                content=ProjectStateSingleConfigWithCompletedOpIds(
+                    projectState=projectState, completedOpIds=completedOpIds
+                )
+            ),
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
