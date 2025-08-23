@@ -34,7 +34,7 @@ from setta.project_state.project_manager_types import (
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    DeleteSectionVariantRequestOrAsk,
+    DeleteSectionVariantOrAskRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -77,7 +77,6 @@ from setta.types.helpers import (
     get_json_source_files_to_watch,
     get_variants_for_json_source_update,
     maybe_update_gen_python_code_section,
-    # create_sections,
     merge_single_config_into_backend,
     set_code,
     set_default_section_variant,
@@ -103,7 +102,7 @@ from setta.types.project_state import (
 )
 from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
-from setta.types.simplified_states import Position, SimplifiedSectionCreation
+from setta.types.simplified_states import Position
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
@@ -481,18 +480,6 @@ class BaseProjectManager(ABC):
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
-    async def get_gen_python_code_path(self, projectConfigId: str):
-        if self.gen_code.get(projectConfigId):
-            return self.gen_code[projectConfigId].get_gen_python_code_path()
-        return None
-
-    @enqueue_method
-    async def get_gen_python_code(self, projectConfigId: str):
-        if self.gen_code.get(projectConfigId):
-            return self.gen_code[projectConfigId].code
-        return ""
-
-    @enqueue_method
     async def change_param_impl(self, x: ChangeParamImplRequest):
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -711,15 +698,7 @@ class BaseProjectManager(ABC):
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
 
     @enqueue_method
-    async def create_sections(
-        self, projectConfigId: str, sections: list[SimplifiedSectionCreation]
-    ):
-        project_state = self.get_single_config_state(projectConfigId)
-        create_sections(project_state, sections)
-        await self.update_and_broadcast_project_state(project_state)
-
-    @enqueue_method
-    async def delete_section_variant_or_ask(self, x: DeleteSectionVariantRequestOrAsk):
+    async def delete_section_variant_or_ask(self, x: DeleteSectionVariantOrAskRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         filepath_to_delete = delete_section_variant_or_ask(
             project_state, x.sectionId, x.variantId

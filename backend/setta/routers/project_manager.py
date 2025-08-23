@@ -12,7 +12,7 @@ from setta.project_state.project_manager_types import (
     DeleteJSONSourceFileAndVariantRequest,
     DeleteKwargRequest,
     DeleteSectionsRequest,
-    DeleteSectionVariantRequestOrAsk,
+    DeleteSectionVariantOrAskRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
@@ -243,7 +243,7 @@ async def route_delete_kwarg(x: DeleteKwargRequest, state: AppStateFromRequest):
 @router.post(Route.DELETE_SECTION_VARIANT_OR_ASK)
 @is_project_manager_operation
 async def route_delete_section_variant_or_ask(
-    x: DeleteSectionVariantRequestOrAsk, state: AppStateFromRequest
+    x: DeleteSectionVariantOrAskRequest, state: AppStateFromRequest
 ) -> str | None:
     filepath_to_delete = await state.project_manager_switcher.get(
         x.projectConfigId

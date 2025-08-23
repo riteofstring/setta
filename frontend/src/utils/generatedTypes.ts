@@ -7567,21 +7567,21 @@ export function createDeleteKwargRequest(
   return DeleteKwargRequestSchema.parse(options);
 }
 
-export const DeleteSectionVariantRequestOrAskSchema = z.object({
+export const DeleteSectionVariantOrAskRequestSchema = z.object({
   opId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   variantId: z.string(),
 });
 
-export type DeleteSectionVariantRequestOrAsk = z.infer<
-  typeof DeleteSectionVariantRequestOrAskSchema
+export type DeleteSectionVariantOrAskRequest = z.infer<
+  typeof DeleteSectionVariantOrAskRequestSchema
 >;
 
-export function createDeleteSectionVariantRequestOrAsk(
-  options: Partial<DeleteSectionVariantRequestOrAsk> = {},
-): DeleteSectionVariantRequestOrAsk {
-  return DeleteSectionVariantRequestOrAskSchema.parse(options);
+export function createDeleteSectionVariantOrAskRequest(
+  options: Partial<DeleteSectionVariantOrAskRequest> = {},
+): DeleteSectionVariantOrAskRequest {
+  return DeleteSectionVariantOrAskRequestSchema.parse(options);
 }
 
 export const DeleteSectionsRequestSchema = z.object({
@@ -7858,20 +7858,20 @@ export function createSetTextBlockTextRequest(
   return SetTextBlockTextRequestSchema.parse(options);
 }
 
-export const SetTopLevelSectionLayoutSchema = z.object({
+export const SetTopLevelSectionLayoutRequestSchema = z.object({
   opId: z.string(),
   projectConfigId: z.string(),
   topLevelSections: z.record(z.string(), TopLevelSectionLayoutSchema),
 });
 
-export type SetTopLevelSectionLayout = z.infer<
-  typeof SetTopLevelSectionLayoutSchema
+export type SetTopLevelSectionLayoutRequest = z.infer<
+  typeof SetTopLevelSectionLayoutRequestSchema
 >;
 
-export function createSetTopLevelSectionLayout(
-  options: Partial<SetTopLevelSectionLayout> = {},
-): SetTopLevelSectionLayout {
-  return SetTopLevelSectionLayoutSchema.parse(options);
+export function createSetTopLevelSectionLayoutRequest(
+  options: Partial<SetTopLevelSectionLayoutRequest> = {},
+): SetTopLevelSectionLayoutRequest {
+  return SetTopLevelSectionLayoutRequestSchema.parse(options);
 }
 
 export const TextFieldCompletionRequestSchema = z.object({

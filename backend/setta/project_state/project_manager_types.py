@@ -133,7 +133,7 @@ class DeleteKwargRequest(ProjectManagerRequest):
     sectionId: str
 
 
-class DeleteSectionVariantRequestOrAsk(ProjectManagerRequest):
+class DeleteSectionVariantOrAskRequest(ProjectManagerRequest):
     projectConfigId: str
     sectionId: str
     variantId: str

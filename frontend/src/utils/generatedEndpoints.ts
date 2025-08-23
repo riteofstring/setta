@@ -365,7 +365,7 @@ export async function route_get_latest_project_state(
 }
 
 export async function route_set_top_level_section_layout(
-  x: Omit<gt.SetTopLevelSectionLayout, "opId">,
+  x: Omit<gt.SetTopLevelSectionLayoutRequest, "opId">,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTopLevelSectionLayout", { ...x, opId: createNewId() });
 }
@@ -383,7 +383,7 @@ export async function route_delete_kwarg(
 }
 
 export async function route_delete_section_variant_or_ask(
-  x: Omit<gt.DeleteSectionVariantRequestOrAsk, "opId">,
+  x: Omit<gt.DeleteSectionVariantOrAskRequest, "opId">,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/deleteSectionVariantOrAsk", {
     ...x,
