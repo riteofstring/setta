@@ -3,10 +3,12 @@ import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
   getSectionCore,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
+import { route_set_section_name } from "utils/generatedEndpoints";
 import {
   isBaseParentSectionImpl,
   SectionType,
@@ -82,8 +84,12 @@ function EditableTitle({
 
 function setSectionName(sectionId: string, name: string) {
   useProjectState.setState((x) => {
-    const s = getSectionCore(x, sectionId);
-    s.name = name;
+    getSectionCore(x, sectionId).name = name;
+  });
+  route_set_section_name({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+    name,
   });
 }
 

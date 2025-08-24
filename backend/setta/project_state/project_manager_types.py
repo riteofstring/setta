@@ -245,6 +245,12 @@ class SetViewportRequest(BaseModel):
     viewport: Viewport | None
 
 
+class SetSectionNameRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    name: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

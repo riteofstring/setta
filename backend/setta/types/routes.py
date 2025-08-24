@@ -97,3 +97,4 @@ class Route(str, Enum):
     SET_SECTION_SIZES = "/setSectionSizes"
     SET_ACTIVE_IDS = "/setActiveIds"
     SET_VIEWPORT = "/setViewport"
+    SET_SECTION_NAME = "/setSectionName"

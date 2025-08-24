@@ -1112,6 +1112,11 @@ def set_section_sizes(
         )
 
 
+def set_section_name(p: ProjectStateSingleConfig, sectionId: str, name: str):
+    if name:
+        p.sections[sectionId].name = name
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

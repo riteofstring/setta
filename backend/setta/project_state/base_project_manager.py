@@ -47,6 +47,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
+    SetSectionNameRequest,
     SetSectionParamFilterRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -84,6 +85,7 @@ from setta.types.helpers import (
     set_default_section_variant,
     set_param_entered_value,
     set_project_config_name,
+    set_section_name,
     set_section_param_filter,
     set_section_sizes,
     set_section_variant,
@@ -769,6 +771,12 @@ class BaseProjectManager(ABC):
     async def set_viewport(self, x: SetViewportRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.viewport = x.viewport
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_name(self, x: SetSectionNameRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_name(project_state, x.sectionId, x.name)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

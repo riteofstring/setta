@@ -484,7 +484,13 @@ export async function route_set_active_ids(
 }
 
 export async function route_set_viewport(
-  x: gt.SetActiveIdsRequest,
+  x: gt.SetViewportRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setViewport", x);
+}
+
+export async function route_set_section_name(
+  x: gt.SetSectionNameRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionName", x);
 }

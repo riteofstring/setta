@@ -7,7 +7,7 @@ import {
 import { useProjectState } from "state/definitions";
 import { route_toggle_minimized } from "utils/generatedEndpoints";
 
-export function MinimizeButton({ sectionId, twClasses, ...props }) {
+export function MinimizeButton({ sectionId, ...props }) {
   const isMinimized = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     return impl.isMinimized;
@@ -38,7 +38,6 @@ export function MinimizeButton({ sectionId, twClasses, ...props }) {
       bg="bg-transparent hover:bg-blue-500 justify-content-center mr-1"
       size="w-4 h-4"
       padding="p-0"
-      twClasses={twClasses}
       onClick={onClick}
     />
   );

@@ -419,6 +419,7 @@ export const RouteEnum = {
   SET_SECTION_SIZES: "/setSectionSizes",
   SET_ACTIVE_IDS: "/setActiveIds",
   SET_VIEWPORT: "/setViewport",
+  SET_SECTION_NAME: "/setSectionName",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7766,6 +7767,20 @@ export function createSetParamEnteredValueRequest(
   return SetParamEnteredValueRequestSchema.parse(options);
 }
 
+export const SetSectionNameRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  name: z.string(),
+});
+
+export type SetSectionNameRequest = z.infer<typeof SetSectionNameRequestSchema>;
+
+export function createSetSectionNameRequest(
+  options: Partial<SetSectionNameRequest> = {},
+): SetSectionNameRequest {
+  return SetSectionNameRequestSchema.parse(options);
+}
+
 export const SetSectionParamFilterRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionId: z.string(),
@@ -7858,6 +7873,19 @@ export function createSetTopLevelSectionLayoutRequest(
   options: Partial<SetTopLevelSectionLayoutRequest> = {},
 ): SetTopLevelSectionLayoutRequest {
   return SetTopLevelSectionLayoutRequestSchema.parse(options);
+}
+
+export const SetViewportRequestSchema = z.object({
+  projectConfigId: z.string(),
+  viewport: z.union([ViewportSchema, z.null()]),
+});
+
+export type SetViewportRequest = z.infer<typeof SetViewportRequestSchema>;
+
+export function createSetViewportRequest(
+  options: Partial<SetViewportRequest> = {},
+): SetViewportRequest {
+  return SetViewportRequestSchema.parse(options);
 }
 
 export const TextFieldCompletionRequestSchema = z.object({

@@ -26,6 +26,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetParamEnteredValueRequest,
+    SetSectionNameRequest,
     SetSectionParamFilterRequest,
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
@@ -354,3 +355,8 @@ async def route_set_active_ids(x: SetActiveIdsRequest, state: AppStateFromReques
 @router.post(Route.SET_VIEWPORT)
 async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_viewport(x)
+
+
+@router.post(Route.SET_SECTION_NAME)
+async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
