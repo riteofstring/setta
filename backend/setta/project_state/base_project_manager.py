@@ -284,7 +284,6 @@ class BaseProjectManager(ABC):
     async def update(
         self,
         projectState: ProjectStateSingleConfig,
-        requestRenameRefactor: bool = False,
         messageId: str | None = None,
         updateFileWatcher: bool = True,
     ):
@@ -294,9 +293,7 @@ class BaseProjectManager(ABC):
         projectConfig = projectState.projectConfig
         projectConfigId = projectConfig.id
         if self.gen_code.get(projectConfigId):
-            await self.maybe_do_rename_refactor(
-                messageId, requestRenameRefactor, projectConfigId, dep_graph
-            )
+            await self.maybe_do_rename_refactor(messageId, projectConfigId, dep_graph)
             self.gen_code[projectConfigId].callback_cleanup()
 
         code_generator = PythonCodeGenerator(
@@ -632,11 +629,10 @@ class BaseProjectManager(ABC):
     async def maybe_do_rename_refactor(
         self,
         messageId: str | None,
-        requestRenameRefactor: bool,
         projectConfigId: str,
         new_dep_graph: DependencyGraph,
     ):
-        if not requestRenameRefactor or not self.gen_code:
+        if not self.gen_code:
             return
 
         renameRefactorMode = self.settings_file.settings.backend.renameRefactorMode

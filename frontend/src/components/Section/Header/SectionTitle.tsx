@@ -84,7 +84,6 @@ function setSectionName(sectionId: string, name: string) {
   useProjectState.setState((x) => {
     const s = getSectionCore(x, sectionId);
     s.name = name;
-    x.requestRenameRefactor = true;
   });
 }
 

@@ -83,7 +83,6 @@ export const useProjectState = withProjectState(
           codeObjVariants: {},
           artifactGroups: {},
           singletonSections: createSingletonSections(),
-          requestRenameRefactor: false,
         })),
       ),
     ),

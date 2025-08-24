@@ -103,8 +103,6 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
       position,
       state,
     });
-
-    state.requestRenameRefactor = true;
   });
 }
 
