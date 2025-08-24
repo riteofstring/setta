@@ -6,6 +6,7 @@ import _ from "lodash";
 import { useCallback } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useLocalPendingValue } from "state/hooks/utils";
 import { res200, ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_gen_code_prefix_completion,
@@ -20,25 +21,37 @@ import {
 
 function GenCodeEditor({
   label,
-  value,
+  globalValue,
   completionRoute,
-  onChange,
+  backendSetStateRoute,
+  globalSetState,
 }: {
   label: string;
-  value: string;
+  globalValue: string;
   completionRoute: (
     x: GenCodePrefixCompletionRequest | GenCodePrefixCompletionRequest,
   ) => Promise<ResponseDataAndStatus<Array<CodeMirrorCompletion>>>;
-  onChange: (x: string) => void;
+  backendSetStateRoute: (x: string) => void;
+  globalSetState: (x: string) => void;
 }) {
   const theme = useCodeMirrorStyle();
 
+  const [value, setPendingValue] = useLocalPendingValue(
+    globalValue,
+    globalSetState,
+  );
+
   const debouncedSetGlobalState = useCallback(
     _.debounce((v) => {
-      onChange(v);
+      backendSetStateRoute(v);
     }, 50),
-    [onChange],
+    [backendSetStateRoute],
   );
+
+  function localOnChange(x: string) {
+    setPendingValue(x);
+    debouncedSetGlobalState(x);
+  }
 
   const completionsFn = useCallback(() => {
     const fn = async (fullText: string, position: number) => {
@@ -79,7 +92,7 @@ function GenCodeEditor({
           value={value}
           theme={theme}
           extensions={extensions}
-          onChange={debouncedSetGlobalState}
+          onChange={localOnChange}
           indentWithTab={false} // I take care of this in getExtensions
           basicSetup={{ tabSize: 4 }}
         />
@@ -102,16 +115,26 @@ export function GenPythonCodeSettings() {
     <div className="flex flex-col gap-4">
       <GenCodeEditor
         label="Code Prefix"
-        value={prefixValue}
+        globalValue={prefixValue}
         completionRoute={route_gen_code_prefix_completion}
-        onChange={setGenCodePrefix}
+        backendSetStateRoute={setGenCodePrefix}
+        globalSetState={(x) =>
+          useProjectState.setState((state) => {
+            state.projectConfig.genCodePrefix = x;
+          })
+        }
       />
 
       <GenCodeEditor
         label="Code Suffix"
-        value={suffixValue}
+        globalValue={suffixValue}
         completionRoute={route_gen_code_suffix_completion}
-        onChange={setGenCodeSuffix}
+        backendSetStateRoute={setGenCodeSuffix}
+        globalSetState={(x) =>
+          useProjectState.setState((state) => {
+            state.projectConfig.genCodeSuffix = x;
+          })
+        }
       />
     </div>
   );
