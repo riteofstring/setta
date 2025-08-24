@@ -9,7 +9,7 @@ import _ from "lodash";
 import React, { useCallback, useRef } from "react";
 import {
   getCurrProjectConfigId,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
@@ -54,9 +54,13 @@ const _MarkdownEditorCore = React.forwardRef(
       text,
       (pendingValue) => {
         useProjectState.setState((state) => {
-          setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-            text: pendingValue,
-          });
+          setCurrEffectiveSectionImplValue<"TextBlockSection">(
+            state,
+            sectionId,
+            {
+              text: pendingValue,
+            },
+          );
         });
       },
     );

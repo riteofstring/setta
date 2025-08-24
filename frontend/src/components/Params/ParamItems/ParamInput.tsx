@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
-  setEffectiveCodeObjImplValue,
+  setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -25,7 +25,7 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     globalValue,
     (pendingValue) => {
       useProjectState.setState((state) => {
-        setEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
           state,
           sectionId,
           paramInfoId,

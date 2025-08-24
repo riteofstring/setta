@@ -2,7 +2,7 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImplOfType,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
@@ -27,7 +27,7 @@ export function RenderTextBlock({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         displayMode:
           displayMode === TextBlockDisplayModeEnum.render
             ? TextBlockDisplayModeEnum.edit
@@ -62,7 +62,7 @@ export function ConvertFormat({ sectionId }) {
 
   function onClick() {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         format: convertTo,
       });
     });

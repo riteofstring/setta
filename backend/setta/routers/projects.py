@@ -117,7 +117,7 @@ async def route_save_project(
         # update_success = await project_manager.update_from_frontend(
         #     req, trigger_autosave=False, updateFileWatcher=False
         # )
-        update_success = False
+        update_success = True
         if not update_success:
             notification = SettaNotification(
                 projectConfigId=x.projectConfig.id,

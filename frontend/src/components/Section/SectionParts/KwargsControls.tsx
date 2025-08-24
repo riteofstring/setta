@@ -2,7 +2,7 @@ import _ from "lodash";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState, useSettings } from "state/definitions";
 import {
@@ -101,9 +101,13 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
 
   function onSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
-        paramFilter: e.target.value,
-      });
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          paramFilter: e.target.value,
+        },
+      );
     });
     debouncedSetSectionParamFilter(sectionId, e.target.value);
   }

@@ -3,7 +3,7 @@ import {
   getCurrEffectiveSectionImpl,
   getHighestAncestor,
   getSectionDescendants,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 import {
@@ -140,7 +140,7 @@ export function setSectionSize(
   state: ZustandProjectState,
 ) {
   let newSize!: SectionSize;
-  setEffectiveSectionImplValue(state, sectionId, {
+  setCurrEffectiveSectionImplValue(state, sectionId, {
     size: (currSize) => {
       newSize = createSectionSize({
         ...currSize,

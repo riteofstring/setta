@@ -207,7 +207,9 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   return getEffectiveImpl(impl, core, variant);
 }
 
-export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
+export function setCurrEffectiveSectionImplValue<
+  K extends keyof ImplArgsBundleMap,
+>(
   state: ZustandProjectState,
   sectionId: string,
   args: ImplArgsBundleMap[K]["args"],
@@ -218,7 +220,9 @@ export function setEffectiveSectionImplValue<K extends keyof ImplArgsBundleMap>(
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
-export function setEffectiveCodeObjImplValue<K extends keyof ImplArgsBundleMap>(
+export function setCurrEffectiveCodeObjImplValue<
+  K extends keyof ImplArgsBundleMap,
+>(
   state: ZustandProjectState,
   sectionId: string,
   codeObjId: string,

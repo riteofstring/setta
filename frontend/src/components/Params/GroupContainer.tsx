@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useColumnResizer } from "state/actions/sectionColumnWidth";
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
-  setEffectiveSectionImplValue,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
@@ -121,9 +121,13 @@ function ResizablePinnedArea({
       sizeMode: { height: SIZE_MODE.any },
     });
     useProjectState.setState((state) => {
-      setEffectiveSectionImplValue<"BaseSectionWithParams">(state, sectionId, {
-        pinnedAreaHeight: height,
-      });
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          pinnedAreaHeight: height,
+        },
+      );
     });
   }
 
