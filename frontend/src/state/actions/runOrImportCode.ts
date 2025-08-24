@@ -1,11 +1,9 @@
 import { useProjectState } from "state/definitions";
 import { route_run_code } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { sectionIsOfType } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
-  const { projectConfig } = useProjectState.getState();
-  if (sectionId && sectionIsOfType(sectionId, SectionTypeEnum.GenPythonCode)) {
+  const { projectConfig, singletonSections } = useProjectState.getState();
+  if (sectionId === singletonSections.genPythonCode) {
     sectionId = null;
   }
   await route_run_code({

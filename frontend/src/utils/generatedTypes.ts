@@ -3865,6 +3865,19 @@ export function createProjectConfig(
   return ProjectConfigSchema.parse(options);
 }
 
+export const SingletonSectionsSchema = z.object({
+  globalVariables: z.union([z.string(), z.null()]).default(null),
+  genPythonCode: z.union([z.string(), z.null()]).default(null),
+});
+
+export type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
+
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return SingletonSectionsSchema.parse(options);
+}
+
 export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), CoreSchema).default({}),
   sectionImpls: z
@@ -3911,6 +3924,7 @@ export const ProjectStateSingleConfigSchema = z.object({
     .default({}),
   codeObjVariants: z.record(z.string(), VariantSchema).default({}),
   projectConfig: ProjectConfigSchema,
+  singletonSections: SingletonSectionsSchema.default(createSingletonSections),
   parentSectionMap: z
     .record(z.string(), z.union([z.string(), z.null()]))
     .default({}),

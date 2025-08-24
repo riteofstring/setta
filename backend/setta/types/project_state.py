@@ -16,6 +16,8 @@ from setta.types.generated.unions import (
 )
 from setta.types.section_impls import (
     BaseParentSectionImpl,
+    GenPythonCodeSectionImpl,
+    GlobalVariablesSectionImpl,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -38,6 +40,11 @@ class TopLevelSectionLayout(BaseModel, extra="forbid"):
     zIndex: int = 0
     w: float | None = None
     h: float | None = None
+
+
+class SingletonSections(BaseModel, extra="forbid"):
+    globalVariables: str | None = None
+    genPythonCode: str | None = None
 
 
 class ProjectConfig(BaseModel, extra="forbid"):
@@ -94,6 +101,7 @@ class ProjectStateBackend(
 
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
+    singletonSections: SingletonSections = Field(default_factory=SingletonSections)
     parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
 
     def get_curr_section_variant(
@@ -113,12 +121,33 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return get_effective_impl(base_impl, core, variant)
 
     @model_validator(mode="after")
+    def _validate_singleton_sections(self):
+        return self.validate_singleton_sections()
+
+    @model_validator(mode="after")
     def _validate_active_ids(self):
         return self.validate_active_ids()
 
     @model_validator(mode="after")
     def _validate_parent_section_map(self):
         return self.validate_parent_section_map()
+
+    def validate_singleton_sections(self):
+        output = SingletonSections()
+        for s in self.sections.values():
+            if output.globalVariables and output.genPythonCode:
+                break
+            sectionImpl = self.get_curr_effective_section_impl(s.id)
+            if not output.globalVariables and isinstance(
+                sectionImpl, GlobalVariablesSectionImpl
+            ):
+                output.globalVariables = s.id
+            elif not output.genPythonCode and isinstance(
+                sectionImpl, GenPythonCodeSectionImpl
+            ):
+                output.genPythonCode = s.id
+        self.singletonSections = output
+        return self
 
     def validate_active_ids(self):
         self.projectConfig.activeIds = [

@@ -1,7 +1,6 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
 import { CodeLanguageEnum, SectionTypeEnum } from "utils/generatedTypes";
-import { getSingletonSectionIds } from "../sectionInfos";
 import { PartialImplWithType } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
@@ -10,7 +9,10 @@ export type CreateSectionsContextMenuInfo = {
 };
 
 export function useCreateSectionsList() {
-  const singletonSections = useProjectState(getSingletonSectionIds, _.isEqual);
+  const singletonSections = useProjectState(
+    (x) => x.singletonSections,
+    _.isEqual,
+  );
   const sectionGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Callable", implSpecs: { type: SectionTypeEnum.Callable } },
     { name: "Dict", implSpecs: { type: SectionTypeEnum.Dict } },
