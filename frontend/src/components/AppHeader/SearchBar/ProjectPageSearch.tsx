@@ -64,6 +64,8 @@ function ProjectPageFind() {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
     useUpdateProjectSearch();
 
+    console.log("value", value)
+
   return (
     <ProjectPageSearchInput
       value={value}

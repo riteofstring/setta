@@ -10,7 +10,7 @@ import {
   findAllParametersOfSection,
 } from "utils/getDescendants";
 import {
-  getCodeChildrenAndParentCodeInfoId,
+  getCurrEffectiveSectionImpl,
   getSectionVariant,
 } from "../sectionInfos";
 
@@ -109,29 +109,24 @@ export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
   });
 }
 
-export function getAllVisibleParamsInSection(sectionId, state) {
-  const { hideUnpinnedParams } = state.sections[sectionId];
-  const { codeInfoChildren, parentCodeInfoId } =
-    getCodeChildrenAndParentCodeInfoId(sectionId, state);
-  let pinnedIds = getParamIdsToShowInArea(
-    true,
-    state.codeInfo,
-    codeInfoChildren,
-    parentCodeInfoId,
-  );
+export function getAllVisibleParamsInSection(
+  state: ZustandProjectState,
+  sectionId: string,
+): Array<string> {
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  if (!isBaseSectionWithParamsImpl(impl)) {
+    return [];
+  }
 
-  pinnedIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
+  const pinnedParams = getParamIdsToShowInArea(state, impl, true);
+
+  const pinnedIds = Object.keys(pinnedParams.requiredParamIdsToPaths);
   pinnedIds.reverse();
 
-  let unpinnedIds = [];
-  if (!hideUnpinnedParams) {
-    unpinnedIds = getParamIdsToShowInArea(
-      false,
-      state.codeInfo,
-      codeInfoChildren,
-      parentCodeInfoId,
-    );
-    unpinnedIds = Object.keys(unpinnedIds.requiredParamIdsToPaths);
+  let unpinnedIds: Array<string> = [];
+  if (!impl.hideUnpinnedParams) {
+    const unpinnedParams = getParamIdsToShowInArea(state, impl, false);
+    unpinnedIds = Object.keys(unpinnedParams.requiredParamIdsToPaths);
     unpinnedIds.reverse();
   }
 

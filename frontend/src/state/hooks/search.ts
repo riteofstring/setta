@@ -5,12 +5,16 @@ import {
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import { useState } from "react";
-import { getDisplayedSectionIdToChildren } from "state/actions/sectionInfos";
+import {
+  getCodeObjCore,
+  getDisplayedSectionIdToChildren,
+} from "state/actions/sectionInfos";
 import { getAllVisibleParamsInSection } from "state/actions/sections/sectionContents";
 import {
   useProjectSearch,
   useProjectState,
   useSettings,
+  ZustandProjectState,
 } from "state/definitions";
 
 export function useUpdateProjectSearch() {
@@ -18,7 +22,7 @@ export function useUpdateProjectSearch() {
   const [visibleParams, setVisibleParams] = useState([]);
   const [currIdx, setCurrIdx] = useState(-1);
 
-  function onChange(e) {
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     setValue(v);
     doUpdateSearch(v, visibleParams);
@@ -57,11 +61,11 @@ export function useUpdateProjectSearch() {
 function getAllVisibleParams() {
   const state = useProjectState.getState();
   const output = [];
-  const sectionIdToChildren = getDisplayedSectionIdToChildren(state, true);
+  const sectionIdToChildren = getDisplayedSectionIdToChildren(state);
 
-  function dfs(sectionId) {
+  function dfs(sectionId: string) {
     if (sectionId) {
-      getParamsAndAddToSearchResults(sectionId, state, output);
+      getParamsAndAddToSearchResults(state, sectionId, output);
     }
 
     const children = sectionIdToChildren[sectionId] || [];
@@ -70,18 +74,24 @@ function getAllVisibleParams() {
     }
   }
 
-  dfs(null);
+  for (const t of Object.keys(state.projectConfig.topLevelSections)) {
+    dfs(t);
+  }
 
   return output;
 }
 
-function getParamsAndAddToSearchResults(sectionId, state, output) {
-  const ids = getAllVisibleParamsInSection(sectionId, state);
+function getParamsAndAddToSearchResults(
+  state: ZustandProjectState,
+  sectionId: string,
+  output: Array<{ sectionId: string; paramInfoId: string; name: string }>,
+) {
+  const ids = getAllVisibleParamsInSection(state, sectionId);
   for (const p of ids) {
     output.push({
       sectionId,
       paramInfoId: p,
-      name: state.codeInfo[p].name,
+      name: getCodeObjCore(state, p).name,
     });
   }
 }
@@ -100,7 +110,7 @@ function goToSearchResult(searchResult) {
   setCenter(x, y, { zoom });
 }
 
-function updateSearch(value, allVisibleParams) {
+function updateSearch(value: string, allVisibleParams) {
   if (!value) {
     useProjectSearch.getState().reset();
     return;
