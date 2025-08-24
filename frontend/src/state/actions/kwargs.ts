@@ -1,16 +1,16 @@
 import { useProjectState } from "state/definitions";
-import { getCodeInfoCol } from "./sectionInfos";
+import { setCurrEffectiveSectionImplValue } from "./sectionInfos";
 
 export function toggleParamSelected(sectionId, paramInfoId) {
   useProjectState.setState((x) => {
-    const codeInfoChildren = getCodeInfoCol(sectionId, x).children;
-    setAttrOfSelfAndDescendants(
-      x.codeInfo,
-      codeInfoChildren,
-      paramInfoId,
-      "isSelected",
-      !x.codeInfo[paramInfoId].isSelected,
-    );
+    setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(x, sectionId, {
+      selectedParams: (curr) => {
+        if (curr?.includes(paramInfoId)) {
+          return curr.filter((x) => x != paramInfoId);
+        }
+        return [...curr, paramInfoId];
+      },
+    });
   });
 }
 
