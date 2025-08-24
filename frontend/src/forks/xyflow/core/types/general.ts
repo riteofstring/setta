@@ -6,8 +6,9 @@ import type {
   ZoomBehavior,
 } from "d3";
 
+import { Position } from "utils/generatedTypes";
 import type { Node } from "./nodes";
-import type { CoordinateExtent, Rect, Transform, XYPosition } from "./utils";
+import type { CoordinateExtent, Rect, Transform } from "./utils";
 
 export type FitViewOptions = {
   padding?: number;
@@ -59,7 +60,7 @@ export type ReactFlowActions = {
   setMaxZoom: (maxZoom: number) => void;
   setTranslateExtent: (translateExtent: CoordinateExtent) => void;
   reset: () => void;
-  panBy: (delta: XYPosition) => boolean;
+  panBy: (delta: Position) => boolean;
 };
 
 export type ReactFlowState = ReactFlowStore & ReactFlowActions;

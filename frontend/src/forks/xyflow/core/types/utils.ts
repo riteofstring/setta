@@ -1,16 +1,13 @@
-export interface XYPosition {
-  x: number;
-  y: number;
-}
+import { Position } from "utils/generatedTypes";
 
 export interface Dimensions {
   width: number;
   height: number;
 }
 
-export interface Rect extends Dimensions, XYPosition {}
+export interface Rect extends Dimensions, Position {}
 
-export interface Box extends XYPosition {
+export interface Box extends Position {
   x2: number;
   y2: number;
 }

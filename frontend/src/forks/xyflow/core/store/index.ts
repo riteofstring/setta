@@ -1,7 +1,8 @@
 import { zoomIdentity } from "d3-zoom";
+import { Position } from "utils/generatedTypes";
 import { subscribeWithSelector } from "zustand/middleware";
 import { createWithEqualityFn } from "zustand/traditional";
-import type { CoordinateExtent, ReactFlowState, XYPosition } from "../types";
+import type { CoordinateExtent, ReactFlowState } from "../types";
 import { getActiveSectionsBounds } from "../utils/graph";
 import initialState from "./initialState";
 
@@ -27,7 +28,7 @@ export const useReactFlow = createWithEqualityFn<ReactFlowState>()(
 
       set({ translateExtent });
     },
-    panBy: (delta: XYPosition): boolean => {
+    panBy: (delta: Position): boolean => {
       const { transform, width, height, d3Zoom, d3Selection, translateExtent } =
         get();
 

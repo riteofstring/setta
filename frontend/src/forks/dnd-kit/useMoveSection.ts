@@ -1,20 +1,16 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
-import { XYPosition } from "forks/xyflow/core/types";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
-  getDisplayedSectionVariant,
+  getSectionChildren,
   getSectionParentId,
   manualDndChildrenReset,
   setSectionChildren,
-  updateProjectState,
 } from "state/actions/sectionInfos";
-import {
-  maybeMakeCopyOfSection,
-  moveSection,
-} from "state/actions/sections/moveSections";
+import { moveSection } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
+import { Position } from "utils/generatedTypes";
 import { DragEndEvent } from "./CustomCore";
 import { arrayMove } from "./CustomSortable";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
@@ -53,7 +49,7 @@ async function onFreeMoveEnd({
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let activeIdx: number | null = null;
   let newIndex: number | null = null;
-  let position: XYPosition | null = null;
+  let position: Position | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
 
   if (newParentId) {
@@ -91,27 +87,29 @@ async function onFreeMoveEnd({
   // then just do manualDndChildrenReset
   if (
     oldParentId === newParentId &&
-    getDisplayedSectionVariant(oldParentId).children.indexOf(sectionId) ===
-      newIndex
+    (!oldParentId ||
+      getSectionChildren(useProjectState.getState(), oldParentId).indexOf(
+        sectionId,
+      ) === newIndex)
   ) {
     manualDndChildrenReset();
     return;
   }
 
-  const maybeNewSectionData = await maybeMakeCopyOfSection({
-    sectionId,
-    oldParentId,
-    newParentId,
-  });
+  // const maybeNewSectionData = await maybeMakeCopyOfSection({
+  //   sectionId,
+  //   oldParentId,
+  //   newParentId,
+  // });
 
-  let newSectionId;
+  let newSectionId = sectionId;
   useProjectState.setState((state) => {
-    if (maybeNewSectionData.sections) {
-      updateProjectState({ ...maybeNewSectionData, state });
-      newSectionId = Object.keys(maybeNewSectionData.sections)[0];
-    } else {
-      newSectionId = maybeNewSectionData;
-    }
+    // if (maybeNewSectionData.sections) {
+    //   updateProjectState({ ...maybeNewSectionData, state });
+    //   newSectionId = Object.keys(maybeNewSectionData.sections)[0];
+    // } else {
+    //   newSectionId = maybeNewSectionData;
+    // }
 
     moveSection({
       oldParentId,

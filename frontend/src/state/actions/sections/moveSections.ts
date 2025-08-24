@@ -1,10 +1,15 @@
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_sections_make_copy } from "utils/generatedEndpoints";
+import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
-import { getSectionInfo, setSectionChildren } from "../sectionInfos";
+import {
+  getSectionInfo,
+  setCurrEffectiveSectionImplValue,
+  setSectionChildren,
+} from "../sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function moveSections({
@@ -37,6 +42,14 @@ export function moveSection({
   newIndex,
   position,
   state,
+}: {
+  oldParentId: string | null;
+  newParentId: string | null;
+  oldSectionId: string;
+  newSectionId: string;
+  newIndex: number | null;
+  position: Position | null;
+  state: ZustandProjectState;
 }) {
   setChildrenAndParent({
     oldParentId,
@@ -48,7 +61,7 @@ export function moveSection({
     state,
   });
 
-  setSectionSizeAfterMove(newParentId, newSectionId, state);
+  // setSectionSizeAfterMove(newParentId, newSectionId, state);
 }
 
 function setChildrenAndParent({
@@ -59,34 +72,50 @@ function setChildrenAndParent({
   newIndex,
   position,
   state,
+}: {
+  oldParentId: string | null;
+  newParentId: string | null;
+  oldSectionId: string;
+  newSectionId: string;
+  newIndex: number | null;
+  position: Position | null;
+  state: ZustandProjectState;
 }) {
   // Remove child from old parent's list
   if (!oldParentId) {
     // This means it was a top level section
     deleteNodes([oldSectionId]);
   } else {
-    setSectionChildren(
-      oldParentId,
-      (x) => x.filter((y) => y !== oldSectionId),
-      state,
+    setSectionChildren(state, oldParentId, (x) =>
+      x.filter((y) => y !== oldSectionId),
     );
   }
   if (!newParentId) {
+    if (position === null) {
+      throw new Error();
+    }
     // This means it's becoming a top level section
     addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
+    if (newIndex === null) {
+      throw new Error();
+    }
     // Add child to new parent's list
-    setSectionChildren(
-      newParentId,
-      (x) => insertIntoArray(x, newIndex, newSectionId),
-      state,
+    setSectionChildren(state, newParentId, (x) =>
+      insertIntoArray(x, newIndex, newSectionId),
     );
   }
 
-  state.sections[newSectionId].parentId = newParentId;
+  setCurrEffectiveSectionImplValue(state, newSectionId, {
+    parentId: newParentId,
+  });
 }
 
-function setSectionSizeAfterMove(newParentId, sectionId, state) {
+function setSectionSizeAfterMove(
+  newParentId: string | null,
+  sectionId: string,
+  state: ZustandProjectState,
+) {
   if (!newParentId) {
     return;
   }

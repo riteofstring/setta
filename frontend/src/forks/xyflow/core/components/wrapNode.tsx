@@ -10,12 +10,13 @@ import {
   NO_PAN_CLASS_NAME,
   SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION,
 } from "utils/constants";
+import { Position } from "utils/generatedTypes";
 import useDrag from "../hooks/useDrag";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
-import type { Node, XYPosition } from "../types";
+import type { Node } from "../types";
 import { isInputDOMNode } from "../utils";
 
-export const arrowKeyDiffs: Record<string, XYPosition> = {
+export const arrowKeyDiffs: Record<string, Position> = {
   ArrowUp: { x: 0, y: -1 },
   ArrowDown: { x: 0, y: 1 },
   ArrowLeft: { x: -1, y: 0 },
