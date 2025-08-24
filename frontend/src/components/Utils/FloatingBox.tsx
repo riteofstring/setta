@@ -3,12 +3,10 @@ import _ from "lodash";
 import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
-import {
-  useLocalStorage,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { useLocalStorage, useSettings } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
+import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
 import { positiveMod, shortcutPrettified } from "utils/utils";
 import { create } from "zustand";
 
@@ -24,7 +22,7 @@ type FloatingBoxContent = (
 type ZustandFloatingBoxState = {
   isFrozen: boolean;
   isEnabled: boolean;
-  contentArray: Array<FloatingBoxContent> | null;
+  contentArray: Array<FloatingBoxContent>;
   idx: number;
   copied: boolean;
 };
@@ -32,7 +30,7 @@ type ZustandFloatingBoxState = {
 export const useFloatingBox = create<ZustandFloatingBoxState>(() => ({
   isFrozen: false,
   isEnabled: false,
-  contentArray: null,
+  contentArray: [],
   idx: 0,
   copied: false,
 }));
@@ -111,7 +109,7 @@ export function FloatingBox() {
     window.addEventListener("mouseup", handleMouseUp);
   };
 
-  if (!isEnabled || !contentArray || contentArray.length === 0) return null;
+  if (!isEnabled || contentArray.length === 0) return null;
 
   return (
     <div
@@ -366,7 +364,7 @@ export function getFloatingBoxHandlers(
 
   function onMouseLeave() {
     if (!useFloatingBox.getState().isFrozen) {
-      useFloatingBox.setState({ contentArray: null, idx: 0, copied: false });
+      useFloatingBox.setState({ contentArray: [], idx: 0, copied: false });
     }
   }
 
@@ -381,26 +379,28 @@ export function disableFloatingBox() {
   useFloatingBox.setState({ isEnabled: false, idx: 0 });
 }
 
-export function getConvertFloatingBoxToSectionFn(renderMarkdown) {
-  return async () => {
+export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
+  return () => {
     const s = useFloatingBox.getState();
-    if (s.contentArray) {
-      const item = s.contentArray[s.idx];
+    const item = s.contentArray[s.idx];
+    if (item) {
       const content = item.title
         ? `## ${item.title}\n\n${item.content}`
         : item.content;
-      useProjectState.setState((state) => {
-        addSectionInEmptySpace({
-          type: UITypeNameEnum.TEXT_BLOCK,
-          sectionProps: {
-            name: s.title,
+      if (content) {
+        route_create_top_level_section({
+          projectConfigId: getCurrProjectConfigId(),
+          implType: SectionTypeEnum.TextBlock,
+          implOverrides: {
             size: { width: 300, height: 300 },
-            renderMarkdown,
+            format: renderMarkdown
+              ? TextBlockFormatEnum.Markdown
+              : TextBlockFormatEnum.Plaintext,
+            text: content,
           },
-          sectionVariantProps: { description: content },
-          state,
+          position: { x: 0, y: 0 },
         });
-      });
+      }
     }
     // if converting a frozen floating box, then we need to remove it
     removeFrozenFloatingBox();
@@ -416,7 +416,7 @@ export function removeFrozenFloatingBox() {
   useFloatingBox.setState({
     isEnabled: false,
     isFrozen: false,
-    contentArray: null,
+    contentArray: [],
   });
 }
 
@@ -424,9 +424,9 @@ export function incrementFloatingBoxIdx() {
   if (!useFloatingBox.getState().contentArray) {
     return;
   }
-  useFloatingBox.setState((state) => ({
-    idx: positiveMod(state.idx + 1, state.contentArray.length),
-  }));
+  useFloatingBox.setState((state) => {
+    return { idx: positiveMod(state.idx + 1, state.contentArray.length) };
+  });
 }
 
 export function decrementFloatingBoxIdx() {
