@@ -1226,11 +1226,20 @@ def group_sections(
 
     parentId = list(currParentIds)[0]
     if not parentId:
+        # create group at min(x), min(y)
         x = min(p.projectConfig.topLevelSections[s].x for s in sectionIds)
         y = min(p.projectConfig.topLevelSections[s].y for s in sectionIds)
         groupId = create_top_level_section(
             settings, p, SectionType.Group, Position(x=x, y=y)
         )
+    else:
+        # create group in parent, at index min(idx)
+        children = get_curr_section_children_ids(p, parentId)
+        idx = min(children.index(s) for s in sectionIds)
+        groupId = create_child_sections(
+            settings, p, parentId, SectionType.Group, 1, idx
+        )
+        groupId = groupId[0]
 
     for i, s in enumerate(sectionIds):
         move_section_to_parent_section(p, groupId, s, i)
