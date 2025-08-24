@@ -4,7 +4,6 @@ import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { setActiveSectionIds } from "../activeSections";
 import { getSectionType, getSectionVariant } from "../sectionInfos";
-import { addSectionAtPosition } from "./createSections";
 
 export function groupSections({ sectionIds, position, name }) {
   let groupId;

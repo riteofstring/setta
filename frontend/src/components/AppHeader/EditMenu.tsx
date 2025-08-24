@@ -8,8 +8,8 @@ import { Link } from "react-router-dom";
 import { restartLanguageServer } from "state/actions/lsp";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
-  addGroupInEmptySpace,
   addCallableSectionInEmptySpace,
+  addGroupInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";

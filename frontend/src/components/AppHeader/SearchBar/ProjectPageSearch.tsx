@@ -7,7 +7,7 @@ import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React, { useRef } from "react";
-import { addSectionInEmptySpace } from "state/actions/sections/createSections";
+import { addCallableSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import {
@@ -123,7 +123,7 @@ function ProjectPageCommandPalette() {
 
     // get corresponding item and its section props
     useProjectState.setState((state) => {
-      addSectionInEmptySpace({
+      addCallableSectionInEmptySpace({
         state,
         ...match.specificProps,
       });

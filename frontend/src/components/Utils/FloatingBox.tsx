@@ -4,6 +4,7 @@ import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";
 import { HiCheck, HiOutlineDuplicate } from "react-icons/hi";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import { getEmptySpacePosition } from "state/actions/sections/createSections";
 import { useLocalStorage, useSettings } from "state/definitions";
 import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { SectionTypeEnum, TextBlockFormatEnum } from "utils/generatedTypes";
@@ -398,7 +399,7 @@ export function getConvertFloatingBoxToSectionFn(renderMarkdown: boolean) {
               : TextBlockFormatEnum.Plaintext,
             text: content,
           },
-          position: { x: 0, y: 0 },
+          position: getEmptySpacePosition(),
         });
       }
     }
