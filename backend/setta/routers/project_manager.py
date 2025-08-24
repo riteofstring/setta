@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
@@ -378,3 +379,8 @@ async def route_set_text_block_format(
     x: SetTextBlockFormatRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).set_text_block_format(x)
+
+
+@router.post(Route.SET_SOCIAL_URL)
+async def route_set_social_url(x: SetSocialUrlRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_social_url(x)

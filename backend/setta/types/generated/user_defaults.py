@@ -117,7 +117,7 @@ class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
 
 
 class UserDefaultSocialSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    social: str = ""
+    url: str = ""
 
 
 class UserDefaultGlobalVariablesSectionImpl(

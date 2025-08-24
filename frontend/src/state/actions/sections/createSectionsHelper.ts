@@ -65,6 +65,17 @@ export function useCreateSectionsList() {
     });
   }
 
+  const embedGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "Social",
+      implSpecs: { type: SectionTypeEnum.Social },
+    },
+    {
+      name: "IFrame",
+      implSpecs: { type: SectionTypeEnum.IFrame },
+    },
+  ];
+
   return [
     {
       group: "Section",
@@ -92,16 +103,7 @@ export function useCreateSectionsList() {
     },
     {
       group: "Embed",
-      items: [
-        {
-          name: "Social",
-          specificProps: { type: SectionTypeEnum.Social },
-        },
-        {
-          name: "IFrame",
-          specificProps: { type: SectionTypeEnum.IFrame },
-        },
-      ],
+      items: embedGroupItems,
     },
   ];
 }

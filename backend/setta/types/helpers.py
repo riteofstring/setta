@@ -35,6 +35,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
+    SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
 )
@@ -1132,6 +1133,12 @@ def set_text_block_format(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
+    )
+
+
+def set_social_url(p: ProjectStateSingleConfig, sectionId: str, url: str):
+    set_curr_effective_section_impl_value(
+        p, sectionId, SocialSectionImplArgsWithCallable(url=url)
     )
 
 

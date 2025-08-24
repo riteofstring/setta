@@ -52,6 +52,7 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
@@ -92,6 +93,7 @@ from setta.types.helpers import (
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
+    set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_text,
@@ -793,6 +795,12 @@ class BaseProjectManager(ABC):
     async def set_text_block_format(self, x: SetTextBlockFormatRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_format(project_state, x.sectionId, x.format)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_social_url(self, x: SetSocialUrlRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_social_url(project_state, x.sectionId, x.url)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

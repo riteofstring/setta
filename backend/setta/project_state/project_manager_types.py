@@ -268,6 +268,12 @@ class SetTextBlockFormatRequest(BaseModel):
     format: TextBlockFormat
 
 
+class SetSocialUrlRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    url: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

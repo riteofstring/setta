@@ -506,3 +506,9 @@ export async function route_set_text_block_format(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockFormat", x);
 }
+
+export async function route_set_social_url(
+  x: gt.SetSocialUrlRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSocialUrl", x);
+}

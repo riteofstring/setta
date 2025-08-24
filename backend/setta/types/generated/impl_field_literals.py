@@ -47,11 +47,11 @@ AllImplFields = Literal[
     "renderedValue",
     "selectedParams",
     "size",
-    "social",
     "step",
     "text",
     "topLevelParamIds",
     "type",
+    "url",
     "value",
     "visibility",
 ]

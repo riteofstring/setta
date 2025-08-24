@@ -189,7 +189,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
 
 class SocialSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Social] = SectionType.Social
-    social: str = ""
+    url: str = ""
 
 
 class GlobalVariablesSectionImpl(BaseDictSectionImpl):

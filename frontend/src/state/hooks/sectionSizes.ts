@@ -326,13 +326,13 @@ export function setDrawAreaSectionSize({
   return canvasSize;
 }
 
-export function useYouTubeSectionSize(sectionId) {
+export function useYouTubeSectionSize(sectionId: string) {
   const extraHeight = 22;
   const defaultSize = { width: 640, height: 360 };
-  const { width, height } = useProjectState(
-    (x) => x.sections[sectionId].size,
-    _.isEqual,
-  );
+  const { width, height } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    return impl.size;
+  }, _.isEqual);
 
   function setToDefaultSize() {
     defaultSize.height += extraHeight;

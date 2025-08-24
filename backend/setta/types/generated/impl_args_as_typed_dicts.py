@@ -75,11 +75,11 @@ class CoreArgs(TypedDict):
                 "renderedValue",
                 "selectedParams",
                 "size",
-                "social",
                 "step",
                 "text",
                 "topLevelParamIds",
                 "type",
+                "url",
                 "value",
                 "visibility",
             ]
@@ -344,7 +344,7 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class SocialSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Social]]
-    social: NotRequired[str]
+    url: NotRequired[str]
 
 
 class SocialSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -352,7 +352,7 @@ class SocialSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         Literal[SectionType.Social]
         | Callable[[Literal[SectionType.Social]], Literal[SectionType.Social]]
     ]
-    social: NotRequired[str | Callable[[str], str]]
+    url: NotRequired[str | Callable[[str], str]]
 
 
 class GlobalVariablesSectionImplArgs(BaseDictSectionImplArgs):

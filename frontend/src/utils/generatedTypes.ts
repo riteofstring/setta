@@ -422,6 +422,7 @@ export const RouteEnum = {
   SET_SECTION_NAME: "/setSectionName",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
+  SET_SOCIAL_URL: "/setSocialUrl",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -1246,11 +1247,11 @@ export const AllImplFieldsSchema = z.literal([
   "renderedValue",
   "selectedParams",
   "size",
-  "social",
   "step",
   "text",
   "topLevelParamIds",
   "type",
+  "url",
   "value",
   "visibility",
 ]);
@@ -2063,7 +2064,7 @@ export const SocialSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  social: z.string().default("" as const),
+  url: z.string().default("" as const),
 });
 
 export type SocialSectionImpl = z.infer<typeof SocialSectionImplSchema>;
@@ -3235,7 +3236,7 @@ export const SocialSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  social: z.string().optional(),
+  url: z.string().optional(),
 });
 
 export type SocialSectionImplArgs = z.infer<typeof SocialSectionImplArgsSchema>;
@@ -3806,11 +3807,11 @@ export const CoreSchema = z.object({
         "renderedValue",
         "selectedParams",
         "size",
-        "social",
         "step",
         "text",
         "topLevelParamIds",
         "type",
+        "url",
         "value",
         "visibility",
       ]),
@@ -4478,7 +4479,7 @@ export const UserDefaultSocialSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  social: z.string().default("" as const),
+  url: z.string().default("" as const),
 });
 
 export type UserDefaultSocialSectionImpl = z.infer<
@@ -6132,7 +6133,7 @@ export const SocialSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  social: z.union([z.string(), z.any()]).optional(),
+  url: z.union([z.string(), z.any()]).optional(),
 });
 
 export type SocialSectionImplArgsWithCallable = z.infer<
@@ -6308,11 +6309,11 @@ export const CoreArgsSchema = z.object({
         "renderedValue",
         "selectedParams",
         "size",
-        "social",
         "step",
         "text",
         "topLevelParamIds",
         "type",
+        "url",
         "value",
         "visibility",
       ]),
@@ -7844,6 +7845,20 @@ export function createSetSectionVariantRequest(
   options: Partial<SetSectionVariantRequest> = {},
 ): SetSectionVariantRequest {
   return SetSectionVariantRequestSchema.parse(options);
+}
+
+export const SetSocialUrlRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  url: z.string(),
+});
+
+export type SetSocialUrlRequest = z.infer<typeof SetSocialUrlRequestSchema>;
+
+export function createSetSocialUrlRequest(
+  options: Partial<SetSocialUrlRequest> = {},
+): SetSocialUrlRequest {
+  return SetSocialUrlRequestSchema.parse(options);
 }
 
 export const SetTextBlockDisplayModeRequestSchema = z.object({
