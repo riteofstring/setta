@@ -54,10 +54,10 @@
     "immer": "10.1.1",
     "katex": "0.16.21",
     "lodash": "4.17.21",
-    "match-sorter": "6.3.1",
+    "match-sorter": "8.1.0",
     "postcss": "8.4.31",
     "potpack": "2.1.0",
-    "re-resizable": "6.9.0",
+    "re-resizable": "6.10.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
     "react-dropzone": "14.2.9",
@@ -101,12 +101,6 @@
     "cleaninstall": "rm -rf node_modules dist pnpm-lock.yaml && pnpm install",
     "generate": "bash ./generation/generate.sh"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -120,6 +114,7 @@
     ]
   },
   "devDependencies": {
+    "@types/d3": "7.4.3",
     "@types/lodash": "4.17.17",
     "@types/uuid": "10.0.0",
     "@types/react": "19.1.12",
@@ -129,7 +124,7 @@
     "concurrently": "8.2.0",
     "eslint": "9.21.0",
     "eslint-plugin-react": "7.37.4",
-    "prettier": "3.2.4 ",
+    "prettier": "3.2.4",
     "prettier-plugin-organize-imports": "3.2.4",
     "prettier-plugin-tailwindcss": "0.5.11",
     "ts-prune": "0.10.3",
