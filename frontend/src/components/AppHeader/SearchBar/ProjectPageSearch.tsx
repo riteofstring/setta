@@ -6,7 +6,7 @@ import {
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { addCallableSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
 import { goToSection } from "state/actions/sections/sectionPositions";
@@ -35,7 +35,7 @@ export function ProjectPageSearchBar() {
   }
 }
 
-function ProjectPageSearchInputComponent(props, ref) {
+function ProjectPageSearchInput({ ref, ...props }) {
   const shortcuts = useSettings((x) => {
     return {
       advancedkey: shortcutPrettified(x.shortcuts.advancedSearchShortcut),
@@ -59,9 +59,6 @@ function ProjectPageSearchInputComponent(props, ref) {
     </search>
   );
 }
-const ProjectPageSearchInput = React.forwardRef(
-  ProjectPageSearchInputComponent,
-);
 
 function ProjectPageFind() {
   const { value, onChange, onBlur, onFocus, onKeyDown } =
@@ -163,7 +160,7 @@ function ProjectPageAdvancedCore({ allItems, onSelectedItemChange }) {
 
   return (
     <>
-      <ProjectPageSearchInputComponent {...inputProps} />
+      <ProjectPageSearchInput {...inputProps} />
       <ComboboxList
         isOpen={isOpen}
         getMenuProps={getMenuProps}

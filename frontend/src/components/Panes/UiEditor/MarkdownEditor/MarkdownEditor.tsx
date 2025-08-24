@@ -45,75 +45,74 @@ export function MarkdownEditorInSection({ sectionId }) {
   );
 }
 
-const _MarkdownEditorCore = React.forwardRef(
-  ({ sectionId, maxHeight, onCreateEditor, wrapperClassName }, ref) => {
-    const { format, text, isFrozen } =
-      useTextBlockTextAndEditability(sectionId);
+function _MarkdownEditorCore({
+  sectionId,
+  maxHeight,
+  onCreateEditor,
+  wrapperClassName,
+  ref,
+}) {
+  const { format, text, isFrozen } = useTextBlockTextAndEditability(sectionId);
 
-    const [value, setPendingValue] = useLocalPendingValue(
-      text,
-      (pendingValue) => {
-        useProjectState.setState((state) => {
-          setCurrEffectiveSectionImplValue<"TextBlockSection">(
-            state,
-            sectionId,
-            {
-              text: pendingValue,
-            },
-          );
+  const [value, setPendingValue] = useLocalPendingValue(
+    text,
+    (pendingValue) => {
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          text: pendingValue,
         });
-      },
-    );
+      });
+    },
+  );
 
-    const debouncedSetText = useCallback(
-      _.debounce((sectionId, v) => {
-        route_set_text_block_text({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          text: v,
-        });
-      }, 50),
-      [],
-    );
+  const debouncedSetText = useCallback(
+    _.debounce((sectionId, v) => {
+      route_set_text_block_text({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        text: v,
+      });
+    }, 50),
+    [],
+  );
 
-    function onChange(v) {
-      setPendingValue(v);
-      debouncedSetText(sectionId, v);
-    }
+  function onChange(v) {
+    setPendingValue(v);
+    debouncedSetText(sectionId, v);
+  }
 
-    const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
-      codeAreaTabOnEnterKeyHandlers(ref);
+  const { onArticleDivEnterKeyFocusOnCodeMirror, onEscapeFocusOnArticleDiv } =
+    codeAreaTabOnEnterKeyHandlers(ref);
 
-    const theme = useCodeMirrorStyle();
+  const theme = useCodeMirrorStyle();
 
-    const extensions = getExtensions({
-      language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
-      tabToAutocomplete: true,
-      indentWithTab: true,
-      isDisabled: isFrozen,
-      onEscape: onEscapeFocusOnArticleDiv,
-    });
+  const extensions = getExtensions({
+    language: format === TextBlockFormatEnum.Markdown ? "markdown" : null,
+    tabToAutocomplete: true,
+    indentWithTab: true,
+    isDisabled: isFrozen,
+    onEscape: onEscapeFocusOnArticleDiv,
+  });
 
-    return (
-      <article
-        ref={ref}
-        className={wrapperClassName}
-        onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
-        tabIndex={0}
-      >
-        <CodeMirror
-          maxHeight={maxHeight}
-          value={value}
-          theme={theme}
-          extensions={extensions}
-          onChange={onChange}
-          onCreateEditor={onCreateEditor}
-          indentWithTab={false} // I take care of this in getExtensions
-          basicSetup={{ tabSize: 4 }}
-        />
-      </article>
-    );
-  },
-);
+  return (
+    <article
+      ref={ref}
+      className={wrapperClassName}
+      onKeyDown={onArticleDivEnterKeyFocusOnCodeMirror}
+      tabIndex={0}
+    >
+      <CodeMirror
+        maxHeight={maxHeight}
+        value={value}
+        theme={theme}
+        extensions={extensions}
+        onChange={onChange}
+        onCreateEditor={onCreateEditor}
+        indentWithTab={false} // I take care of this in getExtensions
+        basicSetup={{ tabSize: 4 }}
+      />
+    </article>
+  );
+}
 
 const MarkdownEditorCore = React.memo(_MarkdownEditorCore);

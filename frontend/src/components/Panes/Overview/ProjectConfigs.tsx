@@ -1,6 +1,6 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
 import _ from "lodash";
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
@@ -12,7 +12,7 @@ import {
 } from "state/definitions";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 
-export const ProjectConfigs = React.forwardRef(() => {
+export function ProjectConfigs() {
   const { name: currProjectConfigName, allConfigNames } = useProjectState(
     (x) => {
       const name = x.projectConfig.name;
@@ -78,7 +78,7 @@ export const ProjectConfigs = React.forwardRef(() => {
       </section>
     </>
   );
-});
+}
 
 function onMouseEnter({
   mousedOverName,

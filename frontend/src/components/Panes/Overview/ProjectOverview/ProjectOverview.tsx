@@ -1,6 +1,5 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getSectionCore,
@@ -15,10 +14,10 @@ import {
 import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
-export const ProjectOverview = React.forwardRef(() => {
+export function ProjectOverview() {
   const sectionList = useOverviewListing();
   return <ProjectOverviewCore sectionList={sectionList} />;
-});
+}
 
 function ProjectOverviewCore({
   sectionList,

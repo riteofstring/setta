@@ -1,24 +1,22 @@
 import * as RadioGroup from "@radix-ui/react-radio-group";
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { HiCheckCircle } from "react-icons/hi";
 
-export const FileList = React.forwardRef(
-  ({ files, onClick, onFileDoubleClick }, ref) => {
-    return (
-      <div className="flex flex-grow flex-col" ref={ref}>
-        {files.map((x) => (
-          <File
-            id={x.id}
-            name={x.name}
-            onClick={onClick}
-            key={x.id}
-            onFileDoubleClick={onFileDoubleClick}
-          />
-        ))}
-      </div>
-    );
-  },
-);
+export function FileList({ files, onClick, onFileDoubleClick, ref }) {
+  return (
+    <div className="flex flex-grow flex-col" ref={ref}>
+      {files.map((x) => (
+        <File
+          id={x.id}
+          name={x.name}
+          onClick={onClick}
+          key={x.id}
+          onFileDoubleClick={onFileDoubleClick}
+        />
+      ))}
+    </div>
+  );
+}
 
 function File({ id, name, onClick, onFileDoubleClick }) {
   const itemRef = useRef(null);

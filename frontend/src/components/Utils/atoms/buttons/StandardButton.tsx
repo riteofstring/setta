@@ -1,7 +1,6 @@
-import { forwardRef } from "react";
 import { Button } from "./Button";
 
-export const StandardButton = forwardRef((props, ref) => {
+export function StandardButton({ ref, ...props }) {
   const {
     children,
     stdBtnStyles,
@@ -21,4 +20,4 @@ export const StandardButton = forwardRef((props, ref) => {
       {children}
     </Button>
   );
-});
+}

@@ -5,7 +5,7 @@ import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { forwardRef, useState } from "react";
+import { useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { HiHome } from "react-icons/hi";
 import { IoMdCheckmark } from "react-icons/io";
@@ -164,50 +164,51 @@ function ProjectItems({
   );
 }
 
-const ProjectItem = forwardRef(
-  (
-    { project, isDefault, isSelected, onSelectProject, inSelectionMode },
-    forwardedRef,
-  ) => {
-    const itemStyles =
-      "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
+function ProjectItem({
+  project,
+  isDefault,
+  isSelected,
+  onSelectProject,
+  inSelectionMode,
+}) {
+  const itemStyles =
+    "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
-    const WrapperDiv = !inSelectionMode ? Link : "div";
-    const wrapperProps = !inSelectionMode
-      ? {
-          to: `/${project.name}`,
-          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-          className: "contents",
-          relative: "path",
-        }
-      : {
-          className: "contents",
-          onClick: (e) => onSelectProject(e, project.id),
-        };
+  const WrapperDiv = !inSelectionMode ? Link : "div";
+  const wrapperProps = !inSelectionMode
+    ? {
+        to: `/${project.name}`,
+        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+        className: "contents",
+        relative: "path",
+      }
+    : {
+        className: "contents",
+        onClick: (e) => onSelectProject(e, project.id),
+      };
 
-    return (
-      <div ref={forwardedRef} className={itemStyles}>
-        <WrapperDiv {...wrapperProps}>
-          <ThumbnailArea
-            project={project}
-            isSelected={isSelected}
-            onSelectProject={onSelectProject}
-          />
-          <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-860">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-setta-600 dark:text-setta-100">
-                {project.name}
-              </p>
-              {isDefault && (
-                <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
-              )}
-            </div>
+  return (
+    <div className={itemStyles}>
+      <WrapperDiv {...wrapperProps}>
+        <ThumbnailArea
+          project={project}
+          isSelected={isSelected}
+          onSelectProject={onSelectProject}
+        />
+        <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-5 py-4 dark:bg-setta-860">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-setta-600 dark:text-setta-100">
+              {project.name}
+            </p>
+            {isDefault && (
+              <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
+            )}
           </div>
-        </WrapperDiv>
-      </div>
-    );
-  },
-);
+        </div>
+      </WrapperDiv>
+    </div>
+  );
+}
 
 function ThumbnailArea({ project, isSelected, onSelectProject }) {
   const navigate = useNavigate();
