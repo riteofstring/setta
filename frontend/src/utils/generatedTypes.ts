@@ -3,7 +3,7 @@ import {
   createRandomName as generate_memorable_string,
 } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;

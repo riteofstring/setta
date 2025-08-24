@@ -703,7 +703,7 @@ def main(output_file):
         dataclasses_list = get_all_dataclasses(module)
         all_dataclasses.update({k: v for k, v in dataclasses_list})
 
-    ts_code = """import { z } from 'zod/v4';
+    ts_code = """import { z } from 'zod';
 import { createNewId as create_new_id, createRandomName as generate_memorable_string } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
 import _ from "lodash"
