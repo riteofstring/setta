@@ -683,6 +683,23 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
   });
 }
 
+export function unselectAllParams() {
+  let didUnselectSomeParams = false;
+  useProjectState.setState((x) => {
+    for (const sectionId of Object.keys(x.sections)) {
+      const impl = getCurrEffectiveSectionImpl(x, sectionId);
+      if (isBaseSectionWithParamsImpl(impl)) {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          x,
+          sectionId,
+          { selectedParams: [] },
+        );
+      }
+    }
+  });
+  return didUnselectSomeParams;
+}
+
 export const debounced_route_set_active_ids = _.debounce(
   () =>
     route_set_active_ids({

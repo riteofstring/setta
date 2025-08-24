@@ -67,6 +67,7 @@ from setta.project_state.project_manager_types import (
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -107,6 +108,7 @@ from setta.types.helpers import (
     toggle_variant_frozen,
     toggle_variant_json_source,
     ungroup_groups,
+    unselect_all_params,
     update_param_impl_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
@@ -836,6 +838,12 @@ class BaseProjectManager(ABC):
     async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         toggle_param_selected(project_state, x.sectionId, x.paramInfoId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def unselect_all_params(self, x: UnselectAllParamsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        unselect_all_params(project_state)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

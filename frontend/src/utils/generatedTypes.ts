@@ -426,6 +426,7 @@ export const RouteEnum = {
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
+  UNSELECT_ALL_PARAMS: "/unselectAllParams",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -8000,6 +8001,20 @@ export function createUngroupGroupsRequest(
   options: Partial<UngroupGroupsRequest> = {},
 ): UngroupGroupsRequest {
   return UngroupGroupsRequestSchema.parse(options);
+}
+
+export const UnselectAllParamsRequestSchema = z.object({
+  projectConfigId: z.string(),
+});
+
+export type UnselectAllParamsRequest = z.infer<
+  typeof UnselectAllParamsRequestSchema
+>;
+
+export function createUnselectAllParamsRequest(
+  options: Partial<UnselectAllParamsRequest> = {},
+): UnselectAllParamsRequest {
+  return UnselectAllParamsRequestSchema.parse(options);
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({

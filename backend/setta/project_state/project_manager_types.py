@@ -290,6 +290,10 @@ class ToggleParamSelectedRequest(BaseModel):
     paramInfoId: str
 
 
+class UnselectAllParamsRequest(BaseModel):
+    projectConfigId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

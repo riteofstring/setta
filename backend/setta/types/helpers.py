@@ -1283,6 +1283,28 @@ def toggle_param_selected(
     )
 
 
+def unselect_all_params(p: ProjectStateSingleConfig):
+    for s in p.sections.keys():
+        impl = p.get_curr_effective_section_impl(s)
+        if isinstance(impl, BaseSectionWithParamsImpl):
+            set_curr_effective_section_impl_value(
+                p,
+                s,
+                BaseSectionWithParamsImplArgsWithCallable(selectedParams=[]),
+            )
+
+    # for (const sectionId of Object.keys(x.sections)) {
+    #   const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    #   if (isBaseSectionWithParamsImpl(impl)) {
+    #     setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+    #       x,
+    #       sectionId,
+    #       { selectedParams: [] },
+    #     );
+    #   }
+    # }
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

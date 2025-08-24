@@ -530,3 +530,9 @@ export async function route_toggle_param_selected(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/toggleParamSelected", x);
 }
+
+export async function route_unselect_all_params(
+  x: gt.UnselectAllParamsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/unselectAllParams", x);
+}

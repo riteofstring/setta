@@ -46,6 +46,7 @@ from setta.project_state.project_manager_types import (
     ToggleVariantJSONSourceRequest,
     UndoRequest,
     UngroupGroupsRequest,
+    UnselectAllParamsRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -405,3 +406,10 @@ async def route_toggle_param_selected(
     x: ToggleParamSelectedRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).toggle_param_selected(x)
+
+
+@router.post(Route.UNSELECT_ALL_PARAMS)
+async def route_unselect_all_params(
+    x: UnselectAllParamsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).unselect_all_params(x)

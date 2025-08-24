@@ -35,6 +35,7 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
+import { route_unselect_all_params } from "utils/generatedEndpoints";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
@@ -50,8 +51,10 @@ import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
 import {
   deleteAllActiveSections,
+  getCurrProjectConfigId,
   groupActiveSections,
   ungroupActiveGroups,
+  unselectAllParams,
 } from "./sectionInfos";
 import {
   addCallableSectionInEmptySpace,
@@ -653,7 +656,8 @@ function specialModTabCase(shortcutInfo) {
 }
 
 function onEscapeKey() {
-  // const didUnselectSomeParams = unselectAllParams();
+  unselectAllParams();
+  route_unselect_all_params({ projectConfigId: getCurrProjectConfigId() });
   // if (!didUnselectSomeParams) {
   //   clearActiveSectionIds();
   // }
