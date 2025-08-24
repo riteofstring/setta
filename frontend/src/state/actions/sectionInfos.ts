@@ -346,33 +346,21 @@ export function setAllPreviewVariantIdsToNull() {
 }
 
 export function processProjectStateUpdateFromBackend(
-  pWithOps: ProjectStateSingleConfigWithCompletedOpIds,
+  x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
   const projectConfigId = getCurrProjectConfigId();
-  if (pWithOps.projectState.projectConfig.id !== projectConfigId) {
+  if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
   const pendingOps = usePendingOperations
     .getState()
-    .pending.filter((opInfo) => !pWithOps.completedOpIds.includes(opInfo.opId));
+    .pending.filter((opInfo) => !x.completedOpIds.includes(opInfo.opId));
   usePendingOperations.setState({ pending: pendingOps });
-
-  if (!pWithOps.projectState.projectConfig.viewport) {
-    useReactFlow.setState({ fitViewOnInit: true });
-  } else {
-    const { x, y, zoom } = pWithOps.projectState.projectConfig.viewport;
-    useReactFlow.setState({
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      transform: [x, y, zoom],
-    });
-  }
-
   useProjectState.setState(() => {
     for (const opInfo of pendingOps) {
-      opInfo.op(pWithOps.projectState);
+      opInfo.op(x.projectState);
     }
-    return pWithOps.projectState;
+    return x.projectState;
   });
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
