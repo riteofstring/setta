@@ -14,7 +14,6 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     # Base classes
     "BaseSectionImpl": DEFAULT_EXCLUSIONS.union(
         {
-            "parentId",
             "isInOtherProjectConfigs",
             "isPreset",
             "aspectRatioExtraHeight",

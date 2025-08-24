@@ -109,8 +109,7 @@ function useTitleIsEditable(sectionId: string) {
 
 function getSiblingHasName(sectionId: string, newName: string) {
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, sectionId);
-  const { parentId } = impl;
+  const parentId = state.parentSectionMap[sectionId];
   let siblingIds: Iterable<string>;
   if (parentId) {
     siblingIds = getSectionChildren(state, parentId);

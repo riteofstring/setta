@@ -15,6 +15,7 @@ from setta.types.generated.unions import (
     BaseSectionImplUnionWithDiscriminator,
 )
 from setta.types.section_impls import (
+    BaseParentSectionImpl,
     GenPythonCodeSectionImpl,
     GlobalVariablesSectionImpl,
 )
@@ -82,8 +83,7 @@ class ProjectStateBackend(
 
     @model_validator(mode="after")
     def _validate_default_project_id(self):
-        self.validate_default_project_id()
-        return self
+        return self.validate_default_project_id()
 
     def validate_default_project_id(self):
         if self.projectConfigs:
@@ -102,6 +102,7 @@ class ProjectStateBackend(
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
+    parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
 
     def get_curr_section_variant(
         self,
@@ -121,13 +122,15 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
-        self.validate_singleton_sections()
-        return self
+        return self.validate_singleton_sections()
 
     @model_validator(mode="after")
     def _validate_active_ids(self):
-        self.validate_active_ids()
-        return self
+        return self.validate_active_ids()
+
+    @model_validator(mode="after")
+    def _validate_parent_section_map(self):
+        return self.validate_parent_section_map()
 
     def validate_singleton_sections(self):
         output = SingletonSections()
@@ -150,6 +153,17 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.projectConfig.activeIds = [
             x for x in self.projectConfig.activeIds if x in self.sections
         ]
+        return self
+
+    def validate_parent_section_map(self):
+        self.parentSectionMap = {}
+        for sectionId in self.sections.keys():
+            if sectionId not in self.parentSectionMap:
+                self.parentSectionMap[sectionId] = None
+            impl = self.get_curr_effective_section_impl(sectionId)
+            if isinstance(impl, BaseParentSectionImpl):
+                for c in impl.children:
+                    self.parentSectionMap[c] = sectionId
         return self
 
 

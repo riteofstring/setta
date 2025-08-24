@@ -88,7 +88,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
     type: Any
     id: str = Field(default_factory=create_new_id)
     name: str = Field(default_factory=generate_memorable_string)
-    parentId: str | None = None
     isFrozen: bool = False
     visibility: Visibility = Field(default_factory=Visibility)
     isInOtherProjectConfigs: bool = False

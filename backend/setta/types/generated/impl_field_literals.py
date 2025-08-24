@@ -39,7 +39,6 @@ AllImplFields = Literal[
     "min",
     "name",
     "paramFilter",
-    "parentId",
     "passingStyle",
     "pinnedAreaHeight",
     "pinnedParams",

@@ -352,7 +352,7 @@ def get_curr_top_level_param_ids(
 
 def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
     section_impl = p.get_curr_effective_section_impl(section_id)
-    parent_id = section_impl.parentId
+    parent_id = p.parentSectionMap[section_id]
     if not parent_id:
         return p.sections[section_id].name
 
@@ -367,7 +367,7 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
             output = f'["{child_name}"]{output}'
 
         child_id = parent_id
-        parent_id = p.get_curr_effective_section_impl(parent_id).parentId
+        parent_id = p.parentSectionMap[parent_id]
 
     # child_id will contain the highest parent's id
     child_name = p.sections[child_id].name
@@ -539,7 +539,7 @@ def create_child_sections(
     )
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
-        create_section(settings, p, impl_type, {"size": size, "parentId": parentId})
+        create_section(settings, p, impl_type, {"size": size})
         for _ in range(numChildren)
     ]
     if startIdx is None:
@@ -570,7 +570,7 @@ def create_child_sections_via_incrementer(
         parentId = calledBy
         startIdx = 0
     else:
-        parentId = impl.parentId
+        parentId = p.parentSectionMap[calledBy]
         if not parentId:
             raise ValueError
         parentImpl = get_curr_effective_section_impl_with_type_guard(
@@ -583,12 +583,12 @@ def create_child_sections_via_incrementer(
 def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
     for id in to_delete:
-        impl = p.get_curr_effective_section_impl(id)
+        parentId = p.parentSectionMap[id]
         # delete from parent's current children list
-        if impl.parentId:
+        if parentId:
             set_curr_effective_section_impl_value(
                 p,
-                impl.parentId,
+                parentId,
                 BaseParentSectionImplArgsWithCallable(
                     children=lambda currChildren: [x for x in currChildren if x != id]
                 ),
@@ -597,7 +597,7 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
         still_used = check_if_section_is_still_used_somewhere(p, id)
         if not still_used:
             del p.sections[id]
-            if not impl.parentId:
+            if not parentId:
                 del p.projectConfig.topLevelSections[id]
 
     p.validate_active_ids()
@@ -610,10 +610,11 @@ def delete_child_sections_via_decrementer(
     if isinstance(impl, BaseParentSectionImpl):
         sectionIds = impl.children[:numChildren]
     else:
-        if not impl.parentId:
+        parentId = p.parentSectionMap[calledBy]
+        if not parentId:
             raise ValueError
         parentImpl = get_curr_effective_section_impl_with_type_guard(
-            p, impl.parentId, BaseParentSectionImpl
+            p, parentId, BaseParentSectionImpl
         )
         startIdx = parentImpl.children.index(calledBy) + 1
         sectionIds = parentImpl.children[startIdx : startIdx + numChildren]

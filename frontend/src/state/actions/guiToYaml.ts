@@ -15,7 +15,6 @@ import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_section_to_yaml } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
-import { getOrCreateCodeInfoCol } from "./codeInfo";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
 import { getParamIdsToShowInArea } from "./sections/sectionContents";

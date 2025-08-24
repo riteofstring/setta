@@ -67,7 +67,6 @@ class CoreArgs(TypedDict):
                 "min",
                 "name",
                 "paramFilter",
-                "parentId",
                 "passingStyle",
                 "pinnedAreaHeight",
                 "pinnedParams",
@@ -91,7 +90,6 @@ class BaseSectionImplArgs(TypedDict):
     type: NotRequired[Any]
     id: NotRequired[str]
     name: NotRequired[str]
-    parentId: NotRequired[str | None]
     isFrozen: NotRequired[bool]
     visibility: NotRequired[Visibility]
     isInOtherProjectConfigs: NotRequired[bool]
@@ -108,7 +106,6 @@ class BaseSectionImplArgsWithCallable(TypedDict):
     type: NotRequired[Any | Callable[[Any], Any]]
     id: NotRequired[str | Callable[[str], str]]
     name: NotRequired[str | Callable[[str], str]]
-    parentId: NotRequired[str | None | Callable[[str | None], str | None]]
     isFrozen: NotRequired[bool | Callable[[bool], bool]]
     visibility: NotRequired[Visibility | Callable[[Visibility], Visibility]]
     isInOtherProjectConfigs: NotRequired[bool | Callable[[bool], bool]]

@@ -296,6 +296,7 @@ class BaseProjectManager(ABC):
         updateFileWatcher: bool = True,
     ):
         projectState.validate_singleton_sections()
+        projectState.validate_parent_section_map()
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig
