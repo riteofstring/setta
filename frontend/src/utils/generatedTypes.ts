@@ -7570,7 +7570,6 @@ export function createGetLatestProjectStateRequest(
 export const GroupSectionsRequestSchema = z.object({
   projectConfigId: z.string(),
   sectionIds: z.array(z.string()),
-  position: PositionSchema,
 });
 
 export type GroupSectionsRequest = z.infer<typeof GroupSectionsRequestSchema>;

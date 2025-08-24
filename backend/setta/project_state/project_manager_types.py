@@ -277,7 +277,6 @@ class SetSocialUrlRequest(BaseModel):
 class GroupSectionsRequest(BaseModel):
     projectConfigId: str
     sectionIds: list[str]
-    position: Position
 
 
 @dataclass

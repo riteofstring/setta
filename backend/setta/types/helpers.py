@@ -1216,19 +1216,25 @@ def group_sections(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
     sectionIds: list[str],
-    position: Position,
 ):
     currParentIds: set[str | None] = set()
     for s in sectionIds:
         currParentIds.add(p.parentSectionMap[s])
-    if len(currParentIds) > 1:
+    if len(currParentIds) != 1:
         # for now, we only allow siblings to be grouped
         return False
 
-    groupId = create_top_level_section(settings, p, SectionType.Group, position)
+    parentId = list(currParentIds)[0]
+    if not parentId:
+        x = min(p.projectConfig.topLevelSections[s].x for s in sectionIds)
+        y = min(p.projectConfig.topLevelSections[s].y for s in sectionIds)
+        groupId = create_top_level_section(
+            settings, p, SectionType.Group, Position(x=x, y=y)
+        )
+
     for i, s in enumerate(sectionIds):
         move_section_to_parent_section(p, groupId, s, i)
-    
+
     return True
 
 

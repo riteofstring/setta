@@ -810,7 +810,7 @@ class BaseProjectManager(ABC):
     async def group_sections(self, x: GroupSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = group_sections(
-            self.settings_file.settings, project_state, x.sectionIds, x.position
+            self.settings_file.settings, project_state, x.sectionIds
         )
         if not success:
             notification = SettaNotification(

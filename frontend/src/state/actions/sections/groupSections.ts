@@ -1,36 +1,24 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
-import { useNodeInternals, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { route_group_sections } from "utils/generatedEndpoints";
-import { Position } from "utils/generatedTypes";
 import {
   getCurrProjectConfigId,
   getSectionType,
   getSectionVariant,
 } from "../sectionInfos";
 
-export function groupSections(sectionIds: Array<string>, position: Position) {
+export function groupSections(sectionIds: Array<string>) {
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
-    position,
   });
 }
 
 export async function groupActiveSections() {
-  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
-  const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
-    activeSectionIds.includes(x[0]),
-  );
-  const numSelected = selectedNodes.length;
-  if (numSelected > 0) {
-    const nodeIds = selectedNodes.map((x) => x[1].id);
-    const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
-    const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    groupSections(nodeIds, { x, y });
-    useReactFlow.setState({ nodesSelectionDims: null });
-  }
+  groupSections(useProjectState.getState().projectConfig.activeIds);
+  useReactFlow.setState({ nodesSelectionDims: null });
 }
 
 export function ungroupGroup(groupId, state) {
