@@ -9,7 +9,7 @@ import { restartLanguageServer } from "state/actions/lsp";
 import { resetAllSectionsToDefaultVersions } from "state/actions/sectionInfos";
 import {
   addGroupInEmptySpace,
-  addRegularSectionInEmptySpace,
+  addCallableSectionInEmptySpace,
 } from "state/actions/sections/createSections";
 import { autoLayout } from "state/actions/sections/sectionPositions";
 import { requestTypeCheck } from "state/actions/typeCheck";
@@ -44,7 +44,7 @@ function Items() {
   return (
     <>
       <MenuItem
-        onClick={addRegularSectionInEmptySpace}
+        onClick={addCallableSectionInEmptySpace}
         shortcut={shortcuts.newCardShortcut}
       >
         <HiPlus className="h-4 w-4" /> Card

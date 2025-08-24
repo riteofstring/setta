@@ -51,7 +51,7 @@ import { runEntryCodeBlock } from "./runOrImportCode";
 import { deleteAllActiveSections } from "./sectionInfos";
 import {
   addGroupInEmptySpace,
-  addRegularSectionInEmptySpace,
+  addCallableSectionInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
 import {
@@ -424,7 +424,7 @@ export function attachKeyEventListeners() {
   const conditionAndAction = [
     ["tab", tabFromDocumentBody],
     ["shift + tab", tabFromDocumentBody],
-    [shortcuts.newCardShortcut, addRegularSectionInEmptySpace],
+    [shortcuts.newCardShortcut, addCallableSectionInEmptySpace],
     [shortcuts.newGroupShortcut, addGroupInEmptySpace],
     [shortcuts.newTerminalShortcut, addTerminalInEmptySpace],
     addToShortcutsNeededForExtraProcessing(

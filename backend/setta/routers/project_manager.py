@@ -125,12 +125,13 @@ async def route_update_param_impl_config(
 @router.post(Route.CREATE_TOP_LEVEL_SECTION)
 async def route_create_top_level_section(
     x: CreateTopLevelSectionRequest, state: AppStateFromRequest
-):
+) -> str:
     sectionId = await state.project_manager_switcher.get(
         x.projectConfigId
     ).create_top_level_section(x)
     if x.implType == SectionType.Terminal:
         state.terminals.new_terminal(x.projectConfigId, sectionId)
+    return sectionId
 
 
 @router.post(Route.CREATE_CHILD_SECTIONS)

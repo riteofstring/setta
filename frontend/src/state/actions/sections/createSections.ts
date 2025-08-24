@@ -2,36 +2,37 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   useLocalStorage,
   useProjectState,
-  useSectionRefs,
   ZustandProjectState,
 } from "state/definitions";
-import { BaseSectionImplUnion, Core } from "utils/generatedTypes";
+import { res200 } from "utils/endpointUtils";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
+import {
+  BaseSectionImplUnion,
+  Core,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { setActiveSectionIdAndUpdateZIndex } from "../activeSections";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type PartialImplWithType = Partial<BaseSectionImplUnion> &
   Required<Pick<BaseSectionImplUnion, "type">>;
 
 type PartialCoreWithIdOrName = Partial<Pick<Core, "id" | "name">>;
 
-export function addRegularSectionInEmptySpace() {
-  let newId;
-  useProjectState.setState((state) => {
-    newId = addSectionInEmptySpace({
-      type: UITypeNameEnum.SECTION,
-      state,
-    });
+export async function addCallableSectionInEmptySpace() {
+  const res = await route_create_top_level_section({
+    projectConfigId: getCurrProjectConfigId(),
+    implType: SectionTypeEnum.Callable,
+    implOverrides: {},
+    position: { x: 0, y: 0 },
   });
-  setActiveSectionIdAndUpdateZIndex(newId);
-  const unsub = useSectionRefs.subscribe(
-    (state) => state.selfOnly[newId],
-    (newSectionRef) => {
-      if (newSectionRef) {
-        focusOnSectionSearch(newId);
-      }
-      unsub();
-    },
-  );
+
+  if (res200(res)) {
+    const newId = res.data;
+    setActiveSectionIdAndUpdateZIndex(newId);
+    focusOnSectionSearch(newId);
+  }
 }
 
 export function addGroupInEmptySpace() {

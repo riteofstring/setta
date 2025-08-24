@@ -303,7 +303,7 @@ export async function route_update_param_impl_config(
 
 export async function route_create_top_level_section(
   x: gt.CreateTopLevelSectionRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<string>> {
   return await post("/createTopLevelSection", x);
 }
 
