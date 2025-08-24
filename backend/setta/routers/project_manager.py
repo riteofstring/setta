@@ -31,6 +31,7 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetTextBlockDisplayModeRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetViewportRequest,
@@ -360,3 +361,12 @@ async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
 @router.post(Route.SET_SECTION_NAME)
 async def route_set_section_name(x: SetSectionNameRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_section_name(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_DISPLAY_MODE)
+async def route_set_text_block_display_mode(
+    x: SetTextBlockDisplayModeRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_text_block_display_mode(x)

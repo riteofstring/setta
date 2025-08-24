@@ -494,3 +494,9 @@ export async function route_set_section_name(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionName", x);
 }
+
+export async function route_set_text_block_display_mode(
+  x: gt.SetTextBlockDisplayModeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockDisplayMode", x);
+}

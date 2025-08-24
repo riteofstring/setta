@@ -8,7 +8,7 @@ from setta.types.project_state import (
     TopLevelSectionLayout,
     Viewport,
 )
-from setta.types.section_impls import SectionSize, SectionType
+from setta.types.section_impls import SectionSize, SectionType, TextBlockDisplayMode
 from setta.types.simplified_states import Position
 
 
@@ -249,6 +249,12 @@ class SetSectionNameRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     name: str
+
+
+class SetTextBlockDisplayModeRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    displayMode: TextBlockDisplayMode
 
 
 @dataclass

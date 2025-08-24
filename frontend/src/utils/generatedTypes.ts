@@ -420,6 +420,7 @@ export const RouteEnum = {
   SET_ACTIVE_IDS: "/setActiveIds",
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
+  SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7842,6 +7843,22 @@ export function createSetSectionVariantRequest(
   options: Partial<SetSectionVariantRequest> = {},
 ): SetSectionVariantRequest {
   return SetSectionVariantRequestSchema.parse(options);
+}
+
+export const SetTextBlockDisplayModeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  displayMode: z.enum(TextBlockDisplayModeEnum),
+});
+
+export type SetTextBlockDisplayModeRequest = z.infer<
+  typeof SetTextBlockDisplayModeRequestSchema
+>;
+
+export function createSetTextBlockDisplayModeRequest(
+  options: Partial<SetTextBlockDisplayModeRequest> = {},
+): SetTextBlockDisplayModeRequest {
+  return SetTextBlockDisplayModeRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

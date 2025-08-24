@@ -72,6 +72,7 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
     SectionSize,
     SectionType,
+    TextBlockDisplayMode,
     TextBlockSectionImpl,
 )
 from setta.types.simplified_states import Position
@@ -1115,6 +1116,14 @@ def set_section_sizes(
 def set_section_name(p: ProjectStateSingleConfig, sectionId: str, name: str):
     if name:
         p.sections[sectionId].name = name
+
+
+def set_text_block_display_mode(
+    p: ProjectStateSingleConfig, sectionId: str, displayMode: TextBlockDisplayMode
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, TextBlockSectionImplArgsWithCallable(displayMode=displayMode)
+    )
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

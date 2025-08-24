@@ -98,3 +98,4 @@ class Route(str, Enum):
     SET_ACTIVE_IDS = "/setActiveIds"
     SET_VIEWPORT = "/setViewport"
     SET_SECTION_NAME = "/setSectionName"
+    SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"

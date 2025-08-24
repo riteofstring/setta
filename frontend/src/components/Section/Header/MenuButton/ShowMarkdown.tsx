@@ -2,9 +2,11 @@ import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import _ from "lodash";
 import {
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { route_set_text_block_display_mode } from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -26,13 +28,15 @@ export function RenderTextBlock({ sectionId }) {
   }, _.isEqual);
 
   function onClick() {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        displayMode:
-          displayMode === TextBlockDisplayModeEnum.render
-            ? TextBlockDisplayModeEnum.edit
-            : TextBlockDisplayModeEnum.render,
-      });
+    const newDisplayMode =
+      displayMode === TextBlockDisplayModeEnum.render
+        ? TextBlockDisplayModeEnum.edit
+        : TextBlockDisplayModeEnum.render;
+
+    route_set_text_block_display_mode({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      displayMode: newDisplayMode,
     });
   }
 
