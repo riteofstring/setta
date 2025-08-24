@@ -27,6 +27,7 @@ import {
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
+  SectionTypeEnum,
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
@@ -652,6 +653,32 @@ export function addPendingOp(op: (x: ZustandProjectState) => void) {
     pending: [...state.pending, { op, opId }],
   }));
   return opId;
+}
+
+export function sectionIsOfType(sectionId: string, type: SectionType) {
+  return (
+    getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId).type ===
+    type
+  );
+}
+
+export function getSingletonSectionIds(p: ZustandProjectState) {
+  const output: {
+    globalVariables: string | null;
+    genPythonCode: string | null;
+  } = { globalVariables: null, genPythonCode: null };
+  for (const s of Object.keys(p.sections)) {
+    if (output.globalVariables && output.genPythonCode) {
+      break;
+    }
+    const impl = getCurrEffectiveSectionImpl(p, s);
+    if (impl.type === SectionTypeEnum.GenPythonCode) {
+      output.genPythonCode = s;
+    } else if (impl.type === SectionTypeEnum.GlobalVariables) {
+      output.globalVariables = s;
+    }
+  }
+  return output;
 }
 
 export const debounced_route_set_active_ids = _.debounce(

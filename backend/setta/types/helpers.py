@@ -70,6 +70,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ConfigLanguage,
+    GenPythonCodeSectionImpl,
     ListRootSectionImpl,
     SectionSize,
     SectionType,
@@ -943,12 +944,20 @@ def delete_kwarg_from_dict_section(
 
 
 def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str):
-    sectionId = p.singletonSections.genPythonCode
+    sectionId = get_gen_python_code_section_id(p)
     if not sectionId:
         return
     set_curr_effective_section_impl_value(
         p, sectionId, GenPythonCodeSectionImplArgsWithCallable(code=code)
     )
+
+
+def get_gen_python_code_section_id(p: ProjectStateSingleConfig):
+    for s in p.sections.keys():
+        impl = p.get_curr_effective_section_impl(s)
+        if isinstance(impl, GenPythonCodeSectionImpl):
+            return s
+    return None
 
 
 def get_json_source_files_to_watch(p: ProjectStateSingleConfig):

@@ -18,9 +18,11 @@ import {
   getSectionChildren,
   getSectionParentId,
   getSectionType,
+  sectionIsOfType,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import {
   DragMoveEvent,
   DragOverEvent,
@@ -269,7 +271,7 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
   if (
     !getSectionIsRoot(newParentId) ||
     getCurrSectionVariant(useProjectState.getState(), newParentId).isFrozen ||
-    getSectionIsGlobalVariables(activeId)
+    sectionIsOfType(activeId, SectionTypeEnum.GlobalVariables)
   ) {
     return BehaviorDropTypeEnum.INVALID;
   }
@@ -279,12 +281,6 @@ function getBehaviorDropType(activeId: string, newParentId: string) {
 
 function getOverId(over: Over | null) {
   return over ? over.id : null;
-}
-
-function getSectionIsGlobalVariables(sectionId: string) {
-  return (
-    useProjectState.getState().singletonSections.globalVariables === sectionId
-  );
 }
 
 function getSectionIsRoot(sectionId: string) {
