@@ -16,7 +16,6 @@ import { getSectionRectWithNested } from "forks/xyflow/core/utils/graph";
 import {
   getCurrSectionVariant,
   getSectionChildren,
-  getSectionParentId,
   getSectionType,
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
@@ -190,7 +189,7 @@ function maybeMoveToNewParent({
   // and back in, and the section is the only-child of the parent
   if (
     newParentNumChildren === 1 &&
-    getSectionParentId(active.id) === newParentId
+    useProjectState.getState().parentSectionMap[active.id] === newParentId
   ) {
     addDndChild(oldParentId, newParentId, dndSectionId, 0);
     return;

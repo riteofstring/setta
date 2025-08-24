@@ -11,7 +11,6 @@ import {
 } from "utils/getDescendants";
 import {
   getCodeChildrenAndParentCodeInfoId,
-  getCodeInfoCol,
   getSectionVariant,
 } from "../sectionInfos";
 

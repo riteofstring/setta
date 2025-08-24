@@ -3,7 +3,8 @@ import {
   restrictToVerticalAxis,
 } from "@dnd-kit/modifiers";
 import _ from "lodash";
-import { getSectionInfo, getSectionParentId } from "state/actions/sectionInfos";
+import { getSectionInfo } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { customCollisionDetection } from "./collisionDetection";
 import { customCollisionDetectionSorting } from "./collisionDetectionSorting";
 import { useDndState } from "./dndState";
@@ -23,7 +24,7 @@ export function useModifiers() {
 
 function getModifiers(isSorting, activeId) {
   if (isSorting && activeId) {
-    const parentId = getSectionParentId(activeId);
+    const parentId = useProjectState.getState().parentSectionMap[activeId];
     if (parentId) {
       return getSectionInfo(parentId).isHorizontalOrientation
         ? [restrictToHorizontalAxis]

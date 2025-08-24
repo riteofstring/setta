@@ -291,18 +291,14 @@ export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }
 
-export function getSectionParentId(sectionId: string) {
-  return getCurrEffectiveSectionImpl(useProjectState.getState(), sectionId)
-    .parentId;
-}
-
 export function getSectionType(state: ZustandProjectState, sectionId: string) {
   return getCurrEffectiveSectionImpl(state, sectionId).type;
 }
 
 export function getHighestAncestor(
   sectionId: string,
-  parentIdGetter: (id: string) => string | null = getSectionParentId,
+  parentIdGetter: (id: string) => string | null = (id) =>
+    useProjectState.getState().parentSectionMap[id] ?? null,
 ) {
   let parentId = parentIdGetter(sectionId);
   let highestAncestor = sectionId;
@@ -408,21 +404,6 @@ export function createNodesMapFromProjectConfigChildren(
   }
 
   return nodesMap;
-}
-
-export function setEnteredValue(variantId, paramInfoId, value, state) {
-  if (!(paramInfoId in state.variants[variantId].values)) {
-    state.variants[variantId].values[paramInfoId] = createEVEntry();
-  }
-  state.variants[variantId].values[paramInfoId].value = value;
-}
-
-export function getCodeInfoCol(sectionId, _state) {
-  const state = _state ?? useProjectState.getState();
-  const codeInfoColId = getSectionVariant(sectionId, state).codeInfoColId;
-  return codeInfoColId
-    ? state.codeInfoCols[codeInfoColId]
-    : createCodeInfoCol();
 }
 
 export function getDisplayedSectionVariant(sectionId, _state) {
@@ -580,13 +561,6 @@ export function getAncestorSameVisibility(
   }
 
   return false;
-}
-
-export function getCurrentSectionConfigs(
-  _state: ZustandProjectState | null = null,
-) {
-  const state = _state ?? useProjectState.getState();
-  return state.projectConfig.sectionConfigs;
 }
 
 export function deleteAllActiveSections() {

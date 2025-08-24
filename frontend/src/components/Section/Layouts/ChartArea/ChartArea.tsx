@@ -1,7 +1,6 @@
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
-import { getCurrentSectionConfigs } from "state/actions/sectionInfos";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {

@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
   getSectionChildren,
-  getSectionParentId,
   manualDndChildrenReset,
   setSectionChildren,
 } from "state/actions/sectionInfos";
@@ -45,7 +44,7 @@ async function onFreeMoveEnd({
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
-  const oldParentId = getSectionParentId(sectionId);
+  const oldParentId = useProjectState.getState().parentSectionMap[sectionId];
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
   let activeIdx: number | null = null;
   let newIndex: number | null = null;

@@ -1,10 +1,8 @@
 import _ from "lodash";
 import {
-  getCodeInfoCol,
   getDisplayedSectionVariantId,
   getSectionInfo,
   getSectionType,
-  setEnteredValue,
 } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
