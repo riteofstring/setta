@@ -12,6 +12,7 @@ import {
 } from "state/definitions";
 import {
   route_delete_sections,
+  route_group_sections,
   route_set_active_ids,
   route_set_top_level_section_layout,
   route_set_viewport,
@@ -644,6 +645,15 @@ export function getSectionChildren(
     parentId,
     isBaseParentSectionImpl,
   ).children;
+}
+
+export async function groupActiveSections() {
+  const sectionIds = useProjectState.getState().projectConfig.activeIds;
+  route_group_sections({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionIds,
+  });
+  useReactFlow.setState({ nodesSelectionDims: null });
 }
 
 export function addPendingOp(op: (x: ZustandProjectState) => void) {

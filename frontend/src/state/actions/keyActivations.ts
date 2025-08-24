@@ -48,16 +48,13 @@ import { restartLanguageServer } from "./lsp";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
-import { deleteAllActiveSections } from "./sectionInfos";
+import { deleteAllActiveSections, groupActiveSections } from "./sectionInfos";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
-import {
-  groupActiveSections,
-  ungroupActiveGroup,
-} from "./sections/groupSections";
+import { ungroupActiveGroup } from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
   focusOnCommandPalette,
