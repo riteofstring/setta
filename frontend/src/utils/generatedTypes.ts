@@ -423,6 +423,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
+  GROUP_SECTIONS: "/groupSections",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7564,6 +7565,20 @@ export function createGetLatestProjectStateRequest(
   options: Partial<GetLatestProjectStateRequest> = {},
 ): GetLatestProjectStateRequest {
   return GetLatestProjectStateRequestSchema.parse(options);
+}
+
+export const GroupSectionsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionIds: z.array(z.string()),
+  position: PositionSchema,
+});
+
+export type GroupSectionsRequest = z.infer<typeof GroupSectionsRequestSchema>;
+
+export function createGroupSectionsRequest(
+  options: Partial<GroupSectionsRequest> = {},
+): GroupSectionsRequest {
+  return GroupSectionsRequestSchema.parse(options);
 }
 
 export const RedoRequestSchema = z.object({

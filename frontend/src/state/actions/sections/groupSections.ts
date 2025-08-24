@@ -2,30 +2,20 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { moveSections } from "state/actions/sections/moveSections";
 import { useNodeInternals, useProjectState } from "state/definitions";
-import { setActiveSectionIds } from "../activeSections";
-import { getSectionType, getSectionVariant } from "../sectionInfos";
+import { route_group_sections } from "utils/generatedEndpoints";
+import { Position } from "utils/generatedTypes";
+import {
+  getCurrProjectConfigId,
+  getSectionType,
+  getSectionVariant,
+} from "../sectionInfos";
 
-export function groupSections({ sectionIds, position, name }) {
-  let groupId;
-  useProjectState.setState((state) => {
-    groupId = addSectionAtPosition({
-      sectionProps: { name },
-      type: UITypeNameEnum.GROUP,
-      position,
-      state,
-    });
-
-    moveSections({
-      oldParentId: null,
-      newParentId: groupId,
-      sectionIds,
-      state,
-    });
+export function groupSections(sectionIds: Array<string>, position: Position) {
+  route_group_sections({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionIds,
+    position,
   });
-
-  setActiveSectionIds([groupId]);
-
-  return groupId;
 }
 
 export async function groupActiveSections() {
@@ -38,7 +28,7 @@ export async function groupActiveSections() {
     const nodeIds = selectedNodes.map((x) => x[1].id);
     const x = Math.min(...selectedNodes.map((x) => x[1].position.x));
     const y = Math.min(...selectedNodes.map((x) => x[1].position.y));
-    groupSections({ nodeIds, position: { x, y } });
+    groupSections(nodeIds, { x, y });
     useReactFlow.setState({ nodesSelectionDims: null });
   }
 }

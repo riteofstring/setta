@@ -1143,6 +1143,15 @@ def set_social_url(p: ProjectStateSingleConfig, sectionId: str, url: str):
     )
 
 
+def group_sections(
+    settings: SettingsState,
+    p: ProjectStateSingleConfig,
+    sectionIds: list[str],
+    position: Position,
+):
+    groupId = create_top_level_section(settings, p, SectionType.Group, position)
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

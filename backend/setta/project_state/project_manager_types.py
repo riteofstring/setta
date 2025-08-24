@@ -274,6 +274,12 @@ class SetSocialUrlRequest(BaseModel):
     url: str
 
 
+class GroupSectionsRequest(BaseModel):
+    projectConfigId: str
+    sectionIds: list[str]
+    position: Position
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

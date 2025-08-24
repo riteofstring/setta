@@ -38,6 +38,7 @@ from setta.project_state.project_manager_types import (
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
+    GroupSectionsRequest,
     RedoRequest,
     SetActiveIdsRequest,
     SetCallableRequest,
@@ -82,6 +83,7 @@ from setta.types.helpers import (
     delete_sections,
     get_json_source_files_to_watch,
     get_variants_for_json_source_update,
+    group_sections,
     maybe_update_gen_python_code_section,
     merge_single_config_into_backend,
     set_code,
@@ -802,6 +804,14 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def group_sections(self, x: GroupSectionsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        group_sections(
+            self.settings_file.settings, project_state, x.sectionIds, x.position
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

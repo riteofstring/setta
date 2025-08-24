@@ -5,11 +5,7 @@ import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
-import {
-  getSectionInfo,
-  setCurrEffectiveSectionImplValue,
-  setSectionChildren,
-} from "../sectionInfos";
+import { getSectionInfo, setSectionChildren } from "../sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function moveSections({
@@ -114,10 +110,6 @@ function setChildrenAndParent({
       insertIntoArray(x, newIndex, newSectionId),
     );
   }
-
-  setCurrEffectiveSectionImplValue(state, newSectionId, {
-    parentId: newParentId,
-  });
 }
 
 function setSectionSizeAfterMove(
