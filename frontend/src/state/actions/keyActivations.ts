@@ -655,10 +655,10 @@ function specialModTabCase(shortcutInfo) {
 }
 
 function onEscapeKey() {
-  const didUnselectSomeParams = unselectAllParams();
-  if (!didUnselectSomeParams) {
-    clearActiveSectionIds();
-  }
+  // const didUnselectSomeParams = unselectAllParams();
+  // if (!didUnselectSomeParams) {
+  //   clearActiveSectionIds();
+  // }
   removeFrozenFloatingBox();
 }
 
