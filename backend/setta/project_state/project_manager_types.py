@@ -231,6 +231,11 @@ class SetSectionSizesRequest(BaseModel):
     sectionSizes: dict[str, SectionSize]
 
 
+class SetActiveIdsRequest(BaseModel):
+    projectConfigId: str
+    activeIds: list[str]
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

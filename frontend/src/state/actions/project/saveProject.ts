@@ -62,6 +62,7 @@ export function getProjectData({
     codeObjs,
     codeObjImpls,
     codeObjVariants,
+    singletonSections,
   } = useProjectState.getState();
 
   console.log(useProjectState.getState());
@@ -74,6 +75,7 @@ export function getProjectData({
     codeObjs,
     codeObjImpls,
     codeObjVariants,
+    singletonSections,
   };
 
   return output;

@@ -16,6 +16,7 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
+  debounced_route_set_active_ids,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
@@ -23,6 +24,16 @@ import {
 } from "./actions/sectionInfos";
 
 export function subscribe() {
+  useProjectState.subscribe(
+    activeIdsSubscriptionFn,
+    () => {
+      debounced_route_set_active_ids();
+    },
+    {
+      equalityFn: _.isEqual,
+    },
+  );
+
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
     (x) => {
@@ -174,4 +185,8 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
     }
   }
   return codeBlockIds;
+}
+
+function activeIdsSubscriptionFn(state: ZustandProjectState) {
+  return state.projectConfig.activeIds;
 }

@@ -476,3 +476,9 @@ export async function route_set_section_sizes(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionSizes", x);
 }
+
+export async function route_set_active_ids(
+  x: gt.SetActiveIdsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setActiveIds", x);
+}

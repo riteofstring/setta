@@ -4,7 +4,7 @@ import { useProjectState } from "state/definitions";
 import { findAll } from "utils/getDescendants";
 
 export async function copy() {
-  const activeSectionIds = useProjectState.getState().activeIds;
+  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
   if (activeSectionIds.length > 0 && window.getSelection().toString() === "") {
     const data = copySections(activeSectionIds);
     await navigator.clipboard.writeText(

@@ -91,7 +91,7 @@ function ParamFilter({ sectionId }: { sectionId: string }) {
     );
     return {
       paramFilterValue: impl.paramFilter,
-      sectionIsActive: _.isEqual(x.activeIds, [sectionId]),
+      sectionIsActive: _.isEqual(x.projectConfig.activeIds, [sectionId]),
     };
   }, _.isEqual);
 

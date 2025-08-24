@@ -14,7 +14,7 @@ export const updatePositions = (params: {
   const { nodesSelectionDims, shiftNodesSelection } = useReactFlow.getState();
   const { snapGrid } = useSettings.getState().gui;
   const snapToGrid = useLocalStorage.getState().snapToGrid;
-  const activeSectionIds = useProjectState.getState().activeIds;
+  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
   const selectedNodes = getNodes().filter((n) =>
     activeSectionIds.includes(n.id),
   );

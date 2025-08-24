@@ -1,7 +1,7 @@
 import { useProjectSearch, useProjectState } from "state/definitions";
 
 export function focusOnSearch() {
-  const sectionIds = useProjectState.getState().activeIds;
+  const sectionIds = useProjectState.getState().projectConfig.activeIds;
   if (sectionIds.length === 1) {
     const element = document.getElementById(`${sectionIds[0]}-args-filter`);
     if (element) {

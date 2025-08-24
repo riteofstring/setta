@@ -28,7 +28,10 @@ import { VariantList } from "./SectionVariants/VariantList";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
-  const sectionIds = useProjectState((x) => x.activeIds, _.isEqual);
+  const sectionIds = useProjectState(
+    (x) => x.projectConfig.activeIds,
+    _.isEqual,
+  );
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
     sectionIds[0] ?? null,
   );

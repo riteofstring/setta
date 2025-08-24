@@ -84,7 +84,7 @@ function removeSingletonSectionsIfAlreadyPresent(pasteData) {
 }
 
 function getPasteLocation() {
-  if (useProjectState.getState().activeIds.length === 0) {
+  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
     return useMisc.getState().lastPaneClickLocation;
   }
   // paste directly to the right of the active sections

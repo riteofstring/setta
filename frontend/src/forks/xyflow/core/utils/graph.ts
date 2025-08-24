@@ -72,7 +72,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 };
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = useProjectState.getState().activeIds;
+  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
   const sections = activeSectionIds.map((sectionId) => {
     const { x, y, width, height } = getSectionRect(sectionId, ignoreGrid);
     return { position: { x, y }, width, height };

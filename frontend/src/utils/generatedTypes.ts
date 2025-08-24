@@ -417,6 +417,7 @@ export const RouteEnum = {
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
   SET_SECTION_SIZES: "/setSectionSizes",
+  SET_ACTIVE_IDS: "/setActiveIds",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -3884,6 +3885,7 @@ export const ProjectConfigSchema = z.object({
     .record(z.string(), TopLevelSectionLayoutSchema)
     .default({}),
   sectionVariantMap: z.record(z.string(), z.string()).default({}),
+  activeIds: z.array(z.string()).default([]),
 });
 
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
@@ -7642,6 +7644,19 @@ export function createRedoRequest(
   options: Partial<RedoRequest> = {},
 ): RedoRequest {
   return RedoRequestSchema.parse(options);
+}
+
+export const SetActiveIdsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  activeIds: z.array(z.string()),
+});
+
+export type SetActiveIdsRequest = z.infer<typeof SetActiveIdsRequestSchema>;
+
+export function createSetActiveIdsRequest(
+  options: Partial<SetActiveIdsRequest> = {},
+): SetActiveIdsRequest {
+  return SetActiveIdsRequestSchema.parse(options);
 }
 
 export const SetCallableRequestSchema = z.object({

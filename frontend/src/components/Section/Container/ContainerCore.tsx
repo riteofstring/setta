@@ -75,7 +75,7 @@ function ContainerGroup({
   const { isActiveSection, positionAndSizeLocked, isInOtherProjectConfigs } =
     useProjectState((x) => {
       return {
-        isActiveSection: x.activeIds.includes(sectionId),
+        isActiveSection: x.projectConfig.activeIds.includes(sectionId),
         positionAndSizeLocked: x.sections[sectionId].positionAndSizeLocked,
         isInOtherProjectConfigs: x.sections[sectionId].isInOtherProjectConfigs,
       };

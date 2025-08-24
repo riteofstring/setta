@@ -10,6 +10,7 @@ import {
 } from "state/definitions";
 import {
   route_delete_sections,
+  route_set_active_ids,
   route_set_top_level_section_layout,
 } from "utils/generatedEndpoints";
 import {
@@ -576,7 +577,7 @@ export function getCurrentSectionConfigs(
 export function deleteAllActiveSections() {
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
-    sectionIds: useProjectState.getState().activeIds,
+    sectionIds: useProjectState.getState().projectConfig.activeIds,
   });
 }
 
@@ -624,3 +625,12 @@ export function addPendingOp(op: (x: ZustandProjectState) => void) {
   }));
   return opId;
 }
+
+export const debounced_route_set_active_ids = _.debounce(
+  () =>
+    route_set_active_ids({
+      projectConfigId: getCurrProjectConfigId(),
+      activeIds: useProjectState.getState().projectConfig.activeIds,
+    }),
+  500,
+);

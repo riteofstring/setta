@@ -25,7 +25,8 @@ export function getDragItems(
   mousePos: XYPosition,
   nodeId?: string,
 ): NodeDragItem[] {
-  const { activeIds: activeSections } = useProjectState.getState();
+  const { activeIds: activeSections } =
+    useProjectState.getState().projectConfig;
   const draggedNodeIsActive = activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(

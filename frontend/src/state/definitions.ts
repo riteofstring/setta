@@ -11,7 +11,6 @@ import {
 } from "utils/constants";
 import {
   APIKeys,
-  BaseSectionImplUnion,
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
@@ -66,17 +65,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = {
-  projectConfig: ProjectStateSingleConfig["projectConfig"];
-  sections: ProjectStateSingleConfig["sections"];
-  sectionImpls: ProjectStateSingleConfig["sectionImpls"];
-  sectionVariants: ProjectStateSingleConfig["sectionVariants"];
-  codeObjs: ProjectStateSingleConfig["codeObjs"];
-  codeObjImpls: ProjectStateSingleConfig["codeObjImpls"];
-  codeObjVariants: ProjectStateSingleConfig["codeObjVariants"];
-  activeIds: Array<string>;
-  singletonSections: ProjectStateSingleConfig["singletonSections"];
-};
+export type ZustandProjectState = ProjectStateSingleConfig;
 
 export const NULL_PROJECT_CONFIG_ID = "null";
 
@@ -95,7 +84,6 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           requestRenameRefactor: false,
-          activeIds: [],
         })),
       ),
     ),

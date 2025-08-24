@@ -57,6 +57,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
     entryCodeBlockId: str | None = None
     topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
     sectionVariantMap: dict[str, str] = Field(default_factory=dict)
+    activeIds: list[str] = Field(default_factory=list)
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):

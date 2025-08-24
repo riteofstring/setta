@@ -18,6 +18,7 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     ProjectStateSingleConfigWithCompletedOpIds,
     RedoRequest,
+    SetActiveIdsRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
@@ -342,3 +343,8 @@ async def route_set_section_sizes(
     x: SetSectionSizesRequest, state: AppStateFromRequest
 ):
     await state.project_manager_switcher.get(x.projectConfigId).set_section_sizes(x)
+
+
+@router.post(Route.SET_ACTIVE_IDS)
+async def route_set_active_ids(x: SetActiveIdsRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_active_ids(x)

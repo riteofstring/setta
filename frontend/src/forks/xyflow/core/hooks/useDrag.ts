@@ -129,7 +129,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         if (
           !multiSelectionActive &&
           nodeId &&
-          !useProjectState.getState().activeIds.includes(nodeId)
+          !useProjectState.getState().projectConfig.activeIds.includes(nodeId)
         ) {
           // TODO: determine if we need to do anything here
           // It used to call unselectNodesAndEdges

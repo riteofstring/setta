@@ -9,23 +9,32 @@ import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
 
 export function setActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState({ activeIds: ids });
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = ids;
+  });
 }
 
 export function addActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => ({
-    activeIds: [...new Set([...state.activeIds, ...ids])],
-  }));
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = [
+      ...new Set([...state.projectConfig.activeIds, ...ids]),
+    ];
+  });
 }
 
 export function removeActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => ({
-    activeIds: _.difference(state.activeIds, ids),
-  }));
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = _.difference(
+      state.projectConfig.activeIds,
+      ids,
+    );
+  });
 }
 
 export function clearActiveSectionIds() {
-  useProjectState.setState({ activeIds: [] });
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = [];
+  });
 }
 
 export function setActiveSectionIdAndUpdateZIndex(id: string) {
@@ -35,7 +44,7 @@ export function setActiveSectionIdAndUpdateZIndex(id: string) {
 }
 
 export function selectAll() {
-  const currActiveSections = useProjectState.getState().activeIds;
+  const currActiveSections = useProjectState.getState().projectConfig.activeIds;
 
   // select all params within single active section
   if (currActiveSections.length === 1) {

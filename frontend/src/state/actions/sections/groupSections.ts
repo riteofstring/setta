@@ -32,7 +32,7 @@ export function groupSections({ sectionIds, position, name }) {
 }
 
 export async function groupActiveSections() {
-  const activeSectionIds = useProjectState.getState().activeIds;
+  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
   const selectedNodes = [...useNodeInternals.getState().x].filter((x) =>
     activeSectionIds.includes(x[0]),
   );
@@ -72,7 +72,7 @@ export function ungroupGroup(groupId, state) {
 
 export function ungroupActiveGroup() {
   useProjectState.setState((state) => {
-    const ids = useProjectState.getState().activeIds;
+    const ids = useProjectState.getState().projectConfig.activeIds;
     // TODO: support multiple groups
     if (ids.length === 1) {
       ungroupGroup(ids[0], state);
