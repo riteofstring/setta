@@ -1,5 +1,3 @@
-import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
-import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   useNodeInternals,
@@ -18,6 +16,7 @@ import {
 import { addTemporaryNotification } from "../notifications";
 import {
   createTopLevelSectionLayoutDict,
+  getCurrProjectConfigViewport,
   getSectionType,
 } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
@@ -112,11 +111,7 @@ async function saveProjectAs({ fn, otherArgs }) {
 function getProjectConfigMetadata() {
   const s = useProjectState.getState();
   const projectConfig = _.cloneDeep(s.projectConfig);
-
-  projectConfig.viewport = useReactFlow.getState().fitViewOnInit
-    ? null
-    : getViewport();
-
+  projectConfig.viewport = getCurrProjectConfigViewport();
   return projectConfig;
 }
 

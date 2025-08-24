@@ -418,6 +418,7 @@ export const RouteEnum = {
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
   SET_SECTION_SIZES: "/setSectionSizes",
   SET_ACTIVE_IDS: "/setActiveIds",
+  SET_VIEWPORT: "/setViewport",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;

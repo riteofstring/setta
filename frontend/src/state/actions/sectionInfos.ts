@@ -1,4 +1,6 @@
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
@@ -12,6 +14,7 @@ import {
   route_delete_sections,
   route_set_active_ids,
   route_set_top_level_section_layout,
+  route_set_viewport,
 } from "utils/generatedEndpoints";
 import {
   BaseCodeObjImplUnion,
@@ -622,6 +625,10 @@ export function getCurrProjectConfigId() {
   return useProjectState.getState().projectConfig.id;
 }
 
+export function getCurrProjectConfigViewport() {
+  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
+}
+
 export function addPendingOp(op: (x: ZustandProjectState) => void) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
@@ -637,4 +644,13 @@ export const debounced_route_set_active_ids = _.debounce(
       activeIds: useProjectState.getState().projectConfig.activeIds,
     }),
   500,
+);
+
+export const debounced_route_set_viewport = _.debounce(
+  () =>
+    route_set_viewport({
+      projectConfigId: getCurrProjectConfigId(),
+      viewport: getCurrProjectConfigViewport(),
+    }),
+  1000,
 );

@@ -17,6 +17,7 @@ import {
 } from "./actions/nodeInternals";
 import {
   debounced_route_set_active_ids,
+  debounced_route_set_viewport,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
@@ -65,7 +66,7 @@ export function subscribe() {
   });
 
   useReactFlow.subscribe(
-    reactFitViewOnInitSubscriptionFn,
+    reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
       if (
         prevState.fitViewOnInit &&
@@ -81,6 +82,8 @@ export function subscribe() {
 
       // used by forked xterm to make text appear correctly
       window.reactFlowZoom = newState.transform[2];
+
+      debounced_route_set_viewport();
     },
     { equalityFn: _.isEqual },
   );
@@ -135,7 +138,7 @@ export function subscribe() {
   );
 }
 
-function reactFitViewOnInitSubscriptionFn(state) {
+function reactFlowTransformSubscriptionFn(state) {
   return {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,

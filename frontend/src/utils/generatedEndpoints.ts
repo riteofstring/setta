@@ -482,3 +482,9 @@ export async function route_set_active_ids(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setActiveIds", x);
 }
+
+export async function route_set_viewport(
+  x: gt.SetActiveIdsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setViewport", x);
+}

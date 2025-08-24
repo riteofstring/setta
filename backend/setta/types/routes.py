@@ -96,3 +96,4 @@ class Route(str, Enum):
     TOGGLE_VARIANT_FROZEN = "/toggleVariantFrozen"
     SET_SECTION_SIZES = "/setSectionSizes"
     SET_ACTIVE_IDS = "/setActiveIds"
+    SET_VIEWPORT = "/setViewport"

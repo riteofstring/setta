@@ -32,6 +32,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -348,3 +349,8 @@ async def route_set_section_sizes(
 @router.post(Route.SET_ACTIVE_IDS)
 async def route_set_active_ids(x: SetActiveIdsRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_active_ids(x)
+
+
+@router.post(Route.SET_VIEWPORT)
+async def route_set_viewport(x: SetViewportRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_viewport(x)

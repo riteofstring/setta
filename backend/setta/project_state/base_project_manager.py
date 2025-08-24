@@ -53,6 +53,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
     TogglePositionLockRequest,
@@ -766,6 +767,12 @@ class BaseProjectManager(ABC):
     async def set_active_ids(self, x: SetActiveIdsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         project_state.projectConfig.activeIds = x.activeIds
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_viewport(self, x: SetViewportRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        project_state.projectConfig.viewport = x.viewport
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
-from setta.types.project_state import ProjectStateSingleConfig, TopLevelSectionLayout
+from setta.types.project_state import (
+    ProjectStateSingleConfig,
+    TopLevelSectionLayout,
+    Viewport,
+)
 from setta.types.section_impls import SectionSize, SectionType
 from setta.types.simplified_states import Position
 
@@ -234,6 +238,11 @@ class SetSectionSizesRequest(BaseModel):
 class SetActiveIdsRequest(BaseModel):
     projectConfigId: str
     activeIds: list[str]
+
+
+class SetViewportRequest(BaseModel):
+    projectConfigId: str
+    viewport: Viewport | None
 
 
 @dataclass
