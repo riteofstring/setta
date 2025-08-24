@@ -16,6 +16,7 @@ import {
   route_set_active_ids,
   route_set_top_level_section_layout,
   route_set_viewport,
+  route_ungroup_groups,
 } from "utils/generatedEndpoints";
 import {
   BaseCodeObjImplUnion,
@@ -654,6 +655,11 @@ export async function groupActiveSections() {
     sectionIds,
   });
   useReactFlow.setState({ nodesSelectionDims: null });
+}
+
+export async function ungroupActiveGroups() {
+  const groupIds = useProjectState.getState().projectConfig.activeIds;
+  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
 export function addPendingOp(op: (x: ZustandProjectState) => void) {

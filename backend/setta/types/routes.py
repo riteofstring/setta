@@ -102,3 +102,4 @@ class Route(str, Enum):
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_SOCIAL_URL = "/setSocialUrl"
     GROUP_SECTIONS = "/groupSections"
+    UNGROUP_GROUPS = "/ungroupGroups"

@@ -424,6 +424,7 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
   GROUP_SECTIONS: "/groupSections",
+  UNGROUP_GROUPS: "/ungroupGroups",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7969,6 +7970,19 @@ export function createUndoRequest(
   options: Partial<UndoRequest> = {},
 ): UndoRequest {
   return UndoRequestSchema.parse(options);
+}
+
+export const UngroupGroupsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  groupIds: z.array(z.string()),
+});
+
+export type UngroupGroupsRequest = z.infer<typeof UngroupGroupsRequestSchema>;
+
+export function createUngroupGroupsRequest(
+  options: Partial<UngroupGroupsRequest> = {},
+): UngroupGroupsRequest {
+  return UngroupGroupsRequestSchema.parse(options);
 }
 
 export const UpdateParamImplConfigRequestSchema = z.object({

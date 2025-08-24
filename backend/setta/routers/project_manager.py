@@ -44,6 +44,7 @@ from setta.project_state.project_manager_types import (
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
+    UngroupGroupsRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
@@ -391,3 +392,8 @@ async def route_set_social_url(x: SetSocialUrlRequest, state: AppStateFromReques
 @router.post(Route.GROUP_SECTIONS)
 async def route_group_sections(x: GroupSectionsRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).group_sections(x)
+
+
+@router.post(Route.UNGROUP_GROUPS)
+async def route_ungroup_groups(x: UngroupGroupsRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).ungroup_groups(x)

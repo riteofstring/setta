@@ -65,6 +65,7 @@ from setta.project_state.project_manager_types import (
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
     UndoRequest,
+    UngroupGroupsRequest,
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
@@ -103,6 +104,7 @@ from setta.types.helpers import (
     toggle_position_lock,
     toggle_variant_frozen,
     toggle_variant_json_source,
+    ungroup_groups,
     update_param_impl_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
@@ -821,6 +823,12 @@ class BaseProjectManager(ABC):
             await self.websocket_msg_handler.broadcast_notification(notification)
         else:
             await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def ungroup_groups(self, x: UngroupGroupsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        ungroup_groups(project_state, x.groupIds)
+        await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

@@ -48,13 +48,16 @@ import { restartLanguageServer } from "./lsp";
 import { openLoadModal, openSaveAsModal } from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
-import { deleteAllActiveSections, groupActiveSections } from "./sectionInfos";
+import {
+  deleteAllActiveSections,
+  groupActiveSections,
+  ungroupActiveGroups,
+} from "./sectionInfos";
 import {
   addCallableSectionInEmptySpace,
   addGroupInEmptySpace,
   addTerminalInEmptySpace,
 } from "./sections/createSections";
-import { ungroupActiveGroup } from "./sections/groupSections";
 import {
   focusOnAdvancedSearch,
   focusOnCommandPalette,
@@ -464,7 +467,7 @@ export function attachKeyEventListeners() {
     [shortcuts.undoShortcut, undoProjectState, null, true],
     [shortcuts.redoShortcut, redoProjectState, null, true],
     [shortcuts.groupShortcut, groupActiveSections],
-    [shortcuts.ungroupShortcut, ungroupActiveGroup],
+    [shortcuts.ungroupShortcut, ungroupActiveGroups],
     [shortcuts.saveShortcut, saveProject],
     [shortcuts.loadShortcut, openLoadModal],
     [shortcuts.saveAsShortcut, openSaveAsModal],

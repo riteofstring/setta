@@ -279,6 +279,11 @@ class GroupSectionsRequest(BaseModel):
     sectionIds: list[str]
 
 
+class UngroupGroupsRequest(BaseModel):
+    projectConfigId: str
+    groupIds: list[str]
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

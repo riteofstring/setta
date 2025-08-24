@@ -518,3 +518,9 @@ export async function route_group_sections(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/groupSections", x);
 }
+
+export async function route_ungroup_groups(
+  x: gt.UngroupGroupsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/ungroupGroups", x);
+}

@@ -70,6 +70,7 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ConfigLanguage,
+    GroupSectionImpl,
     ListRootSectionImpl,
     SectionSize,
     SectionType,
@@ -1245,6 +1246,27 @@ def group_sections(
         move_section_to_parent_section(p, groupId, s, i)
 
     return True
+
+
+def ungroup_groups(p: ProjectStateSingleConfig, groupIds: list[str]):
+    for g in groupIds:
+        ungroup_group(p, g)
+
+
+def ungroup_group(p: ProjectStateSingleConfig, groupId: str):
+    impl = get_curr_effective_section_impl_with_type_guard(p, groupId, GroupSectionImpl)
+
+    parentId = p.parentSectionMap[groupId]
+    if not parentId:
+        for c in impl.children:
+            layout = p.projectConfig.topLevelSections[groupId]
+            move_section_to_pane(p, c, Position(x=layout.x, y=layout.y))
+    else:
+        groupIdx = get_curr_section_children_ids(p, parentId).index(groupId)
+        for i, c in enumerate(impl.children):
+            move_section_to_parent_section(p, parentId, c, groupIdx + i)
+
+    delete_sections(p, [groupId])
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {
