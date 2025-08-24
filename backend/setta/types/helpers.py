@@ -1218,9 +1218,18 @@ def group_sections(
     sectionIds: list[str],
     position: Position,
 ):
+    currParentIds: set[str | None] = set()
+    for s in sectionIds:
+        currParentIds.add(p.parentSectionMap[s])
+    if len(currParentIds) > 1:
+        # for now, we only allow siblings to be grouped
+        return False
+
     groupId = create_top_level_section(settings, p, SectionType.Group, position)
     for i, s in enumerate(sectionIds):
         move_section_to_parent_section(p, groupId, s, i)
+    
+    return True
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

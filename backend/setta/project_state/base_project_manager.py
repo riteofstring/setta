@@ -809,10 +809,18 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def group_sections(self, x: GroupSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        group_sections(
+        success = group_sections(
             self.settings_file.settings, project_state, x.sectionIds, x.position
         )
-        await self.update_and_broadcast_project_state(project_state)
+        if not success:
+            notification = SettaNotification(
+                projectConfigId=x.projectConfigId,
+                message="Cannot group sections from different parents",
+                type=SettaNotificationType.error,
+            )
+            await self.websocket_msg_handler.broadcast_notification(notification)
+        else:
+            await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
