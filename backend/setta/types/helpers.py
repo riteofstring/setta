@@ -73,6 +73,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     TextBlockDisplayMode,
+    TextBlockFormat,
     TextBlockSectionImpl,
 )
 from setta.types.simplified_states import Position
@@ -1123,6 +1124,14 @@ def set_text_block_display_mode(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(displayMode=displayMode)
+    )
+
+
+def set_text_block_format(
+    p: ProjectStateSingleConfig, sectionId: str, format: TextBlockFormat
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
     )
 
 

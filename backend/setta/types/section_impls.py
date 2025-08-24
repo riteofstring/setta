@@ -50,8 +50,8 @@ class ConfigLanguage(str, Enum):
 
 
 class TextBlockDisplayMode(str, Enum):
-    render = "render"
-    edit = "edit"
+    Render = "Render"
+    Edit = "Edit"
 
 
 class TextBlockFormat(str, Enum):
@@ -183,7 +183,7 @@ class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 

@@ -99,3 +99,4 @@ class Route(str, Enum):
     SET_VIEWPORT = "/setViewport"
     SET_SECTION_NAME = "/setSectionName"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
+    SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"

@@ -32,6 +32,7 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
     SetTextBlockDisplayModeRequest,
+    SetTextBlockFormatRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetViewportRequest,
@@ -370,3 +371,10 @@ async def route_set_text_block_display_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_text_block_display_mode(x)
+
+
+@router.post(Route.SET_TEXT_BLOCK_FORMAT)
+async def route_set_text_block_format(
+    x: SetTextBlockFormatRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_text_block_format(x)

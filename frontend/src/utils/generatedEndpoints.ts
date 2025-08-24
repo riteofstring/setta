@@ -500,3 +500,9 @@ export async function route_set_text_block_display_mode(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setTextBlockDisplayMode", x);
 }
+
+export async function route_set_text_block_format(
+  x: gt.SetTextBlockFormatRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setTextBlockFormat", x);
+}

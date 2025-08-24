@@ -288,8 +288,8 @@ export const SectionSizeModeEnum = { auto: "auto" } as const;
 export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
 
 export const TextBlockDisplayModeEnum = {
-  render: "render",
-  edit: "edit",
+  Render: "Render",
+  Edit: "Edit",
 } as const;
 
 export type TextBlockDisplayMode = ObjectValues<
@@ -421,6 +421,7 @@ export const RouteEnum = {
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
+  SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -2034,7 +2035,7 @@ export const TextBlockSectionImplSchema = z.object({
   headingAsSectionName: z.boolean().default(false),
   displayMode: z
     .enum(TextBlockDisplayModeEnum)
-    .default(TextBlockDisplayModeEnum.render),
+    .default(TextBlockDisplayModeEnum.Render),
   text: z.string().default("" as const),
 });
 
@@ -4522,7 +4523,7 @@ export const UserDefaultTextBlockSectionImplSchema = z.object({
   headingAsSectionName: z.boolean().default(false),
   displayMode: z
     .enum(TextBlockDisplayModeEnum)
-    .default(TextBlockDisplayModeEnum.render),
+    .default(TextBlockDisplayModeEnum.Render),
   text: z.string().default("" as const),
 });
 
@@ -7859,6 +7860,22 @@ export function createSetTextBlockDisplayModeRequest(
   options: Partial<SetTextBlockDisplayModeRequest> = {},
 ): SetTextBlockDisplayModeRequest {
   return SetTextBlockDisplayModeRequestSchema.parse(options);
+}
+
+export const SetTextBlockFormatRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  format: z.enum(TextBlockFormatEnum),
+});
+
+export type SetTextBlockFormatRequest = z.infer<
+  typeof SetTextBlockFormatRequestSchema
+>;
+
+export function createSetTextBlockFormatRequest(
+  options: Partial<SetTextBlockFormatRequest> = {},
+): SetTextBlockFormatRequest {
+  return SetTextBlockFormatRequestSchema.parse(options);
 }
 
 export const SetTextBlockTextRequestSchema = z.object({

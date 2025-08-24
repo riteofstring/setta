@@ -6,7 +6,10 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { route_set_text_block_display_mode } from "utils/generatedEndpoints";
+import {
+  route_set_text_block_display_mode,
+  route_set_text_block_format,
+} from "utils/generatedEndpoints";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
@@ -27,11 +30,17 @@ export function RenderTextBlock({ sectionId }) {
     };
   }, _.isEqual);
 
+  const newDisplayMode =
+    displayMode === TextBlockDisplayModeEnum.Render
+      ? TextBlockDisplayModeEnum.Edit
+      : TextBlockDisplayModeEnum.Render;
+
   function onClick() {
-    const newDisplayMode =
-      displayMode === TextBlockDisplayModeEnum.render
-        ? TextBlockDisplayModeEnum.edit
-        : TextBlockDisplayModeEnum.render;
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+        displayMode: newDisplayMode,
+      });
+    });
 
     route_set_text_block_display_mode({
       projectConfigId: getCurrProjectConfigId(),
@@ -42,9 +51,7 @@ export function RenderTextBlock({ sectionId }) {
 
   return (
     <MenuItem onClick={onClick} disabled={implIsFrozen}>
-      {displayMode === TextBlockDisplayModeEnum.edit
-        ? `Render ${format}`
-        : `Edit ${format}`}
+      {`${newDisplayMode} ${format}`}
     </MenuItem>
   );
 }
@@ -69,6 +76,11 @@ export function ConvertFormat({ sectionId }) {
       setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
         format: convertTo,
       });
+    });
+    route_set_text_block_format({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      format: convertTo,
     });
   }
 

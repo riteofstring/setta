@@ -112,7 +112,7 @@ class UserDefaultDrawSectionImpl(
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     format: TextBlockFormat = TextBlockFormat.Plaintext
     headingAsSectionName: bool = False
-    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.render
+    displayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
     text: str = ""
 
 
