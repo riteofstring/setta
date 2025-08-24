@@ -80,6 +80,20 @@ export function useCreateSectionsList() {
     },
   ];
 
+  const artifactGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    {
+      name: "Drawing Area",
+      implSpecs: { type: SectionTypeEnum.Draw },
+    },
+    { name: "Image", implSpecs: { type: SectionTypeEnum.Image } },
+    { name: "Chart", implSpecs: { type: SectionTypeEnum.Chart } },
+    { name: "Chat", implSpecs: { type: SectionTypeEnum.Chat } },
+    {
+      name: "Browser",
+      implSpecs: { type: SectionTypeEnum.Browser },
+    },
+  ];
+
   return [
     {
       group: "Section",
@@ -91,19 +105,7 @@ export function useCreateSectionsList() {
     },
     {
       group: "Artifacts",
-      items: [
-        {
-          name: "Drawing Area",
-          specificProps: { type: SectionTypeEnum.Draw },
-        },
-        { name: "Image", specificProps: { type: SectionTypeEnum.Image } },
-        { name: "Chart", specificProps: { type: SectionTypeEnum.Chart } },
-        { name: "Chat", specificProps: { type: SectionTypeEnum.Chat } },
-        {
-          name: "Browser",
-          specificProps: { type: SectionTypeEnum.Browser },
-        },
-      ],
+      items: artifactGroupItems,
     },
     {
       group: "Embed",
