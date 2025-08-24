@@ -257,6 +257,8 @@ class BaseProjectManager(ABC):
         self.project_state_backend.projectConfigs[
             x.projectConfigId
         ].topLevelSections = x.topLevelSections
+        project_state = self.get_single_config_state(x.projectConfigId)
+        await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method
     async def set_section_sizes(self, x: SetSectionSizesRequest):
