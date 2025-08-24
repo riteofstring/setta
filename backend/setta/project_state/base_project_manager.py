@@ -61,6 +61,7 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
+    ToggleParamSelectedRequest,
     TogglePositionLockRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
@@ -101,6 +102,7 @@ from setta.types.helpers import (
     set_text_block_format,
     set_text_block_text,
     toggle_minimized,
+    toggle_param_selected,
     toggle_position_lock,
     toggle_variant_frozen,
     toggle_variant_json_source,
@@ -828,6 +830,12 @@ class BaseProjectManager(ABC):
     async def ungroup_groups(self, x: UngroupGroupsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         ungroup_groups(project_state, x.groupIds)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def toggle_param_selected(self, x: ToggleParamSelectedRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        toggle_param_selected(project_state, x.sectionId, x.paramInfoId)
         await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):

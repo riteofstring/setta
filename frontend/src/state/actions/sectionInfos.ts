@@ -670,6 +670,19 @@ export function addPendingOp(op: (x: ZustandProjectState) => void) {
   return opId;
 }
 
+export function toggleParamSelected(sectionId: string, paramInfoId: string) {
+  useProjectState.setState((x) => {
+    setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(x, sectionId, {
+      selectedParams: (curr) => {
+        if (curr?.includes(paramInfoId)) {
+          return curr.filter((x) => x != paramInfoId);
+        }
+        return [...curr, paramInfoId];
+      },
+    });
+  });
+}
+
 export const debounced_route_set_active_ids = _.debounce(
   () =>
     route_set_active_ids({

@@ -524,3 +524,9 @@ export async function route_ungroup_groups(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/ungroupGroups", x);
 }
+
+export async function route_toggle_param_selected(
+  x: gt.ToggleParamSelectedRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/toggleParamSelected", x);
+}

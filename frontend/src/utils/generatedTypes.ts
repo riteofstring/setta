@@ -425,6 +425,7 @@ export const RouteEnum = {
   SET_SOCIAL_URL: "/setSocialUrl",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
+  TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7911,6 +7912,22 @@ export function createToggleMinimizedRequest(
   options: Partial<ToggleMinimizedRequest> = {},
 ): ToggleMinimizedRequest {
   return ToggleMinimizedRequestSchema.parse(options);
+}
+
+export const ToggleParamSelectedRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  paramInfoId: z.string(),
+});
+
+export type ToggleParamSelectedRequest = z.infer<
+  typeof ToggleParamSelectedRequestSchema
+>;
+
+export function createToggleParamSelectedRequest(
+  options: Partial<ToggleParamSelectedRequest> = {},
+): ToggleParamSelectedRequest {
+  return ToggleParamSelectedRequestSchema.parse(options);
 }
 
 export const TogglePositionLockRequestSchema = z.object({

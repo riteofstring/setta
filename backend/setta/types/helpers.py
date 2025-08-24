@@ -1269,6 +1269,20 @@ def ungroup_group(p: ProjectStateSingleConfig, groupId: str):
     delete_sections(p, [groupId])
 
 
+def toggle_param_selected(
+    p: ProjectStateSingleConfig, sectionId: str, paramInfoId: str
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        BaseSectionWithParamsImplArgsWithCallable(
+            selectedParams=lambda curr: [x for x in curr if x != paramInfoId]
+            if paramInfoId in curr
+            else [*curr, paramInfoId]
+        ),
+    )
+
+
 # function onClickAddKwargFn(sectionId, objInfoId) {
 #   return () => {
 #     useProjectState.setState((state) => {

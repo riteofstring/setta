@@ -40,6 +40,7 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     TextFieldCompletionRequest,
     ToggleMinimizedRequest,
+    ToggleParamSelectedRequest,
     TogglePositionLockRequest,
     ToggleVariantFrozenRequest,
     ToggleVariantJSONSourceRequest,
@@ -397,3 +398,10 @@ async def route_group_sections(x: GroupSectionsRequest, state: AppStateFromReque
 @router.post(Route.UNGROUP_GROUPS)
 async def route_ungroup_groups(x: UngroupGroupsRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).ungroup_groups(x)
+
+
+@router.post(Route.TOGGLE_PARAM_SELECTED)
+async def route_toggle_param_selected(
+    x: ToggleParamSelectedRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).toggle_param_selected(x)

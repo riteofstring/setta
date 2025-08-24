@@ -284,6 +284,12 @@ class UngroupGroupsRequest(BaseModel):
     groupIds: list[str]
 
 
+class ToggleParamSelectedRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    paramInfoId: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

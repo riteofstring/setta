@@ -103,3 +103,4 @@ class Route(str, Enum):
     SET_SOCIAL_URL = "/setSocialUrl"
     GROUP_SECTIONS = "/groupSections"
     UNGROUP_GROUPS = "/ungroupGroups"
+    TOGGLE_PARAM_SELECTED = "/toggleParamSelected"

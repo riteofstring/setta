@@ -1,9 +1,10 @@
 import _ from "lodash";
 import React, { useCallback } from "react";
-import { toggleParamSelected } from "state/actions/kwargs";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrProjectConfigId,
+  toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
   useMisc,
@@ -12,6 +13,7 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { createProjectSearchLookupKey } from "state/hooks/search";
+import { route_toggle_param_selected } from "utils/generatedEndpoints";
 import {
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
@@ -67,6 +69,11 @@ function _ParamSwitch(props) {
       if (useMisc.getState().isSelectingParams) {
         e.stopPropagation(); // to prevent text input from becoming active
         toggleParamSelected(sectionId, paramInfoId);
+        route_toggle_param_selected({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+        });
       }
     },
     [sectionId, paramInfoId],
