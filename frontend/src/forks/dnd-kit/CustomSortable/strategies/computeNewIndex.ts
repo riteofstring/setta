@@ -1,4 +1,9 @@
-export function computeNewIndex(activeIdx, overIdx, pastHalfway, maxIdx) {
+export function computeNewIndex(
+  activeIdx: number,
+  overIdx: number,
+  pastHalfway: boolean,
+  maxIdx: number,
+) {
   // Handle special case when activeIdx is 0
   if (activeIdx === 0) {
     if (overIdx === 0) {

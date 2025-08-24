@@ -2,18 +2,14 @@ import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   getCurrEffectiveSectionImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
+  getSectionChildren,
   getSectionCore,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_set_section_name } from "utils/generatedEndpoints";
-import {
-  isBaseParentSectionImpl,
-  SectionType,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
 export function SectionTitle({ sectionId, titleProps }: { sectionId: string }) {
   const { sectionName, titleIsEditable } = useTitleIsEditable(sectionId);
@@ -117,12 +113,7 @@ function getSiblingHasName(sectionId: string, newName: string) {
   const { parentId } = impl;
   let siblingIds: Iterable<string>;
   if (parentId) {
-    const parentImpl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      parentId,
-      isBaseParentSectionImpl,
-    );
-    siblingIds = parentImpl.children;
+    siblingIds = getSectionChildren(state, parentId);
   } else {
     siblingIds = useNodeInternals.getState().x.keys();
   }

@@ -1,9 +1,12 @@
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
 
-export function getIsRoot(sectionTypeName) {
-  return [
-    SectionTypeEnum.ListRoot,
-    SectionTypeEnum.DictRoot,
-    SectionTypeEnum.Group,
-  ].includes(sectionTypeName);
+const rootTypes = new Set([
+  SectionTypeEnum.ListRoot,
+  SectionTypeEnum.DictRoot,
+  SectionTypeEnum.Group,
+]);
+
+export function getIsRoot(type: SectionType) {
+  // @ts-expect-error 'has' is not well typed
+  return rootTypes.has(type);
 }

@@ -1,4 +1,7 @@
-import { BehaviorDropType, behaviorToPretty } from "forks/dnd-kit/dropTypes";
+import {
+  BehaviorDropTypeEnum,
+  behaviorToPretty,
+} from "forks/dnd-kit/dropTypes";
 import { RiDragDropFill } from "react-icons/ri";
 
 export function DndSlot({ behaviorDropType, children, isGroup }) {
@@ -35,7 +38,7 @@ function DndSlotMiddle({ text, behaviorDropType, isGroup }) {
 }
 
 function DndSlotInner({ text, behaviorDropType, isGroup }) {
-  const invalid = behaviorDropType === BehaviorDropType.INVALID;
+  const invalid = behaviorDropType === BehaviorDropTypeEnum.INVALID;
   return (
     <div
       className={`grid h-8 min-w-60 select-none place-items-center rounded-full  text-sm font-bold uppercase tracking-widest text-white shadow-md backdrop-blur-sm transition-opacity ${

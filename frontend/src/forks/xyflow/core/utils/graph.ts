@@ -175,7 +175,7 @@ export function getSectionRect(sectionId: string, ignoreGrid = false) {
   return { x, y, width, height };
 }
 
-export function getSectionRectWithNested(sectionId) {
+export function getSectionRectWithNested(sectionId: string) {
   const ref = useSectionRefs.getState().withNested[sectionId];
   const { clientWidth: width, clientHeight: height } = ref;
   return { width, height };

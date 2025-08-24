@@ -294,9 +294,8 @@ export function getSectionParentId(sectionId: string) {
     .parentId;
 }
 
-export function getSectionType(sectionId, _state = null) {
-  const state = _state ?? useProjectState.getState();
-  return state.uiTypes[state.sections[sectionId].uiTypeId].type;
+export function getSectionType(state: ZustandProjectState, sectionId: string) {
+  return getCurrEffectiveSectionImpl(state, sectionId).type;
 }
 
 export function getHighestAncestor(
@@ -635,6 +634,17 @@ export function getCurrProjectConfigId() {
 
 export function getCurrProjectConfigViewport() {
   return useReactFlow.getState().fitViewOnInit ? null : getViewport();
+}
+
+export function getSectionChildren(
+  state: ZustandProjectState,
+  parentId: string,
+) {
+  return getCurrEffectiveSectionImplWithTypeGuard(
+    state,
+    parentId,
+    isBaseParentSectionImpl,
+  ).children;
 }
 
 export function addPendingOp(op: (x: ZustandProjectState) => void) {

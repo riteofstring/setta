@@ -1,5 +1,6 @@
 import { getDndSectionId, useDndState } from "forks/dnd-kit/dndState";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { XYPosition } from "forks/xyflow/core/types";
 import { useRef } from "react";
 import { justMoveANode } from "state/actions/nodeInternals";
 import {
@@ -18,9 +19,9 @@ import { DragEndEvent } from "./CustomCore";
 import { arrayMove } from "./CustomSortable";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
-import { BehaviorDropType } from "./dropTypes";
+import { BehaviorDropTypeEnum } from "./dropTypes";
 
-function onSortEnd({ active, over }: DragEndEvent) {
+function onSortEnd({ active, over }: Pick<DragEndEvent, "active" | "over">) {
   if (over && active.id !== over.id) {
     const parentId = active.data.current?.sortable?.containerId;
     if (!parentId) {
@@ -28,9 +29,7 @@ function onSortEnd({ active, over }: DragEndEvent) {
     }
     useProjectState.setState((state) => {
       setSectionChildren(state, parentId, (x) => {
-        // @ts-expect-error We know active.id is a string
         const activeIndex = x.indexOf(active.id);
-        // @ts-expect-error We know over.id is a string
         const overIndex = x.indexOf(over.id);
         return arrayMove(x, activeIndex, overIndex);
       });
@@ -38,20 +37,30 @@ function onSortEnd({ active, over }: DragEndEvent) {
   }
 }
 
-async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
+async function onFreeMoveEnd({
+  active,
+  over,
+  collisions,
+  dummyRef,
+}: Pick<DragEndEvent, "active" | "over" | "collisions"> & {
+  dummyRef: React.RefObject<HTMLDivElement>;
+}) {
   const dndChildrenState = useDndChildren.getState();
   const sectionId = active.id;
   const dndSectionId = getDndSectionId(sectionId);
   const overId = over?.id;
   const oldParentId = getSectionParentId(sectionId);
   let newParentId = dndChildrenState.y[dndSectionId] ?? null;
-  let activeIdx = null;
-  let newIndex = null;
-  let position = null;
+  let activeIdx: number | null = null;
+  let newIndex: number | null = null;
+  let position: XYPosition | null = null;
   const behaviorDropType = useDndState.getState().behaviorDropType;
 
   if (newParentId) {
     const children = dndChildrenState.x[newParentId];
+    if (!children || !overId || !collisions?.[0]) {
+      return;
+    }
     activeIdx = children.indexOf(dndSectionId);
     const overIdx = children.indexOf(overId);
     const pastHalfway = collisions[0].pastHalfway;
@@ -60,6 +69,9 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
   }
   // dropping nested section onto pane
   else if (!overId) {
+    if (!dummyRef.current) {
+      return;
+    }
     newIndex = 0;
     const { x, y } = dummyRef.current.getBoundingClientRect();
     position = screenToFlowPosition({ x, y });
@@ -70,7 +82,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
     }
   }
 
-  if (behaviorDropType === BehaviorDropType.INVALID) {
+  if (behaviorDropType === BehaviorDropTypeEnum.INVALID) {
     manualDndChildrenReset();
     return;
   }
@@ -114,7 +126,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 }
 
 export function useOnDragEnd() {
-  const dummyRef = useRef(null);
+  const dummyRef = useRef<HTMLDivElement>(null);
 
   function onDragEnd({ active, over, collisions }: DragEndEvent) {
     if (useDndState.getState().isSorting) {
