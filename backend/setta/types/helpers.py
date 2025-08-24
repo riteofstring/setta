@@ -597,6 +597,8 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
             if not impl.parentId:
                 del p.projectConfig.topLevelSections[id]
 
+    p.validate_active_ids()
+
 
 def delete_child_sections_via_decrementer(
     p: ProjectStateSingleConfig, calledBy: str, numChildren: int

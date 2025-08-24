@@ -124,6 +124,11 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         self.validate_singleton_sections()
         return self
 
+    @model_validator(mode="after")
+    def _validate_active_ids(self):
+        self.validate_active_ids()
+        return self
+
     def validate_singleton_sections(self):
         output = SingletonSections()
         for s in self.sections.values():
@@ -139,6 +144,12 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             ):
                 output.genPythonCode = s.id
         self.singletonSections = output
+        return self
+
+    def validate_active_ids(self):
+        self.projectConfig.activeIds = [
+            x for x in self.projectConfig.activeIds if x in self.sections
+        ]
         return self
 
 
