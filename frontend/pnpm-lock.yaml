@@ -162,8 +162,8 @@ dependencies:
     specifier: 8.4.31
     version: 8.4.31
   potpack:
-    specifier: 2.0.0
-    version: 2.0.0
+    specifier: 2.1.0
+    version: 2.1.0
   re-resizable:
     specifier: 6.9.0
     version: 6.9.0(react-dom@19.1.1)(react@19.1.1)
@@ -6045,8 +6045,8 @@ packages:
       source-map-js: 1.2.1
     dev: false
 
-  /potpack@2.0.0:
-    resolution: {integrity: sha512-Q+/tYsFU9r7xoOJ+y/ZTtdVQwTWfzjbiXBDMM/JKUux3+QPP02iUuIoeBQ+Ot6oEDlC+/PGjB/5A3K7KKb7hcw==}
+  /potpack@2.1.0:
+    resolution: {integrity: sha512-pcaShQc1Shq0y+E7GqJqvZj8DTthWV1KeHGdi0Z6IAin2Oi3JnLCOfwnCo84qc+HAp52wT9nK9H7FAJp5a44GQ==}
     dev: false
 
   /prelude-ls@1.2.1:
