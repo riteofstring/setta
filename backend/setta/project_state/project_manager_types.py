@@ -152,7 +152,7 @@ class DeleteJSONSourceFileAndVariantRequest(BaseModel):
     filepath: str
 
 
-class SetTextBlockTextRequest(ProjectManagerRequestWithFrontendOp):
+class SetTextBlockTextRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     text: str
@@ -168,7 +168,7 @@ class SetGenCodeSuffixRequest(BaseModel):
     genCodeSuffix: str
 
 
-class SetParamEnteredValueRequest(ProjectManagerRequestWithFrontendOp):
+class SetParamEnteredValueRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     paramInfoId: str

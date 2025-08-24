@@ -753,7 +753,6 @@ class BaseProjectManager(ABC):
     async def set_text_block_text(self, x: SetTextBlockTextRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_text(project_state, x.sectionId, x.text)
-        self.completed_op_ids_since_last_broadcast.append(x.frontendOpId)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

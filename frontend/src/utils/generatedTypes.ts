@@ -7734,7 +7734,6 @@ export function createSetGenCodeSuffixRequest(
 }
 
 export const SetParamEnteredValueRequestSchema = z.object({
-  frontendOpId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   paramInfoId: z.string(),
@@ -7815,7 +7814,6 @@ export function createSetSectionVariantRequest(
 }
 
 export const SetTextBlockTextRequestSchema = z.object({
-  frontendOpId: z.string(),
   projectConfigId: z.string(),
   sectionId: z.string(),
   text: z.string(),

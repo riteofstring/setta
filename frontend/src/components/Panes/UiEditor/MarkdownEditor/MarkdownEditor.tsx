@@ -6,14 +6,14 @@ import {
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import {
-  addPendingOp,
   getCurrProjectConfigId,
   setEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { useProjectState, ZustandProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { useTextBlockTextAndEditability } from "state/hooks/sectionVariants";
+import { useLocalPendingValue } from "state/hooks/utils";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 import { route_set_text_block_text } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
@@ -50,30 +50,25 @@ const _MarkdownEditorCore = React.forwardRef(
     const { format, text, isFrozen } =
       useTextBlockTextAndEditability(sectionId);
 
-    const [pendingValue, setPendingValue] = useState<string | null>(null);
-
-    useEffect(() => {
-      if (!pendingValue || pendingValue === text) {
-        setPendingValue(null);
-        return;
-      }
-      useProjectState.setState((state) => {
-        frontendOp(state, sectionId, pendingValue);
-      });
-    }, [text]);
+    const [value, setPendingValue] = useLocalPendingValue(
+      text,
+      (pendingValue) => {
+        useProjectState.setState((state) => {
+          setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+            text: pendingValue,
+          });
+        });
+      },
+    );
 
     const debouncedSetText = useCallback(
       _.debounce((sectionId, v) => {
-        const frontendOpId = addPendingOp((state) =>
-          frontendOp(state, sectionId, v),
-        );
         route_set_text_block_text({
-          frontendOpId,
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           text: v,
         });
-      }, 200),
+      }, 50),
       [],
     );
 
@@ -104,7 +99,7 @@ const _MarkdownEditorCore = React.forwardRef(
       >
         <CodeMirror
           maxHeight={maxHeight}
-          value={pendingValue ?? text}
+          value={value}
           theme={theme}
           extensions={extensions}
           onChange={onChange}
@@ -118,13 +113,3 @@ const _MarkdownEditorCore = React.forwardRef(
 );
 
 const MarkdownEditorCore = React.memo(_MarkdownEditorCore);
-
-function frontendOp(
-  state: ZustandProjectState,
-  sectionId: string,
-  text: string,
-) {
-  setEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-    text,
-  });
-}

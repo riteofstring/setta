@@ -87,3 +87,20 @@ export function useLocalValue<T>(globalValue: T) {
 
   return [value, setValue] as const;
 }
+
+export function useLocalPendingValue<T>(
+  globalValue: T,
+  callbackOnGlobalUpdate: (x: T) => void,
+) {
+  const [pendingValue, setPendingValue] = useState<T | null>(null);
+
+  useEffect(() => {
+    if (!pendingValue || pendingValue === globalValue) {
+      setPendingValue(null);
+      return;
+    }
+    callbackOnGlobalUpdate(pendingValue);
+  }, [globalValue]);
+
+  return [pendingValue ?? globalValue, setPendingValue] as const;
+}
