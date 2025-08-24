@@ -80,7 +80,7 @@ from setta.types.section_impls import (
 from setta.types.simplified_states import Position
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.utils import insert_into_array
+from setta.utils.utils import insert_into_array, move_item_in_array
 
 
 class ProjectNotFound(Exception):
@@ -1143,6 +1143,75 @@ def set_social_url(p: ProjectStateSingleConfig, sectionId: str, url: str):
     )
 
 
+def move_section_to_pane(
+    p: ProjectStateSingleConfig, sectionId: str, position: Position
+):
+    oldParentId = p.parentSectionMap[sectionId]
+    if oldParentId:
+        # remove from old parent
+        set_curr_effective_section_impl_value(
+            p,
+            oldParentId,
+            BaseParentSectionImplArgsWithCallable(
+                children=lambda currChildren: [
+                    c for c in currChildren if c != sectionId
+                ]
+            ),
+        )
+        # add to pane
+        p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
+            x=position.x, y=position.y
+        )
+    else:
+        # it's already on the pane, so just adjust its position
+        p.projectConfig.topLevelSections[sectionId].x = position.x
+        p.projectConfig.topLevelSections[sectionId].y = position.y
+
+
+def move_section_to_parent_section(
+    p: ProjectStateSingleConfig,
+    newParentId: str,
+    sectionId: str,
+    idx: int,
+):
+    oldParentId = p.parentSectionMap[sectionId]
+    if oldParentId and oldParentId == newParentId:
+        set_curr_effective_section_impl_value(
+            p,
+            oldParentId,
+            BaseParentSectionImplArgsWithCallable(
+                children=lambda currChildren: move_item_in_array(
+                    currChildren, currChildren.index(sectionId), idx
+                )
+            ),
+        )
+        return
+
+    if oldParentId:
+        # filter out of old parent
+        set_curr_effective_section_impl_value(
+            p,
+            oldParentId,
+            BaseParentSectionImplArgsWithCallable(
+                children=lambda currChildren: [
+                    c for c in currChildren if c != sectionId
+                ]
+            ),
+        )
+    else:
+        del p.projectConfig.topLevelSections[sectionId]
+
+    set_curr_effective_section_impl_value(
+        p,
+        newParentId,
+        BaseParentSectionImplArgsWithCallable(
+            children=lambda currChildren: insert_into_array(
+                currChildren, idx, [sectionId]
+            )
+        ),
+    )
+
+
 def group_sections(
     settings: SettingsState,
     p: ProjectStateSingleConfig,
@@ -1150,6 +1219,8 @@ def group_sections(
     position: Position,
 ):
     groupId = create_top_level_section(settings, p, SectionType.Group, position)
+    for i, s in enumerate(sectionIds):
+        move_section_to_parent_section(p, groupId, s, i)
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 
 def get_absolute_path(src_path, file_path):
@@ -108,3 +108,13 @@ def ensure_str_path(path: str | bytes | Any):
 
 def insert_into_array(arr: list, index: int, new_items: list):
     return [*arr[:index], *new_items, *arr[index:]]
+
+
+list_generic = TypeVar("list_generic")
+
+
+def move_item_in_array(array: list[list_generic], from_index: int, to_index: int):
+    new_array = array.copy()
+    item = new_array.pop(from_index)
+    new_array.insert(to_index, item)
+    return new_array
