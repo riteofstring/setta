@@ -769,15 +769,15 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_active_ids(self, x: SetActiveIdsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.projectConfig.activeIds = x.activeIds
-        await self.update_and_broadcast_project_state(project_state)
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].activeIds = x.activeIds
 
     @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        project_state.projectConfig.viewport = x.viewport
-        await self.update_and_broadcast_project_state(project_state)
+        self.project_state_backend.projectConfigs[
+            x.projectConfigId
+        ].viewport = x.viewport
 
     @enqueue_method
     async def set_section_name(self, x: SetSectionNameRequest):

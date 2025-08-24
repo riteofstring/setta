@@ -95,7 +95,16 @@ function setChildrenAndParent({
       throw new Error();
     }
     // This means it's becoming a top level section
-    addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
+    addNodes([
+      {
+        id: newSectionId,
+        position,
+        zIndex: 0,
+        tempZIndex: 0,
+        width: null,
+        height: null,
+      },
+    ]);
   } else {
     if (newIndex === null) {
       throw new Error();

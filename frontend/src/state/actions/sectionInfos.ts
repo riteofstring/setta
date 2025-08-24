@@ -468,7 +468,6 @@ function getDisplayedSectionIdToChildrenHelper(
 }
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
-  console.log("getDisplayedSectionIdToChildren", state);
   const output: Record<string, Array<string>> = {};
   for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);
