@@ -88,7 +88,7 @@ export function getUIEditorTab(
   // when sectionId changes, the requiredTabs might not include the previously active tab
   let selectedTabName: UIEditorTabName | null;
   if (requiredTabs.length > 0) {
-    // @ts-ignore
+    // @ts-expect-error The includes function typing is annoying
     selectedTabName = requiredTabs.includes(storedTab) ? storedTab : null;
   } else {
     selectedTabName = null;

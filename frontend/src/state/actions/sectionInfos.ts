@@ -1,4 +1,4 @@
-import { useDndChildren } from "forks/dnd-kit/dndChildren";
+import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { getViewport } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
@@ -334,7 +334,9 @@ export function getSectionDescendants(
 }
 
 export function manualDndChildrenReset() {
-  useDndChildren.getState().update(getDisplayedSectionIdToChildren());
+  updateDndChildren(
+    getDisplayedSectionIdToChildren(useProjectState.getState()),
+  );
 }
 
 export function setAllPreviewVariantIdsToNull() {
@@ -438,9 +440,14 @@ export function getDisplayedSectionVariantId(
   );
 }
 
-export function setSectionVariantChildren(sectionId, newStateFn, state) {
-  const variant = getSectionVariant(sectionId, state);
-  variant.children = newStateFn(variant.children);
+export function setSectionChildren(
+  state: ZustandProjectState,
+  sectionId: string,
+  newStateFn: (currChildren: Array<string>) => Array<string>,
+) {
+  setCurrEffectiveSectionImplValue<"BaseParentSection">(state, sectionId, {
+    children: newStateFn,
+  });
 }
 
 function getDisplayedSectionIdToChildrenHelper(
@@ -462,6 +469,7 @@ function getDisplayedSectionIdToChildrenHelper(
 }
 
 export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
+  console.log("getDisplayedSectionIdToChildren", state);
   const output: Record<string, Array<string>> = {};
   for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
     const impl = getCurrEffectiveSectionImpl(state, sectionId);

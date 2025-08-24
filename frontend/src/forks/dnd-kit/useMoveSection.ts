@@ -6,7 +6,7 @@ import {
   getDisplayedSectionVariant,
   getSectionParentId,
   manualDndChildrenReset,
-  setSectionVariantChildren,
+  setSectionChildren,
   updateProjectState,
 } from "state/actions/sectionInfos";
 import {
@@ -14,19 +14,26 @@ import {
   moveSection,
 } from "state/actions/sections/moveSections";
 import { useProjectState } from "state/definitions";
-import { updateWithArrayMove } from "utils/utils";
+import { DragEndEvent } from "./CustomCore";
+import { arrayMove } from "./CustomSortable";
 import { computeNewIndex } from "./CustomSortable/strategies/computeNewIndex";
 import { useDndChildren } from "./dndChildren";
 import { BehaviorDropType } from "./dropTypes";
 
-function onSortEnd({ active, over }) {
+function onSortEnd({ active, over }: DragEndEvent) {
   if (over && active.id !== over.id) {
+    const parentId = active.data.current?.sortable?.containerId;
+    if (!parentId) {
+      return;
+    }
     useProjectState.setState((state) => {
-      setSectionVariantChildren(
-        active.data.current.sortable?.containerId,
-        updateWithArrayMove(active, over),
-        state,
-      );
+      setSectionChildren(state, parentId, (x) => {
+        // @ts-expect-error We know active.id is a string
+        const activeIndex = x.indexOf(active.id);
+        // @ts-expect-error We know over.id is a string
+        const overIndex = x.indexOf(over.id);
+        return arrayMove(x, activeIndex, overIndex);
+      });
     });
   }
 }
@@ -109,7 +116,7 @@ async function onFreeMoveEnd({ active, over, collisions, dummyRef }) {
 export function useOnDragEnd() {
   const dummyRef = useRef(null);
 
-  function onDragEnd({ active, over, collisions }) {
+  function onDragEnd({ active, over, collisions }: DragEndEvent) {
     if (useDndState.getState().isSorting) {
       onSortEnd({ active, over });
     } else if (useDndState.getState().isMovingFree) {

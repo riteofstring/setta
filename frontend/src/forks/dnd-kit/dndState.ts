@@ -6,7 +6,7 @@ import { immer } from "zustand/middleware/immer";
 import { createWithEqualityFn } from "zustand/traditional";
 import { Disabled } from "./CustomSortable/types";
 
-type ZustandDndState = {
+export type ZustandDndState = {
   activeId: string | null;
   activeIsTopLevel: boolean;
   overId: string | null;

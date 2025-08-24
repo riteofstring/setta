@@ -285,7 +285,7 @@ export type ZustandAIStore = {
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
-  // @ts-ignore
+  // @ts-expect-error Zustand's persist function doesn't work well with types
   subscribeWithSelector(
     persist(
       () => ({

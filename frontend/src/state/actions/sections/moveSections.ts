@@ -4,7 +4,7 @@ import { res200 } from "utils/endpointUtils";
 import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { insertIntoArray } from "utils/utils";
 import { copySections } from "../copyPaste/copy";
-import { getSectionInfo, setSectionVariantChildren } from "../sectionInfos";
+import { getSectionInfo, setSectionChildren } from "../sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
 export function moveSections({
@@ -65,7 +65,7 @@ function setChildrenAndParent({
     // This means it was a top level section
     deleteNodes([oldSectionId]);
   } else {
-    setSectionVariantChildren(
+    setSectionChildren(
       oldParentId,
       (x) => x.filter((y) => y !== oldSectionId),
       state,
@@ -76,7 +76,7 @@ function setChildrenAndParent({
     addNodes([{ id: newSectionId, position, zIndex: 0, tempZIndex: 0 }]);
   } else {
     // Add child to new parent's list
-    setSectionVariantChildren(
+    setSectionChildren(
       newParentId,
       (x) => insertIntoArray(x, newIndex, newSectionId),
       state,
