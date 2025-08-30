@@ -6,8 +6,9 @@ import { res200 } from "utils/endpointUtils";
 import { route_delete_project_configs } from "utils/generatedEndpoints";
 
 export function DeleteProjectWarningModal() {
-  const { selectedProjects, getAllProjectConfigMetadata, setSelectedProjects } =
-    useModal((x) => x.modalData);
+  const { selectedProjects, setSelectedProjects } = useModal(
+    (x) => x.modalData,
+  );
 
   const handleCancel = () => {
     setModalOpen(false);
@@ -18,7 +19,6 @@ export function DeleteProjectWarningModal() {
       ids: selectedProjects.map((x) => x.id),
     });
     if (res200(res)) {
-      getAllProjectConfigMetadata();
       setSelectedProjects([]);
     }
     setModalOpen(false);

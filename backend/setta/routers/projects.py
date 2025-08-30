@@ -19,7 +19,7 @@ from setta.types.helpers import (
     convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
-from setta.types.project_state import ProjectMetadata, ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -71,12 +71,6 @@ class GetNotificationsRequest(BaseModel):
 
 class DeleteNotificationRequest(BaseModel):
     notificationId: str
-
-
-@router.post(Route.LOAD_ALL_PROJECT_METADATA)
-def route_load_all_project_metadata(state: AppStateFromRequest) -> ProjectMetadata:
-    output = state.project_manager_switcher.main.get_project_metadata()
-    return output
 
 
 @router.post(Route.LOAD_PROJECT_CONFIG)

@@ -113,8 +113,8 @@ from setta.types.helpers import (
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
+    AllProjectMetadata,
     ProjectConfig,
-    ProjectMetadata,
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
@@ -680,14 +680,6 @@ class BaseProjectManager(ABC):
     def delete_temp_folder(self):
         shutil.rmtree(self.temp_folder)
 
-    def get_project_metadata(self):
-        defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
-        projectMetadata = list(self.project_state_backend.projectConfigs.values())
-        return ProjectMetadata(
-            defaultProjectConfigId=defaultProjectConfigId,
-            projectMetadata=projectMetadata,
-        )
-
     @enqueue_method
     async def create_project_config(self, previewImgColor: str):
         new_project_config = ProjectConfig(previewImgColor=previewImgColor)
@@ -696,6 +688,7 @@ class BaseProjectManager(ABC):
             new_project_config
         )
         self.project_state_backend.validate_default_project_id()
+        await self.broadcast_all_project_metadata()
         return new_project_config.name
 
     @enqueue_method
@@ -703,10 +696,12 @@ class BaseProjectManager(ABC):
         for id in project_config_ids:
             del self.project_state_backend.projectConfigs[id]
         self.project_state_backend.validate_default_project_id()
+        await self.broadcast_all_project_metadata()
 
     @enqueue_method
     async def set_as_default_project(self, projectConfigId: str):
         self.project_state_backend.defaultProjectConfigId = projectConfigId
+        await self.broadcast_all_project_metadata()
 
     @enqueue_method
     async def set_project_config_name(self, projectConfigId: str, newName: str):
@@ -868,6 +863,14 @@ class BaseProjectManager(ABC):
             project_state, self.completed_op_ids_since_last_broadcast
         )
         self.completed_op_ids_since_last_broadcast = []
+
+    async def broadcast_all_project_metadata(self):
+        defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
+        projectMetadata = list(self.project_state_backend.projectConfigs.values())
+        await self.websocket_msg_handler.broadcast_all_project_metadata(
+            defaultProjectConfigId=defaultProjectConfigId,
+            projectMetadata=projectMetadata,
+        )
 
     @property
     def project_state_backend(self):

@@ -167,6 +167,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self
 
 
-class ProjectMetadata(BaseModel):
+class AllProjectMetadata(BaseModel):
     defaultProjectConfigId: str | None
     projectMetadata: list[ProjectConfig]

@@ -10,6 +10,7 @@ import {
   UIEditorTabLocalStorage,
 } from "utils/constants";
 import {
+  AllProjectMetadata,
   APIKeys,
   ChatMetadata,
   createProjectConfig,
@@ -85,11 +86,19 @@ export const useProjectState = withProjectState(
           codeObjVariants: {},
           artifactGroups: {},
           singletonSections: createSingletonSections(),
+          parentSectionMap: {},
           previewSectionVariantMap: {},
         })),
       ),
     ),
   ),
+);
+
+export const useAllProjectMetadata = createWithEqualityFn(
+  withResetFn<AllProjectMetadata>(() => ({
+    defaultProjectConfigId: null,
+    projectMetadata: [],
+  })),
 );
 
 type ZustandPendingOperations = {

@@ -5,6 +5,7 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.websocket import (
     WebsocketMsgAllDependencies,
+    WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
 )
 from setta.websockets.msg_handlers.base import (
@@ -46,3 +47,4 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
             WebsocketMsgAllDependencies(content=self.script_metadata.dependencies),
             websocket_id,
         )
+        await self.project_manager.broadcast_all_project_metadata()

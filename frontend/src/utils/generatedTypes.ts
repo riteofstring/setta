@@ -184,6 +184,7 @@ export const BackendWebsocketMsgTypeSet = new Set(["CurrentAddressUpdate"]);
 export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllDependencies",
+  "AllProjectMetadata",
   "Artifact",
   "LLMStreamingResponse",
   "LSPDiagnostics",
@@ -198,6 +199,7 @@ export const FrontendWebsocketMsgTypeSet = new Set([
 export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllDependencies",
+  "AllProjectMetadata",
   "Artifact",
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
@@ -328,7 +330,6 @@ export const RouteEnum = {
   SWAGGER_DOCS: "/docs",
   OPENAPI_DOCS: "/openapi.json",
   REDOC_DOCS: "/redoc",
-  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
   LOAD_PROJECT_CONFIG: "/loadProjectConfig",
   SAVE_PROJECT: "/saveProject",
   CREATE_PROJECT_CONFIG: "/createProjectConfig",
@@ -501,6 +502,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
+  AllProjectMetadata: "AllProjectMetadata",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -4776,6 +4778,37 @@ export function createWebsocketMsgUpdateSettings(
   return WebsocketMsgUpdateSettingsSchema.parse(options);
 }
 
+export const AllProjectMetadataSchema = z.object({
+  defaultProjectConfigId: z.union([z.string(), z.null()]),
+  projectMetadata: z.array(ProjectConfigSchema),
+});
+
+export type AllProjectMetadata = z.infer<typeof AllProjectMetadataSchema>;
+
+export function createAllProjectMetadata(
+  options: Partial<AllProjectMetadata> = {},
+): AllProjectMetadata {
+  return AllProjectMetadataSchema.parse(options);
+}
+
+export const WebsocketMsgAllProjectMetadataSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: AllProjectMetadataSchema,
+  messageType: z
+    .literal("AllProjectMetadata")
+    .default(WebsocketMsgTypeForFrontendEnum.AllProjectMetadata),
+});
+
+export type WebsocketMsgAllProjectMetadata = z.infer<
+  typeof WebsocketMsgAllProjectMetadataSchema
+>;
+
+export function createWebsocketMsgAllProjectMetadata(
+  options: Partial<WebsocketMsgAllProjectMetadata> = {},
+): WebsocketMsgAllProjectMetadata {
+  return WebsocketMsgAllProjectMetadataSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgArtifactSchema,
@@ -4788,6 +4821,7 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
+  WebsocketMsgAllProjectMetadataSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -4807,6 +4841,7 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
+    WebsocketMsgAllProjectMetadataSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -4831,6 +4866,7 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllDependenciesSchema,
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
+  WebsocketMsgAllProjectMetadataSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
 ]);
 
@@ -4850,6 +4886,7 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgAllDependenciesSchema,
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
+    WebsocketMsgAllProjectMetadataSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
   ],
 );
@@ -6959,19 +6996,6 @@ export function createProjectStateCore(
   options: Partial<ProjectStateCore> = {},
 ): ProjectStateCore {
   return ProjectStateCoreSchema.parse(options);
-}
-
-export const ProjectMetadataSchema = z.object({
-  defaultProjectConfigId: z.union([z.string(), z.null()]),
-  projectMetadata: z.array(ProjectConfigSchema),
-});
-
-export type ProjectMetadata = z.infer<typeof ProjectMetadataSchema>;
-
-export function createProjectMetadata(
-  options: Partial<ProjectMetadata> = {},
-): ProjectMetadata {
-  return ProjectMetadataSchema.parse(options);
 }
 
 export const SimplifiedCodeInfoSchema = z.object({

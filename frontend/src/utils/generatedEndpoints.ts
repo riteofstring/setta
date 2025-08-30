@@ -1,12 +1,6 @@
 import { post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
-export async function route_load_all_project_metadata(): Promise<
-  ResponseDataAndStatus<gt.ProjectMetadata>
-> {
-  return await post("/loadAllProjectMetadata");
-}
-
 export async function route_load_project_config(
   x: gt.ProjectLoadRequest,
 ): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {

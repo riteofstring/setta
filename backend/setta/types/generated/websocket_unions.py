@@ -5,6 +5,7 @@ from pydantic import Field, TypeAdapter
 from setta.types.websocket import (
     WebsocketMsgAllConnections,
     WebsocketMsgAllDependencies,
+    WebsocketMsgAllProjectMetadata,
     WebsocketMsgArtifact,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgLLMStreamingResponse,
@@ -29,6 +30,7 @@ WebsocketMsgUnion = Union[
     WebsocketMsgAllDependencies,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateSettings,
+    WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
 ]
 
@@ -51,6 +53,7 @@ WebsocketMsgTypeSet = set(
         "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
+        "AllProjectMetadata",
         "CurrentAddressUpdate",
     ]
 )
@@ -67,6 +70,7 @@ FrontendWebsocketMsgUnion = Union[
     WebsocketMsgAllDependencies,
     WebsocketMsgTerminalMetadata,
     WebsocketMsgUpdateSettings,
+    WebsocketMsgAllProjectMetadata,
 ]
 
 FrontendWebsocketMsgUnionWithDiscriminator = Annotated[
@@ -90,6 +94,7 @@ FrontendWebsocketMsgTypeSet = set(
         "AllDependencies",
         "TerminalMetadata",
         "UpdateSettings",
+        "AllProjectMetadata",
     ]
 )
 

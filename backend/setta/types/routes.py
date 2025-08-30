@@ -6,7 +6,6 @@ class Route(str, Enum):
     SWAGGER_DOCS = "/docs"
     OPENAPI_DOCS = "/openapi.json"
     REDOC_DOCS = "/redoc"
-    LOAD_ALL_PROJECT_METADATA = "/loadAllProjectMetadata"
     LOAD_PROJECT_CONFIG = "/loadProjectConfig"
     SAVE_PROJECT = "/saveProject"
     CREATE_PROJECT_CONFIG = "/createProjectConfig"

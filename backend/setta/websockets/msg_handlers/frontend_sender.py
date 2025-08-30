@@ -9,9 +9,14 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import (
+    AllProjectMetadata,
+    ProjectConfig,
+    ProjectStateSingleConfig,
+)
 from setta.types.websocket import (
     WebsocketConnectionType,
+    WebsocketMsgAllProjectMetadata,
     WebsocketMsgArtifact,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
@@ -80,6 +85,19 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             WebsocketMsgUpdateFrontendProjectState(
                 content=ProjectStateSingleConfigWithCompletedOpIds(
                     projectState=projectState, completedOpIds=completedOpIds
+                )
+            ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+    async def broadcast_all_project_metadata(
+        self, defaultProjectConfigId: str | None, projectMetadata: list[ProjectConfig]
+    ):
+        await self.websocket_manager.broadcast(
+            WebsocketMsgAllProjectMetadata(
+                content=AllProjectMetadata(
+                    defaultProjectConfigId=defaultProjectConfigId,
+                    projectMetadata=projectMetadata,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

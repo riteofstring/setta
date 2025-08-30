@@ -31,6 +31,7 @@ import { processRenameRefactorResults } from "./referenceRenaming";
 import {
   getCurrProjectConfigId,
   processProjectStateUpdateFromBackend,
+  updateAllProjectMetadata,
 } from "./sectionInfos";
 import { updateSettings } from "./settings";
 
@@ -127,6 +128,8 @@ function receiveMessage(message: string) {
       return processProjectStateUpdateFromBackend(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateSettings:
       return updateSettings(m.content);
+    case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
+      return updateAllProjectMetadata(m.content);
     default:
       return m satisfies never;
   }

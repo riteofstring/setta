@@ -4,6 +4,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
+  useAllProjectMetadata,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
@@ -19,6 +20,7 @@ import {
   route_ungroup_groups,
 } from "utils/generatedEndpoints";
 import {
+  AllProjectMetadata,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -671,6 +673,10 @@ export function unselectAllParams() {
     }
   });
   return didUnselectSomeParams;
+}
+
+export function updateAllProjectMetadata(x: AllProjectMetadata) {
+  useAllProjectMetadata.setState(x);
 }
 
 export const debounced_route_set_active_ids = _.debounce(

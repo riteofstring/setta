@@ -4,7 +4,7 @@ import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { HiHome } from "react-icons/hi";
 import { IoMdCheckmark } from "react-icons/io";
@@ -13,23 +13,28 @@ import { LuPenLine } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
-import { useHomePageSearch } from "state/definitions";
-import { useGetAllProjectConfigMetadata } from "state/hooks/project";
+import {
+  useAllProjectMetadata,
+  useHomePageSearch,
+  useProjectLoading,
+} from "state/definitions";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 
 export function HomePage() {
-  const { projects, defaultProjectConfigId, getAllProjectConfigMetadata } =
-    useGetAllProjectConfigMetadata();
+  const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata();
+
+  useEffect(() => {
+    useProjectLoading.getState().reset();
+  }, []);
 
   return (
     <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
       <RightColumn
-        projects={projects}
+        projects={projectMetadata}
         defaultProjectConfigId={defaultProjectConfigId}
-        getAllProjectConfigMetadata={getAllProjectConfigMetadata}
       />
     </GridWrapper>
   );
@@ -38,11 +43,9 @@ export function HomePage() {
 function RightColumn({
   projects,
   defaultProjectConfigId,
-  getAllProjectConfigMetadata,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
-  getAllProjectConfigMetadata: () => void;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
@@ -58,7 +61,6 @@ function RightColumn({
 
   async function onClickDelete() {
     openDeleteProjectWarningModal({
-      getAllProjectConfigMetadata,
       setSelectedProjects,
       selectedProjects: selectedProjects.map((s) => ({
         id: s,
@@ -79,7 +81,6 @@ function RightColumn({
       return;
     }
     await router_set_as_default_project({ projectId });
-    getAllProjectConfigMetadata();
   }
 
   return (

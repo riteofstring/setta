@@ -15,6 +15,7 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
+from setta.types.project_state import AllProjectMetadata
 
 
 class WebsocketMsgTypeForFrontend(str, Enum):
@@ -29,6 +30,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     UpdateSettings = "UpdateSettings"
+    AllProjectMetadata = "AllProjectMetadata"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -142,6 +144,13 @@ class WebsocketMsgUpdateSettings(FrontendWebsocketMsg):
     content: SettingsState
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateSettings] = (
         WebsocketMsgTypeForFrontend.UpdateSettings
+    )
+
+
+class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
+    content: AllProjectMetadata
+    messageType: Literal[WebsocketMsgTypeForFrontend.AllProjectMetadata] = (
+        WebsocketMsgTypeForFrontend.AllProjectMetadata
     )
 
 
