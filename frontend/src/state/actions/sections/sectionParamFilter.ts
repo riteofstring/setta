@@ -3,12 +3,16 @@ import { ProjectSearchModeEnum } from "utils/constants";
 
 export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";
 
-export function clickOnSearchBar() {
+export function clickOrFocusOnSearchBar(mode: "click" | "focus") {
   // wait for re-render, otherwise the search bar re-renders after focusing on it
   requestAnimationFrame(() => {
     const element = document.getElementById(ProjectPageSearchBarDivId);
     if (element) {
-      element.click();
+      if (mode === "click") {
+        element.click();
+      } else if (mode === "focus") {
+        element.focus({ preventScroll: true });
+      }
     }
   });
 }
@@ -24,15 +28,15 @@ export function focusOnSearch() {
   }
 
   useProjectSearch.setState({ mode: ProjectSearchModeEnum.find });
-  clickOnSearchBar();
+  clickOrFocusOnSearchBar("focus");
 }
 
 export function focusOnAdvancedSearch() {
   useProjectSearch.setState({ mode: ProjectSearchModeEnum.advanced });
-  clickOnSearchBar();
+  clickOrFocusOnSearchBar("click");
 }
 
 export function focusOnCommandPalette() {
   useProjectSearch.setState({ mode: ProjectSearchModeEnum.commandPalette });
-  clickOnSearchBar();
+  clickOrFocusOnSearchBar("click");
 }
