@@ -1,11 +1,13 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { closeModal } from "state/actions/modal";
+import { closeModal, useModalData } from "state/actions/modal";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
-import { useModal } from "state/definitions";
 import { route_delete_json_source_file_and_variant } from "utils/generatedEndpoints";
+import { ModalTypeEnum } from "../types";
 
 export function DeleteJSONSourceVariantModal() {
-  const { sectionId, variantId, filepath } = useModal((x) => x.modalData);
+  const { sectionId, variantId, filepath } = useModalData(
+    ModalTypeEnum.DELETE_JSON_SOURCE_FILE,
+  );
 
   const handleCancel = () => {
     closeModal();

@@ -1,9 +1,10 @@
+import { ModalTypeEnum } from "components/Modals/types";
 import _ from "lodash";
 import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
 import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
-import { openDeleteJSONSourceFileModal } from "state/actions/modal";
+import { openModal } from "state/actions/modal";
 import {
   getCurrProjectConfigId,
   getSectionCore,
@@ -284,7 +285,11 @@ function OneVariantEditing({
       variantId: id,
     });
     if (res200(res) && res.data) {
-      openDeleteJSONSourceFileModal(sectionId, id, res.data);
+      openModal(ModalTypeEnum.DELETE_JSON_SOURCE_FILE, {
+        sectionId,
+        variantId: id,
+        filepath: res.data,
+      });
     }
   }
 

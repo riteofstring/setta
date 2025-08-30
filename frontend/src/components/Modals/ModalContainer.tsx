@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "state/definitions";
+import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
@@ -33,6 +34,8 @@ function ModalContent({ open }: { open: boolean }) {
   switch (modalInfo.type) {
     case ModalTypeEnum.DELETE_PROJECT_WARNING:
       return <DeleteProjectWarningModal />;
+    case ModalTypeEnum.DELETE_JSON_SOURCE_FILE:
+      return <DeleteJSONSourceVariantModal />;
     default:
       return modalInfo.type satisfies never;
   }
@@ -49,12 +52,8 @@ function ModalContent({ open }: { open: boolean }) {
 //   return <ImportJSONModal modalType={modalType} />;
 // case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
 //   return <SaveUITypeConfigModal open={open} modalType={modalType} />;
-// case MODAL_TYPE.DELETE_PROJECT_WARNING.title:
-//   return <DeleteProjectWarningModal open={open} />;
 // case MODAL_TYPE.RENAME_REFERENCES.title:
 //   return <RenameReferencesModal open={open} />;
-// case MODAL_TYPE.DELETE_JSON_SOURCE_FILE.title:
-//   return <DeleteJSONSourceVariantModal open={open} />;
 // case MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH.title:
 //   return <AddArtifactByFilepathModal open={open} />;
 // default:

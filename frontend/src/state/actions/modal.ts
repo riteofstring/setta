@@ -42,18 +42,6 @@ export function openRenameReferencesModal(changedValues) {
   openModal(MODAL_TYPE.RENAME_REFERENCES, changedValues);
 }
 
-export function openDeleteJSONSourceFileModal(
-  sectionId: string,
-  variantId: string,
-  filepath: string,
-) {
-  openModal(MODAL_TYPE.DELETE_JSON_SOURCE_FILE, {
-    sectionId,
-    variantId,
-    filepath,
-  });
-}
-
 export function openAddArtifactByFilepathModal(sectionId) {
   openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
 }
