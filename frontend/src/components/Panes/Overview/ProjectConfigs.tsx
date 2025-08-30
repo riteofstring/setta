@@ -1,11 +1,11 @@
 import { Toggle } from "components/Utils/atoms/toggles/Toggle";
-import _ from "lodash";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { maybeRunGuiToYamlOnAllSections } from "state/actions/guiToYaml";
 import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
 import { setAllPreviewVariantIdsToNull } from "state/actions/sectionInfos";
 import {
+  useAllProjectMetadata,
   useLocalStorage,
   useProjectLoading,
   useProjectState,
@@ -13,13 +13,9 @@ import {
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
 
 export function ProjectConfigs() {
-  const { name: currProjectConfigName, allConfigNames } = useProjectState(
-    (x) => {
-      const name = x.projectConfig.name;
-      const allConfigNames = _.map(x.projectConfigs, (p) => p.name);
-      return { name, allConfigNames };
-    },
-    _.isEqual,
+  const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
+  const allConfigNames = useAllProjectMetadata((x) =>
+    x.projectMetadata.map((p) => p.name),
   );
 
   const projectIsLoading = useProjectLoading((x) => x.projectIsLoading);
