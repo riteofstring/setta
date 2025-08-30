@@ -35,7 +35,12 @@ export function ProjectPageSearchBar() {
   }
 }
 
-function ProjectPageSearchInput({ ref, rightElement, ...props }) {
+function ProjectPageSearchInput({
+  rightElement,
+  ...props
+}: {
+  rightElement?: React.ReactNode;
+} & React.InputHTMLAttributes<HTMLInputElement>) {
   const shortcuts = useSettings((x) => {
     return {
       advancedkey: shortcutPrettified(x.shortcuts.advancedSearchShortcut),
@@ -54,7 +59,6 @@ function ProjectPageSearchInput({ ref, rightElement, ...props }) {
           content: "Search your entire project from one location.",
         })}
         {...props}
-        ref={ref}
       />
       {rightElement}
     </search>
