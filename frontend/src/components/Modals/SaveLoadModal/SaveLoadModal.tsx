@@ -18,29 +18,36 @@ export function SaveLoadModal({
 }: {
   modalMode: SaveLoadModalMode;
   files: Array<{ id: string; name: string }>;
+  onClickActionButton: (info: {
+    selected: string | undefined;
+    filename: string;
+  }) => void;
   title: string;
   buttonText: string;
   placeholder: string;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | undefined>(undefined);
   const [filename, setFilename] = useState("");
 
-  function getFilenameFromId(id) {
+  function getFilenameFromId(id: string | undefined) {
+    if (id === undefined) {
+      return "";
+    }
     return files.find((f) => f.id === id)?.name ?? "";
   }
 
-  function onFilenameChange(v) {
+  function onFilenameChange(v: string) {
     setFilename(v);
-    setSelected(files.find((f) => f.name === v)?.id ?? null);
+    setSelected(files.find((f) => f.name === v)?.id ?? undefined);
   }
 
-  function onSelectedChange(v) {
+  function onSelectedChange(v: string | undefined) {
     setSelected(v);
     setFilename(getFilenameFromId(v));
   }
 
   function onClose() {
-    setSelected(null);
+    setSelected(undefined);
     setFilename("");
   }
 
@@ -49,7 +56,7 @@ export function SaveLoadModal({
     onClose();
   }
 
-  function onFileDoubleClick(id) {
+  function onFileDoubleClick(id: string) {
     onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
     closeModal();
     onClose();
@@ -90,7 +97,10 @@ function Body({
 }: {
   modalMode: SaveLoadModalMode;
   files: Array<{ id: string; name: string }>;
-  selected: string | null;
+  selected: string | undefined;
+  onSelectedChange: (newValue: string | undefined) => void;
+  onFileDoubleClick: (newValue: string) => void;
+  onFilenameChange: (newValue: string) => void;
   filename: string;
   title: string;
   placeholder: string;
@@ -117,7 +127,15 @@ function Body({
   );
 }
 
-export function Footer({ onClose, onClick, buttonText }) {
+export function Footer({
+  onClose,
+  onClick,
+  buttonText,
+}: {
+  onClose: () => void;
+  onClick: () => void;
+  buttonText: string;
+}) {
   return (
     <div className="mb-2 mt-4 flex justify-end gap-2">
       {buttonText && (

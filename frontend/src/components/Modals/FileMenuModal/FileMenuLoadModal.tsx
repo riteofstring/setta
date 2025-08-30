@@ -23,7 +23,14 @@ export function FileMenuLoadProjectConfigModal({ open }: { open: boolean }) {
     }
   }, [open]);
 
-  function onClickLoadProjectConfig({ selected }) {
+  function onClickLoadProjectConfig({
+    selected,
+  }: {
+    selected: string | undefined;
+  }) {
+    if (selected === undefined) {
+      return;
+    }
     const config = projectMetadata.find((x) => x.id === selected);
     if (config) {
       navigateToAnotherConfig(config.name);
@@ -37,6 +44,7 @@ export function FileMenuLoadProjectConfigModal({ open }: { open: boolean }) {
       onClickActionButton={onClickLoadProjectConfig}
       title="Load Project Config"
       buttonText="Load"
+      placeholder=""
     />
   );
 }

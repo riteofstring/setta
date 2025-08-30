@@ -9,6 +9,12 @@ export function FileExplorer({
   onSelectedChange,
   title,
   onFileDoubleClick,
+}: {
+  files: Array<{ id: string; name: string }>;
+  selected: string | undefined;
+  title: string;
+  onSelectedChange: (newValue: string | undefined) => void;
+  onFileDoubleClick: (newValue: string) => void;
 }) {
   return (
     <>
@@ -30,6 +36,7 @@ export function FileExplorer({
           onValueChange={onSelectedChange}
           asChild
         >
+          {/* @ts-expect-error ref gets passed in by RadioGroup.Root I think */}
           <FileList
             files={files}
             onClick={onSelectedChange}
