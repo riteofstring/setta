@@ -8,7 +8,7 @@ export function clickOnSearchBar() {
   requestAnimationFrame(() => {
     const element = document.getElementById(ProjectPageSearchBarDivId);
     if (element) {
-      element.focus({ preventScroll: true });
+      element.click();
     }
   });
 }
