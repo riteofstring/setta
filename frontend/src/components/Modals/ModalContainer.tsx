@@ -51,8 +51,6 @@ function ModalContent({ open }) {
       return <ImportJSONModal modalType={modalType} />;
     case MODAL_TYPE.SAVE_UI_TYPE_CONFIG.title:
       return <SaveUITypeConfigModal open={open} modalType={modalType} />;
-    case MODAL_TYPE.SAVE_CUSTOM_ARGUMENTS.title:
-      return <SaveCustomArgumentsModal open={open} modalType={modalType} />;
     case MODAL_TYPE.DELETE_PROJECT_WARNING.title:
       return <DeleteProjectWarningModal open={open} />;
     case MODAL_TYPE.RENAME_REFERENCES.title:

@@ -153,11 +153,6 @@ export const MODAL_TYPE = {
     title: "Save UI Type Config",
     buttonText: "Save",
   },
-  SAVE_CUSTOM_ARGUMENTS: {
-    purpose: MODAL_PURPOSE.SAVE,
-    title: "Save Custom Arguments",
-    buttonText: "Save",
-  },
   DELETE_PROJECT_WARNING: {
     purpose: null,
     title: "Confirm Deletion",

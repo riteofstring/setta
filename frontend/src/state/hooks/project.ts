@@ -6,7 +6,10 @@ import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { router_filter_data_for_json_export } from "utils/generatedEndpoints";
+import {
+  route_load_all_project_metadata,
+  router_filter_data_for_json_export,
+} from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { useHotReload } from "utils/hotReload";
 
