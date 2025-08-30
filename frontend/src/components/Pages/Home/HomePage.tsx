@@ -18,7 +18,6 @@ import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
-import "./homepage.css";
 
 export function HomePage() {
   const { projects, defaultProjectConfigId, getAllProjectConfigMetadata } =
