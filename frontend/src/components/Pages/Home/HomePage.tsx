@@ -175,6 +175,7 @@ function ProjectItems({
   );
 }
 
+// Simplified ProjectItem component
 function ProjectItem({
   project,
   isDefault,
@@ -191,22 +192,13 @@ function ProjectItem({
   const itemStyles =
     "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
 
-  const WrapperDiv = !inSelectionMode ? Link : "div";
-  const wrapperProps = !inSelectionMode
-    ? {
-        to: `/${project.name}`,
-        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-        className: "contents",
-        relative: "path",
-      }
-    : {
-        className: "contents",
-        onClick: (e: React.MouseEvent) => onSelectProject(e, project.id),
-      };
-
   return (
     <div className={itemStyles}>
-      <WrapperDiv {...wrapperProps}>
+      <ThumbnailWrapper
+        project={project}
+        inSelectionMode={inSelectionMode}
+        onSelectProject={onSelectProject}
+      >
         <ThumbnailArea
           project={project}
           isSelected={isSelected}
@@ -222,7 +214,41 @@ function ProjectItem({
             )}
           </div>
         </div>
-      </WrapperDiv>
+      </ThumbnailWrapper>
+    </div>
+  );
+}
+
+function ThumbnailWrapper({
+  project,
+  inSelectionMode,
+  onSelectProject,
+  children,
+}: {
+  project: ProjectConfig;
+  inSelectionMode: boolean;
+  onSelectProject: (e: React.MouseEvent, id: string) => void;
+  children: React.ReactNode;
+}) {
+  if (!inSelectionMode) {
+    return (
+      <Link
+        to={`/${project.name}`}
+        state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+        className="contents"
+        relative="path"
+      >
+        {children}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      className="contents"
+      onClick={(e: React.MouseEvent) => onSelectProject(e, project.id)}
+    >
+      {children}
     </div>
   );
 }
