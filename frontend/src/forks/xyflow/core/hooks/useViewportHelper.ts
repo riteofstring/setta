@@ -54,7 +54,7 @@ export function getViewport() {
   return { x, y, zoom };
 }
 
-export function setCenter(x, y, options) {
+export function setCenter(x: number, y: number, options) {
   const { width, height, d3Zoom, d3Selection } = useReactFlow.getState();
   const { maxZoom } = useSettings.getState().gui;
 

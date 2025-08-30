@@ -163,15 +163,25 @@ export const useInteractiveDependencies = withProjectState(
 );
 
 export type ZustandProjectSearch = {
+  codeInfo: Array<{
+    sectionId: string;
+    paramInfoId: string;
+    name: string;
+  }>;
+  focused: {
+    sectionId: string;
+    paramInfoId: string;
+    name: string;
+  } | null;
+  lookup: Set<string>;
   mode: ProjectSearchMode;
 };
 
 export const useProjectSearch = withProjectState(
   createWithEqualityFn(
     withResetFn<ZustandProjectSearch>(() => ({
-      sections: [],
       codeInfo: [],
-      focused: {},
+      focused: null,
       lookup: new Set(),
       mode: ProjectSearchModeEnum.find,
     })),

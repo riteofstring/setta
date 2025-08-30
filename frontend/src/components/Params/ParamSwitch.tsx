@@ -33,8 +33,8 @@ function _ParamSwitch(props) {
   const { isFocusedSearchResult, isSearchResult } = useProjectSearch((x) => {
     return {
       isFocusedSearchResult:
-        x.focused.sectionId === sectionId &&
-        x.focused.paramInfoId === paramInfoId,
+        x.focused?.sectionId === sectionId &&
+        x.focused?.paramInfoId === paramInfoId,
       isSearchResult: x.lookup.has(
         createProjectSearchLookupKey(sectionId, paramInfoId),
       ),

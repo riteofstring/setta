@@ -14,12 +14,15 @@ import {
   useProjectSearch,
   useProjectState,
   useSettings,
+  ZustandProjectSearch,
   ZustandProjectState,
 } from "state/definitions";
 
 export function useUpdateProjectSearch() {
   const [value, setValue] = useState("");
-  const [visibleParams, setVisibleParams] = useState([]);
+  const [visibleParams, setVisibleParams] = useState<
+    ZustandProjectSearch["codeInfo"]
+  >([]);
   const [currIdx, setCurrIdx] = useState(-1);
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -39,7 +42,7 @@ export function useUpdateProjectSearch() {
     doUpdateSearch(value, newVisibleParams);
   }
 
-  function onKeyDown(e) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.code === "Enter") {
       const { codeInfo: searchResults } = useProjectSearch.getState();
       if (searchResults.length === 0) {
@@ -47,11 +50,14 @@ export function useUpdateProjectSearch() {
       }
       const newIdx = (currIdx + 1) % searchResults.length;
       const focusedSearchResult = searchResults[newIdx];
+      if (!focusedSearchResult) {
+        return;
+      }
       useProjectSearch.setState({ focused: focusedSearchResult });
       goToSearchResult(focusedSearchResult);
       setCurrIdx(newIdx);
     } else if (e.code === "Escape") {
-      e.target.blur();
+      e.currentTarget.blur();
     }
   }
 
@@ -60,7 +66,7 @@ export function useUpdateProjectSearch() {
 
 function getAllVisibleParams() {
   const state = useProjectState.getState();
-  const output = [];
+  const output: ZustandProjectSearch["codeInfo"] = [];
   const sectionIdToChildren = getDisplayedSectionIdToChildren(state);
 
   function dfs(sectionId: string) {
@@ -84,7 +90,7 @@ function getAllVisibleParams() {
 function getParamsAndAddToSearchResults(
   state: ZustandProjectState,
   sectionId: string,
-  output: Array<{ sectionId: string; paramInfoId: string; name: string }>,
+  output: ZustandProjectSearch["codeInfo"],
 ) {
   const ids = getAllVisibleParamsInSection(state, sectionId);
   for (const p of ids) {
@@ -96,11 +102,17 @@ function getParamsAndAddToSearchResults(
   }
 }
 
-function goToSearchResult(searchResult) {
+function goToSearchResult(
+  searchResult: NonNullable<ZustandProjectSearch["focused"]>,
+) {
   const { sectionId, paramInfoId } = searchResult;
   const element = document.getElementById(
     `ParamContainer-${sectionId}-${paramInfoId}`,
   );
+  if (!element) {
+    console.error("goToSearchResult element not found");
+    return;
+  }
   const { x: _x, y: _y, width, height } = element.getBoundingClientRect();
   const { x, y } = screenToFlowPosition({
     x: _x + width / 2,
@@ -110,15 +122,19 @@ function goToSearchResult(searchResult) {
   setCenter(x, y, { zoom });
 }
 
-function updateSearch(value: string, allVisibleParams) {
+function updateSearch(
+  value: string,
+  allVisibleParams: ZustandProjectSearch["codeInfo"],
+) {
   if (!value) {
     useProjectSearch.getState().reset();
     return;
   }
 
+  // TODO: should we sort or not?
   const codeInfo = matchSorter(allVisibleParams, value, {
     keys: ["name"],
-    sorter: (rankedItems) => rankedItems, //don't sort
+    sorter: (rankedItems) => rankedItems,
   });
 
   useProjectSearch.setState({
@@ -133,6 +149,9 @@ function updateSearch(value: string, allVisibleParams) {
 
 const doUpdateSearch = _.debounce(updateSearch, 100);
 
-export function createProjectSearchLookupKey(sectionId, paramInfoId) {
+export function createProjectSearchLookupKey(
+  sectionId: string,
+  paramInfoId: string,
+) {
   return `${sectionId}-${paramInfoId}`;
 }
