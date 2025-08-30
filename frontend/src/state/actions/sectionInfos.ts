@@ -353,14 +353,6 @@ export function manualDndChildrenReset() {
   );
 }
 
-export function setAllPreviewVariantIdsToNull() {
-  useProjectState.setState((x) => {
-    for (const s of Object.values(x.sections)) {
-      s.previewVariantId = null;
-    }
-  });
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {

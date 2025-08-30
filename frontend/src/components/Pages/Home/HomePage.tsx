@@ -28,7 +28,10 @@ import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 import { LoadingSpinner } from "../LoadingSpinner";
 
 export function HomePage() {
-  const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata();
+  const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
+    (x) => x,
+    _.isEqual,
+  );
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
