@@ -1,7 +1,9 @@
+import { ModalDataMap, ModalType } from "components/Modals/types";
+import _ from "lodash";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 
-export function setModalOpen(open) {
+export function setModalOpen(open: boolean) {
   if (open) {
     useModal.setState({ open });
   } else {
@@ -9,8 +11,11 @@ export function setModalOpen(open) {
   }
 }
 
-function openModal(modalType, modalData) {
-  useModal.setState({ modalType, modalData, open: true });
+export function openModal<T extends keyof ModalDataMap>(
+  type: T,
+  data: ModalDataMap[T],
+) {
+  useModal.setState({ open: true, modalInfo: { type, data } });
 }
 
 export function openLoadModal() {
@@ -55,4 +60,15 @@ export function openDeleteJSONSourceFileModal(
 
 export function openAddArtifactByFilepathModal(sectionId) {
   openModal(MODAL_TYPE.ADD_ARTIFACT_BY_FILEPATH, sectionId);
+}
+
+export function useModalData<T extends ModalType>(
+  modalType: T,
+): ModalDataMap[T] {
+  return useModal((state) => {
+    if (state.modalInfo?.type === modalType) {
+      return state.modalInfo.data;
+    }
+    throw new Error();
+  }, _.isEqual);
 }

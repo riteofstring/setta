@@ -1,3 +1,4 @@
+import { ModalInfoType } from "components/Modals/types";
 import { Node } from "forks/xyflow/core/types";
 import {
   CLOSED_PANE_WIDTH,
@@ -136,12 +137,13 @@ export const useWaitingForLSPResult = withProjectState(
   ),
 );
 
+type ZustandModalState = { open: boolean; modalInfo: ModalInfoType | null };
+
 export const useModal = withProjectState(
   createWithEqualityFn(
-    withResetFn(() => ({
+    withResetFn<ZustandModalState>(() => ({
       open: false,
-      modalType: null,
-      modalData: null,
+      modalInfo: null,
     })),
   ),
 );
