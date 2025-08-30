@@ -24,6 +24,7 @@ export function useUpdateProjectSearch() {
     ZustandProjectSearch["codeInfo"]
   >([]);
   const [currIdx, setCurrIdx] = useState(-1);
+  const numResults = useProjectSearch((x) => x.codeInfo.length);
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
@@ -61,7 +62,15 @@ export function useUpdateProjectSearch() {
     }
   }
 
-  return { value, onChange, onBlur, onFocus, onKeyDown };
+  return {
+    value,
+    onChange,
+    onBlur,
+    onFocus,
+    onKeyDown,
+    currIdx,
+    numResults,
+  };
 }
 
 function getAllVisibleParams() {

@@ -35,7 +35,7 @@ export function ProjectPageSearchBar() {
   }
 }
 
-function ProjectPageSearchInput({ ref, ...props }) {
+function ProjectPageSearchInput({ ref, rightElement, ...props }) {
   const shortcuts = useSettings((x) => {
     return {
       advancedkey: shortcutPrettified(x.shortcuts.advancedSearchShortcut),
@@ -47,7 +47,7 @@ function ProjectPageSearchInput({ ref, ...props }) {
     <search className="nodrag relative mx-[2px] ml-4 flex w-[clamp(1rem,_30vw,_30rem)] min-w-0 items-center self-center dark:text-setta-200">
       <input
         id="ProjectPageSearchBar"
-        className="w-full flex-grow cursor-auto overflow-hidden rounded-full bg-setta-100  py-1 pl-7 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-setta-50 focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-600 dark:hover:bg-setta-800/50"
+        className="w-full flex-grow cursor-auto overflow-hidden rounded-full bg-setta-100 py-1 pl-7 pr-2 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-setta-50 focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-600 dark:hover:bg-setta-800/50"
         placeholder={`Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
         tabIndex={0}
         {...getFloatingBoxHandlers({
@@ -56,15 +56,14 @@ function ProjectPageSearchInput({ ref, ...props }) {
         {...props}
         ref={ref}
       />
+      {rightElement}
     </search>
   );
 }
 
 function ProjectPageFind() {
-  const { value, onChange, onBlur, onFocus, onKeyDown } =
+  const { value, onChange, onBlur, onFocus, onKeyDown, currIdx, numResults } =
     useUpdateProjectSearch();
-
-    console.log("value", value)
 
   return (
     <ProjectPageSearchInput
@@ -73,6 +72,13 @@ function ProjectPageFind() {
       onBlur={onBlur}
       onFocus={onFocus}
       onKeyDown={onKeyDown}
+      rightElement={
+        value ? (
+          <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-setta-400 dark:text-setta-500">
+            {currIdx >= 0 ? `${currIdx + 1} of ${numResults}` : numResults}
+          </div>
+        ) : null
+      }
     />
   );
 }
