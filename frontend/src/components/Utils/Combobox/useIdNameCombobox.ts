@@ -1,13 +1,28 @@
-import { useCombobox } from "downshift";
+import { useCombobox, UseComboboxStateChange } from "downshift";
 import { useComboboxStateReducerWithFilteredItems } from "./ComboboxStateReducer";
 import { flattenedItems } from "./utils";
+
+type ComboboxItemType = { id: string; name: string };
+
+export type AllItemsType = Array<{
+  group: string;
+  items: Array<ComboboxItemType>;
+}>;
+
+export type OnSelectedItemChangeFnType = (id: string | null) => void;
 
 export function useIdNameCombobox({
   allItems,
   onSelectedItemChange,
   value,
-  selectedItemCanBeNull,
-  clearInputAfterSelection,
+  selectedItemCanBeNull = false,
+  clearInputAfterSelection = false,
+}: {
+  allItems: AllItemsType;
+  onSelectedItemChange: OnSelectedItemChangeFnType;
+  value: string | null;
+  selectedItemCanBeNull?: boolean;
+  clearInputAfterSelection?: boolean;
 }) {
   function onKeyDown(e) {
     if (e.code === "Escape") {
@@ -16,7 +31,7 @@ export function useIdNameCombobox({
     }
   }
 
-  const itemToString = (x) => (x ? x.name : "");
+  const itemToString = (x: ComboboxItemType | null) => (x ? x.name : "");
 
   const { filteredItems, stateReducer, selection } =
     useComboboxStateReducerWithFilteredItems(
@@ -27,7 +42,9 @@ export function useIdNameCombobox({
       clearInputAfterSelection,
     );
 
-  const localOnSelectedItemChange = ({ selectedItem }) => {
+  const localOnSelectedItemChange = ({
+    selectedItem,
+  }: UseComboboxStateChange<ComboboxItemType>) => {
     onSelectedItemChange(selectedItem ? selectedItem.id : null);
   };
 
@@ -40,7 +57,7 @@ export function useIdNameCombobox({
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useCombobox({
+  } = useCombobox<ComboboxItemType>({
     stateReducer,
     selectedItem: selection,
     items: singleListItems,

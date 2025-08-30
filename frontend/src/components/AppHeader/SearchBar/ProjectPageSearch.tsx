@@ -3,7 +3,11 @@ import {
   ComboboxItems,
   ComboboxList,
 } from "components/Utils/Combobox/ComboboxParts";
-import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
+import {
+  AllItemsType,
+  OnSelectedItemChangeFnType,
+  useIdNameCombobox,
+} from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useRef } from "react";
@@ -147,7 +151,13 @@ function ProjectPageCommandPalette() {
   );
 }
 
-function ProjectPageAdvancedCore({ allItems, onSelectedItemChange }) {
+function ProjectPageAdvancedCore({
+  allItems,
+  onSelectedItemChange,
+}: {
+  allItems: AllItemsType;
+  onSelectedItemChange: OnSelectedItemChangeFnType;
+}) {
   const {
     isOpen,
     filteredItems,
