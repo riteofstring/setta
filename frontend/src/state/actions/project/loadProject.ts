@@ -2,6 +2,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useNavigate } from "react-router-dom";
 import {
+  useAllProjectMetadata,
   useNodeInternals,
   useProjectState,
   useSectionColumnWidth,
@@ -14,6 +15,7 @@ import {
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_project_config,
+  route_load_all_project_metadata,
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import { ProjectStateSingleConfig } from "utils/generatedTypes";
@@ -79,4 +81,11 @@ export function useNavigateToAnotherConfig() {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });
   };
+}
+
+export async function loadAllProjectMetadata() {
+  const res = await route_load_all_project_metadata();
+  if (res200(res)) {
+    useAllProjectMetadata.setState(res.data);
+  }
 }

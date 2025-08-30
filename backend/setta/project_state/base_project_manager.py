@@ -863,9 +863,13 @@ class BaseProjectManager(ABC):
         )
         self.completed_op_ids_since_last_broadcast = []
 
-    async def broadcast_all_project_metadata(self):
+    def get_all_project_metadata(self):
         defaultProjectConfigId = self.project_state_backend.defaultProjectConfigId
         projectMetadata = list(self.project_state_backend.projectConfigs.values())
+        return defaultProjectConfigId, projectMetadata
+
+    async def broadcast_all_project_metadata(self):
+        defaultProjectConfigId, projectMetadata = self.get_all_project_metadata()
         await self.websocket_msg_handler.broadcast_all_project_metadata(
             defaultProjectConfigId=defaultProjectConfigId,
             projectMetadata=projectMetadata,

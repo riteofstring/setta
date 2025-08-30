@@ -12,7 +12,10 @@ import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { LuPenLine } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
-import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
+import {
+  loadAllProjectMetadata,
+  useCreateAndGoToProjectConfig,
+} from "state/actions/project/loadProject";
 import {
   useAllProjectMetadata,
   useHomePageSearch,
@@ -29,6 +32,8 @@ export function HomePage() {
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
+    // load manually on first load because websocket might take time to connect
+    loadAllProjectMetadata();
     useProjectLoading.getState().reset();
   }, []);
 
