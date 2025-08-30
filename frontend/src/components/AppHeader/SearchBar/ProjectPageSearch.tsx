@@ -6,8 +6,8 @@ import {
 import {
   AllItemsType,
   OnSelectedItemChangeFnType,
-  useIdNameCombobox,
-} from "components/Utils/Combobox/useIdNameCombobox";
+} from "components/Utils/Combobox/ComboboxStateReducer";
+import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useRef } from "react";
