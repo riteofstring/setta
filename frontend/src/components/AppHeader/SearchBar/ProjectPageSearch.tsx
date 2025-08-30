@@ -9,6 +9,7 @@ import _ from "lodash";
 import { useRef } from "react";
 import { addCallableSectionInEmptySpace } from "state/actions/sections/createSections";
 import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
+import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import {
   useProjectSearch,
@@ -17,7 +18,6 @@ import {
 } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
 import { ProjectSearchModeEnum } from "utils/constants";
-import { focusOnSection } from "utils/tabbingLogic";
 import { shortcutPrettified } from "utils/utils";
 
 export function ProjectPageSearchBar() {
@@ -46,7 +46,7 @@ function ProjectPageSearchInput({ ref, rightElement, ...props }) {
   return (
     <search className="nodrag relative mx-[2px] ml-4 flex w-[clamp(1rem,_30vw,_30rem)] min-w-0 items-center self-center dark:text-setta-200">
       <input
-        id="ProjectPageSearchBar"
+        id={ProjectPageSearchBarDivId}
         className="w-full flex-grow cursor-auto overflow-hidden rounded-full bg-setta-100 py-1 pl-7 pr-2 text-xs text-setta-900 placeholder-setta-300 outline-offset-2 outline-blue-500 hover:bg-setta-50 focus:bg-white focus-visible:outline dark:bg-setta-950 dark:text-setta-200 dark:placeholder-setta-600 dark:hover:bg-setta-800/50"
         placeholder={`Search (${shortcuts.advancedkey}) / Create (${shortcuts.commandkey})`}
         tabIndex={0}
@@ -86,9 +86,9 @@ function ProjectPageFind() {
 function ProjectPageAdvanced() {
   const allSections = useOverviewListing();
   const allItems = [{ group: "Sections", items: allSections }];
-  function onSelectedItemChange(id) {
+  function onSelectedItemChange(id: string) {
     goToSection(id);
-    focusOnSection(null, id, false);
+    // focusOnSection(null, id, false);
   }
 
   return (
@@ -162,6 +162,7 @@ function ProjectPageAdvancedCore({ allItems, onSelectedItemChange }) {
 
   const inputRef = useRef(null);
   const inputProps = getInputProps({
+    id: ProjectPageSearchBarDivId,
     onKeyDown,
     ref: inputRef,
   });

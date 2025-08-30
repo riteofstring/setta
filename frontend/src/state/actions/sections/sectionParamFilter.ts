@@ -1,4 +1,17 @@
 import { useProjectSearch, useProjectState } from "state/definitions";
+import { ProjectSearchModeEnum } from "utils/constants";
+
+export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";
+
+export function clickOnSearchBar() {
+  // wait for re-render, otherwise the search bar re-renders after focusing on it
+  requestAnimationFrame(() => {
+    const element = document.getElementById(ProjectPageSearchBarDivId);
+    if (element) {
+      element.focus({ preventScroll: true });
+    }
+  });
+}
 
 export function focusOnSearch() {
   const sectionIds = useProjectState.getState().projectConfig.activeIds;
@@ -10,34 +23,16 @@ export function focusOnSearch() {
     return;
   }
 
-  useProjectSearch.setState({ mode: "find" });
-  // wait for re-render, otherwise the search bar re-renders after focusing on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById("ProjectPageSearchBar");
-    if (element) {
-      element.focus({ preventScroll: true });
-    }
-  });
+  useProjectSearch.setState({ mode: ProjectSearchModeEnum.find });
+  clickOnSearchBar();
 }
 
 export function focusOnAdvancedSearch() {
-  useProjectSearch.setState({ mode: "advanced" });
-  // wait for re-render, otherwise the search bar re-renders after clicking on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById("ProjectPageSearchBar");
-    if (element) {
-      element.click();
-    }
-  });
+  useProjectSearch.setState({ mode: ProjectSearchModeEnum.advanced });
+  clickOnSearchBar();
 }
 
 export function focusOnCommandPalette() {
-  useProjectSearch.setState({ mode: "commandPalette" });
-  // wait for re-render, otherwise the search bar re-renders after clicking on it
-  requestAnimationFrame(() => {
-    const element = document.getElementById("ProjectPageSearchBar");
-    if (element) {
-      element.click();
-    }
-  });
+  useProjectSearch.setState({ mode: ProjectSearchModeEnum.commandPalette });
+  clickOnSearchBar();
 }
