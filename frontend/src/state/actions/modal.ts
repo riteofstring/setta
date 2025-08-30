@@ -1,4 +1,9 @@
-import { ModalDataMap, ModalType } from "components/Modals/types";
+import {
+  ModalDataMap,
+  ModalInfoType,
+  ModalType,
+  ModalTypeEnum,
+} from "components/Modals/types";
 import _ from "lodash";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
@@ -7,15 +12,24 @@ export function closeModal() {
   useModal.getState().reset();
 }
 
-export function openModal<T extends keyof ModalDataMap>(
-  type: T,
-  data: ModalDataMap[T],
-) {
-  useModal.setState({ open: true, modalInfo: { type, data } });
+export function openModal(modalInfo: ModalInfoType) {
+  useModal.setState({ open: true, modalInfo });
 }
 
-export function openLoadModal() {
-  openModal(MODAL_TYPE.LOAD_PROJECT_CONFIG);
+export function openDeleteProjectWarningModal(
+  data: ModalDataMap["DELETE_PROJECT_WARNING"],
+) {
+  openModal({ type: ModalTypeEnum.DELETE_PROJECT_WARNING, data });
+}
+
+export function openDeleteJSONSourceFileModal(
+  data: ModalDataMap["DELETE_JSON_SOURCE_FILE"],
+) {
+  openModal({ type: ModalTypeEnum.DELETE_JSON_SOURCE_FILE, data });
+}
+
+export function openFileMenuLoadProjectConfigModal() {
+  openModal({ type: ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG, data: null });
 }
 
 export function openSaveAsModal() {
@@ -32,10 +46,6 @@ export function openExportJSONModal() {
 
 export function openImportJSONModal() {
   openModal(MODAL_TYPE.IMPORT_JSON);
-}
-
-export function openDeleteProjectWarningModal(selectedProjects) {
-  openModal(MODAL_TYPE.DELETE_PROJECT_WARNING, selectedProjects);
 }
 
 export function openRenameReferencesModal(changedValues) {

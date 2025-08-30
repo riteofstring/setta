@@ -5,8 +5,8 @@ import _ from "lodash";
 import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   openExportJSONModal,
+  openFileMenuLoadProjectConfigModal,
   openImportJSONModal,
-  openLoadModal,
   openSaveAsModal,
   openSaveAsWithRefsModal,
 } from "state/actions/modal";
@@ -39,7 +39,10 @@ export function FileMenu() {
       >
         New Config
       </MenuItem>
-      <MenuItem onClick={openLoadModal} shortcut={shortcuts.loadShortcut}>
+      <MenuItem
+        onClick={openFileMenuLoadProjectConfigModal}
+        shortcut={shortcuts.loadShortcut}
+      >
         Load
       </MenuItem>
       <MenuItem onClick={saveProject} shortcut={shortcuts.saveShortcut}>

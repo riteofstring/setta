@@ -2,6 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useModal } from "state/definitions";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
+import { FileMenuLoadModal } from "./FileMenuModal/FileMenuLoadModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
@@ -36,6 +37,8 @@ function ModalContent({ open }: { open: boolean }) {
       return <DeleteProjectWarningModal />;
     case ModalTypeEnum.DELETE_JSON_SOURCE_FILE:
       return <DeleteJSONSourceVariantModal />;
+    case ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG:
+      return <FileMenuLoadModal />;
     default:
       return modalInfo satisfies never;
   }

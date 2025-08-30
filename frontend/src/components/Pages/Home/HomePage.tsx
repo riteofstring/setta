@@ -1,4 +1,3 @@
-import { ModalTypeEnum } from "components/Modals/types";
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
@@ -12,7 +11,7 @@ import { IoMdCheckmark } from "react-icons/io";
 import { IoClose, IoSettingsOutline } from "react-icons/io5";
 import { LuPenLine } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
-import { openModal } from "state/actions/modal";
+import { openDeleteProjectWarningModal } from "state/actions/modal";
 import {
   loadAllProjectMetadata,
   useCreateAndGoToProjectConfig,
@@ -83,7 +82,7 @@ function RightColumn({
   }
 
   async function onClickDelete() {
-    openModal(ModalTypeEnum.DELETE_PROJECT_WARNING, {
+    openDeleteProjectWarningModal({
       setSelectedProjects,
       selectedProjectsIdName: selectedProjects.map((s) => ({
         id: s,
