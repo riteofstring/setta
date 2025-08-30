@@ -1,5 +1,4 @@
 import * as Slider from "@radix-ui/react-slider";
-import { StandardInput } from "components/Utils/atoms/input/StandardInput";
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -79,8 +78,8 @@ export function SliderInputConfig({
           <p className="flex-1 font-sans text-xs font-semibold text-setta-600">
             {e}
           </p>
-          <StandardInput
-            twClasses="justify-end"
+          <input
+            className={`nodrag font-code cursor-auto justify-end border-0 border-b border-solid border-setta-300 text-xs focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300`}
             placeholder={e}
             key={`${e}-${idx}`}
             onChange={(v) => localOnChange(e, v.target.value)}
