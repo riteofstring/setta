@@ -37,7 +37,7 @@ function ModalContent({ open }: { open: boolean }) {
     case ModalTypeEnum.DELETE_JSON_SOURCE_FILE:
       return <DeleteJSONSourceVariantModal />;
     default:
-      return modalInfo.type satisfies never;
+      return modalInfo satisfies never;
   }
 }
 
