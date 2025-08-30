@@ -1,5 +1,4 @@
 import { IconButton } from "components/Utils/atoms/buttons/IconButton";
-import { StandardButton } from "components/Utils/atoms/buttons/StandardButton";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { getNodesBounds } from "forks/xyflow/core/utils/graph";
 import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
@@ -83,33 +82,33 @@ function RightColumn({
     >
       <div className="flex justify-between gap-4">
         <div className="flex gap-4">
-          <StandardButton
-            twClasses="py-2 px-4 rounded-full font-bold  text-white bg-setta-600  hover:bg-blue-500 dark:hover:bg-blue-700 gap-2"
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
             onClick={createAndGoToProjectConfig}
           >
             <BiPlus />
             New Config
-          </StandardButton>
-          <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium text-white dark:text-white/75 bg-setta-400 dark:bg-setta-500/25 hover:!bg-green-500 dark:hover:!bg-green-700 hover:text-white gap-2"
+          </button>
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
             onClick={onClickMakeDefault}
             disabled={selectedProjects.length !== 1}
           >
             <HiHome />
             Make Default
-          </StandardButton>
-          <StandardButton
-            twClasses="py-2 px-4 rounded-full font-medium text-white dark:text-white/75 bg-setta-400 dark:bg-setta-500/25 hover:!bg-red-500 hover:text-white gap-2"
+          </button>
+          <button
+            className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
             onClick={onClickDelete}
             disabled={selectedProjects.length === 0}
           >
             <IoClose />
             Delete
-          </StandardButton>
+          </button>
         </div>
         <Link
           to={SETTINGS_ROUTER_PATH}
-          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2  font-bold text-white  hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700 "
+          className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
         >
           <IoSettingsOutline />
           Settings
