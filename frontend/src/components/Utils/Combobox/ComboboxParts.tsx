@@ -49,7 +49,17 @@ export function ComboboxInput({
   );
 }
 
-export function ComboboxList({ isOpen, children, getMenuProps, inputRef }) {
+export function ComboboxList({
+  isOpen,
+  children,
+  getMenuProps,
+  inputRef,
+}: {
+  isOpen: boolean;
+  children: React.ReactNode;
+  getMenuProps: () => React.InputHTMLAttributes<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
   const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
   const display = isOpen ? "flex" : "hidden";
 

@@ -164,7 +164,7 @@ function ProjectPageAdvancedCore({ allItems, onSelectedItemChange }) {
     clearInputAfterSelection: true,
   });
 
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const inputProps = getInputProps({
     id: ProjectPageSearchBarDivId,
     onKeyDown,
