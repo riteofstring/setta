@@ -6,8 +6,8 @@ import { VscSave, VscSaveAs } from "react-icons/vsc";
 import {
   openExportJSONModal,
   openFileMenuLoadProjectConfigModal,
+  openFileMenuSaveProjectConfigAsModal,
   openImportJSONModal,
-  openSaveAsModal,
   openSaveAsWithRefsModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
@@ -49,7 +49,10 @@ export function FileMenu() {
         <VscSave />
         Save
       </MenuItem>
-      <MenuItem onClick={openSaveAsModal} shortcut={shortcuts.saveAsShortcut}>
+      <MenuItem
+        onClick={openFileMenuSaveProjectConfigAsModal}
+        shortcut={shortcuts.saveAsShortcut}
+      >
         <VscSaveAs />
         Save As
       </MenuItem>

@@ -32,8 +32,11 @@ export function openFileMenuLoadProjectConfigModal() {
   openModal({ type: ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG, data: null });
 }
 
-export function openSaveAsModal() {
-  openModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS);
+export function openFileMenuSaveProjectConfigAsModal() {
+  openModal({
+    type: ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
+    data: null,
+  });
 }
 
 export function openSaveAsWithRefsModal() {

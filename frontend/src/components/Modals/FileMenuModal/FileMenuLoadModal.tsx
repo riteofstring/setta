@@ -2,26 +2,12 @@ import {
   SaveLoadModal,
   SaveLoadModalModeEnum,
 } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import _ from "lodash";
-import { useEffect } from "react";
-import {
-  loadAllProjectMetadata,
-  useNavigateToAnotherConfig,
-} from "state/actions/project/loadProject";
-import { useAllProjectMetadata } from "state/definitions";
+import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
+import { useProjectMetadataForFileMenu } from "./utils";
 
 export function FileMenuLoadProjectConfigModal({ open }: { open: boolean }) {
-  const projectMetadata = useAllProjectMetadata(
-    (x) => x.projectMetadata.map((m) => ({ id: m.id, name: m.name })),
-    _.isEqual,
-  );
+  const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
-
-  useEffect(() => {
-    if (open) {
-      loadAllProjectMetadata();
-    }
-  }, [open]);
 
   function onClickLoadProjectConfig({
     selected,

@@ -1,4 +1,7 @@
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
+import {
+  SaveLoadModal,
+  SaveLoadModalModeEnum,
+} from "components/Modals/SaveLoadModal/SaveLoadModal";
 import _ from "lodash";
 import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
 import {
@@ -7,11 +10,11 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
-import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
 import { MODAL_TYPE } from "utils/constants";
+import { useProjectMetadataForFileMenu } from "./utils";
 
-export function FileMenuSaveAsModal({ open, modalType }) {
-  const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
+export function FileMenuSaveProjectConfigAsModal({ open }) {
+  const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
   async function onClickSaveAsProject({ selected, filename }) {
@@ -36,11 +39,11 @@ export function FileMenuSaveAsModal({ open, modalType }) {
 
   return (
     <SaveLoadModal
-      modalPurpose={modalType.purpose}
-      files={projectConfigs}
+      modalMode={SaveLoadModalModeEnum.save}
+      files={projectMetadata}
       onClickActionButton={onClickSaveAsProject}
-      title={modalType.title}
-      buttonText={modalType.buttonText}
+      title="Save Project Config As"
+      buttonText="Save As"
       placeholder="Project Config Name"
     />
   );

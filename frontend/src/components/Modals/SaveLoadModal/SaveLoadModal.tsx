@@ -19,18 +19,18 @@ export function SaveLoadModal({
   modalMode: SaveLoadModalMode;
   files: Array<{ id: string; name: string }>;
   onClickActionButton: (info: {
-    selected: string | undefined;
+    selected: string | null;
     filename: string;
   }) => void;
   title: string;
   buttonText: string;
   placeholder: string;
 }) {
-  const [selected, setSelected] = useState<string | undefined>(undefined);
+  const [selected, setSelected] = useState<string | null>(null);
   const [filename, setFilename] = useState("");
 
-  function getFilenameFromId(id: string | undefined) {
-    if (id === undefined) {
+  function getFilenameFromId(id: string | null) {
+    if (id === null) {
       return "";
     }
     return files.find((f) => f.id === id)?.name ?? "";
@@ -38,16 +38,16 @@ export function SaveLoadModal({
 
   function onFilenameChange(v: string) {
     setFilename(v);
-    setSelected(files.find((f) => f.name === v)?.id ?? undefined);
+    setSelected(files.find((f) => f.name === v)?.id ?? null);
   }
 
-  function onSelectedChange(v: string | undefined) {
+  function onSelectedChange(v: string | null) {
     setSelected(v);
     setFilename(getFilenameFromId(v));
   }
 
   function onClose() {
-    setSelected(undefined);
+    setSelected(null);
     setFilename("");
   }
 
@@ -97,8 +97,8 @@ function Body({
 }: {
   modalMode: SaveLoadModalMode;
   files: Array<{ id: string; name: string }>;
-  selected: string | undefined;
-  onSelectedChange: (newValue: string | undefined) => void;
+  selected: string | null;
+  onSelectedChange: (newValue: string | null) => void;
   onFileDoubleClick: (newValue: string) => void;
   onFilenameChange: (newValue: string) => void;
   filename: string;

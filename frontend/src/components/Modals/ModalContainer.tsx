@@ -3,6 +3,7 @@ import { useModal } from "state/definitions";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import { FileMenuLoadProjectConfigModal } from "./FileMenuModal/FileMenuLoadModal";
+import { FileMenuSaveProjectConfigAsModal } from "./FileMenuModal/FileMenuSaveAsModal";
 import "./styles.css";
 import { ModalTypeEnum } from "./types";
 
@@ -39,6 +40,8 @@ function ModalContent({ open }: { open: boolean }) {
       return <DeleteJSONSourceVariantModal />;
     case ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG:
       return <FileMenuLoadProjectConfigModal open={open} />;
+    case ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS:
+      return <FileMenuSaveProjectConfigAsModal open={open} />;
     default:
       return modalInfo satisfies never;
   }

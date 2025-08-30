@@ -46,7 +46,10 @@ import { copy } from "./copyPaste/copy";
 import { paste } from "./copyPaste/paste";
 import { formatCode } from "./interactive";
 import { restartLanguageServer } from "./lsp";
-import { openFileMenuLoadProjectConfigModal, openSaveAsModal } from "./modal";
+import {
+  openFileMenuLoadProjectConfigModal,
+  openFileMenuSaveProjectConfigAsModal,
+} from "./modal";
 import { saveProject } from "./project/saveProject";
 import { runEntryCodeBlock } from "./runOrImportCode";
 import {
@@ -473,7 +476,7 @@ export function attachKeyEventListeners() {
     [shortcuts.ungroupShortcut, ungroupActiveGroups],
     [shortcuts.saveShortcut, saveProject],
     [shortcuts.loadShortcut, openFileMenuLoadProjectConfigModal],
-    [shortcuts.saveAsShortcut, openSaveAsModal],
+    [shortcuts.saveAsShortcut, openFileMenuSaveProjectConfigAsModal],
     [shortcuts.searchShortcut, focusOnSearch],
     [shortcuts.advancedSearchShortcut, focusOnAdvancedSearch],
     [shortcuts.commandPaletteShortcut, focusOnCommandPalette],

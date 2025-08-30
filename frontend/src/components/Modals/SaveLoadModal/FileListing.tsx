@@ -9,7 +9,7 @@ export function FileList({
   ref,
 }: {
   files: Array<{ id: string; name: string }>;
-  onClick: (newValue: string | undefined) => void;
+  onClick: (newValue: string | null) => void;
   onFileDoubleClick: (newValue: string) => void;
   ref: React.RefObject<HTMLDivElement>;
 }) {
@@ -36,7 +36,7 @@ function File({
 }: {
   id: string;
   name: string;
-  onClick: (newValue: string | undefined) => void;
+  onClick: (newValue: string | null) => void;
   onFileDoubleClick: (newValue: string) => void;
 }) {
   const itemRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +47,7 @@ function File({
       const isChecked =
         itemRef.current?.attributes["data-state"]?.value === "checked";
       if (isChecked) {
-        onClick(undefined);
+        onClick(null);
       }
     }
     // double click

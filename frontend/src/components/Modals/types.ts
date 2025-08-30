@@ -4,6 +4,7 @@ export const ModalTypeEnum = {
   DELETE_PROJECT_WARNING: "DELETE_PROJECT_WARNING",
   DELETE_JSON_SOURCE_FILE: "DELETE_JSON_SOURCE_FILE",
   FILE_MENU_LOAD_PROJECT_CONFIG: "FILE_MENU_LOAD_PROJECT_CONFIG",
+  FILE_MENU_SAVE_PROJECT_CONFIG_AS: "FILE_MENU_SAVE_PROJECT_CONFIG_AS",
 } as const;
 
 export type ModalType = ObjectValues<typeof ModalTypeEnum>;
@@ -19,6 +20,7 @@ export type ModalDataMap = {
     filepath: string;
   };
   [ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG]: null;
+  [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: null;
 };
 
 // Then generate the union type from the map
