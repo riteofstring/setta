@@ -55,6 +55,9 @@ export function useCreateAndGoToProjectConfig() {
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   return async () => {
     const previewImgColor = getRandomProjectConfigPreviewImgColor();
+    if (!previewImgColor) {
+      throw new Error();
+    }
     const res = await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       navigateToAnotherConfig(res.data);
@@ -71,7 +74,7 @@ function getRandomProjectConfigPreviewImgColor() {
 
 export function useNavigateToAnotherConfig() {
   const navigate = useNavigate();
-  return (projectConfigName) => {
+  return (projectConfigName: string) => {
     navigate(pathRelativeToProject(projectConfigName), {
       state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
     });

@@ -10,11 +10,14 @@ import {
   route_load_all_project_metadata,
   router_filter_data_for_json_export,
 } from "utils/generatedEndpoints";
+import { ProjectConfig } from "utils/generatedTypes";
 import { useHotReload } from "utils/hotReload";
 
 export function useGetAllProjectConfigMetadata() {
-  const [projects, setProjects] = useState([]);
-  const [defaultProjectConfigId, setDefaultProjectConfigId] = useState(null);
+  const [projects, setProjects] = useState<Array<ProjectConfig>>([]);
+  const [defaultProjectConfigId, setDefaultProjectConfigId] = useState<
+    string | null
+  >(null);
   async function getAllProjectConfigMetadata() {
     const res = await route_load_all_project_metadata();
     if (res200(res)) {

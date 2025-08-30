@@ -17,6 +17,7 @@ import { useHomePageSearch } from "state/definitions";
 import { useGetAllProjectConfigMetadata } from "state/hooks/project";
 import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
+import { ProjectConfig } from "utils/generatedTypes";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
 
 export function HomePage() {
@@ -38,11 +39,15 @@ function RightColumn({
   projects,
   defaultProjectConfigId,
   getAllProjectConfigMetadata,
+}: {
+  projects: Array<ProjectConfig>;
+  defaultProjectConfigId: string | null;
+  getAllProjectConfigMetadata: () => void;
 }) {
-  const [selectedProjects, setSelectedProjects] = useState([]);
+  const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
 
-  function onSelectProject(e, projectId) {
+  function onSelectProject(e: React.MouseEvent, projectId: string) {
     e.preventDefault(); // to prevent going into the project
     if (selectedProjects.includes(projectId)) {
       setSelectedProjects(selectedProjects.filter((x) => x !== projectId));
@@ -57,12 +62,12 @@ function RightColumn({
       setSelectedProjects,
       selectedProjects: selectedProjects.map((s) => ({
         id: s,
-        name: projects.find((p) => p.id === s).name,
+        name: projects.find((p) => p.id === s)?.name,
       })),
     });
   }
 
-  function onEscapeClearSelectedProjects(e) {
+  function onEscapeClearSelectedProjects(e: React.KeyboardEvent) {
     if (e.code === "Escape") {
       setSelectedProjects([]);
     }
@@ -70,6 +75,9 @@ function RightColumn({
 
   async function onClickMakeDefault() {
     const projectId = selectedProjects[0];
+    if (!projectId) {
+      return;
+    }
     await router_set_as_default_project({ projectId });
     getAllProjectConfigMetadata();
   }
@@ -128,6 +136,11 @@ function ProjectItems({
   defaultProjectConfigId,
   selectedProjects,
   onSelectProject,
+}: {
+  projects: Array<ProjectConfig>;
+  defaultProjectConfigId: string | null;
+  selectedProjects: Array<string>;
+  onSelectProject: (e: React.MouseEvent, id: string) => void;
 }) {
   const searchValue = useHomePageSearch((x) => x.value);
   const filteredProjects = matchSorter(projects, searchValue, {
@@ -168,6 +181,12 @@ function ProjectItem({
   isSelected,
   onSelectProject,
   inSelectionMode,
+}: {
+  project: ProjectConfig;
+  isDefault: boolean;
+  isSelected: boolean;
+  onSelectProject: (e: React.MouseEvent, id: string) => void;
+  inSelectionMode: boolean;
 }) {
   const itemStyles =
     "relative grid grid-rows-[1fr_min-content] rounded-3xl border border-solid border-transparent min-h-[15rem] w-full overflow-hidden hover:transition-all hover:shadow-xl hover:cursor-pointer hover:border-white dark:hover:border-setta-600 gap-0";
@@ -182,7 +201,7 @@ function ProjectItem({
       }
     : {
         className: "contents",
-        onClick: (e) => onSelectProject(e, project.id),
+        onClick: (e: React.MouseEvent) => onSelectProject(e, project.id),
       };
 
   return (
@@ -208,7 +227,15 @@ function ProjectItem({
   );
 }
 
-function ThumbnailArea({ project, isSelected, onSelectProject }) {
+function ThumbnailArea({
+  project,
+  isSelected,
+  onSelectProject,
+}: {
+  project: ProjectConfig;
+  isSelected: boolean;
+  onSelectProject: (e: React.MouseEvent, id: string) => void;
+}) {
   const navigate = useNavigate();
 
   return (
@@ -232,14 +259,18 @@ function ThumbnailArea({ project, isSelected, onSelectProject }) {
           homePageProjectItemOnKeyDown(e, navigate, project.name)
         }
       >
-        <PreviewImg projectChildren={project.topLevelSections} />
+        <PreviewImg topLevelSections={project.topLevelSections} />
       </div>
     </div>
   );
 }
 
-function PreviewImg({ projectChildren }) {
-  const nodes = _.map(projectChildren, (n) => ({
+function PreviewImg({
+  topLevelSections,
+}: {
+  topLevelSections: ProjectConfig["topLevelSections"];
+}) {
+  const nodes = _.map(topLevelSections, (n) => ({
     position: { x: n.x, y: n.y },
     width: n.w,
     height: n.h,
