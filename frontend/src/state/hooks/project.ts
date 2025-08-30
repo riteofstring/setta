@@ -6,46 +6,8 @@ import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_load_all_project_metadata,
-  router_filter_data_for_json_export,
-} from "utils/generatedEndpoints";
-import { ProjectConfig } from "utils/generatedTypes";
+import { router_filter_data_for_json_export } from "utils/generatedEndpoints";
 import { useHotReload } from "utils/hotReload";
-
-export function useGetAllProjectConfigMetadata() {
-  const [projects, setProjects] = useState<Array<ProjectConfig>>([]);
-  const [defaultProjectConfigId, setDefaultProjectConfigId] = useState<
-    string | null
-  >(null);
-  async function getAllProjectConfigMetadata() {
-    const res = await route_load_all_project_metadata();
-    if (res200(res)) {
-      const { projectMetadata, defaultProjectConfigId } = res.data;
-      setProjects(projectMetadata);
-      setDefaultProjectConfigId(defaultProjectConfigId);
-    }
-  }
-
-  useEffect(() => {
-    getAllProjectConfigMetadata();
-  }, []);
-
-  return { projects, defaultProjectConfigId, getAllProjectConfigMetadata };
-}
-
-export function useGetAllProjectConfigMetadataForFileMenu(open) {
-  const { projects, getAllProjectConfigMetadata } =
-    useGetAllProjectConfigMetadata();
-
-  useEffect(() => {
-    if (open) {
-      getAllProjectConfigMetadata();
-    }
-  }, [open]);
-
-  return projects;
-}
 
 export function useExportProjectJson() {
   const [projectJson, setProjectJson] = useState({});

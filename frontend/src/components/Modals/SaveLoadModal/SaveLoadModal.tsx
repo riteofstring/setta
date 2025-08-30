@@ -1,19 +1,28 @@
 import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { useState } from "react";
 import { closeModal } from "state/actions/modal";
-import { MODAL_PURPOSE } from "utils/constants";
+import { ObjectValues } from "utils/generatedTypes";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
 
+export const SaveLoadModalModeEnum = { load: "load", save: "save" } as const;
+type SaveLoadModalMode = ObjectValues<typeof SaveLoadModalModeEnum>;
+
 export function SaveLoadModal({
-  modalPurpose,
+  modalMode,
   files,
   onClickActionButton,
   title,
   buttonText,
   placeholder,
+}: {
+  modalMode: SaveLoadModalMode;
+  files: Array<{ id: string; name: string }>;
+  title: string;
+  buttonText: string;
+  placeholder: string;
 }) {
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [filename, setFilename] = useState("");
 
   function getFilenameFromId(id) {
@@ -49,7 +58,7 @@ export function SaveLoadModal({
   return (
     <div className="grid flex-grow grid-rows-[min-content_min-content_1fr_min-content] overflow-hidden">
       <Body
-        modalPurpose={modalPurpose}
+        modalMode={modalMode}
         files={files}
         selected={selected}
         onSelectedChange={onSelectedChange}
@@ -69,7 +78,7 @@ export function SaveLoadModal({
 }
 
 function Body({
-  modalPurpose,
+  modalMode,
   files,
   selected,
   onSelectedChange,
@@ -78,6 +87,13 @@ function Body({
   filename,
   title,
   placeholder,
+}: {
+  modalMode: SaveLoadModalMode;
+  files: Array<{ id: string; name: string }>;
+  selected: string | null;
+  filename: string;
+  title: string;
+  placeholder: string;
 }) {
   return (
     <>
@@ -88,7 +104,7 @@ function Body({
         onFileDoubleClick={onFileDoubleClick}
         title={title}
       />
-      {modalPurpose === MODAL_PURPOSE.SAVE && (
+      {modalMode === SaveLoadModalModeEnum.save && (
         // <div className="px-3">
         <FileNameInput
           placeholder={placeholder}

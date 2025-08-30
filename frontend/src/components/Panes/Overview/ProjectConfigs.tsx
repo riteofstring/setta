@@ -12,7 +12,10 @@ import { ProjectConfig } from "utils/generatedTypes";
 
 export function ProjectConfigs() {
   const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
-  const allProjectMetadata = useAllProjectMetadata((x) => x, _.isEqual);
+  const allProjectMetadata = useAllProjectMetadata(
+    (x) => x.projectMetadata,
+    _.isEqual,
+  );
   const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
 
   return (
@@ -36,7 +39,7 @@ export function ProjectConfigs() {
             onMouseLeave();
           }}
         >
-          {allProjectMetadata.projectMetadata.map((m, idx) => (
+          {allProjectMetadata.map((m, idx) => (
             <Link
               to={pathRelativeToProject(m.name)}
               key={idx}

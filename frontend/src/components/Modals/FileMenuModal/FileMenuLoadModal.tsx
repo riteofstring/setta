@@ -1,13 +1,30 @@
-import { SaveLoadModal } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
-import { useGetAllProjectConfigMetadataForFileMenu } from "state/hooks/project";
+import {
+  SaveLoadModal,
+  SaveLoadModalModeEnum,
+} from "components/Modals/SaveLoadModal/SaveLoadModal";
+import _ from "lodash";
+import { useEffect } from "react";
+import {
+  loadAllProjectMetadata,
+  useNavigateToAnotherConfig,
+} from "state/actions/project/loadProject";
+import { useAllProjectMetadata } from "state/definitions";
 
-export function FileMenuLoadModal({ open, modalType }) {
-  const projectConfigs = useGetAllProjectConfigMetadataForFileMenu(open);
+export function FileMenuLoadProjectConfigModal({ open }: { open: boolean }) {
+  const projectMetadata = useAllProjectMetadata(
+    (x) => x.projectMetadata.map((m) => ({ id: m.id, name: m.name })),
+    _.isEqual,
+  );
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
+  useEffect(() => {
+    if (open) {
+      loadAllProjectMetadata();
+    }
+  }, [open]);
+
   function onClickLoadProjectConfig({ selected }) {
-    const config = projectConfigs.find((x) => x.id === selected);
+    const config = projectMetadata.find((x) => x.id === selected);
     if (config) {
       navigateToAnotherConfig(config.name);
     }
@@ -15,11 +32,11 @@ export function FileMenuLoadModal({ open, modalType }) {
 
   return (
     <SaveLoadModal
-      modalPurpose={modalType.purpose}
-      files={projectConfigs}
+      modalMode={SaveLoadModalModeEnum.load}
+      files={projectMetadata}
       onClickActionButton={onClickLoadProjectConfig}
-      title={modalType.title}
-      buttonText={modalType.buttonText}
+      title="Load Project Config"
+      buttonText="Load"
     />
   );
 }

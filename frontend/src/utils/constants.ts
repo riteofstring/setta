@@ -120,55 +120,43 @@ export function pathRelativeToProject(projectConfigName: string) {
   return `../${projectConfigName}`;
 }
 
-export const MODAL_PURPOSE = { LOAD: "LOAD", SAVE: "SAVE" };
-
 export const MODAL_TYPE = {
   LOAD_PROJECT_CONFIG: {
-    purpose: MODAL_PURPOSE.LOAD,
     title: "Load Project Config",
     buttonText: "Load",
   },
   SAVE_PROJECT_CONFIG_AS: {
-    purpose: MODAL_PURPOSE.SAVE,
     title: "Save Project Config As",
     buttonText: "Save As",
   },
   SAVE_PROJECT_CONFIG_AS_WITH_REFS: {
-    purpose: MODAL_PURPOSE.SAVE,
     title: "Save Project Config As (With Refs)",
     buttonText: "Save As",
   },
   EXPORT_JSON: {
-    purpose: null,
     title: "Export JSON",
     buttonText: null,
   },
   IMPORT_JSON: {
-    purpose: null,
     title: "Import JSON",
     buttonText: "Import",
   },
   SAVE_UI_TYPE_CONFIG: {
-    purpose: MODAL_PURPOSE.SAVE,
     title: "Save UI Type Config",
     buttonText: "Save",
   },
   DELETE_PROJECT_WARNING: {
-    purpose: null,
     title: "Confirm Deletion",
   },
   RENAME_REFERENCES: {
-    purpose: null,
     title: "Rename References",
     buttonText: "Rename",
   },
   DELETE_JSON_SOURCE_FILE: {
-    purpose: null,
     title: "Delete JSON Source File",
     buttonText: "Delete",
   },
   ADD_ARTIFACT_BY_FILEPATH: {
-    purpose: null,
     title: "Add Artifact By Filepath",
     buttonText: "Delete",
   },
