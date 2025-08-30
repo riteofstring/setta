@@ -1,10 +1,13 @@
 import _ from "lodash";
 import { useProjectState } from "state/definitions";
+import { route_create_top_level_section } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
+  Position,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
@@ -112,4 +115,16 @@ export function useCreateSectionsList() {
       items: embedGroupItems,
     },
   ];
+}
+
+export function createTopLevelSectionFromImplSpecs(
+  implSpecs: CreateSectionsContextMenuInfo["implSpecs"],
+  position: Position,
+) {
+  route_create_top_level_section({
+    projectConfigId: getCurrProjectConfigId(),
+    implType: implSpecs.type,
+    implOverrides: implSpecs,
+    position,
+  });
 }

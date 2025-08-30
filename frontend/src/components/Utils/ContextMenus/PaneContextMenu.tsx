@@ -3,25 +3,22 @@ import { Item } from "components/Utils/atoms/dropdown/item";
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import {
   CreateSectionsContextMenuInfo,
+  createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
 } from "state/actions/sections/createSectionsHelper";
 import { useContextMenus } from "state/definitions";
-import { route_create_top_level_section } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function PaneContextMenu() {
   const { isOpen, x, y } = useContextMenus((x) => x.pane, _.isEqual);
 
   function onClick(implSpecs: CreateSectionsContextMenuInfo["implSpecs"]) {
-    route_create_top_level_section({
-      projectConfigId: getCurrProjectConfigId(),
-      implType: implSpecs.type,
-      implOverrides: implSpecs,
-      position: screenToFlowPosition({ x, y }),
-    });
+    createTopLevelSectionFromImplSpecs(
+      implSpecs,
+      screenToFlowPosition({ x, y }),
+    );
     closeAllContextMenus();
   }
 

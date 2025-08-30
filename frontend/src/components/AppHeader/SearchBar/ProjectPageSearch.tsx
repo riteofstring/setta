@@ -11,15 +11,15 @@ import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useRef } from "react";
-import { addCallableSectionInEmptySpace } from "state/actions/sections/createSections";
-import { useCreateSectionsList } from "state/actions/sections/createSectionsHelper";
+import { getEmptySpacePosition } from "state/actions/sections/createSections";
+import {
+  CreateSectionsContextMenuInfo,
+  createTopLevelSectionFromImplSpecs,
+  useCreateSectionsList,
+} from "state/actions/sections/createSectionsHelper";
 import { ProjectPageSearchBarDivId } from "state/actions/sections/sectionParamFilter";
 import { goToSection } from "state/actions/sections/sectionPositions";
-import {
-  useProjectSearch,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useProjectSearch, useSettings } from "state/definitions";
 import { useUpdateProjectSearch } from "state/hooks/search";
 import { ProjectSearchModeEnum } from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
@@ -94,8 +94,10 @@ function ProjectPageFind() {
 function ProjectPageAdvanced() {
   const allSections = useOverviewListing();
   const allItems = [{ group: "Sections", items: allSections }];
-  function onSelectedItemChange(id: string) {
-    goToSection(id);
+  function onSelectedItemChange(id: string | null) {
+    if (id) {
+      goToSection(id);
+    }
     // focusOnSection(null, id, false);
   }
 
@@ -108,22 +110,24 @@ function ProjectPageAdvanced() {
 }
 
 function ProjectPageCommandPalette() {
-  const allItems = useCreateSectionsList();
+  const itemsWithoutId = useCreateSectionsList();
+  const allItems: AllItemsType = [];
   // adds id to each item
   // TODO: make this less bad
-  for (const g of allItems) {
-    for (const item of g.items) {
-      item.id = item.name;
-    }
+  for (const g of itemsWithoutId) {
+    allItems.push({
+      group: g.group,
+      items: g.items.map((i) => ({ id: i.name, name: i.name })),
+    });
   }
 
-  function onSelectedItemChange(id) {
+  const onSelectedItemChange: OnSelectedItemChangeFnType = (id) => {
     // finds matching item, and then uses its specificProps
     // TODO: make this less bad
-    let match = null;
-    for (const g of allItems) {
+    let match: CreateSectionsContextMenuInfo | null = null;
+    for (const g of itemsWithoutId) {
       for (const item of g.items) {
-        if (item.id === id) {
+        if (item.name === id) {
           match = item;
           break;
         }
@@ -134,14 +138,11 @@ function ProjectPageCommandPalette() {
       return;
     }
 
-    // get corresponding item and its section props
-    useProjectState.setState((state) => {
-      addCallableSectionInEmptySpace({
-        state,
-        ...match.specificProps,
-      });
-    });
-  }
+    createTopLevelSectionFromImplSpecs(
+      match.implSpecs,
+      getEmptySpacePosition(),
+    );
+  };
 
   return (
     <ProjectPageAdvancedCore
