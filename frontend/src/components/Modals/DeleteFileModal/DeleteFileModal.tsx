@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { setModalOpen } from "state/actions/modal";
+import { closeModal } from "state/actions/modal";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { route_delete_json_source_file_and_variant } from "utils/generatedEndpoints";
@@ -8,7 +8,7 @@ export function DeleteJSONSourceVariantModal() {
   const { sectionId, variantId, filepath } = useModal((x) => x.modalData);
 
   const handleCancel = () => {
-    setModalOpen(false);
+    closeModal();
   };
 
   const handleConfirm = async () => {
@@ -18,7 +18,7 @@ export function DeleteJSONSourceVariantModal() {
       variantId,
       filepath,
     });
-    setModalOpen(false);
+    closeModal();
   };
 
   return (

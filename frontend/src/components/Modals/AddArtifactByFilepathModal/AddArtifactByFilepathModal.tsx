@@ -4,7 +4,7 @@ import {
   addArtifactAndMaybeCreateNewArtifactGroup,
   prepareArtifactForRendering,
 } from "state/actions/artifacts";
-import { setModalOpen } from "state/actions/modal";
+import { closeModal } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
 import { useFileExists } from "state/hooks/utils";
@@ -23,7 +23,7 @@ export function AddArtifactByFilepathModal() {
   };
 
   const handleCancel = () => {
-    setModalOpen(false);
+    closeModal();
   };
 
   const shouldCreateNewArtifactGroup = () => {
@@ -61,7 +61,7 @@ export function AddArtifactByFilepathModal() {
         });
       }
     }
-    setModalOpen(false);
+    closeModal();
   };
 
   return (

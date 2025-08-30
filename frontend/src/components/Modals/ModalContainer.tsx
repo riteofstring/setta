@@ -1,5 +1,4 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { setModalOpen } from "state/actions/modal";
 import { useModal } from "state/definitions";
 import { DeleteProjectWarningModal } from "./DeleteProjectWarningModal/DeleteProjectWarningModal";
 import "./styles.css";
@@ -9,7 +8,10 @@ export function ModalContainer({ children }) {
   const open = useModal((x) => x.open);
 
   return (
-    <Dialog.Root open={open} onOpenChange={setModalOpen}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(newOpen) => useModal.setState({ open: newOpen })}
+    >
       {children}
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />

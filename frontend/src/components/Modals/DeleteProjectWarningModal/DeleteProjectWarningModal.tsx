@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { BiErrorCircle } from "react-icons/bi";
-import { setModalOpen, useModalData } from "state/actions/modal";
+import { closeModal, useModalData } from "state/actions/modal";
 import { res200 } from "utils/endpointUtils";
 import { route_delete_project_configs } from "utils/generatedEndpoints";
 import { ModalTypeEnum } from "../types";
@@ -11,7 +11,7 @@ export function DeleteProjectWarningModal() {
   );
 
   const handleCancel = () => {
-    setModalOpen(false);
+    closeModal();
   };
 
   const handleConfirm = async () => {
@@ -21,7 +21,7 @@ export function DeleteProjectWarningModal() {
     if (res200(res)) {
       setSelectedProjects([]);
     }
-    setModalOpen(false);
+    closeModal();
   };
 
   return (

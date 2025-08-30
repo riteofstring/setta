@@ -3,12 +3,8 @@ import _ from "lodash";
 import { useModal } from "state/definitions";
 import { MODAL_TYPE } from "utils/constants";
 
-export function setModalOpen(open: boolean) {
-  if (open) {
-    useModal.setState({ open });
-  } else {
-    useModal.getState().reset();
-  }
+export function closeModal() {
+  useModal.getState().reset();
 }
 
 export function openModal<T extends keyof ModalDataMap>(

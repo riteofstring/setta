@@ -1,6 +1,6 @@
 import { DialogCloseButton } from "components/Utils/atoms/dialog/dialogCloseButton";
 import { useState } from "react";
-import { setModalOpen } from "state/actions/modal";
+import { closeModal } from "state/actions/modal";
 import { MODAL_PURPOSE } from "utils/constants";
 import { FileExplorer } from "./FileExplorer";
 import { FileNameInput } from "./FileNameInput";
@@ -42,7 +42,7 @@ export function SaveLoadModal({
 
   function onFileDoubleClick(id) {
     onClickActionButton({ selected: id, filename: getFilenameFromId(id) });
-    setModalOpen(false);
+    closeModal();
     onClose();
   }
 
