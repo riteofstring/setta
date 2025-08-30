@@ -22,10 +22,10 @@ export function useIdNameCombobox({
   selectedItemCanBeNull?: boolean;
   clearInputAfterSelection?: boolean;
 }) {
-  function onKeyDown(e) {
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.code === "Escape") {
       // TODO: figure out best way to blur without being annoying
-      // e.target.blur();
+      e.currentTarget.blur();
     }
   }
 
