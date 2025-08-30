@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 
 export function IframeSettings({ sectionId }) {

@@ -22,9 +22,11 @@ import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { homePageProjectItemOnKeyDown } from "utils/tabbingLogic";
+import { LoadingSpinner } from "../LoadingSpinner";
 
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata();
+  const [isCreatingConfig, setIsCreatingConfig] = useState(false);
 
   useEffect(() => {
     useProjectLoading.getState().reset();
@@ -32,10 +34,15 @@ export function HomePage() {
 
   return (
     <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
-      <RightColumn
-        projects={projectMetadata}
-        defaultProjectConfigId={defaultProjectConfigId}
-      />
+      {isCreatingConfig ? (
+        <LoadingSpinner />
+      ) : (
+        <RightColumn
+          projects={projectMetadata}
+          defaultProjectConfigId={defaultProjectConfigId}
+          setIsCreatingConfig={setIsCreatingConfig}
+        />
+      )}
     </GridWrapper>
   );
 }
@@ -43,12 +50,19 @@ export function HomePage() {
 function RightColumn({
   projects,
   defaultProjectConfigId,
+  setIsCreatingConfig,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
+  setIsCreatingConfig: (newVal: boolean) => void;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
+
+  async function handleCreateConfig() {
+    setIsCreatingConfig(true);
+    await createAndGoToProjectConfig();
+  }
 
   function onSelectProject(e: React.MouseEvent, projectId: string) {
     e.preventDefault(); // to prevent going into the project
@@ -92,7 +106,7 @@ function RightColumn({
         <div className="flex gap-4">
           <button
             className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
-            onClick={createAndGoToProjectConfig}
+            onClick={handleCreateConfig}
           >
             <BiPlus />
             New Config

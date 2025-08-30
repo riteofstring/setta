@@ -5,7 +5,6 @@ from setta.types.generated.websocket_unions import (
 )
 from setta.types.websocket import (
     WebsocketMsgAllDependencies,
-    WebsocketMsgAllProjectMetadata,
     WebsocketMsgCurrentAddressUpdate,
 )
 from setta.websockets.msg_handlers.base import (

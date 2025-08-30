@@ -113,7 +113,6 @@ from setta.types.helpers import (
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import (
-    AllProjectMetadata,
     ProjectConfig,
     ProjectStateBackend,
     ProjectStateSingleConfig,

@@ -7,9 +7,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import _ from "lodash";
 import { yamlToGUI } from "state/actions/guiToYaml";
-import {
-  getSectionVariant,
-} from "state/actions/sectionInfos";
+import { getSectionVariant } from "state/actions/sectionInfos";
 import { useProjectState, useYamlValue } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
