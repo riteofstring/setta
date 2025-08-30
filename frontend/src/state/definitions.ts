@@ -65,7 +65,9 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig;
+export type ZustandProjectState = ProjectStateSingleConfig & {
+  previewSectionVariantMap: Record<string, string>;
+};
 
 export const NULL_PROJECT_CONFIG_ID = "null";
 
@@ -83,6 +85,7 @@ export const useProjectState = withProjectState(
           codeObjVariants: {},
           artifactGroups: {},
           singletonSections: createSingletonSections(),
+          previewSectionVariantMap: {},
         })),
       ),
     ),

@@ -8,7 +8,6 @@ import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorSty
 import _ from "lodash";
 import { yamlToGUI } from "state/actions/guiToYaml";
 import {
-  getDisplayedSectionVariantId,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState, useYamlValue } from "state/definitions";

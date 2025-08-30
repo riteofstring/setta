@@ -44,8 +44,12 @@ export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
 export function getCurrSectionVariant(
   p: ZustandProjectState,
   sectionId: string,
+  preview = false,
 ) {
-  const variantId = p.projectConfig.sectionVariantMap[sectionId];
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
   if (variantId === undefined) {
     throw new Error();
   }
@@ -55,8 +59,9 @@ export function getCurrSectionVariant(
 export function getCurrEffectiveSectionImpl(
   p: ZustandProjectState,
   sectionId: string,
+  preview = false,
 ) {
-  const variant = getCurrSectionVariant(p, sectionId);
+  const variant = getCurrSectionVariant(p, sectionId, preview);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
   return getEffectiveImpl(baseImpl, core, variant);
@@ -66,8 +71,9 @@ export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   p: ZustandProjectState,
   sectionId: string,
   typeGuard: (impl) => impl is T,
+  preview = false,
 ): T {
-  const effective = getCurrEffectiveSectionImpl(p, sectionId);
+  const effective = getCurrEffectiveSectionImpl(p, sectionId, preview);
 
   if (!typeGuard(effective)) {
     throw new Error(
@@ -109,12 +115,14 @@ export function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
+  preview = false,
 ) {
   // Check if sectionId exists in the map
   const sectionImpl = getCurrEffectiveSectionImplWithTypeGuard(
     p,
     sectionId,
     isBaseSectionWithParamsImpl,
+    preview,
   );
   const variantId = sectionImpl.codeObjVariantMap[codeObjId];
   if (variantId === undefined) {
@@ -127,8 +135,9 @@ export function getCurrEffectiveCodeObjImpl(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
+  preview = false,
 ) {
-  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId);
+  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId, preview);
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
@@ -139,8 +148,14 @@ export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   sectionId: string,
   codeObjId: string,
   typeGuard: (impl) => impl is T,
+  preview = false,
 ): T {
-  const effective = getCurrEffectiveCodeObjImpl(p, sectionId, codeObjId);
+  const effective = getCurrEffectiveCodeObjImpl(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
 
   if (!typeGuard(effective)) {
     throw new Error(
@@ -404,22 +419,6 @@ export function createNodesMapFromProjectConfigChildren(
   }
 
   return nodesMap;
-}
-
-export function getDisplayedSectionVariant(sectionId, _state) {
-  const state = _state ?? useProjectState.getState();
-  return state.variants[getDisplayedSectionVariantId(sectionId, state)];
-}
-
-export function getDisplayedSectionVariantId(
-  sectionId: string,
-  _state: ZustandProjectState | null,
-) {
-  const state = _state ?? useProjectState.getState();
-  return (
-    state.sections[sectionId].previewVariantId ??
-    getCurrentSectionConfigs(state)[sectionId].variantId
-  );
 }
 
 export function setSectionChildren(

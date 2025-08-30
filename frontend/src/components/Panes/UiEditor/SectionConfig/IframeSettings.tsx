@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  getDisplayedSectionVariant,
   getSectionVariant,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";

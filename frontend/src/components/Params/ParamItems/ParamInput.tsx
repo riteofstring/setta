@@ -17,6 +17,7 @@ export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
+      true, // preview
     );
     return impl.value;
   });

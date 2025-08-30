@@ -60,7 +60,11 @@ export function VariantList({ sectionId }) {
       </header>
       <ul
         className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
-        // onMouseLeave={() => onMouseLeaveSetPreviewVariantId(sectionId)}
+        onMouseLeave={() =>
+          useProjectState.setState((x) => {
+            delete x.previewSectionVariantMap[sectionId];
+          })
+        }
       >
         <VariantListCore sectionId={sectionId} isEditing={isEditing} />
       </ul>
@@ -143,7 +147,11 @@ function OneVariant({
 
   return (
     <li
-      // onMouseEnter={() => onMouseEnterSetPreviewVariantId(sectionId, id)}
+      onMouseEnter={() =>
+        useProjectState.setState((x) => {
+          x.previewSectionVariantMap[sectionId] = id;
+        })
+      }
       onClick={() => {
         useProjectState.setState((state) => {
           state.projectConfig.sectionVariantMap[sectionId] = id;

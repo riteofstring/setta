@@ -1,9 +1,5 @@
 import _ from "lodash";
-import {
-  getDisplayedSectionVariantId,
-  getSectionInfo,
-  getSectionType,
-} from "state/actions/sectionInfos";
+import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
   useProjectState,
