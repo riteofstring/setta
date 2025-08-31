@@ -39,8 +39,11 @@ export function openFileMenuSaveProjectConfigAsModal() {
   });
 }
 
-export function openSaveAsWithRefsModal() {
-  openModal(MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS);
+export function openFileMenuSaveProjectConfigAsWithRefsModal() {
+  openModal({
+    type: ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
+    data: { saveWithRefs: true },
+  });
 }
 
 export function openExportJSONModal() {

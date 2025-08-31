@@ -7,8 +7,8 @@ import {
   openExportJSONModal,
   openFileMenuLoadProjectConfigModal,
   openFileMenuSaveProjectConfigAsModal,
+  openFileMenuSaveProjectConfigAsWithRefsModal,
   openImportJSONModal,
-  openSaveAsWithRefsModal,
 } from "state/actions/modal";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { saveProject } from "state/actions/project/saveProject";
@@ -56,7 +56,7 @@ export function FileMenu() {
         <VscSaveAs />
         Save As
       </MenuItem>
-      <MenuItem onClick={openSaveAsWithRefsModal}>
+      <MenuItem onClick={openFileMenuSaveProjectConfigAsWithRefsModal}>
         <VscSaveAs />
         Save As (With Refs)
       </MenuItem>

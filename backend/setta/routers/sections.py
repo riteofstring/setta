@@ -6,10 +6,10 @@ from pydantic import BaseModel
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
-from setta.database.db.sections.copy import (
-    copy_relative_positions,
-    copy_sections_and_other_info,
-)
+# from setta.database.db.sections.copy import (
+#     copy_relative_positions,
+#     copy_sections_and_other_info,
+# )
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.generate_new_filename import generate_new_filename

@@ -9,7 +9,8 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
 )
 from setta.project_state.save_load import save
-from setta.types.copy import copy_project_config
+from setta.types.copy import copy_project, copy_project_config
+from setta.types.helpers import merge_single_config_into_backend
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
@@ -43,8 +44,12 @@ class ProjectManager(BaseProjectManager):
                 new_project_config
             )
         else:
-            pass
-
+            new_project_config = copy_project(
+                x.project, x.newConfigName, do_create_new_id=True
+            )
+            self.project_state_backend = merge_single_config_into_backend(
+                self.project_state_backend, new_project_config
+            )
         self.save()
         await self.broadcast_all_project_metadata()
 
