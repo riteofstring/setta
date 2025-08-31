@@ -4,7 +4,6 @@ import { route_paste_sections } from "utils/generatedEndpoints";
 import {
   BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
-  SectionsClipboardData,
 } from "utils/generatedTypes";
 import { getCurrProjectConfigId } from "../sectionInfos";
 
@@ -27,38 +26,6 @@ export async function paste({ asRef = false }) {
       return x.type satisfies never;
   }
 }
-
-async function pasteSections(
-  data: SectionsClipboardData["data"],
-  asRef: boolean,
-) {
-  console.log("pasteSections", data, asRef);
-
-  // let dataToPaste;
-  // if (asRef) {
-  //   dataToPaste = data;
-  // } else {
-  //   const res = await route_sections_make_copy(data);
-  //   if (res200(res)) {
-  //     dataToPaste = res.data;
-  //   }
-  // }
-  // if (dataToPaste) {
-  //   dataToPaste.sections = removeSingletonSectionsIfAlreadyPresent(dataToPaste);
-  //   const topLevelIds = findTopLevelSections(
-  //     dataToPaste.sections,
-  //     dataToPaste.variants,
-  //   );
-  //   loadSectionIntoState({
-  //     ...dataToPaste,
-  //     topLevelIds,
-  //     ...getPasteLocation(),
-  //     incrementVersion: true,
-  //   });
-  // }
-}
-
-
 
 function getPasteLocation() {
   if (useProjectState.getState().projectConfig.activeIds.length === 0) {

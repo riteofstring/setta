@@ -1326,8 +1326,6 @@ def paste_sections(
     position: Position,
     asRef: bool,
 ):
-    print("\n\n\nold data.core", data.core)
-    print("asRef", asRef)
     if not asRef:
         newCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(
             data.core
@@ -1342,10 +1340,6 @@ def paste_sections(
     topLevelSections = {
         k: TopLevelSectionLayout(x=position.x, y=position.y) for k in topLevelSectionIds
     }
-
-    print("topLevelSectionIds", topLevelSectionIds)
-    print("\n\n\ndata.core", data.core)
-    print("\n\n\ntopLevelSections", topLevelSections)
 
     p.projectConfig.topLevelSections.update(topLevelSections)
     p.projectConfig.sectionVariantMap.update(data.sectionVariantMap)
@@ -1383,7 +1377,6 @@ def inferTopLevelSections(data: ProjectStateCoreWithSectionVariantMap):
         projectConfig=ProjectConfig(sectionVariantMap=data.sectionVariantMap),
         **data.core.model_dump(),
     )
-    print("tempConfig", tempConfig)
     return [k for k, v in tempConfig.parentSectionMap.items() if not v]
 
 
