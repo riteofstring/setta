@@ -4,6 +4,10 @@ from typing import Iterable
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import save_json_source_data
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_manager_types import (
+    SaveAsExistingProjectConfigRequest,
+    SaveAsNewProjectConfigRequest,
+)
 from setta.types.helpers import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -34,6 +38,12 @@ class SettingsProjectManager(BaseProjectManager):
         save_json_to_file(
             self.settings_file.path_default_settings_project, p.model_dump()
         )
+
+    def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
+        raise ValueError
+
+    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
+        raise ValueError
 
     async def load_json_sources(
         self,

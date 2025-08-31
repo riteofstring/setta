@@ -40,6 +40,8 @@ from setta.project_state.project_manager_types import (
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
     RedoRequest,
+    SaveAsExistingProjectConfigRequest,
+    SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
@@ -260,6 +262,12 @@ class BaseProjectManager(ABC):
         return gen_code.get_run_command(gen_code_path)
 
     @enqueue_method
+    async def load_project_config(self, projectConfigId: str):
+        projectState = convert_backend_to_single_config(
+            self.project_state_backend, projectConfigId
+        )
+        return await self.maybe_init_project_config(projectState)
+
     async def maybe_init_project_config(self, projectState: ProjectStateSingleConfig):
         if projectState.projectConfig.id not in self.gen_code:
             await self.update(projectState)
@@ -932,11 +940,11 @@ class BaseProjectManager(ABC):
         pass
 
     @abstractmethod
-    def save_as_new_project_config(self):
+    def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         pass
 
     @abstractmethod
-    def save_as_existing_project_config(self):
+    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
 
     def maybe_watch_json_source_files(self, projectState: ProjectStateSingleConfig):

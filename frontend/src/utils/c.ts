@@ -53,5 +53,4 @@ export class C {
   static WS_SCRIPT_DEPENDENCIES = "scriptDependencies";
   static WS_SCRIPT_READY = "scriptReady";
   static WS_TERMINAL_RESIZE = "terminalResize";
-  static WS_UPDATE_PROJECT_STATE = "WS_UPDATE_PROJECT_STATE";
 }

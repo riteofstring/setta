@@ -297,3 +297,14 @@ class UnselectAllParamsRequest(BaseModel):
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig
     completedOpIds: list[str]
+
+
+class SaveAsNewProjectConfigRequest(BaseModel):
+    project: ProjectStateSingleConfig
+    newConfigName: str
+    withRefs: bool
+
+
+class SaveAsExistingProjectConfigRequest(BaseModel):
+    project: ProjectStateSingleConfig
+    configName: str

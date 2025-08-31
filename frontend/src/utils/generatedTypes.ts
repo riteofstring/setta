@@ -4902,6 +4902,30 @@ export function createWebsocketMsgUnionWithDiscriminator(
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
 }
 
+export const ProjectConfigArgsSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  previewImgColor: z.string().optional(),
+  viewport: z.union([ViewportSchema, z.null()]).optional(),
+  viewingEditingMode: z.enum(ViewingEditingModeEnum).optional(),
+  genCodePrefix: z.string().optional(),
+  genCodeSuffix: z.string().optional(),
+  entryCodeBlockId: z.union([z.string(), z.null()]).optional(),
+  topLevelSections: z
+    .record(z.string(), TopLevelSectionLayoutSchema)
+    .optional(),
+  sectionVariantMap: z.record(z.string(), z.string()).optional(),
+  activeIds: z.array(z.string()).optional(),
+});
+
+export type ProjectConfigArgs = z.infer<typeof ProjectConfigArgsSchema>;
+
+export function createProjectConfigArgs(
+  options: Partial<ProjectConfigArgs> = {},
+): ProjectConfigArgs {
+  return ProjectConfigArgsSchema.parse(options);
+}
+
 export const BaseArtifactSectionImplArgsSchema = z.object({
   type: z.any().optional(),
   id: z.string().optional(),
@@ -6302,30 +6326,6 @@ export type CoreArgs = z.infer<typeof CoreArgsSchema>;
 
 export function createCoreArgs(options: Partial<CoreArgs> = {}): CoreArgs {
   return CoreArgsSchema.parse(options);
-}
-
-export const ProjectConfigArgsSchema = z.object({
-  id: z.string().optional(),
-  name: z.string().optional(),
-  previewImgColor: z.string().optional(),
-  viewport: z.union([ViewportSchema, z.null()]).optional(),
-  viewingEditingMode: z.enum(ViewingEditingModeEnum).optional(),
-  genCodePrefix: z.string().optional(),
-  genCodeSuffix: z.string().optional(),
-  entryCodeBlockId: z.union([z.string(), z.null()]).optional(),
-  topLevelSections: z
-    .record(z.string(), TopLevelSectionLayoutSchema)
-    .optional(),
-  sectionVariantMap: z.record(z.string(), z.string()).optional(),
-  activeIds: z.array(z.string()).optional(),
-});
-
-export type ProjectConfigArgs = z.infer<typeof ProjectConfigArgsSchema>;
-
-export function createProjectConfigArgs(
-  options: Partial<ProjectConfigArgs> = {},
-): ProjectConfigArgs {
-  return ProjectConfigArgsSchema.parse(options);
 }
 
 export const ArtifactWithIdSchema = z.object({
@@ -8180,7 +8180,7 @@ export function createProjectLoadRequest(
 }
 
 export const SaveAsExistingProjectConfigRequestSchema = z.object({
-  project: z.record(z.string(), z.any()),
+  project: ProjectStateSingleConfigSchema,
   configName: z.string(),
 });
 
@@ -8195,7 +8195,7 @@ export function createSaveAsExistingProjectConfigRequest(
 }
 
 export const SaveAsNewProjectConfigRequestSchema = z.object({
-  project: z.record(z.string(), z.any()),
+  project: ProjectStateSingleConfigSchema,
   newConfigName: z.string(),
   withRefs: z.boolean(),
 });

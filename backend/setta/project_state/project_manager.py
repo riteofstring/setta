@@ -4,6 +4,10 @@ from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPWriters
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_manager_types import (
+    SaveAsExistingProjectConfigRequest,
+    SaveAsNewProjectConfigRequest,
+)
 from setta.project_state.save_load import save
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -28,3 +32,9 @@ class ProjectManager(BaseProjectManager):
 
     def save(self):
         save(self.settings_file.settings, self.dbe, self.project_state_backend)
+
+    def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
+        pass
+
+    def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
+        pass

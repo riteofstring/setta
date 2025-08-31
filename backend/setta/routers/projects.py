@@ -7,16 +7,15 @@ from setta.database.db.notifications.delete import delete_notification
 from setta.database.db.notifications.load import (
     load_project_notifications,
 )
-from setta.database.db.projects.saveAs import (
-    save_as_existing_project_config,
-    save_as_new_project_config,
+from setta.project_state.project_manager_types import (
+    SaveAsExistingProjectConfigRequest,
+    SaveAsNewProjectConfigRequest,
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.helpers import (
     ProjectNameTaken,
     ProjectNotFound,
-    convert_backend_to_single_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConfig
@@ -27,17 +26,6 @@ router = SettaAPIRouter()
 
 class ProjectLoadRequest(BaseModel):
     projectConfigName: str
-
-
-class SaveAsNewProjectConfigRequest(BaseModel):
-    project: dict
-    newConfigName: str
-    withRefs: bool
-
-
-class SaveAsExistingProjectConfigRequest(BaseModel):
-    project: dict
-    configName: str
 
 
 class CreateProjectConfigRequest(BaseModel):
@@ -92,10 +80,7 @@ async def route_load_project_config(
             x.projectConfigName
         )
         project_manager = state.project_manager_switcher.get(projectConfigId)
-        projectState = convert_backend_to_single_config(
-            project_manager.project_state_backend, projectConfigId
-        )
-        return await project_manager.maybe_init_project_config(projectState)
+        return await project_manager.load_project_config(projectConfigId)
     except ProjectNotFound as e:
         print(f"[DEBUG] Project not found: {e}", flush=True)
         raise HTTPException(status_code=404, detail=repr(e))
@@ -147,6 +132,22 @@ async def route_save_project(
     )
 
 
+@router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
+def route_save_as_new_project_config(
+    x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
+):
+    project_manager = state.project_manager_switcher.get(x.project)
+    project_manager.save_as_new_project_config(x)
+
+
+@router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
+def route_save_as_existing_project_config(
+    x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
+):
+    project_manager = state.project_manager_switcher.get(x.project)
+    project_manager.save_as_existing_project_config(x)
+
+
 @router.post(Route.CREATE_PROJECT_CONFIG)
 async def route_create_project_config(
     x: CreateProjectConfigRequest, state: AppStateFromRequest
@@ -157,24 +158,6 @@ async def route_create_project_config(
     )
     project_manager.save()
     return newProjectConfigName
-
-
-# TODO
-@router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
-def route_save_as_new_project_config(
-    x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
-):
-    with state.dbe.session as db:
-        return save_as_new_project_config(db, x.project, x.newConfigName, x.withRefs)
-
-
-# TODO
-@router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
-def route_save_as_existing_project_config(
-    x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
-):
-    with state.dbe.session as db:
-        return save_as_existing_project_config(db, x.project, x.configName)
 
 
 @router.post(Route.DELETE_PROJECT_CONFIGS)

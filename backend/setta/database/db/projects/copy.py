@@ -15,4 +15,3 @@ def copy_project_details(project, new_config_name=None, do_create_new_id=False):
         **new_info,
         "projectConfig": new_project_config,
     }
-
