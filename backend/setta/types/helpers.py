@@ -5,12 +5,14 @@ from pathlib import Path
 from typing import TypeVar, assert_never
 
 from setta.database.utils import create_new_id
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
 )
+from setta.types.copy import copy_sections_and_other_info, remap_section_variant_map
 from setta.types.core import (
     Core,
     Variant,
@@ -57,8 +59,9 @@ from setta.types.generated.unions import (
 from setta.types.impl_helpers import (
     update_variants,
 )
-from setta.types.project_config import TopLevelSectionLayout
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
+    SINGLETON_SECTION_TYPES,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -102,7 +105,9 @@ GenericBaseCodeObjImplType = TypeVar(
 )
 
 
-def prepare_sections_for_copy(p: ProjectStateCore, sections_to_process: set[str]):
+def prepare_sections_for_copy(
+    p: ProjectStateCore, sections_to_process: set[str]
+) -> ProjectStateCore:
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
     section_impl_ids: set[str] = set()
@@ -965,7 +970,7 @@ def delete_kwarg_from_dict_section(
 
 
 def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str):
-    sectionId = p.singletonSections.genPythonCode
+    sectionId = p.singletonSections.GenPythonCode
     if not sectionId:
         return
     set_curr_effective_section_impl_value(
@@ -1314,16 +1319,84 @@ def unselect_all_params(p: ProjectStateSingleConfig):
                 BaseSectionWithParamsImplArgsWithCallable(selectedParams=[]),
             )
 
-    # for (const sectionId of Object.keys(x.sections)) {
-    #   const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    #   if (isBaseSectionWithParamsImpl(impl)) {
-    #     setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-    #       x,
-    #       sectionId,
-    #       { selectedParams: [] },
-    #     );
-    #   }
-    # }
+
+def paste_sections(
+    p: ProjectStateSingleConfig,
+    data: ProjectStateCoreWithSectionVariantMap,
+    position: Position,
+    asRef: bool,
+):
+    print("\n\n\nold data.core", data.core)
+    print("asRef", asRef)
+    if not asRef:
+        newCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(
+            data.core
+        )
+        data.core = newCore
+        data.sectionVariantMap = remap_section_variant_map(
+            data.sectionVariantMap, sectionIdMap, sectionVariantIdMap
+        )
+
+    remove_singleton_sections_if_already_present(p, data)
+    topLevelSectionIds = inferTopLevelSections(data)
+    topLevelSections = {
+        k: TopLevelSectionLayout(x=position.x, y=position.y) for k in topLevelSectionIds
+    }
+
+    print("topLevelSectionIds", topLevelSectionIds)
+    print("\n\n\ndata.core", data.core)
+    print("\n\n\ntopLevelSections", topLevelSections)
+
+    p.projectConfig.topLevelSections.update(topLevelSections)
+    p.projectConfig.sectionVariantMap.update(data.sectionVariantMap)
+    p.sections.update(data.core.sections)
+    p.sectionImpls.update(data.core.sectionImpls)
+    p.sectionVariants.update(data.core.sectionVariants)
+    p.codeObjs.update(data.core.codeObjs)
+    p.codeObjImpls.update(data.core.codeObjImpls)
+    p.codeObjVariants.update(data.core.codeObjVariants)
+
+
+def remove_singleton_sections_if_already_present(
+    p: ProjectStateSingleConfig, data: ProjectStateCoreWithSectionVariantMap
+):
+    # need this to access get_curr_effective_section_impl
+    tempConfig = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(sectionVariantMap=data.sectionVariantMap),
+        **data.core.model_dump(),
+    )
+    toRemove: set[str] = set()
+    for s in tempConfig.sections:
+        impl = tempConfig.get_curr_effective_section_impl(s)
+        if impl.type in SINGLETON_SECTION_TYPES and getattr(
+            p.singletonSections, impl.type.value
+        ):
+            toRemove.add(s)
+    data.core.sections = {
+        k: v for k, v in data.core.sections.items() if k not in toRemove
+    }
+
+
+def inferTopLevelSections(data: ProjectStateCoreWithSectionVariantMap):
+    # need this to access get_curr_effective_section_impl
+    tempConfig = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(sectionVariantMap=data.sectionVariantMap),
+        **data.core.model_dump(),
+    )
+    print("tempConfig", tempConfig)
+    return [k for k, v in tempConfig.parentSectionMap.items() if not v]
+
+
+# for (const sectionId of Object.keys(x.sections)) {
+#   const impl = getCurrEffectiveSectionImpl(x, sectionId);
+#   if (isBaseSectionWithParamsImpl(impl)) {
+#     setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+#       x,
+#       sectionId,
+#       { selectedParams: [] },
+#     );
+#   }
+# }
 
 
 # function onClickAddKwargFn(sectionId, objInfoId) {

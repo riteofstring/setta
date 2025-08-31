@@ -2,10 +2,10 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
+from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.unions import BaseSectionImplArgsUnion
 from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
-    ProjectStateCore,
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
@@ -301,8 +301,9 @@ class PrepareSectionsForCopyRequest(BaseModel):
 
 class PasteSectionsRequest(BaseModel):
     projectConfigId: str
-    data: ProjectStateCore
+    data: ProjectStateCoreWithSectionVariantMap
     position: Position
+    asRef: bool
 
 
 @dataclass

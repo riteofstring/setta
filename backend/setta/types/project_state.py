@@ -13,14 +13,15 @@ from setta.types.generated.unions import (
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseParentSectionImpl,
-    GenPythonCodeSectionImpl,
-    GlobalVariablesSectionImpl,
+    SectionType,
 )
+
+SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 
 
 class SingletonSections(BaseModel, extra="forbid"):
-    globalVariables: str | None = None
-    genPythonCode: str | None = None
+    GlobalVariables: str | None = None
+    GenPythonCode: str | None = None
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
@@ -96,18 +97,21 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 
     def validate_singleton_sections(self):
         output = SingletonSections()
+        found = set()
+
         for s in self.sections.values():
-            if output.globalVariables and output.genPythonCode:
+            if len(found) == len(SINGLETON_SECTION_TYPES):
                 break
+
             sectionImpl = self.get_curr_effective_section_impl(s.id)
-            if not output.globalVariables and isinstance(
-                sectionImpl, GlobalVariablesSectionImpl
-            ):
-                output.globalVariables = s.id
-            elif not output.genPythonCode and isinstance(
-                sectionImpl, GenPythonCodeSectionImpl
-            ):
-                output.genPythonCode = s.id
+
+            for section_type in SINGLETON_SECTION_TYPES:
+                attr_name = section_type.value
+                if attr_name not in found and sectionImpl.type == section_type:
+                    setattr(output, attr_name, s.id)
+                    found.add(attr_name)
+                    break
+
         self.singletonSections = output
         return self
 

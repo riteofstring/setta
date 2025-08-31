@@ -282,7 +282,7 @@ function getOverId(over: Over | null) {
 
 function getSectionIsGlobalVariables(sectionId: string) {
   return (
-    useProjectState.getState().singletonSections.globalVariables === sectionId
+    useProjectState.getState().singletonSections.GlobalVariables === sectionId
   );
 }
 

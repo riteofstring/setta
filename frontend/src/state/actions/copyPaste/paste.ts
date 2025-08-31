@@ -1,5 +1,4 @@
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
-import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
 import { route_paste_sections } from "utils/generatedEndpoints";
 import {
@@ -7,7 +6,6 @@ import {
   ClipboardDataTypeEnum,
   SectionsClipboardData,
 } from "utils/generatedTypes";
-import { addTemporaryNotification } from "../notifications";
 import { getCurrProjectConfigId } from "../sectionInfos";
 
 export async function paste({ asRef = false }) {
@@ -23,6 +21,7 @@ export async function paste({ asRef = false }) {
         projectConfigId: getCurrProjectConfigId(),
         data: x.data,
         position: getPasteLocation(),
+        asRef,
       });
     default:
       return x.type satisfies never;
@@ -59,44 +58,7 @@ async function pasteSections(
   // }
 }
 
-function findTopLevelSections(sections, variants) {
-  const allChildren = new Set();
-  for (const v of Object.values(variants)) {
-    for (const c of v.children) {
-      allChildren.add(c);
-    }
-  }
 
-  const topLevelIds = [];
-  for (const id of Object.keys(sections)) {
-    if (!allChildren.has(id)) {
-      topLevelIds.push(id);
-    }
-  }
-  return topLevelIds;
-}
-
-function removeSingletonSectionsIfAlreadyPresent(pasteData) {
-  const { sections, uiTypes } = pasteData;
-
-  const { [UITypeNameEnum.GLOBAL_VARIABLES]: globalVariables } =
-    useProjectState.getState().singletonSections;
-  if (!globalVariables) {
-    return sections;
-  }
-
-  const toRemove = [];
-
-  for (const s of Object.values(sections)) {
-    const uiTypeName = uiTypes[s.uiTypeId].type;
-    if (globalVariables && uiTypeName === UITypeNameEnum.GLOBAL_VARIABLES) {
-      toRemove.push(s.id);
-      addTemporaryNotification("Can't have more than 1 global section!");
-    }
-  }
-
-  return _.omit(sections, toRemove);
-}
 
 function getPasteLocation() {
   if (useProjectState.getState().projectConfig.activeIds.length === 0) {

@@ -35,7 +35,7 @@ export function useCreateSectionsList() {
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
   ];
 
-  if (!singletonSections.globalVariables) {
+  if (!singletonSections.GlobalVariables) {
     sectionGroupItems.push({
       name: "Global Variables",
       implSpecs: { type: SectionTypeEnum.GlobalVariables },
@@ -63,7 +63,7 @@ export function useCreateSectionsList() {
     },
   ];
 
-  if (!singletonSections.genPythonCode) {
+  if (!singletonSections.GenPythonCode) {
     codeGroupItems.push({
       name: "Show Generated Python",
       implSpecs: {

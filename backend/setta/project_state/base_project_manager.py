@@ -75,7 +75,10 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
-from setta.types.clipboard import SectionsClipboardData
+from setta.types.clipboard import (
+    ProjectStateCoreWithSectionVariantMap,
+    SectionsClipboardData,
+)
 from setta.types.helpers import (
     add_kwarg,
     change_param_impl,
@@ -94,6 +97,7 @@ from setta.types.helpers import (
     group_sections,
     maybe_update_gen_python_code_section,
     merge_single_config_into_backend,
+    paste_sections,
     prepare_sections_for_copy,
     set_code,
     set_default_section_variant,
@@ -854,15 +858,26 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
+        p = self.get_single_config_state(x.projectConfigId)
+        sectionIds = set(x.sectionIds)
+        core = prepare_sections_for_copy(p, sectionIds)
+        sectionVariantMap = {
+            k: v
+            for k, v in p.projectConfig.sectionVariantMap.items()
+            if k in sectionIds
+        }
         return SectionsClipboardData(
-            data=prepare_sections_for_copy(project_state, set(x.sectionIds))
+            data=ProjectStateCoreWithSectionVariantMap(
+                core=core, sectionVariantMap=sectionVariantMap
+            )
         )
 
     @enqueue_method
     async def paste_sections(self, x: PasteSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        print("\n\n\npaste_sections", x.position)
+        print("\n\n\npaste_sections")
+        paste_sections(project_state, x.data, x.position, x.asRef)
+        await self.update_and_broadcast_project_state(project_state)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

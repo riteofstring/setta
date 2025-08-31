@@ -8,7 +8,7 @@ import { getCurrProjectConfigId } from "./sectionInfos";
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
-  if (sectionId === singletonSections.genPythonCode) {
+  if (sectionId === singletonSections.GenPythonCode) {
     sectionId = null;
   }
   await route_run_code({

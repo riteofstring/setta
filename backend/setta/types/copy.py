@@ -38,17 +38,26 @@ def copy_project_config(
         new_values["topLevelSections"] = rename_keys(
             project_config.topLevelSections, section_id_map
         )
-        new_values["sectionVariantMap"] = rename_keys(
-            project_config.sectionVariantMap, section_id_map
+        new_values["sectionVariantMap"] = remap_section_variant_map(
+            project_config.sectionVariantMap, section_id_map, section_variant_id_map
         )
-        if section_variant_id_map:
-            new_values["sectionVariantMap"] = {
-                k: section_variant_id_map[v]
-                for k, v in new_values["sectionVariantMap"].items()
-            }
         new_values["activeIds"] = [section_id_map[v] for v in project_config.activeIds]
 
     return project_config.model_copy(update=new_values, deep=True)
+
+
+def remap_section_variant_map(
+    section_variant_map: dict[str, str],
+    section_id_map: dict[str, str] | None,
+    section_variant_id_map: dict[str, str] | None,
+):
+    if section_id_map:
+        section_variant_map = rename_keys(section_variant_map, section_id_map)
+        if section_variant_id_map:
+            section_variant_map = {
+                k: section_variant_id_map[v] for k, v in section_variant_map.items()
+            }
+    return section_variant_map
 
 
 def copy_project(
@@ -70,7 +79,7 @@ def copy_project(
     )
 
 
-def copy_sections_and_other_info(p: ProjectStateSingleConfig):
+def copy_sections_and_other_info(p: ProjectStateCore):
     newCodeObjImpls, codeObjImplIdMap = copy_impls(p.codeObjImpls)
     newCodeObjVariants, codeObjVariantIdMap = copy_variants(
         p.codeObjVariants, codeObjImplIdMap

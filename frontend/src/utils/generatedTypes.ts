@@ -214,6 +214,11 @@ export const WebsocketMsgTypeSet = new Set([
   "UpdateSettings",
 ]);
 
+export const SINGLETON_SECTION_TYPES = new Set([
+  "SectionType.GenPythonCode",
+  "SectionType.GlobalVariables",
+]);
+
 export const ArtifactTypeEnum = {
   IMG: "IMG",
   BRUSH_STROKES: "BRUSH_STROKES",
@@ -2265,9 +2270,24 @@ export function createProjectStateCore(
   return ProjectStateCoreSchema.parse(options);
 }
 
+export const ProjectStateCoreWithSectionVariantMapSchema = z.object({
+  core: ProjectStateCoreSchema,
+  sectionVariantMap: z.record(z.string(), z.string()).default({}),
+});
+
+export type ProjectStateCoreWithSectionVariantMap = z.infer<
+  typeof ProjectStateCoreWithSectionVariantMapSchema
+>;
+
+export function createProjectStateCoreWithSectionVariantMap(
+  options: Partial<ProjectStateCoreWithSectionVariantMap> = {},
+): ProjectStateCoreWithSectionVariantMap {
+  return ProjectStateCoreWithSectionVariantMapSchema.parse(options);
+}
+
 export const SectionsClipboardDataSchema = z.object({
   type: z.literal("Sections").default(ClipboardDataTypeEnum.Sections),
-  data: ProjectStateCoreSchema,
+  data: ProjectStateCoreWithSectionVariantMapSchema,
 });
 
 export type SectionsClipboardData = z.infer<typeof SectionsClipboardDataSchema>;
@@ -3955,8 +3975,8 @@ export function createProjectConfig(
 }
 
 export const SingletonSectionsSchema = z.object({
-  globalVariables: z.union([z.string(), z.null()]).default(null),
-  genPythonCode: z.union([z.string(), z.null()]).default(null),
+  GlobalVariables: z.union([z.string(), z.null()]).default(null),
+  GenPythonCode: z.union([z.string(), z.null()]).default(null),
 });
 
 export type SingletonSections = z.infer<typeof SingletonSectionsSchema>;
@@ -7674,8 +7694,9 @@ export function createGroupSectionsRequest(
 
 export const PasteSectionsRequestSchema = z.object({
   projectConfigId: z.string(),
-  data: ProjectStateCoreSchema,
+  data: ProjectStateCoreWithSectionVariantMapSchema,
   position: PositionSchema,
+  asRef: z.boolean(),
 });
 
 export type PasteSectionsRequest = z.infer<typeof PasteSectionsRequestSchema>;
