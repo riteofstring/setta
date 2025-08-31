@@ -102,8 +102,7 @@ GenericBaseCodeObjImplType = TypeVar(
 )
 
 
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
-    project_config = p.projectConfigs[projectConfigId]
+def prepare_sections_for_copy(p: ProjectStateCore, sections_to_process: set[str]):
     # Collectors for all the IDs we need
     section_ids: set[str] = set()
     section_impl_ids: set[str] = set()
@@ -112,8 +111,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
     code_obj_impl_ids: set[str] = set()
     code_obj_variant_ids: set[str] = set()
 
-    # Start with top-level sections from project config
-    sections_to_process: set[str] = set(project_config.topLevelSections.keys())
+    sections_to_process = copy.deepcopy(sections_to_process)
     code_objs_to_process: set[str] = set()
 
     # Process sections recursively
@@ -164,13 +162,36 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: st
                 code_objs_to_process.update(effective_impl.children)
 
     # Build the sliced state
+    sections = {x: p.sections[x] for x in section_ids}
+    sectionImpls = {x: p.sectionImpls[x] for x in section_impl_ids}
+    sectionVariants = {x: p.sectionVariants[x] for x in section_variant_ids}
+    codeObjs = {x: p.codeObjs[x] for x in code_obj_ids}
+    codeObjImpls = {x: p.codeObjImpls[x] for x in code_obj_impl_ids}
+    codeObjVariants = {x: p.codeObjVariants[x] for x in code_obj_variant_ids}
+    return (
+        sections,
+        sectionImpls,
+        sectionVariants,
+        codeObjs,
+        codeObjImpls,
+        codeObjVariants,
+    )
+
+
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
+    project_config = p.projectConfigs[projectConfigId]
+    sections, sectionImpls, sectionVariants, codeObjs, codeObjImpls, codeObjVariants = (
+        prepare_sections_for_copy(p, set(project_config.topLevelSections.keys()))
+    )
+
+    # Build the sliced state
     return ProjectStateSingleConfig(
-        sections={x: p.sections[x] for x in section_ids},
-        sectionImpls={x: p.sectionImpls[x] for x in section_impl_ids},
-        sectionVariants={x: p.sectionVariants[x] for x in section_variant_ids},
-        codeObjs={x: p.codeObjs[x] for x in code_obj_ids},
-        codeObjImpls={x: p.codeObjImpls[x] for x in code_obj_impl_ids},
-        codeObjVariants={x: p.codeObjVariants[x] for x in code_obj_variant_ids},
+        sections=sections,
+        sectionImpls=sectionImpls,
+        sectionVariants=sectionVariants,
+        codeObjs=codeObjs,
+        codeObjImpls=codeObjImpls,
+        codeObjVariants=codeObjVariants,
         projectConfig=project_config,
     )
 
