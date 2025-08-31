@@ -105,3 +105,4 @@ class Route(str, Enum):
     UNGROUP_GROUPS = "/ungroupGroups"
     TOGGLE_PARAM_SELECTED = "/toggleParamSelected"
     UNSELECT_ALL_PARAMS = "/unselectAllParams"
+    PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"

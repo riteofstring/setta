@@ -293,6 +293,11 @@ class UnselectAllParamsRequest(BaseModel):
     projectConfigId: str
 
 
+class PrepareSectionsForCopyRequest(BaseModel):
+    projectConfigId: str
+    sectionIds: list[str]
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

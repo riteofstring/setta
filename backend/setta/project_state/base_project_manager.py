@@ -39,6 +39,7 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
+    PrepareSectionsForCopyRequest,
     RedoRequest,
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
@@ -91,6 +92,7 @@ from setta.types.helpers import (
     group_sections,
     maybe_update_gen_python_code_section,
     merge_single_config_into_backend,
+    prepare_sections_for_copy,
     set_code,
     set_default_section_variant,
     set_param_entered_value,
@@ -847,6 +849,11 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         unselect_all_params(project_state)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        return prepare_sections_for_copy(project_state, set(x.sectionIds))
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

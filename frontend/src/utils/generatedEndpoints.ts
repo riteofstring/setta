@@ -536,3 +536,9 @@ export async function route_unselect_all_params(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/unselectAllParams", x);
 }
+
+export async function route_prepare_sections_for_copy(
+  x: gt.PrepareSectionsForCopyRequest,
+): Promise<ResponseDataAndStatus<gt.ProjectStateCore>> {
+  return await post("/prepareSectionsForCopy", x);
+}

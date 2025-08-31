@@ -168,30 +168,30 @@ def prepare_sections_for_copy(p: ProjectStateCore, sections_to_process: set[str]
     codeObjs = {x: p.codeObjs[x] for x in code_obj_ids}
     codeObjImpls = {x: p.codeObjImpls[x] for x in code_obj_impl_ids}
     codeObjVariants = {x: p.codeObjVariants[x] for x in code_obj_variant_ids}
-    return (
-        sections,
-        sectionImpls,
-        sectionVariants,
-        codeObjs,
-        codeObjImpls,
-        codeObjVariants,
-    )
-
-
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
-    project_config = p.projectConfigs[projectConfigId]
-    sections, sectionImpls, sectionVariants, codeObjs, codeObjImpls, codeObjVariants = (
-        prepare_sections_for_copy(p, set(project_config.topLevelSections.keys()))
-    )
-
-    # Build the sliced state
-    return ProjectStateSingleConfig(
+    return ProjectStateCore(
         sections=sections,
         sectionImpls=sectionImpls,
         sectionVariants=sectionVariants,
         codeObjs=codeObjs,
         codeObjImpls=codeObjImpls,
         codeObjVariants=codeObjVariants,
+    )
+
+
+def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
+    project_config = p.projectConfigs[projectConfigId]
+    project_state_core = prepare_sections_for_copy(
+        p, set(project_config.topLevelSections.keys())
+    )
+
+    # Build the sliced state
+    return ProjectStateSingleConfig(
+        sections=project_state_core.sections,
+        sectionImpls=project_state_core.sectionImpls,
+        sectionVariants=project_state_core.sectionVariants,
+        codeObjs=project_state_core.codeObjs,
+        codeObjImpls=project_state_core.codeObjImpls,
+        codeObjVariants=project_state_core.codeObjVariants,
         projectConfig=project_config,
     )
 

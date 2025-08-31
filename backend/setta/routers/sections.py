@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
+
 # from setta.database.db.sections.copy import (
 #     copy_relative_positions,
 #     copy_sections_and_other_info,
