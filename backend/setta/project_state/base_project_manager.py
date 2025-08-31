@@ -74,6 +74,7 @@ from setta.project_state.project_manager_types import (
     UpdateParamImplConfigRequest,
 )
 from setta.project_state.utils import create_timestamped_folder
+from setta.types.clipboard import SectionsClipboardData
 from setta.types.helpers import (
     add_kwarg,
     change_param_impl,
@@ -853,7 +854,9 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def prepare_sections_for_copy(self, x: PrepareSectionsForCopyRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        return prepare_sections_for_copy(project_state, set(x.sectionIds))
+        return SectionsClipboardData(
+            data=prepare_sections_for_copy(project_state, set(x.sectionIds))
+        )
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

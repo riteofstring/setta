@@ -1,47 +1,55 @@
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_sections_make_copy } from "utils/generatedEndpoints";
+import {
+  BaseClipboardDataUnionWithDiscriminator,
+  ClipboardDataTypeEnum,
+  SectionsClipboardData,
+} from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
-import { loadSectionIntoState } from "../sections/loadSections";
 
-export async function paste(props) {
-  let x;
+export async function paste({ asRef = false }) {
+  let x: BaseClipboardDataUnionWithDiscriminator;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
   } catch {
     return;
   }
-  if (x.copyType === "sections") {
-    pasteSections({ data: x.data, ...props });
+  switch (x.type) {
+    case ClipboardDataTypeEnum.Sections:
+      return pasteSections(x.data, asRef);
+    default:
+      return x.type satisfies never;
   }
 }
 
-async function pasteSections({ data, asRef = false }) {
-  let dataToPaste;
-  if (asRef) {
-    dataToPaste = data;
-  } else {
-    const res = await route_sections_make_copy(data);
-    if (res200(res)) {
-      dataToPaste = res.data;
-    }
-  }
-  if (dataToPaste) {
-    dataToPaste.sections = removeSingletonSectionsIfAlreadyPresent(dataToPaste);
-    const topLevelIds = findTopLevelSections(
-      dataToPaste.sections,
-      dataToPaste.variants,
-    );
-
-    loadSectionIntoState({
-      ...dataToPaste,
-      topLevelIds,
-      ...getPasteLocation(),
-      incrementVersion: true,
-    });
-  }
+async function pasteSections(
+  data: SectionsClipboardData["data"],
+  asRef: boolean,
+) {
+  console.log("pasteSections", data, asRef);
+  // let dataToPaste;
+  // if (asRef) {
+  //   dataToPaste = data;
+  // } else {
+  //   const res = await route_sections_make_copy(data);
+  //   if (res200(res)) {
+  //     dataToPaste = res.data;
+  //   }
+  // }
+  // if (dataToPaste) {
+  //   dataToPaste.sections = removeSingletonSectionsIfAlreadyPresent(dataToPaste);
+  //   const topLevelIds = findTopLevelSections(
+  //     dataToPaste.sections,
+  //     dataToPaste.variants,
+  //   );
+  //   loadSectionIntoState({
+  //     ...dataToPaste,
+  //     topLevelIds,
+  //     ...getPasteLocation(),
+  //     incrementVersion: true,
+  //   });
+  // }
 }
 
 function findTopLevelSections(sections, variants) {

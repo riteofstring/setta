@@ -9,6 +9,8 @@ export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
 export type ObjectValues<T> = T[keyof T];
+export const BaseClipboardDataTypeSet = new Set(["Sections"]);
+
 export const BaseArtifactSectionImplArgsTypeSet = new Set([
   "Chart",
   "Draw",
@@ -224,6 +226,10 @@ export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
 
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
+
+export const ClipboardDataTypeEnum = { Sections: "Sections" } as const;
+
+export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
 
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
@@ -2112,6 +2118,173 @@ export const AllImplFieldsSchema = z.literal([
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
 
+export const CoreSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  variants: z.array(z.string()).default([]),
+  defaultVariant: z.union([z.string(), z.null()]).default(null),
+  sharedModifier: z.record(z.string(), z.any()).default({}),
+  unsharedKeys: z
+    .array(
+      z.literal([
+        "artifactGroupIds",
+        "aspectRatio",
+        "aspectRatioExtraHeight",
+        "aspectRatioExtraWidth",
+        "callable",
+        "canvasSettings",
+        "chartSettings",
+        "children",
+        "choices",
+        "code",
+        "codeLanguage",
+        "codeObjVariantMap",
+        "columnWidth",
+        "configLanguage",
+        "coreNameEditable",
+        "coreNameType",
+        "defaultVal",
+        "description",
+        "displayMode",
+        "format",
+        "headingAsSectionName",
+        "hideColumn",
+        "hideParams",
+        "hideUnpinnedParams",
+        "id",
+        "ignoreTypeErrors",
+        "isFrozen",
+        "isHorizontalOrientation",
+        "isInOtherProjectConfigs",
+        "isJsonSource",
+        "isMinimized",
+        "isPreset",
+        "jsonSourceKeys",
+        "jsonSourceMissing",
+        "max",
+        "min",
+        "name",
+        "paramFilter",
+        "passingStyle",
+        "pinnedAreaHeight",
+        "pinnedParams",
+        "positionAndSizeLocked",
+        "renderedValue",
+        "selectedParams",
+        "size",
+        "step",
+        "text",
+        "topLevelParamIds",
+        "type",
+        "url",
+        "value",
+        "visibility",
+      ]),
+    )
+    .default(() => [
+      "callable" as const,
+      "codeObjVariantMap" as const,
+      "topLevelParamIds" as const,
+      "value" as const,
+    ]),
+});
+
+export type Core = z.infer<typeof CoreSchema>;
+
+export function createCore(options: Partial<Core> = {}): Core {
+  return CoreSchema.parse(options);
+}
+
+export const VariantSchema = z.object({
+  id: z.string().default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  impl: z.string(),
+  nonPresetImpls: z.array(z.string()),
+  modifier: z.record(z.string(), z.any()).default({}),
+  isFrozen: z.boolean().default(false),
+});
+
+export type Variant = z.infer<typeof VariantSchema>;
+
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return VariantSchema.parse(options);
+}
+
+export const ProjectStateCoreSchema = z.object({
+  sections: z.record(z.string(), CoreSchema).default({}),
+  sectionImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CallableSectionImplSchema,
+        DictSectionImplSchema,
+        ListRootSectionImplSchema,
+        DictRootSectionImplSchema,
+        GroupSectionImplSchema,
+        ImageSectionImplSchema,
+        ChartSectionImplSchema,
+        DrawSectionImplSchema,
+        TextBlockSectionImplSchema,
+        SocialSectionImplSchema,
+        GlobalVariablesSectionImplSchema,
+        CodeSectionImplSchema,
+        GenPythonCodeSectionImplSchema,
+        TerminalSectionImplSchema,
+        IFrameSectionImplSchema,
+        ChatSectionImplSchema,
+        BrowserSectionImplSchema,
+      ]),
+    )
+    .default({}),
+  sectionVariants: z.record(z.string(), VariantSchema).default({}),
+  codeObjs: z.record(z.string(), CoreSchema).default({}),
+  codeObjImpls: z
+    .record(
+      z.string(),
+      z.discriminatedUnion("type", [
+        CodeCallableCodeObjImplSchema,
+        CodeParamCodeObjImplSchema,
+        TextParamCodeObjImplSchema,
+        SliderParamCodeObjImplSchema,
+        SwitchParamCodeObjImplSchema,
+        ColorPickerParamCodeObjImplSchema,
+        DropdownParamCodeObjImplSchema,
+        PasswordParamCodeObjImplSchema,
+        NestedParamCodeObjImplSchema,
+      ]),
+    )
+    .default({}),
+  codeObjVariants: z.record(z.string(), VariantSchema).default({}),
+});
+
+export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;
+
+export function createProjectStateCore(
+  options: Partial<ProjectStateCore> = {},
+): ProjectStateCore {
+  return ProjectStateCoreSchema.parse(options);
+}
+
+export const SectionsClipboardDataSchema = z.object({
+  type: z.literal("Sections").default(ClipboardDataTypeEnum.Sections),
+  data: ProjectStateCoreSchema,
+});
+
+export type SectionsClipboardData = z.infer<typeof SectionsClipboardDataSchema>;
+
+export function createSectionsClipboardData(
+  options: Partial<SectionsClipboardData> = {},
+): SectionsClipboardData {
+  return SectionsClipboardDataSchema.parse(options);
+}
+
+export const BaseClipboardDataUnionWithDiscriminatorSchema =
+  SectionsClipboardDataSchema;
+
+export type BaseClipboardDataUnionWithDiscriminator = z.infer<
+  typeof BaseClipboardDataUnionWithDiscriminatorSchema
+>;
+
 export const BaseArtifactSectionImplUnionSchema = z.union([
   ImageSectionImplSchema,
   ChartSectionImplSchema,
@@ -3723,98 +3896,6 @@ export function createWebsocketMsgReturnRenameRefactorResults(
   options: Partial<WebsocketMsgReturnRenameRefactorResults> = {},
 ): WebsocketMsgReturnRenameRefactorResults {
   return WebsocketMsgReturnRenameRefactorResultsSchema.parse(options);
-}
-
-export const CoreSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  variants: z.array(z.string()).default([]),
-  defaultVariant: z.union([z.string(), z.null()]).default(null),
-  sharedModifier: z.record(z.string(), z.any()).default({}),
-  unsharedKeys: z
-    .array(
-      z.literal([
-        "artifactGroupIds",
-        "aspectRatio",
-        "aspectRatioExtraHeight",
-        "aspectRatioExtraWidth",
-        "callable",
-        "canvasSettings",
-        "chartSettings",
-        "children",
-        "choices",
-        "code",
-        "codeLanguage",
-        "codeObjVariantMap",
-        "columnWidth",
-        "configLanguage",
-        "coreNameEditable",
-        "coreNameType",
-        "defaultVal",
-        "description",
-        "displayMode",
-        "format",
-        "headingAsSectionName",
-        "hideColumn",
-        "hideParams",
-        "hideUnpinnedParams",
-        "id",
-        "ignoreTypeErrors",
-        "isFrozen",
-        "isHorizontalOrientation",
-        "isInOtherProjectConfigs",
-        "isJsonSource",
-        "isMinimized",
-        "isPreset",
-        "jsonSourceKeys",
-        "jsonSourceMissing",
-        "max",
-        "min",
-        "name",
-        "paramFilter",
-        "passingStyle",
-        "pinnedAreaHeight",
-        "pinnedParams",
-        "positionAndSizeLocked",
-        "renderedValue",
-        "selectedParams",
-        "size",
-        "step",
-        "text",
-        "topLevelParamIds",
-        "type",
-        "url",
-        "value",
-        "visibility",
-      ]),
-    )
-    .default(() => [
-      "callable" as const,
-      "codeObjVariantMap" as const,
-      "topLevelParamIds" as const,
-      "value" as const,
-    ]),
-});
-
-export type Core = z.infer<typeof CoreSchema>;
-
-export function createCore(options: Partial<Core> = {}): Core {
-  return CoreSchema.parse(options);
-}
-
-export const VariantSchema = z.object({
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  impl: z.string(),
-  nonPresetImpls: z.array(z.string()),
-  modifier: z.record(z.string(), z.any()).default({}),
-  isFrozen: z.boolean().default(false),
-});
-
-export type Variant = z.infer<typeof VariantSchema>;
-
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return VariantSchema.parse(options);
 }
 
 export const ViewportSchema = z.object({
@@ -6396,6 +6477,19 @@ export function createChatMetadata(
   return ChatMetadataSchema.parse(options);
 }
 
+export const BaseClipboardDataSchema = z.object({
+  type: z.any(),
+  data: z.any(),
+});
+
+export type BaseClipboardData = z.infer<typeof BaseClipboardDataSchema>;
+
+export function createBaseClipboardData(
+  options: Partial<BaseClipboardData> = {},
+): BaseClipboardData {
+  return BaseClipboardDataSchema.parse(options);
+}
+
 export const BaseChildlessCodeObjImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -6574,61 +6668,6 @@ export function createBaseSectionWithParamsImpl(
   options: Partial<BaseSectionWithParamsImpl> = {},
 ): BaseSectionWithParamsImpl {
   return BaseSectionWithParamsImplSchema.parse(options);
-}
-
-export const ProjectStateCoreSchema = z.object({
-  sections: z.record(z.string(), CoreSchema).default({}),
-  sectionImpls: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CallableSectionImplSchema,
-        DictSectionImplSchema,
-        ListRootSectionImplSchema,
-        DictRootSectionImplSchema,
-        GroupSectionImplSchema,
-        ImageSectionImplSchema,
-        ChartSectionImplSchema,
-        DrawSectionImplSchema,
-        TextBlockSectionImplSchema,
-        SocialSectionImplSchema,
-        GlobalVariablesSectionImplSchema,
-        CodeSectionImplSchema,
-        GenPythonCodeSectionImplSchema,
-        TerminalSectionImplSchema,
-        IFrameSectionImplSchema,
-        ChatSectionImplSchema,
-        BrowserSectionImplSchema,
-      ]),
-    )
-    .default({}),
-  sectionVariants: z.record(z.string(), VariantSchema).default({}),
-  codeObjs: z.record(z.string(), CoreSchema).default({}),
-  codeObjImpls: z
-    .record(
-      z.string(),
-      z.discriminatedUnion("type", [
-        CodeCallableCodeObjImplSchema,
-        CodeParamCodeObjImplSchema,
-        TextParamCodeObjImplSchema,
-        SliderParamCodeObjImplSchema,
-        SwitchParamCodeObjImplSchema,
-        ColorPickerParamCodeObjImplSchema,
-        DropdownParamCodeObjImplSchema,
-        PasswordParamCodeObjImplSchema,
-        NestedParamCodeObjImplSchema,
-      ]),
-    )
-    .default({}),
-  codeObjVariants: z.record(z.string(), VariantSchema).default({}),
-});
-
-export type ProjectStateCore = z.infer<typeof ProjectStateCoreSchema>;
-
-export function createProjectStateCore(
-  options: Partial<ProjectStateCore> = {},
-): ProjectStateCore {
-  return ProjectStateCoreSchema.parse(options);
 }
 
 export const BaseSectionImplSchema = z.object({

@@ -16,12 +16,7 @@ export async function copy() {
       sectionIds: activeSectionIds,
     });
     if (res200(res)) {
-      await navigator.clipboard.writeText(
-        JSON.stringify({
-          data: res.data,
-          copyType: "sections",
-        }),
-      );
+      await navigator.clipboard.writeText(JSON.stringify(res.data));
       addTemporaryNotification("Copied to clipboard");
     } else {
       addTemporaryNotification(

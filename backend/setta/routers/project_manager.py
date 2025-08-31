@@ -52,8 +52,8 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.clipboard import SectionsClipboardData
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateCore
 from setta.types.routes import Route
 from setta.types.section_impls import SectionType
 
@@ -420,7 +420,7 @@ async def route_unselect_all_params(
 @router.post(Route.PREPARE_SECTIONS_FOR_COPY)
 async def route_prepare_sections_for_copy(
     x: PrepareSectionsForCopyRequest, state: AppStateFromRequest
-) -> ProjectStateCore:
+) -> SectionsClipboardData:
     return await state.project_manager_switcher.get(
         x.projectConfigId
     ).prepare_sections_for_copy(x)
