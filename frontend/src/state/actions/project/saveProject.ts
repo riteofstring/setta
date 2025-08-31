@@ -49,7 +49,7 @@ export function getProjectData({
   // }));
   // const artifactGroups = useProjectState.getState().artifactGroups;
 
-  const projectConfig = useProjectState.getState().projectConfig;
+  const projectConfig = _.cloneDeep(useProjectState.getState().projectConfig);
   projectConfig.viewport = getCurrProjectConfigViewport();
   projectConfig.topLevelSections = createTopLevelSectionLayoutDict(
     sections,
