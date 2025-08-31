@@ -1,7 +1,6 @@
 import { addNodes, deleteNodes } from "state/actions/nodeInternals";
 import { useProjectState, ZustandProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
 import { getSectionInfo, setSectionChildren } from "../sectionInfos";

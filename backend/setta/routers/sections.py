@@ -46,16 +46,6 @@ class DeleteFileRequest(BaseModel):
     filepath: str
 
 
-@router.post(Route.COPY_SECTIONS)
-def route_sections_make_copy(x: SectionsMakeCopyRequest):
-    output = copy_sections_and_other_info(x.sectionsAndOtherInfo)
-    relativePositions = copy_relative_positions(
-        x.sectionsAndOtherInfo["relativePositions"], output["section_id_map"]
-    )
-    output.pop("section_id_map")
-    return {**output, "relativePositions": relativePositions}
-
-
 @router.post(Route.SECTION_TO_YAML)
 def route_section_to_yaml(x: SectionToYamlRequest):
     output = export_section_to_dict(

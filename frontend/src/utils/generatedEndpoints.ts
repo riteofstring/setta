@@ -85,12 +85,6 @@ export async function route_delete_notification(
   return await post("/deleteNotification", x);
 }
 
-export async function route_sections_make_copy(
-  x: gt.SectionsMakeCopyRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/copySections", x);
-}
-
 export async function route_section_to_yaml(
   x: gt.SectionToYamlRequest,
 ): Promise<ResponseDataAndStatus<null>> {

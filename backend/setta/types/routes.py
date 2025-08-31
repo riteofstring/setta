@@ -26,7 +26,6 @@ class Route(str, Enum):
     WEBSOCKET_PYTHON_SCRIPT = "/pythonScript/{id}"
     WEBSOCKET_PYTHON_LOGGER = "/pythonLogger"
     SAVE_CODE_INFO = "/codeInfo/save"
-    COPY_SECTIONS = "/copySections"
     SEND_PROJECT_TO_INTERACTIVE_CODE = "/sendProjectTointeractiveCode"
     KILL_SUBPROCESSES = "/killSubprocesses"
     FORMAT_CODE = "/formatCode"
