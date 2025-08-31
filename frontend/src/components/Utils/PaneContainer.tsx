@@ -6,19 +6,27 @@ import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
 
 export function PaneContainer({
-  onResizeStop = null,
   paneName,
   right,
   children,
   minimumWidth,
   vis,
   width,
+  onResizeStop,
+}: {
+  paneName: string;
+  right: boolean;
+  children: React.ReactNode;
+  minimumWidth: number;
+  vis: boolean;
+  width: number;
+  onResizeStop?: (widthDiff: number) => void;
 }) {
   const size = useWindowSize();
   const [vMax, setVMax] = useState(100000);
   const [vMin, setVMin] = useState(minimumWidth);
 
-  function setNewWidth(newWidth) {
+  function setNewWidth(newWidth: number) {
     useLocalStorage.setState({
       [`${paneName}Width`]: newWidth,
       [`${paneName}TrueWidth`]: vis ? newWidth : CLOSED_PANE_WIDTH,
