@@ -42,8 +42,7 @@ import {
   selectAll,
   setTopLevelNonGroupSectionsAsActive,
 } from "./activeSections";
-import { copy } from "./copyPaste/copy";
-import { paste } from "./copyPaste/paste";
+import { copy, paste } from "./copyPaste";
 import { formatCode } from "./interactive";
 import { restartLanguageServer } from "./lsp";
 import {
