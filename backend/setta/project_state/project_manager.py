@@ -35,12 +35,16 @@ class ProjectManager(BaseProjectManager):
         save(self.settings_file.settings, self.dbe, self.project_state_backend)
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
-        new_project_config = copy_project_config(
-            x.project.projectConfig, x.newConfigName, do_create_new_id=True
-        )
-        self.project_state_backend.projectConfigs[new_project_config.id] = (
-            new_project_config
-        )
+        if x.withRefs:
+            new_project_config = copy_project_config(
+                x.project.projectConfig, x.newConfigName, do_create_new_id=True
+            )
+            self.project_state_backend.projectConfigs[new_project_config.id] = (
+                new_project_config
+            )
+        else:
+            pass
+
         self.save()
         await self.broadcast_all_project_metadata()
 
