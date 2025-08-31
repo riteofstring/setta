@@ -6,7 +6,7 @@ import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { addTemporaryNotification } from "../notifications";
 import { loadSectionIntoState } from "../sections/loadSections";
 
-export async function paste(props) {
+export async function paste({ asRef = false }) {
   let x;
   try {
     x = JSON.parse(await navigator.clipboard.readText());
@@ -14,7 +14,7 @@ export async function paste(props) {
     return;
   }
   if (x.copyType === "sections") {
-    pasteSections({ data: x.data, ...props });
+    pasteSections({ data: x.data, asRef });
   }
 }
 
