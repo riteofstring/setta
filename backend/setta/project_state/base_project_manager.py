@@ -940,7 +940,7 @@ class BaseProjectManager(ABC):
         pass
 
     @abstractmethod
-    def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
+    async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         pass
 
     @abstractmethod

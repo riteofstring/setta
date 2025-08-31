@@ -133,17 +133,19 @@ async def route_save_project(
 
 
 @router.post(Route.SAVE_AS_NEW_PROJECT_CONFIG)
-def route_save_as_new_project_config(
+async def route_save_as_new_project_config(
     x: SaveAsNewProjectConfigRequest, state: AppStateFromRequest
 ):
+    # TODO: pending operations should finish first.
     project_manager = state.project_manager_switcher.get(x.project)
-    project_manager.save_as_new_project_config(x)
+    await project_manager.save_as_new_project_config(x)
 
 
 @router.post(Route.SAVE_AS_EXISTING_PROJECT_CONFIG)
 def route_save_as_existing_project_config(
     x: SaveAsExistingProjectConfigRequest, state: AppStateFromRequest
 ):
+    # TODO: pending operations should finish first.
     project_manager = state.project_manager_switcher.get(x.project)
     project_manager.save_as_existing_project_config(x)
 

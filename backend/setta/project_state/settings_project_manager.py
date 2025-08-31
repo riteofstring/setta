@@ -39,7 +39,7 @@ class SettingsProjectManager(BaseProjectManager):
             self.settings_file.path_default_settings_project, p.model_dump()
         )
 
-    def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
+    async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         raise ValueError
 
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
