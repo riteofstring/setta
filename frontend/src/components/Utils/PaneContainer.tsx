@@ -26,10 +26,13 @@ export function PaneContainer({
   }
 
   useEffect(() => {
+    if (size.winWidth === undefined || size.winHeight === undefined) {
+      return;
+    }
     const newVMax = size.winWidth / 2.1;
     const newVMin = Math.min(minimumWidth, newVMax);
-    newVMax && setVMax(newVMax);
-    newVMin && setVMin(newVMin);
+    if (newVMax) setVMax(newVMax);
+    if (newVMin) setVMin(newVMin);
     if (width > newVMax) {
       setNewWidth(newVMax);
     } else if (width < newVMin) {
@@ -37,7 +40,7 @@ export function PaneContainer({
     }
   }, [vis, size.winWidth]);
 
-  function localOnResizeStop(e, direction, ref, d) {
+  function localOnResizeStop(_e, _direction, _ref, d) {
     const newWidth = clamp(width + d.width, vMin, vMax);
     if (newWidth === width) {
       return;

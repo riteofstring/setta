@@ -31,7 +31,7 @@ export function ResponsiveMiniMap() {
       className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm transition-transform"
       maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
       maskStrokeColor=""
-      maskStrokeWidth="1"
+      maskStrokeWidth={1}
       pannable
       onClick={(e, { x, y }) => {
         setCenter(x, y, { zoom: useReactFlow.getState().transform[2] });

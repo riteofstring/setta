@@ -19,7 +19,7 @@ export function IdNameCombobox({
   selectedItemCanBeNull,
   clearInputAfterSelection,
 }) {
-  const inputRef = useRef();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
     isOpen,

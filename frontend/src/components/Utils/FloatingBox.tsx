@@ -127,7 +127,7 @@ export function FloatingBox() {
         className={`flex max-h-96 min-h-32 min-w-64 flex-col rounded-2xl border border-setta-200 bg-white p-4 shadow-lg focus:outline focus:outline-2 focus:outline-blue-600 dark:border-setta-700 dark:bg-setta-950 ${contentArray[idx] ? contentArray[idx].wrapperClassName : ""}`}
         tabIndex={0}
         width={tooltipWidth}
-        onResizeStop={(e, direction, ref, d) => {
+        onResizeStop={(_e, _direction, _ref, d) => {
           useLocalStorage.setState((state) => ({
             tooltipWidth: state.tooltipWidth + d.width,
           }));

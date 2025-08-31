@@ -9,12 +9,8 @@ export function FileMenuLoadProjectConfigModal({ open }: { open: boolean }) {
   const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
 
-  function onClickLoadProjectConfig({
-    selected,
-  }: {
-    selected: string | undefined;
-  }) {
-    if (selected === undefined) {
+  function onClickLoadProjectConfig({ selected }: { selected: string | null }) {
+    if (selected === null) {
       return;
     }
     const config = projectMetadata.find((x) => x.id === selected);

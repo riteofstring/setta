@@ -1,4 +1,5 @@
 import { GrDocumentMissing } from "react-icons/gr";
+
 export function NotFound() {
   return (
     <div className="single-cell-container absolute inset-0 ">
