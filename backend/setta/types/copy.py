@@ -1,11 +1,12 @@
 from typing import TypeVar
-from setta.database.utils import create_new_id, remap_ids, rename_keys, rename_values
-from setta.types.code_obj_impls import BaseChildlessCodeObjImpl, BaseParentCodeObjImpl
+
+from setta.database.utils import create_new_id, remap_ids, rename_keys
+from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import ProjectConfigArgs
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
 from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateCore, ProjectStateSingleConfig
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
@@ -13,7 +14,6 @@ from setta.types.section_impls import (
     CallableSectionImpl,
 )
 from setta.utils.generate_memorable_string import generate_memorable_string
-
 
 T = TypeVar("T", bound=BaseSectionImplUnion | BaseCodeObjImplUnion)
 
@@ -23,6 +23,7 @@ def copy_project_config(
     new_config_name: str | None = None,
     do_create_new_id=False,
     section_id_map: dict[str, str] | None = None,
+    section_variant_id_map: dict[str, str] | None = None,
 ):
     new_values: ProjectConfigArgs = {}
     if new_config_name:
@@ -30,9 +31,23 @@ def copy_project_config(
     if do_create_new_id:
         new_values["id"] = create_new_id()
     if section_id_map:
+        if project_config.entryCodeBlockId:
+            new_values["entryCodeBlockId"] = section_id_map[
+                project_config.entryCodeBlockId
+            ]
         new_values["topLevelSections"] = rename_keys(
             project_config.topLevelSections, section_id_map
         )
+        new_values["sectionVariantMap"] = rename_keys(
+            project_config.sectionVariantMap, section_id_map
+        )
+        if section_variant_id_map:
+            new_values["sectionVariantMap"] = {
+                k: section_variant_id_map[v]
+                for k, v in new_values["sectionVariantMap"].items()
+            }
+        new_values["activeIds"] = [section_id_map[v] for v in project_config.activeIds]
+
     return project_config.model_copy(update=new_values, deep=True)
 
 
@@ -41,19 +56,18 @@ def copy_project(
     new_config_name: str | None = None,
     do_create_new_id=False,
 ):
-    new_info = copy_sections_and_other_info(p)
-    new_project_config = copy_project_config(
+    newProjectCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(p)
+    newProjectConfig = copy_project_config(
         p.projectConfig,
         new_config_name,
         do_create_new_id,
-        new_info["section_id_map"],
+        sectionIdMap,
+        sectionVariantIdMap,
     )
 
-    return {
-        **project,
-        **new_info,
-        "projectConfig": new_project_config,
-    }
+    return ProjectStateSingleConfig(
+        projectConfig=newProjectConfig, **newProjectCore.model_dump()
+    )
 
 
 def copy_sections_and_other_info(p: ProjectStateSingleConfig):
@@ -72,6 +86,16 @@ def copy_sections_and_other_info(p: ProjectStateSingleConfig):
     update_section_impl_details(
         newSectionImpls, sectionIdMap, codeObjIdMap, codeObjVariantIdMap
     )
+
+    project_core = ProjectStateCore(
+        sections=newSections,
+        sectionImpls=newSectionImpls,
+        sectionVariants=newSectionVariants,
+        codeObjs=newCodeObjs,
+        codeObjImpls=newCodeObjImpls,
+        codeObjVariants=newCodeObjVariants,
+    )
+    return project_core, sectionIdMap, sectionVariantIdMap
 
 
 def copy_variants(variants: dict[str, Variant], implIdMap: dict[str, str]):
@@ -142,33 +166,6 @@ def update_section_impl_details(
         if isinstance(c, CallableSectionImpl):
             if c.callable:
                 c.callable = codeObjIdMap[c.callable]
-
-
-# def copy_sections(
-#     sections,
-#     section_variant_id_map,
-#     ui_type_id_map,
-#     ui_type_col_id_map,
-# ):
-#     new_sections, section_id_map = remap_ids(sections)
-#     for section in new_sections.values():
-#         section["id"] = section_id_map[section["id"]]
-#         section["variantId"] = section_variant_id_map[section["variantId"]]
-#         section["defaultVariantId"] = section_variant_id_map[
-#             section["defaultVariantId"]
-#         ]
-#         section["uiTypeId"] = ui_type_id_map[section["uiTypeId"]]
-#         if section["uiTypeColId"]:
-#             section["uiTypeColId"] = ui_type_col_id_map[section["uiTypeColId"]]
-#         section["variantIds"] = [
-#             section_variant_id_map[x] for x in section["variantIds"]
-#         ]
-#         section["nonPresetUITypeIds"] = [
-#             ui_type_id_map[x] for x in section["nonPresetUITypeIds"]
-#         ]
-#         section["parentId"] = section_id_map.get(section["parentId"], None)
-
-#     return new_sections, section_id_map
 
 
 # def copy_relative_positions(relative_positions, section_id_map):
