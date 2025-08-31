@@ -20,7 +20,7 @@ export type ModalDataMap = {
     filepath: string;
   };
   [ModalTypeEnum.FILE_MENU_LOAD_PROJECT_CONFIG]: null;
-  [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: null;
+  [ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS]: { saveWithRefs: boolean };
 };
 
 // Then generate the union type from the map

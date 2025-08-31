@@ -2,7 +2,7 @@ import {
   SaveLoadModal,
   SaveLoadModalModeEnum,
 } from "components/Modals/SaveLoadModal/SaveLoadModal";
-import _ from "lodash";
+import { useModalData } from "state/actions/modal";
 import { useNavigateToAnotherConfig } from "state/actions/project/loadProject";
 import {
   saveAsExistingProjectConfig,
@@ -10,29 +10,36 @@ import {
   saveProject,
 } from "state/actions/project/saveProject";
 import { useProjectState } from "state/definitions";
-import { MODAL_TYPE } from "utils/constants";
+import { ModalTypeEnum } from "../types";
 import { useProjectMetadataForFileMenu } from "./utils";
 
 export function FileMenuSaveProjectConfigAsModal({ open }) {
   const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
+  const { saveWithRefs } = useModalData(
+    ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
+  );
 
-  async function onClickSaveAsProject({ selected, filename }) {
+  async function onClickSaveAsProject({
+    selected,
+    filename,
+  }: {
+    selected: string | null;
+    filename: string;
+  }) {
     if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
     } else {
-      selected
-        ? await saveAsExistingProjectConfig({
-            configName: filename,
-          })
-        : await saveAsNewProjectConfig({
-            newConfigName: filename,
-            withRefs: _.isEqual(
-              modalType,
-              MODAL_TYPE.SAVE_PROJECT_CONFIG_AS_WITH_REFS,
-            ),
-          });
-
+      if (selected) {
+        await saveAsExistingProjectConfig({
+          configName: filename,
+        });
+      } else {
+        await saveAsNewProjectConfig({
+          newConfigName: filename,
+          withRefs: saveWithRefs,
+        });
+      }
       navigateToAnotherConfig(filename);
     }
   }

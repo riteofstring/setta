@@ -49,7 +49,8 @@ export function getProjectData({
   // }));
   // const artifactGroups = useProjectState.getState().artifactGroups;
 
-  const projectConfig = getProjectConfigMetadata();
+  const projectConfig = useProjectState.getState().projectConfig;
+  projectConfig.viewport = getCurrProjectConfigViewport();
   projectConfig.topLevelSections = createTopLevelSectionLayoutDict(
     sections,
     useNodeInternals.getState().x,
@@ -82,37 +83,23 @@ export function getProjectData({
 
 export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
-  route_save_project({
-    ...(await getProjectDataForSaving()),
-  });
+  const data = await getProjectDataForSaving();
+  route_save_project(data);
 }
 
-export async function saveAsNewProjectConfig({ newConfigName, withRefs }) {
-  return await saveProjectAs({
-    fn: route_save_as_new_project_config,
-    otherArgs: { newConfigName, withRefs },
-  });
+export async function saveAsNewProjectConfig(
+  newConfigName: string,
+  withRefs: boolean,
+) {
+  addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
+  const data = await getProjectDataForSaving();
+  route_save_as_new_project_config({ project: data, newConfigName, withRefs });
 }
 
-export async function saveAsExistingProjectConfig({ configName }) {
-  return await saveProjectAs({
-    fn: route_save_as_existing_project_config,
-    otherArgs: { configName },
-  });
-}
-
-async function saveProjectAs({ fn, otherArgs }) {
-  await fn({
-    project: await getProjectDataForSaving(),
-    ...otherArgs,
-  });
-}
-
-function getProjectConfigMetadata() {
-  const s = useProjectState.getState();
-  const projectConfig = _.cloneDeep(s.projectConfig);
-  projectConfig.viewport = getCurrProjectConfigViewport();
-  return projectConfig;
+export async function saveAsExistingProjectConfig(configName: string) {
+  addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
+  const data = await getProjectDataForSaving();
+  route_save_as_existing_project_config({ project: data, configName });
 }
 
 export async function getProjectDataForSaving() {
