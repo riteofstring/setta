@@ -90,8 +90,9 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   p: ZustandProjectState,
   sectionId: string,
   expectedType: T,
+  preview = false,
 ): Extract<BaseSectionImplUnion, { type: T }> {
-  const impl = getCurrEffectiveSectionImpl(p, sectionId);
+  const impl = getCurrEffectiveSectionImpl(p, sectionId, preview);
 
   if (impl.type !== expectedType) {
     throw new Error(

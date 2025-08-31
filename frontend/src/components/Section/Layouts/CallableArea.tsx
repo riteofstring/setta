@@ -13,6 +13,7 @@ function _CallableArea({ sectionId, bgColor }) {
       x,
       sectionId,
       SectionTypeEnum.Callable,
+      true,
     );
     const { callable, hideParams } = impl;
     return {

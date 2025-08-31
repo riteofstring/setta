@@ -41,7 +41,7 @@ export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
   return useProjectState((x) => {
     return getParamIdsToShowInArea(
       x,
-      getCurrEffectiveSectionImpl(x, sectionId),
+      getCurrEffectiveSectionImpl(x, sectionId, true),
       isPinned,
     );
   }, _.isEqual);
