@@ -4,7 +4,6 @@ import { res200 } from "utils/endpointUtils";
 import { route_sections_make_copy } from "utils/generatedEndpoints";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
-import { copySections } from "../copyPaste/copy";
 import { getSectionInfo, setSectionChildren } from "../sectionInfos";
 import { setAllChildrenWidths } from "./sectionSizes";
 
