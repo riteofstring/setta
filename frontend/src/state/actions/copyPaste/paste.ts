@@ -1,12 +1,14 @@
 import { getActiveSectionsBounds } from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
+import { route_paste_sections } from "utils/generatedEndpoints";
 import {
   BaseClipboardDataUnionWithDiscriminator,
   ClipboardDataTypeEnum,
   SectionsClipboardData,
 } from "utils/generatedTypes";
 import { addTemporaryNotification } from "../notifications";
+import { getCurrProjectConfigId } from "../sectionInfos";
 
 export async function paste({ asRef = false }) {
   let x: BaseClipboardDataUnionWithDiscriminator;
@@ -17,7 +19,11 @@ export async function paste({ asRef = false }) {
   }
   switch (x.type) {
     case ClipboardDataTypeEnum.Sections:
-      return pasteSections(x.data, asRef);
+      return route_paste_sections({
+        projectConfigId: getCurrProjectConfigId(),
+        data: x.data,
+        position: getPasteLocation(),
+      });
     default:
       return x.type satisfies never;
   }
@@ -28,6 +34,7 @@ async function pasteSections(
   asRef: boolean,
 ) {
   console.log("pasteSections", data, asRef);
+
   // let dataToPaste;
   // if (asRef) {
   //   dataToPaste = data;

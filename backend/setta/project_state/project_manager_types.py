@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from setta.types.generated.unions import BaseSectionImplArgsUnion
 from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
+    ProjectStateCore,
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
@@ -296,6 +297,12 @@ class UnselectAllParamsRequest(BaseModel):
 class PrepareSectionsForCopyRequest(BaseModel):
     projectConfigId: str
     sectionIds: list[str]
+
+
+class PasteSectionsRequest(BaseModel):
+    projectConfigId: str
+    data: ProjectStateCore
+    position: Position
 
 
 @dataclass

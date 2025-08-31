@@ -542,3 +542,9 @@ export async function route_prepare_sections_for_copy(
 ): Promise<ResponseDataAndStatus<gt.SectionsClipboardData>> {
   return await post("/prepareSectionsForCopy", x);
 }
+
+export async function route_paste_sections(
+  x: gt.PasteSectionsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/pasteSections", x);
+}

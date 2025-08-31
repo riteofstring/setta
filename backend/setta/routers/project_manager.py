@@ -17,6 +17,7 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
+    PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     ProjectStateSingleConfigWithCompletedOpIds,
     RedoRequest,
@@ -424,3 +425,8 @@ async def route_prepare_sections_for_copy(
     return await state.project_manager_switcher.get(
         x.projectConfigId
     ).prepare_sections_for_copy(x)
+
+
+@router.post(Route.PASTE_SECTIONS)
+async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).paste_sections(x)

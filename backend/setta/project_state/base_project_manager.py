@@ -39,6 +39,7 @@ from setta.project_state.project_manager_types import (
     GenCodeSuffixCompletionRequest,
     GetLatestProjectStateRequest,
     GroupSectionsRequest,
+    PasteSectionsRequest,
     PrepareSectionsForCopyRequest,
     RedoRequest,
     SaveAsExistingProjectConfigRequest,
@@ -857,6 +858,11 @@ class BaseProjectManager(ABC):
         return SectionsClipboardData(
             data=prepare_sections_for_copy(project_state, set(x.sectionIds))
         )
+
+    @enqueue_method
+    async def paste_sections(self, x: PasteSectionsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        print("\n\n\npaste_sections", x.position)
 
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:

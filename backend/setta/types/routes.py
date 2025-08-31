@@ -106,3 +106,4 @@ class Route(str, Enum):
     TOGGLE_PARAM_SELECTED = "/toggleParamSelected"
     UNSELECT_ALL_PARAMS = "/unselectAllParams"
     PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"
+    PASTE_SECTIONS = "/pasteSections"

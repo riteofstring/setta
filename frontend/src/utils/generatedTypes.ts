@@ -436,6 +436,7 @@ export const RouteEnum = {
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
   UNSELECT_ALL_PARAMS: "/unselectAllParams",
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
+  PASTE_SECTIONS: "/pasteSections",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -7670,6 +7671,20 @@ export function createGroupSectionsRequest(
   options: Partial<GroupSectionsRequest> = {},
 ): GroupSectionsRequest {
   return GroupSectionsRequestSchema.parse(options);
+}
+
+export const PasteSectionsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  data: ProjectStateCoreSchema,
+  position: PositionSchema,
+});
+
+export type PasteSectionsRequest = z.infer<typeof PasteSectionsRequestSchema>;
+
+export function createPasteSectionsRequest(
+  options: Partial<PasteSectionsRequest> = {},
+): PasteSectionsRequest {
+  return PasteSectionsRequestSchema.parse(options);
 }
 
 export const PrepareSectionsForCopyRequestSchema = z.object({
