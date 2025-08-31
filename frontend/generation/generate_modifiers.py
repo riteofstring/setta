@@ -2,6 +2,7 @@ from pathlib import Path
 
 import setta.types.code_obj_impls
 import setta.types.core
+import setta.types.project_config
 import setta.types.section_impls
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
@@ -118,6 +119,7 @@ from setta.types.code_obj_impls import (
     ColorPickerChoice,
     CodeObjType
 )
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout, Viewport, ViewingEditingMode
 
 """
 
@@ -129,6 +131,13 @@ def generate_impl_args_as_typed_dicts(
     code += create_model_args_as_typed_dict(
         model_class=setta.types.core.Core,
         typed_dict_name="CoreArgs",
+        required_args=[],
+        include_callable_with_type=False,
+        is_base_class=True,
+    )
+    code += create_model_args_as_typed_dict(
+        model_class=setta.types.project_config.ProjectConfig,
+        typed_dict_name="ProjectConfigArgs",
         required_args=[],
         include_callable_with_type=False,
         is_base_class=True,

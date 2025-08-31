@@ -57,11 +57,11 @@ from setta.types.generated.unions import (
 from setta.types.impl_helpers import (
     update_variants,
 )
+from setta.types.project_config import TopLevelSectionLayout
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
-    TopLevelSectionLayout,
 )
 from setta.types.section_impls import (
     BaseDictSectionImpl,

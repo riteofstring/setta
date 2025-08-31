@@ -9,9 +9,9 @@ from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
 from setta.types.notifications import SettaNotification
+from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
     AllProjectMetadata,
-    ProjectConfig,
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (

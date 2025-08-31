@@ -1,64 +1,26 @@
-from enum import Enum
-
 from pydantic import (
     BaseModel,
     Field,
     model_validator,
 )
 
-from setta.code_gen.utils import GEN_CODE_CLASS_NAME
-from setta.database.utils import create_new_id
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
+from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     GenPythonCodeSectionImpl,
     GlobalVariablesSectionImpl,
 )
-from setta.utils.generate_memorable_string import generate_memorable_string
-
-
-class ViewingEditingMode(str, Enum):
-    DEV = "DEV"
-    USER = "USER"
-    USER_EDIT = "USER_EDIT"
-
-
-class Viewport(BaseModel, extra="forbid"):
-    x: float = 0
-    y: float = 0
-    zoom: float = 1
-
-
-class TopLevelSectionLayout(BaseModel, extra="forbid"):
-    x: float = 0
-    y: float = 0
-    zIndex: int = 0
-    w: float | None = None
-    h: float | None = None
 
 
 class SingletonSections(BaseModel, extra="forbid"):
     globalVariables: str | None = None
     genPythonCode: str | None = None
-
-
-class ProjectConfig(BaseModel, extra="forbid"):
-    id: str = Field(default_factory=create_new_id)
-    name: str = Field(default_factory=generate_memorable_string)
-    previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
-    viewport: Viewport | None = Field(default_factory=Viewport)
-    viewingEditingMode: ViewingEditingMode = ViewingEditingMode.DEV
-    genCodePrefix: str = ""
-    genCodeSuffix: str = f"s = {GEN_CODE_CLASS_NAME}()"
-    entryCodeBlockId: str | None = None
-    topLevelSections: dict[str, TopLevelSectionLayout] = Field(default_factory=dict)
-    sectionVariantMap: dict[str, str] = Field(default_factory=dict)
-    activeIds: list[str] = Field(default_factory=list)
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):

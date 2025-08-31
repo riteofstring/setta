@@ -112,8 +112,8 @@ from setta.types.helpers import (
     update_param_impl_config,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
+from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
-    ProjectConfig,
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
@@ -929,6 +929,14 @@ class BaseProjectManager(ABC):
 
     @abstractmethod
     def save(self):
+        pass
+
+    @abstractmethod
+    def save_as_new_project_config(self):
+        pass
+
+    @abstractmethod
+    def save_as_existing_project_config(self):
         pass
 
     def maybe_watch_json_source_files(self, projectState: ProjectStateSingleConfig):

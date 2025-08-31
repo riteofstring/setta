@@ -1,6 +1,6 @@
 import copy
 
-from .copy import copy_project_config, copy_project_details
+from .copy import copy_project_details
 
 
 def save_as_new_project_config(db, project, new_config_name, with_refs):

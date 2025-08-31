@@ -6,6 +6,11 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.project_config import (
+    TopLevelSectionLayout,
+    ViewingEditingMode,
+    Viewport,
+)
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,
@@ -84,6 +89,20 @@ class CoreArgs(TypedDict):
             ]
         ]
     ]
+
+
+class ProjectConfigArgs(TypedDict):
+    id: NotRequired[str]
+    name: NotRequired[str]
+    previewImgColor: NotRequired[str]
+    viewport: NotRequired[Viewport | None]
+    viewingEditingMode: NotRequired[ViewingEditingMode]
+    genCodePrefix: NotRequired[str]
+    genCodeSuffix: NotRequired[str]
+    entryCodeBlockId: NotRequired[str | None]
+    topLevelSections: NotRequired[dict[str, TopLevelSectionLayout]]
+    sectionVariantMap: NotRequired[dict[str, str]]
+    activeIds: NotRequired[list[str]]
 
 
 class BaseSectionImplArgs(TypedDict):

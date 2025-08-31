@@ -31,14 +31,9 @@ export function FileMenuSaveProjectConfigAsModal({ open }) {
       saveProject();
     } else {
       if (selected) {
-        await saveAsExistingProjectConfig({
-          configName: filename,
-        });
+        await saveAsExistingProjectConfig(filename);
       } else {
-        await saveAsNewProjectConfig({
-          newConfigName: filename,
-          withRefs: saveWithRefs,
-        });
+        await saveAsNewProjectConfig(filename, saveWithRefs);
       }
       navigateToAnotherConfig(filename);
     }

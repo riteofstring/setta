@@ -17,10 +17,9 @@ from setta.types.generated.unions import (
     BaseSectionImplUnion,
 )
 from setta.types.helpers import is_color_hex
+from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
 from setta.types.project_state import (
-    ProjectConfig,
     ProjectStateSingleConfig,
-    TopLevelSectionLayout,
 )
 from setta.types.section_impls import (
     ConfigLanguage,

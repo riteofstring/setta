@@ -3,10 +3,9 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from setta.types.generated.unions import BaseSectionImplArgsUnion
+from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
     ProjectStateSingleConfig,
-    TopLevelSectionLayout,
-    Viewport,
 )
 from setta.types.section_impls import (
     SectionSize,

@@ -305,6 +305,14 @@ export const TextBlockFormatEnum = {
 
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
 
+export const ViewingEditingModeEnum = {
+  DEV: "DEV",
+  USER: "USER",
+  USER_EDIT: "USER_EDIT",
+} as const;
+
+export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
+
 export const SettaNotificationTypeEnum = {
   success: "success",
   error: "error",
@@ -316,14 +324,6 @@ export const SettaNotificationTypeEnum = {
 export type SettaNotificationType = ObjectValues<
   typeof SettaNotificationTypeEnum
 >;
-
-export const ViewingEditingModeEnum = {
-  DEV: "DEV",
-  USER: "USER",
-  USER_EDIT: "USER_EDIT",
-} as const;
-
-export type ViewingEditingMode = ObjectValues<typeof ViewingEditingModeEnum>;
 
 export const RouteEnum = {
   PREFIX: "/api",
@@ -6302,6 +6302,30 @@ export type CoreArgs = z.infer<typeof CoreArgsSchema>;
 
 export function createCoreArgs(options: Partial<CoreArgs> = {}): CoreArgs {
   return CoreArgsSchema.parse(options);
+}
+
+export const ProjectConfigArgsSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  previewImgColor: z.string().optional(),
+  viewport: z.union([ViewportSchema, z.null()]).optional(),
+  viewingEditingMode: z.enum(ViewingEditingModeEnum).optional(),
+  genCodePrefix: z.string().optional(),
+  genCodeSuffix: z.string().optional(),
+  entryCodeBlockId: z.union([z.string(), z.null()]).optional(),
+  topLevelSections: z
+    .record(z.string(), TopLevelSectionLayoutSchema)
+    .optional(),
+  sectionVariantMap: z.record(z.string(), z.string()).optional(),
+  activeIds: z.array(z.string()).optional(),
+});
+
+export type ProjectConfigArgs = z.infer<typeof ProjectConfigArgsSchema>;
+
+export function createProjectConfigArgs(
+  options: Partial<ProjectConfigArgs> = {},
+): ProjectConfigArgs {
+  return ProjectConfigArgsSchema.parse(options);
 }
 
 export const ArtifactWithIdSchema = z.object({
