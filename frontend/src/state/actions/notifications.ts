@@ -3,6 +3,7 @@ import { C } from "utils/c";
 import {
   createSettaNotification,
   SettaNotification,
+  SettaNotificationType,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { getCurrProjectConfigId } from "./sectionInfos";
@@ -58,7 +59,7 @@ export function addNotificationFromWebsocketMsg(
 
 export const addTemporaryNotification = (
   message: string,
-  type: SettaNotificationTypeEnum = SettaNotificationTypeEnum.info,
+  type: SettaNotificationType = SettaNotificationTypeEnum.info,
 ) => {
   const notification = createSettaNotification({
     projectConfigId: getCurrProjectConfigId(),
