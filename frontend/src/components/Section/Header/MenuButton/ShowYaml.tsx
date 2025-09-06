@@ -1,7 +1,6 @@
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getSectionRect } from "forks/xyflow/core/utils/graph";
 import { useProjectState } from "state/definitions";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
 
 export function ShowYaml({ sectionId }) {
   const displayMode = useProjectState((x) => x.sections[sectionId].displayMode);

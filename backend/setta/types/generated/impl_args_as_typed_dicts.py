@@ -19,6 +19,7 @@ from setta.types.section_impls import (
     SectionSize,
     SectionSizeMode,
     SectionType,
+    SectionWithParamDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
@@ -148,6 +149,7 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     pinnedAreaHeight: NotRequired[float | Literal[SectionSizeMode.auto]]
     selectedParams: NotRequired[list[str]]
     ignoreTypeErrors: NotRequired[dict[str, bool]]
+    displayMode: NotRequired[SectionWithParamDisplayMode]
 
 
 class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -173,6 +175,10 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
     selectedParams: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     ignoreTypeErrors: NotRequired[
         dict[str, bool] | Callable[[dict[str, bool]], dict[str, bool]]
+    ]
+    displayMode: NotRequired[
+        SectionWithParamDisplayMode
+        | Callable[[SectionWithParamDisplayMode], SectionWithParamDisplayMode]
     ]
 
 

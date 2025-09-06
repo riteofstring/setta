@@ -177,11 +177,6 @@ export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =
 export const SETTA_PREVENT_ARROW_KEYS_MOVING_SECTION =
   "setta-prevent-arrow-keys-moving-section";
 
-export const SECTION_DISPLAY_MODES = {
-  YAML: "YAML",
-  GUI: "GUI",
-};
-
 export const MODEL_GROUPS = [
   {
     group: "Anthropic",
