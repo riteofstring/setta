@@ -193,6 +193,12 @@ export async function route_get_artifact_ids_from_name_path_type(
   return await post("/getArtifactIdsFromNamePathType", x);
 }
 
+export async function route_get_folder_contents(
+  x: gt.GetFolderContentsRequest,
+): Promise<ResponseDataAndStatus<Array<gt.FolderContentItem>>> {
+  return await post("/getFolderContents", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {

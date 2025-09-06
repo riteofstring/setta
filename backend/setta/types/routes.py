@@ -108,3 +108,4 @@ class Route(str, Enum):
     UNSELECT_ALL_PARAMS = "/unselectAllParams"
     PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"
     PASTE_SECTIONS = "/pasteSections"
+    GET_FOLDER_CONTENTS = "/getFolderContents"

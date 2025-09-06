@@ -15,10 +15,15 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { useLocalPendingValue } from "state/hooks/utils";
-import { route_set_browser_area_view_mode } from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import {
+  route_get_folder_contents,
+  route_set_browser_area_view_mode,
+} from "utils/generatedEndpoints";
 import {
   BrowserAreaItem,
   BrowserAreaViewMode,
@@ -37,7 +42,7 @@ const artifactTypes = [
 ];
 
 export function BrowserArea({ sectionId }: { sectionId: string }) {
-  const { width, hideColumn, viewMode, items } = useProjectState((x) => {
+  const { width, hideColumn, viewMode, folder } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -50,14 +55,14 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
           : impl.size.width,
       hideColumn: impl.hideColumn,
       viewMode: impl.viewMode,
-      items: impl.items,
+      folder: impl.folder,
     };
   }, _.isEqual);
 
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
       {!hideColumn && <TypesColumn width={width} />}
-      <ItemsColumn sectionId={sectionId} viewMode={viewMode} items={items} />
+      <ItemsColumn sectionId={sectionId} viewMode={viewMode} folder={folder} />
     </div>
   );
 }
@@ -393,13 +398,14 @@ function ViewSwitch({
 function ItemsColumn({
   sectionId,
   viewMode,
-  items,
+  folder,
 }: {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
-  items: Array<BrowserAreaItem>;
+  folder: string;
 }) {
   const [value, setValue] = useLocalPendingValue(viewMode);
+  const [items, setItems] = useState<Array<BrowserAreaItem>>([]);
 
   function setView(newView: BrowserAreaViewMode) {
     setValue(newView);
@@ -410,6 +416,16 @@ function ItemsColumn({
     });
   }
 
+  async function setFolder(newFolder: string) {
+    const res = await route_get_folder_contents({ folderPath: newFolder });
+    if (res200(res)) {
+      console.log("res", res.data);
+      setItems(
+        res.data.map((d) => ({ id: d.name, type: d.type, lastModified: "" })),
+      );
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
       <div className="-mt-[4.5px] mb-1 flex flex-row">
@@ -417,7 +433,8 @@ function ItemsColumn({
           <div className="flex items-center gap-1 text-xs font-bold uppercase text-setta-300 dark:text-setta-500">
             Artifacts
           </div>
-          <FilterSection />
+          {/* <FilterSection /> */}
+          <FolderPath folder={folder} setFolder={setFolder} />
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
@@ -430,7 +447,7 @@ function ResizableColumn({
   width,
   minContainerWidth = 384,
   children,
-  minWidth = 100,
+  minWidth = 0,
   maxWidth = "70%",
   enable = { right: true },
   className = "nodrag relative flex flex-col pr-1",
@@ -503,5 +520,38 @@ function FilterSection() {
       inputStyles={inputStyles}
       outerClasses="flex-1"
     />
+  );
+}
+
+function FolderPath({
+  folder,
+  setFolder,
+}: {
+  folder: string;
+  setFolder: (newFolder: string) => void;
+}) {
+  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
+    folder,
+    setFolder,
+    () => true,
+  );
+
+  const inputStyles =
+    "flex-1 min-w-0 text-xs outline-0 cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-transparent truncate focus-visible:border-blue-300 pl-4 py-1 placeholder-setta-300 dark:placeholder-setta-700 ";
+
+  return (
+    <search
+      className={
+        "nodrag relative mx-[2px] flex min-w-0 flex-1 items-center dark:text-setta-200"
+      }
+    >
+      <input
+        className={inputStyles}
+        value={inputValue}
+        onChange={onChange}
+        onKeyDown={onKeyDown}
+        onBlur={onBlur}
+      />
+    </search>
   );
 }

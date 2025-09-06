@@ -252,6 +252,6 @@ class ChatSectionImpl(BaseSectionImpl):
 
 class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
+    folder: str = ""
     hideColumn: bool = False
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
-    items: list[BrowserAreaItem] = Field(default_factory=list)

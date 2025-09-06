@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import TypedDict
 
 from pydantic import BaseModel
 
@@ -48,6 +50,15 @@ class FillInMissingArtifactIdsRequest(BaseModel):
     namesPathsTypes: list
 
 
+class GetFolderContentsRequest(BaseModel):
+    folderPath: str
+
+
+class FolderContentItem(TypedDict):
+    name: str
+    type: str
+
+
 @router.post(Route.SEND_ARTIFACT)
 async def route_send_artifact(
     x: SendArtifactRequest,
@@ -95,3 +106,25 @@ def route_get_artifact_ids_from_name_path_type(
 ):
     with state.dbe.session as db:
         return fill_in_missing_artifact_ids(db, x.namesPathsTypes)
+
+
+@router.post(Route.GET_FOLDER_CONTENTS)
+def route_get_folder_contents(
+    x: GetFolderContentsRequest,
+) -> list[FolderContentItem]:
+    path = Path(x.folderPath)
+
+    # Check if path exists and is a directory
+    if not path.exists():
+        raise FileNotFoundError(f"Path does not exist: {x.folderPath}")
+    if not path.is_dir():
+        raise NotADirectoryError(f"Path is not a directory: {x.folderPath}")
+
+    contents: list[FolderContentItem] = []
+
+    for item in path.iterdir():
+        contents.append(
+            {"name": item.name, "type": "folder" if item.is_dir() else "file"}
+        )
+
+    return contents

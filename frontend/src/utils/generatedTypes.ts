@@ -460,6 +460,7 @@ export const RouteEnum = {
   UNSELECT_ALL_PARAMS: "/unselectAllParams",
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
   PASTE_SECTIONS: "/pasteSections",
+  GET_FOLDER_CONTENTS: "/getFolderContents",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -1269,6 +1270,7 @@ export const AllImplFieldsSchema = z.literal([
   "defaultVal",
   "description",
   "displayMode",
+  "folder",
   "format",
   "headingAsSectionName",
   "hideColumn",
@@ -1282,7 +1284,6 @@ export const AllImplFieldsSchema = z.literal([
   "isJsonSource",
   "isMinimized",
   "isPreset",
-  "items",
   "jsonSourceKeys",
   "jsonSourceMissing",
   "max",
@@ -1336,6 +1337,7 @@ export const CoreSchema = z.object({
         "defaultVal",
         "description",
         "displayMode",
+        "folder",
         "format",
         "headingAsSectionName",
         "hideColumn",
@@ -1349,7 +1351,6 @@ export const CoreSchema = z.object({
         "isJsonSource",
         "isMinimized",
         "isPreset",
-        "items",
         "jsonSourceKeys",
         "jsonSourceMissing",
         "max",
@@ -1940,20 +1941,6 @@ export function createChatSectionImpl(
   return ChatSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
-export const BrowserAreaItemSchema = z.object({
-  id: z.string(),
-  type: z.any(),
-  lastModified: z.iso.datetime(),
-});
-
-export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
-
-export function createBrowserAreaItem(
-  options: Partial<BrowserAreaItem> = {},
-): BrowserAreaItem {
-  return BrowserAreaItemSchema.parse(options);
-}
-
 export const BrowserSectionImplSchema = z.object({
   type: z.literal("Browser").default(SectionTypeEnum.Browser),
   id: z.string().default(create_new_id),
@@ -1968,11 +1955,11 @@ export const BrowserSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
+  folder: z.string().default("" as const),
   hideColumn: z.boolean().default(false),
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  items: z.array(BrowserAreaItemSchema).default([]),
 });
 
 export type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -3569,9 +3556,9 @@ export const BrowserSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
+  folder: z.string().optional(),
   hideColumn: z.boolean().optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
-  items: z.array(BrowserAreaItemSchema).optional(),
 });
 
 export type BrowserSectionImplArgs = z.infer<
@@ -4346,11 +4333,11 @@ export const UserDefaultBrowserSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  folder: z.string().default("" as const),
   hideColumn: z.boolean().default(false),
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  items: z.array(BrowserAreaItemSchema).default([]),
 });
 
 export type UserDefaultBrowserSectionImpl = z.infer<
@@ -5725,9 +5712,9 @@ export const BrowserSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
+  folder: z.union([z.string(), z.any()]).optional(),
   hideColumn: z.union([z.boolean(), z.any()]).optional(),
   viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.any()]).optional(),
-  items: z.union([z.array(BrowserAreaItemSchema), z.any()]).optional(),
 });
 
 export type BrowserSectionImplArgsWithCallable = z.infer<
@@ -6490,6 +6477,7 @@ export const CoreArgsSchema = z.object({
         "defaultVal",
         "description",
         "displayMode",
+        "folder",
         "format",
         "headingAsSectionName",
         "hideColumn",
@@ -6503,7 +6491,6 @@ export const CoreArgsSchema = z.object({
         "isJsonSource",
         "isMinimized",
         "isPreset",
-        "items",
         "jsonSourceKeys",
         "jsonSourceMissing",
         "max",
@@ -6558,6 +6545,19 @@ export function createProjectConfigArgs(
   options: Partial<ProjectConfigArgs> = {},
 ): ProjectConfigArgs {
   return ProjectConfigArgsSchema.parse(options);
+}
+
+export const FolderContentItemSchema = z.object({
+  name: z.string(),
+  type: z.string(),
+});
+
+export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
+
+export function createFolderContentItem(
+  options: Partial<FolderContentItem> = {},
+): FolderContentItem {
+  return FolderContentItemSchema.parse(options);
 }
 
 export const ArtifactWithIdSchema = z.object({
@@ -7225,6 +7225,20 @@ export function createProjectStateBackend(
   return ProjectStateBackendSchema.parse(options);
 }
 
+export const BrowserAreaItemSchema = z.object({
+  id: z.string(),
+  type: z.any(),
+  lastModified: z.iso.datetime(),
+});
+
+export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
+
+export function createBrowserAreaItem(
+  options: Partial<BrowserAreaItem> = {},
+): BrowserAreaItem {
+  return BrowserAreaItemSchema.parse(options);
+}
+
 export const SimplifiedCodeInfoSchema = z.object({
   name: z.string(),
   defaultVal: z.string().default("" as const),
@@ -7447,6 +7461,20 @@ export function createFillInMissingArtifactIdsRequest(
   options: Partial<FillInMissingArtifactIdsRequest> = {},
 ): FillInMissingArtifactIdsRequest {
   return FillInMissingArtifactIdsRequestSchema.parse(options);
+}
+
+export const GetFolderContentsRequestSchema = z.object({
+  folderPath: z.string(),
+});
+
+export type GetFolderContentsRequest = z.infer<
+  typeof GetFolderContentsRequestSchema
+>;
+
+export function createGetFolderContentsRequest(
+  options: Partial<GetFolderContentsRequest> = {},
+): GetFolderContentsRequest {
+  return GetFolderContentsRequestSchema.parse(options);
 }
 
 export const LoadArtifactFromDiskRequestSchema = z.object({
