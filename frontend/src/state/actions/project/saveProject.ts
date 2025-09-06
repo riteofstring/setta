@@ -96,6 +96,7 @@ export async function saveAsExistingProjectConfig(configName: string) {
 export async function getProjectDataForSaving() {
   const project = getProjectData({
     withArtifacts: true,
+    convertYamlToGUI: true,
   });
 
   if (useSettings.getState().backend.saveRenderedValues) {

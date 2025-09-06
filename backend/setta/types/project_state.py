@@ -4,7 +4,6 @@ from pydantic import (
     model_validator,
 )
 
-from setta.code_gen.yaml.section_dict import raw_dump
 from setta.types.core import Core, Variant
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
@@ -168,7 +167,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                         nested_dict_keys_prefix=nested_dict_keys_prefix,
                     ),
                 )
-                output[v] = raw_dump(hierarchy.nested_dict)
+                output[v] = yaml.dump(hierarchy.nested_dict)
         self.yamlValues = output
         return self
 
