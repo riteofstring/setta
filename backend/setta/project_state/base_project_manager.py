@@ -83,7 +83,6 @@ from setta.types.clipboard import (
 from setta.types.helpers import (
     add_kwarg,
     change_param_impl,
-    convert_backend_to_single_config,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -93,13 +92,11 @@ from setta.types.helpers import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
+    get_curr_effective_section_impl,
     get_json_source_files_to_watch,
     get_variants_for_json_source_update,
     group_sections,
     maybe_update_gen_python_code_section,
-    merge_single_config_into_backend,
-    paste_sections,
-    prepare_sections_for_copy,
     set_code,
     set_default_section_variant,
     set_param_entered_value,
@@ -122,6 +119,12 @@ from setta.types.helpers import (
     ungroup_groups,
     unselect_all_params,
     update_param_impl_config,
+)
+from setta.types.helpers_lvl2 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+    paste_sections,
+    prepare_sections_for_copy,
 )
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
@@ -357,7 +360,7 @@ class BaseProjectManager(ABC):
         self.code_dict[projectConfigId] = {}
 
         for sectionId in projectState.sections.keys():
-            section_impl = projectState.get_curr_effective_section_impl(sectionId)
+            section_impl = get_curr_effective_section_impl(projectState, sectionId)
             if isinstance(section_impl, CodeSectionImpl):
                 section_code = self.create_project_code(
                     project_temp_folder, projectState, sectionId, section_impl

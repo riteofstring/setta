@@ -10,7 +10,6 @@ from setta.code_gen.yaml.section_dict import (
 from setta.database.db.artifacts.load import (
     load_artifact_metadata_and_maybe_value_from_disk,
 )
-from setta.utils.section_contents import getParamIdsToShowInArea
 
 from .utils import get_configs_and_root_folder
 

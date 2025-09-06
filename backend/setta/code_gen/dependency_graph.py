@@ -16,6 +16,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.helpers import (
     get_curr_effective_code_obj_impl_with_type_guard,
+    get_curr_effective_section_impl,
     get_curr_section_callable_code_obj,
     get_curr_top_level_param_ids,
 )
@@ -127,7 +128,7 @@ class DependencyGraph:
         graph_key = self.create_graph_key(id)
         section_node = self.get_node(graph_key)
         if not section_node:
-            sectionImpl = p.get_curr_effective_section_impl(id)
+            sectionImpl = get_curr_effective_section_impl(p, id)
             name = p.sections[id].name
             full_path_name = self.create_full_path_name(parent_node, idx, name)
             if isinstance(sectionImpl, CallableSectionImpl):
@@ -150,7 +151,7 @@ class DependencyGraph:
                     c
                     for c in sectionImpl.children
                     if isinstance(
-                        p.get_curr_effective_section_impl(c),
+                        get_curr_effective_section_impl(p, c),
                         self.section_types_to_process,
                     )
                 ]

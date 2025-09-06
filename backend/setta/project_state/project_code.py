@@ -39,6 +39,7 @@ from setta.types.helpers import (
     callable_has_been_selected_before,
     callable_is_already_selected,
     get_curr_code_obj_variant,
+    get_curr_effective_section_impl,
     get_section_path_full_name,
     set_curr_effective_section_impl_value,
 )
@@ -294,7 +295,7 @@ class ProjectPythonCode(PythonCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = project_state.get_curr_effective_section_impl(sectionId)
+        section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code
@@ -339,7 +340,7 @@ class ProjectBashCode(BashCode):
             project_state, sectionId
         )
         self.sectionId = sectionId
-        section_impl = project_state.get_curr_effective_section_impl(sectionId)
+        section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
             raise TypeError
         self.code = section_impl.code

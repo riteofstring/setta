@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Callable, TypedDict
 from pydantic import BaseModel, Field
 
 from setta.types.code_obj_impls import BaseParamCodeObjImpl, BaseParentCodeObjImpl
-from setta.types.copy import BaseDictSectionImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import BaseCodeObjImplUnion
 from setta.types.section_impls import (
+    BaseDictSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,

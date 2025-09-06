@@ -5,12 +5,14 @@ from pydantic import (
 )
 
 from setta.types.core import Core, Variant
-from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
-from setta.types.helpers import get_variant_base_and_effective_section_impl
+from setta.types.helpers import (
+    get_curr_effective_section_impl,
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.param_hierarchy import ShownParamIds, get_param_ids_to_show_in_area
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
@@ -71,22 +73,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
 
-    def get_curr_section_variant(
-        self,
-        section_id: str,
-    ):
-        variant_id = self.projectConfig.sectionVariantMap[section_id]
-        return self.sectionVariants[variant_id]
-
-    def get_curr_effective_section_impl(
-        self,
-        section_id: str,
-    ):
-        variant = self.get_curr_section_variant(section_id)
-        base_impl = self.sectionImpls[variant.impl]
-        core = self.sections[section_id]
-        return get_effective_impl(base_impl, core, variant)
-
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
         return self.validate_singleton_sections()
@@ -111,7 +97,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if len(found) == len(SINGLETON_SECTION_TYPES):
                 break
 
-            sectionImpl = self.get_curr_effective_section_impl(s.id)
+            sectionImpl = get_curr_effective_section_impl(self, s.id)
 
             for section_type in SINGLETON_SECTION_TYPES:
                 attr_name = section_type.value
@@ -134,7 +120,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         for sectionId in self.sections.keys():
             if sectionId not in self.parentSectionMap:
                 self.parentSectionMap[sectionId] = None
-            impl = self.get_curr_effective_section_impl(sectionId)
+            impl = get_curr_effective_section_impl(self, sectionId)
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId

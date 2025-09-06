@@ -2,17 +2,14 @@ import copy
 import math
 import re
 from pathlib import Path
-from typing import TypeVar, assert_never
+from typing import TYPE_CHECKING, TypeVar, assert_never
 
 from setta.database.utils import create_new_id
-from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
-    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
 )
-from setta.types.copy import copy_sections_and_other_info, remap_section_variant_map
 from setta.types.core import (
     Core,
     Variant,
@@ -56,16 +53,7 @@ from setta.types.generated.unions import (
     BaseParamCodeObjImplUnion,
     BaseSectionImplArgsUnion,
 )
-from setta.types.impl_helpers import (
-    update_variants,
-)
-from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import (
-    SINGLETON_SECTION_TYPES,
-    ProjectStateBackend,
-    ProjectStateCore,
-    ProjectStateSingleConfig,
-)
+from setta.types.project_config import TopLevelSectionLayout
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
@@ -87,6 +75,13 @@ from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array, move_item_in_array
 
+if TYPE_CHECKING:
+    from setta.types.project_state import (
+        ProjectStateBackend,
+        ProjectStateCore,
+        ProjectStateSingleConfig,
+    )
+
 
 class ProjectNotFound(Exception):
     pass
@@ -106,126 +101,22 @@ GenericBaseCodeObjImplType = TypeVar(
 )
 
 
-def prepare_sections_for_copy(
-    p: ProjectStateCore, sections_to_process: set[str]
-) -> ProjectStateCore:
-    # Collectors for all the IDs we need
-    section_ids: set[str] = set()
-    section_impl_ids: set[str] = set()
-    section_variant_ids: set[str] = set()
-    code_obj_ids: set[str] = set()
-    code_obj_impl_ids: set[str] = set()
-    code_obj_variant_ids: set[str] = set()
-
-    sections_to_process = copy.deepcopy(sections_to_process)
-    code_objs_to_process: set[str] = set()
-
-    # Process sections recursively
-    while sections_to_process:
-        section_id = sections_to_process.pop()
-        if section_id in section_ids:
-            continue
-
-        section_ids.add(section_id)
-        section = p.sections[section_id]
-
-        for variant_id in section.variants:
-            if variant_id in section_variant_ids:
-                continue
-            section_variant_ids.add(variant_id)
-            variant, impl, effective_impl = get_variant_base_and_effective_section_impl(
-                p, section, variant_id
-            )
-            section_impl_ids.add(impl.id)
-            section_impl_ids.update(variant.nonPresetImpls)
-
-            if isinstance(effective_impl, BaseParentSectionImpl):
-                # Add child sections to process list
-                sections_to_process.update(effective_impl.children)
-            elif isinstance(effective_impl, BaseSectionWithParamsImpl):
-                code_objs_to_process.update(effective_impl.codeObjVariantMap)
-
-    # Process code_objs recursively
-    while code_objs_to_process:
-        obj_id = code_objs_to_process.pop()
-        if obj_id in code_obj_ids:
-            continue
-
-        code_obj_ids.add(obj_id)
-        obj = p.codeObjs[obj_id]
-
-        for variant_id in obj.variants:
-            if variant_id in code_obj_variant_ids:
-                continue
-            code_obj_variant_ids.add(variant_id)
-            variant, base_impl, effective_impl = (
-                get_variant_base_and_effective_code_obj_impl(p, obj, variant_id)
-            )
-            code_obj_impl_ids.add(base_impl.id)
-            code_obj_impl_ids.update(variant.nonPresetImpls)
-
-            if isinstance(effective_impl, BaseParentCodeObjImpl):
-                code_objs_to_process.update(effective_impl.children)
-
-    # Build the sliced state
-    sections = {x: p.sections[x] for x in section_ids}
-    sectionImpls = {x: p.sectionImpls[x] for x in section_impl_ids}
-    sectionVariants = {x: p.sectionVariants[x] for x in section_variant_ids}
-    codeObjs = {x: p.codeObjs[x] for x in code_obj_ids}
-    codeObjImpls = {x: p.codeObjImpls[x] for x in code_obj_impl_ids}
-    codeObjVariants = {x: p.codeObjVariants[x] for x in code_obj_variant_ids}
-    return ProjectStateCore(
-        sections=sections,
-        sectionImpls=sectionImpls,
-        sectionVariants=sectionVariants,
-        codeObjs=codeObjs,
-        codeObjImpls=codeObjImpls,
-        codeObjVariants=codeObjVariants,
-    )
-
-
-def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: str):
-    project_config = p.projectConfigs[projectConfigId]
-    project_state_core = prepare_sections_for_copy(
-        p, set(project_config.topLevelSections.keys())
-    )
-
-    # Build the sliced state
-    return ProjectStateSingleConfig(
-        sections=project_state_core.sections,
-        sectionImpls=project_state_core.sectionImpls,
-        sectionVariants=project_state_core.sectionVariants,
-        codeObjs=project_state_core.codeObjs,
-        codeObjImpls=project_state_core.codeObjImpls,
-        codeObjVariants=project_state_core.codeObjVariants,
-        projectConfig=project_config,
-    )
-
-
-def merge_single_config_into_backend(
-    x: ProjectStateBackend, config: ProjectStateSingleConfig
+def get_curr_effective_section_impl(
+    p: "ProjectStateSingleConfig",
+    section_id: str,
 ):
-    return ProjectStateBackend(
-        sections={**x.sections, **config.sections},
-        sectionImpls={**x.sectionImpls, **config.sectionImpls},
-        sectionVariants={**x.sectionVariants, **config.sectionVariants},
-        codeObjs={**x.codeObjs, **config.codeObjs},
-        codeObjImpls={**x.codeObjImpls, **config.codeObjImpls},
-        codeObjVariants={**x.codeObjVariants, **config.codeObjVariants},
-        projectConfigs={
-            **x.projectConfigs,
-            config.projectConfig.id: config.projectConfig,
-        },
-        defaultProjectConfigId=x.defaultProjectConfigId,
-    )
+    variant = get_curr_section_variant(p, section_id)
+    base_impl = p.sectionImpls[variant.impl]
+    core = p.sections[section_id]
+    return get_effective_impl(base_impl, core, variant)
 
 
 def get_curr_effective_section_impl_with_type_guard(
-    project_state: ProjectStateSingleConfig,
+    project_state: "ProjectStateSingleConfig",
     section_id: str,
     impl_type: type[GenericBaseSectionImplType],
 ) -> GenericBaseSectionImplType:
-    impl = project_state.get_curr_effective_section_impl(section_id)
+    impl = get_curr_effective_section_impl(project_state, section_id)
 
     if not isinstance(impl, impl_type):
         raise ValueError(f"Section {section_id} failed type guard")
@@ -234,7 +125,7 @@ def get_curr_effective_section_impl_with_type_guard(
 
 
 def get_variant_effective_section_impl(
-    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
 ):
     variant = p.sectionVariants[variantId]
     impl = p.sectionImpls[variant.impl]
@@ -243,7 +134,7 @@ def get_variant_effective_section_impl(
 
 
 def get_variant_base_and_effective_section_impl(
-    p: ProjectStateCore, core: Core, variant_id: str
+    p: "ProjectStateCore", core: Core, variant_id: str
 ):
     variant = p.sectionVariants[variant_id]
     base_impl = p.sectionImpls[variant.impl]
@@ -252,7 +143,7 @@ def get_variant_base_and_effective_section_impl(
 
 
 def get_variant_base_and_effective_section_impl_with_type_guard(
-    p: ProjectStateCore,
+    p: "ProjectStateCore",
     core: Core,
     variant_id: str,
     impl_type: type[GenericBaseSectionImplType],
@@ -265,8 +156,16 @@ def get_variant_base_and_effective_section_impl_with_type_guard(
     return variant, base_impl, impl
 
 
+def get_curr_section_variant(
+    p: "ProjectStateSingleConfig",
+    section_id: str,
+):
+    variant_id = p.projectConfig.sectionVariantMap[section_id]
+    return p.sectionVariants[variant_id]
+
+
 def get_curr_code_obj_variant(
-    p: ProjectStateSingleConfig, sectionId: str, codeObjId: str
+    p: "ProjectStateSingleConfig", sectionId: str, codeObjId: str
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
@@ -276,7 +175,7 @@ def get_curr_code_obj_variant(
 
 
 def get_curr_effective_code_obj_impl(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     codeObjId: str,
 ):
@@ -287,7 +186,7 @@ def get_curr_effective_code_obj_impl(
 
 
 def get_curr_effective_code_obj_impl_with_type_guard(
-    project_state: ProjectStateSingleConfig,
+    project_state: "ProjectStateSingleConfig",
     sectionId: str,
     codeObjId: str,
     impl_type: type[GenericBaseCodeObjImplType],
@@ -300,13 +199,13 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
-def get_variant_base_code_obj_impl(p: ProjectStateSingleConfig, variantId: str):
+def get_variant_base_code_obj_impl(p: "ProjectStateSingleConfig", variantId: str):
     variant = p.codeObjVariants[variantId]
     return p.codeObjImpls[variant.impl]
 
 
 def get_variant_base_and_effective_code_obj_impl(
-    p: ProjectStateCore, core: Core, variant_id: str
+    p: "ProjectStateCore", core: Core, variant_id: str
 ):
     variant = p.codeObjVariants[variant_id]
     base_impl = p.codeObjImpls[variant.impl]
@@ -315,16 +214,16 @@ def get_variant_base_and_effective_code_obj_impl(
 
 
 def set_curr_effective_section_impl_value(
-    p: ProjectStateSingleConfig, sectionId: str, args: BaseSectionImplArgsWithCallable
+    p: "ProjectStateSingleConfig", sectionId: str, args: BaseSectionImplArgsWithCallable
 ):
-    variant = p.get_curr_section_variant(sectionId)
+    variant = get_curr_section_variant(p, sectionId)
     impl = p.sectionImpls[variant.impl]
     core = p.sections[sectionId]
     set_effective_impl_value(impl, core, variant, args)
 
 
 def set_curr_effective_code_obj_impl_value(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     codeObjId: str,
     args: BaseCodeObjImplArgsWithCallable,
@@ -335,12 +234,12 @@ def set_curr_effective_code_obj_impl_value(
     set_effective_impl_value(impl, core, variant, args)
 
 
-def get_curr_section_base_impl(p: ProjectStateSingleConfig, sectionId: str):
-    variant = p.get_curr_section_variant(sectionId)
+def get_curr_section_base_impl(p: "ProjectStateSingleConfig", sectionId: str):
+    variant = get_curr_section_variant(p, sectionId)
     return p.sectionImpls[variant.impl]
 
 
-def get_curr_section_callable_code_obj(p: ProjectStateSingleConfig, section_id: str):
+def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: str):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, CallableSectionImpl
     )
@@ -350,7 +249,7 @@ def get_curr_section_callable_code_obj(p: ProjectStateSingleConfig, section_id: 
 
 
 def get_curr_section_children_ids(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     section_id: str,
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -360,7 +259,7 @@ def get_curr_section_children_ids(
 
 
 def get_curr_top_level_param_ids(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     section_id: str,
 ) -> list[str]:
     section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -378,8 +277,8 @@ def get_curr_top_level_param_ids(
     raise TypeError
 
 
-def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
-    section_impl = p.get_curr_effective_section_impl(section_id)
+def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: str):
+    section_impl = get_curr_effective_section_impl(p, section_id)
     parent_id = p.parentSectionMap[section_id]
     if not parent_id:
         return p.sections[section_id].name
@@ -403,14 +302,14 @@ def get_section_path_full_name(p: ProjectStateSingleConfig, section_id: str):
 
 
 def callable_is_already_selected(
-    p: ProjectStateSingleConfig, sectionId: str, callableName: str
+    p: "ProjectStateSingleConfig", sectionId: str, callableName: str
 ):
     selected_item = get_curr_section_callable_code_obj(p, sectionId)
     return selected_item and selected_item.name == callableName
 
 
 def callable_has_been_selected_before(
-    p: ProjectStateSingleConfig, sectionId: str, callableName: str
+    p: "ProjectStateSingleConfig", sectionId: str, callableName: str
 ):
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, CallableSectionImpl
@@ -422,7 +321,7 @@ def callable_has_been_selected_before(
 
 
 def add_code_obj(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     section_id: str,
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
@@ -452,8 +351,19 @@ def add_code_obj(
     return code_obj_variant
 
 
+def update_variants(
+    p: "ProjectStateSingleConfig", variant_ids: list[str], new_impl: BaseCodeObjImpl
+):
+    for variant_id in variant_ids:
+        variant = p.codeObjVariants[variant_id]
+        impl = p.codeObjImpls[variant.impl]
+        p.codeObjImpls[variant.impl] = impl.model_copy(
+            update=new_impl.model_dump(exclude_unset=True)
+        )
+
+
 def add_children_of_callable(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     section_id: str,
     callable_id: str,
     new_params: list[Core],
@@ -487,7 +397,7 @@ def add_children_of_callable(
 
 
 def set_param_entered_value(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     paramId: str,
     value: str,
@@ -497,14 +407,16 @@ def set_param_entered_value(
     )
 
 
-def confirm_config_name(p: ProjectStateBackend, projectConfigName: str):
+def confirm_config_name(p: "ProjectStateBackend", projectConfigName: str):
     for projectConfigId, config in p.projectConfigs.items():
         if projectConfigName == config.name:
             return projectConfigId
     raise ProjectNotFound
 
 
-def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newName: str):
+def set_project_config_name(
+    p: "ProjectStateBackend", projectConfigId: str, newName: str
+):
     for k, v in p.projectConfigs.items():
         if k != projectConfigId and v.name == newName:
             raise ProjectNameTaken(f"{newName} is already taken")
@@ -513,7 +425,7 @@ def set_project_config_name(p: ProjectStateBackend, projectConfigId: str, newNam
 
 def create_section(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
@@ -541,7 +453,7 @@ def create_section(
 
 def create_top_level_section(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     position: Position,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
@@ -556,7 +468,7 @@ def create_top_level_section(
 
 def create_child_sections(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     parentId: str,
     impl_type: SectionType,
     numChildren: int,
@@ -588,12 +500,12 @@ def create_child_sections(
 
 def create_child_sections_via_incrementer(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     calledBy: str,
     impl_type: SectionType,
     numChildren: int,
 ):
-    impl = p.get_curr_effective_section_impl(calledBy)
+    impl = get_curr_effective_section_impl(p, calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         parentId = calledBy
         startIdx = 0
@@ -608,7 +520,7 @@ def create_child_sections_via_incrementer(
     create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
-def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
+def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[str]):
     to_delete = get_all_sections_for_deletion_or_copying(p, sectionIds)
     for id in to_delete:
         parentId = p.parentSectionMap[id]
@@ -632,9 +544,9 @@ def delete_sections(p: ProjectStateSingleConfig, sectionIds: list[str]):
 
 
 def delete_child_sections_via_decrementer(
-    p: ProjectStateSingleConfig, calledBy: str, numChildren: int
+    p: "ProjectStateSingleConfig", calledBy: str, numChildren: int
 ):
-    impl = p.get_curr_effective_section_impl(calledBy)
+    impl = get_curr_effective_section_impl(p, calledBy)
     if isinstance(impl, BaseParentSectionImpl):
         sectionIds = impl.children[:numChildren]
     else:
@@ -651,7 +563,7 @@ def delete_child_sections_via_decrementer(
 
 
 def check_if_section_is_still_used_somewhere(
-    p: ProjectStateSingleConfig, sectionId: str
+    p: "ProjectStateSingleConfig", sectionId: str
 ):
     for s in p.sections.values():
         if sectionId in s.sharedModifier.get("children", []):
@@ -666,7 +578,7 @@ def check_if_section_is_still_used_somewhere(
 
 
 def get_all_sections_for_deletion_or_copying(
-    p: ProjectStateSingleConfig, sectionIds: list[str]
+    p: "ProjectStateSingleConfig", sectionIds: list[str]
 ):
     idsToDelete = copy.deepcopy(sectionIds)
     visited = set()
@@ -682,7 +594,7 @@ def get_all_sections_for_deletion_or_copying(
 
 
 def get_section_descendants_from_all_variants(
-    p: ProjectStateSingleConfig, sectionId: str
+    p: "ProjectStateSingleConfig", sectionId: str
 ):
     output: list[str] = []
     core = p.sections[sectionId]
@@ -693,7 +605,7 @@ def get_section_descendants_from_all_variants(
     return output
 
 
-def create_new_section_variant(p: ProjectStateSingleConfig, sectionId: str):
+def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: str):
     currBaseImpl = get_curr_section_base_impl(p, sectionId)
     if currBaseImpl.isPreset:
         newBaseImpl = currBaseImpl
@@ -732,7 +644,7 @@ def create_new_section_variant(p: ProjectStateSingleConfig, sectionId: str):
 
 
 def create_new_code_obj_version(
-    p: ProjectStateSingleConfig, codeObjId: str, codeObjVariantId: str
+    p: "ProjectStateSingleConfig", codeObjId: str, codeObjVariantId: str
 ):
     currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
     if currBaseImpl.isPreset:
@@ -759,7 +671,7 @@ def create_new_code_obj_version(
 
 def change_param_impl(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     paramInfoId: str,
     selectedId: str,
@@ -788,7 +700,7 @@ def change_param_impl(
 
 
 def update_param_impl_config(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     paramInfoId: str,
     newConfig: dict,
@@ -864,7 +776,7 @@ def get_code_obj_variant_map_update_fn(newMappings: dict[str, str]):
 
 
 def create_kwarg_objs(
-    settings: SettingsState, p: ProjectStateSingleConfig, sectionId: str
+    settings: SettingsState, p: "ProjectStateSingleConfig", sectionId: str
 ):
     newImpl = create_code_obj_impl(
         CodeObjType.TextParam,
@@ -876,7 +788,7 @@ def create_kwarg_objs(
     return newCore.id
 
 
-def add_kwarg(settings: SettingsState, p: ProjectStateSingleConfig, sectionId: str):
+def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId: str):
     sectionImpl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
@@ -889,7 +801,7 @@ def add_kwarg(settings: SettingsState, p: ProjectStateSingleConfig, sectionId: s
 
 def add_kwarg_to_callable_section(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     sectionImpl: CallableSectionImpl,
 ):
@@ -913,7 +825,7 @@ def add_kwarg_to_callable_section(
 
 def add_kwarg_to_dict_section(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
 ):
     newId = create_kwarg_objs(settings, p, sectionId)
@@ -929,7 +841,7 @@ def add_kwarg_to_dict_section(
     return newId
 
 
-def delete_kwarg(p: ProjectStateSingleConfig, sectionId: str):
+def delete_kwarg(p: "ProjectStateSingleConfig", sectionId: str):
     sectionImpl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, BaseSectionWithParamsImpl
     )
@@ -941,7 +853,7 @@ def delete_kwarg(p: ProjectStateSingleConfig, sectionId: str):
 
 
 def delete_kwarg_from_callable_section(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     sectionImpl: CallableSectionImpl,
 ):
@@ -960,7 +872,7 @@ def delete_kwarg_from_callable_section(
 
 
 def delete_kwarg_from_dict_section(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
 ):
     set_curr_effective_section_impl_value(
@@ -970,7 +882,7 @@ def delete_kwarg_from_dict_section(
     )
 
 
-def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str):
+def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: str):
     sectionId = p.singletonSections.GenPythonCode
     if not sectionId:
         return
@@ -979,7 +891,7 @@ def maybe_update_gen_python_code_section(p: ProjectStateSingleConfig, code: str)
     )
 
 
-def get_json_source_files_to_watch(p: ProjectStateSingleConfig):
+def get_json_source_files_to_watch(p: "ProjectStateSingleConfig"):
     filename_set = set()
     for s in p.sections.values():
         for v in s.variants:
@@ -990,7 +902,7 @@ def get_json_source_files_to_watch(p: ProjectStateSingleConfig):
 
 
 def get_variants_for_json_source_update(
-    p: ProjectStateCore, coreUpdate: FileWatcherCoreUpdate
+    p: "ProjectStateCore", coreUpdate: FileWatcherCoreUpdate
 ):
     variantsToLoad: set[str] = set()
     processed = set()
@@ -1014,7 +926,7 @@ def get_variants_for_json_source_update(
 
 
 def delete_section_variant_or_ask(
-    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
 ):
     core = p.sections[sectionId]
     variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
@@ -1023,21 +935,23 @@ def delete_section_variant_or_ask(
     delete_section_variant(p, sectionId, variantId)
 
 
-def delete_section_variant(p: ProjectStateSingleConfig, sectionId: str, variantId: str):
+def delete_section_variant(
+    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
+):
     core = p.sections[sectionId]
     if len(core.variants) < 2:
         return  # can't delete variant if there's only 1
     core.variants = [v for v in core.variants if v != variantId]
     if core.defaultVariant == variantId:
         core.defaultVariant = core.variants[0]
-    if p.get_curr_section_variant(sectionId).id == variantId:
+    if get_curr_section_variant(p, sectionId).id == variantId:
         p.projectConfig.sectionVariantMap[sectionId] = core.variants[0]
 
     del p.sectionVariants[variantId]
 
 
 def toggle_variant_json_source(
-    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
 ):
     core = p.sections[sectionId]
     variant, base_impl, _ = get_variant_base_and_effective_section_impl_with_type_guard(
@@ -1057,7 +971,7 @@ def toggle_variant_json_source(
     )
 
 
-def toggle_variant_frozen(p: ProjectStateSingleConfig, variantId: str):
+def toggle_variant_frozen(p: "ProjectStateSingleConfig", variantId: str):
     p.sectionVariants[variantId].isFrozen = not p.sectionVariants[variantId].isFrozen
 
 
@@ -1065,7 +979,7 @@ def compute_initial_default_variant(variant: Variant):
     return CoreArgs(variants=[variant.id], defaultVariant=variant.id)
 
 
-def set_text_block_text(p: ProjectStateSingleConfig, sectionId: str, text: str):
+def set_text_block_text(p: "ProjectStateSingleConfig", sectionId: str, text: str):
     impl = get_curr_effective_section_impl_with_type_guard(
         p, sectionId, TextBlockSectionImpl
     )
@@ -1089,7 +1003,7 @@ def get_first_heading_or_text(markdown: str):
     return None
 
 
-def toggle_position_lock(p: ProjectStateSingleConfig, sectionId: str):
+def toggle_position_lock(p: "ProjectStateSingleConfig", sectionId: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
@@ -1097,7 +1011,7 @@ def toggle_position_lock(p: ProjectStateSingleConfig, sectionId: str):
     )
 
 
-def toggle_minimized(p: ProjectStateSingleConfig, sectionId: str):
+def toggle_minimized(p: "ProjectStateSingleConfig", sectionId: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
@@ -1105,7 +1019,7 @@ def toggle_minimized(p: ProjectStateSingleConfig, sectionId: str):
     )
 
 
-def set_code(p: ProjectStateSingleConfig, sectionId: str, code: str):
+def set_code(p: "ProjectStateSingleConfig", sectionId: str, code: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
@@ -1113,7 +1027,7 @@ def set_code(p: ProjectStateSingleConfig, sectionId: str, code: str):
     )
 
 
-def set_section_param_filter(p: ProjectStateSingleConfig, sectionId: str, value: str):
+def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: str, value: str):
     set_curr_effective_section_impl_value(
         p,
         sectionId,
@@ -1121,22 +1035,22 @@ def set_section_param_filter(p: ProjectStateSingleConfig, sectionId: str, value:
     )
 
 
-def set_section_variant(p: ProjectStateSingleConfig, sectionId: str, variantId: str):
+def set_section_variant(p: "ProjectStateSingleConfig", sectionId: str, variantId: str):
     p.projectConfig.sectionVariantMap[sectionId] = variantId
 
 
 def set_default_section_variant(
-    p: ProjectStateSingleConfig, sectionId: str, variantId: str
+    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
 ):
     p.sections[sectionId].defaultVariant = variantId
 
 
-def set_section_variant_name(p: ProjectStateSingleConfig, variantId: str, name: str):
+def set_section_variant_name(p: "ProjectStateSingleConfig", variantId: str, name: str):
     p.sectionVariants[variantId].name = name
 
 
 def set_section_sizes(
-    p: ProjectStateSingleConfig, sectionSizes: dict[str, SectionSize]
+    p: "ProjectStateSingleConfig", sectionSizes: dict[str, SectionSize]
 ):
     for s, size in sectionSizes.items():
         set_curr_effective_section_impl_value(
@@ -1144,13 +1058,13 @@ def set_section_sizes(
         )
 
 
-def set_section_name(p: ProjectStateSingleConfig, sectionId: str, name: str):
+def set_section_name(p: "ProjectStateSingleConfig", sectionId: str, name: str):
     if name:
         p.sections[sectionId].name = name
 
 
 def set_text_block_display_mode(
-    p: ProjectStateSingleConfig, sectionId: str, displayMode: TextBlockDisplayMode
+    p: "ProjectStateSingleConfig", sectionId: str, displayMode: TextBlockDisplayMode
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(displayMode=displayMode)
@@ -1158,7 +1072,7 @@ def set_text_block_display_mode(
 
 
 def set_section_with_params_display_mode(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionId: str,
     displayMode: SectionWithParamsDisplayMode,
 ):
@@ -1168,21 +1082,21 @@ def set_section_with_params_display_mode(
 
 
 def set_text_block_format(
-    p: ProjectStateSingleConfig, sectionId: str, format: TextBlockFormat
+    p: "ProjectStateSingleConfig", sectionId: str, format: TextBlockFormat
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(format=format)
     )
 
 
-def set_social_url(p: ProjectStateSingleConfig, sectionId: str, url: str):
+def set_social_url(p: "ProjectStateSingleConfig", sectionId: str, url: str):
     set_curr_effective_section_impl_value(
         p, sectionId, SocialSectionImplArgsWithCallable(url=url)
     )
 
 
 def move_section_to_pane(
-    p: ProjectStateSingleConfig, sectionId: str, position: Position
+    p: "ProjectStateSingleConfig", sectionId: str, position: Position
 ):
     oldParentId = p.parentSectionMap[sectionId]
     if oldParentId:
@@ -1207,7 +1121,7 @@ def move_section_to_pane(
 
 
 def move_section_to_parent_section(
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     newParentId: str,
     sectionId: str,
     idx: int,
@@ -1252,7 +1166,7 @@ def move_section_to_parent_section(
 
 def group_sections(
     settings: SettingsState,
-    p: ProjectStateSingleConfig,
+    p: "ProjectStateSingleConfig",
     sectionIds: list[str],
 ):
     currParentIds: set[str | None] = set()
@@ -1285,12 +1199,12 @@ def group_sections(
     return True
 
 
-def ungroup_groups(p: ProjectStateSingleConfig, groupIds: list[str]):
+def ungroup_groups(p: "ProjectStateSingleConfig", groupIds: list[str]):
     for g in groupIds:
         ungroup_group(p, g)
 
 
-def ungroup_group(p: ProjectStateSingleConfig, groupId: str):
+def ungroup_group(p: "ProjectStateSingleConfig", groupId: str):
     impl = get_curr_effective_section_impl_with_type_guard(p, groupId, GroupSectionImpl)
 
     parentId = p.parentSectionMap[groupId]
@@ -1307,7 +1221,7 @@ def ungroup_group(p: ProjectStateSingleConfig, groupId: str):
 
 
 def toggle_param_selected(
-    p: ProjectStateSingleConfig, sectionId: str, paramInfoId: str
+    p: "ProjectStateSingleConfig", sectionId: str, paramInfoId: str
 ):
     set_curr_effective_section_impl_value(
         p,
@@ -1320,75 +1234,15 @@ def toggle_param_selected(
     )
 
 
-def unselect_all_params(p: ProjectStateSingleConfig):
+def unselect_all_params(p: "ProjectStateSingleConfig"):
     for s in p.sections.keys():
-        impl = p.get_curr_effective_section_impl(s)
+        impl = get_curr_effective_section_impl(p, s)
         if isinstance(impl, BaseSectionWithParamsImpl):
             set_curr_effective_section_impl_value(
                 p,
                 s,
                 BaseSectionWithParamsImplArgsWithCallable(selectedParams=[]),
             )
-
-
-def paste_sections(
-    p: ProjectStateSingleConfig,
-    data: ProjectStateCoreWithSectionVariantMap,
-    position: Position,
-    asRef: bool,
-):
-    if not asRef:
-        newCore, sectionIdMap, sectionVariantIdMap = copy_sections_and_other_info(
-            data.core
-        )
-        data.core = newCore
-        data.sectionVariantMap = remap_section_variant_map(
-            data.sectionVariantMap, sectionIdMap, sectionVariantIdMap
-        )
-
-    remove_singleton_sections_if_already_present(p, data)
-    topLevelSectionIds = inferTopLevelSections(data)
-    topLevelSections = {
-        k: TopLevelSectionLayout(x=position.x, y=position.y) for k in topLevelSectionIds
-    }
-
-    p.projectConfig.topLevelSections.update(topLevelSections)
-    p.projectConfig.sectionVariantMap.update(data.sectionVariantMap)
-    p.sections.update(data.core.sections)
-    p.sectionImpls.update(data.core.sectionImpls)
-    p.sectionVariants.update(data.core.sectionVariants)
-    p.codeObjs.update(data.core.codeObjs)
-    p.codeObjImpls.update(data.core.codeObjImpls)
-    p.codeObjVariants.update(data.core.codeObjVariants)
-
-
-def remove_singleton_sections_if_already_present(
-    p: ProjectStateSingleConfig, data: ProjectStateCoreWithSectionVariantMap
-):
-    # need this to access get_curr_effective_section_impl
-    tempConfig = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(sectionVariantMap=data.sectionVariantMap),
-        **data.core.model_dump(),
-    )
-    toRemove: set[str] = set()
-    for s in tempConfig.sections:
-        impl = tempConfig.get_curr_effective_section_impl(s)
-        if impl.type in SINGLETON_SECTION_TYPES and getattr(
-            p.singletonSections, impl.type.value
-        ):
-            toRemove.add(s)
-    data.core.sections = {
-        k: v for k, v in data.core.sections.items() if k not in toRemove
-    }
-
-
-def inferTopLevelSections(data: ProjectStateCoreWithSectionVariantMap):
-    # need this to access get_curr_effective_section_impl
-    tempConfig = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(sectionVariantMap=data.sectionVariantMap),
-        **data.core.model_dump(),
-    )
-    return [k for k, v in tempConfig.parentSectionMap.items() if not v]
 
 
 # for (const sectionId of Object.keys(x.sections)) {
