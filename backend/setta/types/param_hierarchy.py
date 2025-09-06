@@ -1,5 +1,7 @@
-from typing import Callable, TypedDict
+from typing import TYPE_CHECKING, Callable, TypedDict
+
 from pydantic import BaseModel, Field
+
 from setta.types.code_obj_impls import BaseParamCodeObjImpl, BaseParentCodeObjImpl
 from setta.types.copy import BaseDictSectionImpl
 from setta.types.core import Core, Variant
@@ -10,8 +12,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
 )
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateCore
@@ -148,7 +148,7 @@ def get_all_descendants(
 
 
 def find_all_parameters_of_section(
-    p: ProjectStateCore, impl: BaseSectionImpl, conditions: ConditionFns
+    p: "ProjectStateCore", impl: BaseSectionImpl, conditions: ConditionFns
 ):
     if isinstance(impl, CallableSectionImpl):
         return get_all_descendants(
@@ -172,7 +172,7 @@ def find_all_parameters_of_section(
 
 
 def get_param_ids_to_show_in_area(
-    p: ProjectStateCore, impl: BaseSectionImpl, is_pinned: bool
+    p: "ProjectStateCore", impl: BaseSectionImpl, is_pinned: bool
 ):
     if not isinstance(impl, BaseSectionWithParamsImpl):
         raise TypeError

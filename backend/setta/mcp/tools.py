@@ -102,7 +102,7 @@ async def setParamValues(
     """
 
     await setta_state.project_manager.set_param_values(
-        projectConfigId, sectionId, cast(dict[str, str], paramIdsToValues)
+        projectConfigId, sectionId, cast("dict[str, str]", paramIdsToValues)
     )
     return "success"
 

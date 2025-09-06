@@ -1,4 +1,6 @@
 [lint]
+extend-select = ["TCH"] # for TYPE_CHECKING imports
+
 ignore = [
     "E266",  # too many leading '#' for block comment
     "E203",  # whitespace before ':'
