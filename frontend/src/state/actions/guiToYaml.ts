@@ -1,11 +1,10 @@
 import _ from "lodash";
-import { getSectionInfo, getSectionType } from "state/actions/sectionInfos";
+import { getSectionType } from "state/actions/sectionInfos";
 import {
   useOriginalYamlObj,
   useProjectState,
   useYamlValue,
 } from "state/definitions";
-import { SECTION_DISPLAY_MODES } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_section_to_yaml } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
@@ -362,21 +361,5 @@ function updateIdsToChildren({
     } else {
       idsToChildren[parentId].push(v.id);
     }
-  }
-}
-
-export async function maybeRunGuiToYaml(sectionId, variantId) {
-  if (getSectionInfo(sectionId).displayMode === SECTION_DISPLAY_MODES.YAML) {
-    await guiToYaml(sectionId, variantId);
-  }
-}
-
-export async function maybeRunGuiToYamlOnAllSections(isPreview = false) {
-  const state = useProjectState.getState();
-  for (const [sectionId, section] of Object.entries(state.sections)) {
-    const variantId = isPreview
-      ? getDisplayedSectionVariantId(sectionId)
-      : section.variantId;
-    await maybeRunGuiToYaml(sectionId, variantId);
   }
 }

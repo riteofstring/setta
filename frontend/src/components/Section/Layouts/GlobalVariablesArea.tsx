@@ -1,19 +1,13 @@
-import { SectionYamlView } from "components/Params/YamlView";
 import React from "react";
-import { useShowYaml } from "../../../state/hooks/toYaml";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
 function _GlobalVariablesArea({ sectionId, bgColor }) {
-  const showYaml = useShowYaml(sectionId);
-
-  return !showYaml ? (
+  return (
     <>
       <KwargsControls sectionId={sectionId} bgColor={bgColor} />
       <ParamGroupContainer sectionId={sectionId} />
     </>
-  ) : (
-    <SectionYamlView sectionId={sectionId} />
   );
 }
 

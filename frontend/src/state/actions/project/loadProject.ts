@@ -49,7 +49,6 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       state.x,
     ),
   }));
-  // await maybeRunGuiToYamlOnAllSections();
   return true;
 }
 

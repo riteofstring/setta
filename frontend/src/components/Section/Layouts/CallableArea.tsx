@@ -21,7 +21,6 @@ function _CallableArea({ sectionId, bgColor }) {
       hideParams,
     };
   }, _.isEqual);
-  // const showYaml = useShowYaml(sectionId);
 
   return (
     <>
@@ -32,7 +31,6 @@ function _CallableArea({ sectionId, bgColor }) {
           <ParamGroupContainer sectionId={sectionId} />
         </>
       )}
-      {/* {!!showYaml && <SectionYamlView sectionId={sectionId} />} */}
     </>
   );
 }

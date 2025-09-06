@@ -21,20 +21,11 @@ import {
 } from "../sectionInfos";
 import { requestBase64FromCanvas } from "../temporaryMiscState";
 
-export function getProjectData({
-  withArtifacts = false,
-  convertYamlToGUI = true,
-}) {
+export function getProjectData({ withArtifacts = false }) {
   // remove temporary sections
   let sections = _.cloneDeep(useProjectState.getState().sections);
   // sections = _.pickBy(sections, (x) => !x.isTemporary);
-  // if (convertYamlToGUI) {
-  //   for (const s of Object.values(sections)) {
-  //     if (s.displayMode === SECTION_DISPLAY_MODES.YAML) {
-  //       yamlToGUI(s.id);
-  //     }
-  //   }
-  // }
+
   // sections = _.mapValues(sections, (x) => {
   //   x.columnWidth = useSectionColumnWidth.getState()[x.id];
   //   return x;

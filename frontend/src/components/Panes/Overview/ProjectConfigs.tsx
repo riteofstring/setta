@@ -78,17 +78,13 @@ function onMouseEnter(
         mousedOverProjectConfig.sectionVariantMap,
       );
     });
-
-    // maybeRunGuiToYamlOnAllSections(true);
   } else {
     clearPreviewIds();
-    // maybeRunGuiToYamlOnAllSections(false);
   }
 }
 
 function onMouseLeave() {
   clearPreviewIds();
-  // maybeRunGuiToYamlOnAllSections(false);
 }
 
 function clearPreviewIds() {
