@@ -5,12 +5,17 @@ import {
   removeActiveSectionIds,
   setActiveSectionIds,
 } from "state/actions/activeSections";
-import { getHighestAncestor } from "state/actions/sectionInfos";
-import { getSectionHasAtLeastOneSelectedParam } from "state/actions/sections/sectionContents";
+import {
+  getCurrEffectiveSectionImpl,
+  getHighestAncestor,
+} from "state/actions/sectionInfos";
 import { setZIndices } from "state/actions/sections/sectionPositions";
 import { useMisc, useProjectState } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER } from "utils/constants";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseSectionWithParamsImpl,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import "./dndline.css";
 
 export function getBgColor(sectionTypeName: SectionTypeEnum) {
@@ -76,10 +81,12 @@ export function getOnSectionClick(sectionId, isActiveSection) {
 
     if (useMisc.getState().isSelectingParams) {
       // depends on bubbling behavior (child div onclicks get executed first)
-      const atLeastOneParamSelected = getSectionHasAtLeastOneSelectedParam(
-        sectionId,
+      const impl = getCurrEffectiveSectionImpl(
         useProjectState.getState(),
+        sectionId,
       );
+      const atLeastOneParamSelected =
+        isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0;
       if (!isActiveSection && atLeastOneParamSelected) {
         addActiveSectionIds([sectionId]);
       } else if (isActiveSection && !atLeastOneParamSelected) {

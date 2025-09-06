@@ -6,13 +6,9 @@ import {
 } from "utils/generatedTypes";
 import {
   CodeObjPathMap,
-  findAllParameters,
   findAllParametersOfSection,
 } from "utils/getDescendants";
-import {
-  getCurrEffectiveSectionImpl,
-  getSectionVariant,
-} from "../sectionInfos";
+import { getCurrEffectiveSectionImpl } from "../sectionInfos";
 
 export function getParamIdsToShowInArea(
   p: ZustandProjectState,
@@ -81,32 +77,6 @@ export function paramNameFromPathArray(
     }
     return name;
   }
-}
-
-function getSectionHasSomeParamCondition(sectionId, state, condition) {
-  const { selectedItem } = getSectionVariant(sectionId, state);
-  const codeInfoChildren = getCodeInfoCol(sectionId, state).children;
-
-  const { earlyReturnTriggered } = findAllParameters({
-    allCodeInfo: state.codeInfo,
-    codeInfoChildren,
-    startingId: selectedItem,
-    earlyReturnCondition: condition,
-  });
-
-  return earlyReturnTriggered;
-}
-
-export function getSectionHasParams(sectionId, state) {
-  return getSectionHasSomeParamCondition(sectionId, state, (c) => {
-    return c?.rcType === CodeInfoTypeEnum.PARAMETER;
-  });
-}
-
-export function getSectionHasAtLeastOneSelectedParam(sectionId, state) {
-  return getSectionHasSomeParamCondition(sectionId, state, (c) => {
-    return c?.isSelected;
-  });
 }
 
 export function getAllVisibleParamsInSection(
