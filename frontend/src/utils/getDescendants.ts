@@ -172,16 +172,6 @@ export function findAllParameters({
   );
 }
 
-export function findAll(allCodeInfo, codeInfoChildren) {
-  return _findAllDescendants(
-    allCodeInfo,
-    codeInfoChildren,
-    codeInfoChildren[null] ?? [],
-    () => true,
-    () => true,
-  );
-}
-
 export function findAllParametersAndPathMaps(props) {
   return findAllParameters({
     ...props,

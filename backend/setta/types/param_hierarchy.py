@@ -1,10 +1,14 @@
 from typing import Callable, TypedDict
 from setta.types.code_obj_impls import BaseParentCodeObjImpl
+from setta.types.copy import BaseDictSectionImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.generated.unions import BaseCodeObjImplUnion
-from setta.types.project_state import ShownParamIdDetails
-from setta.types.section_impls import BaseSectionWithParamsImpl
+from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
+from setta.types.project_state import (
+    ProjectStateCore,
+    ShownParamIdDetails,
+)
+from setta.types.section_impls import BaseSectionWithParamsImpl, CallableSectionImpl
 
 
 class ConditionFns(TypedDict):
@@ -33,7 +37,7 @@ def get_effective_code_obj_impl_from_variant_map(
     return get_effective_impl(impls[variant.impl], cores[id], variant)
 
 
-def find_all_descendants(
+def get_all_descendants(
     impls: dict[str, BaseCodeObjImplUnion],
     cores: dict[str, Core],
     variants: dict[str, Variant],
@@ -125,6 +129,30 @@ def find_all_descendants(
         children_map=children_map,
         early_return_triggered=False,
     )
+
+
+def find_all_parameters_of_section(
+    p: ProjectStateCore, impl: BaseSectionImplUnion, conditions: ConditionFns
+):
+    if isinstance(impl, CallableSectionImpl):
+        return get_all_descendants(
+            p.codeObjImpls,
+            p.codeObjs,
+            p.codeObjVariants,
+            impl.codeObjVariantMap,
+            [impl.callable] if impl.callable else [],
+            conditions,
+        )
+    elif isinstance(impl, BaseDictSectionImpl):
+        return get_all_descendants(
+            p.codeObjImpls,
+            p.codeObjs,
+            p.codeObjVariants,
+            impl.codeObjVariantMap,
+            impl.topLevelParamIds,
+            conditions,
+        )
+    raise TypeError
 
 
 def get_param_ids_to_show_in_area(p, impl, is_pinned):
