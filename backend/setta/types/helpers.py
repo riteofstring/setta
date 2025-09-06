@@ -31,6 +31,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgs,
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
+    BrowserSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
@@ -59,6 +60,7 @@ from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
     BaseSectionWithParamsImpl,
+    BrowserAreaViewMode,
     CallableSectionImpl,
     ConfigLanguage,
     GroupSectionImpl,
@@ -1078,6 +1080,16 @@ def set_section_with_params_display_mode(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, BaseSectionWithParamsImplArgsWithCallable(displayMode=displayMode)
+    )
+
+
+def set_browser_area_view_mode(
+    p: "ProjectStateSingleConfig",
+    sectionId: str,
+    viewMode: BrowserAreaViewMode,
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, BrowserSectionImplArgsWithCallable(viewMode=viewMode)
     )
 
 

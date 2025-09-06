@@ -45,6 +45,7 @@ from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
     SetActiveIdsRequest,
+    SetBrowserAreaViewModeRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
@@ -97,6 +98,7 @@ from setta.types.helpers import (
     get_variants_for_json_source_update,
     group_sections,
     maybe_update_gen_python_code_section,
+    set_browser_area_view_mode,
     set_code,
     set_default_section_variant,
     set_param_entered_value,
@@ -823,6 +825,12 @@ class BaseProjectManager(ABC):
     ):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_with_params_display_mode(project_state, x.sectionId, x.displayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_browser_area_view_mode(self, x: SetBrowserAreaViewModeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_browser_area_view_mode(project_state, x.sectionId, x.viewMode)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

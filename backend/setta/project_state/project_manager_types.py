@@ -9,6 +9,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    BrowserAreaViewMode,
     SectionSize,
     SectionType,
     SectionWithParamsDisplayMode,
@@ -267,6 +268,12 @@ class SetSectionWithParamsDisplayModeRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     displayMode: SectionWithParamsDisplayMode
+
+
+class SetBrowserAreaViewModeRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    viewMode: BrowserAreaViewMode
 
 
 class SetTextBlockFormatRequest(BaseModel):

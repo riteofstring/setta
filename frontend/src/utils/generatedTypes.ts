@@ -451,6 +451,7 @@ export const RouteEnum = {
   SET_SECTION_NAME: "/setSectionName",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
+  SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
   GROUP_SECTIONS: "/groupSections",
@@ -7855,6 +7856,22 @@ export function createSetActiveIdsRequest(
   options: Partial<SetActiveIdsRequest> = {},
 ): SetActiveIdsRequest {
   return SetActiveIdsRequestSchema.parse(options);
+}
+
+export const SetBrowserAreaViewModeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  viewMode: z.enum(BrowserAreaViewModeEnum),
+});
+
+export type SetBrowserAreaViewModeRequest = z.infer<
+  typeof SetBrowserAreaViewModeRequestSchema
+>;
+
+export function createSetBrowserAreaViewModeRequest(
+  options: Partial<SetBrowserAreaViewModeRequest> = {},
+): SetBrowserAreaViewModeRequest {
+  return SetBrowserAreaViewModeRequestSchema.parse(options);
 }
 
 export const SetCallableRequestSchema = z.object({

@@ -22,6 +22,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RedoRequest,
     SetActiveIdsRequest,
+    SetBrowserAreaViewModeRequest,
     SetCallableRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
@@ -390,6 +391,15 @@ async def route_set_section_with_params_display_mode(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_section_with_params_display_mode(x)
+
+
+@router.post(Route.SET_BROWSER_AREA_VIEW_MODE)
+async def route_set_browser_area_view_mode(
+    x: SetBrowserAreaViewModeRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_browser_area_view_mode(x)
 
 
 @router.post(Route.SET_TEXT_BLOCK_FORMAT)

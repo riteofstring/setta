@@ -99,6 +99,7 @@ class Route(str, Enum):
     SET_SECTION_NAME = "/setSectionName"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
     SET_SECTION_WITH_PARAMS_DISPLAY_MODE = "/setSectionWithParamsDisplayMode"
+    SET_BROWSER_AREA_VIEW_MODE = "/setBrowserAreaViewMode"
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_SOCIAL_URL = "/setSocialUrl"
     GROUP_SECTIONS = "/groupSections"

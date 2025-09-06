@@ -501,6 +501,12 @@ export async function route_set_section_with_params_display_mode(
   return await post("/setSectionWithParamsDisplayMode", x);
 }
 
+export async function route_set_browser_area_view_mode(
+  x: gt.SetBrowserAreaViewModeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setBrowserAreaViewMode", x);
+}
+
 export async function route_set_text_block_format(
   x: gt.SetTextBlockFormatRequest,
 ): Promise<ResponseDataAndStatus<null>> {

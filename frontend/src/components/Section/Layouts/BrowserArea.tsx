@@ -12,11 +12,13 @@ import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
 import {
   getCurrEffectiveSectionImplOfType,
-  setCurrEffectiveSectionImplValue,
+  getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
+import { useLocalPendingValue } from "state/hooks/utils";
+import { route_set_browser_area_view_mode } from "utils/generatedEndpoints";
 import {
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
@@ -385,11 +387,14 @@ function ItemsColumn({
   sectionId: string;
   viewMode: BrowserAreaViewMode;
 }) {
+  const [value, setValue] = useLocalPendingValue(viewMode);
+
   function setView(newView: BrowserAreaViewMode) {
-    useProjectState.setState((p) => {
-      setCurrEffectiveSectionImplValue<"BrowserSection">(p, sectionId, {
-        viewMode: newView,
-      });
+    setValue(newView);
+    route_set_browser_area_view_mode({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      viewMode: newView,
     });
   }
 
@@ -402,9 +407,9 @@ function ItemsColumn({
           </div>
           <FilterSection />
         </div>
-        <ViewSelector view={viewMode} setView={setView} />
+        <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch view={viewMode} sectionId={sectionId} />
+      <ViewSwitch view={value} sectionId={sectionId} />
     </div>
   );
 }
