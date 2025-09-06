@@ -222,18 +222,15 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
   for (const [k, v] of Object.entries(args)) {
-    // Resolve the value if it's a function
-    const resolvedValue =
-      typeof v === "function"
-        ? v(impl[k]) // Pass the current value to the updater
-        : v;
-
-    if (!impl.isPreset) {
-      impl[k] = resolvedValue;
-    } else if (core.unsharedKeys.includes(k)) {
-      variant.modifier[k] = resolvedValue;
+    if (!core.unsharedKeys.includes(k)) {
+      const current = core.sharedModifier[k];
+      core.sharedModifier[k] = typeof v === "function" ? v(current) : v;
+    } else if (!impl.isPreset) {
+      const current = impl[k];
+      impl[k] = typeof v === "function" ? v(current) : v;
     } else {
-      core.sharedModifier[k] = resolvedValue;
+      const current = variant.modifier[k];
+      variant.modifier[k] = typeof v === "function" ? v(current) : v;
     }
   }
   return getEffectiveImpl(impl, core, variant);

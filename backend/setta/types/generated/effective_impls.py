@@ -470,13 +470,13 @@ def set_effective_impl_value(  # type: ignore
     specific impl type.
     """
     for k, v in args.items():
-        if not impl.isPreset:
-            current = getattr(impl, k, None)
-            setattr(impl, k, v(current) if callable(v) else v)
-        elif k in core.unsharedKeys:
-            current = variant.modifier.get(k)
-            variant.modifier[k] = v(current) if callable(v) else v
-        else:
+        if k not in core.unsharedKeys:
             current = core.sharedModifier.get(k)
             core.sharedModifier[k] = v(current) if callable(v) else v
+        elif not impl.isPreset:
+            current = getattr(impl, k, None)
+            setattr(impl, k, v(current) if callable(v) else v)
+        else:
+            current = variant.modifier.get(k)
+            variant.modifier[k] = v(current) if callable(v) else v
     return get_effective_impl(impl, core, variant)
