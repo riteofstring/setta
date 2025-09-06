@@ -22,7 +22,7 @@ class TraversalOptions:
     build_name_paths: bool = False  # paths of names (ancestor_paths)
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
     build_nested_dict: bool = False
-    json_source_keys_prefix: list[str] = field(default_factory=list)
+    nested_dict_keys_prefix: list[str] = field(default_factory=list)
 
     # Collection
     collect_all_visited: bool = (
@@ -96,7 +96,7 @@ def traverse_hierarchy(
                 )
 
             # Build full key path
-            key_path = options.json_source_keys_prefix + new_name_path
+            key_path = options.nested_dict_keys_prefix + new_name_path
 
             if key_path:  # Only process if we have a path
                 # Navigate/create nested structure
