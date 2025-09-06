@@ -1,61 +1,9 @@
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useOriginalYamlObj, useProjectState } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
-import { route_section_to_yaml } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";
 import { parseRawDump, splitDocuments } from "./guiToYamlParsing";
 import { getCodeChildrenAndParentCodeInfoId } from "./sectionInfos";
-import { getParamIdsToShowInArea } from "./sections/sectionContents";
-
-export async function guiToYaml(sectionId, variantId) {
-  const sectionType = getSectionType(sectionId);
-  if (
-    sectionType !== UITypeNameEnum.GLOBAL_VARIABLES &&
-    sectionType !== UITypeNameEnum.SECTION
-  ) {
-    return;
-  }
-
-  const state = useProjectState.getState();
-  const { codeInfoChildren, parentCodeInfoId } =
-    getCodeChildrenAndParentCodeInfoId(null, state, variantId);
-  const codeInfo = state.codeInfo;
-  const pinnedIds = getParamIdsToShowInArea(
-    true,
-    codeInfo,
-    codeInfoChildren,
-    parentCodeInfoId,
-  );
-  const unpinnedIds = getParamIdsToShowInArea(
-    false,
-    codeInfo,
-    codeInfoChildren,
-    parentCodeInfoId,
-  );
-  pinnedIds.requiredParamIds = Object.keys(pinnedIds.requiredParamIdsToPaths);
-  unpinnedIds.requiredParamIds = Object.keys(
-    unpinnedIds.requiredParamIdsToPaths,
-  );
-  delete pinnedIds.requiredParamIdsToPaths;
-  delete unpinnedIds.requiredParamIdsToPaths;
-  const sectionVariant = state.variants[variantId];
-
-  const res = await route_section_to_yaml({
-    codeInfo,
-    codeInfoChildren,
-    sectionVariant,
-    pinnedIds,
-    unpinnedIds,
-  });
-  if (res200(res)) {
-    const { originalObj, yamlValue } = res.data;
-    useOriginalYamlObj.setState({
-      [variantId]: originalObj,
-    });
-    useYamlValue.setState({ [variantId]: yamlValue });
-  }
-}
 
 export function yamlToGUI(sectionId) {
   const variantId = useProjectState.getState().sections[sectionId].variantId;
