@@ -11,6 +11,7 @@ from setta.types.project_state import (
 from setta.types.section_impls import (
     SectionSize,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -260,6 +261,12 @@ class SetTextBlockDisplayModeRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     displayMode: TextBlockDisplayMode
+
+
+class SetSectionWithParamsDisplayModeRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    displayMode: SectionWithParamsDisplayMode
 
 
 class SetTextBlockFormatRequest(BaseModel):

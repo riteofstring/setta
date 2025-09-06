@@ -49,7 +49,7 @@ class ConfigLanguage(str, Enum):
     json = "json"
 
 
-class SectionWithParamDisplayMode(str, Enum):
+class SectionWithParamsDisplayMode(str, Enum):
     Gui = "Gui"
     Yaml = "Yaml"
 
@@ -115,7 +115,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
-    displayMode: SectionWithParamDisplayMode = SectionWithParamDisplayMode.Gui
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
 class BaseArtifactSectionImpl(BaseSectionImpl):

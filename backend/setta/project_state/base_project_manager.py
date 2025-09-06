@@ -57,6 +57,7 @@ from setta.project_state.project_manager_types import (
     SetSectionSizesRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionWithParamsDisplayModeRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -108,6 +109,7 @@ from setta.types.helpers import (
     set_section_sizes,
     set_section_variant,
     set_section_variant_name,
+    set_section_with_params_display_mode,
     set_social_url,
     set_text_block_display_mode,
     set_text_block_format,
@@ -808,6 +810,14 @@ class BaseProjectManager(ABC):
     async def set_text_block_display_mode(self, x: SetTextBlockDisplayModeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_text_block_display_mode(project_state, x.sectionId, x.displayMode)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_section_with_params_display_mode(
+        self, x: SetSectionWithParamsDisplayModeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_with_params_display_mode(project_state, x.sectionId, x.displayMode)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

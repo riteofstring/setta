@@ -112,7 +112,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
     SectionType,
     SectionSizeMode,
-    SectionWithParamDisplayMode
+    SectionWithParamsDisplayMode
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,

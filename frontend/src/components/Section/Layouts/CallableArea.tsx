@@ -1,3 +1,4 @@
+import { SectionYamlView } from "components/Params/YamlView";
 import _ from "lodash";
 import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
@@ -8,19 +9,24 @@ import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
 function _CallableArea({ sectionId, bgColor }) {
-  const { callable, hideParams } = useProjectState((x) => {
+  const { callable, hideParams, displayMode } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.Callable,
       true,
     );
-    const { callable, hideParams } = impl;
+    const { callable, hideParams, displayMode } = impl;
     return {
       callable,
       hideParams,
+      displayMode,
     };
   }, _.isEqual);
+
+  if (displayMode) {
+    return <SectionYamlView sectionId={sectionId} />;
+  }
 
   return (
     <>

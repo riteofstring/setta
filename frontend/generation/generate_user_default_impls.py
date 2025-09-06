@@ -196,7 +196,7 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
-    SectionWithParamDisplayMode,
+    SectionWithParamsDisplayMode,
 )
 
 # Code object type imports

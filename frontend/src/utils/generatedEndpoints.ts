@@ -495,6 +495,12 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
+export async function route_set_section_with_params_display_mode(
+  x: gt.SetSectionWithParamsDisplayModeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionWithParamsDisplayMode", x);
+}
+
 export async function route_set_text_block_format(
   x: gt.SetTextBlockFormatRequest,
 ): Promise<ResponseDataAndStatus<null>> {

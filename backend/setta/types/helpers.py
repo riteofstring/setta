@@ -77,6 +77,7 @@ from setta.types.section_impls import (
     ListRootSectionImpl,
     SectionSize,
     SectionType,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
@@ -1153,6 +1154,16 @@ def set_text_block_display_mode(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, TextBlockSectionImplArgsWithCallable(displayMode=displayMode)
+    )
+
+
+def set_section_with_params_display_mode(
+    p: ProjectStateSingleConfig,
+    sectionId: str,
+    displayMode: SectionWithParamsDisplayMode,
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, BaseSectionWithParamsImplArgsWithCallable(displayMode=displayMode)
     )
 
 

@@ -11,7 +11,7 @@ import { getSectionVariant } from "state/actions/sectionInfos";
 import { useProjectState, useYamlValue } from "state/definitions";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
 
-export function SectionYamlView({ sectionId }) {
+export function SectionYamlView({ sectionId }: { sectionId: string }) {
   const isDisabled = useProjectState(
     (x) => getSectionVariant(sectionId, x).isFrozen,
   );

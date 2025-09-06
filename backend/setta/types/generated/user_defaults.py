@@ -19,7 +19,7 @@ from setta.types.section_impls import (
     DrawAreaCanvasSettings,
     SectionSize,
     SectionSizeMode,
-    SectionWithParamDisplayMode,
+    SectionWithParamsDisplayMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     Visibility,
@@ -41,7 +41,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
-    displayMode: SectionWithParamDisplayMode = SectionWithParamDisplayMode.Gui
+    displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 
 class UserDefaultBaseArtifactSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):

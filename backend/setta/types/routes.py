@@ -98,6 +98,7 @@ class Route(str, Enum):
     SET_VIEWPORT = "/setViewport"
     SET_SECTION_NAME = "/setSectionName"
     SET_TEXT_BLOCK_DISPLAY_MODE = "/setTextBlockDisplayMode"
+    SET_SECTION_WITH_PARAMS_DISPLAY_MODE = "/setSectionWithParamsDisplayMode"
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_SOCIAL_URL = "/setSocialUrl"
     GROUP_SECTIONS = "/groupSections"

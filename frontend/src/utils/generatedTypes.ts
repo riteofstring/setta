@@ -300,13 +300,13 @@ export const SectionSizeModeEnum = { auto: "auto" } as const;
 
 export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
 
-export const SectionWithParamDisplayModeEnum = {
+export const SectionWithParamsDisplayModeEnum = {
   Gui: "Gui",
   Yaml: "Yaml",
 } as const;
 
-export type SectionWithParamDisplayMode = ObjectValues<
-  typeof SectionWithParamDisplayModeEnum
+export type SectionWithParamsDisplayMode = ObjectValues<
+  typeof SectionWithParamsDisplayModeEnum
 >;
 
 export const TextBlockDisplayModeEnum = {
@@ -442,6 +442,7 @@ export const RouteEnum = {
   SET_VIEWPORT: "/setViewport",
   SET_SECTION_NAME: "/setSectionName",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
+  SET_SECTION_WITH_PARAMS_DISPLAY_MODE: "/setSectionWithParamsDisplayMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
   GROUP_SECTIONS: "/groupSections",
@@ -1539,8 +1540,8 @@ export const CallableSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   callable: z.union([z.string(), z.null()]).default(null),
   hideParams: z.boolean().default(false),
 });
@@ -1580,8 +1581,8 @@ export const DictSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -1883,8 +1884,8 @@ export const GlobalVariablesSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -3025,7 +3026,7 @@ export const DictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
-  displayMode: z.enum(SectionWithParamDisplayModeEnum).optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamIds: z.array(z.string()).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -3063,7 +3064,7 @@ export const GlobalVariablesSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
-  displayMode: z.enum(SectionWithParamDisplayModeEnum).optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamIds: z.array(z.string()).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -3368,7 +3369,7 @@ export const CallableSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
-  displayMode: z.enum(SectionWithParamDisplayModeEnum).optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   callable: z.union([z.string(), z.null()]).optional(),
   hideParams: z.boolean().optional(),
 });
@@ -4299,8 +4300,8 @@ export const UserDefaultCallableSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   hideParams: z.boolean().default(false),
 });
 
@@ -4412,8 +4413,8 @@ export const UserDefaultDictSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
 });
@@ -4485,8 +4486,8 @@ export const UserDefaultGlobalVariablesSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
 });
@@ -5325,7 +5326,7 @@ export const BaseDictSectionImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
-  displayMode: z.enum(SectionWithParamDisplayModeEnum).optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
   topLevelParamIds: z.array(z.string()).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
@@ -5372,7 +5373,7 @@ export const BaseDictSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(z.string(), z.boolean()), z.any()])
     .optional(),
   displayMode: z
-    .union([z.enum(SectionWithParamDisplayModeEnum), z.any()])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
   topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
@@ -5599,7 +5600,7 @@ export const BaseSectionWithParamsImplArgsSchema = z.object({
   pinnedAreaHeight: z.union([z.number(), z.literal("auto")]).optional(),
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
-  displayMode: z.enum(SectionWithParamDisplayModeEnum).optional(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
 });
 
 export type BaseSectionWithParamsImplArgs = z.infer<
@@ -5642,7 +5643,7 @@ export const BaseSectionWithParamsImplArgsWithCallableSchema = z.object({
     .union([z.record(z.string(), z.boolean()), z.any()])
     .optional(),
   displayMode: z
-    .union([z.enum(SectionWithParamDisplayModeEnum), z.any()])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
 });
 
@@ -5713,7 +5714,7 @@ export const CallableSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(z.string(), z.boolean()), z.any()])
     .optional(),
   displayMode: z
-    .union([z.enum(SectionWithParamDisplayModeEnum), z.any()])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
   callable: z.union([z.string(), z.null(), z.any()]).optional(),
   hideParams: z.union([z.boolean(), z.any()]).optional(),
@@ -5939,7 +5940,7 @@ export const DictSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(z.string(), z.boolean()), z.any()])
     .optional(),
   displayMode: z
-    .union([z.enum(SectionWithParamDisplayModeEnum), z.any()])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
   topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
@@ -6069,7 +6070,7 @@ export const GlobalVariablesSectionImplArgsWithCallableSchema = z.object({
     .union([z.record(z.string(), z.boolean()), z.any()])
     .optional(),
   displayMode: z
-    .union([z.enum(SectionWithParamDisplayModeEnum), z.any()])
+    .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
   topLevelParamIds: z.union([z.array(z.string()), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
@@ -6662,8 +6663,8 @@ export const BaseDictSectionImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   topLevelParamIds: z.array(z.string()).default([]),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
@@ -6729,8 +6730,8 @@ export const BaseSectionWithParamsImplSchema = z.object({
   selectedParams: z.array(z.string()).default([]),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).default({}),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
 });
 
 export type BaseSectionWithParamsImpl = z.infer<
@@ -6946,8 +6947,8 @@ export const UserDefaultBaseDictSectionImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
 });
@@ -7042,8 +7043,8 @@ export const UserDefaultBaseSectionWithParamsImplSchema = z.object({
     .union([z.number(), z.literal("auto")])
     .default(SectionSizeModeEnum.auto),
   displayMode: z
-    .enum(SectionWithParamDisplayModeEnum)
-    .default(SectionWithParamDisplayModeEnum.Gui),
+    .enum(SectionWithParamsDisplayModeEnum)
+    .default(SectionWithParamsDisplayModeEnum.Gui),
 });
 
 export type UserDefaultBaseSectionWithParamsImpl = z.infer<
@@ -7140,6 +7141,22 @@ export function createProjectStateBackend(
   options: Partial<ProjectStateBackend> = {},
 ): ProjectStateBackend {
   return ProjectStateBackendSchema.parse(options);
+}
+
+export const SetSectionWithParamsDisplayModeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
+});
+
+export type SetSectionWithParamsDisplayModeRequest = z.infer<
+  typeof SetSectionWithParamsDisplayModeRequestSchema
+>;
+
+export function createSetSectionWithParamsDisplayModeRequest(
+  options: Partial<SetSectionWithParamsDisplayModeRequest> = {},
+): SetSectionWithParamsDisplayModeRequest {
+  return SetSectionWithParamsDisplayModeRequestSchema.parse(options);
 }
 
 export const SimplifiedCodeInfoSchema = z.object({
