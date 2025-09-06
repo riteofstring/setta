@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
 from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, Field
 
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy

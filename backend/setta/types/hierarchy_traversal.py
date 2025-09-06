@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
-from setta.types.code_obj_impls import BaseParentCodeObjImpl
+from setta.types.code_obj_impls import BaseChildlessCodeObjImpl, BaseParentCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.generated.unions import BaseCodeObjImplUnion
+from setta.utils.utils import try_json
 
 
 @dataclass
@@ -20,6 +21,8 @@ class TraversalOptions:
     build_id_paths: bool = True  # paths of IDs
     build_name_paths: bool = False  # paths of names (ancestor_paths)
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
+    build_nested_dict: bool = False
+    json_source_keys_prefix: list[str] = field(default_factory=list)
 
     # Collection
     collect_all_visited: bool = (
@@ -37,6 +40,7 @@ class HierarchyTraversalResult:
     id_path_map: dict[str, list[str]] = field(default_factory=dict)
     name_path_map: dict[str, list[str]] = field(default_factory=dict)
     all_visited_ids: set[str] = field(default_factory=set)
+    nested_dict: dict = field(default_factory=dict)
     early_stopped: bool = False
 
 
@@ -78,6 +82,32 @@ def traverse_hierarchy(
         new_name_path = current_name_path
         if options.build_name_paths and current_id in codeObjs:
             new_name_path = current_name_path + [codeObjs[current_id].name]
+
+        # NEW: Build nested dict if requested
+        if options.build_nested_dict:
+            # Extract value using provided extractor
+            if isinstance(impl, BaseChildlessCodeObjImpl):
+                value = try_json(impl.value)
+            elif isinstance(impl, BaseParentCodeObjImpl):
+                value = {}
+            else:
+                raise TypeError(
+                    f"Unexpected code object implementation type: {type(impl)}"
+                )
+
+            # Build full key path
+            key_path = options.json_source_keys_prefix + new_name_path
+
+            if key_path:  # Only process if we have a path
+                # Navigate/create nested structure
+                current_dict = result.nested_dict
+                for key in key_path[:-1]:
+                    if key not in current_dict:
+                        current_dict[key] = {}
+                    current_dict = current_dict[key]
+
+                # Set the value at the final key
+                current_dict[key_path[-1]] = value
 
         # Store path information
         if options.build_id_paths:
