@@ -1,10 +1,6 @@
 import _ from "lodash";
 import { getSectionType } from "state/actions/sectionInfos";
-import {
-  useOriginalYamlObj,
-  useProjectState,
-  useYamlValue,
-} from "state/definitions";
+import { useOriginalYamlObj, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import { route_section_to_yaml } from "utils/generatedEndpoints";
 import { createNewId } from "utils/idNameCreation";

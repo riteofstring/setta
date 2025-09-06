@@ -3,7 +3,10 @@ import _ from "lodash";
 import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  SectionWithParamsDisplayModeEnum,
+} from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
@@ -24,7 +27,7 @@ function _CallableArea({ sectionId, bgColor }) {
     };
   }, _.isEqual);
 
-  if (displayMode) {
+  if (displayMode === SectionWithParamsDisplayModeEnum.Yaml) {
     return <SectionYamlView sectionId={sectionId} />;
   }
 

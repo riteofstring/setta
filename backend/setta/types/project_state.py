@@ -66,6 +66,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
     parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
+    yamlValues: dict[str, str] = Field(default_factory=dict)
 
     def get_curr_section_variant(
         self,

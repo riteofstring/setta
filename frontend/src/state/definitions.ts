@@ -88,6 +88,7 @@ export const useProjectState = withProjectState(
           artifactGroups: {},
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
+          yamlValues: {},
           previewSectionVariantMap: {},
         })),
       ),
@@ -272,11 +273,6 @@ export const useMisc = withProjectState(
       })),
     ),
   ),
-);
-
-// maps from variantId to yaml
-export const useYamlValue = withProjectState(
-  createWithEqualityFn(withResetFn(() => {})),
 );
 
 // maps from variantId to yaml metadata

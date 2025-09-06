@@ -4059,6 +4059,7 @@ export const ProjectStateSingleConfigSchema = z.object({
   parentSectionMap: z
     .record(z.string(), z.union([z.string(), z.null()]))
     .default({}),
+  yamlValues: z.record(z.string(), z.string()).default({}),
 });
 
 export type ProjectStateSingleConfig = z.infer<
@@ -7143,22 +7144,6 @@ export function createProjectStateBackend(
   return ProjectStateBackendSchema.parse(options);
 }
 
-export const SetSectionWithParamsDisplayModeRequestSchema = z.object({
-  projectConfigId: z.string(),
-  sectionId: z.string(),
-  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
-});
-
-export type SetSectionWithParamsDisplayModeRequest = z.infer<
-  typeof SetSectionWithParamsDisplayModeRequestSchema
->;
-
-export function createSetSectionWithParamsDisplayModeRequest(
-  options: Partial<SetSectionWithParamsDisplayModeRequest> = {},
-): SetSectionWithParamsDisplayModeRequest {
-  return SetSectionWithParamsDisplayModeRequestSchema.parse(options);
-}
-
 export const SimplifiedCodeInfoSchema = z.object({
   name: z.string(),
   defaultVal: z.string().default("" as const),
@@ -8005,6 +7990,22 @@ export function createSetSectionVariantRequest(
   options: Partial<SetSectionVariantRequest> = {},
 ): SetSectionVariantRequest {
   return SetSectionVariantRequestSchema.parse(options);
+}
+
+export const SetSectionWithParamsDisplayModeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  displayMode: z.enum(SectionWithParamsDisplayModeEnum),
+});
+
+export type SetSectionWithParamsDisplayModeRequest = z.infer<
+  typeof SetSectionWithParamsDisplayModeRequestSchema
+>;
+
+export function createSetSectionWithParamsDisplayModeRequest(
+  options: Partial<SetSectionWithParamsDisplayModeRequest> = {},
+): SetSectionWithParamsDisplayModeRequest {
+  return SetSectionWithParamsDisplayModeRequestSchema.parse(options);
 }
 
 export const SetSocialUrlRequestSchema = z.object({

@@ -43,7 +43,7 @@ export function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   return effective;
 }
 
-export function getCurrSectionVariant(
+export function getCurrSectionVariantId(
   p: ZustandProjectState,
   sectionId: string,
   preview = false,
@@ -55,6 +55,15 @@ export function getCurrSectionVariant(
   if (variantId === undefined) {
     throw new Error();
   }
+  return variantId;
+}
+
+export function getCurrSectionVariant(
+  p: ZustandProjectState,
+  sectionId: string,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(p, sectionId, preview);
   return getSectionVariant(p, variantId);
 }
 

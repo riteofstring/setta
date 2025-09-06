@@ -5,7 +5,7 @@ import {
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useLocalValue } from "state/hooks/utils";
+import { useLocalPendingValue } from "state/hooks/utils";
 import { route_toggle_position_lock } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -26,7 +26,7 @@ export function LockPositionButton({ sectionId }) {
       : "[&>i]:!scale-50 [&>i]:!-mt-[9px]" // when isGroup && !positionAndSizeLocked
     : "[&>i]:!scale-[.4]"; // when !isGroup
 
-  const [value, setValue] = useLocalValue(positionAndSizeLocked);
+  const [value, setValue] = useLocalPendingValue(positionAndSizeLocked);
 
   function onClick() {
     setValue(!value);
