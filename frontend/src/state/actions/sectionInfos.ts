@@ -314,6 +314,20 @@ export function getCodeObjVariant(p: ZustandProjectState, variantId: string) {
   return variant;
 }
 
+export function getCurrShownParamIds(
+  p: ZustandProjectState,
+  sectionId: string,
+  isPinned: boolean,
+  preview = false,
+) {
+  const variantId = getCurrSectionVariantId(p, sectionId, preview);
+  const shown = p.shownParamIds[variantId];
+  if (!shown) {
+    throw new Error();
+  }
+  return isPinned ? shown.pinnedIds : shown.unpinnedIds;
+}
+
 export function getSectionInfo(sectionId) {
   return useProjectState.getState().sections[sectionId];
 }

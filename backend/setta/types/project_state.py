@@ -24,6 +24,16 @@ class SingletonSections(BaseModel, extra="forbid"):
     GenPythonCode: str | None = None
 
 
+class ShownParamIdDetails(BaseModel, extra="forbid"):
+    requiredParamIdsToPaths: dict[str, list[str]] = Field(default_factory=dict)
+    topLevelParamIds: list[str] = Field(default_factory=list)
+
+
+class ShownParamIds(BaseModel, extra="forbid"):
+    pinnedIds: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
+    unpinnedIds: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
+
+
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[str, Core] = Field(default_factory=dict)
     sectionImpls: dict[str, BaseSectionImplUnionWithDiscriminator] = Field(
@@ -67,6 +77,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     singletonSections: SingletonSections = Field(default_factory=SingletonSections)
     parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
     yamlValues: dict[str, str] = Field(default_factory=dict)
+    shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
 
     def get_curr_section_variant(
         self,

@@ -1,12 +1,6 @@
 import _ from "lodash";
-import {
-  getCurrEffectiveSectionImpl,
-  getCurrEffectiveSectionImplWithTypeGuard,
-} from "state/actions/sectionInfos";
-import {
-  getParamIdsToShowInArea,
-  paramNameFromPathArray,
-} from "state/actions/sections/sectionContents";
+import { getCurrEffectiveSectionImplWithTypeGuard } from "state/actions/sectionInfos";
+import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
 import { useProjectState } from "state/definitions";
 import {
   isBaseChildlessCodeObjImpl,
@@ -34,15 +28,5 @@ export function useParamIdsAndNamesForSidePane(sectionId: string) {
       });
     }
     return output;
-  }, _.isEqual);
-}
-
-export function useParamIdsToShowInArea(sectionId: string, isPinned: boolean) {
-  return useProjectState((x) => {
-    return getParamIdsToShowInArea(
-      x,
-      getCurrEffectiveSectionImpl(x, sectionId, true),
-      isPinned,
-    );
   }, _.isEqual);
 }

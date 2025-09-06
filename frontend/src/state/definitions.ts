@@ -89,6 +89,7 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           yamlValues: {},
+          shownParamIds: {},
           previewSectionVariantMap: {},
         })),
       ),

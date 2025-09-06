@@ -4009,6 +4009,34 @@ export function createSingletonSections(
   return SingletonSectionsSchema.parse(options);
 }
 
+export const ShownParamIdDetailsSchema = z.object({
+  requiredParamIdsToPaths: z
+    .record(z.string(), z.array(z.string()))
+    .default({}),
+  topLevelParamIds: z.array(z.string()).default([]),
+});
+
+export type ShownParamIdDetails = z.infer<typeof ShownParamIdDetailsSchema>;
+
+export function createShownParamIdDetails(
+  options: Partial<ShownParamIdDetails> = {},
+): ShownParamIdDetails {
+  return ShownParamIdDetailsSchema.parse(options);
+}
+
+export const ShownParamIdsSchema = z.object({
+  pinnedIds: ShownParamIdDetailsSchema.default(createShownParamIdDetails),
+  unpinnedIds: ShownParamIdDetailsSchema.default(createShownParamIdDetails),
+});
+
+export type ShownParamIds = z.infer<typeof ShownParamIdsSchema>;
+
+export function createShownParamIds(
+  options: Partial<ShownParamIds> = {},
+): ShownParamIds {
+  return ShownParamIdsSchema.parse(options);
+}
+
 export const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(z.string(), CoreSchema).default({}),
   sectionImpls: z
@@ -4060,6 +4088,7 @@ export const ProjectStateSingleConfigSchema = z.object({
     .record(z.string(), z.union([z.string(), z.null()]))
     .default({}),
   yamlValues: z.record(z.string(), z.string()).default({}),
+  shownParamIds: z.record(z.string(), ShownParamIdsSchema).default({}),
 });
 
 export type ProjectStateSingleConfig = z.infer<
