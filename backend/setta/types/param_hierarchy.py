@@ -172,11 +172,8 @@ def find_all_parameters_of_section(
 
 
 def get_param_ids_to_show_in_area(
-    p: "ProjectStateCore", impl: BaseSectionImpl, is_pinned: bool
+    p: "ProjectStateCore", impl: BaseSectionWithParamsImpl, is_pinned: bool
 ):
-    if not isinstance(impl, BaseSectionWithParamsImpl):
-        raise TypeError
-
     result = find_all_parameters_of_section(
         p,
         impl,

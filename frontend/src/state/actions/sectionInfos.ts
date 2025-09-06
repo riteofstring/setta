@@ -325,7 +325,7 @@ export function getCurrShownParamIds(
   if (!shown) {
     throw new Error();
   }
-  return isPinned ? shown.pinnedIds : shown.unpinnedIds;
+  return isPinned ? shown.pinned : shown.unpinned;
 }
 
 export function getSectionInfo(sectionId) {
