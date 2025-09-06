@@ -13,16 +13,21 @@ from setta.types.helpers import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.param_hierarchy import (
     ShownParamIds,
     get_param_ids_to_show,
+    get_root_code_obj_ids,
 )
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
+    BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
     SectionType,
+    SectionWithParamsDisplayMode,
 )
+import yaml
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 
@@ -90,6 +95,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         return self.validate_parent_section_map()
 
     @model_validator(mode="after")
+    def _validate_yaml_values(self):
+        return self.validate_yaml_values()
+
+    @model_validator(mode="after")
     def _validate_shown_param_ids(self):
         return self.validate_shown_param_ids()
 
@@ -128,6 +137,38 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId
+        return self
+
+    def validate_yaml_values(self):
+        output: dict[str, str] = {}
+        for s in self.sections.values():
+            for v in s.variants:
+                _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                if (
+                    not isinstance(impl, BaseSectionWithParamsImpl)
+                    or impl.displayMode != SectionWithParamsDisplayMode.Yaml
+                ):
+                    continue
+                root_ids = get_root_code_obj_ids(impl)
+                nested_dict_keys_prefix = (
+                    impl.jsonSourceKeys
+                    if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
+                    else []
+                )
+                hierarchy = traverse_hierarchy(
+                    self.codeObjs,
+                    self.codeObjImpls,
+                    self.codeObjVariants,
+                    impl.codeObjVariantMap,
+                    root_ids,
+                    TraversalOptions(
+                        build_name_paths=True,
+                        build_nested_dict=True,
+                        nested_dict_keys_prefix=nested_dict_keys_prefix,
+                    ),
+                )
+                output[v] = yaml.dump(hierarchy.nested_dict)
+        self.yamlValues = output
         return self
 
     def validate_shown_param_ids(self):

@@ -326,6 +326,7 @@ class BaseProjectManager(ABC):
         projectState.validate_singleton_sections()
         projectState.validate_parent_section_map()
         projectState.validate_shown_param_ids()
+        projectState.validate_yaml_values()
         self.used_files = set()
         dep_graph = DependencyGraph(projectState)
         projectConfig = projectState.projectConfig

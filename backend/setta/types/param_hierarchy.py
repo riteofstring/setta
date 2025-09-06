@@ -24,6 +24,15 @@ class ShownParamIds(BaseModel, extra="forbid"):
     unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
+def get_root_code_obj_ids(impl: BaseSectionWithParamsImpl):
+    if isinstance(impl, CallableSectionImpl):
+        return [impl.callable] if impl.callable else []
+    elif isinstance(impl, BaseDictSectionImpl):
+        return impl.topLevelParamIds
+    else:
+        raise TypeError(f"Unsupported section implementation type: {type(impl)}")
+
+
 def get_param_ids_to_show(
     p: "ProjectStateCore", impl: BaseSectionWithParamsImpl
 ) -> ShownParamIds:
@@ -32,12 +41,7 @@ def get_param_ids_to_show(
     Uses a single traversal followed by filtering.
     """
     # Determine root IDs based on section type
-    if isinstance(impl, CallableSectionImpl):
-        root_ids = [impl.callable] if impl.callable else []
-    elif isinstance(impl, BaseDictSectionImpl):
-        root_ids = impl.topLevelParamIds
-    else:
-        raise TypeError(f"Unsupported section implementation type: {type(impl)}")
+    root_ids = get_root_code_obj_ids(impl)
 
     # Single traversal to get all parameters and their relationships
     result = traverse_hierarchy(
