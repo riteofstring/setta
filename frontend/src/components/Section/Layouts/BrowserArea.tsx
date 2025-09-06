@@ -20,11 +20,11 @@ import { useResizableColumn } from "state/hooks/useResizableColumns";
 import { useLocalPendingValue } from "state/hooks/utils";
 import { route_set_browser_area_view_mode } from "utils/generatedEndpoints";
 import {
+  BrowserAreaItem,
   BrowserAreaViewMode,
   BrowserAreaViewModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { testItems } from "./BrowserArea/testitems";
 
 const artifactTypes = [
   // { type: "Select All" },
@@ -37,27 +37,27 @@ const artifactTypes = [
 ];
 
 export function BrowserArea({ sectionId }: { sectionId: string }) {
-  const { width, hideColumn, viewMode } = useProjectState((x) => {
-    const {
-      size: { width },
-      hideColumn,
-      viewMode,
-    } = getCurrEffectiveSectionImplOfType(
+  const { width, hideColumn, viewMode, items } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.Browser,
     );
     return {
-      width: width === "auto" ? getSectionRect(sectionId)?.width : width,
-      hideColumn,
-      viewMode,
+      width:
+        impl.size.width === "auto"
+          ? getSectionRect(sectionId)?.width
+          : impl.size.width,
+      hideColumn: impl.hideColumn,
+      viewMode: impl.viewMode,
+      items: impl.items,
     };
   }, _.isEqual);
 
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
       {!hideColumn && <TypesColumn width={width} />}
-      <ItemsColumn sectionId={sectionId} viewMode={viewMode} />
+      <ItemsColumn sectionId={sectionId} viewMode={viewMode} items={items} />
     </div>
   );
 }
@@ -135,7 +135,15 @@ function ViewSelector({
   );
 }
 
-function ThumbnailItem({ size = "96px", thumbnail, children }) {
+function ThumbnailItem({
+  size = "96px",
+  thumbnail,
+  children,
+}: {
+  size: string;
+  thumbnail: string;
+  children: React.ReactNode;
+}) {
   console.log("thumbnail: ", thumbnail);
   return (
     <div
@@ -347,14 +355,16 @@ function EnhancedThumbnailItem({ item, isSelected, onClick }) {
 function ViewSwitch({
   view,
   sectionId,
+  items,
 }: {
   view: BrowserAreaViewMode;
   sectionId: string;
+  items: Array<BrowserAreaItem>;
 }) {
   const { ref, isScrollable } = useIsScrollable();
   switch (view) {
     case BrowserAreaViewModeEnum.list:
-      return <ResizableFileList items={testItems} sectionId={sectionId} />;
+      return <ResizableFileList items={items} sectionId={sectionId} />;
 
     case BrowserAreaViewModeEnum.thumbnail:
       return (
@@ -363,7 +373,7 @@ function ViewSwitch({
           className={`nodrag h-full w-full overflow-y-auto overflow-x-hidden ${isScrollable ? "nowheel" : ""}`}
         >
           <div className="grid w-max max-w-full grid-flow-row auto-rows-min grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2 ">
-            {testItems.map((x) => (
+            {items.map((x) => (
               <ThumbnailItem key={x.id} thumbnail={x.content?.thumbnail}>
                 {x.id}
               </ThumbnailItem>
@@ -373,7 +383,7 @@ function ViewSwitch({
       );
 
     case BrowserAreaViewModeEnum.carousel:
-      return <EnhancedCarouselView items={testItems} />;
+      return <EnhancedCarouselView items={items} />;
 
     default:
       return view satisfies never;
@@ -383,9 +393,11 @@ function ViewSwitch({
 function ItemsColumn({
   sectionId,
   viewMode,
+  items,
 }: {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
+  items: Array<BrowserAreaItem>;
 }) {
   const [value, setValue] = useLocalPendingValue(viewMode);
 
@@ -409,7 +421,7 @@ function ItemsColumn({
         </div>
         <ViewSelector view={value} setView={setView} />
       </div>
-      <ViewSwitch view={value} sectionId={sectionId} />
+      <ViewSwitch view={value} sectionId={sectionId} items={items} />
     </div>
   );
 }

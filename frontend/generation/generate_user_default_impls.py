@@ -198,6 +198,7 @@ from setta.types.section_impls import (
     Visibility,
     SectionWithParamsDisplayMode,
     BrowserAreaViewMode,
+    BrowserAreaItem,
 )
 
 # Code object type imports

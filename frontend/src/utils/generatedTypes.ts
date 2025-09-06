@@ -464,6 +464,17 @@ export const RouteEnum = {
 
 export type Route = ObjectValues<typeof RouteEnum>;
 
+export const BrowserAreaItemTypeEnum = {
+  Image: "Image",
+  Video: "Video",
+  Text: "Text",
+  Data: "Data",
+  Brushes: "Brushes",
+  Other: "Other",
+} as const;
+
+export type BrowserAreaItemType = ObjectValues<typeof BrowserAreaItemTypeEnum>;
+
 export const BackgroundVariantEnum = {
   lines: "lines",
   dots: "dots",
@@ -1271,6 +1282,7 @@ export const AllImplFieldsSchema = z.literal([
   "isJsonSource",
   "isMinimized",
   "isPreset",
+  "items",
   "jsonSourceKeys",
   "jsonSourceMissing",
   "max",
@@ -1337,6 +1349,7 @@ export const CoreSchema = z.object({
         "isJsonSource",
         "isMinimized",
         "isPreset",
+        "items",
         "jsonSourceKeys",
         "jsonSourceMissing",
         "max",
@@ -1927,6 +1940,20 @@ export function createChatSectionImpl(
   return ChatSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
+export const BrowserAreaItemSchema = z.object({
+  id: z.string(),
+  type: z.any(),
+  lastModified: z.iso.datetime(),
+});
+
+export type BrowserAreaItem = z.infer<typeof BrowserAreaItemSchema>;
+
+export function createBrowserAreaItem(
+  options: Partial<BrowserAreaItem> = {},
+): BrowserAreaItem {
+  return BrowserAreaItemSchema.parse(options);
+}
+
 export const BrowserSectionImplSchema = z.object({
   type: z.literal("Browser").default(SectionTypeEnum.Browser),
   id: z.string().default(create_new_id),
@@ -1945,6 +1972,7 @@ export const BrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
+  items: z.array(BrowserAreaItemSchema).default([]),
 });
 
 export type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -3543,6 +3571,7 @@ export const BrowserSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
   viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
+  items: z.array(BrowserAreaItemSchema).optional(),
 });
 
 export type BrowserSectionImplArgs = z.infer<
@@ -4321,6 +4350,7 @@ export const UserDefaultBrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
+  items: z.array(BrowserAreaItemSchema).default([]),
 });
 
 export type UserDefaultBrowserSectionImpl = z.infer<
@@ -5697,6 +5727,7 @@ export const BrowserSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   hideColumn: z.union([z.boolean(), z.any()]).optional(),
   viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.any()]).optional(),
+  items: z.union([z.array(BrowserAreaItemSchema), z.any()]).optional(),
 });
 
 export type BrowserSectionImplArgsWithCallable = z.infer<
@@ -6472,6 +6503,7 @@ export const CoreArgsSchema = z.object({
         "isJsonSource",
         "isMinimized",
         "isPreset",
+        "items",
         "jsonSourceKeys",
         "jsonSourceMissing",
         "max",

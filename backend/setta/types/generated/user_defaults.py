@@ -13,6 +13,7 @@ from setta.types.code_obj_impls import (
 
 # Section type imports
 from setta.types.section_impls import (
+    BrowserAreaItem,
     BrowserAreaViewMode,
     ChartSettings,
     CodeLanguage,
@@ -158,6 +159,7 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     hideColumn: bool = False
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
+    items: list[BrowserAreaItem] = Field(default_factory=list)
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

@@ -12,6 +12,7 @@ from setta.types.project_config import (
     Viewport,
 )
 from setta.types.section_impls import (
+    BrowserAreaItem,
     BrowserAreaViewMode,
     ChartSettings,
     CodeLanguage,
@@ -68,6 +69,7 @@ class CoreArgs(TypedDict):
                 "isJsonSource",
                 "isMinimized",
                 "isPreset",
+                "items",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
                 "max",
@@ -455,6 +457,7 @@ class BrowserSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Browser]]
     hideColumn: NotRequired[bool]
     viewMode: NotRequired[BrowserAreaViewMode]
+    items: NotRequired[list[BrowserAreaItem]]
 
 
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -465,6 +468,9 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     hideColumn: NotRequired[bool | Callable[[bool], bool]]
     viewMode: NotRequired[
         BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
+    ]
+    items: NotRequired[
+        list[BrowserAreaItem] | Callable[[list[BrowserAreaItem]], list[BrowserAreaItem]]
     ]
 
 

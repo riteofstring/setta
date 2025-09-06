@@ -113,7 +113,8 @@ from setta.types.section_impls import (
     SectionType,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
-    BrowserAreaViewMode
+    BrowserAreaViewMode,
+    BrowserAreaItem
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,

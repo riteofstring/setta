@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 from typing import Any, Literal, Union
 
@@ -70,6 +71,15 @@ class BrowserAreaViewMode(str, Enum):
     carousel = "carousel"
 
 
+class BrowserAreaItemType(str, Enum):
+    Image = "Image"
+    Video = "Video"
+    Text = "Text"
+    Data = "Data"
+    Brushes = "Brushes"
+    Other = "Other"
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
@@ -93,6 +103,12 @@ class ChartSettings(BaseModel, extra="forbid"):
     xAxisLog: bool = False
     y1AxisLog: bool = False
     y2AxisLog: bool = False
+
+
+class BrowserAreaItem(BaseModel, extra="forbid"):
+    id: str
+    type: Any
+    lastModified: datetime
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -238,3 +254,4 @@ class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
     hideColumn: bool = False
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
+    items: list[BrowserAreaItem] = Field(default_factory=list)

@@ -33,6 +33,7 @@ AllImplFields = Literal[
     "isJsonSource",
     "isMinimized",
     "isPreset",
+    "items",
     "jsonSourceKeys",
     "jsonSourceMissing",
     "max",
