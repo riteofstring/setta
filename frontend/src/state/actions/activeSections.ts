@@ -50,9 +50,10 @@ export function selectAll() {
   if (currActiveSections.length === 1) {
     useProjectState.setState((state) => {
       const sectionId = currActiveSections[0];
-      const ids = getAllVisibleParamsInSection(sectionId, state);
-      for (const p of ids) {
-        state.codeInfo[p].isSelected = true;
+      if (sectionId) {
+        const ids = getAllVisibleParamsInSection(state, sectionId);
+        //TODO set selected params:
+        console.log("selectAll ids", ids);
       }
     });
   } else {

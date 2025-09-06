@@ -1,62 +1,10 @@
 import { ZustandProjectState } from "state/definitions";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { CodeObjPathMap } from "utils/getDescendants";
 import {
-  BaseSectionImplUnion,
-  isBaseParamCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-} from "utils/generatedTypes";
-import {
-  CodeObjPathMap,
-  findAllParametersOfSection,
-} from "utils/getDescendants";
-import { getCurrEffectiveSectionImpl } from "../sectionInfos";
-
-export function getParamIdsToShowInArea(
-  p: ZustandProjectState,
-  impl: BaseSectionImplUnion,
-  isPinned: boolean,
-) {
-  if (!isBaseSectionWithParamsImpl(impl)) {
-    throw new Error();
-  }
-  const { ids, pathMap, childrenMap } = findAllParametersOfSection(p, impl, {
-    output: isBaseParamCodeObjImpl,
-    paramPath: isBaseParamCodeObjImpl,
-  });
-  ids.reverse();
-
-  const topLevelParamIds: Array<string> = [];
-  const topLevelParamIdsSet: Set<string> = new Set();
-  const requiredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const a of ids) {
-    // Evalutes to true if:
-    // 1. The current param's isPinned matches the isPinned condition
-    // 2. And: either the param has no children or at least one of its children is required
-    // This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
-    if (
-      impl.pinnedParams.includes(a) === isPinned &&
-      (!childrenMap[a] ||
-        childrenMap[a].length === 0 ||
-        childrenMap[a].some((child) => child in requiredParamIdsToPaths))
-    ) {
-      const currPathMap = pathMap[a];
-      if (!currPathMap) {
-        throw new Error();
-      }
-      for (const p of currPathMap) {
-        requiredParamIdsToPaths[p] = pathMap[p] ?? [];
-        if (currPathMap[0] && !topLevelParamIdsSet.has(currPathMap[0])) {
-          topLevelParamIds.push(currPathMap[0]);
-          topLevelParamIdsSet.add(currPathMap[0]);
-        }
-      }
-    }
-  }
-
-  // unreverse results
-  topLevelParamIds.reverse();
-
-  return { requiredParamIdsToPaths, topLevelParamIds };
-}
+  getCurrEffectiveSectionImpl,
+  getCurrSectionVariantId,
+} from "../sectionInfos";
 
 export function paramNameFromPathArray(
   codeObjs: ZustandProjectState["codeObjs"],
@@ -87,16 +35,18 @@ export function getAllVisibleParamsInSection(
   if (!isBaseSectionWithParamsImpl(impl)) {
     return [];
   }
+  const variantId = getCurrSectionVariantId(state, sectionId);
+  const shown = state.shownParamIds[variantId];
+  if (!shown) {
+    return [];
+  }
 
-  const pinnedParams = getParamIdsToShowInArea(state, impl, true);
-
-  const pinnedIds = Object.keys(pinnedParams.requiredParamIdsToPaths);
+  const pinnedIds = Object.keys(shown.pinned.requiredParamIdsToPaths);
   pinnedIds.reverse();
 
   let unpinnedIds: Array<string> = [];
   if (!impl.hideUnpinnedParams) {
-    const unpinnedParams = getParamIdsToShowInArea(state, impl, false);
-    unpinnedIds = Object.keys(unpinnedParams.requiredParamIdsToPaths);
+    unpinnedIds = Object.keys(shown.unpinned.requiredParamIdsToPaths);
     unpinnedIds.reverse();
   }
 
