@@ -609,6 +609,8 @@ def dataclass_to_zod(model: type, processed_types: set):
                 zod_schema = f"{zod_schema}.default({{}})"
             elif default_factory is list:
                 zod_schema = f"{zod_schema}.default([])"
+            elif default_factory is set:
+                zod_schema = f"{zod_schema}.default(new Set())"
             else:
                 raise ValueError("this else case is not yet supported")
 

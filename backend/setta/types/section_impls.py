@@ -64,6 +64,12 @@ class TextBlockFormat(str, Enum):
     Markdown = "Markdown"
 
 
+class BrowserAreaViewMode(str, Enum):
+    list = "list"
+    thumbnail = "thumbnail"
+    carousel = "carousel"
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
@@ -231,3 +237,4 @@ class ChatSectionImpl(BaseSectionImpl):
 class BrowserSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Browser] = SectionType.Browser
     hideColumn: bool = False
+    viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list

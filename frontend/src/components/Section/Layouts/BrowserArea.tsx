@@ -10,11 +10,18 @@ import { HiOutlineViewGrid } from "react-icons/hi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { MdBrush, MdCategory, MdDataArray, MdList } from "react-icons/md";
 import { TbCarouselHorizontal } from "react-icons/tb";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { useResizableColumn } from "state/hooks/useResizableColumns";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  BrowserAreaViewMode,
+  BrowserAreaViewModeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { testItems } from "./BrowserArea/testitems";
 
 const artifactTypes = [
@@ -27,11 +34,12 @@ const artifactTypes = [
   { type: "Other", icon: <MdCategory /> },
 ];
 
-export function BrowserArea({ sectionId }) {
-  const { width, hideColumn } = useProjectState((x) => {
+export function BrowserArea({ sectionId }: { sectionId: string }) {
+  const { width, hideColumn, viewMode } = useProjectState((x) => {
     const {
       size: { width },
       hideColumn,
+      viewMode,
     } = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
@@ -40,18 +48,19 @@ export function BrowserArea({ sectionId }) {
     return {
       width: width === "auto" ? getSectionRect(sectionId)?.width : width,
       hideColumn,
+      viewMode,
     };
   }, _.isEqual);
 
   return (
     <div className="section-main -mr-3 mb-2 mt-2 flex min-w-0 flex-col-reverse gap-2 pr-2 @sm/multipane:flex-row @sm/multipane:gap-4  @sm/multipane:overflow-visible">
       {!hideColumn && <TypesColumn width={width} />}
-      <ItemsColumn sectionId={sectionId} />
+      <ItemsColumn sectionId={sectionId} viewMode={viewMode} />
     </div>
   );
 }
 
-function TypesColumn({ width }) {
+function TypesColumn({ width }: { width: number }) {
   const { ref, isScrollable } = useIsScrollable();
   return (
     <>
@@ -79,7 +88,17 @@ function TypesColumn({ width }) {
   );
 }
 
-function ViewSelectorButton({ view, setView, viewType, children }) {
+function ViewSelectorButton({
+  view,
+  setView,
+  viewType,
+  children,
+}: {
+  view: BrowserAreaViewMode;
+  setView: (newView: BrowserAreaViewMode) => void;
+  viewType: BrowserAreaViewMode;
+  children: React.ReactNode;
+}) {
   return (
     <button
       onClick={() => {
@@ -92,7 +111,13 @@ function ViewSelectorButton({ view, setView, viewType, children }) {
   );
 }
 
-function ViewSelector({ view, setView }) {
+function ViewSelector({
+  view,
+  setView,
+}: {
+  view: BrowserAreaViewMode;
+  setView: (newView: BrowserAreaViewMode) => void;
+}) {
   return (
     <div className="flex gap-0.5">
       <ViewSelectorButton view={view} setView={setView} viewType="list">
@@ -145,7 +170,7 @@ function ThumbnailItem({ size = "96px", thumbnail, children }) {
   );
 }
 
-function ResizableFileList({ items, sectionId, children }) {
+function ResizableFileList({ items, sectionId }) {
   const { headerRef, contentRef, handleResize, getRowProps } =
     useResizableColumn(sectionId, {
       minWidth: 80,
@@ -206,13 +231,12 @@ function ResizableFileList({ items, sectionId, children }) {
             </p>
           </div>
         ))}
-        {children}
       </div>
     </div>
   );
 }
 
-function EnhancedCarouselView({ items, children }) {
+function EnhancedCarouselView({ items }) {
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Find items with images for initial selection
@@ -272,7 +296,6 @@ function EnhancedCarouselView({ items, children }) {
           />
         ))}
       </article>
-      {children}
     </div>
   );
 }
@@ -319,17 +342,19 @@ function EnhancedThumbnailItem({ item, isSelected, onClick }) {
   );
 }
 
-function ViewSwitch({ view, children, sectionId }) {
+function ViewSwitch({
+  view,
+  sectionId,
+}: {
+  view: BrowserAreaViewMode;
+  sectionId: string;
+}) {
   const { ref, isScrollable } = useIsScrollable();
   switch (view) {
-    case "list":
-      return (
-        <ResizableFileList items={testItems} sectionId={sectionId}>
-          {children}
-        </ResizableFileList>
-      );
+    case BrowserAreaViewModeEnum.list:
+      return <ResizableFileList items={testItems} sectionId={sectionId} />;
 
-    case "thumbnail":
+    case BrowserAreaViewModeEnum.thumbnail:
       return (
         <div
           ref={ref}
@@ -341,25 +366,33 @@ function ViewSwitch({ view, children, sectionId }) {
                 {x.id}
               </ThumbnailItem>
             ))}
-            {children}
           </div>
         </div>
       );
 
-    case "carousel":
-      return (
-        <EnhancedCarouselView items={testItems}>
-          {children}
-        </EnhancedCarouselView>
-      );
+    case BrowserAreaViewModeEnum.carousel:
+      return <EnhancedCarouselView items={testItems} />;
 
     default:
-      return <>{children}</>;
+      return view satisfies never;
   }
 }
 
-function ItemsColumn({ sectionId }) {
-  const [view, setView] = useState("list");
+function ItemsColumn({
+  sectionId,
+  viewMode,
+}: {
+  sectionId: string;
+  viewMode: BrowserAreaViewMode;
+}) {
+  function setView(newView: BrowserAreaViewMode) {
+    useProjectState.setState((p) => {
+      setCurrEffectiveSectionImplValue<"BrowserSection">(p, sectionId, {
+        viewMode: newView,
+      });
+    });
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 max-w-full flex-1 flex-col">
       <div className="-mt-[4.5px] mb-1 flex flex-row">
@@ -369,9 +402,9 @@ function ItemsColumn({ sectionId }) {
           </div>
           <FilterSection />
         </div>
-        <ViewSelector view={view} setView={setView} />
+        <ViewSelector view={viewMode} setView={setView} />
       </div>
-      <ViewSwitch view={view} sectionId={sectionId} />
+      <ViewSwitch view={viewMode} sectionId={sectionId} />
     </div>
   );
 }

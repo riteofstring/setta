@@ -52,5 +52,6 @@ AllImplFields = Literal[
     "type",
     "url",
     "value",
+    "viewMode",
     "visibility",
 ]

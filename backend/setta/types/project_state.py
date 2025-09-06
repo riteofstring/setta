@@ -1,3 +1,4 @@
+import yaml
 from pydantic import (
     BaseModel,
     Field,
@@ -14,11 +15,6 @@ from setta.types.helpers import (
     get_variant_base_and_effective_section_impl,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
-from setta.types.shown_params import (
-    ShownParamIds,
-    get_param_ids_to_show,
-    get_root_code_obj_ids,
-)
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseDictSectionImpl,
@@ -27,7 +23,11 @@ from setta.types.section_impls import (
     SectionType,
     SectionWithParamsDisplayMode,
 )
-import yaml
+from setta.types.shown_params import (
+    ShownParamIds,
+    get_param_ids_to_show,
+    get_root_code_obj_ids,
+)
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
 

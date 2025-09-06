@@ -152,7 +152,7 @@ export function useSectionMinMaxDims(sectionId) {
 export function useIsScrollable() {
   const [isScrollableVertical, setIsScrollableVertical] = useState(false);
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
-  const elementRef = useRef(null);
+  const elementRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!elementRef.current) return;

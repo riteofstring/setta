@@ -12,6 +12,7 @@ from setta.types.project_config import (
     Viewport,
 )
 from setta.types.section_impls import (
+    BrowserAreaViewMode,
     ChartSettings,
     CodeLanguage,
     ConfigLanguage,
@@ -86,6 +87,7 @@ class CoreArgs(TypedDict):
                 "type",
                 "url",
                 "value",
+                "viewMode",
                 "visibility",
             ]
         ]
@@ -452,6 +454,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 class BrowserSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Browser]]
     hideColumn: NotRequired[bool]
+    viewMode: NotRequired[BrowserAreaViewMode]
 
 
 class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -460,6 +463,9 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Browser]], Literal[SectionType.Browser]]
     ]
     hideColumn: NotRequired[bool | Callable[[bool], bool]]
+    viewMode: NotRequired[
+        BrowserAreaViewMode | Callable[[BrowserAreaViewMode], BrowserAreaViewMode]
+    ]
 
 
 class BaseCodeObjImplArgs(TypedDict):

@@ -288,6 +288,14 @@ export const SectionTypeEnum = {
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+
+export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
+
 export const CodeLanguageEnum = { python: "python", bash: "bash" } as const;
 
 export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
@@ -1281,6 +1289,7 @@ export const AllImplFieldsSchema = z.literal([
   "type",
   "url",
   "value",
+  "viewMode",
   "visibility",
 ]);
 
@@ -1346,6 +1355,7 @@ export const CoreSchema = z.object({
         "type",
         "url",
         "value",
+        "viewMode",
         "visibility",
       ]),
     )
@@ -1931,6 +1941,9 @@ export const BrowserSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
+  viewMode: z
+    .enum(BrowserAreaViewModeEnum)
+    .default(BrowserAreaViewModeEnum.list),
 });
 
 export type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -3528,6 +3541,7 @@ export const BrowserSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   hideColumn: z.boolean().optional(),
+  viewMode: z.enum(BrowserAreaViewModeEnum).optional(),
 });
 
 export type BrowserSectionImplArgs = z.infer<
@@ -4303,6 +4317,9 @@ export const UserDefaultBrowserSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideColumn: z.boolean().default(false),
+  viewMode: z
+    .enum(BrowserAreaViewModeEnum)
+    .default(BrowserAreaViewModeEnum.list),
 });
 
 export type UserDefaultBrowserSectionImpl = z.infer<
@@ -5678,6 +5695,7 @@ export const BrowserSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   hideColumn: z.union([z.boolean(), z.any()]).optional(),
+  viewMode: z.union([z.enum(BrowserAreaViewModeEnum), z.any()]).optional(),
 });
 
 export type BrowserSectionImplArgsWithCallable = z.infer<
@@ -6472,6 +6490,7 @@ export const CoreArgsSchema = z.object({
         "type",
         "url",
         "value",
+        "viewMode",
         "visibility",
       ]),
     )
@@ -6506,36 +6525,6 @@ export function createProjectConfigArgs(
   options: Partial<ProjectConfigArgs> = {},
 ): ProjectConfigArgs {
   return ProjectConfigArgsSchema.parse(options);
-}
-
-export const AllDescendantsSchema = z.object({
-  ids: z.array(z.string()),
-  path_map: z.record(z.string(), z.array(z.string())),
-  children_map: z.record(z.string(), z.array(z.string())),
-  early_return_triggered: z.boolean(),
-});
-
-export type AllDescendants = z.infer<typeof AllDescendantsSchema>;
-
-export function createAllDescendants(
-  options: Partial<AllDescendants> = {},
-): AllDescendants {
-  return AllDescendantsSchema.parse(options);
-}
-
-export const ConditionFnsSchema = z.object({
-  output: z.union([z.any(), z.null()]),
-  stack: z.union([z.any(), z.null()]),
-  param_path: z.union([z.any(), z.null()]),
-  early_return: z.union([z.any(), z.null()]),
-});
-
-export type ConditionFns = z.infer<typeof ConditionFnsSchema>;
-
-export function createConditionFns(
-  options: Partial<ConditionFns> = {},
-): ConditionFns {
-  return ConditionFnsSchema.parse(options);
 }
 
 export const ArtifactWithIdSchema = z.object({
@@ -8599,6 +8588,49 @@ export function createRunCodeRequest(
   options: Partial<RunCodeRequest> = {},
 ): RunCodeRequest {
   return RunCodeRequestSchema.parse(options);
+}
+
+export const HierarchyTraversalResultSchema = z.object({
+  collected_ids: z.array(z.string()).default([]),
+  parent_map: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
+  children_map: z.record(z.string(), z.array(z.string())).default({}),
+  id_path_map: z.record(z.string(), z.array(z.string())).default({}),
+  name_path_map: z.record(z.string(), z.array(z.string())).default({}),
+  all_visited_ids: z.set(z.string()).default(new Set()),
+  nested_dict: z.record(z.string(), z.any()).default({}),
+  early_stopped: z.boolean().default(false),
+});
+
+export type HierarchyTraversalResult = z.infer<
+  typeof HierarchyTraversalResultSchema
+>;
+
+export function createHierarchyTraversalResult(
+  options: Partial<HierarchyTraversalResult> = {},
+): HierarchyTraversalResult {
+  return HierarchyTraversalResultSchema.parse(options);
+}
+
+export const TraversalOptionsSchema = z.object({
+  collect_filter: z.union([z.any(), z.null()]).default(null),
+  traverse_filter: z.union([z.any(), z.null()]).default(null),
+  early_stop: z.union([z.any(), z.null()]).default(null),
+  build_parent_map: z.boolean().default(true),
+  build_children_map: z.boolean().default(true),
+  build_id_paths: z.boolean().default(true),
+  build_name_paths: z.boolean().default(false),
+  track_path_for: z.union([z.any(), z.null()]).default(null),
+  build_nested_dict: z.boolean().default(false),
+  nested_dict_keys_prefix: z.array(z.string()).default([]),
+  collect_all_visited: z.boolean().default(false),
+});
+
+export type TraversalOptions = z.infer<typeof TraversalOptionsSchema>;
+
+export function createTraversalOptions(
+  options: Partial<TraversalOptions> = {},
+): TraversalOptions {
+  return TraversalOptionsSchema.parse(options);
 }
 
 export const SettaLSPPositionSchema = z.object({
