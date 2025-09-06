@@ -1,14 +1,30 @@
 from typing import Callable, TypedDict
-from setta.types.code_obj_impls import BaseParentCodeObjImpl
+from pydantic import BaseModel, Field
+from setta.types.code_obj_impls import BaseParamCodeObjImpl, BaseParentCodeObjImpl
 from setta.types.copy import BaseDictSectionImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
-from setta.types.project_state import (
-    ProjectStateCore,
-    ShownParamIdDetails,
+from setta.types.generated.unions import BaseCodeObjImplUnion
+from setta.types.section_impls import (
+    BaseSectionImpl,
+    BaseSectionWithParamsImpl,
+    CallableSectionImpl,
 )
-from setta.types.section_impls import BaseSectionWithParamsImpl, CallableSectionImpl
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from setta.types.project_state import ProjectStateCore
+
+
+class ShownParamIdDetails(BaseModel, extra="forbid"):
+    requiredParamIdsToPaths: dict[str, list[str]] = Field(default_factory=dict)
+    topLevelParamIds: list[str] = Field(default_factory=list)
+
+
+class ShownParamIds(BaseModel, extra="forbid"):
+    pinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
+    unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
 class ConditionFns(TypedDict):
@@ -132,7 +148,7 @@ def get_all_descendants(
 
 
 def find_all_parameters_of_section(
-    p: ProjectStateCore, impl: BaseSectionImplUnion, conditions: ConditionFns
+    p: ProjectStateCore, impl: BaseSectionImpl, conditions: ConditionFns
 ):
     if isinstance(impl, CallableSectionImpl):
         return get_all_descendants(
@@ -155,7 +171,9 @@ def find_all_parameters_of_section(
     raise TypeError
 
 
-def get_param_ids_to_show_in_area(p, impl, is_pinned):
+def get_param_ids_to_show_in_area(
+    p: ProjectStateCore, impl: BaseSectionImpl, is_pinned: bool
+):
     if not isinstance(impl, BaseSectionWithParamsImpl):
         raise TypeError
 
@@ -163,8 +181,10 @@ def get_param_ids_to_show_in_area(p, impl, is_pinned):
         p,
         impl,
         {
-            "output": is_base_param_code_obj_impl,
-            "param_path": is_base_param_code_obj_impl,
+            "output": lambda x: isinstance(x, BaseParamCodeObjImpl),
+            "stack": None,
+            "param_path": lambda x: isinstance(x, BaseParamCodeObjImpl),
+            "early_return": None,
         },
     )
 
@@ -174,26 +194,26 @@ def get_param_ids_to_show_in_area(p, impl, is_pinned):
 
     ids.reverse()
 
-    top_level_param_ids = []
-    top_level_param_ids_set = set()
-    required_param_ids_to_paths = {}
+    top_level_param_ids: list[str] = []
+    top_level_param_ids_set: set[str] = set()
+    required_param_ids_to_paths: dict[str, list[str]] = {}
 
     for a in ids:
         # Evaluates to true if:
         # 1. The current param's is_pinned matches the is_pinned condition
         # 2. And: either the param has no children or at least one of its children is required
         # This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
-        if (a in impl.pinned_params) == is_pinned and (
+        if (a in impl.pinnedParams) == is_pinned and (
             a not in children_map
             or len(children_map[a]) == 0
             or any(child in required_param_ids_to_paths for child in children_map[a])
         ):
             curr_path_map = path_map.get(a)
             if curr_path_map is None:
-                raise Exception()
+                raise ValueError
 
-            for p in curr_path_map:
-                required_param_ids_to_paths[p] = path_map.get(p, [])
+            for paramId in curr_path_map:
+                required_param_ids_to_paths[paramId] = path_map.get(paramId, [])
                 if curr_path_map and curr_path_map[0] not in top_level_param_ids_set:
                     top_level_param_ids.append(curr_path_map[0])
                     top_level_param_ids_set.add(curr_path_map[0])

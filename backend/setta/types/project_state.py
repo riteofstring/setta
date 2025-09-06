@@ -10,6 +10,8 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
+from setta.types.helpers import get_variant_base_and_effective_section_impl
+from setta.types.param_hierarchy import ShownParamIds, get_param_ids_to_show_in_area
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseParentSectionImpl,
@@ -22,16 +24,6 @@ SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPytho
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: str | None = None
     GenPythonCode: str | None = None
-
-
-class ShownParamIdDetails(BaseModel, extra="forbid"):
-    requiredParamIdsToPaths: dict[str, list[str]] = Field(default_factory=dict)
-    topLevelParamIds: list[str] = Field(default_factory=list)
-
-
-class ShownParamIds(BaseModel, extra="forbid"):
-    pinnedIds: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
-    unpinnedIds: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
 class ProjectStateCore(BaseModel, extra="forbid"):
@@ -107,6 +99,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def _validate_parent_section_map(self):
         return self.validate_parent_section_map()
 
+    @model_validator(mode="after")
+    def _validate_shown_param_ids(self):
+        return self.validate_shown_param_ids()
+
     def validate_singleton_sections(self):
         output = SingletonSections()
         found = set()
@@ -142,6 +138,17 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
             if isinstance(impl, BaseParentSectionImpl):
                 for c in impl.children:
                     self.parentSectionMap[c] = sectionId
+        return self
+
+    def validate_shown_param_ids(self):
+        output: dict[str, ShownParamIds] = {}
+        for s in self.sections.values():
+            for v in s.variants:
+                _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                pinned = get_param_ids_to_show_in_area(self, impl, True)
+                unpinned = get_param_ids_to_show_in_area(self, impl, False)
+                output[v] = ShownParamIds(pinned=pinned, unpinned=unpinned)
+        self.shownParamIds = output
         return self
 
 
