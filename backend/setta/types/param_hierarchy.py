@@ -1,14 +1,10 @@
-from typing import TYPE_CHECKING, Callable, TypedDict
-
 from pydantic import BaseModel, Field
+from typing import TYPE_CHECKING
 
-from setta.types.code_obj_impls import BaseParamCodeObjImpl, BaseParentCodeObjImpl
-from setta.types.core import Core, Variant
-from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.generated.unions import BaseCodeObjImplUnion
+from setta.types.code_obj_impls import BaseParamCodeObjImpl
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.section_impls import (
     BaseDictSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     CallableSectionImpl,
 )
@@ -27,198 +23,146 @@ class ShownParamIds(BaseModel, extra="forbid"):
     unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
-class ConditionFns(TypedDict):
-    output: Callable[[BaseCodeObjImplUnion], bool] | None
-    stack: Callable[[BaseCodeObjImplUnion], bool] | None
-    param_path: Callable[[BaseCodeObjImplUnion], bool] | None
-    early_return: Callable[[BaseCodeObjImplUnion], bool] | None
-
-
-class AllDescendants(TypedDict):
-    ids: list[str]
-    path_map: dict[str, list[str]]
-    children_map: dict[str, list[str]]
-    early_return_triggered: bool
-
-
-def get_effective_code_obj_impl_from_variant_map(
-    id: str,
-    impls: dict[str, BaseCodeObjImplUnion],
-    cores: dict[str, Core],
-    variants: dict[str, Variant],
-    variant_map: dict[str, str],
-):
-    variant_id = variant_map[id]
-    variant = variants[variant_id]
-    return get_effective_impl(impls[variant.impl], cores[id], variant)
-
-
-def get_all_descendants(
-    impls: dict[str, BaseCodeObjImplUnion],
-    cores: dict[str, Core],
-    variants: dict[str, Variant],
-    variant_map: dict[str, str],
-    ids: list[str],
-    conditions: ConditionFns,
-):
-    output: list[str] = []
-    visited: set[str] = set()
-    path_map: dict[str, list[str]] = {}
-    children_map: dict[str, list[str]] = {}
-
-    if conditions["stack"]:
-        id_stack: list[str] = []
-        for id in reversed(ids):
-            impl = get_effective_code_obj_impl_from_variant_map(
-                id, impls, cores, variants, variant_map
-            )
-            if conditions["stack"](impl):
-                id_stack.append(id)
-    else:
-        id_stack = list(reversed(ids))
-
-    if conditions["param_path"]:
-        for id in id_stack:
-            if conditions["param_path"](
-                get_effective_code_obj_impl_from_variant_map(
-                    id, impls, cores, variants, variant_map
-                )
-            ):
-                path_map[id] = [id]
-            else:
-                path_map[id] = []
-
-    while len(id_stack) > 0:
-        id = id_stack.pop()
-        if not id or id in visited:
-            continue
-
-        visited.add(id)
-        impl = get_effective_code_obj_impl_from_variant_map(
-            id, impls, cores, variants, variant_map
-        )
-
-        if conditions["output"] and conditions["output"](impl):
-            output.append(id)
-
-        if (not conditions["stack"] or conditions["stack"](impl)) and isinstance(
-            impl, BaseParentCodeObjImpl
-        ):
-            children = impl.children
-            children_map[id] = children
-            children = list(reversed(children[:]))
-
-            if conditions["param_path"]:
-                current_path = path_map.get(id, [])
-                for child_id in children:
-                    child_impl = get_effective_code_obj_impl_from_variant_map(
-                        child_id, impls, cores, variants, variant_map
-                    )
-                    if conditions["param_path"](child_impl):
-                        path_map[child_id] = current_path + [child_id]
-                    else:
-                        path_map[child_id] = list(current_path)
-
-            id_stack.extend(children)
-
-        if len(output) > 0:
-            last_id = output[-1]
-            if (
-                last_id
-                and conditions["early_return"]
-                and conditions["early_return"](
-                    get_effective_code_obj_impl_from_variant_map(
-                        last_id, impls, cores, variants, variant_map
-                    )
-                )
-            ):
-                return AllDescendants(
-                    ids=output,
-                    path_map=path_map,
-                    children_map=children_map,
-                    early_return_triggered=True,
-                )
-
-    return AllDescendants(
-        ids=output,
-        path_map=path_map,
-        children_map=children_map,
-        early_return_triggered=False,
-    )
-
-
-def find_all_parameters_of_section(
-    p: "ProjectStateCore", impl: BaseSectionImpl, conditions: ConditionFns
-):
+def get_param_ids_to_show(
+    p: "ProjectStateCore", impl: BaseSectionWithParamsImpl
+) -> ShownParamIds:
+    """
+    Get both pinned and unpinned parameter IDs for UI display.
+    Uses a single traversal followed by filtering.
+    """
+    # Determine root IDs based on section type
     if isinstance(impl, CallableSectionImpl):
-        return get_all_descendants(
-            p.codeObjImpls,
-            p.codeObjs,
-            p.codeObjVariants,
-            impl.codeObjVariantMap,
-            [impl.callable] if impl.callable else [],
-            conditions,
-        )
+        root_ids = [impl.callable] if impl.callable else []
     elif isinstance(impl, BaseDictSectionImpl):
-        return get_all_descendants(
-            p.codeObjImpls,
-            p.codeObjs,
-            p.codeObjVariants,
-            impl.codeObjVariantMap,
-            impl.topLevelParamIds,
-            conditions,
-        )
-    raise TypeError
+        root_ids = impl.topLevelParamIds
+    else:
+        raise TypeError(f"Unsupported section implementation type: {type(impl)}")
+
+    # Single traversal to get all parameters and their relationships
+    result = traverse_hierarchy(
+        p.codeObjs,
+        p.codeObjImpls,
+        p.codeObjVariants,
+        impl.codeObjVariantMap,
+        root_ids,
+        TraversalOptions(
+            collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
+            track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
+            build_name_paths=False,  # Don't need names for UI display
+            build_parent_map=False,  # Don't need parent map, we have children_map
+        ),
+    )
+
+    # Filter into pinned/unpinned for UI display
+    return filter_for_ui_display(
+        param_ids=result.collected_ids,
+        path_map=result.id_path_map,
+        children_map=result.children_map,
+        pinned_params=set(impl.pinnedParams),
+    )
 
 
-def get_param_ids_to_show_in_area(
-    p: "ProjectStateCore", impl: BaseSectionWithParamsImpl, is_pinned: bool
+def filter_for_ui_display(
+    param_ids: list[str],
+    path_map: dict[str, list[str]],
+    children_map: dict[str, list[str]],
+    pinned_params: set[str],
+) -> ShownParamIds:
+    """
+    Filter parameters for UI display where:
+    - Pinned area shows: all pinned params + their descendants + ancestors to reach them
+    - Unpinned area shows: all unpinned params + ancestors to reach them
+
+    Parameters can appear in BOTH areas if they have both pinned and unpinned descendants.
+    This preserves the complete tree structure in both views.
+    """
+    # Step 1: Determine which params belong in each area
+    params_for_pinned_area: set[str] = set()
+    params_for_unpinned_area: set[str] = set()
+
+    # For each pinned parameter: add it, its ancestors, and descendants
+    for param_id in param_ids:
+        if param_id in pinned_params:
+            # Add the param itself and all ancestors
+            curr_path = path_map.get(param_id, [])
+            for path_param_id in curr_path:
+                params_for_pinned_area.add(path_param_id)
+            # Add all descendants
+            _add_descendants(param_id, children_map, params_for_pinned_area)
+
+    # For each unpinned parameter: add it and its ancestors
+    for param_id in param_ids:
+        if param_id not in pinned_params:
+            curr_path = path_map.get(param_id, [])
+            for path_param_id in curr_path:
+                params_for_unpinned_area.add(path_param_id)
+
+    # Step 2: Build areas, filtering out empty parent nodes
+    pinned_result = _build_area(
+        param_ids, params_for_pinned_area, path_map, children_map
+    )
+    unpinned_result = _build_area(
+        param_ids, params_for_unpinned_area, path_map, children_map
+    )
+
+    return ShownParamIds(pinned=pinned_result, unpinned=unpinned_result)
+
+
+def _add_descendants(
+    param_id: str, children_map: dict[str, list[str]], target_set: set[str]
 ):
-    result = find_all_parameters_of_section(
-        p,
-        impl,
-        {
-            "output": lambda x: isinstance(x, BaseParamCodeObjImpl),
-            "stack": None,
-            "param_path": lambda x: isinstance(x, BaseParamCodeObjImpl),
-            "early_return": None,
-        },
+    """Recursively add all descendants of a parameter to the target set."""
+    for child_id in children_map.get(param_id, []):
+        target_set.add(child_id)
+        _add_descendants(child_id, children_map, target_set)
+
+
+def _should_include_param(
+    param_id: str, candidates: set[str], children_map: dict[str, list[str]]
+) -> bool:
+    """Check if a param should be included (is a leaf or has children in candidates)."""
+    if param_id not in candidates:
+        return False
+
+    children = children_map.get(param_id, [])
+    if not children:  # Leaf node
+        return True
+
+    # Has children - include only if at least one child is also included
+    return any(
+        _should_include_param(child, candidates, children_map)
+        for child in children
+        if child in candidates
     )
 
-    ids = result["ids"]
-    path_map = result["path_map"]
-    children_map = result["children_map"]
 
-    ids.reverse()
+def _build_area(
+    param_ids: list[str],
+    candidates: set[str],
+    path_map: dict[str, list[str]],
+    children_map: dict[str, list[str]],
+) -> ShownParamIdDetails:
+    """Build a area including only params that are leaves or have children in the area."""
+    result = ShownParamIdDetails()
+    included = set()
 
-    top_level_param_ids: list[str] = []
-    top_level_param_ids_set: set[str] = set()
-    required_param_ids_to_paths: dict[str, list[str]] = {}
+    # Build the result for params that should be included
+    for param_id in param_ids:
+        if _should_include_param(param_id, candidates, children_map):
+            path = path_map.get(param_id, [])
+            for path_param_id in path:
+                result.requiredParamIdsToPaths[path_param_id] = path_map.get(
+                    path_param_id, []
+                )
+            included.add(param_id)
 
-    for a in ids:
-        # Evaluates to true if:
-        # 1. The current param's is_pinned matches the is_pinned condition
-        # 2. And: either the param has no children or at least one of its children is required
-        # This logic is why it's REQUIRED for ids to be reversed (processed starting with children up to ancestors)
-        if (a in impl.pinnedParams) == is_pinned and (
-            a not in children_map
-            or len(children_map[a]) == 0
-            or any(child in required_param_ids_to_paths for child in children_map[a])
-        ):
-            curr_path_map = path_map.get(a)
-            if curr_path_map is None:
-                raise ValueError
+    # Identify top-level params (those with no parents in the included set)
+    for param_id in param_ids:
+        if param_id in included:
+            has_parent = any(
+                param_id in children_map.get(other, []) for other in included
+            )
+            if not has_parent:
+                result.topLevelParamIds.append(param_id)
 
-            for paramId in curr_path_map:
-                required_param_ids_to_paths[paramId] = path_map.get(paramId, [])
-                if curr_path_map and curr_path_map[0] not in top_level_param_ids_set:
-                    top_level_param_ids.append(curr_path_map[0])
-                    top_level_param_ids_set.add(curr_path_map[0])
-
-    # unreverse results
-    top_level_param_ids.reverse()
-
-    return ShownParamIdDetails(
-        requiredParamIdsToPaths=required_param_ids_to_paths,
-        topLevelParamIds=top_level_param_ids,
-    )
+    return result

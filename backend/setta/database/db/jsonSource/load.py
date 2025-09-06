@@ -4,7 +4,6 @@ from typing import Iterable
 
 from pydantic import BaseModel, Field
 
-from setta.database.db.jsonSource.save import build_ancestor_paths
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeObjType,
@@ -35,6 +34,7 @@ from setta.types.helpers import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import (
     ProjectStateCore,
 )
@@ -105,36 +105,44 @@ def merge_into_existing(
     section_impl: BaseDictSectionImplUnion,
     section_variant: Variant,
 ):
-    ancestor_paths = build_ancestor_paths(
+    hierarchy = traverse_hierarchy(
         p.codeObjs,
         p.codeObjImpls,
         p.codeObjVariants,
         section_impl.codeObjVariantMap,
         section_impl.topLevelParamIds,
+        TraversalOptions(
+            collect_all_visited=True,
+            build_name_paths=True,
+        ),
     )
     jsonSourceMetadata_to_id: dict[str, str] = {}
-    for id in ancestor_paths:
+    for id in hierarchy.name_path_map:
         jsonSourceMetadata_to_id[
-            createMetadataJsonString(filename, ancestor_paths[id])
+            createMetadataJsonString(filename, hierarchy.name_path_map[id])
         ] = id
 
-    new_ancestor_paths = build_ancestor_paths(
+    new_hierarchy = traverse_hierarchy(
         new_data.codeObjs,
         new_data.codeObjImpls,
         new_data.codeObjVariants,
         new_data.sectionImpl.codeObjVariantMap,
         new_data.sectionImpl.topLevelParamIds,
+        options=TraversalOptions(
+            collect_all_visited=True,
+            build_name_paths=True,
+        ),
     )
     new_jsonSourceMetadata_to_id: dict[str, str] = {}
-    for id in new_ancestor_paths:
+    for id in new_hierarchy.name_path_map:
         new_jsonSourceMetadata_to_id[
-            createMetadataJsonString(filename, new_ancestor_paths[id])
+            createMetadataJsonString(filename, new_hierarchy.name_path_map[id])
         ] = id
 
     replacements: dict[str, tuple[str, BaseCodeObjImpl]] = {}
     for newId, newCodeObj in new_data.codeObjs.items():
         existingCodeObjId = jsonSourceMetadata_to_id.get(
-            createMetadataJsonString(filename, new_ancestor_paths[newId])
+            createMetadataJsonString(filename, new_hierarchy.name_path_map[newId])
         )
         newVariantId = new_data.sectionImpl.codeObjVariantMap[newId]
         newVariant = new_data.codeObjVariants[newVariantId]

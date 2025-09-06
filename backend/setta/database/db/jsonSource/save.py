@@ -1,3 +1,4 @@
+# refactored_file2.py (original second file, refactored)
 from collections import defaultdict
 
 from setta.types.code_obj_impls import (
@@ -5,19 +6,15 @@ from setta.types.code_obj_impls import (
     BaseParentCodeObjImpl,
     NestedParamCodeObjImpl,
 )
-from setta.types.core import Core, Variant
-from setta.types.generated.effective_impls import get_effective_impl
-from setta.types.generated.unions import (
-    BaseCodeObjImplUnion,
-    BaseDictSectionImplUnion,
-)
+from setta.types.generated.unions import BaseDictSectionImplUnion
 from setta.types.helpers import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.project_state import (
-    ProjectStateSingleConfig,
-)
+
+# Import from new shared utilities
+from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.utils.utils import save_json_to_file, try_json
 
 
@@ -40,13 +37,18 @@ def save_json_source_data(
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
-            ancestor_paths = build_ancestor_paths(
+            hierarchy = traverse_hierarchy(
                 p.codeObjs,
                 p.codeObjImpls,
                 p.codeObjVariants,
                 impl.codeObjVariantMap,
                 impl.topLevelParamIds,
+                TraversalOptions(
+                    collect_all_visited=True,
+                    build_name_paths=True,
+                ),
             )
+
             filename = variant.name
             for paramId in impl.topLevelParamIds:
                 recursively_add_keys(
@@ -54,7 +56,7 @@ def save_json_source_data(
                     impl,
                     paramId,
                     impl.jsonSourceKeys,
-                    ancestor_paths,
+                    hierarchy.name_path_map,
                     to_be_saved[filename],
                 )
 
@@ -65,68 +67,6 @@ def save_json_source_data(
     # Save each file
     for filename, data in to_be_saved.items():
         save_json_to_file(filename, data)
-
-
-def build_parent_map(
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
-    codeObjVariantMap: dict[str, str],
-    paramIds: list[str],
-) -> dict[str, str | None]:
-    """Build a map of child -> parent relationships."""
-    parent_map: dict[str, str | None] = {pid: None for pid in paramIds}
-
-    def add_children(param_id: str):
-        variant_id = codeObjVariantMap[param_id]
-        variant = codeObjVariants[variant_id]
-        base_impl = codeObjImpls[variant.impl]
-        impl = get_effective_impl(base_impl, codeObjs[param_id], variant)
-
-        if isinstance(impl, NestedParamCodeObjImpl):
-            for child_id in impl.children:
-                parent_map[child_id] = param_id
-                add_children(child_id)
-
-    for param_id in paramIds:
-        add_children(param_id)
-
-    return parent_map
-
-
-def build_ancestor_paths(
-    codeObjs: dict[str, Core],
-    codeObjImpls: dict[str, BaseCodeObjImplUnion],
-    codeObjVariants: dict[str, Variant],
-    codeObjVariantMap: dict[str, str],
-    paramIds: list[str],
-) -> dict[str, list[str]]:
-    """Build ancestor paths for all nodes in the hierarchy."""
-    parent_map = build_parent_map(
-        codeObjs, codeObjImpls, codeObjVariants, codeObjVariantMap, paramIds
-    )
-
-    ancestor_paths: dict[str, list[str]] = {}
-    for id in parent_map.keys():
-        if id not in ancestor_paths:
-            path = []
-            current_id = id
-
-            # Traverse up to build the path
-            while current_id is not None:
-                if current_id in codeObjs:
-                    name = codeObjs[current_id].name
-                    path.insert(0, name)
-
-                    # Get parent using the map
-                    parent_id = parent_map.get(current_id)
-                    current_id = parent_id
-                else:
-                    break
-
-            ancestor_paths[id] = path
-
-    return ancestor_paths
 
 
 def recursively_add_keys(
@@ -146,7 +86,10 @@ def recursively_add_keys(
     elif isinstance(codeObjImpl, BaseParentCodeObjImpl):
         value = {}
     else:
-        raise TypeError
+        raise TypeError(
+            f"Unexpected code object implementation type: {type(codeObjImpl)}"
+        )
+
     key_path = [*jsonSourceKeys, *ancestor_paths[paramId]]
     current_dict = add_key_path_to_dict(output_dict, key_path[:-1])
     if key_path:  # Only set if we have a path
@@ -168,7 +111,7 @@ def add_key_path_to_dict(output: dict, key_path: list[str]):
     return output
 
 
-def remove_json_source_values(p):
+def remove_json_source_values(p: dict):
     for variant in p["sectionVariants"].values():
         if variant["isJsonSource"]:
             variant["values"] = {}

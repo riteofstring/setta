@@ -13,7 +13,10 @@ from setta.types.helpers import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
-from setta.types.param_hierarchy import ShownParamIds, get_param_ids_to_show_in_area
+from setta.types.param_hierarchy import (
+    ShownParamIds,
+    get_param_ids_to_show,
+)
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
     BaseParentSectionImpl,
@@ -134,9 +137,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
                 if not isinstance(impl, BaseSectionWithParamsImpl):
                     continue
-                pinned = get_param_ids_to_show_in_area(self, impl, True)
-                unpinned = get_param_ids_to_show_in_area(self, impl, False)
-                output[v] = ShownParamIds(pinned=pinned, unpinned=unpinned)
+                output[v] = get_param_ids_to_show(self, impl)
         self.shownParamIds = output
         return self
 
