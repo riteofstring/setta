@@ -3,12 +3,8 @@ import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useLocalStorage, useProjectState } from "state/definitions";
-import {
-  useAllSectionArtifacts,
-  useLoadArtifactViaDropzone,
-} from "state/hooks/artifacts";
+import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,
@@ -19,27 +15,27 @@ import {
   updateScatterChartWithNewData,
 } from "./ScatterChart";
 
-function _ChartArea({ sectionId }) {
-  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
-    sectionId,
-    false,
-    ArtifactTypeEnum.LIST,
-  );
+function _ChartArea({ sectionId }: { sectionId: string }) {
+  // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+  //   sectionId,
+  //   false,
+  //   ArtifactTypeEnum.LIST,
+  // );
+
+  const isDragActive = false;
 
   return (
     <figure
       className={`section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
-      {...getRootProps()}
+      // {...getRootProps()}
     >
       <ChartAreaCore sectionId={sectionId} />
     </figure>
   );
 }
 
-function _ChartAreaCore({ sectionId }) {
-  const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
-    _.pick(x, ["name", "value"]),
-  );
+function _ChartAreaCore({ sectionId }: { sectionId: string }) {
+  const data = useLoadedChartData(sectionId);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const { size, chartSettings } = useProjectState(
     (x) => ({

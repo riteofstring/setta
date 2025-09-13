@@ -5,6 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 import requests
 import websockets
@@ -342,7 +343,7 @@ def parse_csv_row(values):
     return row
 
 
-def parse_csv_content(content):
+def parse_csv_content(content: str) -> dict[str, list[Any]]:
     lines = content.strip().split("\n")
     if not lines:
         return {}

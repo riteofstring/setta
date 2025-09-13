@@ -205,6 +205,12 @@ export async function route_load_image_artifact(
   return await post("/loadImageArtifact", x);
 }
 
+export async function route_load_chart_data(
+  x: gt.LoadChartDataRequest,
+): Promise<ResponseDataAndStatus<Record<string, Array<any>>>> {
+  return await post("/loadChartData", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {

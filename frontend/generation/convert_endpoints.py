@@ -3,6 +3,7 @@ import types
 from collections.abc import Sequence as ABCSequence
 from typing import (
     Annotated,
+    Any,
     Dict,
     List,
     Literal,
@@ -28,6 +29,7 @@ basic_type_map = {
     int: "number",
     float: "number",
     bool: "boolean",
+    Any: "any",
 }
 
 GENERATED_TYPE_ALIAS = "gt"

@@ -220,6 +220,10 @@ export const ArtifactTypeEnum = {
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 
+export const ChartTypeEnum = { line: "line", scatter: "scatter" } as const;
+
+export type ChartType = ObjectValues<typeof ChartTypeEnum>;
+
 export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
 
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
@@ -455,6 +459,7 @@ export const RouteEnum = {
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_IMAGE_ARTIFACT: "/loadImageArtifact",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
+  LOAD_CHART_DATA: "/loadChartData",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -6591,6 +6596,31 @@ export function createArtifactWithoutValue(
   return ArtifactWithoutValueSchema.parse(options);
 }
 
+export const BaseChartSettingsSchema = z.object({
+  type: z.any(),
+});
+
+export type BaseChartSettings = z.infer<typeof BaseChartSettingsSchema>;
+
+export function createBaseChartSettings(
+  options: Partial<BaseChartSettings> = {},
+): BaseChartSettings {
+  return BaseChartSettingsSchema.parse(options);
+}
+
+export const LineChartSettingsSchema = z.object({
+  type: z.literal("line").default(ChartTypeEnum.line),
+  xAxisColumn: z.string().default("" as const),
+});
+
+export type LineChartSettings = z.infer<typeof LineChartSettingsSchema>;
+
+export function createLineChartSettings(
+  options: Partial<LineChartSettings> = {},
+): LineChartSettings {
+  return LineChartSettingsSchema.parse(options);
+}
+
 export const ChatSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -7507,6 +7537,18 @@ export function createLoadAvailableArtifactsRequest(
   options: Partial<LoadAvailableArtifactsRequest> = {},
 ): LoadAvailableArtifactsRequest {
   return LoadAvailableArtifactsRequestSchema.parse(options);
+}
+
+export const LoadChartDataRequestSchema = z.object({
+  dataPath: z.string(),
+});
+
+export type LoadChartDataRequest = z.infer<typeof LoadChartDataRequestSchema>;
+
+export function createLoadChartDataRequest(
+  options: Partial<LoadChartDataRequest> = {},
+): LoadChartDataRequest {
+  return LoadChartDataRequestSchema.parse(options);
 }
 
 export const LoadImageArtifactRequestSchema = z.object({

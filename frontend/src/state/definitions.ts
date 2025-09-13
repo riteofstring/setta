@@ -382,3 +382,12 @@ export const useImages = createWithEqualityFn(
     x: {},
   })),
 );
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ZustandChartDataType = { x: Record<string, Record<string, Array<any>>> };
+
+export const useChartData = createWithEqualityFn(
+  withResetFn<ZustandChartDataType>(() => ({
+    x: {},
+  })),
+);

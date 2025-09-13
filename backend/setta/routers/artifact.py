@@ -1,11 +1,11 @@
 import base64
 import os
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict
 
 from pydantic import BaseModel
 
-from setta.api.logger import load_from_csv_base64
+from setta.api.logger import load_from_csv_base64, parse_csv_content
 from setta.database.db.artifacts.load import (
     load_artifact_from_disk,
     load_artifact_metadata_and_maybe_value_from_disk,
@@ -62,6 +62,10 @@ class FolderContentItem(TypedDict):
 
 class LoadImageArtifactRequest(BaseModel):
     imagePath: str
+
+
+class LoadChartDataRequest(BaseModel):
+    dataPath: str
 
 
 @router.post(Route.SEND_ARTIFACT)
@@ -141,3 +145,10 @@ def route_load_image_artifact(x: LoadImageArtifactRequest) -> str:
         img = f.read()
         b64_str = base64.b64encode(img).decode("utf-8")
         return b64_str
+
+
+@router.post(Route.LOAD_CHART_DATA)
+def route_load_chart_data(x: LoadChartDataRequest) -> dict[str, list[Any]]:
+    with open(x.dataPath, "r") as f:
+        content = f.read()
+        return parse_csv_content(content)

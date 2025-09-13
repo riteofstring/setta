@@ -7,10 +7,18 @@ import {
   loadArtifacts,
   prepareDataURLForRendering,
 } from "state/actions/artifacts";
-import { useArtifacts, useImages, useProjectState } from "state/definitions";
+import {
+  useArtifacts,
+  useChartData,
+  useImages,
+  useProjectState,
+} from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
-import { route_load_image_artifact } from "utils/generatedEndpoints";
+import {
+  route_load_chart_data,
+  route_load_image_artifact,
+} from "utils/generatedEndpoints";
 
 async function loadImage(imagePath: string) {
   const res = await route_load_image_artifact({ imagePath });
@@ -32,6 +40,27 @@ export function useLoadedImageArtifact(imagePath: string) {
   }, [!!image, imagePath]);
 
   return image;
+}
+
+async function loadChartData(dataPath: string) {
+  const res = await route_load_chart_data({ dataPath });
+  if (res200(res)) {
+    useChartData.setState((state) => ({
+      x: { ...state.x, [dataPath]: res.data },
+    }));
+  }
+}
+
+export function useLoadedChartData(dataPath: string) {
+  const data = useChartData((x) => x.x[dataPath]);
+
+  useEffect(() => {
+    if (!data && dataPath) {
+      loadChartData(dataPath);
+    }
+  }, [!!data, dataPath]);
+
+  return data;
 }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
