@@ -88,7 +88,7 @@ export function combinedAndSeparateLayersToBase64(layerCanvases, layerIds) {
 //   return base64;
 // }
 
-function base64StrToImgSrc(base64Str) {
+export function base64StrToImgSrc(base64Str: string) {
   return base64Str.startsWith("data:image/")
     ? base64Str
     : `data:image/png;base64,${base64Str}`;

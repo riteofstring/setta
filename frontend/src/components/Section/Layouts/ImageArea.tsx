@@ -14,7 +14,7 @@ function _ImageArea({ sectionId }: { sectionId: string }) {
     return impl.imagePath;
   });
 
-  const image = useLoadedImageArtifact(imagePath);
+  const imageSrc = useLoadedImageArtifact(imagePath);
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
   //   sectionId,
   //   false,
@@ -26,31 +26,28 @@ function _ImageArea({ sectionId }: { sectionId: string }) {
       className={`section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       // {...getRootProps()}
     >
-      {!!image && <ImageAreaCore sectionId={sectionId} image={image} />}
+      {!!imageSrc && (
+        <ImageAreaCore sectionId={sectionId} imageSrc={imageSrc} />
+      )}
     </figure>
   );
 }
 
 function ImageAreaCore({
   sectionId,
-  image,
+  imageSrc,
 }: {
   sectionId: string;
-  image: HTMLImageElement;
+  imageSrc: string;
 }) {
   // const imgSizeLoaded = useImgArtifactAreaSize(sectionId, image);
-
-  // useEffect(() => {
-  //   if (image?.src) {
-  //   }
-  // }, [image?.src]);
 
   const imgSizeLoaded = true;
 
   return (
     imgSizeLoaded && (
       <img
-        src={image.src}
+        src={imageSrc}
         className="h-auto max-h-full w-full self-center object-contain"
       />
     )

@@ -1,4 +1,4 @@
-import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
+import { base64StrToImgSrc } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
@@ -15,8 +15,10 @@ import { route_load_image_artifact } from "utils/generatedEndpoints";
 async function loadImage(imagePath: string) {
   const res = await route_load_image_artifact({ imagePath });
   if (res200(res)) {
-    const image = await base64ToImageObj(res.data);
-    useImages.setState((state) => ({ x: { ...state.x, [imagePath]: image } }));
+    const imageSrc = base64StrToImgSrc(res.data);
+    useImages.setState((state) => ({
+      x: { ...state.x, [imagePath]: imageSrc },
+    }));
   }
 }
 
