@@ -1,13 +1,37 @@
 import _ from "lodash";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   addArtifactAndMaybeCreateNewArtifactGroup,
   loadArtifacts,
   prepareDataURLForRendering,
 } from "state/actions/artifacts";
-import { useArtifacts, useProjectState } from "state/definitions";
+import { useArtifacts, useImages, useProjectState } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { res200 } from "utils/endpointUtils";
+import { route_load_image_artifact } from "utils/generatedEndpoints";
+
+async function loadImage(imagePath: string) {
+  const res = await route_load_image_artifact({ imagePath });
+  if (res200(res)) {
+    const image = new Image();
+    image.src = res.data;
+    await image.decode();
+    useImages.setState((state) => ({ x: { ...state.x, [imagePath]: image } }));
+  }
+}
+
+export function useLoadedImageArtifact(imagePath: string) {
+  const image = useImages((x) => x.x[imagePath]);
+
+  useEffect(() => {
+    if (!image && imagePath) {
+      loadImage(imagePath);
+    }
+  }, [!!image]);
+
+  return image;
+}
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
   const loadedArtifacts = useArtifacts((x) => {

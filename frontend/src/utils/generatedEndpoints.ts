@@ -199,6 +199,12 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
+export async function route_load_image_artifact(
+  x: gt.LoadImageArtifactRequest,
+): Promise<ResponseDataAndStatus<string>> {
+  return await post("/loadImageArtifact", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {

@@ -1,15 +1,10 @@
-import _ from "lodash";
-import React, { useEffect } from "react";
+import React from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  useAllSectionArtifacts,
-  useLoadArtifactViaDropzone,
-} from "state/hooks/artifacts";
-import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
-import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { useLoadedImageArtifact } from "state/hooks/artifacts";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
-function _ImageArea({ sectionId }) {
+function _ImageArea({ sectionId }: { sectionId: string }) {
   const imagePath = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -18,34 +13,39 @@ function _ImageArea({ sectionId }) {
     );
     return impl.imagePath;
   });
-  const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
-    _.pick(x, ["value"]),
-  );
-  const artifact = Object.values(loadedArtifacts)[0];
-  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
-    sectionId,
-    false,
-    ArtifactTypeEnum.IMG,
-  );
+
+  const image = useLoadedImageArtifact(imagePath);
+  // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+  //   sectionId,
+  //   false,
+  //   ArtifactTypeEnum.IMG,
+  // );
+  const isDragActive = false;
   return (
     <figure
       className={`section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
-      {...getRootProps()}
+      // {...getRootProps()}
     >
-      {!!artifact && (
-        <ImageAreaCore sectionId={sectionId} image={artifact.value} />
-      )}
+      {!!image && <ImageAreaCore sectionId={sectionId} image={image} />}
     </figure>
   );
 }
 
-function ImageAreaCore({ sectionId, image }) {
-  const imgSizeLoaded = useImgArtifactAreaSize(sectionId, image);
+function ImageAreaCore({
+  sectionId,
+  image,
+}: {
+  sectionId: string;
+  image: HTMLImageElement;
+}) {
+  // const imgSizeLoaded = useImgArtifactAreaSize(sectionId, image);
 
-  useEffect(() => {
-    if (image?.src) {
-    }
-  }, [image?.src]);
+  // useEffect(() => {
+  //   if (image?.src) {
+  //   }
+  // }, [image?.src]);
+
+  const imgSizeLoaded = true;
 
   return (
     imgSizeLoaded && (

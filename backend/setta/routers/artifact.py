@@ -1,3 +1,4 @@
+import base64
 import os
 from pathlib import Path
 from typing import TypedDict
@@ -57,6 +58,10 @@ class GetFolderContentsRequest(BaseModel):
 class FolderContentItem(TypedDict):
     name: str
     type: str
+
+
+class LoadImageArtifactRequest(BaseModel):
+    imagePath: str
 
 
 @router.post(Route.SEND_ARTIFACT)
@@ -128,3 +133,11 @@ def route_get_folder_contents(
         )
 
     return contents
+
+
+@router.post(Route.LOAD_IMAGE_ARTIFACT)
+def route_load_image_artifact(x: LoadImageArtifactRequest) -> str:
+    with open(x.imagePath, "rb") as f:
+        img = f.read()
+        b64_str = base64.b64encode(img).decode("utf-8")
+        return b64_str

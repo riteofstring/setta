@@ -109,3 +109,4 @@ class Route(str, Enum):
     PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"
     PASTE_SECTIONS = "/pasteSections"
     GET_FOLDER_CONTENTS = "/getFolderContents"
+    LOAD_IMAGE_ARTIFACT = "/loadImageArtifact"

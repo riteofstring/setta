@@ -374,3 +374,11 @@ export const useLocalStorage = createWithEqualityFn(
     },
   ),
 );
+
+type ZustandImagesType = { x: Record<string, HTMLImageElement> };
+
+export const useImages = createWithEqualityFn(
+  withResetFn<ZustandImagesType>(() => ({
+    x: {},
+  })),
+);
