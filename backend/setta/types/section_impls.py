@@ -18,7 +18,8 @@ class SectionType(str, Enum):
     DictRoot = "DictRoot"
     Group = "Group"
     Image = "Image"
-    Chart = "Chart"
+    LineChart = "LineChart"
+    ScatterChart = "ScatterChart"
     Draw = "Draw"
     TextBlock = "TextBlock"
     Social = "Social"
@@ -192,12 +193,26 @@ class ImageSectionImpl(BaseSectionImpl):
     imagePath: str = ""
 
 
-class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
-    type: Literal[SectionType.Chart] = SectionType.Chart
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+class LineChartSectionImpl(BaseCanvasSectionImpl):
+    type: Literal[SectionType.LineChart] = SectionType.LineChart
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )
+    xAxisColumn: str = ""
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
+
+
+class ScatterChartSectionImpl(BaseCanvasSectionImpl):
+    type: Literal[SectionType.ScatterChart] = SectionType.ScatterChart
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=400, height=400)
+    )
+    xAxisColumn: str = ""
+    xAxisLog: bool = False
+    yAxisLog: bool = False
 
 
 class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):

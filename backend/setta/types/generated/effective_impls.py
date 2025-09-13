@@ -35,7 +35,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionWithParamsImplArgsWithCallable,
     BrowserSectionImplArgsWithCallable,
     CallableSectionImplArgsWithCallable,
-    ChartSectionImplArgsWithCallable,
     ChatSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CodeParamCodeObjImplArgsWithCallable,
@@ -50,9 +49,11 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GroupSectionImplArgsWithCallable,
     IFrameSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
+    LineChartSectionImplArgsWithCallable,
     ListRootSectionImplArgsWithCallable,
     NestedParamCodeObjImplArgsWithCallable,
     PasswordParamCodeObjImplArgsWithCallable,
+    ScatterChartSectionImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
@@ -83,7 +84,6 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     BrowserSectionImpl,
     CallableSectionImpl,
-    ChartSectionImpl,
     ChatSectionImpl,
     CodeSectionImpl,
     DictRootSectionImpl,
@@ -94,7 +94,9 @@ from setta.types.section_impls import (
     GroupSectionImpl,
     IFrameSectionImpl,
     ImageSectionImpl,
+    LineChartSectionImpl,
     ListRootSectionImpl,
+    ScatterChartSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -157,11 +159,18 @@ def set_effective_impl_value(
 ) -> ImageSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: ChartSectionImpl,
+    impl: LineChartSectionImpl,
     core: Core,
     variant: Variant,
-    args: ChartSectionImplArgsWithCallable,
-) -> ChartSectionImpl: ...
+    args: LineChartSectionImplArgsWithCallable,
+) -> LineChartSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: ScatterChartSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: ScatterChartSectionImplArgsWithCallable,
+) -> ScatterChartSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: DrawSectionImpl,
@@ -297,34 +306,6 @@ def set_effective_impl_value(
 ) -> NestedParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: BaseArtifactSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseArtifactSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCanvasSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseCanvasSectionImplArgsWithCallable,
-) -> BaseCanvasSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseCanvasSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseCanvasSectionImplArgsWithCallable,
-) -> BaseCanvasSectionImpl: ...
-@overload
-def set_effective_impl_value(
     impl: BaseCodeSectionImplUnion,
     core: Core,
     variant: Variant,
@@ -365,6 +346,20 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseParentCodeObjImplArgsWithCallable,
 ) -> BaseParentCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseCanvasSectionImplUnion,
+    core: Core,
+    variant: Variant,
+    args: BaseCanvasSectionImplArgsWithCallable,
+) -> BaseCanvasSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseCanvasSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseCanvasSectionImplArgsWithCallable,
+) -> BaseCanvasSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,

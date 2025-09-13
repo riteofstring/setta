@@ -18,7 +18,6 @@ from setta.types.code_obj_impls import (
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
-    ChartSectionImplArgs,
     ChatSectionImplArgs,
     CodeCallableCodeObjImplArgs,
     CodeParamCodeObjImplArgs,
@@ -33,9 +32,11 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
     ImageSectionImplArgs,
+    LineChartSectionImplArgs,
     ListRootSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
+    ScatterChartSectionImplArgs,
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
     SwitchParamCodeObjImplArgs,
@@ -48,7 +49,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultCallableSectionImpl,
-    UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
     UserDefaultCodeCallableCodeObjImpl,
     UserDefaultCodeParamCodeObjImpl,
@@ -63,9 +63,11 @@ from setta.types.generated.user_defaults import (
     UserDefaultGroupSectionImpl,
     UserDefaultIFrameSectionImpl,
     UserDefaultImageSectionImpl,
+    UserDefaultLineChartSectionImpl,
     UserDefaultListRootSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
+    UserDefaultScatterChartSectionImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
@@ -78,7 +80,6 @@ from setta.types.generated.user_defaults import (
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
-    ChartSectionImpl,
     ChatSectionImpl,
     CodeSectionImpl,
     DictRootSectionImpl,
@@ -89,7 +90,9 @@ from setta.types.section_impls import (
     GroupSectionImpl,
     IFrameSectionImpl,
     ImageSectionImpl,
+    LineChartSectionImpl,
     ListRootSectionImpl,
+    ScatterChartSectionImpl,
     SectionType,
     SocialSectionImpl,
     TerminalSectionImpl,
@@ -147,10 +150,18 @@ def create_section_impl(
 
 @overload
 def create_section_impl(
-    type: Literal[SectionType.Chart],
-    defaults: UserDefaultChartSectionImpl,
-    overrides: ChartSectionImplArgs | None = None,
-) -> ChartSectionImpl: ...
+    type: Literal[SectionType.LineChart],
+    defaults: UserDefaultLineChartSectionImpl,
+    overrides: LineChartSectionImplArgs | None = None,
+) -> LineChartSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.ScatterChart],
+    defaults: UserDefaultScatterChartSectionImpl,
+    overrides: ScatterChartSectionImplArgs | None = None,
+) -> ScatterChartSectionImpl: ...
 
 
 @overload
@@ -337,10 +348,15 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
                 overrides = {}
             return ImageSectionImpl(**{**defaults.model_dump(), **overrides})
 
-        case SectionType.Chart:
+        case SectionType.LineChart:
             if overrides is None:
                 overrides = {}
-            return ChartSectionImpl(**{**defaults.model_dump(), **overrides})
+            return LineChartSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.ScatterChart:
+            if overrides is None:
+                overrides = {}
+            return ScatterChartSectionImpl(**{**defaults.model_dump(), **overrides})
 
         case SectionType.Draw:
             if overrides is None:

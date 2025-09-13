@@ -42,7 +42,6 @@ class CoreArgs(TypedDict):
                 "aspectRatioExtraWidth",
                 "callable",
                 "canvasSettings",
-                "chartSettings",
                 "children",
                 "choices",
                 "code",
@@ -81,6 +80,7 @@ class CoreArgs(TypedDict):
                 "pinnedParams",
                 "positionAndSizeLocked",
                 "renderedValue",
+                "secondYAxisColumns",
                 "selectedParams",
                 "size",
                 "step",
@@ -91,6 +91,11 @@ class CoreArgs(TypedDict):
                 "value",
                 "viewMode",
                 "visibility",
+                "xAxisColumn",
+                "xAxisLog",
+                "y1AxisLog",
+                "y2AxisLog",
+                "yAxisLog",
             ]
         ]
     ]
@@ -316,19 +321,44 @@ class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     imagePath: NotRequired[str | Callable[[str], str]]
 
 
-class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Chart]]
-    chartSettings: NotRequired[ChartSettings]
+class LineChartSectionImplArgs(BaseCanvasSectionImplArgs):
+    type: NotRequired[Literal[SectionType.LineChart]]
+    xAxisColumn: NotRequired[str]
+    secondYAxisColumns: NotRequired[list[str]]
+    xAxisLog: NotRequired[bool]
+    y1AxisLog: NotRequired[bool]
+    y2AxisLog: NotRequired[bool]
 
 
-class ChartSectionImplArgsWithCallable(
-    BaseArtifactSectionImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable
-):
+class LineChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     type: NotRequired[
-        Literal[SectionType.Chart]
-        | Callable[[Literal[SectionType.Chart]], Literal[SectionType.Chart]]
+        Literal[SectionType.LineChart]
+        | Callable[[Literal[SectionType.LineChart]], Literal[SectionType.LineChart]]
     ]
-    chartSettings: NotRequired[ChartSettings | Callable[[ChartSettings], ChartSettings]]
+    xAxisColumn: NotRequired[str | Callable[[str], str]]
+    secondYAxisColumns: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    xAxisLog: NotRequired[bool | Callable[[bool], bool]]
+    y1AxisLog: NotRequired[bool | Callable[[bool], bool]]
+    y2AxisLog: NotRequired[bool | Callable[[bool], bool]]
+
+
+class ScatterChartSectionImplArgs(BaseCanvasSectionImplArgs):
+    type: NotRequired[Literal[SectionType.ScatterChart]]
+    xAxisColumn: NotRequired[str]
+    xAxisLog: NotRequired[bool]
+    yAxisLog: NotRequired[bool]
+
+
+class ScatterChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.ScatterChart]
+        | Callable[
+            [Literal[SectionType.ScatterChart]], Literal[SectionType.ScatterChart]
+        ]
+    ]
+    xAxisColumn: NotRequired[str | Callable[[str], str]]
+    xAxisLog: NotRequired[bool | Callable[[bool], bool]]
+    yAxisLog: NotRequired[bool | Callable[[bool], bool]]
 
 
 class DrawSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):

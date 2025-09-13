@@ -37,7 +37,8 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
     "GroupSectionImpl": DEFAULT_EXCLUSIONS,
     "ImageSectionImpl": DEFAULT_EXCLUSIONS,
-    "ChartSectionImpl": DEFAULT_EXCLUSIONS,
+    "LineChartSectionImpl": DEFAULT_EXCLUSIONS,
+    "ScatterChartSectionImpl": DEFAULT_EXCLUSIONS,
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
     "SocialSectionImpl": DEFAULT_EXCLUSIONS,
@@ -186,7 +187,6 @@ from pydantic import BaseModel, Field
 
 # Section type imports
 from setta.types.section_impls import (
-    ChartSettings,
     CodeLanguage,
     ConfigLanguage,
     DrawAreaCanvasSettings,

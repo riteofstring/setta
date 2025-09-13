@@ -36,7 +36,8 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <DrawAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Image:
       return <ImageAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Chart:
+    case SectionTypeEnum.LineChart:
+    case SectionTypeEnum.ScatterChart:
       return <ChartAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Social:
       return <SocialAreaSettings sectionId={sectionId} />;

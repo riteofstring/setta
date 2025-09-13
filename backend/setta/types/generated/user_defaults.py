@@ -95,13 +95,26 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     imagePath: str = ""
 
 
-class UserDefaultChartSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
-):
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+class UserDefaultLineChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )
+    xAxisColumn: str = ""
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
+
+
+class UserDefaultScatterChartSectionImpl(
+    UserDefaultBaseCanvasSectionImpl, extra="forbid"
+):
+    size: SectionSize = Field(
+        default_factory=lambda: SectionSize(width=400, height=400)
+    )
+    xAxisColumn: str = ""
+    xAxisLog: bool = False
+    yAxisLog: bool = False
 
 
 class UserDefaultDrawSectionImpl(
