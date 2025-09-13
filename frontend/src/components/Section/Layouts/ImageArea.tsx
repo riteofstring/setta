@@ -1,13 +1,23 @@
 import _ from "lodash";
 import React, { useEffect } from "react";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   useAllSectionArtifacts,
   useLoadArtifactViaDropzone,
 } from "state/hooks/artifacts";
 import { useImgArtifactAreaSize } from "state/hooks/sectionSizes";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
+import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 function _ImageArea({ sectionId }) {
+  const imagePath = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Image,
+    );
+    return impl.imagePath;
+  });
   const loadedArtifacts = useAllSectionArtifacts(sectionId, (x) =>
     _.pick(x, ["value"]),
   );

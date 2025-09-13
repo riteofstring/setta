@@ -84,9 +84,7 @@ BaseSectionWithParamsImplTypeAdapter = TypeAdapter(
 
 BaseSectionWithParamsImplTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
-BaseArtifactSectionImplUnion = Union[
-    ImageSectionImpl, ChartSectionImpl, DrawSectionImpl
-]
+BaseArtifactSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
 BaseArtifactSectionImplUnionWithDiscriminator = Annotated[
     BaseArtifactSectionImplUnion, Field(discriminator="type")
@@ -96,7 +94,7 @@ BaseArtifactSectionImplTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplTypeSet = set(["Image", "Chart", "Draw"])
+BaseArtifactSectionImplTypeSet = set(["Chart", "Draw"])
 
 BaseCanvasSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
@@ -354,9 +352,7 @@ BaseSectionWithParamsImplArgsTypeAdapter = TypeAdapter(
 
 BaseSectionWithParamsImplArgsTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
-BaseArtifactSectionImplArgsUnion = Union[
-    ImageSectionImplArgs, ChartSectionImplArgs, DrawSectionImplArgs
-]
+BaseArtifactSectionImplArgsUnion = Union[ChartSectionImplArgs, DrawSectionImplArgs]
 
 BaseArtifactSectionImplArgsUnionWithDiscriminator = Annotated[
     BaseArtifactSectionImplArgsUnion, Field(discriminator="type")
@@ -366,7 +362,7 @@ BaseArtifactSectionImplArgsTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplArgsUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplArgsTypeSet = set(["Image", "Chart", "Draw"])
+BaseArtifactSectionImplArgsTypeSet = set(["Chart", "Draw"])
 
 BaseCanvasSectionImplArgsUnion = Union[ChartSectionImplArgs, DrawSectionImplArgs]
 

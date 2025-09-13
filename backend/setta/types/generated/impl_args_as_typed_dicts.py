@@ -63,6 +63,7 @@ class CoreArgs(TypedDict):
                 "hideUnpinnedParams",
                 "id",
                 "ignoreTypeErrors",
+                "imagePath",
                 "isFrozen",
                 "isHorizontalOrientation",
                 "isInOtherProjectConfigs",
@@ -302,15 +303,17 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
 
 
-class ImageSectionImplArgs(BaseArtifactSectionImplArgs):
+class ImageSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Image]]
+    imagePath: NotRequired[str]
 
 
-class ImageSectionImplArgsWithCallable(BaseArtifactSectionImplArgsWithCallable):
+class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Image]
         | Callable[[Literal[SectionType.Image]], Literal[SectionType.Image]]
     ]
+    imagePath: NotRequired[str | Callable[[str], str]]
 
 
 class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):

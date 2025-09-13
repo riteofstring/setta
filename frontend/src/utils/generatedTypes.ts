@@ -11,17 +11,9 @@ export type ID = z.infer<typeof IDSchema>;
 export type ObjectValues<T> = T[keyof T];
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
-export const BaseArtifactSectionImplArgsTypeSet = new Set([
-  "Chart",
-  "Draw",
-  "Image",
-]);
+export const BaseArtifactSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
 
-export const BaseArtifactSectionImplTypeSet = new Set([
-  "Chart",
-  "Draw",
-  "Image",
-]);
+export const BaseArtifactSectionImplTypeSet = new Set(["Chart", "Draw"]);
 
 export const BaseCanvasSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
 
@@ -1278,6 +1270,7 @@ export const AllImplFieldsSchema = z.literal([
   "hideUnpinnedParams",
   "id",
   "ignoreTypeErrors",
+  "imagePath",
   "isFrozen",
   "isHorizontalOrientation",
   "isInOtherProjectConfigs",
@@ -1345,6 +1338,7 @@ export const CoreSchema = z.object({
         "hideUnpinnedParams",
         "id",
         "ignoreTypeErrors",
+        "imagePath",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",
@@ -1595,7 +1589,7 @@ export const ImageSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
+  imagePath: z.string().default("" as const),
 });
 
 export type ImageSectionImpl = z.infer<typeof ImageSectionImplSchema>;
@@ -2318,7 +2312,6 @@ export type BaseClipboardDataUnionWithDiscriminator = z.infer<
 >;
 
 export const BaseArtifactSectionImplUnionSchema = z.union([
-  ImageSectionImplSchema,
   ChartSectionImplSchema,
   DrawSectionImplSchema,
 ]);
@@ -2448,31 +2441,6 @@ export type BaseSectionWithParamsImplUnion = z.infer<
   typeof BaseSectionWithParamsImplUnionSchema
 >;
 
-export const ImageSectionImplArgsSchema = z.object({
-  type: z.literal("Image").optional(),
-  id: z.string().optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  visibility: VisibilitySchema.optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  artifactGroupIds: z.array(z.string()).optional(),
-});
-
-export type ImageSectionImplArgs = z.infer<typeof ImageSectionImplArgsSchema>;
-
-export function createImageSectionImplArgs(
-  options: Partial<ImageSectionImplArgs> = {},
-): ImageSectionImplArgs {
-  return ImageSectionImplArgsSchema.parse(options);
-}
-
 export const ChartSectionImplArgsSchema = z.object({
   type: z.literal("Chart").optional(),
   id: z.string().optional(),
@@ -2528,7 +2496,6 @@ export function createDrawSectionImplArgs(
 }
 
 export const BaseArtifactSectionImplArgsUnionSchema = z.union([
-  ImageSectionImplArgsSchema,
   ChartSectionImplArgsSchema,
   DrawSectionImplArgsSchema,
 ]);
@@ -2539,7 +2506,6 @@ export type BaseArtifactSectionImplArgsUnion = z.infer<
 
 export const BaseArtifactSectionImplArgsUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
-    ImageSectionImplArgsSchema,
     ChartSectionImplArgsSchema,
     DrawSectionImplArgsSchema,
   ]);
@@ -2555,11 +2521,7 @@ export function createBaseArtifactSectionImplArgsUnionWithDiscriminator(
 }
 
 export const BaseArtifactSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    ImageSectionImplSchema,
-    ChartSectionImplSchema,
-    DrawSectionImplSchema,
-  ]);
+  z.discriminatedUnion("type", [ChartSectionImplSchema, DrawSectionImplSchema]);
 
 export type BaseArtifactSectionImplUnionWithDiscriminator = z.infer<
   typeof BaseArtifactSectionImplUnionWithDiscriminatorSchema
@@ -3411,6 +3373,31 @@ export function createCallableSectionImplArgs(
   options: Partial<CallableSectionImplArgs> = {},
 ): CallableSectionImplArgs {
   return CallableSectionImplArgsSchema.parse(options);
+}
+
+export const ImageSectionImplArgsSchema = z.object({
+  type: z.literal("Image").optional(),
+  id: z.string().optional(),
+  name: z.string().optional(),
+  isFrozen: z.boolean().optional(),
+  visibility: VisibilitySchema.optional(),
+  isInOtherProjectConfigs: z.boolean().optional(),
+  size: SectionSizeSchema.optional(),
+  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
+  aspectRatioExtraHeight: z.int().optional(),
+  aspectRatioExtraWidth: z.int().optional(),
+  isMinimized: z.boolean().optional(),
+  positionAndSizeLocked: z.boolean().optional(),
+  isPreset: z.boolean().optional(),
+  imagePath: z.string().optional(),
+});
+
+export type ImageSectionImplArgs = z.infer<typeof ImageSectionImplArgsSchema>;
+
+export function createImageSectionImplArgs(
+  options: Partial<ImageSectionImplArgs> = {},
+): ImageSectionImplArgs {
+  return ImageSectionImplArgsSchema.parse(options);
 }
 
 export const TextBlockSectionImplArgsSchema = z.object({
@@ -4613,6 +4600,7 @@ export const UserDefaultImageSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  imagePath: z.string().default("" as const),
 });
 
 export type UserDefaultImageSectionImpl = z.infer<
@@ -6199,7 +6187,7 @@ export const ImageSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
+  imagePath: z.union([z.string(), z.any()]).optional(),
 });
 
 export type ImageSectionImplArgsWithCallable = z.infer<
@@ -6485,6 +6473,7 @@ export const CoreArgsSchema = z.object({
         "hideUnpinnedParams",
         "id",
         "ignoreTypeErrors",
+        "imagePath",
         "isFrozen",
         "isHorizontalOrientation",
         "isInOtherProjectConfigs",

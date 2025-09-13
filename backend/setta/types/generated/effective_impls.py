@@ -297,6 +297,20 @@ def set_effective_impl_value(
 ) -> NestedParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
+    impl: BaseArtifactSectionImplUnion,
+    core: Core,
+    variant: Variant,
+    args: BaseArtifactSectionImplArgsWithCallable,
+) -> BaseArtifactSectionImplUnion: ...
+@overload
+def set_effective_impl_value(
+    impl: BaseArtifactSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: BaseArtifactSectionImplArgsWithCallable,
+) -> BaseArtifactSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: BaseCanvasSectionImplUnion,
     core: Core,
     variant: Variant,
@@ -351,20 +365,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: BaseParentCodeObjImplArgsWithCallable,
 ) -> BaseParentCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseArtifactSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseArtifactSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseParentSectionImplUnion,

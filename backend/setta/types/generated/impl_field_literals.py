@@ -28,6 +28,7 @@ AllImplFields = Literal[
     "hideUnpinnedParams",
     "id",
     "ignoreTypeErrors",
+    "imagePath",
     "isFrozen",
     "isHorizontalOrientation",
     "isInOtherProjectConfigs",

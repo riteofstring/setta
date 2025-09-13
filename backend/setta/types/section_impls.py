@@ -187,8 +187,9 @@ class GroupSectionImpl(BaseParentSectionImpl):
     isHorizontalOrientation: bool = False
 
 
-class ImageSectionImpl(BaseArtifactSectionImpl):
+class ImageSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.Image] = SectionType.Image
+    imagePath: str = ""
 
 
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):

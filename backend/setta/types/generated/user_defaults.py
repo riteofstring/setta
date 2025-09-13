@@ -91,8 +91,8 @@ class UserDefaultGroupSectionImpl(UserDefaultBaseParentSectionImpl, extra="forbi
     isHorizontalOrientation: bool = False
 
 
-class UserDefaultImageSectionImpl(UserDefaultBaseArtifactSectionImpl, extra="forbid"):
-    pass
+class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
+    imagePath: str = ""
 
 
 class UserDefaultChartSectionImpl(
