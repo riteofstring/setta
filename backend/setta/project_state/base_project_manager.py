@@ -52,6 +52,7 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -101,6 +102,7 @@ from setta.types.helpers import (
     set_browser_area_view_mode,
     set_code,
     set_default_section_variant,
+    set_image_area_image_path,
     set_param_entered_value,
     set_project_config_name,
     set_section_name,
@@ -843,6 +845,12 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_image_area_image_path(project_state, x.sectionId, x.imagePath)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

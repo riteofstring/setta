@@ -454,6 +454,7 @@ export const RouteEnum = {
   PASTE_SECTIONS: "/pasteSections",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_IMAGE_ARTIFACT: "/loadImageArtifact",
+  SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -8025,6 +8026,22 @@ export function createSetGenCodeSuffixRequest(
   options: Partial<SetGenCodeSuffixRequest> = {},
 ): SetGenCodeSuffixRequest {
   return SetGenCodeSuffixRequestSchema.parse(options);
+}
+
+export const SetImageAreaImagePathRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  imagePath: z.string(),
+});
+
+export type SetImageAreaImagePathRequest = z.infer<
+  typeof SetImageAreaImagePathRequestSchema
+>;
+
+export function createSetImageAreaImagePathRequest(
+  options: Partial<SetImageAreaImagePathRequest> = {},
+): SetImageAreaImagePathRequest {
+  return SetImageAreaImagePathRequestSchema.parse(options);
 }
 
 export const SetParamEnteredValueRequestSchema = z.object({

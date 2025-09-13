@@ -320,6 +320,12 @@ class PasteSectionsRequest(BaseModel):
     asRef: bool
 
 
+class SetImageAreaImagePathRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    imagePath: str
+
+
 @dataclass
 class ProjectStateSingleConfigWithCompletedOpIds:
     projectState: ProjectStateSingleConfig

@@ -110,3 +110,4 @@ class Route(str, Enum):
     PASTE_SECTIONS = "/pasteSections"
     GET_FOLDER_CONTENTS = "/getFolderContents"
     LOAD_IMAGE_ARTIFACT = "/loadImageArtifact"
+    SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"

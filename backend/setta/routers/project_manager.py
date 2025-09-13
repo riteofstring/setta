@@ -29,6 +29,7 @@ from setta.project_state.project_manager_types import (
     SetDefaultSectionVariantRequest,
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
+    SetImageAreaImagePathRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
     SetSectionParamFilterRequest,
@@ -450,3 +451,12 @@ async def route_prepare_sections_for_copy(
 @router.post(Route.PASTE_SECTIONS)
 async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).paste_sections(x)
+
+
+@router.post(Route.SET_IMAGE_AREA_IMAGE_PATH)
+async def route_set_image_area_image_path(
+    x: SetImageAreaImagePathRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).set_image_area_image_path(x)

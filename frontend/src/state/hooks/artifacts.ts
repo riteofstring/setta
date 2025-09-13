@@ -28,7 +28,7 @@ export function useLoadedImageArtifact(imagePath: string) {
     if (!image && imagePath) {
       loadImage(imagePath);
     }
-  }, [!!image]);
+  }, [!!image, imagePath]);
 
   return image;
 }

@@ -566,3 +566,9 @@ export async function route_paste_sections(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/pasteSections", x);
 }
+
+export async function route_set_image_area_image_path(
+  x: gt.SetImageAreaImagePathRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setImageAreaImagePath", x);
+}

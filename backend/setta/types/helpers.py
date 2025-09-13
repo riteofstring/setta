@@ -35,6 +35,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
+    ImageSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
@@ -1104,6 +1105,14 @@ def set_text_block_format(
 def set_social_url(p: "ProjectStateSingleConfig", sectionId: str, url: str):
     set_curr_effective_section_impl_value(
         p, sectionId, SocialSectionImplArgsWithCallable(url=url)
+    )
+
+
+def set_image_area_image_path(
+    p: "ProjectStateSingleConfig", sectionId: str, imagePath: str
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
     )
 
 
