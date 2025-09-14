@@ -8,6 +8,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
+from setta.types.chart import LineChartSettings
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -186,7 +187,7 @@ class ImageSectionImpl(BaseSectionImpl):
 
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    chartSettings: BaseChartSettingsUnion
+    chartSettings: BaseChartSettingsUnion = Field(default_factory=LineChartSettings)
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )

@@ -5,6 +5,7 @@ import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscStat
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
+import { ChartType, ChartTypeEnum } from "utils/generatedTypes";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,
@@ -44,8 +45,8 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     }),
     _.isEqual,
   );
-  const canvasRef = useRef();
-  const chartRef = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const chartRef = useRef<Chart>(null);
   const [datasetHidden, setDatasetHidden] = useState({});
 
   useEffect(() => {
@@ -152,21 +153,25 @@ const ChartAreaCore = React.memo(_ChartAreaCore);
 
 export const ChartArea = React.memo(_ChartArea);
 
-function getOptionsAndPluginsFn(type) {
+function getOptionsAndPluginsFn(type: ChartType) {
   switch (type) {
-    case "line":
+    case ChartTypeEnum.line:
       return getLineChartOptionsAndPlugins;
-    case "scatter":
+    case ChartTypeEnum.scatter:
       return getScatterChartOptionsAndPlugins;
+    default:
+      return type satisfies never;
   }
 }
 
-function getUpdaterFn(type) {
+function getUpdaterFn(type: ChartType) {
   switch (type) {
-    case "line":
+    case ChartTypeEnum.line:
       return updateLineChartWithNewData;
-    case "scatter":
+    case ChartTypeEnum.scatter:
       return updateScatterChartWithNewData;
+    default:
+      return type satisfies never;
   }
 }
 

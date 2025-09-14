@@ -1685,7 +1685,9 @@ export const ChartSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   artifactGroupIds: z.array(z.string()).default([]),
-  chartSettings: z.union([LineChartSettingsSchema, ScatterChartSettingsSchema]),
+  chartSettings: z
+    .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
+    .default(createLineChartSettings),
 });
 
 export type ChartSectionImpl = z.infer<typeof ChartSectionImplSchema>;
