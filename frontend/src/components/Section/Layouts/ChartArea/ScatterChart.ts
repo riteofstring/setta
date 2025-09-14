@@ -1,10 +1,11 @@
 import {
+  Chart,
   ChartConfiguration,
   ChartData,
   DefaultDataPoint,
+  Plugin,
   Tooltip,
 } from "chart.js";
-import { Chart } from "chart.js/dist";
 import { ChartDataType, ScatterChartSettings } from "utils/generatedTypes";
 import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
 
@@ -155,7 +156,7 @@ export function updateScatterChartWithNewData(
   return { datasets };
 }
 
-const crosshairPlugin = {
+export const crosshairPlugin: Plugin<"scatter"> = {
   id: "crosshairPlugin",
   afterInit: (chart) => {
     chart.crosshairPlugin = {
@@ -176,7 +177,14 @@ const crosshairPlugin = {
     if (inChartArea) {
       // Find the nearest data point across all datasets
       let minDistance = Infinity;
-      let nearestPoint = null;
+      let nearestPoint: {
+        x: number;
+        y: number;
+        xValue: number;
+        yValue: number;
+        datasetIndex: number;
+        pointIndex: number;
+      } | null = null;
 
       chart.data.datasets.forEach((dataset, datasetIndex) => {
         if (dataset.hidden) return;
@@ -223,8 +231,8 @@ const crosshairPlugin = {
           },
         ];
 
-        chart.tooltip.setActiveElements(tooltipItems);
-        chart.tooltip.update();
+        chart.tooltip?.setActiveElements(tooltipItems);
+        chart.tooltip?.update();
       }
     } else {
       chart.crosshairPlugin = {
@@ -233,7 +241,7 @@ const crosshairPlugin = {
         y,
         draw: false,
       };
-      chart.tooltip.setActiveElements([], { x, y });
+      chart.tooltip?.setActiveElements([], { x, y });
     }
 
     chart.draw();

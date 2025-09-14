@@ -3,6 +3,7 @@ import {
   ChartConfiguration,
   ChartData,
   DefaultDataPoint,
+  Plugin,
   Tooltip,
 } from "chart.js";
 import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
@@ -118,7 +119,7 @@ export function updateLineChartWithNewData(
   return { datasets };
 }
 
-const verticalLinePlugin = {
+export const verticalLinePlugin: Plugin<"line"> = {
   id: "verticalLinePlugin",
   afterInit: (chart: Chart) => {
     chart.verticalLinePlugin = {
@@ -137,7 +138,7 @@ const verticalLinePlugin = {
     if (inChartArea) {
       // Find the nearest x-axis data point
       const xScale = chart.scales.x;
-      const values = chart.data.labels;
+      const values = chart.data.labels as number[];
 
       // Convert mouse x position to data space
       const mouseValue = xScale.getValueForPixel(x);
@@ -178,6 +179,7 @@ const verticalLinePlugin = {
     const { ctx } = chart;
     const { top, bottom } = chart.chartArea;
     const { x, draw, width, color, dash } = chart.verticalLinePlugin;
+
     if (!draw) return;
 
     ctx.save();
