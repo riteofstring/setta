@@ -17,6 +17,10 @@ Tooltip.positioners.scatterChartTooltipMousePosition = function (
   _elements,
   eventPosition,
 ) {
+  if (!eventPosition) {
+    // not sure how this works but it's needed
+    return false;
+  }
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
