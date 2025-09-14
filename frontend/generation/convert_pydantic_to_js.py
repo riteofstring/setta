@@ -666,13 +666,13 @@ def create_impl_core_variant_bundled_types():
         code += f"""
     {c.base_name}: {{
         impl: {c.original_name};
-        args: ImplArgsBundleWithUpdaters<{c.args_name}>;
+        args: ImplArgsBundleWithUpdaters<{c.args_name}, {c.original_name}>;
     }}
 """
 
     code = f"""
-type ImplArgsBundleWithUpdaters<T> = {{
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
+type ImplArgsBundleWithUpdaters<T, T2> = {{
+  [K in keyof T]?: T[K] | (K extends keyof T2 ? (prev: T2[K]) => T2[K] : never);
 }};
 
     export type ImplArgsBundleMap = {{

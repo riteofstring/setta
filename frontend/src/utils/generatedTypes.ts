@@ -8946,193 +8946,271 @@ export function isBaseSectionWithParamsImpl(
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
 
-type ImplArgsBundleWithUpdaters<T> = {
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
+type ImplArgsBundleWithUpdaters<T, T2> = {
+  [K in keyof T]?: T[K] | (K extends keyof T2 ? (prev: T2[K]) => T2[K] : never);
 };
 
 export type ImplArgsBundleMap = {
   BaseSection: {
     impl: BaseSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplArgs, BaseSectionImpl>;
   };
 
   BaseSectionWithParams: {
     impl: BaseSectionWithParamsImpl;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseSectionWithParamsImplArgs,
+      BaseSectionWithParamsImpl
+    >;
   };
 
   BaseArtifactSection: {
     impl: BaseArtifactSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseArtifactSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseArtifactSectionImplArgs,
+      BaseArtifactSectionImpl
+    >;
   };
 
   BaseCanvasSection: {
     impl: BaseCanvasSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseCanvasSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseCanvasSectionImplArgs,
+      BaseCanvasSectionImpl
+    >;
   };
 
   BaseCodeSection: {
     impl: BaseCodeSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseCodeSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseCodeSectionImplArgs,
+      BaseCodeSectionImpl
+    >;
   };
 
   BaseParentSection: {
     impl: BaseParentSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseParentSectionImplArgs,
+      BaseParentSectionImpl
+    >;
   };
 
   BaseDictSection: {
     impl: BaseDictSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseDictSectionImplArgs,
+      BaseDictSectionImpl
+    >;
   };
 
   CallableSection: {
     impl: CallableSectionImpl;
-    args: ImplArgsBundleWithUpdaters<CallableSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      CallableSectionImplArgs,
+      CallableSectionImpl
+    >;
   };
 
   DictSection: {
     impl: DictSectionImpl;
-    args: ImplArgsBundleWithUpdaters<DictSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<DictSectionImplArgs, DictSectionImpl>;
   };
 
   ListRootSection: {
     impl: ListRootSectionImpl;
-    args: ImplArgsBundleWithUpdaters<ListRootSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      ListRootSectionImplArgs,
+      ListRootSectionImpl
+    >;
   };
 
   DictRootSection: {
     impl: DictRootSectionImpl;
-    args: ImplArgsBundleWithUpdaters<DictRootSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      DictRootSectionImplArgs,
+      DictRootSectionImpl
+    >;
   };
 
   GroupSection: {
     impl: GroupSectionImpl;
-    args: ImplArgsBundleWithUpdaters<GroupSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<GroupSectionImplArgs, GroupSectionImpl>;
   };
 
   ImageSection: {
     impl: ImageSectionImpl;
-    args: ImplArgsBundleWithUpdaters<ImageSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<ImageSectionImplArgs, ImageSectionImpl>;
   };
 
   ChartSection: {
     impl: ChartSectionImpl;
-    args: ImplArgsBundleWithUpdaters<ChartSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<ChartSectionImplArgs, ChartSectionImpl>;
   };
 
   DrawSection: {
     impl: DrawSectionImpl;
-    args: ImplArgsBundleWithUpdaters<DrawSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<DrawSectionImplArgs, DrawSectionImpl>;
   };
 
   TextBlockSection: {
     impl: TextBlockSectionImpl;
-    args: ImplArgsBundleWithUpdaters<TextBlockSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      TextBlockSectionImplArgs,
+      TextBlockSectionImpl
+    >;
   };
 
   SocialSection: {
     impl: SocialSectionImpl;
-    args: ImplArgsBundleWithUpdaters<SocialSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<SocialSectionImplArgs, SocialSectionImpl>;
   };
 
   GlobalVariablesSection: {
     impl: GlobalVariablesSectionImpl;
-    args: ImplArgsBundleWithUpdaters<GlobalVariablesSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      GlobalVariablesSectionImplArgs,
+      GlobalVariablesSectionImpl
+    >;
   };
 
   CodeSection: {
     impl: CodeSectionImpl;
-    args: ImplArgsBundleWithUpdaters<CodeSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<CodeSectionImplArgs, CodeSectionImpl>;
   };
 
   GenPythonCodeSection: {
     impl: GenPythonCodeSectionImpl;
-    args: ImplArgsBundleWithUpdaters<GenPythonCodeSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      GenPythonCodeSectionImplArgs,
+      GenPythonCodeSectionImpl
+    >;
   };
 
   TerminalSection: {
     impl: TerminalSectionImpl;
-    args: ImplArgsBundleWithUpdaters<TerminalSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      TerminalSectionImplArgs,
+      TerminalSectionImpl
+    >;
   };
 
   IFrameSection: {
     impl: IFrameSectionImpl;
-    args: ImplArgsBundleWithUpdaters<IFrameSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<IFrameSectionImplArgs, IFrameSectionImpl>;
   };
 
   ChatSection: {
     impl: ChatSectionImpl;
-    args: ImplArgsBundleWithUpdaters<ChatSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<ChatSectionImplArgs, ChatSectionImpl>;
   };
 
   BrowserSection: {
     impl: BrowserSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BrowserSectionImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BrowserSectionImplArgs,
+      BrowserSectionImpl
+    >;
   };
 
   BaseCodeObj: {
     impl: BaseCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplArgs, BaseCodeObjImpl>;
   };
 
   BaseParamCodeObj: {
     impl: BaseParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseParamCodeObjImplArgs,
+      BaseParamCodeObjImpl
+    >;
   };
 
   BaseChildlessCodeObj: {
     impl: BaseChildlessCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseChildlessCodeObjImplArgs,
+      BaseChildlessCodeObjImpl
+    >;
   };
 
   BaseParentCodeObj: {
     impl: BaseParentCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<BaseParentCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      BaseParentCodeObjImplArgs,
+      BaseParentCodeObjImpl
+    >;
   };
 
   CodeCallableCodeObj: {
     impl: CodeCallableCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<CodeCallableCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      CodeCallableCodeObjImplArgs,
+      CodeCallableCodeObjImpl
+    >;
   };
 
   CodeParamCodeObj: {
     impl: CodeParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<CodeParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      CodeParamCodeObjImplArgs,
+      CodeParamCodeObjImpl
+    >;
   };
 
   TextParamCodeObj: {
     impl: TextParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<TextParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      TextParamCodeObjImplArgs,
+      TextParamCodeObjImpl
+    >;
   };
 
   SliderParamCodeObj: {
     impl: SliderParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<SliderParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      SliderParamCodeObjImplArgs,
+      SliderParamCodeObjImpl
+    >;
   };
 
   SwitchParamCodeObj: {
     impl: SwitchParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<SwitchParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      SwitchParamCodeObjImplArgs,
+      SwitchParamCodeObjImpl
+    >;
   };
 
   ColorPickerParamCodeObj: {
     impl: ColorPickerParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<ColorPickerParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      ColorPickerParamCodeObjImplArgs,
+      ColorPickerParamCodeObjImpl
+    >;
   };
 
   DropdownParamCodeObj: {
     impl: DropdownParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<DropdownParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      DropdownParamCodeObjImplArgs,
+      DropdownParamCodeObjImpl
+    >;
   };
 
   PasswordParamCodeObj: {
     impl: PasswordParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<PasswordParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      PasswordParamCodeObjImplArgs,
+      PasswordParamCodeObjImpl
+    >;
   };
 
   NestedParamCodeObj: {
     impl: NestedParamCodeObjImpl;
-    args: ImplArgsBundleWithUpdaters<NestedParamCodeObjImplArgs>;
+    args: ImplArgsBundleWithUpdaters<
+      NestedParamCodeObjImplArgs,
+      NestedParamCodeObjImpl
+    >;
   };
 };
