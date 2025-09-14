@@ -17,6 +17,7 @@ AllImplFields = Literal[
     "configLanguage",
     "coreNameEditable",
     "coreNameType",
+    "dataPath",
     "defaultVal",
     "description",
     "displayMode",

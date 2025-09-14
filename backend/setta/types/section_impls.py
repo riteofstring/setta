@@ -187,6 +187,7 @@ class ImageSectionImpl(BaseSectionImpl):
 
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
+    dataPath: str = ""
     chartSettings: BaseChartSettingsUnion = Field(default_factory=LineChartSettings)
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)

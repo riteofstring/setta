@@ -52,6 +52,7 @@ class CoreArgs(TypedDict):
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
+                "dataPath",
                 "defaultVal",
                 "description",
                 "displayMode",
@@ -318,6 +319,7 @@ class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chart]]
+    dataPath: NotRequired[str]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
 
 
@@ -328,6 +330,7 @@ class ChartSectionImplArgsWithCallable(
         Literal[SectionType.Chart]
         | Callable[[Literal[SectionType.Chart]], Literal[SectionType.Chart]]
     ]
+    dataPath: NotRequired[str | Callable[[str], str]]
     chartSettings: NotRequired[
         LineChartSettings
         | ScatterChartSettings

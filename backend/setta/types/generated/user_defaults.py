@@ -97,6 +97,7 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultChartSectionImpl(
     UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
 ):
+    dataPath: str = ""
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )

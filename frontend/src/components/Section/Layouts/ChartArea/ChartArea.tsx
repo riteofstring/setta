@@ -41,7 +41,15 @@ function _ChartArea({ sectionId }: { sectionId: string }) {
 }
 
 function _ChartAreaCore({ sectionId }: { sectionId: string }) {
-  const data = useLoadedChartData(sectionId);
+  const dataPath = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Chart,
+    );
+    return impl.dataPath;
+  });
+  const data = useLoadedChartData(dataPath);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const { size, chartSettings } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(

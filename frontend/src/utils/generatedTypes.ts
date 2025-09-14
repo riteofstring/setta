@@ -1268,6 +1268,7 @@ export const AllImplFieldsSchema = z.literal([
   "configLanguage",
   "coreNameEditable",
   "coreNameType",
+  "dataPath",
   "defaultVal",
   "description",
   "displayMode",
@@ -1331,6 +1332,7 @@ export function createLineChartSettings(
 export const ScatterChartSettingsSchema = z.object({
   type: z.literal("scatter").default(ChartTypeEnum.scatter),
   xAxisColumn: z.string().default("" as const),
+  categoryColumn: z.string().default("" as const),
   xAxisLog: z.boolean().default(false),
   yAxisLog: z.boolean().default(false),
 });
@@ -1393,6 +1395,7 @@ export const CoreSchema = z.object({
         "configLanguage",
         "coreNameEditable",
         "coreNameType",
+        "dataPath",
         "defaultVal",
         "description",
         "displayMode",
@@ -1685,6 +1688,7 @@ export const ChartSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   artifactGroupIds: z.array(z.string()).default([]),
+  dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
     .default(createLineChartSettings),
@@ -2508,6 +2512,7 @@ export const ChartSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
+  dataPath: z.string().optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
     .optional(),
@@ -4429,6 +4434,7 @@ export const UserDefaultChartSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
+  dataPath: z.string().default("" as const),
 });
 
 export type UserDefaultChartSectionImpl = z.infer<
@@ -5829,6 +5835,7 @@ export const ChartSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
   renderedValue: z.union([z.any(), z.any()]).optional(),
+  dataPath: z.union([z.string(), z.any()]).optional(),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.any()])
     .optional(),
@@ -6516,6 +6523,7 @@ export const CoreArgsSchema = z.object({
         "configLanguage",
         "coreNameEditable",
         "coreNameType",
+        "dataPath",
         "defaultVal",
         "description",
         "displayMode",

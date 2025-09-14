@@ -25,5 +25,6 @@ class LineChartSettings(BaseChartSettings):
 class ScatterChartSettings(BaseChartSettings):
     type: Literal[ChartType.scatter] = ChartType.scatter
     xAxisColumn: str = ""
+    categoryColumn: str = ""
     xAxisLog: bool = False
     yAxisLog: bool = False
