@@ -467,7 +467,7 @@ export const RouteEnum = {
   PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
   PASTE_SECTIONS: "/pasteSections",
   GET_FOLDER_CONTENTS: "/getFolderContents",
-  LOAD_IMAGE_ARTIFACT: "/loadImageArtifact",
+  LOAD_IMAGE_ARTIFACTS: "/loadImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CHART_DATA: "/loadChartData",
   SET_CHART_TYPE: "/setChartType",
@@ -7539,18 +7539,18 @@ export function createLoadChartDataRequest(
   return LoadChartDataRequestSchema.parse(options);
 }
 
-export const LoadImageArtifactRequestSchema = z.object({
-  imagePath: z.string(),
+export const LoadImageArtifactsRequestSchema = z.object({
+  imagePaths: z.array(z.string()),
 });
 
-export type LoadImageArtifactRequest = z.infer<
-  typeof LoadImageArtifactRequestSchema
+export type LoadImageArtifactsRequest = z.infer<
+  typeof LoadImageArtifactsRequestSchema
 >;
 
-export function createLoadImageArtifactRequest(
-  options: Partial<LoadImageArtifactRequest> = {},
-): LoadImageArtifactRequest {
-  return LoadImageArtifactRequestSchema.parse(options);
+export function createLoadImageArtifactsRequest(
+  options: Partial<LoadImageArtifactsRequest> = {},
+): LoadImageArtifactsRequest {
+  return LoadImageArtifactsRequestSchema.parse(options);
 }
 
 export const ReadCSVBase64RequestSchema = z.object({

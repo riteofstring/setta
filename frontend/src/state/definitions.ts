@@ -383,11 +383,18 @@ export const useImages = createWithEqualityFn(
   })),
 );
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ZustandChartDataType = { x: Record<string, ChartDataType> };
 
 export const useChartData = createWithEqualityFn(
   withResetFn<ZustandChartDataType>(() => ({
+    x: {},
+  })),
+);
+
+export type ZustandDecodedImagesType = { x: Record<string, HTMLImageElement> };
+
+export const useDecodedImages = createWithEqualityFn(
+  withResetFn<ZustandDecodedImagesType>(() => ({
     x: {},
   })),
 );

@@ -61,8 +61,8 @@ class FolderContentItem(TypedDict):
     type: str
 
 
-class LoadImageArtifactRequest(BaseModel):
-    imagePath: str
+class LoadImageArtifactsRequest(BaseModel):
+    imagePaths: list[str]
 
 
 class LoadChartDataRequest(BaseModel):
@@ -140,12 +140,15 @@ def route_get_folder_contents(
     return contents
 
 
-@router.post(Route.LOAD_IMAGE_ARTIFACT)
-def route_load_image_artifact(x: LoadImageArtifactRequest) -> str:
-    with open(x.imagePath, "rb") as f:
-        img = f.read()
-        b64_str = base64.b64encode(img).decode("utf-8")
-        return b64_str
+@router.post(Route.LOAD_IMAGE_ARTIFACTS)
+def route_load_image_artifacts(x: LoadImageArtifactsRequest) -> list[str]:
+    output: list[str] = []
+    for p in x.imagePaths:
+        with open(p, "rb") as f:
+            img = f.read()
+            b64_str = base64.b64encode(img).decode("utf-8")
+            output.append(b64_str)
+    return output
 
 
 @router.post(Route.LOAD_CHART_DATA)

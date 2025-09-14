@@ -109,7 +109,7 @@ class Route(str, Enum):
     PREPARE_SECTIONS_FOR_COPY = "/prepareSectionsForCopy"
     PASTE_SECTIONS = "/pasteSections"
     GET_FOLDER_CONTENTS = "/getFolderContents"
-    LOAD_IMAGE_ARTIFACT = "/loadImageArtifact"
+    LOAD_IMAGE_ARTIFACTS = "/loadImageArtifacts"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"
     LOAD_CHART_DATA = "/loadChartData"
     SET_CHART_TYPE = "/setChartType"

@@ -244,7 +244,7 @@ function drawOneLayer(
       artifact.value.complete
     ) {
       const image = realTimeValues?.[id] ?? artifact.value;
-      const transformInfo = realTimeTransforms?.[idx] ?? t;
+      const transformInfo = realTimeTransforms?.[idx] ?? t.transform;
       artifactTempCtx.setTransform(...transformInfo.transform);
       artifactTempCtx.drawImage(image, 0, 0, image.width, image.height);
       drawStrokesOntoTempCanvas(

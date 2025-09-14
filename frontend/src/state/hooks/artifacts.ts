@@ -1,6 +1,9 @@
-import { base64StrToImgSrc } from "components/Section/Layouts/DrawArea/base64Conversion";
+import {
+  base64StrToImgSrc,
+  base64ToImageObj,
+} from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   addArtifactAndMaybeCreateNewArtifactGroup,
@@ -11,24 +14,28 @@ import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useArtifacts,
   useChartData,
+  useDecodedImages,
   useImages,
   useProjectState,
+  ZustandDecodedImagesType,
 } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
 import {
   route_load_chart_data,
-  route_load_image_artifact,
+  route_load_image_artifacts,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 async function loadImage(imagePath: string) {
-  const res = await route_load_image_artifact({ imagePath });
+  const res = await route_load_image_artifacts({ imagePaths: [imagePath] });
   if (res200(res)) {
-    const imageSrc = base64StrToImgSrc(res.data);
-    useImages.setState((state) => ({
-      x: { ...state.x, [imagePath]: imageSrc },
-    }));
+    if (res.data[0]) {
+      const imageSrc = base64StrToImgSrc(res.data[0]);
+      useImages.setState((state) => ({
+        x: { ...state.x, [imagePath]: imageSrc },
+      }));
+    }
   }
 }
 
@@ -48,7 +55,7 @@ export function useLoadedImageArtifact(sectionId: string) {
     if (!image && imagePath) {
       loadImage(imagePath);
     }
-  }, [!!image, imagePath]);
+  }, [!!image]);
 
   return image;
 }
@@ -78,19 +85,23 @@ export function useLoadedChartData(sectionId: string) {
     if (!data && dataPath) {
       loadChartData(dataPath);
     }
-  }, [!!data, dataPath]);
+  }, [!!data]);
 
   return data ?? {};
 }
 
-// async function loadChartData(dataPath: string) {
-//   const res = await route_load_chart_data({ dataPath });
-//   if (res200(res)) {
-//     useChartData.setState((state) => ({
-//       x: { ...state.x, [dataPath]: res.data },
-//     }));
-//   }
-// }
+async function loadDrawAreaImages(imagePaths: Array<string>) {
+  const res = await route_load_image_artifacts({ imagePaths });
+  if (res200(res)) {
+    const images: ZustandDecodedImagesType["x"] = {};
+    for (const [idx, r] of res.data.entries()) {
+      if (imagePaths[idx]) {
+        images[imagePaths[idx]] = await base64ToImageObj(r);
+      }
+    }
+    useDecodedImages.setState((state) => ({ x: { ...state.x, ...images } }));
+  }
+}
 
 export function useLoadedDrawAreaData(sectionId: string) {
   const paths = useProjectState((x) => {
@@ -99,17 +110,25 @@ export function useLoadedDrawAreaData(sectionId: string) {
       sectionId,
       SectionTypeEnum.Draw,
     );
-    const paths = impl.layers.flatMap((l) => l.map((i) => i.dataPath));
-    return paths;
-  });
+    return impl.layers.flatMap((l) => l.elements.map((e) => e.dataPath));
+  }, _.isEqual);
 
-  const data = useChartData((x) =>  x.x[dataPath]);
-
-  useEffect(() => {
-    if (!data && dataPath) {
-      loadChartData(dataPath);
+  const data = useDecodedImages((x) => paths.map((p) => x.x[p]), _.isEqual);
+  const notLoaded = useMemo(() => {
+    const missing: string[] = [];
+    for (const [idx, d] of data.entries()) {
+      if (!d && paths[idx]) {
+        missing.push(paths[idx]);
+      }
     }
-  }, [!!data, dataPath]);
+    return missing;
+  }, [data, paths]);
+
+  useDeepCompareEffect(() => {
+    if (notLoaded) {
+      loadDrawAreaImages(notLoaded);
+    }
+  }, [notLoaded]);
 
   return data ?? {};
 }
