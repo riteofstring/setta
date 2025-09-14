@@ -24,6 +24,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
     SetCallableRequest,
+    SetChartTypeRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -460,3 +461,8 @@ async def route_set_image_area_image_path(
     await state.project_manager_switcher.get(
         x.projectConfigId
     ).set_image_area_image_path(x)
+
+
+@router.post(Route.SET_CHART_TYPE)
+async def route_set_chart_type(x: SetChartTypeRequest, state: AppStateFromRequest):
+    await state.project_manager_switcher.get(x.projectConfigId).set_chart_type(x)

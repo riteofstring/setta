@@ -221,16 +221,15 @@ export function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
   variant: Variant,
   args: ImplArgsBundleMap[K]["args"],
 ): ImplArgsBundleMap[K]["impl"] {
+  const curr = getEffectiveImpl(impl, core, variant);
   for (const [k, v] of Object.entries(args)) {
+    const currV = curr[k];
     if (!core.unsharedKeys.includes(k)) {
-      const current = core.sharedModifier[k];
-      core.sharedModifier[k] = typeof v === "function" ? v(current) : v;
+      core.sharedModifier[k] = typeof v === "function" ? v(currV) : v;
     } else if (!impl.isPreset) {
-      const current = impl[k];
-      impl[k] = typeof v === "function" ? v(current) : v;
+      impl[k] = typeof v === "function" ? v(currV) : v;
     } else {
-      const current = variant.modifier[k];
-      variant.modifier[k] = typeof v === "function" ? v(current) : v;
+      variant.modifier[k] = typeof v === "function" ? v(currV) : v;
     }
   }
   return getEffectiveImpl(impl, core, variant);

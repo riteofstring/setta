@@ -1,9 +1,13 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import { updateColumnNameSelections } from "state/actions/artifacts";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { useChartData, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
+import { route_set_chart_type } from "utils/generatedEndpoints";
 import {
   BaseChartSettingsUnion,
   ChartType,
@@ -192,7 +196,13 @@ function ChartTypeSelection({
       <IdNameCombobox
         allItems={chartTypes}
         value={selectedChartType}
-        onSelectedItemChange={(v) => setChartType(sectionId, v)}
+        onSelectedItemChange={(v: ChartType) =>
+          route_set_chart_type({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            chartType: v,
+          })
+        }
       />
     </>
   );

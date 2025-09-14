@@ -112,3 +112,4 @@ class Route(str, Enum):
     LOAD_IMAGE_ARTIFACT = "/loadImageArtifact"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"
     LOAD_CHART_DATA = "/loadChartData"
+    SET_CHART_TYPE = "/setChartType"

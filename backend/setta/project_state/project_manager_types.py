@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
+from setta.types.chart import ChartType
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.unions import BaseSectionImplArgsUnion
 from setta.types.project_config import TopLevelSectionLayout, Viewport
@@ -324,6 +325,12 @@ class SetImageAreaImagePathRequest(BaseModel):
     projectConfigId: str
     sectionId: str
     imagePath: str
+
+
+class SetChartTypeRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    chartType: ChartType
 
 
 @dataclass

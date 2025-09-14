@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
 
 from setta.database.utils import create_new_id
+from setta.types.chart import ChartType
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeCallableCodeObjImpl,
@@ -16,6 +17,7 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
+from setta.types.generated.chart_settings_unions import BaseChartSettingsTypeAdapter
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -32,6 +34,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseSectionImplArgsWithCallable,
     BaseSectionWithParamsImplArgsWithCallable,
     BrowserSectionImplArgsWithCallable,
+    ChartSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
     GenPythonCodeSectionImplArgsWithCallable,
@@ -1113,6 +1116,18 @@ def set_image_area_image_path(
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
+    )
+
+
+def set_chart_type(p: "ProjectStateSingleConfig", sectionId: str, chartType: ChartType):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChartSectionImplArgsWithCallable(
+            chartSettings=lambda currChartSettings: BaseChartSettingsTypeAdapter.validate_python(
+                {**currChartSettings.model_dump(), "type": chartType}
+            )
+        ),
     )
 
 

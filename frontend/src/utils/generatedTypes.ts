@@ -462,6 +462,7 @@ export const RouteEnum = {
   LOAD_IMAGE_ARTIFACT: "/loadImageArtifact",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CHART_DATA: "/loadChartData",
+  SET_CHART_TYPE: "/setChartType",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -8036,6 +8037,20 @@ export function createSetCallableRequest(
   options: Partial<SetCallableRequest> = {},
 ): SetCallableRequest {
   return SetCallableRequestSchema.parse(options);
+}
+
+export const SetChartTypeRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  chartType: z.enum(ChartTypeEnum),
+});
+
+export type SetChartTypeRequest = z.infer<typeof SetChartTypeRequestSchema>;
+
+export function createSetChartTypeRequest(
+  options: Partial<SetChartTypeRequest> = {},
+): SetChartTypeRequest {
+  return SetChartTypeRequestSchema.parse(options);
 }
 
 export const SetCodeObjNameRequestSchema = z.object({

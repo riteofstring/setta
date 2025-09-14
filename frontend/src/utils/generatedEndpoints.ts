@@ -578,3 +578,9 @@ export async function route_set_image_area_image_path(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setImageAreaImagePath", x);
 }
+
+export async function route_set_chart_type(
+  x: gt.SetChartTypeRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setChartType", x);
+}

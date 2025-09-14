@@ -47,6 +47,7 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
     SetBrowserAreaViewModeRequest,
     SetCallableRequest,
+    SetChartTypeRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
     SetDefaultSectionVariantRequest,
@@ -100,6 +101,7 @@ from setta.types.helpers import (
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
+    set_chart_type,
     set_code,
     set_default_section_variant,
     set_image_area_image_path,
@@ -851,6 +853,12 @@ class BaseProjectManager(ABC):
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_image_area_image_path(project_state, x.sectionId, x.imagePath)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_chart_type(self, x: SetChartTypeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chart_type(project_state, x.sectionId, x.chartType)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

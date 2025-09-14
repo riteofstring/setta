@@ -178,16 +178,15 @@ def set_effective_impl_value( # type: ignore
     The overloaded signatures above provide type-safe field names for each
     specific impl type.
     \"\"\"
+    curr = get_effective_impl(impl, core, variant)
     for k, v in args.items():
+        currV = getattr(curr, k, None)
         if k not in core.unsharedKeys:
-            current = core.sharedModifier.get(k)
-            core.sharedModifier[k] = v(current) if callable(v) else v
+            core.sharedModifier[k] = v(currV) if callable(v) else v
         elif not impl.isPreset:
-            current = getattr(impl, k, None)
-            setattr(impl, k, v(current) if callable(v) else v)
+            setattr(impl, k, v(currV) if callable(v) else v)
         else:
-            current = variant.modifier.get(k)
-            variant.modifier[k] = v(current) if callable(v) else v
+            variant.modifier[k] = v(currV) if callable(v) else v
     return get_effective_impl(impl, core, variant)
 """
 
