@@ -48,3 +48,10 @@ export function getOnLegendClickSetDatasetHidden<T extends ChartType>(
     }));
   };
 }
+
+export function getAxisType(isLog: boolean, sampleData?: string | number) {
+  if (typeof sampleData === "string") {
+    return "category";
+  }
+  return isLog ? "logarithmic" : "linear";
+}

@@ -7,7 +7,11 @@ import {
   Tooltip,
 } from "chart.js";
 import { ChartDataType, ScatterChartSettings } from "utils/generatedTypes";
-import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
+import {
+  getAxisType,
+  getOnLegendClickSetDatasetHidden,
+  SetDatasetHiddenFn,
+} from "./utils";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
   _elements,
@@ -34,7 +38,7 @@ export function getScatterChartConfig(
           type: "linear",
           position: "bottom",
         },
-        y1: {
+        y: {
           type: "linear",
           position: "left",
         },
@@ -145,13 +149,21 @@ export function updateScatterChartWithNewData(
   const datasets = Object.entries(groupedData).map(([category, points]) => ({
     label: category,
     data: points,
-    yAxisID: "y1",
+    yAxisID: "y",
     hidden: datasetHidden[category],
     pointRadius: 4,
     pointHoverRadius: 6,
   }));
 
   chart.crosshairPlugin.color = darkMode ? "white" : "black";
+
+  const scaleOptions = chart.options.scales;
+  if (scaleOptions?.x) {
+    scaleOptions.x.type = getAxisType(chartSettings.xAxisLog);
+  }
+  if (scaleOptions?.y) {
+    scaleOptions.y.type = getAxisType(chartSettings.yAxisLog);
+  }
 
   return { datasets };
 }

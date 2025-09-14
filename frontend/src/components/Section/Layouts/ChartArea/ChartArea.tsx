@@ -64,6 +64,12 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     {},
   );
 
+  function resize() {
+    if (chartRef.current && size.width !== "auto" && size.height !== "auto") {
+      chartRef.current.resize(size.width - 25, size.height - 50);
+    }
+  }
+
   useEffect(() => {
     if (!canvasRef.current) {
       return;
@@ -71,9 +77,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
 
     const configuration = getChartConfig(chartSettings.type, setDatasetHidden);
     chartRef.current = new Chart(canvasRef.current, configuration);
-    if (size.width !== "auto" && size.height !== "auto") {
-      chartRef.current.resize(size.width - 25, size.height - 50);
-    }
+    resize();
 
     const unsub = listenForCanvasToBase64Requests(sectionId, () =>
       canvasToBase64(canvasRef.current),
@@ -104,18 +108,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
 
     chart.data = newData;
 
-    const scaleOptions = chart.options.scales;
-    scaleOptions.x.type = getAxisType(
-      chartSettings.xAxisLog,
-      newData.labels?.[0],
-    );
-    scaleOptions.y1.type = getAxisType(chartSettings.y1AxisLog);
-    scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
-    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
-
-    if (size.width !== "auto" && size.height !== "auto") {
-      chart.resize(size.width - 25, size.height - 50);
-    }
+    resize();
     chart.update();
   }, [data, size, datasetHidden, darkMode, chartSettings]);
 
@@ -164,11 +157,4 @@ export function updateChartWithNewData(
     default:
       return chartSettings satisfies never;
   }
-}
-
-function getAxisType(isLog: boolean, sampleData) {
-  if (typeof sampleData === "string") {
-    return "category";
-  }
-  return isLog ? "logarithmic" : "linear";
 }

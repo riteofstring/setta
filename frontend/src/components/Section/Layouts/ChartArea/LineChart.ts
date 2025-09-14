@@ -7,7 +7,11 @@ import {
   Tooltip,
 } from "chart.js";
 import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
-import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
+import {
+  getAxisType,
+  getOnLegendClickSetDatasetHidden,
+  SetDatasetHiddenFn,
+} from "./utils";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
   _elements,
@@ -113,6 +117,18 @@ export function updateLineChartWithNewData(
 
   chart.verticalLinePlugin.color = darkMode ? "white" : "black";
 
+  const scaleOptions = chart.options.scales;
+  if (scaleOptions?.x) {
+    scaleOptions.x.type = getAxisType(chartSettings.xAxisLog, labels?.[0]);
+  }
+  if (scaleOptions?.y1) {
+    scaleOptions.y1.type = getAxisType(chartSettings.y1AxisLog);
+  }
+  if (scaleOptions?.y2) {
+    scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
+    scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
+  }
+
   if (labels) {
     return { labels, datasets };
   }
@@ -135,17 +151,34 @@ export const verticalLinePlugin: Plugin<"line"> = {
     const { inChartArea } = args;
     const { x, y } = args.event;
 
+    if (x === null || y === null) {
+      return;
+    }
+
     if (inChartArea) {
       // Find the nearest x-axis data point
       const xScale = chart.scales.x;
       const values = chart.data.labels as number[];
 
+      if (!xScale) {
+        return;
+      }
+
       // Convert mouse x position to data space
       const mouseValue = xScale.getValueForPixel(x);
 
+      if (!mouseValue) {
+        return;
+      }
+
       // Find nearest data point
       let nearestValue = values[0];
-      let minDistance = Math.abs(mouseValue - values[0]);
+
+      if (nearestValue === undefined) {
+        return;
+      }
+
+      let minDistance = Math.abs(mouseValue - nearestValue);
 
       for (const value of values) {
         const distance = Math.abs(mouseValue - value);
