@@ -207,7 +207,7 @@ export async function route_load_image_artifact(
 
 export async function route_load_chart_data(
   x: gt.LoadChartDataRequest,
-): Promise<ResponseDataAndStatus<Record<string, Array<any>>>> {
+): Promise<ResponseDataAndStatus<Record<string, Array<string | number>>>> {
   return await post("/loadChartData", x);
 }
 

@@ -13,6 +13,7 @@ import {
 import {
   AllProjectMetadata,
   APIKeys,
+  ChartDataType,
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
@@ -383,7 +384,7 @@ export const useImages = createWithEqualityFn(
 );
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ZustandChartDataType = { x: Record<string, Record<string, Array<any>>> };
+type ZustandChartDataType = { x: Record<string, ChartDataType> };
 
 export const useChartData = createWithEqualityFn(
   withResetFn<ZustandChartDataType>(() => ({

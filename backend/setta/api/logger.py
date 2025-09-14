@@ -5,12 +5,12 @@ import os
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import Any
 
 import requests
 import websockets
 
 from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
+from setta.types.chart import ChartDataType
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
@@ -331,10 +331,10 @@ def pil_to_setta_img(pil_image, format="png"):
 
 
 def parse_csv_row(values):
-    row = []
+    row: list[str | float] = []
     for x in values:
         if x.strip() == "":
-            row.append(None)
+            row.append("")
         else:
             try:
                 row.append(float(x))
@@ -343,13 +343,13 @@ def parse_csv_row(values):
     return row
 
 
-def parse_csv_content(content: str) -> dict[str, list[Any]]:
+def parse_csv_content(content: str) -> ChartDataType:
     lines = content.strip().split("\n")
     if not lines:
         return {}
 
     headers = [h.strip() for h in lines[0].split(",")]
-    result = {header: [] for header in headers}
+    result: ChartDataType = {header: [] for header in headers}
 
     if not lines[1:]:
         return result

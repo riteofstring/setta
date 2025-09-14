@@ -579,6 +579,13 @@ export const JSONValueTypeSchema = z.union([
 
 export type JSONValueType = z.infer<typeof JSONValueTypeSchema>;
 
+export const ChartDataTypeSchema = z.record(
+  z.string(),
+  z.array(z.union([z.string(), z.number()])),
+);
+
+export type ChartDataType = z.infer<typeof ChartDataTypeSchema>;
+
 export const CitationCharLocationSchema = z.object({
   cited_text: z.string(),
   document_index: z.int(),

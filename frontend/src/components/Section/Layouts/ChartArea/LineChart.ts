@@ -5,7 +5,7 @@ import {
   DefaultDataPoint,
   Tooltip,
 } from "chart.js";
-import { LineChartSettings } from "utils/generatedTypes";
+import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
 import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
@@ -79,7 +79,7 @@ type LineChartData = ChartData<
 
 export function updateLineChartWithNewData(
   chart: Chart,
-  data: Record<string, any>,
+  data: ChartDataType,
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: LineChartSettings,

@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+ChartDataType = dict[str, list[str | float]]
+
 
 class ChartType(str, Enum):
     line = "line"

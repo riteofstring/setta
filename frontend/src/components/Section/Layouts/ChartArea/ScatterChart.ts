@@ -5,7 +5,7 @@ import {
   Tooltip,
 } from "chart.js";
 import { Chart } from "chart.js/dist";
-import { ScatterChartSettings } from "utils/generatedTypes";
+import { ChartDataType, ScatterChartSettings } from "utils/generatedTypes";
 import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
@@ -71,12 +71,12 @@ type ScatterChartData = ChartData<
 
 export function updateScatterChartWithNewData(
   chart: Chart,
-  data: Record<string, any>,
+  data: ChartDataType,
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: ScatterChartSettings,
 ): ScatterChartData {
-  let categoryValue = "No Category";
+  let categoryValue: string | number = "No Category";
   const firstColumnLength = Object.values(data)[0]?.length;
 
   if (!firstColumnLength) {
@@ -103,20 +103,39 @@ export function updateScatterChartWithNewData(
     return { datasets: [] };
   }
 
+  const catColumn = data[categoryColumn];
+  const xColumn = data[xAxisColumn];
+  const yColumn = data[yAxisColumn];
+
+  if (!xColumn || !yColumn) {
+    return { datasets: [] };
+  }
+
   const groupedData: Record<
     string | number,
     Array<{ x: number; y: number; columnName: string }>
   > = {};
   for (let i = 0; i < firstColumnLength; i++) {
-    if (categoryColumn) {
-      categoryValue = data[categoryColumn][i];
+    if (catColumn) {
+      const cv = catColumn[i];
+      if (cv === undefined) {
+        throw new Error();
+      }
+      categoryValue = cv;
     }
     if (!(categoryValue in groupedData)) {
       groupedData[categoryValue] = [];
     }
+    const x = xColumn[i];
+    const y = yColumn[i];
+
+    if (typeof x !== "number" || typeof y !== "number") {
+      continue;
+    }
+
     groupedData[categoryValue].push({
-      x: data[xAxisColumn][i],
-      y: data[yAxisColumn][i],
+      x,
+      y,
       columnName: yAxisColumn,
     });
   }

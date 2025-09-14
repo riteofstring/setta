@@ -1,7 +1,7 @@
 import base64
 import os
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from pydantic import BaseModel
 
@@ -17,6 +17,7 @@ from setta.database.db.artifacts.save import (
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.chart import ChartDataType
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -148,7 +149,7 @@ def route_load_image_artifact(x: LoadImageArtifactRequest) -> str:
 
 
 @router.post(Route.LOAD_CHART_DATA)
-def route_load_chart_data(x: LoadChartDataRequest) -> dict[str, list[Any]]:
+def route_load_chart_data(x: LoadChartDataRequest) -> ChartDataType:
     with open(x.dataPath, "r") as f:
         content = f.read()
         return parse_csv_content(content)
