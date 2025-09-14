@@ -8,7 +8,6 @@ import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
-import { addDrawAreaLayer } from "state/actions/artifacts";
 import {
   getCurrEffectiveSectionImplOfType,
   setCurrEffectiveSectionImplValue,
@@ -47,46 +46,6 @@ export function DrawAreaControls({
   layerOpacity: number;
   canvasMode: DrawAreaMode;
 }) {
-  function setLayerVisibility(layerId, v) {
-    setLayerSettings(layerId, "visible", v);
-  }
-  function setActiveLayerId(v) {
-    setCanvasSettings(sectionId, "activeLayerId", v);
-  }
-
-  function addLayer() {
-    useProjectState.setState((state) => {
-      addDrawAreaLayer(sectionId, state);
-    });
-  }
-
-  function deleteLayer(layerId) {
-    useProjectState.setState((state) => {
-      delete state.artifactGroups[layerId];
-      const s = state.sections[sectionId];
-      const layerIndex = s.artifactGroupIds.findIndex((x) => x === layerId);
-
-      s.artifactGroupIds = s.artifactGroupIds.filter((x) => x !== layerId);
-
-      if (s.artifactGroupIds.length > 0) {
-        s.canvasSettings.activeLayerId =
-          s.artifactGroupIds[layerIndex !== -1 ? layerIndex - 1 : 0];
-      } else {
-        s.canvasSettings.activeLayerId = null;
-      }
-    });
-  }
-
-  function reorderLayers(draggedIdx, targetIdx) {
-    useProjectState.setState((state) => {
-      state.sections[sectionId].artifactGroupIds = arrayMove(
-        state.sections[sectionId].artifactGroupIds,
-        draggedIdx,
-        targetIdx,
-      );
-    });
-  }
-
   return (
     <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
       <DrawAreaColorPicker sectionId={sectionId} brushColor={brushColor} />
@@ -164,15 +123,7 @@ export function DrawAreaControls({
           </button>
         }
       >
-        <LayerList
-          sectionId={sectionId}
-          activeLayerIdx={activeLayerIdx}
-          setActiveLayerId={setActiveLayerId}
-          setLayerVisibility={setLayerVisibility}
-          addLayer={addLayer}
-          reorderLayers={reorderLayers}
-          deleteLayer={deleteLayer}
-        />
+        <LayerList sectionId={sectionId} activeLayerIdx={activeLayerIdx} />
       </StandardPopover>
 
       <button
@@ -228,7 +179,7 @@ function DrawAreaSetToDrawModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.draw,
       }),
@@ -258,7 +209,7 @@ function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   }, [brushSize]);
 
   function setBrushOpacity(v: number) {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushOpacity: v,
       }),
@@ -266,7 +217,7 @@ function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   }
 
   function setBrushSize(v: number) {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushSize: v,
       }),
@@ -274,7 +225,7 @@ function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   }
 
   function setBrushShape(v: DrawAreaBrushShape) {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushShape: v,
       }),
@@ -355,7 +306,7 @@ function DrawAreaSetToEraserModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.erase,
       }),
@@ -380,7 +331,7 @@ function EraserSettings({ sectionId, eraserBrushSize }) {
   }, [eraserBrushSize]);
 
   function setBrushSize(v: number) {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         eraserBrushSize: v,
       }),
@@ -427,7 +378,7 @@ function DrawAreaSetToEditModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.edit,
       }),
@@ -452,7 +403,7 @@ function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   }, [opacity]);
 
   function setOpacity(v: number) {
-    useProjectState((x) =>
+    useProjectState.setState((x) =>
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         layers: (currLayers) => {
           if (currLayers[activeLayerIdx]) {
@@ -496,15 +447,40 @@ function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   );
 }
 
-function LayerList({
-  sectionId,
-  activeLayerIdx,
-  setActiveLayerId,
-  setLayerVisibility,
-  addLayer,
-  reorderLayers,
-  deleteLayer,
-}) {
+function LayerList({ sectionId, activeLayerIdx }) {
+  function reorderLayers(draggedIdx: number, targetIdx: number) {
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: (currLayers) => arrayMove(currLayers, draggedIdx, targetIdx),
+      });
+    });
+  }
+
+  function setLayerVisibility(layerIdx: number, visible: boolean) {
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: (currLayers) => {
+          if (currLayers[layerIdx]) {
+            currLayers[layerIdx].visible = visible;
+          }
+          return currLayers;
+        },
+      });
+    });
+  }
+
+  function setActiveLayerIdx(layerIdx: number) {
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        activeLayerIdx: layerIdx,
+      });
+    });
+  }
+
+  function addLayer() {}
+
+  function deleteLayer() {}
+
   const layers = useProjectState(
     (x) => getSectionArtifactGroupMetadata(sectionId, x),
     _.isEqual,
@@ -554,7 +530,7 @@ function LayerList({
             className={`dark:hover:bg-setta-8509 flex cursor-move items-center justify-between gap-2 rounded-lg  border-2 bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 ${
               draggedOverIdx === idx ? " border-blue-500" : "border-transparent"
             } `}
-            onClick={() => setActiveLayerId(layer.id)}
+            onClick={() => setActiveLayerIdx(layer.id)}
           >
             <button
               onClick={() => setLayerVisibility(layer.id, !layer.visible)}
@@ -591,16 +567,4 @@ function LayerList({
       </button>
     </div>
   );
-}
-
-function setCanvasSettings(sectionId, attr, value) {
-  useProjectState.setState((x) => {
-    x.sections[sectionId].canvasSettings[attr] = value;
-  });
-}
-
-function setLayerSettings(layerId, attr, value) {
-  useProjectState.setState((x) => {
-    x.artifactGroups[layerId][attr] = value;
-  });
 }

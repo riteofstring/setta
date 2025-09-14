@@ -1773,6 +1773,7 @@ export function createDrawAreaLayerItem(
 }
 
 export const DrawAreaLayerSchema = z.object({
+  name: z.string().default(generate_memorable_string),
   elements: z.array(DrawAreaLayerItemSchema).default([]),
   visible: z.boolean().default(true),
   layerOpacity: z.number().default(0.5),

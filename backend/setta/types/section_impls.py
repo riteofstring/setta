@@ -95,6 +95,7 @@ class DrawAreaLayerItem(BaseModel):
 
 
 class DrawAreaLayer(BaseModel):
+    name: str = Field(default_factory=generate_memorable_string)
     elements: list[DrawAreaLayerItem] = Field(default_factory=list)
     visible: bool = True
     layerOpacity: float = 0.5
