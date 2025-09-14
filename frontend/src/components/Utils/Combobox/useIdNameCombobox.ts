@@ -9,15 +9,15 @@ import { flattenedItems } from "./utils";
 
 // value doesn't have to be provided, for example if it's not a saved global state.
 // value === null means no selection
-export function useIdNameCombobox({
+export function useIdNameCombobox<T>({
   allItems,
   onSelectedItemChange,
   value,
   selectedItemCanBeNull = false,
   clearInputAfterSelection = false,
 }: {
-  allItems: AllItemsType;
-  onSelectedItemChange: OnSelectedItemChangeFnType;
+  allItems: AllItemsType<T>;
+  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
   value?: string | null;
   selectedItemCanBeNull?: boolean;
   clearInputAfterSelection?: boolean;
@@ -29,7 +29,7 @@ export function useIdNameCombobox({
     }
   }
 
-  const itemToString = (x: ComboboxItemType | null) => (x ? x.name : "");
+  const itemToString = (x: ComboboxItemType<T> | null) => (x ? x.name : "");
 
   const { filteredItems, stateReducer, selection } =
     useComboboxStateReducerWithFilteredItems(
@@ -40,7 +40,7 @@ export function useIdNameCombobox({
       clearInputAfterSelection,
     );
 
-  const localOnSelectedItemChange: UseComboboxProps<ComboboxItemType>["onSelectedItemChange"] =
+  const localOnSelectedItemChange: UseComboboxProps<ComboboxItemType<T>>["onSelectedItemChange"] =
     ({ selectedItem }) => {
       onSelectedItemChange(selectedItem ? selectedItem.id : null);
     };
@@ -54,7 +54,7 @@ export function useIdNameCombobox({
     getInputProps,
     highlightedIndex,
     getItemProps,
-  } = useCombobox<ComboboxItemType>({
+  } = useCombobox<ComboboxItemType<T>>({
     stateReducer,
     selectedItem: selection,
     items: singleListItems,

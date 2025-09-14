@@ -2,9 +2,6 @@ import { useRef } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import { useIdNameCombobox } from "./useIdNameCombobox";
 
-export type IdNameArrayForCombobox = Array<{ id: string; name: string }>;
-export type ComboboxOnSelectedItemChange = (x: string | null) => void;
-
 // TODO: add "display groups" argument
 export function IdNameCombobox({
   allItems,

@@ -112,7 +112,7 @@ function ProjectPageAdvanced() {
 
 function ProjectPageCommandPalette() {
   const itemsWithoutId = useCreateSectionsList();
-  const allItems: AllItemsType = [];
+  const allItems: AllItemsType<string> = [];
   // adds id to each item
   // TODO: make this less bad
   for (const g of itemsWithoutId) {
@@ -122,7 +122,7 @@ function ProjectPageCommandPalette() {
     });
   }
 
-  const onSelectedItemChange: OnSelectedItemChangeFnType = (id) => {
+  const onSelectedItemChange: OnSelectedItemChangeFnType<string> = (id) => {
     // finds matching item, and then uses its specificProps
     // TODO: make this less bad
     let match: CreateSectionsContextMenuInfo | null = null;
@@ -153,12 +153,12 @@ function ProjectPageCommandPalette() {
   );
 }
 
-function ProjectPageAdvancedCore({
+function ProjectPageAdvancedCore<T>({
   allItems,
   onSelectedItemChange,
 }: {
-  allItems: AllItemsType;
-  onSelectedItemChange: OnSelectedItemChangeFnType;
+  allItems: AllItemsType<T>;
+  onSelectedItemChange: OnSelectedItemChangeFnType<T>;
 }) {
   const {
     isOpen,

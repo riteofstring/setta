@@ -10,16 +10,18 @@ import { useState } from "react";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { flattenedItems } from "./utils";
 
-export type ComboboxItemType = { id: string; name: string };
+export type ComboboxItemType<T> = { id: T; name: string };
 
-export type AllItemsType = Array<{
+export type ComboboxItemArrayType<T> = Array<ComboboxItemType<T>>;
+
+export type AllItemsType<T> = Array<{
   group: string;
-  items: Array<ComboboxItemType>;
+  items: ComboboxItemArrayType<T>;
 }>;
 
-export type OnSelectedItemChangeFnType = (id: string | null) => void;
+export type OnSelectedItemChangeFnType<T> = (id: T | null) => void;
 
-function resetToPreviousVal(state: UseComboboxState<ComboboxItemType>) {
+function resetToPreviousVal<T>(state: UseComboboxState<ComboboxItemType<T>>) {
   return {
     selectedItem: state.selectedItem,
     inputValue: state.selectedItem === null ? "" : state.selectedItem.name,
@@ -33,9 +35,11 @@ function setSelectedItemToNull() {
   };
 }
 
-function getHighlightedIndex(
-  items: AllItemsType,
-  selectedItem: UseComboboxState<ComboboxItemType>["selectedItem"] | undefined,
+function getHighlightedIndex<T>(
+  items: AllItemsType<T>,
+  selectedItem:
+    | UseComboboxState<ComboboxItemType<T>>["selectedItem"]
+    | undefined,
   selectedItemCanBeNull: boolean,
   inputValue: string | undefined,
 ) {
@@ -50,7 +54,7 @@ function getHighlightedIndex(
   if (selectedItem) {
     let idx = 0;
     for (const group of items) {
-      const currIdx = _.findIndex(group.items, selectedItem);
+      const currIdx = _.findIndex(group.items, (item) => item === selectedItem);
       if (currIdx !== -1) {
         return { highlightedIndex: idx + currIdx };
       }
@@ -60,8 +64,8 @@ function getHighlightedIndex(
   return { highlightedIndex: -1 };
 }
 
-function getValueFromHighlightedIndex(
-  latestItems: AllItemsType,
+function getValueFromHighlightedIndex<T>(
+  latestItems: AllItemsType<T>,
   highlightedIndex: number | undefined,
 ) {
   if (highlightedIndex === undefined) {
@@ -81,15 +85,15 @@ function getValueFromHighlightedIndex(
   return {};
 }
 
-function getExactMatch(
-  latestItems: AllItemsType,
+function getExactMatch<T>(
+  latestItems: AllItemsType<T>,
   value: string | null,
   key: string,
 ) {
   return _.find(flattenedItems(latestItems), { [key]: value }) ?? null;
 }
 
-function getFirstMatch(latestItems: AllItemsType) {
+function getFirstMatch<T>(latestItems: AllItemsType<T>) {
   return flattenedItems(latestItems)[0];
 }
 
@@ -100,13 +104,13 @@ function maybeClearInput(clearInputAfterSelection: boolean) {
   return {};
 }
 
-function handleEnter(
+function handleEnter<T>(
   highlightedIndex: number,
   clearInputAfterSelection: boolean,
   inputValue: string,
-  items: AllItemsType,
+  items: AllItemsType<T>,
   selectedItemCanBeNull: boolean,
-  state: UseComboboxState<ComboboxItemType>,
+  state: UseComboboxState<ComboboxItemType<T>>,
 ) {
   if (highlightedIndex !== -1) {
     return maybeClearInput(clearInputAfterSelection);
@@ -129,14 +133,14 @@ function handleEnter(
   return resetToPreviousVal(state);
 }
 
-function getReducerModifications(
+function getReducerModifications<T>(
   type: UseComboboxStateChangeTypes,
-  state: UseComboboxState<ComboboxItemType>,
-  changes: Partial<UseComboboxState<ComboboxItemType>>,
-  items: AllItemsType,
+  state: UseComboboxState<ComboboxItemType<T>>,
+  changes: Partial<UseComboboxState<ComboboxItemType<T>>>,
+  items: AllItemsType<T>,
   selectedItemCanBeNull: boolean,
   clearInputAfterSelection: boolean,
-): Partial<UseComboboxState<ComboboxItemType>> {
+): Partial<UseComboboxState<ComboboxItemType<T>>> {
   const changeTypes = useCombobox.stateChangeTypes;
 
   switch (type) {
@@ -170,10 +174,10 @@ function getReducerModifications(
   }
 }
 
-export function useComboboxStateReducerWithFilteredItems(
-  allItems: AllItemsType,
+export function useComboboxStateReducerWithFilteredItems<T>(
+  allItems: AllItemsType<T>,
   value: string | null | undefined,
-  setValue: OnSelectedItemChangeFnType,
+  setValue: OnSelectedItemChangeFnType<T>,
   selectedItemCanBeNull: boolean,
   clearInputAfterSelection: boolean,
 ) {
@@ -194,7 +198,7 @@ export function useComboboxStateReducerWithFilteredItems(
     }
   }, [allItems, value]);
 
-  const stateReducer: UseComboboxProps<ComboboxItemType>["stateReducer"] = (
+  const stateReducer: UseComboboxProps<ComboboxItemType<T>>["stateReducer"] = (
     state,
     actionAndChanges,
   ) => {
