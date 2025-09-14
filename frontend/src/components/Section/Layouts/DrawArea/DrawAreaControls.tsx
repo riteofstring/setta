@@ -9,13 +9,23 @@ import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
 import { IoMove } from "react-icons/io5";
 import { addDrawAreaLayer } from "state/actions/artifacts";
+import {
+  getCurrEffectiveSectionImplOfType,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
+import {
+  DrawAreaBrushShape,
+  DrawAreaMode,
+  DrawAreaModeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 export function DrawAreaControls({
   sectionId,
   activeLayerId,
-  color,
+  brushColor,
   brushOpacity,
   brushSize,
   brushShape,
@@ -23,12 +33,18 @@ export function DrawAreaControls({
   isEraser,
   setIsEraser,
   layerOpacity,
-  mode,
+  canvasMode,
   clearStrokes,
+}: {
+  sectionId: string;
+  brushColor: string;
+  brushOpacity: number;
+  brushSize: number;
+  brushShape: DrawAreaBrushShape;
+  eraserBrushSize: number;
+  layerOpacity: number;
+  canvasMode: DrawAreaMode;
 }) {
-  function setColor(v) {
-    setCanvasSettings(sectionId, "color", v);
-  }
   function setBrushOpacity(v) {
     setLayerSettings(activeLayerId, "brushOpacity", v);
   }
@@ -49,10 +65,6 @@ export function DrawAreaControls({
   }
   function setActiveLayerId(v) {
     setCanvasSettings(sectionId, "activeLayerId", v);
-  }
-  function setToBrushMode() {
-    setIsEraser(false);
-    setCanvasSettings(sectionId, "mode", "draw");
   }
   function setToEraserMode() {
     setIsEraser(true);
@@ -96,18 +108,12 @@ export function DrawAreaControls({
 
   return (
     <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
-      <DrawAreaColorPicker
-        sectionId={sectionId}
-        color={color}
-        setColor={setColor}
-      />
+      <DrawAreaColorPicker sectionId={sectionId} brushColor={brushColor} />
       <div className="flex self-stretch">
-        <button
-          className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && !isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={setToBrushMode}
-        >
-          <BiPaint />
-        </button>
+        <DrawAreaSetToDrawModeButton
+          sectionId={sectionId}
+          canvasMode={canvasMode}
+        />
         <StandardPopover
           arrowClasses="fill-white dark:fill-setta-800"
           contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -116,7 +122,6 @@ export function DrawAreaControls({
               <i className="gg-chevron-down" />
             </button>
           }
-          header={"Brush Settings"}
         >
           <BrushSettings
             opacity={brushOpacity}
@@ -204,20 +209,63 @@ export function DrawAreaControls({
   );
 }
 
-function DrawAreaColorPicker({ sectionId, color, setColor }) {
-  const colorChoices = useProjectState(
-    (x) => x.sections[sectionId].canvasSettings?.colorChoices,
-    _.isEqual,
-  );
+function DrawAreaColorPicker({
+  sectionId,
+  brushColor,
+}: {
+  sectionId: string;
+  brushColor: string;
+}) {
+  const colorChoices = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    return impl.colorChoices;
+  }, _.isEqual);
+
+  function setBrushColor(v: string) {
+    useProjectState.setState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushColor: v,
+      }),
+    );
+  }
 
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
-      value={color}
-      onChange={setColor}
+      value={brushColor}
+      onChange={setBrushColor}
       colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 w-full min-w-0 max-w-24 items-center text-white"
       wrapperClassName="single-cell-container justify-self-start self-center min-w-8 max-w-48 h-full"
     />
+  );
+}
+
+function DrawAreaSetToDrawModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId: string;
+  canvasMode: DrawAreaMode;
+}) {
+  function onClick() {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.draw,
+      }),
+    );
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.draw ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-200 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <BiPaint />
+    </button>
   );
 }
 

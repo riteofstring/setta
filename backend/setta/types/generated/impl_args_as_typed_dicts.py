@@ -54,6 +54,7 @@ class CoreArgs(TypedDict):
                 "code",
                 "codeLanguage",
                 "codeObjVariantMap",
+                "colorChoices",
                 "columnWidth",
                 "configLanguage",
                 "coreNameEditable",
@@ -349,6 +350,7 @@ class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     drawThrottleDelay: NotRequired[int]
     canvasTransferQueueLength: NotRequired[int]
     canvasMode: NotRequired[DrawAreaMode]
+    colorChoices: NotRequired[list[ColorPickerChoice]]
 
 
 class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
@@ -369,6 +371,10 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     drawThrottleDelay: NotRequired[int | Callable[[int], int]]
     canvasTransferQueueLength: NotRequired[int | Callable[[int], int]]
     canvasMode: NotRequired[DrawAreaMode | Callable[[DrawAreaMode], DrawAreaMode]]
+    colorChoices: NotRequired[
+        list[ColorPickerChoice]
+        | Callable[[list[ColorPickerChoice]], list[ColorPickerChoice]]
+    ]
 
 
 class TextBlockSectionImplArgs(BaseSectionImplArgs):

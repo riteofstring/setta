@@ -142,7 +142,15 @@ export function ColorPickerInput({
   onEscape,
   wrapperClassName,
   colorPickerChoicesClasses,
-  isDisabled,
+  isDisabled = false,
+}: {
+  colorChoices: ColorPickerConfigForFrontend["choices"];
+  value: string;
+  onChange: (newColor: string) => void;
+  onEscape?: () => void;
+  wrapperClassName: string;
+  colorPickerChoicesClasses: string;
+  isDisabled?: boolean;
 }) {
   const _value = tryParseJSON(value);
   return (

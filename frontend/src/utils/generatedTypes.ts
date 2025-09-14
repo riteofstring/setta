@@ -1295,6 +1295,7 @@ export const AllImplFieldsSchema = z.literal([
   "code",
   "codeLanguage",
   "codeObjVariantMap",
+  "colorChoices",
   "columnWidth",
   "configLanguage",
   "coreNameEditable",
@@ -1429,6 +1430,7 @@ export const CoreSchema = z.object({
         "code",
         "codeLanguage",
         "codeObjVariantMap",
+        "colorChoices",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",
@@ -1783,6 +1785,19 @@ export function createDrawAreaLayer(
   return DrawAreaLayerSchema.parse(options);
 }
 
+export const ColorPickerChoiceSchema = z.object({
+  color: z.string(),
+  description: z.string(),
+});
+
+export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
+
+export function createColorPickerChoice(
+  options: Partial<ColorPickerChoice> = {},
+): ColorPickerChoice {
+  return ColorPickerChoiceSchema.parse(options);
+}
+
 export const DrawSectionImplSchema = z.object({
   type: z.literal("Draw").default(SectionTypeEnum.Draw),
   id: z.string().default(create_new_id),
@@ -1809,6 +1824,7 @@ export const DrawSectionImplSchema = z.object({
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type DrawSectionImpl = z.infer<typeof DrawSectionImplSchema>;
@@ -2224,19 +2240,6 @@ export function createSwitchParamCodeObjImpl(
   return SwitchParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
-export const ColorPickerChoiceSchema = z.object({
-  color: z.string(),
-  description: z.string(),
-});
-
-export type ColorPickerChoice = z.infer<typeof ColorPickerChoiceSchema>;
-
-export function createColorPickerChoice(
-  options: Partial<ColorPickerChoice> = {},
-): ColorPickerChoice {
-  return ColorPickerChoiceSchema.parse(options);
-}
-
 export const ColorPickerParamCodeObjImplSchema = z.object({
   type: z.literal("ColorPickerParam").default(CodeObjTypeEnum.ColorPickerParam),
   id: z.string().default(create_new_id),
@@ -2606,6 +2609,7 @@ export const DrawSectionImplArgsSchema = z.object({
   drawThrottleDelay: z.int().optional(),
   canvasTransferQueueLength: z.int().optional(),
   canvasMode: z.enum(DrawAreaModeEnum).optional(),
+  colorChoices: z.array(ColorPickerChoiceSchema).optional(),
 });
 
 export type DrawSectionImplArgs = z.infer<typeof DrawSectionImplArgsSchema>;
@@ -4582,6 +4586,7 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type UserDefaultDrawSectionImpl = z.infer<
@@ -6052,6 +6057,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   drawThrottleDelay: z.union([z.int(), z.any()]).optional(),
   canvasTransferQueueLength: z.union([z.int(), z.any()]).optional(),
   canvasMode: z.union([z.enum(DrawAreaModeEnum), z.any()]).optional(),
+  colorChoices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
 });
 
 export type DrawSectionImplArgsWithCallable = z.infer<
@@ -6508,6 +6514,7 @@ export const CoreArgsSchema = z.object({
         "code",
         "codeLanguage",
         "codeObjVariantMap",
+        "colorChoices",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",

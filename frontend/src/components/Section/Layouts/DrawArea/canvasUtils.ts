@@ -8,6 +8,7 @@ import {
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import {
   ArtifactTypeEnum,
+  DrawAreaBrushShape,
   DrawAreaLayer,
   DrawAreaLayerItemTypeEnum,
   SectionSize,
@@ -17,17 +18,23 @@ import { LayerCanvasesType, TempCanvasesType } from "./types";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
-export function setDraftCanvasProperties({
-  draftCanvasRef,
-  color,
-  brushSize,
-  brushShape,
-  brushOpacity,
-  layerOpacity,
-}) {
+export function setDraftCanvasProperties(
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  brushColor: string,
+  brushSize: number,
+  brushShape: DrawAreaBrushShape,
+  brushOpacity: number,
+  layerOpacity: number,
+) {
+  if (!draftCanvasRef.current) {
+    return;
+  }
   const dCtx = getCtx(draftCanvasRef.current);
+  if (!dCtx) {
+    return;
+  }
   dCtx.globalCompositeOperation = "source-over";
-  dCtx.strokeStyle = hexToRGBA(color, brushOpacity);
+  dCtx.strokeStyle = hexToRGBA(brushColor, brushOpacity);
   dCtx.lineWidth = brushSize;
   dCtx.lineCap = brushShape;
   dCtx.globalAlpha = layerOpacity;
@@ -431,7 +438,7 @@ export function getInverseTransform(transform) {
   ];
 }
 
-function hexToRGBA(_hex, opacity) {
+function hexToRGBA(_hex: string, opacity: number) {
   // Remove # if present
   const hex = _hex.replace("#", "");
 

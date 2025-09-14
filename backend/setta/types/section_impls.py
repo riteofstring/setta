@@ -9,6 +9,7 @@ from pydantic import (
 
 from setta.database.utils import create_new_id
 from setta.types.chart import LineChartSettings
+from setta.types.code_obj_impls import ColorPickerChoice
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -219,6 +220,7 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
     drawThrottleDelay: int = 0
     canvasTransferQueueLength: int = 50
     canvasMode: DrawAreaMode = DrawAreaMode.draw
+    colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
 
 
 class TextBlockSectionImpl(BaseSectionImpl):

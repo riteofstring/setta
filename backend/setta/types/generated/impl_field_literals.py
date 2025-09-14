@@ -17,6 +17,7 @@ AllImplFields = Literal[
     "code",
     "codeLanguage",
     "codeObjVariantMap",
+    "colorChoices",
     "columnWidth",
     "configLanguage",
     "coreNameEditable",
