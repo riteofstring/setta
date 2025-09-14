@@ -102,7 +102,7 @@ class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbi
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
     activeLayerIdx: int = 0
-    color: str = "#ff0000"
+    brushColor: str = "#ff0000"
     brushSize: int = 16
     brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
     eraserBrushSize: int = 16

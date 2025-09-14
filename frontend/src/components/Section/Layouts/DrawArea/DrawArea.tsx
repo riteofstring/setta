@@ -1,16 +1,17 @@
 import _ from "lodash";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
+import { useEffect, useRef, useState } from "react";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useArtifacts, useMisc, useProjectState } from "state/definitions";
-import {
-  useDrawAreaActiveLayerAndLoadedArtifacts,
-  useLoadArtifactViaDropzone,
-} from "state/hooks/artifacts";
+import { useLoadArtifactViaDropzone } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
-import { combinedAndSeparateLayersToBase64 } from "./base64Conversion";
+import {
+  ArtifactTypeEnum,
+  DrawAreaMode,
+  DrawAreaModeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import {
   drawAllLayers,
   setCanvasSize,
@@ -20,34 +21,57 @@ import {
 import { DrawAreaControls } from "./DrawAreaControls";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
-export function DrawArea({ sectionId }) {
+export function DrawArea({ sectionId }: { sectionId: string }) {
   const {
-    activeLayer,
-    allLayersMetadata,
+    numLayers,
+    activeLayerIdx,
     size: { width, height },
-    canvasSettings: {
-      activeLayerId,
-      color,
-      brushSize,
-      brushShape,
-      eraserBrushSize,
-      drawThrottleDelay,
-      canvasTransferQueueLength,
-      mode,
-    },
-    loadedArtifacts,
-    loadedArtifactIdsWithDuplicates,
-  } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
+    brushColor,
+    brushSize,
+    brushShape,
+    eraserBrushSize,
+    drawThrottleDelay,
+    canvasTransferQueueLength,
+    canvasMode,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    const numLayers = impl.layers.length;
+    return {
+      numLayers,
+      activeLayerIdx: impl.activeLayerIdx,
+      size: impl.size,
+      brushColor: impl.brushColor,
+      brushSize: impl.brushSize,
+      brushShape: impl.brushShape,
+      eraserBrushSize: impl.eraserBrushSize,
+      drawThrottleDelay: impl.drawThrottleDelay,
+      canvasTransferQueueLength: impl.canvasTransferQueueLength,
+      canvasMode: impl.canvasMode,
+    };
+  }, _.isEqual);
 
-  const layerCanvasRefs = useRef({});
-  const draftCanvasRef = useRef(null);
-  const tempCanvasRefs = useRef({ layer: null, artifact: null });
+  // const {
+  //   activeLayer,
+  //   allLayersMetadata,
+  //   loadedArtifacts,
+  //   loadedArtifactIdsWithDuplicates,
+  // } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
+
+  const layerCanvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
+  const draftCanvasRef = useRef<HTMLCanvasElement>(null);
+  const tempCanvasRefs = useRef<{
+    layer: HTMLCanvasElement | null;
+    artifact: HTMLCanvasElement | null;
+  }>({ layer: null, artifact: null });
   const strokesRef = useRef([]);
   const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef([]);
   const prevPointRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [isEraser, setIsEraser] = useState(false);
   const isDragging = useRef(false);
   const draggedIdx = useRef(null);
   const lastPos = useRef({ x: 0, y: 0 });
@@ -65,22 +89,21 @@ export function DrawArea({ sectionId }) {
   const updateDrawArea = useMisc(
     (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
   );
-  const layerIds = allLayersMetadata.map((x) => x.id);
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
     tempCanvasRefs.current.artifact = document.createElement("canvas");
   }, []);
 
-  const fnCanvasToBase64 = useCallback(
-    () => combinedAndSeparateLayersToBase64(layerCanvasRefs.current, layerIds),
-    [JSON.stringify(layerIds)],
-  );
+  // const fnCanvasToBase64 = useCallback(
+  //   () => combinedAndSeparateLayersToBase64(layerCanvasRefs.current, layerIds),
+  //   [JSON.stringify(layerIds)],
+  // );
 
-  useDeepCompareEffect(() => {
-    const unsub = listenForCanvasToBase64Requests(sectionId, fnCanvasToBase64);
-    return unsub;
-  }, [sectionId, fnCanvasToBase64]);
+  // useDeepCompareEffect(() => {
+  //   const unsub = listenForCanvasToBase64Requests(sectionId, fnCanvasToBase64);
+  //   return unsub;
+  // }, [sectionId, fnCanvasToBase64]);
 
   useEffect(() => {
     useProjectState.setState((state) => {
@@ -201,14 +224,7 @@ export function DrawArea({ sectionId }) {
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
 
-  let cursorIcon;
-  if (mode === "edit") {
-    cursorIcon = "cursor-pointer";
-  } else if (isEraser) {
-    cursorIcon = "cursor-[url(./src/assets/cursor/erase.svg)_0_24,_pointer]";
-  } else {
-    cursorIcon = "cursor-[url(./src/assets/cursor/pen.svg)_0_24,_pointer]";
-  }
+  const cursorIcon = getCursorIcon(canvasMode);
 
   return (
     <>
@@ -232,8 +248,8 @@ export function DrawArea({ sectionId }) {
       >
         <div className="single-cell-child single-cell-container">
           <LayerCanvases
-            layerIds={layerIds}
-            activeLayerId={activeLayerId}
+            numLayers={numLayers}
+            activeLayerIdx={activeLayerIdx}
             layerCanvasRefs={layerCanvasRefs}
             cursorIcon={cursorIcon}
             canvasClassName={canvasClassName}
@@ -253,8 +269,8 @@ export function DrawArea({ sectionId }) {
 }
 
 function LayerCanvases({
-  layerIds,
-  activeLayerId,
+  numLayers,
+  activeLayerIdx,
   layerCanvasRefs,
   cursorIcon,
   canvasClassName,
@@ -262,19 +278,48 @@ function LayerCanvases({
   onMouseMove,
   onMouseUp,
   onMouseEnter,
+}: {
+  numLayers: number;
+  activeLayerIdx: number;
+  layerCanvasRefs: React.RefObject<Array<HTMLCanvasElement | null>>;
+  cursorIcon: string;
+  canvasClassName: string;
+  onMouseDown: React.MouseEventHandler<HTMLCanvasElement>;
+  onMouseMove: React.MouseEventHandler<HTMLCanvasElement>;
+  onMouseUp: React.MouseEventHandler<HTMLCanvasElement>;
+  onMouseEnter: React.MouseEventHandler<HTMLCanvasElement>;
 }) {
-  return layerIds.map((id) => (
-    <canvas
-      key={id}
-      ref={(el) => {
-        layerCanvasRefs.current[id] = el;
-      }}
-      className={`${cursorIcon} ${canvasClassName} ${id !== activeLayerId ? "pointer-events-none" : ""}`}
-      onMouseDown={id === activeLayerId ? onMouseDown : undefined}
-      onMouseMove={id === activeLayerId ? onMouseMove : undefined}
-      onMouseUp={id === activeLayerId ? onMouseUp : undefined}
-      onMouseLeave={id === activeLayerId ? onMouseUp : undefined}
-      onMouseEnter={id === activeLayerId ? onMouseEnter : undefined}
-    />
-  ));
+  const canvases: Array<React.ReactElement<HTMLCanvasElement>> = [];
+  for (let i = 0; i < numLayers; i++) {
+    canvases.push(
+      <canvas
+        key={i}
+        ref={(el) => {
+          if (el) {
+            layerCanvasRefs.current[i] = el;
+          }
+        }}
+        className={`${cursorIcon} ${canvasClassName} ${i !== activeLayerIdx ? "pointer-events-none" : ""}`}
+        onMouseDown={i === activeLayerIdx ? onMouseDown : undefined}
+        onMouseMove={i === activeLayerIdx ? onMouseMove : undefined}
+        onMouseUp={i === activeLayerIdx ? onMouseUp : undefined}
+        onMouseLeave={i === activeLayerIdx ? onMouseUp : undefined}
+        onMouseEnter={i === activeLayerIdx ? onMouseEnter : undefined}
+      />,
+    );
+  }
+  return canvases;
+}
+
+function getCursorIcon(canvasMode: DrawAreaMode) {
+  switch (canvasMode) {
+    case DrawAreaModeEnum.draw:
+      return "cursor-[url(./src/assets/cursor/pen.svg)_0_24,_pointer]";
+    case DrawAreaModeEnum.erase:
+      return "cursor-[url(./src/assets/cursor/erase.svg)_0_24,_pointer]";
+    case DrawAreaModeEnum.edit:
+      return "cursor-pointer";
+    default:
+      return canvasMode satisfies never;
+  }
 }

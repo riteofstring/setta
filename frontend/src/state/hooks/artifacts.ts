@@ -92,17 +92,27 @@ export function useLoadedChartData(sectionId: string) {
 //   }
 // }
 
-// export function useLoadedDrawAreaData(dataPath: string) {
-//   const data = useChartData((x) => x.x[dataPath]);
+export function useLoadedDrawAreaData(sectionId: string) {
+  const paths = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    const paths = impl.layers.flatMap((l) => l.map((i) => i.dataPath));
+    return paths;
+  });
 
-//   useEffect(() => {
-//     if (!data && dataPath) {
-//       loadChartData(dataPath);
-//     }
-//   }, [!!data, dataPath]);
+  const data = useChartData((x) =>  x.x[dataPath]);
 
-//   return data ?? {};
-// }
+  useEffect(() => {
+    if (!data && dataPath) {
+      loadChartData(dataPath);
+    }
+  }, [!!data, dataPath]);
+
+  return data ?? {};
+}
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
   const loadedArtifacts = useArtifacts((x) => {

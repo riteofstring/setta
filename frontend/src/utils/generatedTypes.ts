@@ -302,7 +302,11 @@ export const DrawAreaBrushShapeEnum = { butt: "butt", round: "round" } as const;
 
 export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
 
-export const DrawAreaModeEnum = { draw: "draw", erase: "erase" } as const;
+export const DrawAreaModeEnum = {
+  draw: "draw",
+  erase: "erase",
+  edit: "edit",
+} as const;
 
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
@@ -1279,6 +1283,7 @@ export const AllImplFieldsSchema = z.literal([
   "aspectRatio",
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
+  "brushColor",
   "brushShape",
   "brushSize",
   "callable",
@@ -1290,7 +1295,6 @@ export const AllImplFieldsSchema = z.literal([
   "code",
   "codeLanguage",
   "codeObjVariantMap",
-  "color",
   "columnWidth",
   "configLanguage",
   "coreNameEditable",
@@ -1413,6 +1417,7 @@ export const CoreSchema = z.object({
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
+        "brushColor",
         "brushShape",
         "brushSize",
         "callable",
@@ -1424,7 +1429,6 @@ export const CoreSchema = z.object({
         "code",
         "codeLanguage",
         "codeObjVariantMap",
-        "color",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",
@@ -1754,6 +1758,9 @@ export const DrawAreaLayerItemSchema = z.object({
       z.number(),
     ])
     .default([1, 0, 0, 1, 0, 0]),
+  visible: z.boolean().default(true),
+  layerOpacity: z.number().default(0.5),
+  brushOpacity: z.number().default(1),
 });
 
 export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
@@ -1781,7 +1788,7 @@ export const DrawSectionImplSchema = z.object({
   renderedValue: z.any().default(null),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
   activeLayerIdx: z.int().default(0),
-  color: z.string().default("#ff0000" as const),
+  brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
   brushShape: z
     .enum(DrawAreaBrushShapeEnum)
@@ -2580,7 +2587,7 @@ export const DrawSectionImplArgsSchema = z.object({
   renderedValue: z.any().optional(),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).optional(),
   activeLayerIdx: z.int().optional(),
-  color: z.string().optional(),
+  brushColor: z.string().optional(),
   brushSize: z.int().optional(),
   brushShape: z.enum(DrawAreaBrushShapeEnum).optional(),
   eraserBrushSize: z.int().optional(),
@@ -4554,7 +4561,7 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
   activeLayerIdx: z.int().default(0),
-  color: z.string().default("#ff0000" as const),
+  brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
   brushShape: z
     .enum(DrawAreaBrushShapeEnum)
@@ -6028,7 +6035,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
     .union([z.array(z.array(DrawAreaLayerItemSchema)), z.any()])
     .optional(),
   activeLayerIdx: z.union([z.int(), z.any()]).optional(),
-  color: z.union([z.string(), z.any()]).optional(),
+  brushColor: z.union([z.string(), z.any()]).optional(),
   brushSize: z.union([z.int(), z.any()]).optional(),
   brushShape: z.union([z.enum(DrawAreaBrushShapeEnum), z.any()]).optional(),
   eraserBrushSize: z.union([z.int(), z.any()]).optional(),
@@ -6479,6 +6486,7 @@ export const CoreArgsSchema = z.object({
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
+        "brushColor",
         "brushShape",
         "brushSize",
         "callable",
@@ -6490,7 +6498,6 @@ export const CoreArgsSchema = z.object({
         "code",
         "codeLanguage",
         "codeObjVariantMap",
-        "color",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",

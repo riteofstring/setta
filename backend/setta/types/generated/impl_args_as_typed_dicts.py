@@ -42,6 +42,7 @@ class CoreArgs(TypedDict):
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
+                "brushColor",
                 "brushShape",
                 "brushSize",
                 "callable",
@@ -53,7 +54,6 @@ class CoreArgs(TypedDict):
                 "code",
                 "codeLanguage",
                 "codeObjVariantMap",
-                "color",
                 "columnWidth",
                 "configLanguage",
                 "coreNameEditable",
@@ -342,7 +342,7 @@ class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[list[DrawAreaLayerItem]]]
     activeLayerIdx: NotRequired[int]
-    color: NotRequired[str]
+    brushColor: NotRequired[str]
     brushSize: NotRequired[int]
     brushShape: NotRequired[DrawAreaBrushShape]
     eraserBrushSize: NotRequired[int]
@@ -361,7 +361,7 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
         | Callable[[list[list[DrawAreaLayerItem]]], list[list[DrawAreaLayerItem]]]
     ]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
-    color: NotRequired[str | Callable[[str], str]]
+    brushColor: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
     brushShape: NotRequired[
         DrawAreaBrushShape | Callable[[DrawAreaBrushShape], DrawAreaBrushShape]

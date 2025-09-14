@@ -91,11 +91,15 @@ class DrawAreaLayerItem(BaseModel):
     type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
     dataPath: str = ""
     transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
+    visible: bool = True
+    layerOpacity: float = 0.5
+    brushOpacity: float = 1
 
 
 class DrawAreaMode(str, Enum):
     draw = "draw"
     erase = "erase"
+    edit = "edit"
 
 
 class DrawAreaBrushShape(str, Enum):
@@ -204,7 +208,7 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
     layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
     activeLayerIdx: int = 0
-    color: str = "#ff0000"
+    brushColor: str = "#ff0000"
     brushSize: int = 16
     brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
     eraserBrushSize: int = 16
