@@ -7,6 +7,8 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
+  BaseChartSettingsUnion,
+  ChartDataType,
   ChartType,
   ChartTypeEnum,
   SectionTypeEnum,
@@ -92,9 +94,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
       return;
     }
 
-    const updateFn = getUpdaterFn(chartSettings.type);
-    const newData = updateFn(
-      // @ts-expect-error something about Chart type
+    const newData = updateChartWithNewData(
       chart,
       data,
       datasetHidden,
@@ -137,14 +137,32 @@ function getChartConfig(type: ChartType, setDatasetHidden) {
   }
 }
 
-function getUpdaterFn(type: ChartType) {
-  switch (type) {
+export function updateChartWithNewData(
+  chart: Chart,
+  data: ChartDataType,
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: BaseChartSettingsUnion,
+) {
+  switch (chartSettings.type) {
     case ChartTypeEnum.line:
-      return updateLineChartWithNewData;
+      return updateLineChartWithNewData(
+        chart,
+        data,
+        datasetHidden,
+        darkMode,
+        chartSettings,
+      );
     case ChartTypeEnum.scatter:
-      return updateScatterChartWithNewData;
+      return updateScatterChartWithNewData(
+        chart,
+        data,
+        datasetHidden,
+        darkMode,
+        chartSettings,
+      );
     default:
-      return type satisfies never;
+      return chartSettings satisfies never;
   }
 }
 
