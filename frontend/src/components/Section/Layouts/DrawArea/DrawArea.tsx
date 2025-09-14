@@ -1,13 +1,13 @@
 import _ from "lodash";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useArtifacts, useProjectState } from "state/definitions";
-import { useLoadArtifactViaDropzone } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
 } from "use-deep-compare-effect";
 import {
   ArtifactTypeEnum,
+  DrawAreaLayerItem,
   DrawAreaMode,
   DrawAreaModeEnum,
   SectionTypeEnum,
@@ -19,7 +19,15 @@ import {
   setGlobalBrushStrokesAndDrawAllLayers,
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
-import { LayerCanvasesType, TempCanvasesType } from "./types";
+import {
+  CanvasPoint,
+  EraserStrokeElement,
+  LayerCanvasesType,
+  ResizeHandle,
+  ResizeHandleCorners,
+  StrokeElement,
+  TempCanvasesType,
+} from "./types";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
@@ -68,17 +76,19 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     layer: null,
     artifact: null,
   });
-  const strokesRef = useRef([]);
-  const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
-  const localArtifactTransformsRef = useRef([]);
-  const prevPointRef = useRef(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const strokesRef = useRef<Array<StrokeElement>>([]);
+  const eraserStrokesRef = useRef<Array<EraserStrokeElement>>([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
+  const localArtifactTransformsRef = useRef<DrawAreaLayerItem["transform"]>([
+    1, 0, 0, 1, 0, 0,
+  ]);
+  const prevPointRef = useRef<CanvasPoint>(null);
+  const isDrawing = useRef(false);
   const isDragging = useRef(false);
-  const draggedIdx = useRef(null);
-  const lastPos = useRef({ x: 0, y: 0 });
-  const selectedIdx = useRef(null);
-  const resizeHandle = useRef(null);
-  const resizeHandleCorners = useRef(null);
+  const draggedIdx = useRef<number>(null);
+  const lastPos = useRef<CanvasPoint>(null);
+  const selectedIdx = useRef<number>(null);
+  const resizeHandle = useRef<ResizeHandle>(null);
+  const resizeHandleCorners = useRef<ResizeHandleCorners>(null);
 
   const layerOpacity = activeLayer?.layerOpacity ?? 1;
   const brushOpacity = activeLayer?.brushOpacity ?? 1;
@@ -180,16 +190,14 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   }, [activeLayer?.artifactTransforms, updateDrawArea]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
-    useDrawModeMouseHandlers({
+    useDrawModeMouseHandlers(
       sectionId,
-      isEraser,
       strokesRef,
       eraserStrokesRef,
       prevPointRef,
       eraserBrushSize,
       brushShape,
       isDrawing,
-      setIsDrawing,
       isDragging,
       draggedIdx,
       lastPos,
@@ -202,11 +210,10 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       draftCanvasRef,
       canvasTransferQueueLength,
       currBrushStrokeArtifactId,
-      activeLayerId,
+      activeLayerIdx,
       localArtifactTransformsRef,
-      mode,
-      fnCanvasToBase64,
-    });
+      canvasMode,
+    );
 
   function clearStrokes() {
     strokesRef.current = [];
@@ -217,15 +224,16 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
-      fnCanvasToBase64,
     );
   }
 
-  const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
-    sectionId,
-    true,
-    ArtifactTypeEnum.IMG,
-  );
+  // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
+  //   sectionId,
+  //   true,
+  //   ArtifactTypeEnum.IMG,
+  // );
+
+  const isDragActive = false;
 
   const canvasClassName = `single-cell-child max-w-full place-self-center ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`;
 
@@ -235,21 +243,19 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     <>
       <DrawAreaControls
         sectionId={sectionId}
-        activeLayerId={activeLayerId}
-        color={color}
+        activeLayerIdx={activeLayerIdx}
+        brushColor={brushColor}
         brushOpacity={brushOpacity}
         brushSize={brushSize}
         brushShape={brushShape}
         eraserBrushSize={eraserBrushSize}
-        isEraser={isEraser}
-        setIsEraser={setIsEraser}
         layerOpacity={layerOpacity}
-        mode={mode}
+        canvasMode={canvasMode}
         clearStrokes={clearStrokes}
       />
       <section
         className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0"
-        {...getRootProps()}
+        // {...getRootProps()}
       >
         <div className="single-cell-child single-cell-container">
           <LayerCanvases

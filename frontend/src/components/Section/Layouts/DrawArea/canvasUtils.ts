@@ -14,7 +14,7 @@ import {
   SectionSize,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { LayerCanvasesType, TempCanvasesType } from "./types";
+import { CanvasPoint, LayerCanvasesType, TempCanvasesType } from "./types";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
@@ -100,7 +100,7 @@ export function setCanvasSize(
   );
 }
 
-export function getXY(e) {
+export function getXY(e: React.MouseEvent<HTMLCanvasElement>): CanvasPoint {
   const { offsetX, offsetY } = e.nativeEvent;
   return [offsetX, offsetY];
 }
@@ -117,14 +117,12 @@ function getCtx(canvas: HTMLCanvasElement) {
 }
 
 export function setGlobalBrushStrokesAndDrawAllLayers(
-  sectionId,
+  sectionId: string,
   currBrushStrokeArtifactId,
   strokesRef,
   layerCanvasRefs,
   tempCanvasRefs,
   draftCanvasRef,
-  fnCanvasToBase64,
-  incrementVersion = true,
 ) {
   useArtifacts.setState((state) => ({
     x: {
@@ -139,7 +137,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
       },
     },
   }));
-  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
+  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
   clearCanvas(draftCanvasRef.current);
 }
 
