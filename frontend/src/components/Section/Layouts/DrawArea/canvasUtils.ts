@@ -1,11 +1,18 @@
 import _ from "lodash";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useArtifacts,
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
-import { ArtifactTypeEnum, SectionSize } from "utils/generatedTypes";
+import {
+  ArtifactTypeEnum,
+  DrawAreaLayer,
+  DrawAreaLayerItemTypeEnum,
+  SectionSize,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { LayerCanvasesType, TempCanvasesType } from "./types";
 
 export const RESIZE_HANDLE_SIZE = 16;
@@ -91,9 +98,11 @@ export function getXY(e) {
   return [offsetX, offsetY];
 }
 
-function clearCanvas(canvas) {
+function clearCanvas(canvas: HTMLCanvasElement) {
   const ctx = getCtx(canvas);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (ctx) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function getCtx(canvas: HTMLCanvasElement) {
@@ -167,8 +176,13 @@ export function drawAllLayers(
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates
   realTimeEraserStrokes = {}, // layerId -> eraserStrokes array
 ) {
-  const sectionState = useProjectState.getState();
-  for (const layerId of sectionState.x[sectionId].artifactGroupIds) {
+  const p = useProjectState.getState();
+  const impl = getCurrEffectiveSectionImplOfType(
+    p,
+    sectionId,
+    SectionTypeEnum.Draw,
+  );
+  for (const layerId of p.x[sectionId].artifactGroupIds) {
     if (!(layerId in layerCanvasRefs.current)) {
       continue;
     }
@@ -185,42 +199,47 @@ export function drawAllLayers(
 }
 
 function drawOneLayer(
-  layerId,
-  layerCanvas,
-  tempCanvasRefs,
+  layerInfo: DrawAreaLayer,
+  layerCanvas: HTMLCanvasElement,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
   realTimeValues = {}, // artifactId -> value
   realTimeTransforms = {}, // idx -> {transform, eraserStrokes}
   realTimeResizeHandles = [], // array of corner coordinates
   realTimeEraserStrokes = [], // eraserStrokes array
 ) {
+  clearCanvas(layerCanvas);
+
+  if (
+    !layerInfo.visible ||
+    !tempCanvasRefs.current.layer ||
+    !tempCanvasRefs.current.artifact
+  ) {
+    return;
+  }
+
   const ctx = getCtx(layerCanvas);
   const layerTempCanvas = tempCanvasRefs.current.layer;
   const layerTempCtx = getCtx(tempCanvasRefs.current.layer);
   const artifactTempCanvas = tempCanvasRefs.current.artifact;
   const artifactTempCtx = getCtx(tempCanvasRefs.current.artifact);
-  clearCanvas(layerCanvas);
-
-  const sectionState = useProjectState.getState();
-  const artifactState = useArtifacts.getState().x;
-
-  const layer = sectionState.artifactGroups[layerId];
-  if (!layer.visible) {
+  if (!ctx || !layerTempCtx || !artifactTempCtx) {
     return;
   }
-  const { layerOpacity } = layer;
 
-  for (const [idx, t] of layer.artifactTransforms.entries()) {
-    const id = t.artifactId;
-    if (!(id in artifactState)) {
+  const artifactState = useArtifacts.getState().x;
+  const { layerOpacity } = layerInfo;
+
+  for (const [idx, t] of layerInfo.elements.entries()) {
+    if (!(t.dataPath in artifactState)) {
       continue;
     }
-    const artifact = artifactState[id];
+    const artifact = artifactState[t.dataPath];
 
     artifactTempCtx.globalAlpha = 1;
     artifactTempCtx.globalCompositeOperation = "source-over";
 
     if (
-      artifact.type === ArtifactTypeEnum.IMG &&
+      t.type === DrawAreaLayerItemTypeEnum.Image &&
       artifact.value instanceof Image &&
       artifact.value.complete
     ) {

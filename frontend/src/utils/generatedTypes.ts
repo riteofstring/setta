@@ -1758,9 +1758,6 @@ export const DrawAreaLayerItemSchema = z.object({
       z.number(),
     ])
     .default([1, 0, 0, 1, 0, 0]),
-  visible: z.boolean().default(true),
-  layerOpacity: z.number().default(0.5),
-  brushOpacity: z.number().default(1),
 });
 
 export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
@@ -1769,6 +1766,21 @@ export function createDrawAreaLayerItem(
   options: Partial<DrawAreaLayerItem> = {},
 ): DrawAreaLayerItem {
   return DrawAreaLayerItemSchema.parse(options);
+}
+
+export const DrawAreaLayerSchema = z.object({
+  elements: z.array(DrawAreaLayerItemSchema).default([]),
+  visible: z.boolean().default(true),
+  layerOpacity: z.number().default(0.5),
+  brushOpacity: z.number().default(1),
+});
+
+export type DrawAreaLayer = z.infer<typeof DrawAreaLayerSchema>;
+
+export function createDrawAreaLayer(
+  options: Partial<DrawAreaLayer> = {},
+): DrawAreaLayer {
+  return DrawAreaLayerSchema.parse(options);
 }
 
 export const DrawSectionImplSchema = z.object({
@@ -1786,7 +1798,7 @@ export const DrawSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
-  layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
+  layers: z.array(DrawAreaLayerSchema).default([]),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -2585,7 +2597,7 @@ export const DrawSectionImplArgsSchema = z.object({
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
   renderedValue: z.any().optional(),
-  layers: z.array(z.array(DrawAreaLayerItemSchema)).optional(),
+  layers: z.array(DrawAreaLayerSchema).optional(),
   activeLayerIdx: z.int().optional(),
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
@@ -4559,7 +4571,7 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
+  layers: z.array(DrawAreaLayerSchema).default([]),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
@@ -6031,9 +6043,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   renderedValue: z.union([z.any(), z.any()]).optional(),
-  layers: z
-    .union([z.array(z.array(DrawAreaLayerItemSchema)), z.any()])
-    .optional(),
+  layers: z.union([z.array(DrawAreaLayerSchema), z.any()]).optional(),
   activeLayerIdx: z.union([z.int(), z.any()]).optional(),
   brushColor: z.union([z.string(), z.any()]).optional(),
   brushSize: z.union([z.int(), z.any()]).optional(),

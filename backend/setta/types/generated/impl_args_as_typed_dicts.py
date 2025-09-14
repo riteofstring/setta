@@ -17,7 +17,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
     DrawAreaBrushShape,
-    DrawAreaLayerItem,
+    DrawAreaLayer,
     DrawAreaMode,
     SectionSize,
     SectionSizeMode,
@@ -340,7 +340,7 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
-    layers: NotRequired[list[list[DrawAreaLayerItem]]]
+    layers: NotRequired[list[DrawAreaLayer]]
     activeLayerIdx: NotRequired[int]
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
@@ -357,8 +357,7 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.Draw]], Literal[SectionType.Draw]]
     ]
     layers: NotRequired[
-        list[list[DrawAreaLayerItem]]
-        | Callable[[list[list[DrawAreaLayerItem]]], list[list[DrawAreaLayerItem]]]
+        list[DrawAreaLayer] | Callable[[list[DrawAreaLayer]], list[DrawAreaLayer]]
     ]
     activeLayerIdx: NotRequired[int | Callable[[int], int]]
     brushColor: NotRequired[str | Callable[[str], str]]

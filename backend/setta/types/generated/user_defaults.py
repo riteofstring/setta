@@ -17,7 +17,7 @@ from setta.types.section_impls import (
     CodeLanguage,
     ConfigLanguage,
     DrawAreaBrushShape,
-    DrawAreaLayerItem,
+    DrawAreaLayer,
     DrawAreaMode,
     SectionSize,
     SectionSizeMode,
@@ -100,7 +100,7 @@ class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbi
 
 
 class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
-    layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
+    layers: list[DrawAreaLayer] = Field(default_factory=list)
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16

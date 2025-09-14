@@ -193,6 +193,7 @@ from setta.types.section_impls import (
     DrawAreaLayerItemType,
     DrawAreaMode,
     DrawAreaBrushShape,
+    DrawAreaLayer,
     SectionSize,
     SectionSizeMode,
     SectionType,

@@ -91,6 +91,10 @@ class DrawAreaLayerItem(BaseModel):
     type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
     dataPath: str = ""
     transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
+
+
+class DrawAreaLayer(BaseModel):
+    elements: list[DrawAreaLayerItem] = Field(default_factory=list)
     visible: bool = True
     layerOpacity: float = 0.5
     brushOpacity: float = 1
@@ -206,7 +210,7 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
 
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
+    layers: list[DrawAreaLayer] = Field(default_factory=list)
     activeLayerIdx: int = 0
     brushColor: str = "#ff0000"
     brushSize: int = 16
