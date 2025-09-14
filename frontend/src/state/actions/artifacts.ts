@@ -3,7 +3,7 @@ import {
   dataURLToBase64,
 } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useArtifacts, useMisc, useProjectState } from "state/definitions";
+import { useArtifacts, useProjectState } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_load_artifacts,
@@ -233,31 +233,6 @@ function getActiveArtifactGroupId(sectionId, sectionTypeName, state) {
 
 function actionAfterSettingSectionArtifacts(artifactIds, sectionId, state) {
   const sectionTypeName = getSectionType(sectionId, state);
-  if (sectionTypeName === UITypeNameEnum.CHART) {
-    updateColumnNameSelections(artifactIds, sectionId, state);
-  }
-}
-
-export function updateColumnNameSelections(artifactIds, sectionId, state) {
-  const { chartSettings } = state.sections[sectionId];
-  const artifactValue = processChartArtifacts(
-    artifactIds.map((a) => useArtifacts.getState().x[a]),
-    chartSettings.type,
-  );
-  const seriesNames = Object.keys(artifactValue);
-  useMisc.setState((state) => ({
-    chartDisplayedSeriesNames: {
-      ...state.chartDisplayedSeriesNames,
-      [sectionId]: seriesNames,
-    },
-  }));
-  if (seriesNames === 0) {
-    return;
-  }
-  // TODO: think about whether we need this
-  // if (!seriesNames.includes(chartSettings.xAxisColumn)) {
-  //   chartSettings.xAxisColumn = seriesNames[0];
-  // }
 }
 
 export function getNamePathTypeKey(artifact) {
