@@ -105,6 +105,7 @@ class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid
     brushColor: str = "#ff0000"
     brushSize: int = 16
     brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
+    brushOpacity: float = 1
     eraserBrushSize: int = 16
     drawThrottleDelay: int = 0
     canvasTransferQueueLength: int = 50

@@ -17,6 +17,7 @@ import { useProjectState } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   DrawAreaBrushShape,
+  DrawAreaBrushShapeEnum,
   DrawAreaMode,
   DrawAreaModeEnum,
   SectionTypeEnum,
@@ -45,9 +46,6 @@ export function DrawAreaControls({
   layerOpacity: number;
   canvasMode: DrawAreaMode;
 }) {
-  function setBrushOpacity(v) {
-    setLayerSettings(activeLayerId, "brushOpacity", v);
-  }
   function setBrushSize(v) {
     setCanvasSettings(sectionId, "brushSize", v);
   }
@@ -124,12 +122,10 @@ export function DrawAreaControls({
           }
         >
           <BrushSettings
+            sectionId={sectionId}
             opacity={brushOpacity}
-            setOpacity={setBrushOpacity}
             brushSize={brushSize}
-            setBrushSize={setBrushSize}
             brushShape={brushShape}
-            setBrushShape={setBrushShape}
           />
         </StandardPopover>
       </div>
@@ -269,14 +265,7 @@ function DrawAreaSetToDrawModeButton({
   );
 }
 
-function BrushSettings({
-  opacity,
-  setOpacity,
-  brushSize,
-  setBrushSize,
-  brushShape,
-  setBrushShape,
-}) {
+function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
   const [localBrushSize, setLocalBrushSize] = useState(brushSize);
 
@@ -287,6 +276,30 @@ function BrushSettings({
   useEffect(() => {
     setLocalBrushSize(brushSize);
   }, [brushSize]);
+
+  function setBrushOpacity(v: number) {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushOpacity: v,
+      }),
+    );
+  }
+
+  function setBrushSize(v: number) {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushSize: v,
+      }),
+    );
+  }
+
+  function setBrushShape(v: DrawAreaBrushShape) {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        brushShape: v,
+      }),
+    );
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -314,7 +327,7 @@ function BrushSettings({
         step={0.1}
         value={localOpacity}
         onChange={setLocalOpacity}
-        onCommit={setOpacity}
+        onCommit={setBrushOpacity}
       />
       <p className="self-center text-xs font-bold text-setta-600 dark:text-setta-400">
         Size
@@ -338,14 +351,14 @@ function BrushSettings({
       </p>
       <div className="flex gap-1">
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "butt" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("butt")}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === DrawAreaBrushShapeEnum.butt ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50   dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape(DrawAreaBrushShapeEnum.butt)}
         >
           <i className="gg-shape-square" />
         </button>
         <button
-          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === "round" ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
-          onClick={() => setBrushShape("round")}
+          className={`flex w-min cursor-pointer gap-2 rounded-lg border-solid ${brushShape === DrawAreaBrushShapeEnum.round ? "border-setta-300 text-blue-500 dark:border-setta-700" : "border-transparent text-setta-600 dark:text-setta-400"} p-1 text-xs font-bold  hover:bg-setta-200/50  focus-visible:ring-1 dark:hover:bg-setta-900/50`}
+          onClick={() => setBrushShape(DrawAreaBrushShapeEnum.round)}
         >
           <i className="gg-shape-circle" />
         </button>

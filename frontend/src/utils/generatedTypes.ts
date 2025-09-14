@@ -1284,6 +1284,7 @@ export const AllImplFieldsSchema = z.literal([
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
   "brushColor",
+  "brushOpacity",
   "brushShape",
   "brushSize",
   "callable",
@@ -1419,6 +1420,7 @@ export const CoreSchema = z.object({
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "brushColor",
+        "brushOpacity",
         "brushShape",
         "brushSize",
         "callable",
@@ -1774,7 +1776,6 @@ export const DrawAreaLayerSchema = z.object({
   elements: z.array(DrawAreaLayerItemSchema).default([]),
   visible: z.boolean().default(true),
   layerOpacity: z.number().default(0.5),
-  brushOpacity: z.number().default(1),
 });
 
 export type DrawAreaLayer = z.infer<typeof DrawAreaLayerSchema>;
@@ -1820,6 +1821,7 @@ export const DrawSectionImplSchema = z.object({
   brushShape: z
     .enum(DrawAreaBrushShapeEnum)
     .default(DrawAreaBrushShapeEnum.butt),
+  brushOpacity: z.number().default(1),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
@@ -2605,6 +2607,7 @@ export const DrawSectionImplArgsSchema = z.object({
   brushColor: z.string().optional(),
   brushSize: z.int().optional(),
   brushShape: z.enum(DrawAreaBrushShapeEnum).optional(),
+  brushOpacity: z.number().optional(),
   eraserBrushSize: z.int().optional(),
   drawThrottleDelay: z.int().optional(),
   canvasTransferQueueLength: z.int().optional(),
@@ -4582,6 +4585,7 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   brushShape: z
     .enum(DrawAreaBrushShapeEnum)
     .default(DrawAreaBrushShapeEnum.butt),
+  brushOpacity: z.number().default(1),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
@@ -6053,6 +6057,7 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   brushColor: z.union([z.string(), z.any()]).optional(),
   brushSize: z.union([z.int(), z.any()]).optional(),
   brushShape: z.union([z.enum(DrawAreaBrushShapeEnum), z.any()]).optional(),
+  brushOpacity: z.union([z.number(), z.any()]).optional(),
   eraserBrushSize: z.union([z.int(), z.any()]).optional(),
   drawThrottleDelay: z.union([z.int(), z.any()]).optional(),
   canvasTransferQueueLength: z.union([z.int(), z.any()]).optional(),
@@ -6503,6 +6508,7 @@ export const CoreArgsSchema = z.object({
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
         "brushColor",
+        "brushOpacity",
         "brushShape",
         "brushSize",
         "callable",

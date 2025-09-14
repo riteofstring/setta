@@ -43,6 +43,7 @@ class CoreArgs(TypedDict):
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
                 "brushColor",
+                "brushOpacity",
                 "brushShape",
                 "brushSize",
                 "callable",
@@ -346,6 +347,7 @@ class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     brushColor: NotRequired[str]
     brushSize: NotRequired[int]
     brushShape: NotRequired[DrawAreaBrushShape]
+    brushOpacity: NotRequired[float]
     eraserBrushSize: NotRequired[int]
     drawThrottleDelay: NotRequired[int]
     canvasTransferQueueLength: NotRequired[int]
@@ -367,6 +369,7 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     brushShape: NotRequired[
         DrawAreaBrushShape | Callable[[DrawAreaBrushShape], DrawAreaBrushShape]
     ]
+    brushOpacity: NotRequired[float | Callable[[float], float]]
     eraserBrushSize: NotRequired[int | Callable[[int], int]]
     drawThrottleDelay: NotRequired[int | Callable[[int], int]]
     canvasTransferQueueLength: NotRequired[int | Callable[[int], int]]

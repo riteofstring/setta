@@ -98,7 +98,6 @@ class DrawAreaLayer(BaseModel):
     elements: list[DrawAreaLayerItem] = Field(default_factory=list)
     visible: bool = True
     layerOpacity: float = 0.5
-    brushOpacity: float = 1
 
 
 class DrawAreaMode(str, Enum):
@@ -216,6 +215,7 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
     brushColor: str = "#ff0000"
     brushSize: int = 16
     brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
+    brushOpacity: float = 1
     eraserBrushSize: int = 16
     drawThrottleDelay: int = 0
     canvasTransferQueueLength: int = 50
