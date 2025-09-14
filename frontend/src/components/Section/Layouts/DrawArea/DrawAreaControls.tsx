@@ -25,7 +25,7 @@ import {
 
 export function DrawAreaControls({
   sectionId,
-  activeLayerId,
+  activeLayerIdx,
   brushColor,
   brushOpacity,
   brushSize,
@@ -38,6 +38,7 @@ export function DrawAreaControls({
   clearStrokes,
 }: {
   sectionId: string;
+  activeLayerIdx: number;
   brushColor: string;
   brushOpacity: number;
   brushSize: number;
@@ -46,31 +47,13 @@ export function DrawAreaControls({
   layerOpacity: number;
   canvasMode: DrawAreaMode;
 }) {
-  function setBrushSize(v) {
-    setCanvasSettings(sectionId, "brushSize", v);
-  }
-  function setBrushShape(v) {
-    setCanvasSettings(sectionId, "brushShape", v);
-  }
-  function setLayerOpacity(v) {
-    setLayerSettings(activeLayerId, "layerOpacity", v);
-  }
-  function setEraserBrushSize(v) {
-    setCanvasSettings(sectionId, "eraserBrushSize", v);
-  }
   function setLayerVisibility(layerId, v) {
     setLayerSettings(layerId, "visible", v);
   }
   function setActiveLayerId(v) {
     setCanvasSettings(sectionId, "activeLayerId", v);
   }
-  function setToEraserMode() {
-    setIsEraser(true);
-    setCanvasSettings(sectionId, "mode", "draw");
-  }
-  function setToEditMode() {
-    setCanvasSettings(sectionId, "mode", "edit");
-  }
+
   function addLayer() {
     useProjectState.setState((state) => {
       addDrawAreaLayer(sectionId, state);
@@ -130,12 +113,10 @@ export function DrawAreaControls({
         </StandardPopover>
       </div>
       <div className="flex self-stretch">
-        <button
-          className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${mode === "draw" && isEraser ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-          onClick={setToEraserMode}
-        >
-          <i className="gg-erase" />
-        </button>
+        <DrawAreaSetToEraserModeButton
+          sectionId={sectionId}
+          canvasMode={canvasMode}
+        />
         <StandardPopover
           arrowClasses="fill-white dark:fill-setta-800"
           contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -144,21 +125,18 @@ export function DrawAreaControls({
               <i className="gg-chevron-down" />
             </button>
           }
-          header={"Brush Settings"}
         >
           <EraserSettings
-            brushSize={eraserBrushSize}
-            setBrushSize={setEraserBrushSize}
+            sectionId={sectionId}
+            eraserBrushSize={eraserBrushSize}
           />
         </StandardPopover>
       </div>
-      <button
-        className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${mode === "edit" ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
-        onClick={setToEditMode}
-      >
-        <IoMove />
-      </button>
 
+      <DrawAreaSetToEditModeButton
+        sectionId={sectionId}
+        canvasMode={canvasMode}
+      />
       <StandardPopover
         arrowClasses="fill-white dark:fill-setta-800"
         contentClasses="z-20 bg-white dark:bg-setta-800 flex relative px-2 py-1 rounded-lg min-w-48"
@@ -168,9 +146,12 @@ export function DrawAreaControls({
             <i className="gg-chevron-down" />
           </button>
         }
-        header={"Layer Opacity"}
       >
-        <LayerSettings opacity={layerOpacity} setOpacity={setLayerOpacity} />
+        <LayerSettings
+          sectionId={sectionId}
+          activeLayerIdx={activeLayerIdx}
+          opacity={layerOpacity}
+        />
       </StandardPopover>
 
       <StandardPopover
@@ -182,11 +163,10 @@ export function DrawAreaControls({
             <i className="gg-chevron-down" />
           </button>
         }
-        header={"Layer Selection"}
       >
         <LayerList
           sectionId={sectionId}
-          activeLayerId={activeLayerId}
+          activeLayerIdx={activeLayerIdx}
           setActiveLayerId={setActiveLayerId}
           setLayerVisibility={setLayerVisibility}
           addLayer={addLayer}
@@ -367,12 +347,45 @@ function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   );
 }
 
-function EraserSettings({ brushSize, setBrushSize }) {
-  const [localBrushSize, setLocalBrushSize] = useState(brushSize);
+function DrawAreaSetToEraserModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId;
+  canvasMode: DrawAreaMode;
+}) {
+  function onClick() {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.erase,
+      }),
+    );
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer  items-center justify-center gap-1 rounded-l-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.erase ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <i className="gg-erase" />
+    </button>
+  );
+}
+
+function EraserSettings({ sectionId, eraserBrushSize }) {
+  const [localBrushSize, setLocalBrushSize] = useState(eraserBrushSize);
 
   useEffect(() => {
-    setLocalBrushSize(brushSize);
-  }, [brushSize]);
+    setLocalBrushSize(eraserBrushSize);
+  }, [eraserBrushSize]);
+
+  function setBrushSize(v: number) {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        eraserBrushSize: v,
+      }),
+    );
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -406,12 +419,50 @@ function EraserSettings({ brushSize, setBrushSize }) {
   );
 }
 
-function LayerSettings({ opacity, setOpacity }) {
+function DrawAreaSetToEditModeButton({
+  sectionId,
+  canvasMode,
+}: {
+  sectionId;
+  canvasMode: DrawAreaMode;
+}) {
+  function onClick() {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        canvasMode: DrawAreaModeEnum.edit,
+      }),
+    );
+  }
+
+  return (
+    <button
+      className={`flex w-8 cursor-pointer items-center justify-center gap-1 self-stretch rounded-lg bg-setta-200/30 py-1 text-xs ${canvasMode === DrawAreaModeEnum.edit ? "text-blue-500" : "text-setta-700 dark:text-setta-400"}  hover:bg-setta-300 dark:bg-setta-800/50  dark:hover:bg-setta-900`}
+      onClick={onClick}
+    >
+      <IoMove />
+    </button>
+  );
+}
+
+function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   const [localOpacity, setLocalOpacity] = useState(opacity);
 
   useEffect(() => {
     setLocalOpacity(opacity);
   }, [opacity]);
+
+  function setOpacity(v: number) {
+    useProjectState((x) =>
+      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+        layers: (currLayers) => {
+          if (currLayers[activeLayerIdx]) {
+            currLayers[activeLayerIdx].layerOpacity = v;
+          }
+          return currLayers;
+        },
+      }),
+    );
+  }
 
   const sliderRootClassName =
     "data[orientation='vertical']:flex-col data[orientation='vertical']:w-5 data[orientation='vertical']:h-24 SliderRoot relative flex flex-1 min-w-16 touch-none select-none items-center my-auto data-[orientation='horizontal']:h-5";
@@ -447,7 +498,7 @@ function LayerSettings({ opacity, setOpacity }) {
 
 function LayerList({
   sectionId,
-  activeLayerId,
+  activeLayerIdx,
   setActiveLayerId,
   setLayerVisibility,
   addLayer,
