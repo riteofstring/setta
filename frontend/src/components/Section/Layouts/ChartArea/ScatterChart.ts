@@ -1,20 +1,38 @@
-import { Tooltip } from "chart.js";
+import { ChartConfiguration, Tooltip } from "chart.js";
+import { getOnLegendClickSetDatasetHidden } from "./utils";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
-  elements,
+  _elements,
   eventPosition,
 ) {
-  if (!eventPosition) {
-    return false;
-  }
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getScatterChartOptionsAndPlugins() {
+export function getScatterChartConfig(
+  setDatasetHidden: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >,
+): ChartConfiguration<"scatter"> {
   return {
     type: "scatter",
+    data: {
+      datasets: [],
+    },
     plugins: [crosshairPlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: "linear",
+          position: "bottom",
+        },
+        y1: {
+          type: "linear",
+          position: "left",
+        },
+      },
       plugins: {
         tooltip: {
           enabled: true,
@@ -24,7 +42,9 @@ export function getScatterChartOptionsAndPlugins() {
           callbacks: {
             title: (context) => {
               const point = context[0];
-              return `(${point.parsed.x.toFixed(2)}, ${point.parsed.y.toFixed(2)})`;
+              if (point) {
+                return `(${point.parsed.x.toFixed(2)}, ${point.parsed.y.toFixed(2)})`;
+              }
             },
             label: (context) => {
               const label = context.dataset.label || "";
@@ -32,6 +52,7 @@ export function getScatterChartOptionsAndPlugins() {
             },
           },
         },
+        legend: { onClick: getOnLegendClickSetDatasetHidden(setDatasetHidden) },
       },
     },
   };

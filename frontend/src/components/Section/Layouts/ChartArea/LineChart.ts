@@ -1,13 +1,18 @@
-import { Tooltip } from "chart.js";
+import { Chart, ChartConfiguration, Tooltip } from "chart.js";
+import { getOnLegendClickSetDatasetHidden } from "./utils";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
-  elements,
+  _elements,
   eventPosition,
 ) {
   return { x: eventPosition.x, y: eventPosition.y };
 };
 
-export function getLineChartOptionsAndPlugins() {
+export function getLineChartConfig(
+  setDatasetHidden: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >,
+): ChartConfiguration<"line"> {
   return {
     type: "line",
     data: {
@@ -15,6 +20,26 @@ export function getLineChartOptionsAndPlugins() {
     },
     plugins: [verticalLinePlugin],
     options: {
+      animation: false,
+      responsive: false,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: "linear",
+          position: "bottom",
+        },
+        y1: {
+          type: "linear",
+          position: "left",
+        },
+        y2: {
+          type: "linear",
+          position: "right",
+          grid: {
+            drawOnChartArea: false,
+          },
+        },
+      },
       spanGaps: true,
       plugins: {
         tooltip: {
@@ -23,13 +48,18 @@ export function getLineChartOptionsAndPlugins() {
           position: "lineChartTooltipMousePosition",
           callbacks: {
             title: (context) => {
-              return `X: ${context[0].label}`;
+              if (context[0]) {
+                return `X: ${context[0].label}`;
+              }
             },
             label: (context) => {
               const label = context.dataset.label || "";
               return `${label}: ${context.formattedValue}`;
             },
           },
+        },
+        legend: {
+          onClick: getOnLegendClickSetDatasetHidden(setDatasetHidden),
         },
       },
     },
@@ -76,7 +106,7 @@ export function updateLineChartWithNewData({
 
 const verticalLinePlugin = {
   id: "verticalLinePlugin",
-  afterInit: (chart) => {
+  afterInit: (chart: Chart) => {
     chart.verticalLinePlugin = {
       x: 0,
       y: 0,

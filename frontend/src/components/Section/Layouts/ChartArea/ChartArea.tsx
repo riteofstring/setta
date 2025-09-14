@@ -12,12 +12,9 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
+import { getLineChartConfig, updateLineChartWithNewData } from "./LineChart";
 import {
-  getLineChartOptionsAndPlugins,
-  updateLineChartWithNewData,
-} from "./LineChart";
-import {
-  getScatterChartOptionsAndPlugins,
+  getScatterChartConfig,
   updateScatterChartWithNewData,
 } from "./ScatterChart";
 
@@ -61,64 +58,17 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
   }, _.isEqual);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart>(null);
-  const [datasetHidden, setDatasetHidden] = useState({});
+  const [datasetHidden, setDatasetHidden] = useState<Record<string, boolean>>(
+    {},
+  );
 
   useEffect(() => {
     if (!canvasRef.current) {
       return;
     }
 
-    const optionsAndPluginsFn = getOptionsAndPluginsFn(chartSettings.type);
-
-    chartRef.current = new Chart(
-      canvasRef.current,
-      _.merge(
-        {
-          data: {
-            datasets: [],
-          },
-          options: {
-            animation: false,
-            responsive: false,
-            maintainAspectRatio: false,
-            scales: {
-              x: {
-                type: "linear",
-                position: "bottom",
-              },
-              y1: {
-                type: "linear",
-                position: "left",
-              },
-              y2: {
-                type: "linear",
-                position: "right",
-                grid: {
-                  drawOnChartArea: false,
-                },
-              },
-            },
-            plugins: {
-              legend: {
-                onClick: (evt, legendItem, legend) => {
-                  setDatasetHidden((prev) => ({
-                    ...prev,
-                    [legendItem.text]: !prev[legendItem.text],
-                  }));
-                  Chart.defaults.plugins.legend.onClick(
-                    evt,
-                    legendItem,
-                    legend,
-                  );
-                },
-              },
-            },
-          },
-        },
-        optionsAndPluginsFn(),
-      ),
-    );
-
+    const configuration = getChartConfig(chartSettings.type, setDatasetHidden);
+    chartRef.current = new Chart(canvasRef.current, configuration);
     chartRef.current.resize(size.width - 25, size.height - 50);
 
     const unsub = listenForCanvasToBase64Requests(sectionId, () =>
@@ -170,12 +120,12 @@ const ChartAreaCore = React.memo(_ChartAreaCore);
 
 export const ChartArea = React.memo(_ChartArea);
 
-function getOptionsAndPluginsFn(type: ChartType) {
+function getChartConfig(type: ChartType, setDatasetHidden) {
   switch (type) {
     case ChartTypeEnum.line:
-      return getLineChartOptionsAndPlugins;
+      return getLineChartConfig(setDatasetHidden);
     case ChartTypeEnum.scatter:
-      return getScatterChartOptionsAndPlugins;
+      return getScatterChartConfig(setDatasetHidden);
     default:
       return type satisfies never;
   }
