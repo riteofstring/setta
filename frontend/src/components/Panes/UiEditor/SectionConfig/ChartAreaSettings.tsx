@@ -7,7 +7,11 @@ import {
 } from "state/actions/sectionInfos";
 import { useChartData, useProjectState } from "state/definitions";
 import { getAllSectionArtifactIds } from "state/hooks/artifacts";
-import { route_set_chart_type } from "utils/generatedEndpoints";
+import { useEditableOnSubmit } from "state/hooks/editableText";
+import {
+  route_set_chart_area_data_path,
+  route_set_chart_type,
+} from "utils/generatedEndpoints";
 import {
   BaseChartSettingsUnion,
   ChartType,
@@ -49,11 +53,36 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
     return [];
   });
 
+  function onSetDataPath(newDataPath: string) {
+    route_set_chart_area_data_path({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      dataPath: newDataPath,
+    });
+  }
+
+  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
+    dataPath,
+    onSetDataPath,
+    () => true,
+    true,
+  );
+
   return (
     <div className="flex flex-col gap-1">
       <h3 className="mt-1 font-bold text-setta-400 dark:text-setta-500">
         Chart Config
       </h3>
+      <p className="select-none  text-sm font-bold text-setta-400 dark:text-setta-600">
+        Data Path
+      </p>
+      <input
+        className="mr-[2px] w-full truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
+        value={inputValue}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+      />
       <ChartTypeSelection
         sectionId={sectionId}
         selectedChartType={chartSettings.type}

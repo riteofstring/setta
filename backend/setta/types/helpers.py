@@ -1119,6 +1119,14 @@ def set_image_area_image_path(
     )
 
 
+def set_chart_area_data_path(
+    p: "ProjectStateSingleConfig", sectionId: str, dataPath: str
+):
+    set_curr_effective_section_impl_value(
+        p, sectionId, ChartSectionImplArgsWithCallable(dataPath=dataPath)
+    )
+
+
 def set_chart_type(p: "ProjectStateSingleConfig", sectionId: str, chartType: ChartType):
     set_curr_effective_section_impl_value(
         p,

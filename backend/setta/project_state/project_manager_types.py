@@ -327,6 +327,12 @@ class SetImageAreaImagePathRequest(BaseModel):
     imagePath: str
 
 
+class SetChartAreaDataPathRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    dataPath: str
+
+
 class SetChartTypeRequest(BaseModel):
     projectConfigId: str
     sectionId: str

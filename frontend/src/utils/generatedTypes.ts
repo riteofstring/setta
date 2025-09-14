@@ -463,6 +463,7 @@ export const RouteEnum = {
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
   LOAD_CHART_DATA: "/loadChartData",
   SET_CHART_TYPE: "/setChartType",
+  SET_CHART_AREA_IMAGE_PATH: "/setChartAreaDataPath",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -8044,6 +8045,22 @@ export function createSetCallableRequest(
   options: Partial<SetCallableRequest> = {},
 ): SetCallableRequest {
   return SetCallableRequestSchema.parse(options);
+}
+
+export const SetChartAreaDataPathRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  dataPath: z.string(),
+});
+
+export type SetChartAreaDataPathRequest = z.infer<
+  typeof SetChartAreaDataPathRequestSchema
+>;
+
+export function createSetChartAreaDataPathRequest(
+  options: Partial<SetChartAreaDataPathRequest> = {},
+): SetChartAreaDataPathRequest {
+  return SetChartAreaDataPathRequestSchema.parse(options);
 }
 
 export const SetChartTypeRequestSchema = z.object({
