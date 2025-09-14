@@ -1,7 +1,12 @@
 import _ from "lodash";
-import { useArtifacts, useProjectState } from "state/definitions";
+import {
+  useArtifacts,
+  useProjectState,
+  ZustandProjectState,
+} from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
-import { ArtifactTypeEnum } from "utils/generatedTypes";
+import { ArtifactTypeEnum, SectionSize } from "utils/generatedTypes";
+import { LayerCanvasesType, TempCanvasesType } from "./types";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
@@ -22,8 +27,18 @@ export function setDraftCanvasProperties({
 }
 
 // ctx.save() -> ctx.restore() doesn't work: https://stackoverflow.com/questions/48044951/canvas-state-lost-after-changing-size
-function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
+function resizeDraftCanvasAndKeepProperties(
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  width: number,
+  height: number,
+) {
+  if (!draftCanvasRef.current) {
+    return;
+  }
   const dCtx = getCtx(draftCanvasRef.current);
+  if (!dCtx) {
+    return;
+  }
   const {
     globalCompositeOperation,
     strokeStyle,
@@ -40,30 +55,28 @@ function resizeDraftCanvasAndKeepProperties(draftCanvasRef, width, height) {
   dCtx.globalAlpha = globalAlpha;
 }
 
-export function setCanvasSize({
-  sectionId,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  height,
-  width,
-  state,
-}) {
-  const canvasSize = setDrawAreaSectionSize({
-    sectionId,
-    sectionHeight: height,
-    sectionWidth: width,
-    state,
-  });
+export function setCanvasSize(
+  sectionId: string,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  sectionSize: SectionSize,
+  state: ZustandProjectState,
+) {
+  const canvasSize = setDrawAreaSectionSize(sectionId, sectionSize, state);
 
   for (const c of Object.values(layerCanvasRefs.current)) {
-    c.width = canvasSize.width;
-    c.height = canvasSize.height;
+    if (c) {
+      c.width = canvasSize.width;
+      c.height = canvasSize.height;
+    }
   }
 
   for (const c of Object.values(tempCanvasRefs.current)) {
-    c.width = canvasSize.width;
-    c.height = canvasSize.height;
+    if (c) {
+      c.width = canvasSize.width;
+      c.height = canvasSize.height;
+    }
   }
 
   resizeDraftCanvasAndKeepProperties(
@@ -83,7 +96,7 @@ function clearCanvas(canvas) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function getCtx(canvas) {
+function getCtx(canvas: HTMLCanvasElement) {
   return canvas.getContext("2d");
 }
 
@@ -146,10 +159,9 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
 }
 
 export function drawAllLayers(
-  sectionId,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  fnCanvasToBase64,
+  sectionId: string,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
   realTimeValues = {}, // layerId -> artifactId -> value
   realTimeTransforms = {}, // layerId -> idx -> {transform, eraserStrokes}
   realTimeResizeHandles = {}, // layerId -> array of corner coordinates

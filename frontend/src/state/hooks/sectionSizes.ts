@@ -10,8 +10,8 @@ import {
   adjustSizeToBeAtLeastMin,
   setSectionSize,
 } from "state/actions/sections/sectionSizes";
-import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { useProjectState, ZustandProjectState } from "state/definitions";
+import { SectionSize, SectionTypeEnum } from "utils/generatedTypes";
 import { getIsTwitterSection } from "./social";
 
 export const INFINITE_MAX_HEIGHT = 100000;
@@ -260,68 +260,65 @@ export function useImgArtifactAreaSize(sectionId, image) {
   return imgSize !== null;
 }
 
-export function setDrawAreaSectionSize({
-  sectionId,
-  imgSize,
-  isNewImg,
-  sectionWidth,
-  sectionHeight,
-  state,
-}) {
-  let canvasSize = {};
+export function setDrawAreaSectionSize(
+  sectionId: string,
+  sectionSize: SectionSize,
+  state: ZustandProjectState,
+) {
+  let canvasSize = { height: 0, width: 0 };
   const extraHeight = 120;
   const extraWidth = 24;
+  const { width: sWidth, height: sHeight } = sectionSize;
 
-  if (imgSize) {
-    if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
-      const sectionType = SectionTypeEnum.Draw;
-      const minHeight = getMinSectionHeight({ sectionType });
-      const minWidth = getMinSectionWidth({ sectionType });
-      canvasSize = adjustSizeToBeAtLeastMin(
-        imgSize.height,
-        imgSize.width,
-        minHeight - extraHeight,
-        minWidth - extraWidth,
-      );
-      setSectionSize(
-        sectionId,
-        {
-          width: canvasSize.width + extraWidth,
-          height: canvasSize.height + extraHeight,
-        },
-        state,
-      );
-    } else {
-      canvasSize.width = sectionWidth - extraWidth;
-      canvasSize.height = sectionHeight - extraHeight;
-    }
+  // if (imgSize) {
+  //   if (sectionWidth === "auto" || sectionHeight === "auto" || isNewImg) {
+  //     const sectionType = SectionTypeEnum.Draw;
+  //     const minHeight = getMinSectionHeight({ sectionType });
+  //     const minWidth = getMinSectionWidth({ sectionType });
+  //     canvasSize = adjustSizeToBeAtLeastMin(
+  //       imgSize.height,
+  //       imgSize.width,
+  //       minHeight - extraHeight,
+  //       minWidth - extraWidth,
+  //     );
+  //     setSectionSize(
+  //       sectionId,
+  //       {
+  //         width: canvasSize.width + extraWidth,
+  //         height: canvasSize.height + extraHeight,
+  //       },
+  //       state,
+  //     );
+  //   } else {
+  //     canvasSize.width = sectionWidth - extraWidth;
+  //     canvasSize.height = sectionHeight - extraHeight;
+  //   }
 
-    if (isNewImg) {
-      setAspectRatioInfo({
-        sectionId,
-        aspectRatio: imgSize.width / imgSize.height,
-        aspectRatioExtraHeight: extraHeight,
-        aspectRatioExtraWidth: extraWidth,
-        state,
-      });
-    }
-  } else {
-    const [defaultWidth, defaultHeight] = [500, 500];
-    canvasSize.width =
-      sectionWidth === "auto" ? defaultWidth : sectionWidth - extraWidth;
-    canvasSize.height =
-      sectionHeight === "auto" ? defaultHeight : sectionHeight - extraHeight;
-    if (sectionWidth === "auto" || sectionHeight === "auto") {
-      setSectionSize(
-        sectionId,
-        {
-          width: canvasSize.width + extraWidth,
-          height: canvasSize.height + extraHeight,
-        },
-        state,
-      );
-    }
+  //   if (isNewImg) {
+  //     setAspectRatioInfo({
+  //       sectionId,
+  //       aspectRatio: imgSize.width / imgSize.height,
+  //       aspectRatioExtraHeight: extraHeight,
+  //       aspectRatioExtraWidth: extraWidth,
+  //       state,
+  //     });
+  //   }
+  // } else {
+  const [defaultWidth, defaultHeight] = [500, 500];
+  canvasSize.width = sWidth === "auto" ? defaultWidth : sWidth - extraWidth;
+  canvasSize.height =
+    sHeight === "auto" ? defaultHeight : sHeight - extraHeight;
+  if (sWidth === "auto" || sHeight === "auto") {
+    setSectionSize(
+      sectionId,
+      {
+        width: canvasSize.width + extraWidth,
+        height: canvasSize.height + extraHeight,
+      },
+      state,
+    );
   }
+  // }
 
   return canvasSize;
 }

@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useRef, useState } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useArtifacts, useMisc, useProjectState } from "state/definitions";
+import { useArtifacts, useProjectState } from "state/definitions";
 import { useLoadArtifactViaDropzone } from "state/hooks/artifacts";
 import useDeepCompareEffect, {
   useDeepCompareEffectNoCheck,
@@ -19,13 +19,14 @@ import {
   setGlobalBrushStrokesAndDrawAllLayers,
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
+import { LayerCanvasesType, TempCanvasesType } from "./types";
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
   const {
     numLayers,
     activeLayerIdx,
-    size: { width, height },
+    size: sectionSize,
     brushColor,
     brushSize,
     brushShape,
@@ -61,12 +62,12 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   //   loadedArtifactIdsWithDuplicates,
   // } = useDrawAreaActiveLayerAndLoadedArtifacts(sectionId);
 
-  const layerCanvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
+  const layerCanvasRefs = useRef<LayerCanvasesType>([]);
   const draftCanvasRef = useRef<HTMLCanvasElement>(null);
-  const tempCanvasRefs = useRef<{
-    layer: HTMLCanvasElement | null;
-    artifact: HTMLCanvasElement | null;
-  }>({ layer: null, artifact: null });
+  const tempCanvasRefs = useRef<TempCanvasesType>({
+    layer: null,
+    artifact: null,
+  });
   const strokesRef = useRef([]);
   const eraserStrokesRef = useRef([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef([]);
@@ -86,9 +87,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       loadedArtifacts[a.artifactId]?.type === ArtifactTypeEnum.BRUSH_STROKES,
   )?.artifactId;
 
-  const updateDrawArea = useMisc(
-    (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
-  );
+  // const updateDrawArea = useMisc(
+  //   (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],
+  // );
 
   useEffect(() => {
     tempCanvasRefs.current.layer = document.createElement("canvas");
@@ -107,18 +108,22 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
 
   useEffect(() => {
     useProjectState.setState((state) => {
-      setCanvasSize({
+      setCanvasSize(
         sectionId,
         layerCanvasRefs,
         tempCanvasRefs,
         draftCanvasRef,
-        height,
-        width,
+        sectionSize,
         state,
-      });
+      );
     });
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs, fnCanvasToBase64);
-  }, [height, width, JSON.stringify(layerIds), updateDrawArea]);
+    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
+  }, [
+    sectionSize.height,
+    sectionSize.width,
+    // JSON.stringify(layerIds),
+    // updateDrawArea,
+  ]);
 
   useEffect(() => {
     setDraftCanvasProperties({
@@ -281,7 +286,7 @@ function LayerCanvases({
 }: {
   numLayers: number;
   activeLayerIdx: number;
-  layerCanvasRefs: React.RefObject<Array<HTMLCanvasElement | null>>;
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
   cursorIcon: string;
   canvasClassName: string;
   onMouseDown: React.MouseEventHandler<HTMLCanvasElement>;
