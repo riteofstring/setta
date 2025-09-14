@@ -1,20 +1,8 @@
 import React from "react";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
 import { useLoadedImageArtifact } from "state/hooks/artifacts";
-import { SectionTypeEnum } from "utils/generatedTypes";
 
 function _ImageArea({ sectionId }: { sectionId: string }) {
-  const imagePath = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Image,
-    );
-    return impl.imagePath;
-  });
-
-  const imageSrc = useLoadedImageArtifact(imagePath);
+  const imageSrc = useLoadedImageArtifact(sectionId);
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
   //   sectionId,
   //   false,

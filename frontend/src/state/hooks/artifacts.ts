@@ -7,6 +7,7 @@ import {
   loadArtifacts,
   prepareDataURLForRendering,
 } from "state/actions/artifacts";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useArtifacts,
   useChartData,
@@ -19,6 +20,7 @@ import {
   route_load_chart_data,
   route_load_image_artifact,
 } from "utils/generatedEndpoints";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 async function loadImage(imagePath: string) {
   const res = await route_load_image_artifact({ imagePath });
@@ -30,7 +32,16 @@ async function loadImage(imagePath: string) {
   }
 }
 
-export function useLoadedImageArtifact(imagePath: string) {
+export function useLoadedImageArtifact(sectionId: string) {
+  const imagePath = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Image,
+    );
+    return impl.imagePath;
+  });
+
   const image = useImages((x) => x.x[imagePath]);
 
   useEffect(() => {
@@ -51,7 +62,16 @@ async function loadChartData(dataPath: string) {
   }
 }
 
-export function useLoadedChartData(dataPath: string) {
+export function useLoadedChartData(sectionId: string) {
+  const dataPath = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Chart,
+    );
+    return impl.dataPath;
+  });
+
   const data = useChartData((x) => x.x[dataPath]);
 
   useEffect(() => {
@@ -62,6 +82,27 @@ export function useLoadedChartData(dataPath: string) {
 
   return data ?? {};
 }
+
+// async function loadChartData(dataPath: string) {
+//   const res = await route_load_chart_data({ dataPath });
+//   if (res200(res)) {
+//     useChartData.setState((state) => ({
+//       x: { ...state.x, [dataPath]: res.data },
+//     }));
+//   }
+// }
+
+// export function useLoadedDrawAreaData(dataPath: string) {
+//   const data = useChartData((x) => x.x[dataPath]);
+
+//   useEffect(() => {
+//     if (!data && dataPath) {
+//       loadChartData(dataPath);
+//     }
+//   }, [!!data, dataPath]);
+
+//   return data ?? {};
+// }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
   const loadedArtifacts = useArtifacts((x) => {
