@@ -590,3 +590,9 @@ export async function route_set_chart_type(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartType", x);
 }
+
+export async function route_set_chart_settings(
+  x: gt.SetChartSettingsRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setChartSettings", x);
+}

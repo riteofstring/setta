@@ -114,3 +114,4 @@ class Route(str, Enum):
     LOAD_CHART_DATA = "/loadChartData"
     SET_CHART_TYPE = "/setChartType"
     SET_CHART_AREA_IMAGE_PATH = "/setChartAreaDataPath"
+    SET_CHART_SETTINGS = "/setChartSettings"

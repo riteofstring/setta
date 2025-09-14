@@ -17,7 +17,7 @@ class BaseChartSettings(BaseModel):
 
 class LineChartSettings(BaseChartSettings):
     type: Literal[ChartType.line] = ChartType.line
-    xAxisColumn: str = ""
+    xAxisColumn: str | None = None
     secondYAxisColumns: list[str] = Field(default_factory=list)
     xAxisLog: bool = False
     y1AxisLog: bool = False
@@ -26,7 +26,7 @@ class LineChartSettings(BaseChartSettings):
 
 class ScatterChartSettings(BaseChartSettings):
     type: Literal[ChartType.scatter] = ChartType.scatter
-    xAxisColumn: str = ""
-    categoryColumn: str = ""
+    xAxisColumn: str | None = None
+    categoryColumn: str | None = None
     xAxisLog: bool = False
     yAxisLog: bool = False

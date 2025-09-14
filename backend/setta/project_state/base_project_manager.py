@@ -48,6 +48,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserAreaViewModeRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
+    SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
@@ -103,6 +104,7 @@ from setta.types.helpers import (
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
     set_chart_area_data_path,
+    set_chart_settings,
     set_chart_type,
     set_code,
     set_default_section_variant,
@@ -867,6 +869,14 @@ class BaseProjectManager(ABC):
     async def set_chart_type(self, x: SetChartTypeRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chart_type(project_state, x.sectionId, x.chartType)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def set_chart_settings(self, x: SetChartSettingsRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_chart_settings(
+            project_state, x.sectionId, x.chartSettings, x.changedSettings
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

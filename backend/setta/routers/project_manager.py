@@ -25,6 +25,7 @@ from setta.project_state.project_manager_types import (
     SetBrowserAreaViewModeRequest,
     SetCallableRequest,
     SetChartAreaDataPathRequest,
+    SetChartSettingsRequest,
     SetChartTypeRequest,
     SetCodeObjNameRequest,
     SetCodeRequest,
@@ -476,3 +477,10 @@ async def route_set_chart_area_data_path(
 @router.post(Route.SET_CHART_TYPE)
 async def route_set_chart_type(x: SetChartTypeRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).set_chart_type(x)
+
+
+@router.post(Route.SET_CHART_SETTINGS)
+async def route_set_chart_settings(
+    x: SetChartSettingsRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(x.projectConfigId).set_chart_settings(x)

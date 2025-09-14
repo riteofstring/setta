@@ -17,7 +17,10 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
-from setta.types.generated.chart_settings_unions import BaseChartSettingsTypeAdapter
+from setta.types.generated.chart_settings_unions import (
+    BaseChartSettingsTypeAdapter,
+    BaseChartSettingsUnion,
+)
 from setta.types.generated.effective_impls import (
     get_effective_impl,
     set_effective_impl_value,
@@ -1134,6 +1137,23 @@ def set_chart_type(p: "ProjectStateSingleConfig", sectionId: str, chartType: Cha
         ChartSectionImplArgsWithCallable(
             chartSettings=lambda currChartSettings: BaseChartSettingsTypeAdapter.validate_python(
                 {**currChartSettings.model_dump(), "type": chartType}
+            )
+        ),
+    )
+
+
+def set_chart_settings(
+    p: "ProjectStateSingleConfig",
+    sectionId: str,
+    chartSettings: BaseChartSettingsUnion,
+    changedSettings: list[str],
+):
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        ChartSectionImplArgsWithCallable(
+            chartSettings=lambda currChartSettings: currChartSettings.model_copy(
+                update={k: getattr(chartSettings, k) for k in changedSettings}
             )
         ),
     )

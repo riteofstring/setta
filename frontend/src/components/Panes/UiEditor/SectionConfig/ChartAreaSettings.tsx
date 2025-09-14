@@ -1,21 +1,21 @@
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
-import { updateColumnNameSelections } from "state/actions/artifacts";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useChartData, useProjectState } from "state/definitions";
-import { getAllSectionArtifactIds } from "state/hooks/artifacts";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import {
   route_set_chart_area_data_path,
+  route_set_chart_settings,
   route_set_chart_type,
 } from "utils/generatedEndpoints";
 import {
   BaseChartSettingsUnion,
   ChartType,
   ChartTypeEnum,
+  createBaseChartSettingsUnionWithDiscriminator,
   LineChartSettings,
   ScatterChartSettings,
   SectionTypeEnum,
@@ -46,11 +46,11 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
     };
   }, _.isEqual);
 
-  const valueHeaders = useChartData((x) => {
+  const { valueHeaders, dataIsReady } = useChartData((x) => {
     if (x.x[dataPath]) {
-      return Object.keys(x.x[dataPath]);
+      return { valueHeaders: Object.keys(x.x[dataPath]), dataIsReady: true };
     }
-    return [];
+    return { valueHeaders: [], dataIsReady: false };
   });
 
   function onSetDataPath(newDataPath: string) {
@@ -83,15 +83,19 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
         onBlur={onBlur}
         onKeyDown={onKeyDown}
       />
-      <ChartTypeSelection
-        sectionId={sectionId}
-        selectedChartType={chartSettings.type}
-      />
-      <SpecificConfig
-        sectionId={sectionId}
-        chartSettings={chartSettings}
-        valueHeaders={valueHeaders}
-      />
+      {dataIsReady && (
+        <>
+          <ChartTypeSelection
+            sectionId={sectionId}
+            selectedChartType={chartSettings.type}
+          />
+          <SpecificConfig
+            sectionId={sectionId}
+            chartSettings={chartSettings}
+            valueHeaders={valueHeaders}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -158,11 +162,13 @@ function LineChartConfig({
         valueHeaders={valueHeaders}
         selectedXAxisColumn={chartSettings.xAxisColumn}
         xAxisCanBeNull={true}
+        chartType={ChartTypeEnum.line}
       />
       <TogglableOptions
         sectionId={sectionId}
         optionsWithToggle={optionsWithToggle}
         chartSettings={chartSettings}
+        chartType={ChartTypeEnum.line}
       />
     </>
   );
@@ -192,16 +198,19 @@ function ScatterChartConfig({
         valueHeaders={valueHeaders}
         selectedXAxisColumn={chartSettings.xAxisColumn}
         xAxisCanBeNull={false}
+        chartType={ChartTypeEnum.scatter}
       />
       <CategoryColumnSelection
         sectionId={sectionId}
         valueHeaders={valueHeaders}
         selectedCategoryColumn={chartSettings.categoryColumn}
+        chartType={ChartTypeEnum.scatter}
       />
       <TogglableOptions
         sectionId={sectionId}
         optionsWithToggle={optionsWithToggle}
         chartSettings={chartSettings}
+        chartType={ChartTypeEnum.scatter}
       />
     </>
   );
@@ -214,6 +223,13 @@ function ChartTypeSelection({
   sectionId: string;
   selectedChartType: ChartType;
 }) {
+  const chartTypes = [
+    {
+      group: "Chart Types",
+      items: Object.values(ChartTypeEnum).map((x) => ({ id: x, name: x })),
+    },
+  ];
+
   return (
     <>
       <label
@@ -225,13 +241,15 @@ function ChartTypeSelection({
       <IdNameCombobox
         allItems={chartTypes}
         value={selectedChartType}
-        onSelectedItemChange={(v: ChartType) =>
-          route_set_chart_type({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            chartType: v,
-          })
-        }
+        onSelectedItemChange={(v) => {
+          if (v) {
+            route_set_chart_type({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              chartType: v,
+            });
+          }
+        }}
       />
     </>
   );
@@ -242,11 +260,13 @@ function XAxisColumnSelection({
   valueHeaders,
   selectedXAxisColumn,
   xAxisCanBeNull,
+  chartType,
 }: {
   sectionId: string;
   valueHeaders: Array<string>;
   selectedXAxisColumn: string | null;
   xAxisCanBeNull: boolean;
+  chartType: ChartType;
 }) {
   const xAxisColumnChoices = [
     {
@@ -266,9 +286,17 @@ function XAxisColumnSelection({
       <IdNameCombobox
         allItems={xAxisColumnChoices}
         value={selectedXAxisColumn}
-        onSelectedItemChange={(v) =>
-          setChartSetting(sectionId, "xAxisColumn", v)
-        }
+        onSelectedItemChange={(v) => {
+          route_set_chart_settings({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+              type: chartType,
+              xAxisColumn: v,
+            }),
+            changedSettings: ["xAxisColumn"],
+          });
+        }}
         selectedItemCanBeNull={xAxisCanBeNull}
       />
     </>
@@ -279,10 +307,12 @@ function CategoryColumnSelection({
   sectionId,
   valueHeaders,
   selectedCategoryColumn,
+  chartType,
 }: {
   sectionId: string;
   valueHeaders: Array<string>;
   selectedCategoryColumn: string | null;
+  chartType: ChartType;
 }) {
   const categoryColumnChoices = [
     {
@@ -303,7 +333,15 @@ function CategoryColumnSelection({
         allItems={categoryColumnChoices}
         value={selectedCategoryColumn}
         onSelectedItemChange={(v) =>
-          setChartSetting(sectionId, "categoryColumn", v)
+          route_set_chart_settings({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+              type: chartType,
+              categoryColumn: v,
+            }),
+            changedSettings: ["categoryColumn"],
+          })
         }
       />
     </>
@@ -314,6 +352,7 @@ function TogglableOptions<T extends BaseChartSettingsUnion>({
   sectionId,
   optionsWithToggle,
   chartSettings,
+  chartType,
 }: {
   sectionId: string;
   optionsWithToggle: Array<{
@@ -321,6 +360,7 @@ function TogglableOptions<T extends BaseChartSettingsUnion>({
     title: string;
   }>;
   chartSettings: T;
+  chartType: ChartType;
 }) {
   return (
     <div className="flex flex-col gap-2 py-6">
@@ -339,6 +379,7 @@ function TogglableOptions<T extends BaseChartSettingsUnion>({
             name={x.name}
             title={x.title}
             value={value}
+            chartType={chartType}
           />
         );
       })}
@@ -351,11 +392,13 @@ function ChartConfigToggle({
   name,
   value,
   title,
+  chartType,
 }: {
   sectionId: string;
   name: string;
   value: boolean;
   title: string;
+  chartType: ChartType;
 }) {
   return (
     <div className="flex items-center justify-between">
@@ -370,29 +413,18 @@ function ChartConfigToggle({
         id={name}
         className="h-4 w-4 cursor-pointer rounded bg-setta-500/50  text-blue-500 outline outline-offset-2 outline-transparent checked:bg-blue-500 focus-visible:!outline-blue-500 dark:text-blue-400 dark:focus-visible:ring-blue-400"
         checked={value}
-        onChange={(e) => setChartSetting(sectionId, name, e.target.checked)}
+        onChange={(e) =>
+          route_set_chart_settings({
+            projectConfigId: getCurrProjectConfigId(),
+            sectionId,
+            chartSettings: createBaseChartSettingsUnionWithDiscriminator({
+              type: chartType,
+              [name]: e.target.checked,
+            }),
+            changedSettings: [name],
+          })
+        }
       />
     </div>
   );
 }
-
-function setChartSetting(sectionId, name, value) {
-  useProjectState.setState((state) => {
-    state.sections[sectionId].chartSettings[name] = value;
-  });
-}
-
-function setChartType(sectionId, chartType) {
-  useProjectState.setState((state) => {
-    state.sections[sectionId].chartSettings.type = chartType;
-    const artifactIds = getAllSectionArtifactIds(sectionId, state);
-    updateColumnNameSelections(Array.from(artifactIds), sectionId, state);
-  });
-}
-
-const chartTypes = [
-  {
-    group: "Chart Types",
-    items: ["line", "scatter"].map((x) => ({ id: x, name: x })),
-  },
-];

@@ -464,6 +464,7 @@ export const RouteEnum = {
   LOAD_CHART_DATA: "/loadChartData",
   SET_CHART_TYPE: "/setChartType",
   SET_CHART_AREA_IMAGE_PATH: "/setChartAreaDataPath",
+  SET_CHART_SETTINGS: "/setChartSettings",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -1323,7 +1324,7 @@ export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
 
 export const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
-  xAxisColumn: z.string().default("" as const),
+  xAxisColumn: z.union([z.string(), z.null()]).default(null),
   secondYAxisColumns: z.array(z.string()).default([]),
   xAxisLog: z.boolean().default(false),
   y1AxisLog: z.boolean().default(false),
@@ -1340,8 +1341,8 @@ export function createLineChartSettings(
 
 export const ScatterChartSettingsSchema = z.object({
   type: z.literal("scatter").default(ChartTypeEnum.scatter),
-  xAxisColumn: z.string().default("" as const),
-  categoryColumn: z.string().default("" as const),
+  xAxisColumn: z.union([z.string(), z.null()]).default(null),
+  categoryColumn: z.union([z.string(), z.null()]).default(null),
   xAxisLog: z.boolean().default(false),
   yAxisLog: z.boolean().default(false),
 });
@@ -8061,6 +8062,23 @@ export function createSetChartAreaDataPathRequest(
   options: Partial<SetChartAreaDataPathRequest> = {},
 ): SetChartAreaDataPathRequest {
   return SetChartAreaDataPathRequestSchema.parse(options);
+}
+
+export const SetChartSettingsRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  chartSettings: z.union([LineChartSettingsSchema, ScatterChartSettingsSchema]),
+  changedSettings: z.array(z.string()),
+});
+
+export type SetChartSettingsRequest = z.infer<
+  typeof SetChartSettingsRequestSchema
+>;
+
+export function createSetChartSettingsRequest(
+  options: Partial<SetChartSettingsRequest> = {},
+): SetChartSettingsRequest {
+  return SetChartSettingsRequestSchema.parse(options);
 }
 
 export const SetChartTypeRequestSchema = z.object({
