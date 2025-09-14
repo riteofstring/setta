@@ -85,8 +85,7 @@ export function HeaderIcon({
           "
         />
       );
-    case SectionTypeEnum.LineChart:
-    case SectionTypeEnum.ScatterChart:
+    case SectionTypeEnum.Chart:
       return (
         <FaChartPie
           className="text-setta-300 transition-colors group-hover/card-section:text-blue-500  dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]

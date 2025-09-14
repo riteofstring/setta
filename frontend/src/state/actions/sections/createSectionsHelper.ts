@@ -89,11 +89,7 @@ export function useCreateSectionsList() {
       implSpecs: { type: SectionTypeEnum.Draw },
     },
     { name: "Image", implSpecs: { type: SectionTypeEnum.Image } },
-    { name: "Line Chart", implSpecs: { type: SectionTypeEnum.LineChart } },
-    {
-      name: "Scatter Chart",
-      implSpecs: { type: SectionTypeEnum.ScatterChart },
-    },
+    { name: "Chart", implSpecs: { type: SectionTypeEnum.Chart } },
     { name: "Chat", implSpecs: { type: SectionTypeEnum.Chat } },
     {
       name: "Browser",

@@ -92,8 +92,7 @@ function AreaSwitch({
       return <DictArea sectionId={sectionId} bgColor={bgColor} />;
     case SectionTypeEnum.Image:
       return <ImageArea sectionId={sectionId} />;
-    case SectionTypeEnum.LineChart:
-    case SectionTypeEnum.ScatterChart:
+    case SectionTypeEnum.Chart:
       return <ChartArea sectionId={sectionId} />;
     case SectionTypeEnum.Draw:
       return <DrawArea sectionId={sectionId} />;

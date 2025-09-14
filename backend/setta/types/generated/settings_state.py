@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultCallableSectionImpl,
+    UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
     UserDefaultCodeCallableCodeObjImpl,
     UserDefaultCodeParamCodeObjImpl,
@@ -21,11 +22,9 @@ from setta.types.generated.user_defaults import (
     UserDefaultGroupSectionImpl,
     UserDefaultIFrameSectionImpl,
     UserDefaultImageSectionImpl,
-    UserDefaultLineChartSectionImpl,
     UserDefaultListRootSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultScatterChartSectionImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
@@ -50,6 +49,9 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     callableSectionDefault: UserDefaultCallableSectionImpl = Field(
         default_factory=UserDefaultCallableSectionImpl
+    )
+    chartSectionDefault: UserDefaultChartSectionImpl = Field(
+        default_factory=UserDefaultChartSectionImpl
     )
     chatSectionDefault: UserDefaultChatSectionImpl = Field(
         default_factory=UserDefaultChatSectionImpl
@@ -81,14 +83,8 @@ class SettingsState(BaseModel, extra="forbid"):
     imageSectionDefault: UserDefaultImageSectionImpl = Field(
         default_factory=UserDefaultImageSectionImpl
     )
-    lineChartSectionDefault: UserDefaultLineChartSectionImpl = Field(
-        default_factory=UserDefaultLineChartSectionImpl
-    )
     listRootSectionDefault: UserDefaultListRootSectionImpl = Field(
         default_factory=UserDefaultListRootSectionImpl
-    )
-    scatterChartSectionDefault: UserDefaultScatterChartSectionImpl = Field(
-        default_factory=UserDefaultScatterChartSectionImpl
     )
     socialSectionDefault: UserDefaultSocialSectionImpl = Field(
         default_factory=UserDefaultSocialSectionImpl
@@ -152,11 +148,8 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
         case SectionType.Image:
             return settings.imageSectionDefault
 
-        case SectionType.LineChart:
-            return settings.lineChartSectionDefault
-
-        case SectionType.ScatterChart:
-            return settings.scatterChartSectionDefault
+        case SectionType.Chart:
+            return settings.chartSectionDefault
 
         case SectionType.Draw:
             return settings.drawSectionDefault

@@ -117,8 +117,7 @@ function getMenuItems(uiTypeName) {
       return [UngroupButton];
     case SectionTypeEnum.Draw:
     case SectionTypeEnum.Image:
-    case SectionTypeEnum.LineChart:
-    case SectionTypeEnum.ScatterChart:
+    case SectionTypeEnum.Chart:
       return [AddArtifactByFilepath];
     case SectionTypeEnum.Browser:
       return [HideColumn];

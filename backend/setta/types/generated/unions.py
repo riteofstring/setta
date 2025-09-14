@@ -5,6 +5,7 @@ from pydantic import Field, TypeAdapter
 from setta.types.section_impls import (
     BrowserSectionImpl,
     CallableSectionImpl,
+    ChartSectionImpl,
     ChatSectionImpl,
     CodeSectionImpl,
     DictRootSectionImpl,
@@ -15,9 +16,7 @@ from setta.types.section_impls import (
     GroupSectionImpl,
     IFrameSectionImpl,
     ImageSectionImpl,
-    LineChartSectionImpl,
     ListRootSectionImpl,
-    ScatterChartSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -30,8 +29,7 @@ BaseSectionImplUnion = Union[
     DictRootSectionImpl,
     GroupSectionImpl,
     ImageSectionImpl,
-    LineChartSectionImpl,
-    ScatterChartSectionImpl,
+    ChartSectionImpl,
     DrawSectionImpl,
     TextBlockSectionImpl,
     SocialSectionImpl,
@@ -58,8 +56,7 @@ BaseSectionImplTypeSet = set(
         "DictRoot",
         "Group",
         "Image",
-        "LineChart",
-        "ScatterChart",
+        "Chart",
         "Draw",
         "TextBlock",
         "Social",
@@ -87,7 +84,7 @@ BaseSectionWithParamsImplTypeAdapter = TypeAdapter(
 
 BaseSectionWithParamsImplTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
-BaseArtifactSectionImplUnion = Union[DrawSectionImpl]
+BaseArtifactSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
 BaseArtifactSectionImplUnionWithDiscriminator = Annotated[
     BaseArtifactSectionImplUnion, Field(discriminator="type")
@@ -97,11 +94,9 @@ BaseArtifactSectionImplTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplTypeSet = set(["Draw"])
+BaseArtifactSectionImplTypeSet = set(["Chart", "Draw"])
 
-BaseCanvasSectionImplUnion = Union[
-    LineChartSectionImpl, ScatterChartSectionImpl, DrawSectionImpl
-]
+BaseCanvasSectionImplUnion = Union[ChartSectionImpl, DrawSectionImpl]
 
 BaseCanvasSectionImplUnionWithDiscriminator = Annotated[
     BaseCanvasSectionImplUnion, Field(discriminator="type")
@@ -111,7 +106,7 @@ BaseCanvasSectionImplTypeAdapter = TypeAdapter(
     BaseCanvasSectionImplUnionWithDiscriminator
 )
 
-BaseCanvasSectionImplTypeSet = set(["LineChart", "ScatterChart", "Draw"])
+BaseCanvasSectionImplTypeSet = set(["Chart", "Draw"])
 
 BaseCodeSectionImplUnion = Union[CodeSectionImpl, GenPythonCodeSectionImpl]
 
@@ -278,6 +273,7 @@ from pydantic import Field, TypeAdapter
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
     CallableSectionImplArgs,
+    ChartSectionImplArgs,
     ChatSectionImplArgs,
     CodeSectionImplArgs,
     DictRootSectionImplArgs,
@@ -288,9 +284,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GroupSectionImplArgs,
     IFrameSectionImplArgs,
     ImageSectionImplArgs,
-    LineChartSectionImplArgs,
     ListRootSectionImplArgs,
-    ScatterChartSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
@@ -303,8 +297,7 @@ BaseSectionImplArgsUnion = Union[
     DictRootSectionImplArgs,
     GroupSectionImplArgs,
     ImageSectionImplArgs,
-    LineChartSectionImplArgs,
-    ScatterChartSectionImplArgs,
+    ChartSectionImplArgs,
     DrawSectionImplArgs,
     TextBlockSectionImplArgs,
     SocialSectionImplArgs,
@@ -331,8 +324,7 @@ BaseSectionImplArgsTypeSet = set(
         "DictRoot",
         "Group",
         "Image",
-        "LineChart",
-        "ScatterChart",
+        "Chart",
         "Draw",
         "TextBlock",
         "Social",
@@ -360,7 +352,7 @@ BaseSectionWithParamsImplArgsTypeAdapter = TypeAdapter(
 
 BaseSectionWithParamsImplArgsTypeSet = set(["Callable", "Dict", "GlobalVariables"])
 
-BaseArtifactSectionImplArgsUnion = Union[DrawSectionImplArgs]
+BaseArtifactSectionImplArgsUnion = Union[ChartSectionImplArgs, DrawSectionImplArgs]
 
 BaseArtifactSectionImplArgsUnionWithDiscriminator = Annotated[
     BaseArtifactSectionImplArgsUnion, Field(discriminator="type")
@@ -370,11 +362,9 @@ BaseArtifactSectionImplArgsTypeAdapter = TypeAdapter(
     BaseArtifactSectionImplArgsUnionWithDiscriminator
 )
 
-BaseArtifactSectionImplArgsTypeSet = set(["Draw"])
+BaseArtifactSectionImplArgsTypeSet = set(["Chart", "Draw"])
 
-BaseCanvasSectionImplArgsUnion = Union[
-    LineChartSectionImplArgs, ScatterChartSectionImplArgs, DrawSectionImplArgs
-]
+BaseCanvasSectionImplArgsUnion = Union[ChartSectionImplArgs, DrawSectionImplArgs]
 
 BaseCanvasSectionImplArgsUnionWithDiscriminator = Annotated[
     BaseCanvasSectionImplArgsUnion, Field(discriminator="type")
@@ -384,7 +374,7 @@ BaseCanvasSectionImplArgsTypeAdapter = TypeAdapter(
     BaseCanvasSectionImplArgsUnionWithDiscriminator
 )
 
-BaseCanvasSectionImplArgsTypeSet = set(["LineChart", "ScatterChart", "Draw"])
+BaseCanvasSectionImplArgsTypeSet = set(["Chart", "Draw"])
 
 BaseCodeSectionImplArgsUnion = Union[CodeSectionImplArgs, GenPythonCodeSectionImplArgs]
 

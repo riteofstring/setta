@@ -102,6 +102,7 @@ def get_imports_str():
 from typing import TypedDict, Literal, Any, NotRequired, overload, Callable
 from setta.types.core import Core
 from setta.types.section_impls import (
+    ChartSettings,
     DrawAreaCanvasSettings,
     SectionSize,
     Visibility,

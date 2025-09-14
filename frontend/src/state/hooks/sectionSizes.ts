@@ -56,10 +56,7 @@ function getMinSectionHeight({
     sectionType === SectionTypeEnum.Image
   ) {
     return 100;
-  } else if (
-    sectionType === SectionTypeEnum.LineChart ||
-    sectionType === SectionTypeEnum.ScatterChart
-  ) {
+  } else if (sectionType === SectionTypeEnum.Chart) {
     return 300;
   } else if (sectionType === SectionTypeEnum.Social) {
     return 50;
