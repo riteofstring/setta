@@ -16,6 +16,11 @@ function UITypeCombobox({
   presetImpls,
   onDropdownSelect,
   selectedBaseImplId,
+}: {
+  nonPresetImpls: ComboboxItemArrayType<string>;
+  presetImpls: ComboboxItemArrayType<string>;
+  onDropdownSelect: OnSelectedItemChangeFnType<string>;
+  selectedBaseImplId: string;
 }) {
   const allItems = [
     { group: "Base", items: nonPresetImpls },

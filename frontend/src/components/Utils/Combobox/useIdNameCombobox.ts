@@ -40,10 +40,11 @@ export function useIdNameCombobox<T>({
       clearInputAfterSelection,
     );
 
-  const localOnSelectedItemChange: UseComboboxProps<ComboboxItemType<T>>["onSelectedItemChange"] =
-    ({ selectedItem }) => {
-      onSelectedItemChange(selectedItem ? selectedItem.id : null);
-    };
+  const localOnSelectedItemChange: UseComboboxProps<
+    ComboboxItemType<T>
+  >["onSelectedItemChange"] = ({ selectedItem }) => {
+    onSelectedItemChange(selectedItem ? selectedItem.id : null);
+  };
 
   const singleListItems = flattenedItems(filteredItems);
 
