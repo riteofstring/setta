@@ -60,7 +60,7 @@ export function useLoadedChartData(dataPath: string) {
     }
   }, [!!data, dataPath]);
 
-  return data;
+  return data ?? {};
 }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {

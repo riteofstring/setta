@@ -1,5 +1,4 @@
 import { Tooltip } from "chart.js";
-import { processChartArtifacts } from "state/actions/artifacts";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
   elements,
@@ -40,27 +39,24 @@ export function getScatterChartOptionsAndPlugins() {
 
 export function updateScatterChartWithNewData({
   chartRef,
-  artifacts,
+  data,
   datasetHidden,
   darkMode,
   chartSettings,
 }) {
-  const artifactValue = processChartArtifacts(artifacts, "scatter");
-
   let categoryValue = "No Category";
-  const firstColumnLength = Object.values(artifactValue)[0]?.length;
+  const firstColumnLength = Object.values(data)[0]?.length;
 
-  // artifactValue might be an empty object if no artifacts are selected
   if (!firstColumnLength) {
     return { datasets: [] };
   }
 
   const categoryColumn = chartSettings.categoryColumn;
-  let xAxisColumn = Object.keys(artifactValue)[0];
+  let xAxisColumn = Object.keys(data)[0];
   if (chartSettings.xAxisColumn) {
     xAxisColumn = chartSettings.xAxisColumn;
   }
-  const yAxisColumn = Object.keys(artifactValue).find(
+  const yAxisColumn = Object.keys(data).find(
     (a) => ![categoryColumn, xAxisColumn].includes(a),
   );
 
@@ -75,14 +71,14 @@ export function updateScatterChartWithNewData({
   const groupedData = {};
   for (let i = 0; i < firstColumnLength; i++) {
     if (categoryColumn) {
-      categoryValue = artifactValue[categoryColumn][i];
+      categoryValue = data[categoryColumn][i];
     }
     if (!(categoryValue in groupedData)) {
       groupedData[categoryValue] = [];
     }
     groupedData[categoryValue].push({
-      x: artifactValue[xAxisColumn][i],
-      y: artifactValue[yAxisColumn][i],
+      x: data[xAxisColumn][i],
+      y: data[yAxisColumn][i],
       columnName: yAxisColumn,
     });
   }

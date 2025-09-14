@@ -1,5 +1,4 @@
 import { Tooltip } from "chart.js";
-import { processChartArtifacts } from "state/actions/artifacts";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
   elements,
@@ -39,16 +38,15 @@ export function getLineChartOptionsAndPlugins() {
 
 export function updateLineChartWithNewData({
   chartRef,
-  artifacts,
+  data,
   datasetHidden,
   darkMode,
   chartSettings,
 }) {
   const datasets = [];
-  const artifactValue = processChartArtifacts(artifacts, "line");
 
   let labels = null;
-  for (const [columnName, values] of Object.entries(artifactValue)) {
+  for (const [columnName, values] of Object.entries(data)) {
     if (columnName === chartSettings.xAxisColumn) {
       labels = values;
       continue;

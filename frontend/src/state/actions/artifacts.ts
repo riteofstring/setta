@@ -260,43 +260,6 @@ export function updateColumnNameSelections(artifactIds, sectionId, state) {
   // }
 }
 
-// doesn't need whole artifacts, just name and value
-export function processChartArtifacts(artifacts, chartType) {
-  switch (chartType) {
-    case "line":
-      return processLineChartArtifacts(artifacts);
-    case "scatter":
-      return processScatterChartArtifacts(artifacts);
-    default:
-      return {};
-  }
-}
-
-function processLineChartArtifacts(artifacts) {
-  const output = {};
-  for (const artifact of artifacts) {
-    for (const [seriesName, values] of Object.entries(artifact.value)) {
-      const newSeriesName =
-        artifacts.length === 1 ? seriesName : `${artifact.name}/${seriesName}`;
-      output[newSeriesName] = [...values];
-    }
-  }
-  return output;
-}
-
-function processScatterChartArtifacts(artifacts) {
-  const output = {};
-  for (const artifact of artifacts) {
-    for (const [seriesName, values] of Object.entries(artifact.value)) {
-      if (!(seriesName in output)) {
-        output[seriesName] = [];
-      }
-      output[seriesName].push(...values);
-    }
-  }
-  return output;
-}
-
 export function getNamePathTypeKey(artifact) {
   return JSON.stringify([artifact.name, artifact.path, artifact.type]);
 }

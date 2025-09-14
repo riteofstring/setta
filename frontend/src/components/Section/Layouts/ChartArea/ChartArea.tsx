@@ -1,11 +1,16 @@
 import Chart from "chart.js/auto";
 import _ from "lodash";
 import React, { useEffect, useRef, useState } from "react";
+import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { listenForCanvasToBase64Requests } from "state/actions/temporaryMiscState";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
-import { ChartType, ChartTypeEnum } from "utils/generatedTypes";
+import {
+  ChartType,
+  ChartTypeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { canvasToBase64 } from "../DrawArea/base64Conversion";
 import {
   getLineChartOptionsAndPlugins,
@@ -38,18 +43,23 @@ function _ChartArea({ sectionId }: { sectionId: string }) {
 function _ChartAreaCore({ sectionId }: { sectionId: string }) {
   const data = useLoadedChartData(sectionId);
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const { size, chartSettings } = useProjectState(
-    (x) => ({
-      size: getCurrentSectionConfigs(x)[sectionId].size,
-      chartSettings: x.sections[sectionId],
-    }),
-    _.isEqual,
-  );
+  const { size, chartSettings } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Chart,
+    );
+    return { size: impl.size, chartSettings: impl.chartSettings };
+  }, _.isEqual);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const chartRef = useRef<Chart>(null);
   const [datasetHidden, setDatasetHidden] = useState({});
 
   useEffect(() => {
+    if (!canvasRef.current) {
+      return;
+    }
+
     const optionsAndPluginsFn = getOptionsAndPluginsFn(chartSettings.type);
 
     chartRef.current = new Chart(
@@ -117,7 +127,6 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
   }, [chartSettings.type]);
 
   useDeepCompareEffect(() => {
-    const artifacts = Object.values(loadedArtifacts);
     if (!chartRef.current) {
       return;
     }
@@ -125,7 +134,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     const updateFn = getUpdaterFn(chartSettings.type);
     const newData = updateFn({
       chartRef,
-      artifacts,
+      data,
       datasetHidden,
       darkMode,
       chartSettings,
@@ -144,7 +153,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
 
     chartRef.current.resize(size.width - 25, size.height - 50);
     chartRef.current.update();
-  }, [loadedArtifacts, size, datasetHidden, darkMode, chartSettings]);
+  }, [data, size, datasetHidden, darkMode, chartSettings]);
 
   return <canvas ref={canvasRef} />;
 }
