@@ -298,6 +298,14 @@ export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
 
+export const DrawAreaBrushShapeEnum = { butt: "butt", round: "round" } as const;
+
+export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
+
+export const DrawAreaModeEnum = { draw: "draw", erase: "erase" } as const;
+
+export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
+
 export const SectionSizeModeEnum = { auto: "auto" } as const;
 
 export type SectionSizeMode = ObjectValues<typeof SectionSizeModeEnum>;
@@ -1267,7 +1275,7 @@ export type LLMStreamingResponseChunk = z.infer<
 >;
 
 export const AllImplFieldsSchema = z.literal([
-  "activeLayerId",
+  "activeLayerIdx",
   "aspectRatio",
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
@@ -1401,7 +1409,7 @@ export const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "activeLayerId",
+        "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -1772,14 +1780,16 @@ export const DrawSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
-  activeLayerId: z.union([z.string(), z.null()]).default(null),
+  activeLayerIdx: z.int().default(0),
   color: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
-  brushShape: z.string().default("butt" as const),
+  brushShape: z
+    .enum(DrawAreaBrushShapeEnum)
+    .default(DrawAreaBrushShapeEnum.butt),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
-  canvasMode: z.string().default("draw" as const),
+  canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
 });
 
 export type DrawSectionImpl = z.infer<typeof DrawSectionImplSchema>;
@@ -2569,14 +2579,14 @@ export const DrawSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   renderedValue: z.any().optional(),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).optional(),
-  activeLayerId: z.union([z.string(), z.null()]).optional(),
+  activeLayerIdx: z.int().optional(),
   color: z.string().optional(),
   brushSize: z.int().optional(),
-  brushShape: z.string().optional(),
+  brushShape: z.enum(DrawAreaBrushShapeEnum).optional(),
   eraserBrushSize: z.int().optional(),
   drawThrottleDelay: z.int().optional(),
   canvasTransferQueueLength: z.int().optional(),
-  canvasMode: z.string().optional(),
+  canvasMode: z.enum(DrawAreaModeEnum).optional(),
 });
 
 export type DrawSectionImplArgs = z.infer<typeof DrawSectionImplArgsSchema>;
@@ -4543,14 +4553,16 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
-  activeLayerId: z.union([z.string(), z.null()]).default(null),
+  activeLayerIdx: z.int().default(0),
   color: z.string().default("#ff0000" as const),
   brushSize: z.int().default(16),
-  brushShape: z.string().default("butt" as const),
+  brushShape: z
+    .enum(DrawAreaBrushShapeEnum)
+    .default(DrawAreaBrushShapeEnum.butt),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasTransferQueueLength: z.int().default(50),
-  canvasMode: z.string().default("draw" as const),
+  canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
 });
 
 export type UserDefaultDrawSectionImpl = z.infer<
@@ -6015,14 +6027,14 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   layers: z
     .union([z.array(z.array(DrawAreaLayerItemSchema)), z.any()])
     .optional(),
-  activeLayerId: z.union([z.string(), z.null(), z.any()]).optional(),
+  activeLayerIdx: z.union([z.int(), z.any()]).optional(),
   color: z.union([z.string(), z.any()]).optional(),
   brushSize: z.union([z.int(), z.any()]).optional(),
-  brushShape: z.union([z.string(), z.any()]).optional(),
+  brushShape: z.union([z.enum(DrawAreaBrushShapeEnum), z.any()]).optional(),
   eraserBrushSize: z.union([z.int(), z.any()]).optional(),
   drawThrottleDelay: z.union([z.int(), z.any()]).optional(),
   canvasTransferQueueLength: z.union([z.int(), z.any()]).optional(),
-  canvasMode: z.union([z.string(), z.any()]).optional(),
+  canvasMode: z.union([z.enum(DrawAreaModeEnum), z.any()]).optional(),
 });
 
 export type DrawSectionImplArgsWithCallable = z.infer<
@@ -6463,7 +6475,7 @@ export const CoreArgsSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "activeLayerId",
+        "activeLayerIdx",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",

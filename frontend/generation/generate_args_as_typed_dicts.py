@@ -105,6 +105,8 @@ from setta.types.chart import LineChartSettings, ScatterChartSettings
 from setta.types.section_impls import (
     DrawAreaLayerItem,
     DrawAreaLayerItemType,
+    DrawAreaMode,
+    DrawAreaBrushShape,
     SectionSize,
     Visibility,
     CodeLanguage,

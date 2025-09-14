@@ -93,6 +93,16 @@ class DrawAreaLayerItem(BaseModel):
     transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
 
 
+class DrawAreaMode(str, Enum):
+    draw = "draw"
+    erase = "erase"
+
+
+class DrawAreaBrushShape(str, Enum):
+    butt = "butt"
+    round = "round"
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
@@ -193,14 +203,14 @@ class ChartSectionImpl(BaseCanvasSectionImpl):
 class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
     layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
-    activeLayerId: str | None = None
+    activeLayerIdx: int = 0
     color: str = "#ff0000"
     brushSize: int = 16
-    brushShape: str = "butt"
+    brushShape: DrawAreaBrushShape = DrawAreaBrushShape.butt
     eraserBrushSize: int = 16
     drawThrottleDelay: int = 0
     canvasTransferQueueLength: int = 50
-    canvasMode: str = "draw"
+    canvasMode: DrawAreaMode = DrawAreaMode.draw
 
 
 class TextBlockSectionImpl(BaseSectionImpl):

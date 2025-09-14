@@ -16,7 +16,9 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
+    DrawAreaBrushShape,
     DrawAreaLayerItem,
+    DrawAreaMode,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -36,7 +38,7 @@ class CoreArgs(TypedDict):
     unsharedKeys: NotRequired[
         list[
             Literal[
-                "activeLayerId",
+                "activeLayerIdx",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -339,14 +341,14 @@ class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
     layers: NotRequired[list[list[DrawAreaLayerItem]]]
-    activeLayerId: NotRequired[str | None]
+    activeLayerIdx: NotRequired[int]
     color: NotRequired[str]
     brushSize: NotRequired[int]
-    brushShape: NotRequired[str]
+    brushShape: NotRequired[DrawAreaBrushShape]
     eraserBrushSize: NotRequired[int]
     drawThrottleDelay: NotRequired[int]
     canvasTransferQueueLength: NotRequired[int]
-    canvasMode: NotRequired[str]
+    canvasMode: NotRequired[DrawAreaMode]
 
 
 class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
@@ -358,14 +360,16 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
         list[list[DrawAreaLayerItem]]
         | Callable[[list[list[DrawAreaLayerItem]]], list[list[DrawAreaLayerItem]]]
     ]
-    activeLayerId: NotRequired[str | None | Callable[[str | None], str | None]]
+    activeLayerIdx: NotRequired[int | Callable[[int], int]]
     color: NotRequired[str | Callable[[str], str]]
     brushSize: NotRequired[int | Callable[[int], int]]
-    brushShape: NotRequired[str | Callable[[str], str]]
+    brushShape: NotRequired[
+        DrawAreaBrushShape | Callable[[DrawAreaBrushShape], DrawAreaBrushShape]
+    ]
     eraserBrushSize: NotRequired[int | Callable[[int], int]]
     drawThrottleDelay: NotRequired[int | Callable[[int], int]]
     canvasTransferQueueLength: NotRequired[int | Callable[[int], int]]
-    canvasMode: NotRequired[str | Callable[[str], str]]
+    canvasMode: NotRequired[DrawAreaMode | Callable[[DrawAreaMode], DrawAreaMode]]
 
 
 class TextBlockSectionImplArgs(BaseSectionImplArgs):

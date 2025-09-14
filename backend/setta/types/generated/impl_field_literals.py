@@ -1,7 +1,7 @@
 from typing import Literal
 
 AllImplFields = Literal[
-    "activeLayerId",
+    "activeLayerIdx",
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",
