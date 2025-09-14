@@ -9,6 +9,8 @@ export const IDSchema = z.string();
 export type ID = z.infer<typeof IDSchema>;
 
 export type ObjectValues<T> = T[keyof T];
+export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
+
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
 export const BaseArtifactSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
@@ -1309,6 +1311,63 @@ export const AllImplFieldsSchema = z.literal([
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
 
+export const LineChartSettingsSchema = z.object({
+  type: z.literal("line").default(ChartTypeEnum.line),
+  xAxisColumn: z.string().default("" as const),
+  secondYAxisColumns: z.array(z.string()).default([]),
+  xAxisLog: z.boolean().default(false),
+  y1AxisLog: z.boolean().default(false),
+  y2AxisLog: z.boolean().default(false),
+});
+
+export type LineChartSettings = z.infer<typeof LineChartSettingsSchema>;
+
+export function createLineChartSettings(
+  options: Partial<LineChartSettings> = {},
+): LineChartSettings {
+  return LineChartSettingsSchema.parse(options);
+}
+
+export const ScatterChartSettingsSchema = z.object({
+  type: z.literal("scatter").default(ChartTypeEnum.scatter),
+  xAxisColumn: z.string().default("" as const),
+  xAxisLog: z.boolean().default(false),
+  yAxisLog: z.boolean().default(false),
+});
+
+export type ScatterChartSettings = z.infer<typeof ScatterChartSettingsSchema>;
+
+export function createScatterChartSettings(
+  options: Partial<ScatterChartSettings> = {},
+): ScatterChartSettings {
+  return ScatterChartSettingsSchema.parse(options);
+}
+
+export const BaseChartSettingsUnionSchema = z.union([
+  LineChartSettingsSchema,
+  ScatterChartSettingsSchema,
+]);
+
+export type BaseChartSettingsUnion = z.infer<
+  typeof BaseChartSettingsUnionSchema
+>;
+
+export const BaseChartSettingsUnionWithDiscriminatorSchema =
+  z.discriminatedUnion("type", [
+    LineChartSettingsSchema,
+    ScatterChartSettingsSchema,
+  ]);
+
+export type BaseChartSettingsUnionWithDiscriminator = z.infer<
+  typeof BaseChartSettingsUnionWithDiscriminatorSchema
+>;
+
+export function createBaseChartSettingsUnionWithDiscriminator(
+  options: Partial<BaseChartSettingsUnionWithDiscriminator> = {},
+): BaseChartSettingsUnionWithDiscriminator {
+  return BaseChartSettingsUnionWithDiscriminatorSchema.parse(options);
+}
+
 export const CoreSchema = z.object({
   id: z.string().default(create_new_id),
   name: z.string().default(generate_memorable_string),
@@ -1608,23 +1667,6 @@ export function createImageSectionImpl(
   return ImageSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
-export const ChartSettingsSchema = z.object({
-  type: z.string().default("line" as const),
-  xAxisColumn: z.string().default("" as const),
-  secondYAxisColumns: z.array(z.string()).default([]),
-  xAxisLog: z.boolean().default(false),
-  y1AxisLog: z.boolean().default(false),
-  y2AxisLog: z.boolean().default(false),
-});
-
-export type ChartSettings = z.infer<typeof ChartSettingsSchema>;
-
-export function createChartSettings(
-  options: Partial<ChartSettings> = {},
-): ChartSettings {
-  return ChartSettingsSchema.parse(options);
-}
-
 export const ChartSectionImplSchema = z.object({
   type: z.literal("Chart").default(SectionTypeEnum.Chart),
   id: z.string().default(create_new_id),
@@ -1643,7 +1685,7 @@ export const ChartSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
   artifactGroupIds: z.array(z.string()).default([]),
-  chartSettings: ChartSettingsSchema.default(createChartSettings),
+  chartSettings: z.union([LineChartSettingsSchema, ScatterChartSettingsSchema]),
 });
 
 export type ChartSectionImpl = z.infer<typeof ChartSectionImplSchema>;
@@ -2464,7 +2506,9 @@ export const ChartSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
-  chartSettings: ChartSettingsSchema.optional(),
+  chartSettings: z
+    .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
+    .optional(),
 });
 
 export type ChartSectionImplArgs = z.infer<typeof ChartSectionImplArgsSchema>;
@@ -4383,7 +4427,6 @@ export const UserDefaultChartSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  chartSettings: ChartSettingsSchema.default(createChartSettings),
 });
 
 export type UserDefaultChartSectionImpl = z.infer<
@@ -5784,7 +5827,9 @@ export const ChartSectionImplArgsWithCallableSchema = z.object({
   isPreset: z.union([z.boolean(), z.any()]).optional(),
   artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
   renderedValue: z.union([z.any(), z.any()]).optional(),
-  chartSettings: z.union([ChartSettingsSchema, z.any()]).optional(),
+  chartSettings: z
+    .union([LineChartSettingsSchema, ScatterChartSettingsSchema, z.any()])
+    .optional(),
 });
 
 export type ChartSectionImplArgsWithCallable = z.infer<
@@ -6606,19 +6651,6 @@ export function createBaseChartSettings(
   options: Partial<BaseChartSettings> = {},
 ): BaseChartSettings {
   return BaseChartSettingsSchema.parse(options);
-}
-
-export const LineChartSettingsSchema = z.object({
-  type: z.literal("line").default(ChartTypeEnum.line),
-  xAxisColumn: z.string().default("" as const),
-});
-
-export type LineChartSettings = z.infer<typeof LineChartSettingsSchema>;
-
-export function createLineChartSettings(
-  options: Partial<LineChartSettings> = {},
-): LineChartSettings {
-  return LineChartSettingsSchema.parse(options);
 }
 
 export const ChatSchema = z.object({

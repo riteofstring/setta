@@ -8,6 +8,7 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
+from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -94,15 +95,6 @@ class DrawAreaCanvasSettings(BaseModel, extra="forbid"):
     drawThrottleDelay: int = 0
     canvasTransferQueueLength: int = 50
     mode: str = "draw"
-
-
-class ChartSettings(BaseModel, extra="forbid"):
-    type: str = "line"
-    xAxisColumn: str = ""
-    secondYAxisColumns: list[str] = Field(default_factory=list)
-    xAxisLog: bool = False
-    y1AxisLog: bool = False
-    y2AxisLog: bool = False
 
 
 class BrowserAreaItem(BaseModel, extra="forbid"):
@@ -194,7 +186,7 @@ class ImageSectionImpl(BaseSectionImpl):
 
 class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
+    chartSettings: BaseChartSettingsUnion
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )

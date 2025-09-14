@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChartType(str, Enum):
@@ -16,12 +16,14 @@ class BaseChartSettings(BaseModel):
 class LineChartSettings(BaseChartSettings):
     type: Literal[ChartType.line] = ChartType.line
     xAxisColumn: str = ""
+    secondYAxisColumns: list[str] = Field(default_factory=list)
+    xAxisLog: bool = False
+    y1AxisLog: bool = False
+    y2AxisLog: bool = False
 
 
-# class ChartSettings(BaseModel, extra="forbid"):
-#     type: str = "line"
-#     xAxisColumn: str = ""
-#     secondYAxisColumns: list[str] = Field(default_factory=list)
-#     xAxisLog: bool = False
-#     y1AxisLog: bool = False
-#     y2AxisLog: bool = False
+class ScatterChartSettings(BaseChartSettings):
+    type: Literal[ChartType.scatter] = ChartType.scatter
+    xAxisColumn: str = ""
+    xAxisLog: bool = False
+    yAxisLog: bool = False

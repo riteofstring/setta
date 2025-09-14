@@ -23,8 +23,6 @@ from typing import (
     get_origin,
 )
 
-import setta.types.code_obj_impls
-import setta.types.section_impls
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 
@@ -306,6 +304,9 @@ class ImplClassInfoForGeneration(BaseClassInfoForGeneration):
 
 
 def get_impl_classes():
+    import setta.types.code_obj_impls
+    import setta.types.section_impls
+
     classes = find_sub_classes(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,

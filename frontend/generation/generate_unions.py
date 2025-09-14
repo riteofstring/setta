@@ -1,9 +1,6 @@
 import sys
 from pathlib import Path
 
-import setta.types.code_obj_impls
-import setta.types.generated.impl_args_as_typed_dicts
-import setta.types.section_impls
 from pydantic_core import PydanticUndefined
 from setta.utils.format_code import ruff_format
 from setta.utils.utils import get_absolute_path
@@ -56,6 +53,10 @@ from pydantic import Field, TypeAdapter
 
 
 def generate_unions(output_file):
+    import setta.types.code_obj_impls
+    import setta.types.generated.impl_args_as_typed_dicts
+    import setta.types.section_impls
+
     code = construct_unions(
         setta.types.section_impls,
         setta.types.section_impls.BaseSectionImpl,
@@ -122,6 +123,21 @@ def generate_clipboard_data_unions(output_file: Path):
     print(f"wrote to {output_file}")
 
 
+def generate_chart_settings_unions(output_file: Path):
+    import setta.types.chart
+
+    code = construct_unions(
+        setta.types.chart,
+        setta.types.chart.BaseChartSettings,
+        "type",
+        setta.types.chart,
+        lambda x: x,
+    )
+    code = ruff_format(code)
+    output_file.write_text(code)
+    print(f"wrote to {output_file}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         raise ValueError
@@ -147,6 +163,14 @@ if __name__ == "__main__":
             output_file=(
                 get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
                 / "clipboard_data_unions.py"
+            )
+        )
+    elif sys.argv[1] == "chart_settings":
+        # has to be done separately due to import dependencies
+        generate_chart_settings_unions(
+            output_file=(
+                get_absolute_path(__file__, Path("../../backend/setta/types/generated"))
+                / "chart_settings_unions.py"
             )
         )
     else:

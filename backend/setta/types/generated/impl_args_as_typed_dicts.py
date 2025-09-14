@@ -1,5 +1,6 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
+from setta.types.chart import LineChartSettings, ScatterChartSettings
 from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
@@ -13,7 +14,6 @@ from setta.types.project_config import (
 )
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChartSettings,
     CodeLanguage,
     ConfigLanguage,
     DrawAreaCanvasSettings,
@@ -318,7 +318,7 @@ class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chart]]
-    chartSettings: NotRequired[ChartSettings]
+    chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
 
 
 class ChartSectionImplArgsWithCallable(
@@ -328,7 +328,14 @@ class ChartSectionImplArgsWithCallable(
         Literal[SectionType.Chart]
         | Callable[[Literal[SectionType.Chart]], Literal[SectionType.Chart]]
     ]
-    chartSettings: NotRequired[ChartSettings | Callable[[ChartSettings], ChartSettings]]
+    chartSettings: NotRequired[
+        LineChartSettings
+        | ScatterChartSettings
+        | Callable[
+            [LineChartSettings | ScatterChartSettings],
+            LineChartSettings | ScatterChartSettings,
+        ]
+    ]
 
 
 class DrawSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):

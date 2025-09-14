@@ -14,7 +14,6 @@ from setta.types.code_obj_impls import (
 # Section type imports
 from setta.types.section_impls import (
     BrowserAreaViewMode,
-    ChartSettings,
     CodeLanguage,
     ConfigLanguage,
     DrawAreaCanvasSettings,
@@ -98,7 +97,6 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
 class UserDefaultChartSectionImpl(
     UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
 ):
-    chartSettings: ChartSettings = Field(default_factory=ChartSettings)
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )

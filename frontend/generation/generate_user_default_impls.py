@@ -37,7 +37,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "DictRootSectionImpl": DEFAULT_EXCLUSIONS,
     "GroupSectionImpl": DEFAULT_EXCLUSIONS,
     "ImageSectionImpl": DEFAULT_EXCLUSIONS,
-    "ChartSectionImpl": DEFAULT_EXCLUSIONS,
+    "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
     "TextBlockSectionImpl": DEFAULT_EXCLUSIONS,
     "SocialSectionImpl": DEFAULT_EXCLUSIONS,
@@ -208,6 +208,8 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+
+from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 
 """
 
