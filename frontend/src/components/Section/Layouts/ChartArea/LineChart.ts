@@ -1,5 +1,12 @@
-import { Chart, ChartConfiguration, Tooltip } from "chart.js";
-import { getOnLegendClickSetDatasetHidden } from "./utils";
+import {
+  Chart,
+  ChartConfiguration,
+  ChartData,
+  DefaultDataPoint,
+  Tooltip,
+} from "chart.js";
+import { LineChartSettings } from "utils/generatedTypes";
+import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
 
 Tooltip.positioners.lineChartTooltipMousePosition = function (
   _elements,
@@ -9,9 +16,7 @@ Tooltip.positioners.lineChartTooltipMousePosition = function (
 };
 
 export function getLineChartConfig(
-  setDatasetHidden: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >,
+  setDatasetHidden: SetDatasetHiddenFn,
 ): ChartConfiguration<"line"> {
   return {
     type: "line",
@@ -66,16 +71,22 @@ export function getLineChartConfig(
   };
 }
 
-export function updateLineChartWithNewData({
-  chartRef,
-  data,
-  datasetHidden,
-  darkMode,
-  chartSettings,
-}) {
-  const datasets = [];
+type LineChartData = ChartData<
+  "line",
+  DefaultDataPoint<"line">,
+  string | number
+>;
 
-  let labels = null;
+export function updateLineChartWithNewData(
+  chart: Chart,
+  data: Record<string, any>,
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: LineChartSettings,
+): LineChartData {
+  const datasets: LineChartData["datasets"] = [];
+
+  let labels: LineChartData["labels"];
   for (const [columnName, values] of Object.entries(data)) {
     if (columnName === chartSettings.xAxisColumn) {
       labels = values;
@@ -91,7 +102,7 @@ export function updateLineChartWithNewData({
     });
   }
 
-  if (datasets.length > 0 && !labels) {
+  if (datasets.length > 0 && datasets[0] && !labels) {
     // The xAxisColumn can be made empty in the side pane.
     // In this case, none of the columns are used for the x axis.
     // So we use row count.
@@ -99,9 +110,12 @@ export function updateLineChartWithNewData({
     labels = [...Array(numRows).keys()];
   }
 
-  chartRef.current.verticalLinePlugin.color = darkMode ? "white" : "black";
+  chart.verticalLinePlugin.color = darkMode ? "white" : "black";
 
-  return { labels, datasets };
+  if (labels) {
+    return { labels, datasets };
+  }
+  return { datasets };
 }
 
 const verticalLinePlugin = {

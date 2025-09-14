@@ -69,7 +69,9 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
 
     const configuration = getChartConfig(chartSettings.type, setDatasetHidden);
     chartRef.current = new Chart(canvasRef.current, configuration);
-    chartRef.current.resize(size.width - 25, size.height - 50);
+    if (size.width !== "auto" && size.height !== "auto") {
+      chartRef.current.resize(size.width - 25, size.height - 50);
+    }
 
     const unsub = listenForCanvasToBase64Requests(sectionId, () =>
       canvasToBase64(canvasRef.current),
@@ -85,22 +87,24 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
   }, [chartSettings.type]);
 
   useDeepCompareEffect(() => {
-    if (!chartRef.current) {
+    const chart = chartRef.current;
+    if (!chart) {
       return;
     }
 
     const updateFn = getUpdaterFn(chartSettings.type);
-    const newData = updateFn({
-      chartRef,
+    const newData = updateFn(
+      // @ts-expect-error something about Chart type
+      chart,
       data,
       datasetHidden,
       darkMode,
       chartSettings,
-    });
+    );
 
-    chartRef.current.data = newData;
+    chart.data = newData;
 
-    const scaleOptions = chartRef.current.options.scales;
+    const scaleOptions = chart.options.scales;
     scaleOptions.x.type = getAxisType(
       chartSettings.xAxisLog,
       newData.labels?.[0],
@@ -109,8 +113,10 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     scaleOptions.y2.type = getAxisType(chartSettings.y2AxisLog);
     scaleOptions.y2.display = chartSettings.secondYAxisColumns.length > 0;
 
-    chartRef.current.resize(size.width - 25, size.height - 50);
-    chartRef.current.update();
+    if (size.width !== "auto" && size.height !== "auto") {
+      chart.resize(size.width - 25, size.height - 50);
+    }
+    chart.update();
   }, [data, size, datasetHidden, darkMode, chartSettings]);
 
   return <canvas ref={canvasRef} />;
@@ -142,7 +148,7 @@ function getUpdaterFn(type: ChartType) {
   }
 }
 
-function getAxisType(isLog, sampleData) {
+function getAxisType(isLog: boolean, sampleData) {
   if (typeof sampleData === "string") {
     return "category";
   }

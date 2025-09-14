@@ -1,5 +1,12 @@
-import { ChartConfiguration, Tooltip } from "chart.js";
-import { getOnLegendClickSetDatasetHidden } from "./utils";
+import {
+  ChartConfiguration,
+  ChartData,
+  DefaultDataPoint,
+  Tooltip,
+} from "chart.js";
+import { Chart } from "chart.js/dist";
+import { ScatterChartSettings } from "utils/generatedTypes";
+import { getOnLegendClickSetDatasetHidden, SetDatasetHiddenFn } from "./utils";
 
 Tooltip.positioners.scatterChartTooltipMousePosition = function (
   _elements,
@@ -9,9 +16,7 @@ Tooltip.positioners.scatterChartTooltipMousePosition = function (
 };
 
 export function getScatterChartConfig(
-  setDatasetHidden: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >,
+  setDatasetHidden: SetDatasetHiddenFn,
 ): ChartConfiguration<"scatter"> {
   return {
     type: "scatter",
@@ -58,13 +63,19 @@ export function getScatterChartConfig(
   };
 }
 
-export function updateScatterChartWithNewData({
-  chartRef,
-  data,
-  datasetHidden,
-  darkMode,
-  chartSettings,
-}) {
+type ScatterChartData = ChartData<
+  "scatter",
+  DefaultDataPoint<"scatter">,
+  string | number
+>;
+
+export function updateScatterChartWithNewData(
+  chart: Chart,
+  data: Record<string, any>,
+  datasetHidden: Record<string, boolean>,
+  darkMode: boolean,
+  chartSettings: ScatterChartSettings,
+): ScatterChartData {
   let categoryValue = "No Category";
   const firstColumnLength = Object.values(data)[0]?.length;
 
@@ -76,6 +87,9 @@ export function updateScatterChartWithNewData({
   let xAxisColumn = Object.keys(data)[0];
   if (chartSettings.xAxisColumn) {
     xAxisColumn = chartSettings.xAxisColumn;
+  }
+  if (!xAxisColumn) {
+    return { datasets: [] };
   }
   const yAxisColumn = Object.keys(data).find(
     (a) => ![categoryColumn, xAxisColumn].includes(a),
@@ -89,7 +103,10 @@ export function updateScatterChartWithNewData({
     return { datasets: [] };
   }
 
-  const groupedData = {};
+  const groupedData: Record<
+    string | number,
+    Array<{ x: number; y: number; columnName: string }>
+  > = {};
   for (let i = 0; i < firstColumnLength; i++) {
     if (categoryColumn) {
       categoryValue = data[categoryColumn][i];
@@ -108,15 +125,13 @@ export function updateScatterChartWithNewData({
   const datasets = Object.entries(groupedData).map(([category, points]) => ({
     label: category,
     data: points,
-    yAxisID: chartSettings.secondYAxisColumns.includes(points[0]?.columnName)
-      ? "y2"
-      : "y1",
+    yAxisID: "y1",
     hidden: datasetHidden[category],
     pointRadius: 4,
     pointHoverRadius: 6,
   }));
 
-  chartRef.current.crosshairPlugin.color = darkMode ? "white" : "black";
+  chart.crosshairPlugin.color = darkMode ? "white" : "black";
 
   return { datasets };
 }

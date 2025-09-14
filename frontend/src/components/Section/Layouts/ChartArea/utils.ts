@@ -1,9 +1,4 @@
-import {
-  Chart,
-  ChartType,
-  LegendOptions,
-  TooltipPositionerFunction,
-} from "chart.js";
+import { ChartType, LegendOptions, TooltipPositionerFunction } from "chart.js";
 
 declare module "chart.js" {
   interface TooltipPositionerMap {
@@ -12,16 +7,17 @@ declare module "chart.js" {
   }
 }
 
+export type SetDatasetHiddenFn = React.Dispatch<
+  React.SetStateAction<Record<string, boolean>>
+>;
+
 export function getOnLegendClickSetDatasetHidden<T extends ChartType>(
-  setDatasetHidden: React.Dispatch<
-    React.SetStateAction<Record<string, boolean>>
-  >,
+  setDatasetHidden: SetDatasetHiddenFn,
 ): LegendOptions<T>["onClick"] {
-  return (evt, legendItem, legend) => {
+  return (_evt, legendItem) => {
     setDatasetHidden((prev) => ({
       ...prev,
       [legendItem.text]: !prev[legendItem.text],
     }));
-    Chart.defaults.plugins.legend.onClick.call(legend, evt, legendItem, legend);
   };
 }
