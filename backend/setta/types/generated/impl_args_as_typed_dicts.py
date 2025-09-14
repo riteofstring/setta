@@ -16,7 +16,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaCanvasSettings,
+    DrawAreaLayerItem,
     SectionSize,
     SectionSizeMode,
     SectionType,
@@ -36,18 +36,22 @@ class CoreArgs(TypedDict):
     unsharedKeys: NotRequired[
         list[
             Literal[
-                "artifactGroupIds",
+                "activeLayerId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
+                "brushShape",
+                "brushSize",
                 "callable",
-                "canvasSettings",
+                "canvasMode",
+                "canvasTransferQueueLength",
                 "chartSettings",
                 "children",
                 "choices",
                 "code",
                 "codeLanguage",
                 "codeObjVariantMap",
+                "color",
                 "columnWidth",
                 "configLanguage",
                 "coreNameEditable",
@@ -56,6 +60,8 @@ class CoreArgs(TypedDict):
                 "defaultVal",
                 "description",
                 "displayMode",
+                "drawThrottleDelay",
+                "eraserBrushSize",
                 "folder",
                 "format",
                 "headingAsSectionName",
@@ -73,6 +79,7 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
+                "layers",
                 "max",
                 "min",
                 "name",
@@ -185,16 +192,6 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
         SectionWithParamsDisplayMode
         | Callable[[SectionWithParamsDisplayMode], SectionWithParamsDisplayMode]
     ]
-
-
-class BaseArtifactSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Any]
-    artifactGroupIds: NotRequired[list[str]]
-
-
-class BaseArtifactSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[Any | Callable[[Any], Any]]
-    artifactGroupIds: NotRequired[list[str] | Callable[[list[str]], list[str]]]
 
 
 class BaseCanvasSectionImplArgs(BaseSectionImplArgs):
@@ -317,15 +314,13 @@ class ImageSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     imagePath: NotRequired[str | Callable[[str], str]]
 
 
-class ChartSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
+class ChartSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chart]]
     dataPath: NotRequired[str]
     chartSettings: NotRequired[LineChartSettings | ScatterChartSettings]
 
 
-class ChartSectionImplArgsWithCallable(
-    BaseArtifactSectionImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable
-):
+class ChartSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Chart]
         | Callable[[Literal[SectionType.Chart]], Literal[SectionType.Chart]]
@@ -341,22 +336,36 @@ class ChartSectionImplArgsWithCallable(
     ]
 
 
-class DrawSectionImplArgs(BaseArtifactSectionImplArgs, BaseCanvasSectionImplArgs):
+class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     type: NotRequired[Literal[SectionType.Draw]]
-    canvasSettings: NotRequired[DrawAreaCanvasSettings]
+    layers: NotRequired[list[list[DrawAreaLayerItem]]]
+    activeLayerId: NotRequired[str | None]
+    color: NotRequired[str]
+    brushSize: NotRequired[int]
+    brushShape: NotRequired[str]
+    eraserBrushSize: NotRequired[int]
+    drawThrottleDelay: NotRequired[int]
+    canvasTransferQueueLength: NotRequired[int]
+    canvasMode: NotRequired[str]
 
 
-class DrawSectionImplArgsWithCallable(
-    BaseArtifactSectionImplArgsWithCallable, BaseCanvasSectionImplArgsWithCallable
-):
+class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     type: NotRequired[
         Literal[SectionType.Draw]
         | Callable[[Literal[SectionType.Draw]], Literal[SectionType.Draw]]
     ]
-    canvasSettings: NotRequired[
-        DrawAreaCanvasSettings
-        | Callable[[DrawAreaCanvasSettings], DrawAreaCanvasSettings]
+    layers: NotRequired[
+        list[list[DrawAreaLayerItem]]
+        | Callable[[list[list[DrawAreaLayerItem]]], list[list[DrawAreaLayerItem]]]
     ]
+    activeLayerId: NotRequired[str | None | Callable[[str | None], str | None]]
+    color: NotRequired[str | Callable[[str], str]]
+    brushSize: NotRequired[int | Callable[[int], int]]
+    brushShape: NotRequired[str | Callable[[str], str]]
+    eraserBrushSize: NotRequired[int | Callable[[int], int]]
+    drawThrottleDelay: NotRequired[int | Callable[[int], int]]
+    canvasTransferQueueLength: NotRequired[int | Callable[[int], int]]
+    canvasMode: NotRequired[str | Callable[[str], str]]
 
 
 class TextBlockSectionImplArgs(BaseSectionImplArgs):

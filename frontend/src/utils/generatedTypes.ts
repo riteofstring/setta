@@ -13,10 +13,6 @@ export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
 
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
-export const BaseArtifactSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
-
-export const BaseArtifactSectionImplTypeSet = new Set(["Chart", "Draw"]);
-
 export const BaseCanvasSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
 
 export const BaseCanvasSectionImplTypeSet = new Set(["Chart", "Draw"]);
@@ -479,6 +475,15 @@ export const BrowserAreaItemTypeEnum = {
 } as const;
 
 export type BrowserAreaItemType = ObjectValues<typeof BrowserAreaItemTypeEnum>;
+
+export const DrawAreaLayerItemTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+} as const;
+
+export type DrawAreaLayerItemType = ObjectValues<
+  typeof DrawAreaLayerItemTypeEnum
+>;
 
 export const BackgroundVariantEnum = {
   lines: "lines",
@@ -1262,18 +1267,22 @@ export type LLMStreamingResponseChunk = z.infer<
 >;
 
 export const AllImplFieldsSchema = z.literal([
-  "artifactGroupIds",
+  "activeLayerId",
   "aspectRatio",
   "aspectRatioExtraHeight",
   "aspectRatioExtraWidth",
+  "brushShape",
+  "brushSize",
   "callable",
-  "canvasSettings",
+  "canvasMode",
+  "canvasTransferQueueLength",
   "chartSettings",
   "children",
   "choices",
   "code",
   "codeLanguage",
   "codeObjVariantMap",
+  "color",
   "columnWidth",
   "configLanguage",
   "coreNameEditable",
@@ -1282,6 +1291,8 @@ export const AllImplFieldsSchema = z.literal([
   "defaultVal",
   "description",
   "displayMode",
+  "drawThrottleDelay",
+  "eraserBrushSize",
   "folder",
   "format",
   "headingAsSectionName",
@@ -1299,6 +1310,7 @@ export const AllImplFieldsSchema = z.literal([
   "isPreset",
   "jsonSourceKeys",
   "jsonSourceMissing",
+  "layers",
   "max",
   "min",
   "name",
@@ -1389,18 +1401,22 @@ export const CoreSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "artifactGroupIds",
+        "activeLayerId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
+        "brushShape",
+        "brushSize",
         "callable",
-        "canvasSettings",
+        "canvasMode",
+        "canvasTransferQueueLength",
         "chartSettings",
         "children",
         "choices",
         "code",
         "codeLanguage",
         "codeObjVariantMap",
+        "color",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",
@@ -1409,6 +1425,8 @@ export const CoreSchema = z.object({
         "defaultVal",
         "description",
         "displayMode",
+        "drawThrottleDelay",
+        "eraserBrushSize",
         "folder",
         "format",
         "headingAsSectionName",
@@ -1426,6 +1444,7 @@ export const CoreSchema = z.object({
         "isPreset",
         "jsonSourceKeys",
         "jsonSourceMissing",
+        "layers",
         "max",
         "min",
         "name",
@@ -1697,7 +1716,6 @@ export const ChartSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
-  artifactGroupIds: z.array(z.string()).default([]),
   dataPath: z.string().default("" as const),
   chartSettings: z
     .union([LineChartSettingsSchema, ScatterChartSettingsSchema])
@@ -1713,25 +1731,29 @@ export function createChartSectionImpl(
   return ChartSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
-export const DrawAreaCanvasSettingsSchema = z.object({
-  activeLayerId: z.union([z.string(), z.null()]).default(null),
-  color: z.string().default("#ff0000" as const),
-  brushSize: z.int().default(16),
-  brushShape: z.string().default("butt" as const),
-  eraserBrushSize: z.int().default(16),
-  drawThrottleDelay: z.int().default(0),
-  canvasTransferQueueLength: z.int().default(50),
-  mode: z.string().default("draw" as const),
+export const DrawAreaLayerItemSchema = z.object({
+  type: z
+    .enum(DrawAreaLayerItemTypeEnum)
+    .default(DrawAreaLayerItemTypeEnum.BrushStroke),
+  dataPath: z.string().default("" as const),
+  transform: z
+    .tuple([
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+    ])
+    .default([1, 0, 0, 1, 0, 0]),
 });
 
-export type DrawAreaCanvasSettings = z.infer<
-  typeof DrawAreaCanvasSettingsSchema
->;
+export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
 
-export function createDrawAreaCanvasSettings(
-  options: Partial<DrawAreaCanvasSettings> = {},
-): DrawAreaCanvasSettings {
-  return DrawAreaCanvasSettingsSchema.parse(options);
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  return DrawAreaLayerItemSchema.parse(options);
 }
 
 export const DrawSectionImplSchema = z.object({
@@ -1749,10 +1771,15 @@ export const DrawSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   renderedValue: z.any().default(null),
-  artifactGroupIds: z.array(z.string()).default([]),
-  canvasSettings: DrawAreaCanvasSettingsSchema.default(
-    createDrawAreaCanvasSettings,
-  ),
+  layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
+  activeLayerId: z.union([z.string(), z.null()]).default(null),
+  color: z.string().default("#ff0000" as const),
+  brushSize: z.int().default(16),
+  brushShape: z.string().default("butt" as const),
+  eraserBrushSize: z.int().default(16),
+  drawThrottleDelay: z.int().default(0),
+  canvasTransferQueueLength: z.int().default(50),
+  canvasMode: z.string().default("draw" as const),
 });
 
 export type DrawSectionImpl = z.infer<typeof DrawSectionImplSchema>;
@@ -2376,15 +2403,6 @@ export type BaseClipboardDataUnionWithDiscriminator = z.infer<
   typeof BaseClipboardDataUnionWithDiscriminatorSchema
 >;
 
-export const BaseArtifactSectionImplUnionSchema = z.union([
-  ChartSectionImplSchema,
-  DrawSectionImplSchema,
-]);
-
-export type BaseArtifactSectionImplUnion = z.infer<
-  typeof BaseArtifactSectionImplUnionSchema
->;
-
 export const BaseCanvasSectionImplUnionSchema = z.union([
   ChartSectionImplSchema,
   DrawSectionImplSchema,
@@ -2520,7 +2538,6 @@ export const ChartSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
   dataPath: z.string().optional(),
   chartSettings: z
@@ -2550,9 +2567,16 @@ export const DrawSectionImplArgsSchema = z.object({
   isMinimized: z.boolean().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   isPreset: z.boolean().optional(),
-  artifactGroupIds: z.array(z.string()).optional(),
   renderedValue: z.any().optional(),
-  canvasSettings: DrawAreaCanvasSettingsSchema.optional(),
+  layers: z.array(z.array(DrawAreaLayerItemSchema)).optional(),
+  activeLayerId: z.union([z.string(), z.null()]).optional(),
+  color: z.string().optional(),
+  brushSize: z.int().optional(),
+  brushShape: z.string().optional(),
+  eraserBrushSize: z.int().optional(),
+  drawThrottleDelay: z.int().optional(),
+  canvasTransferQueueLength: z.int().optional(),
+  canvasMode: z.string().optional(),
 });
 
 export type DrawSectionImplArgs = z.infer<typeof DrawSectionImplArgsSchema>;
@@ -2561,44 +2585,6 @@ export function createDrawSectionImplArgs(
   options: Partial<DrawSectionImplArgs> = {},
 ): DrawSectionImplArgs {
   return DrawSectionImplArgsSchema.parse(options);
-}
-
-export const BaseArtifactSectionImplArgsUnionSchema = z.union([
-  ChartSectionImplArgsSchema,
-  DrawSectionImplArgsSchema,
-]);
-
-export type BaseArtifactSectionImplArgsUnion = z.infer<
-  typeof BaseArtifactSectionImplArgsUnionSchema
->;
-
-export const BaseArtifactSectionImplArgsUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [
-    ChartSectionImplArgsSchema,
-    DrawSectionImplArgsSchema,
-  ]);
-
-export type BaseArtifactSectionImplArgsUnionWithDiscriminator = z.infer<
-  typeof BaseArtifactSectionImplArgsUnionWithDiscriminatorSchema
->;
-
-export function createBaseArtifactSectionImplArgsUnionWithDiscriminator(
-  options: Partial<BaseArtifactSectionImplArgsUnionWithDiscriminator> = {},
-): BaseArtifactSectionImplArgsUnionWithDiscriminator {
-  return BaseArtifactSectionImplArgsUnionWithDiscriminatorSchema.parse(options);
-}
-
-export const BaseArtifactSectionImplUnionWithDiscriminatorSchema =
-  z.discriminatedUnion("type", [ChartSectionImplSchema, DrawSectionImplSchema]);
-
-export type BaseArtifactSectionImplUnionWithDiscriminator = z.infer<
-  typeof BaseArtifactSectionImplUnionWithDiscriminatorSchema
->;
-
-export function createBaseArtifactSectionImplUnionWithDiscriminator(
-  options: Partial<BaseArtifactSectionImplUnionWithDiscriminator> = {},
-): BaseArtifactSectionImplUnionWithDiscriminator {
-  return BaseArtifactSectionImplUnionWithDiscriminatorSchema.parse(options);
 }
 
 export const BaseCanvasSectionImplArgsUnionSchema = z.union([
@@ -4556,9 +4542,15 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  canvasSettings: DrawAreaCanvasSettingsSchema.default(
-    createDrawAreaCanvasSettings,
-  ),
+  layers: z.array(z.array(DrawAreaLayerItemSchema)).default([]),
+  activeLayerId: z.union([z.string(), z.null()]).default(null),
+  color: z.string().default("#ff0000" as const),
+  brushSize: z.int().default(16),
+  brushShape: z.string().default("butt" as const),
+  eraserBrushSize: z.int().default(16),
+  drawThrottleDelay: z.int().default(0),
+  canvasTransferQueueLength: z.int().default(50),
+  canvasMode: z.string().default("draw" as const),
 });
 
 export type UserDefaultDrawSectionImpl = z.infer<
@@ -5154,60 +5146,6 @@ export function createWebsocketMsgUnionWithDiscriminator(
   options: Partial<WebsocketMsgUnionWithDiscriminator> = {},
 ): WebsocketMsgUnionWithDiscriminator {
   return WebsocketMsgUnionWithDiscriminatorSchema.parse(options);
-}
-
-export const BaseArtifactSectionImplArgsSchema = z.object({
-  type: z.any().optional(),
-  id: z.string().optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  visibility: VisibilitySchema.optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  artifactGroupIds: z.array(z.string()).optional(),
-});
-
-export type BaseArtifactSectionImplArgs = z.infer<
-  typeof BaseArtifactSectionImplArgsSchema
->;
-
-export function createBaseArtifactSectionImplArgs(
-  options: Partial<BaseArtifactSectionImplArgs> = {},
-): BaseArtifactSectionImplArgs {
-  return BaseArtifactSectionImplArgsSchema.parse(options);
-}
-
-export const BaseArtifactSectionImplArgsWithCallableSchema = z.object({
-  type: z.union([z.any(), z.any()]).optional(),
-  id: z.union([z.string(), z.any()]).optional(),
-  name: z.union([z.string(), z.any()]).optional(),
-  isFrozen: z.union([z.boolean(), z.any()]).optional(),
-  visibility: z.union([VisibilitySchema, z.any()]).optional(),
-  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
-  size: z.union([SectionSizeSchema, z.any()]).optional(),
-  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
-  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
-  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
-  isMinimized: z.union([z.boolean(), z.any()]).optional(),
-  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
-  isPreset: z.union([z.boolean(), z.any()]).optional(),
-  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
-});
-
-export type BaseArtifactSectionImplArgsWithCallable = z.infer<
-  typeof BaseArtifactSectionImplArgsWithCallableSchema
->;
-
-export function createBaseArtifactSectionImplArgsWithCallable(
-  options: Partial<BaseArtifactSectionImplArgsWithCallable> = {},
-): BaseArtifactSectionImplArgsWithCallable {
-  return BaseArtifactSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const BaseCanvasSectionImplArgsSchema = z.object({
@@ -5843,7 +5781,6 @@ export const ChartSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
   renderedValue: z.union([z.any(), z.any()]).optional(),
   dataPath: z.union([z.string(), z.any()]).optional(),
   chartSettings: z
@@ -6074,9 +6011,18 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   isMinimized: z.union([z.boolean(), z.any()]).optional(),
   positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
   isPreset: z.union([z.boolean(), z.any()]).optional(),
-  artifactGroupIds: z.union([z.array(z.string()), z.any()]).optional(),
   renderedValue: z.union([z.any(), z.any()]).optional(),
-  canvasSettings: z.union([DrawAreaCanvasSettingsSchema, z.any()]).optional(),
+  layers: z
+    .union([z.array(z.array(DrawAreaLayerItemSchema)), z.any()])
+    .optional(),
+  activeLayerId: z.union([z.string(), z.null(), z.any()]).optional(),
+  color: z.union([z.string(), z.any()]).optional(),
+  brushSize: z.union([z.int(), z.any()]).optional(),
+  brushShape: z.union([z.string(), z.any()]).optional(),
+  eraserBrushSize: z.union([z.int(), z.any()]).optional(),
+  drawThrottleDelay: z.union([z.int(), z.any()]).optional(),
+  canvasTransferQueueLength: z.union([z.int(), z.any()]).optional(),
+  canvasMode: z.union([z.string(), z.any()]).optional(),
 });
 
 export type DrawSectionImplArgsWithCallable = z.infer<
@@ -6517,18 +6463,22 @@ export const CoreArgsSchema = z.object({
   unsharedKeys: z
     .array(
       z.literal([
-        "artifactGroupIds",
+        "activeLayerId",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
+        "brushShape",
+        "brushSize",
         "callable",
-        "canvasSettings",
+        "canvasMode",
+        "canvasTransferQueueLength",
         "chartSettings",
         "children",
         "choices",
         "code",
         "codeLanguage",
         "codeObjVariantMap",
+        "color",
         "columnWidth",
         "configLanguage",
         "coreNameEditable",
@@ -6537,6 +6487,8 @@ export const CoreArgsSchema = z.object({
         "defaultVal",
         "description",
         "displayMode",
+        "drawThrottleDelay",
+        "eraserBrushSize",
         "folder",
         "format",
         "headingAsSectionName",
@@ -6554,6 +6506,7 @@ export const CoreArgsSchema = z.object({
         "isPreset",
         "jsonSourceKeys",
         "jsonSourceMissing",
+        "layers",
         "max",
         "min",
         "name",
@@ -6816,33 +6769,6 @@ export function createBaseSectionImpl(
   return BaseSectionImplSchema.parse(options);
 }
 
-export const BaseArtifactSectionImplSchema = z.object({
-  type: z.any(),
-  id: z.string().default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  artifactGroupIds: z.array(z.string()).default([]),
-});
-
-export type BaseArtifactSectionImpl = z.infer<
-  typeof BaseArtifactSectionImplSchema
->;
-
-export function createBaseArtifactSectionImpl(
-  options: Partial<BaseArtifactSectionImpl> = {},
-): BaseArtifactSectionImpl {
-  return BaseArtifactSectionImplSchema.parse(options);
-}
-
 export const BaseCanvasSectionImplSchema = z.object({
   type: z.any(),
   id: z.string().default(create_new_id),
@@ -6998,25 +6924,6 @@ export function createBaseSectionWithParamsImpl(
   options: Partial<BaseSectionWithParamsImpl> = {},
 ): BaseSectionWithParamsImpl {
   return BaseSectionWithParamsImplSchema.parse(options);
-}
-
-export const UserDefaultBaseArtifactSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  visibility: VisibilitySchema.default(createVisibility),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-});
-
-export type UserDefaultBaseArtifactSectionImpl = z.infer<
-  typeof UserDefaultBaseArtifactSectionImplSchema
->;
-
-export function createUserDefaultBaseArtifactSectionImpl(
-  options: Partial<UserDefaultBaseArtifactSectionImpl> = {},
-): UserDefaultBaseArtifactSectionImpl {
-  return UserDefaultBaseArtifactSectionImplSchema.parse(options);
 }
 
 export const UserDefaultBaseCanvasSectionImplSchema = z.object({
@@ -8898,12 +8805,6 @@ export function createCodeMirrorCompletion(
   return CodeMirrorCompletionSchema.parse(options);
 }
 
-export function isBaseArtifactSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseArtifactSectionImplUnion {
-  return BaseArtifactSectionImplTypeSet.has(x.type);
-}
-
 export function isBaseCanvasSectionImpl(
   x: BaseSectionImplUnion,
 ): x is BaseCanvasSectionImplUnion {
@@ -8979,14 +8880,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       BaseSectionWithParamsImplArgs,
       BaseSectionWithParamsImpl
-    >;
-  };
-
-  BaseArtifactSection: {
-    impl: BaseArtifactSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      BaseArtifactSectionImplArgs,
-      BaseArtifactSectionImpl
     >;
   };
 

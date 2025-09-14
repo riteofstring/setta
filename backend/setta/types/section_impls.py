@@ -82,20 +82,20 @@ class BrowserAreaItemType(str, Enum):
     Other = "Other"
 
 
+class DrawAreaLayerItemType(str, Enum):
+    Image = "Image"
+    BrushStroke = "BrushStroke"
+
+
+class DrawAreaLayerItem(BaseModel):
+    type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
+    dataPath: str = ""
+    transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
+
+
 class Visibility(BaseModel, extra="forbid"):
     DEV: bool = True
     USER: bool = True
-
-
-class DrawAreaCanvasSettings(BaseModel, extra="forbid"):
-    activeLayerId: str | None = None
-    color: str = "#ff0000"
-    brushSize: int = 16
-    brushShape: str = "butt"
-    eraserBrushSize: int = 16
-    drawThrottleDelay: int = 0
-    canvasTransferQueueLength: int = 50
-    mode: str = "draw"
 
 
 class BrowserAreaItem(BaseModel, extra="forbid"):
@@ -131,10 +131,6 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
-
-
-class BaseArtifactSectionImpl(BaseSectionImpl):
-    artifactGroupIds: list[str] = Field(default_factory=list)
 
 
 class BaseCanvasSectionImpl(BaseSectionImpl):
@@ -185,7 +181,7 @@ class ImageSectionImpl(BaseSectionImpl):
     imagePath: str = ""
 
 
-class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+class ChartSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
     dataPath: str = ""
     chartSettings: BaseChartSettingsUnion = Field(default_factory=LineChartSettings)
@@ -194,11 +190,17 @@ class ChartSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
     )
 
 
-class DrawSectionImpl(BaseArtifactSectionImpl, BaseCanvasSectionImpl):
+class DrawSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Draw] = SectionType.Draw
-    canvasSettings: DrawAreaCanvasSettings = Field(
-        default_factory=DrawAreaCanvasSettings
-    )
+    layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
+    activeLayerId: str | None = None
+    color: str = "#ff0000"
+    brushSize: int = 16
+    brushShape: str = "butt"
+    eraserBrushSize: int = 16
+    drawThrottleDelay: int = 0
+    canvasTransferQueueLength: int = 50
+    canvasMode: str = "draw"
 
 
 class TextBlockSectionImpl(BaseSectionImpl):

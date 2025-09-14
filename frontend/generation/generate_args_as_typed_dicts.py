@@ -103,7 +103,8 @@ from typing import TypedDict, Literal, Any, NotRequired, overload, Callable
 from setta.types.core import Core
 from setta.types.chart import LineChartSettings, ScatterChartSettings
 from setta.types.section_impls import (
-    DrawAreaCanvasSettings,
+    DrawAreaLayerItem,
+    DrawAreaLayerItemType,
     SectionSize,
     Visibility,
     CodeLanguage,

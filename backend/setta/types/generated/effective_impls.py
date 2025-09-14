@@ -22,7 +22,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import (
-    BaseArtifactSectionImplArgsWithCallable,
     BaseCanvasSectionImplArgsWithCallable,
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgsWithCallable,
@@ -61,7 +60,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TextParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.unions import (
-    BaseArtifactSectionImplUnion,
     BaseCanvasSectionImplUnion,
     BaseChildlessCodeObjImplUnion,
     BaseCodeObjImplUnion,
@@ -74,7 +72,6 @@ from setta.types.generated.unions import (
     BaseSectionWithParamsImplUnion,
 )
 from setta.types.section_impls import (
-    BaseArtifactSectionImpl,
     BaseCanvasSectionImpl,
     BaseCodeSectionImpl,
     BaseDictSectionImpl,
@@ -295,20 +292,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: NestedParamCodeObjImplArgsWithCallable,
 ) -> NestedParamCodeObjImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseArtifactSectionImplUnion,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImplUnion: ...
-@overload
-def set_effective_impl_value(
-    impl: BaseArtifactSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: BaseArtifactSectionImplArgsWithCallable,
-) -> BaseArtifactSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: BaseCanvasSectionImplUnion,

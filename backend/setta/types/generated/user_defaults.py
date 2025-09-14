@@ -16,7 +16,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaCanvasSettings,
+    DrawAreaLayerItem,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,
@@ -42,10 +42,6 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
-
-
-class UserDefaultBaseArtifactSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pass
 
 
 class UserDefaultBaseCanvasSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
@@ -94,21 +90,23 @@ class UserDefaultImageSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     imagePath: str = ""
 
 
-class UserDefaultChartSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
-):
+class UserDefaultChartSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
     dataPath: str = ""
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )
 
 
-class UserDefaultDrawSectionImpl(
-    UserDefaultBaseArtifactSectionImpl, UserDefaultBaseCanvasSectionImpl, extra="forbid"
-):
-    canvasSettings: DrawAreaCanvasSettings = Field(
-        default_factory=DrawAreaCanvasSettings
-    )
+class UserDefaultDrawSectionImpl(UserDefaultBaseCanvasSectionImpl, extra="forbid"):
+    layers: list[list[DrawAreaLayerItem]] = Field(default_factory=list)
+    activeLayerId: str | None = None
+    color: str = "#ff0000"
+    brushSize: int = 16
+    brushShape: str = "butt"
+    eraserBrushSize: int = 16
+    drawThrottleDelay: int = 0
+    canvasTransferQueueLength: int = 50
+    canvasMode: str = "draw"
 
 
 class UserDefaultTextBlockSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
