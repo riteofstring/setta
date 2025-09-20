@@ -1,5 +1,5 @@
+. ./init_env.sh && \
 cd frontend && \
 pnpm install && \
 cd .. && \
-. ./init_env.sh && \
 ./cleanup.sh

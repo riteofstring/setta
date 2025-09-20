@@ -1,3 +1,74 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "setta"
+dynamic = ["version"]
+authors = [
+    {name = "Kevin Musgrave"},
+    {name = "Jeff Musgrave"}
+]
+description = "Python without the donkeywork."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+dependencies = [
+    "click==8.2.1",
+    "requests==2.32.4",
+    "PyYAML==6.0.2",
+    "websockets==15.0.1",
+    "fastapi==0.115.12",
+    "uvicorn==0.34.3",
+    "docstring_parser==0.16",
+    "pywinpty==2.0.15; platform_system == 'Windows'",
+    "ptyprocess==0.7.0; platform_system != 'Windows'",
+    "psutil==7.0.0",
+    "basedpyright==1.25.0",  # later versions were slower, so stick with this version
+    "docstring-to-markdown==0.17",
+    "watchdog==6.0.0",
+    "python-dotenv==1.1.0",
+    "mcp==1.9.3",
+    "anthropic==0.52.2",
+    "ruff==0.12.12",
+    "pydantic==2.11.5",
+    "lsprotocol==2023.0.1",
+]
+
+[project.urls]
+Homepage = "https://setta.dev"
+GitHub = "https://github.com/settadev/setta"
+
+[project.scripts]
+setta = "setta.start:cli"
+
+[project.optional-dependencies]
+dev = [
+    "build==1.0.3",
+    "pip-audit==2.9.0",
+]
+
+[tool.hatch.version]
+path = "backend/setta/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/setta"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/backend/setta",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.hatch.build]
+artifacts = [
+    "backend/setta/static/frontend/**",
+]
+
+# UV-specific configuration
+[dependency-groups]
+dev = [
+    "build==1.0.3",
+    "pip-audit==2.9.0",
+]
