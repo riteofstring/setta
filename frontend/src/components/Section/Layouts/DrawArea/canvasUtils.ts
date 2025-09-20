@@ -195,7 +195,7 @@ export function drawAllLayers(
   }
 }
 
-function drawOneLayer(
+export function drawOneLayer(
   layer: DrawAreaLayer,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,

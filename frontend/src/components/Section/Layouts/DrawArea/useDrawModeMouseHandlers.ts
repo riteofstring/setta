@@ -19,7 +19,7 @@ import {
   DrawAreaModeEnum,
 } from "utils/generatedTypes";
 import {
-  drawAllLayers,
+  drawOneLayer,
   drawStroke,
   getInverseTransform,
   getXY,
@@ -207,13 +207,18 @@ function drawingOnMouseDown(
         brushShape,
         point,
       );
-      drawAllLayers(
-        layers,
-        layerCanvasRefs,
+      const layer = layers[activeLayerIdx];
+      const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+      if (!layer || !layerCanvas) {
+        return;
+      }
+      drawOneLayer(
+        layer,
+        layerCanvas,
         tempCanvasRefs,
-        {},
-        {},
-        { [activeLayerIdx]: eraserStrokeRef.current },
+        [],
+        null,
+        eraserStrokeRef.current,
       );
     } else {
       strokeRef.current = startNewStroke(draftCanvasRef, point);
@@ -248,15 +253,18 @@ function drawingOnMouseMove(
     if (canvasMode === DrawAreaModeEnum.erase) {
       currStrokeRef.current.points.push(point);
       prevPointRef.current = point;
-      drawAllLayers(
-        layers,
-        layerCanvasRefs,
+      const layer = layers[activeLayerIdx];
+      const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+      if (!layer || !layerCanvas) {
+        return;
+      }
+      drawOneLayer(
+        layer,
+        layerCanvas,
         tempCanvasRefs,
-        {},
-        {},
-        {
-          [activeLayerIdx]: currStrokeRef.current,
-        },
+        [],
+        null,
+        currStrokeRef.current,
       );
     } else if (canvasMode === DrawAreaModeEnum.draw && draftCanvasRef.current) {
       if (currStrokeRef.current.points.length >= canvasTransferQueueLength) {
