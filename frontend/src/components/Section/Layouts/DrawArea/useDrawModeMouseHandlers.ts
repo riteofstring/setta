@@ -21,11 +21,12 @@ import {
 import {
   drawOneLayer,
   drawStroke,
+  getActiveLayerAndCanvas,
   getInverseTransform,
   getXY,
   RESIZE_HANDLE_SIZE,
   setGlobalArtifactTransformsAndDrawAllLayers,
-  setGlobalBrushStrokesAndDrawAllLayers,
+  setGlobalBrushStrokeAndDrawLayer,
   startNewEraserStroke,
   startNewStroke,
 } from "./canvasUtils";
@@ -253,8 +254,11 @@ function drawingOnMouseMove(
     if (canvasMode === DrawAreaModeEnum.erase) {
       currStrokeRef.current.points.push(point);
       prevPointRef.current = point;
-      const layer = layers[activeLayerIdx];
-      const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+      const [layer, layerCanvas] = getActiveLayerAndCanvas(
+        layers,
+        layerCanvasRefs,
+        activeLayerIdx,
+      );
       if (!layer || !layerCanvas) {
         return;
       }
@@ -268,10 +272,18 @@ function drawingOnMouseMove(
       );
     } else if (canvasMode === DrawAreaModeEnum.draw && draftCanvasRef.current) {
       if (currStrokeRef.current.points.length >= canvasTransferQueueLength) {
-        setGlobalBrushStrokesAndDrawAllLayers(
+        const [layer, layerCanvas] = getActiveLayerAndCanvas(
           layers,
-          currStrokeRef.current,
           layerCanvasRefs,
+          activeLayerIdx,
+        );
+        if (!layer || !layerCanvas) {
+          return;
+        }
+        setGlobalBrushStrokeAndDrawLayer(
+          layer,
+          currStrokeRef.current,
+          layerCanvas,
           tempCanvasRefs,
           draftCanvasRef.current,
         );
@@ -349,7 +361,7 @@ function drawingOnMouseUp(
     }
 
     isDrawingRef.current = false;
-    setGlobalBrushStrokesAndDrawAllLayers(
+    setGlobalBrushStrokeAndDrawLayer(
       sectionId,
       strokeRef,
       layerCanvasRefs,

@@ -13,9 +13,10 @@ import {
 } from "utils/generatedTypes";
 import {
   drawAllLayers,
+  getActiveLayerAndCanvas,
   setCanvasSize,
   setDraftCanvasProperties,
-  setGlobalBrushStrokesAndDrawAllLayers,
+  setGlobalBrushStrokeAndDrawLayer,
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
@@ -192,13 +193,26 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     );
 
   function clearStrokes() {
-    strokeRef.current = [];
-    setGlobalBrushStrokesAndDrawAllLayers(
-      sectionId,
-      strokeRef,
+    const [layer, layerCanvas] = getActiveLayerAndCanvas(
+      layers,
       layerCanvasRefs,
+      activeLayerIdx,
+    );
+    if (
+      !strokeRef.current ||
+      !layer ||
+      !layerCanvas ||
+      !draftCanvasRef.current
+    ) {
+      return;
+    }
+    strokeRef.current.points = [];
+    setGlobalBrushStrokeAndDrawLayer(
+      layer,
+      strokeRef.current,
+      layerCanvas,
       tempCanvasRefs,
-      draftCanvasRef,
+      draftCanvasRef.current,
     );
   }
 

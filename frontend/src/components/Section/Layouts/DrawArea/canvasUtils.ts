@@ -8,7 +8,6 @@ import {
 } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import {
-  ArtifactTypeEnum,
   BrushStroke,
   CanvasPoint,
   createBrushStroke,
@@ -124,10 +123,10 @@ function getCtx(canvas: HTMLCanvasElement) {
   return canvas.getContext("2d");
 }
 
-export function setGlobalBrushStrokesAndDrawAllLayers(
-  layers: Array<DrawAreaLayer>,
+export function setGlobalBrushStrokeAndDrawLayer(
+  layer: DrawAreaLayer,
   stroke: BrushStroke,
-  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvas: HTMLCanvasElement,
 ) {
@@ -137,7 +136,8 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
       [stroke.id]: _.cloneDeep(stroke),
     },
   }));
-  drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+
+  drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
   clearCanvas(draftCanvas);
 }
 
@@ -446,10 +446,12 @@ function hexToRGBA(_hex: string, opacity: number) {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-function maybeGetImgSizeFromArtifact(artifact) {
-  if (artifact?.type === ArtifactTypeEnum.IMG && artifact?.value?.complete) {
-    const image = artifact.value;
-    return { width: image.width, height: image.height };
-  }
-  return null;
+export function getActiveLayerAndCanvas(
+  layers: Array<DrawAreaLayer>,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  activeLayerIdx: number,
+) {
+  const layer = layers[activeLayerIdx];
+  const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+  return [layer, layerCanvas] as const;
 }
