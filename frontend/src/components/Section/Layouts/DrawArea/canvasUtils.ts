@@ -12,6 +12,7 @@ import {
   BrushStrokeWithId,
   CanvasPoint,
   createBrushStroke,
+  createBrushStrokeWithId,
   DrawAreaBrushShape,
   DrawAreaLayer,
   DrawAreaLayerItemTransform,
@@ -306,7 +307,7 @@ export function drawOneLayer(
 export function startNewStroke(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   firstPoint: CanvasPoint,
-): BrushStroke | null {
+): BrushStrokeWithId | null {
   if (!draftCanvasRef.current) {
     return null;
   }
@@ -320,7 +321,7 @@ export function startNewStroke(
     return null;
   }
   drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
-  return createBrushStroke({
+  return createBrushStrokeWithId({
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
     lineCap: dCtx.lineCap,
