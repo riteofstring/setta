@@ -19,7 +19,6 @@ import {
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
-  EraserStrokeElement,
   LayerCanvasesType,
   ResizeHandle,
   ResizeHandleCorners,
@@ -29,7 +28,7 @@ import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
   const {
-    numLayers,
+    layers,
     activeLayerIdx,
     size: sectionSize,
     brushColor,
@@ -47,10 +46,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       sectionId,
       SectionTypeEnum.Draw,
     );
-    const numLayers = impl.layers.length;
     const activeLayer = impl.layers[impl.activeLayerIdx];
     return {
-      numLayers,
+      layers: impl.layers,
       activeLayerIdx: impl.activeLayerIdx,
       size: impl.size,
       brushColor: impl.brushColor,
@@ -71,8 +69,8 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     layer: null,
     artifact: null,
   });
-  const strokesRef = useRef<Array<BrushStroke>>([]);
-  const eraserStrokesRef = useRef<Array<EraserStrokeElement>>([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
+  const strokeRef = useRef<BrushStroke>(null);
+  const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef<
     DrawAreaLayerItemTransform["transform"]
   >([1, 0, 0, 1, 0, 0]);
@@ -115,7 +113,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
         state,
       );
     });
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
   }, [
     sectionSize.height,
     sectionSize.width,
@@ -146,7 +144,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
     }
-    drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
+    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
   }, [
     canvasMode,
     layerOpacity,
@@ -169,9 +167,10 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
     useDrawModeMouseHandlers(
+      layers,
       sectionId,
-      strokesRef,
-      eraserStrokesRef,
+      strokeRef,
+      eraserStrokeRef,
       prevPointRef,
       eraserBrushSize,
       brushShape,
@@ -193,10 +192,10 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     );
 
   function clearStrokes() {
-    strokesRef.current = [];
+    strokeRef.current = [];
     setGlobalBrushStrokesAndDrawAllLayers(
       sectionId,
-      strokesRef,
+      strokeRef,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
@@ -235,7 +234,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       >
         <div className="single-cell-child single-cell-container">
           <LayerCanvases
-            numLayers={numLayers}
+            numLayers={layers.length}
             activeLayerIdx={activeLayerIdx}
             layerCanvasRefs={layerCanvasRefs}
             cursorIcon={cursorIcon}

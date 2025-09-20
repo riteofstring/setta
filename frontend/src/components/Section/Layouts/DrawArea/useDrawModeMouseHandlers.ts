@@ -1,11 +1,17 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
-import { useCallback } from "react";
-import { useArtifacts, useProjectState } from "state/definitions";
+import { RefObject, useCallback } from "react";
+import {
+  useArtifacts,
+  useDecodedImages,
+  useProjectState,
+} from "state/definitions";
 import {
   ArtifactTypeEnum,
+  BrushStroke,
   CanvasPoint,
   DrawAreaBrushShape,
+  DrawAreaLayer,
   DrawAreaLayerItemTransform,
   DrawAreaMode,
   DrawAreaModeEnum,
@@ -39,14 +45,14 @@ import {
   LayerCanvasesType,
   ResizeHandle,
   ResizeHandleCorners,
-  Strokes,
   TempCanvasesType,
 } from "./types";
 
 export function useDrawModeMouseHandlers(
+  layers: Array<DrawAreaLayer>,
   sectionId: string,
-  strokesRef: React.RefObject<Strokes>,
-  eraserStrokesRef: React.RefObject<Strokes>,
+  strokeRef: React.RefObject<BrushStroke | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
@@ -78,9 +84,9 @@ export function useDrawModeMouseHandlers(
     canvasMode === DrawAreaModeEnum.erase
   ) {
     onMouseDown = drawingOnMouseDown(
-      sectionId,
-      strokesRef,
-      eraserStrokesRef,
+      layers,
+      strokeRef,
+      eraserStrokeRef,
       eraserBrushSize,
       brushShape,
       prevPointRef,
@@ -89,37 +95,35 @@ export function useDrawModeMouseHandlers(
       tempCanvasRefs,
       draftCanvasRef,
       activeLayerIdx,
-      localArtifactTransformsRef,
       canvasMode,
     );
 
-    onMouseMove = drawingOnMouseMove({
-      sectionId,
-      isEraser,
-      strokesRef,
-      eraserStrokesRef,
+    onMouseMove = drawingOnMouseMove(
+      layers,
+      strokeRef,
+      eraserStrokeRef,
       prevPointRef,
       isDrawing,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
       canvasTransferQueueLength,
-      activeLayerId,
-      localArtifactTransformsRef,
-    });
+      activeLayerIdx,
+      canvasMode,
+    );
 
-    onMouseUp = drawingOnMouseUp({
+    onMouseUp = drawingOnMouseUp(
       sectionId,
       isEraser,
-      eraserStrokesRef,
+      eraserStrokeRef,
       isDrawing,
       setIsDrawing,
       activeLayerId,
-      strokesRef,
+      strokeRef,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
-    });
+    );
 
     onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
   } else {
@@ -179,147 +183,117 @@ export function useDrawModeMouseHandlers(
 }
 
 function drawingOnMouseDown(
-  sectionId: string,
-  strokesRef: React.RefObject<Strokes>,
-  eraserStrokesRef: React.RefObject<Strokes>,
+  layers: Array<DrawAreaLayer>,
+  strokeRef: React.RefObject<BrushStroke | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   isDrawingRef: React.RefObject<boolean>,
-  layerCanvasRefs,
-  tempCanvasRefs,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
-  activeLayerId,
-  localArtifactTransformsRef,
+  activeLayerIdx: number,
   canvasMode: DrawAreaMode,
 ): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
-    // if (useMisc.getState().mouseDownDraggingSection) {
-    //   return false;
-    // }
-
-    // if (!useMisc.getState().mouseDownDrawArea) {
-    //   // We want to do this just on the first mouse down.
-    //   setActiveSectionIdAndUpdateZIndex(sectionId);
-    // }
-    // useMisc.setState({ mouseDownDrawArea: true });
-
     isDrawingRef.current = true;
-    // let point: CanvasPoint;
-    // if (offsetX && offsetY) {
-    //   point = [offsetX, offsetY];
-    // } else {
-    //   point = getXY(e);
-    // }
     const point = getXY(e);
     if (canvasMode === DrawAreaModeEnum.erase) {
-      startNewEraserStroke(
-        eraserStrokesRef,
+      eraserStrokeRef.current = startNewEraserStroke(
         eraserBrushSize,
         brushShape,
         point,
       );
-      // drawAllLayers(
-      //   sectionId,
-      //   layerCanvasRefs,
-      //   tempCanvasRefs,
-      //   {},
-      //   {},
-      //   {},
-      //   { [activeLayerId]: eraserStrokesRef.current },
-      // );
+      drawAllLayers(
+        layers,
+        layerCanvasRefs,
+        tempCanvasRefs,
+        {},
+        {},
+        { [activeLayerIdx]: eraserStrokeRef.current },
+      );
     } else {
-      startNewStroke(draftCanvasRef, strokesRef, point);
+      strokeRef.current = startNewStroke(draftCanvasRef, point);
     }
-
     prevPointRef.current = point;
   };
 }
 
 function drawingOnMouseMove(
-  sectionId: string,
-  strokesRef: React.RefObject<Strokes>,
-  eraserStrokesRef: React.RefObject<Strokes>,
+  layers: Array<DrawAreaLayer>,
+  strokeRef: React.RefObject<BrushStroke | null>,
+  eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   isDrawingRef: React.RefObject<boolean>,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
-  canvasTransferQueueLength,
-  activeLayerId,
-  localArtifactTransformsRef,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  canvasTransferQueueLength: number,
+  activeLayerIdx: number,
   canvasMode: DrawAreaMode,
 ): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
     if (!isDrawingRef.current) {
       return;
     }
+    const currStrokeRef =
+      canvasMode === DrawAreaModeEnum.erase ? eraserStrokeRef : strokeRef;
+    if (!currStrokeRef.current) {
+      return;
+    }
     const point = getXY(e);
     if (canvasMode === DrawAreaModeEnum.erase) {
-      const currStrokesRef = eraserStrokesRef;
-      const currStroke =
-        currStrokesRef.current[currStrokesRef.current.length - 1];
-      if (!currStroke) {
-        return;
-      }
-      currStroke.points.push(point);
+      currStrokeRef.current.points.push(point);
       prevPointRef.current = point;
       drawAllLayers(
-        sectionId,
+        layers,
         layerCanvasRefs,
         tempCanvasRefs,
         {},
         {},
-        {},
-        { [activeLayerId]: eraserStrokesRef.current },
+        {
+          [activeLayerIdx]: currStrokeRef.current,
+        },
       );
-    } else if (canvasMode === DrawAreaModeEnum.draw) {
-      const currStrokesRef = strokesRef;
-      const currStroke =
-        currStrokesRef.current[currStrokesRef.current.length - 1];
-      if (!currStroke) {
-        return;
-      }
-      if (currStroke.points.length >= canvasTransferQueueLength) {
+    } else if (canvasMode === DrawAreaModeEnum.draw && draftCanvasRef.current) {
+      if (currStrokeRef.current.points.length >= canvasTransferQueueLength) {
         setGlobalBrushStrokesAndDrawAllLayers(
-          sectionId,
-          strokesRef,
+          layers,
+          currStrokeRef.current,
           layerCanvasRefs,
           tempCanvasRefs,
-          draftCanvasRef,
-          false,
+          draftCanvasRef.current,
         );
-        startNewStroke(draftCanvasRef, currStrokesRef, point);
+        currStrokeRef.current = startNewStroke(draftCanvasRef, point);
         prevPointRef.current = point;
       } else if (prevPointRef.current) {
-        drawStroke(draftCanvasRef, prevPointRef.current, point);
-        currStroke.points.push(point);
+        drawStroke(draftCanvasRef.current, prevPointRef.current, point);
+        currStrokeRef.current.points.push(point);
         prevPointRef.current = point;
       }
     }
   };
 }
 
-function drawingOnMouseUp({
+function drawingOnMouseUp(
+  layers,
   sectionId,
-  isEraser,
-  eraserStrokesRef,
-  isDrawing,
-  setIsDrawing,
-  activeLayerId,
-  strokesRef,
+  eraserStrokeRef: RefObject<BrushStroke | null>,
+  isDrawingRef,
+  activeLayerIdx,
+  strokeRef,
   layerCanvasRefs,
   tempCanvasRefs,
   draftCanvasRef,
-}) {
+  canvasMode: DrawAreaMode,
+) {
   return () => {
-    if (!isDrawing) {
+    if (!isDrawingRef.current) {
       return false;
     }
-    if (isEraser) {
-      const artifactState = useArtifacts.getState().x;
-      const eraserPath =
-        eraserStrokesRef.current[eraserStrokesRef.current.length - 1];
+    if (canvasMode === DrawAreaModeEnum.erase && eraserStrokeRef.current) {
+      const images = useDecodedImages.getState().x;
 
       useProjectState.setState((state) => {
         const layer = state.artifactGroups[activeLayerId];
@@ -363,12 +337,12 @@ function drawingOnMouseUp({
         }
       });
 
-      eraserStrokesRef.current = [];
+      eraserStrokeRef.current = [];
     }
-    setIsDrawing(false);
+    isDrawingRef.current = false;
     setGlobalBrushStrokesAndDrawAllLayers(
       sectionId,
-      strokesRef,
+      strokeRef,
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,

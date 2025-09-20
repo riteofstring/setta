@@ -1,5 +1,3 @@
-import { BrushStroke } from "utils/generatedTypes";
-
 export type LayerCanvasesType = Array<HTMLCanvasElement | null>;
 
 export type TempCanvasesType = {
@@ -8,8 +6,6 @@ export type TempCanvasesType = {
 };
 
 export type CanvasPointXY = { x: number; y: number };
-
-export type Strokes = Array<BrushStroke>;
 
 export type ResizeHandle = {
   idx: number;

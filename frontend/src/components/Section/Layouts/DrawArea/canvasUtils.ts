@@ -1,6 +1,5 @@
 import _ from "lodash";
 import {
-  useArtifacts,
   useBrushStrokes,
   useDecodedImages,
   useProjectState,
@@ -19,9 +18,7 @@ import {
 } from "utils/generatedTypes";
 import {
   LayerCanvasesType,
-  ResizeHandle,
   ResizeHandleCorners,
-  Strokes,
   TempCanvasesType,
 } from "./types";
 
@@ -126,27 +123,23 @@ function getCtx(canvas: HTMLCanvasElement) {
 }
 
 export function setGlobalBrushStrokesAndDrawAllLayers(
-  sectionId: string,
-  strokesRef,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  draftCanvasRef,
+  layers: Array<DrawAreaLayer>,
+  stroke: BrushStroke,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
+  draftCanvas: HTMLCanvasElement,
 ) {
-  useArtifacts.setState((state) => ({
+  useBrushStrokes.setState((state) => ({
     x: {
       ...state.x,
       [currBrushStrokeArtifactId]: {
         ...state.x[currBrushStrokeArtifactId],
-        value: _.cloneDeep(strokesRef.current),
-        modifiedByInfo: {
-          modifiedBy: sectionId,
-          timestamp: Date.now().toString(),
-        },
+        value: _.cloneDeep(stroke),
       },
     },
   }));
-  drawAllLayers(sectionId, layerCanvasRefs, tempCanvasRefs);
-  clearCanvas(draftCanvasRef.current);
+  drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+  clearCanvas(draftCanvas);
 }
 
 export function setGlobalArtifactTransformsAndDrawAllLayers(
@@ -184,9 +177,9 @@ export function drawAllLayers(
   layers: Array<DrawAreaLayer>,
   layerCanvasRefs: React.RefObject<LayerCanvasesType>,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
-  realTimeTransforms = [], // array of {idx: {transform, eraserStrokes}}
-  realTimeResizeHandles = [], // array of array of corner coordinates
-  realTimeEraserStrokes = [], // array of eraserStrokes array
+  realTimeTransforms: Record<number, Array<DrawAreaLayerItemTransform>> = {},
+  realTimeResizeHandles: Record<number, ResizeHandleCorners> = {},
+  realTimeEraserStroke: Record<number, BrushStroke> = {},
 ) {
   for (const [idx, layer] of layers.entries()) {
     if (!layerCanvasRefs.current[idx]) {
@@ -196,9 +189,9 @@ export function drawAllLayers(
       layer,
       layerCanvasRefs.current[idx],
       tempCanvasRefs,
-      realTimeTransforms[idx],
-      realTimeResizeHandles[idx],
-      realTimeEraserStrokes[idx],
+      realTimeTransforms[idx] ?? [],
+      realTimeResizeHandles[idx] ?? null,
+      realTimeEraserStroke[idx] ?? null,
     );
   }
 }
@@ -207,9 +200,9 @@ function drawOneLayer(
   layer: DrawAreaLayer,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
-  realTimeTransforms: Array<DrawAreaLayerItemTransform> = [],
-  realTimeResizeHandles: Array<ResizeHandle> = [], // array of corner coordinates
-  realTimeEraserStrokes: Array<BrushStroke> = [], // eraserStrokes array
+  realTimeTransforms: Array<DrawAreaLayerItemTransform>,
+  realTimeResizeHandles: ResizeHandleCorners | null,
+  realTimeEraserStroke: BrushStroke | null,
 ) {
   clearCanvas(layerCanvas);
 
@@ -277,10 +270,8 @@ function drawOneLayer(
     clearCanvas(artifactTempCanvas);
   }
 
-  if (realTimeEraserStrokes) {
-    realTimeEraserStrokes.forEach((s) =>
-      drawStrokeOntoTempCanvas(layerTempCtx, s, null),
-    );
+  if (realTimeEraserStroke) {
+    drawStrokeOntoTempCanvas(layerTempCtx, realTimeEraserStroke, null);
   }
 
   ctx.globalCompositeOperation = "source-over";
@@ -296,22 +287,22 @@ function drawOneLayer(
 
 export function startNewStroke(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
-  strokesRef: React.RefObject<Strokes>,
   firstPoint: CanvasPoint,
-) {
+): BrushStroke | null {
   if (!draftCanvasRef.current) {
-    return;
+    return null;
   }
   const dCtx = getCtx(draftCanvasRef.current);
   if (!dCtx) {
-    return;
+    return null;
   }
   // for now, only allow string strokeStyle.
   // we can add support for CanvasGradient etc later if needed.
   if (typeof dCtx.strokeStyle !== "string") {
-    return;
+    return null;
   }
-  strokesRef.current.push({
+  drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
+  return {
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
     lineCap: dCtx.lineCap,
@@ -319,17 +310,15 @@ export function startNewStroke(
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
-  });
-  drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
+  };
 }
 
 export function startNewEraserStroke(
-  eraserStrokesRef: React.RefObject<Strokes>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
   firstPoint: CanvasPoint,
-) {
-  eraserStrokesRef.current.push({
+): BrushStroke {
+  return {
     strokeStyle: "rgba(0,0,0,1)",
     lineWidth: eraserBrushSize,
     lineCap: brushShape,
@@ -337,7 +326,7 @@ export function startNewEraserStroke(
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: "destination-out",
-  });
+  };
 }
 
 function drawStrokeOntoTempCanvas(

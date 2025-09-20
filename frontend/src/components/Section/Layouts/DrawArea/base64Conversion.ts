@@ -81,7 +81,7 @@ export function combinedAndSeparateLayersToBase64(layerCanvases, layerIds) {
 //   const [width, height] = [canvasRef.current.width, canvasRef.current.height];
 //   const base64 = {};
 //   base64["completeCanvas"] = canvasToBase64(canvasRef.current);
-//   base64["strokes"] = exportStrokesToBase64(strokesRef.current, width, height);
+//   base64["strokes"] = exportStrokesToBase64(strokeRef.current, width, height);
 //   if (imageRef.current) {
 //     base64["image"] = exportImageToBase64(imageRef.current, width, height);
 //   }
