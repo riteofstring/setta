@@ -126,7 +126,7 @@ export function useDrawModeMouseHandlers(
       canvasMode,
     );
 
-    onMouseEnter = drawingOnMouseEnter({ draftCanvasRef, onMouseDown });
+    onMouseEnter = drawingOnMouseEnter(draftCanvasRef, onMouseDown);
   } else {
     onMouseDown = editingOnMouseDown({
       layerCanvasRefs,
@@ -197,9 +197,10 @@ function drawingOnMouseDown(
   activeLayerIdx: number,
   canvasMode: DrawAreaMode,
 ): React.MouseEventHandler<HTMLCanvasElement> {
-  return (e) => {
+  return (e, offsetX: number | null = null, offsetY: number | null = null) => {
     isDrawingRef.current = true;
-    const point = getXY(e);
+    const point: CanvasPoint =
+      offsetX !== null && offsetY !== null ? [offsetX, offsetY] : getXY(e);
     if (canvasMode === DrawAreaModeEnum.erase) {
       eraserStrokeRef.current = startNewEraserStroke(
         eraserBrushSize,
@@ -381,8 +382,18 @@ function drawingOnMouseUp(
   };
 }
 
-function drawingOnMouseEnter({ draftCanvasRef, onMouseDown }) {
+function drawingOnMouseEnter(
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+  onMouseDown: (
+    e: React.MouseEvent<HTMLCanvasElement>,
+    offsetX: number | null,
+    offsetY: number | null,
+  ) => void,
+): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
+    if (!draftCanvasRef.current) {
+      return;
+    }
     if (e.buttons === 1) {
       // have to compute offset this way for some reason
       // otherwise it's inaccurate
