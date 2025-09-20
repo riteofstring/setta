@@ -7,6 +7,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
 )
+from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewingEditingMode,
@@ -16,9 +17,6 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaBrushShape,
-    DrawAreaLayer,
-    DrawAreaMode,
     SectionSize,
     SectionSizeMode,
     SectionType,

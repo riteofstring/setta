@@ -12,13 +12,11 @@ from setta.types.code_obj_impls import (
 )
 
 # Section type imports
+from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
     ConfigLanguage,
-    DrawAreaBrushShape,
-    DrawAreaLayer,
-    DrawAreaMode,
     SectionSize,
     SectionSizeMode,
     SectionWithParamsDisplayMode,

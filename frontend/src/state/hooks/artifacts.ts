@@ -17,7 +17,7 @@ import {
   useDecodedImages,
   useImages,
   useProjectState,
-  ZustandDecodedImagesType,
+  ZustandDecodedImages,
 } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
@@ -93,7 +93,7 @@ export function useLoadedChartData(sectionId: string) {
 async function loadDrawAreaImages(imagePaths: Array<string>) {
   const res = await route_load_image_artifacts({ imagePaths });
   if (res200(res)) {
-    const images: ZustandDecodedImagesType["x"] = {};
+    const images: ZustandDecodedImages["x"] = {};
     for (const [idx, r] of res.data.entries()) {
       if (imagePaths[idx]) {
         images[imagePaths[idx]] = await base64ToImageObj(r);

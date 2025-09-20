@@ -282,6 +282,31 @@ export const SectionTypeEnum = {
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
+export const DrawAreaBrushShapeEnum = {
+  butt: "butt",
+  round: "round",
+  square: "square",
+} as const;
+
+export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
+
+export const DrawAreaLayerItemTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+} as const;
+
+export type DrawAreaLayerItemType = ObjectValues<
+  typeof DrawAreaLayerItemTypeEnum
+>;
+
+export const DrawAreaModeEnum = {
+  draw: "draw",
+  erase: "erase",
+  edit: "edit",
+} as const;
+
+export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
+
 export const BrowserAreaViewModeEnum = {
   list: "list",
   thumbnail: "thumbnail",
@@ -297,18 +322,6 @@ export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
 export const ConfigLanguageEnum = { python: "python", json: "json" } as const;
 
 export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
-export const DrawAreaBrushShapeEnum = { butt: "butt", round: "round" } as const;
-
-export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
-
-export const DrawAreaModeEnum = {
-  draw: "draw",
-  erase: "erase",
-  edit: "edit",
-} as const;
-
-export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
 export const SectionSizeModeEnum = { auto: "auto" } as const;
 
@@ -487,15 +500,6 @@ export const BrowserAreaItemTypeEnum = {
 } as const;
 
 export type BrowserAreaItemType = ObjectValues<typeof BrowserAreaItemTypeEnum>;
-
-export const DrawAreaLayerItemTypeEnum = {
-  Image: "Image",
-  BrushStroke: "BrushStroke",
-} as const;
-
-export type DrawAreaLayerItemType = ObjectValues<
-  typeof DrawAreaLayerItemTypeEnum
->;
 
 export const BackgroundVariantEnum = {
   lines: "lines",
@@ -1348,6 +1352,10 @@ export const AllImplFieldsSchema = z.literal([
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
 
+export const CanvasPointSchema = z.tuple([z.number(), z.number()]);
+
+export type CanvasPoint = z.infer<typeof CanvasPointSchema>;
+
 export const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
   xAxisColumn: z.union([z.string(), z.null()]).default(null),
@@ -1762,6 +1770,7 @@ export const DrawAreaLayerItemSchema = z.object({
       z.number(),
     ])
     .default([1, 0, 0, 1, 0, 0]),
+  eraserStrokes: z.any(),
 });
 
 export type DrawAreaLayerItem = z.infer<typeof DrawAreaLayerItemSchema>;
@@ -6810,6 +6819,49 @@ export function createBaseSectionImpl(
   options: Partial<BaseSectionImpl> = {},
 ): BaseSectionImpl {
   return BaseSectionImplSchema.parse(options);
+}
+
+export const BrushStrokeSchema = z.object({
+  strokeStyle: z.string(),
+  lineWidth: z.number(),
+  lineCap: z.enum(DrawAreaBrushShapeEnum),
+  points: z.array(z.tuple([z.number(), z.number()])),
+  globalCompositeOperation: z.literal([
+    "color",
+    "color-burn",
+    "color-dodge",
+    "copy",
+    "darken",
+    "destination-atop",
+    "destination-in",
+    "destination-out",
+    "destination-over",
+    "difference",
+    "exclusion",
+    "hard-light",
+    "hue",
+    "lighten",
+    "lighter",
+    "luminosity",
+    "multiply",
+    "overlay",
+    "saturation",
+    "screen",
+    "soft-light",
+    "source-atop",
+    "source-in",
+    "source-out",
+    "source-over",
+    "xor",
+  ]),
+});
+
+export type BrushStroke = z.infer<typeof BrushStrokeSchema>;
+
+export function createBrushStroke(
+  options: Partial<BrushStroke> = {},
+): BrushStroke {
+  return BrushStrokeSchema.parse(options);
 }
 
 export const BaseCanvasSectionImplSchema = z.object({

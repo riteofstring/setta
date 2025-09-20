@@ -375,26 +375,34 @@ export const useLocalStorage = createWithEqualityFn(
   ),
 );
 
-type ZustandImagesType = { x: Record<string, string> };
+type ZustandImages = { x: Record<string, string> };
 
 export const useImages = createWithEqualityFn(
-  withResetFn<ZustandImagesType>(() => ({
+  withResetFn<ZustandImages>(() => ({
     x: {},
   })),
 );
 
-type ZustandChartDataType = { x: Record<string, ChartDataType> };
+type ZustandChartData = { x: Record<string, ChartDataType> };
 
 export const useChartData = createWithEqualityFn(
-  withResetFn<ZustandChartDataType>(() => ({
+  withResetFn<ZustandChartData>(() => ({
     x: {},
   })),
 );
 
-export type ZustandDecodedImagesType = { x: Record<string, HTMLImageElement> };
+export type ZustandDecodedImages = { x: Record<string, HTMLImageElement> };
 
 export const useDecodedImages = createWithEqualityFn(
-  withResetFn<ZustandDecodedImagesType>(() => ({
+  withResetFn<ZustandDecodedImages>(() => ({
+    x: {},
+  })),
+);
+
+export type ZustandBrushStrokes = { x: Record<string, HTMLImageElement> };
+
+export const useBrushStrokes = createWithEqualityFn(
+  withResetFn<ZustandBrushStrokes>(() => ({
     x: {},
   })),
 );

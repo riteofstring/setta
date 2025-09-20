@@ -10,6 +10,7 @@ from pydantic import (
 from setta.database.utils import create_new_id
 from setta.types.chart import LineChartSettings
 from setta.types.code_obj_impls import ColorPickerChoice
+from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
 from setta.utils.generate_memorable_string import generate_memorable_string
 
@@ -81,35 +82,6 @@ class BrowserAreaItemType(str, Enum):
     Data = "Data"
     Brushes = "Brushes"
     Other = "Other"
-
-
-class DrawAreaLayerItemType(str, Enum):
-    Image = "Image"
-    BrushStroke = "BrushStroke"
-
-
-class DrawAreaLayerItem(BaseModel):
-    type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
-    dataPath: str = ""
-    transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
-
-
-class DrawAreaLayer(BaseModel):
-    name: str = Field(default_factory=generate_memorable_string)
-    elements: list[DrawAreaLayerItem] = Field(default_factory=list)
-    visible: bool = True
-    layerOpacity: float = 0.5
-
-
-class DrawAreaMode(str, Enum):
-    draw = "draw"
-    erase = "erase"
-    edit = "edit"
-
-
-class DrawAreaBrushShape(str, Enum):
-    butt = "butt"
-    round = "round"
 
 
 class Visibility(BaseModel, extra="forbid"):

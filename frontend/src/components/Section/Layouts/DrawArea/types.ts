@@ -1,4 +1,4 @@
-import { DrawAreaLayerItem } from "utils/generatedTypes";
+import { BrushStroke } from "utils/generatedTypes";
 
 export type LayerCanvasesType = Array<HTMLCanvasElement | null>;
 
@@ -7,29 +7,9 @@ export type TempCanvasesType = {
   artifact: HTMLCanvasElement | null;
 };
 
-export type CanvasPoint = [number, number];
 export type CanvasPointXY = { x: number; y: number };
 
-export type StrokeElement = {
-  strokeStyle: CanvasFillStrokeStyles["strokeStyle"];
-  lineWidth: CanvasPathDrawingStyles["lineWidth"];
-  lineCap: CanvasPathDrawingStyles["lineCap"];
-  points: CanvasPoint;
-  globalCompositeOperation: CanvasCompositing["globalCompositeOperation"];
-  transform: DrawAreaLayerItem["transform"];
-};
-
-export type Strokes = Array<StrokeElement>;
-
-export type EraserStrokeElement = {
-  strokeStyle: CanvasFillStrokeStyles["strokeStyle"];
-  lineWidth: CanvasPathDrawingStyles["lineWidth"];
-  lineCap: CanvasPathDrawingStyles["lineCap"];
-  points: CanvasPoint;
-  globalCompositeOperation: CanvasCompositing["globalCompositeOperation"];
-};
-
-export type EraserStrokes = Array<EraserStrokeElement>;
+export type Strokes = Array<BrushStroke>;
 
 export type ResizeHandle = {
   idx: number;
