@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import useDeepCompareEffect from "use-deep-compare-effect";
 import {
   BrushStroke,
   BrushStrokeWithId,
@@ -141,7 +140,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     // updateDrawArea,
   ]);
 
-  useDeepCompareEffect(() => {
+  useEffect(() => {
     if (canvasMode === DrawAreaModeEnum.draw) {
       selectedIdx.current = null;
       resizeHandleCorners.current = null;
@@ -156,16 +155,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   ]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
-
-  // useDeepCompareEffectNoCheck(() => {
-  //   if (!activeLayer?.artifactTransforms) {
-  //     localArtifactTransformsRef.current = [];
-  //   } else {
-  //     localArtifactTransformsRef.current = _.cloneDeep(
-  //       activeLayer.artifactTransforms,
-  //     );
-  //   }
-  // }, [activeLayer?.artifactTransforms, updateDrawArea]);
 
   const { onMouseDown, onMouseMove, onMouseUp, onMouseEnter } =
     useDrawModeMouseHandlers(

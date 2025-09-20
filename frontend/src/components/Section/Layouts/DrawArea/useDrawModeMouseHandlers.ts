@@ -1,6 +1,4 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
-import _ from "lodash";
-import { useCallback } from "react";
 import {
   useArtifacts,
   useArtifactTransform,
@@ -168,16 +166,16 @@ export function useDrawModeMouseHandlers(
   }
 
   // useCallback so that throttle function doesn't get recreated and reset timer
-  const throttledOnMouseMove = useCallback(
-    mode === "draw" && drawThrottleDelay > 0
-      ? _.throttle(onMouseMove, drawThrottleDelay)
-      : onMouseMove,
-    [onMouseMove, drawThrottleDelay],
-  );
+  // const throttledOnMouseMove = useCallback(
+  //   mode === "draw" && drawThrottleDelay > 0
+  //     ? _.throttle(onMouseMove, drawThrottleDelay)
+  //     : onMouseMove,
+  //   [onMouseMove, drawThrottleDelay],
+  // );
 
   return {
     onMouseDown,
-    onMouseMove: throttledOnMouseMove,
+    onMouseMove,
     onMouseUp,
     onMouseEnter,
   };

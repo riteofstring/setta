@@ -6,11 +6,11 @@ import { LayerListAndListOfArtifacts } from "./ListOfArtifacts";
 export function DrawAreaSettings({ sectionId }) {
   return (
     <>
-      <DrawAreaAvailableColors sectionId={sectionId} />
-      <LayerListAndListOfArtifacts
+      {/* <DrawAreaAvailableColors sectionId={sectionId} /> */}
+      {/* <LayerListAndListOfArtifacts
         sectionId={sectionId}
         sectionTypeName={UITypeNameEnum.DRAW}
-      />
+      /> */}
     </>
   );
 }
