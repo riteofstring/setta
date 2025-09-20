@@ -7,9 +7,6 @@ from setta.api.logger import save_base64_to_png
 from setta.code_gen.yaml.section_dict import (
     section_dict_to_yaml,
 )
-from setta.database.db.artifacts.load import (
-    load_artifact_metadata_and_maybe_value_from_disk,
-)
 
 from .utils import get_configs_and_root_folder
 

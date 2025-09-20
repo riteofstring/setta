@@ -59,7 +59,7 @@ async def start_lsps(lsps, lsp_readers, lsp_writers):
     await lsp_writers.start()
 
 
-async def stop_lsps(lsps, lsp_readers):
+async def stop_lsps(lsps: LSPServers, lsp_readers: LSPReaders):
     await lsp_readers.stop()
     lsps.stop()
 

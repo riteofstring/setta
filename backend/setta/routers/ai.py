@@ -2,7 +2,6 @@ from dotenv import dotenv_values, load_dotenv
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.database.db.chats.load import load_uuid_mapping_for_llm
 from setta.file_watchers.utils import get_llm_api_keys_from_env_vars
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -203,6 +202,5 @@ def merge_db_messages_with_current_stream(
 async def route_get_uuid_mapping_for_llm(
     state: AppStateFromRequest,
 ) -> IDToUUIDForLLM:
-    with state.dbe.session as db:
-        id_to_uuid, _ = load_uuid_mapping_for_llm(db)
+    id_to_uuid, _ = state.dbe.read_uuid_mapping()
     return id_to_uuid

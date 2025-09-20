@@ -6,15 +6,6 @@ from typing import TypedDict
 from pydantic import BaseModel
 
 from setta.api.logger import load_from_csv_base64, parse_csv_content
-from setta.database.db.artifacts.load import (
-    load_artifact_from_disk,
-    load_artifact_metadata_and_maybe_value_from_disk,
-    load_available_artifacts,
-)
-from setta.database.db.artifacts.save import (
-    fill_in_missing_artifact_ids,
-    save_or_create_artifacts,
-)
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.chart import ChartDataType

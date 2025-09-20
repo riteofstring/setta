@@ -1,4 +1,3 @@
-from setta.database.db.projects.load import load_project_state
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -32,8 +31,7 @@ class ProjectManager(BaseProjectManager):
         )
 
     def load_initial_state(self):
-        with self.dbe.session as db:
-            return load_project_state(db)
+        return self.dbe.read_project()
 
     def save(self):
         save(self.settings_file.settings, self.dbe, self.project_state_backend)

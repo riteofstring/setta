@@ -13,7 +13,7 @@ from setta.project_state.project_manager import ProjectManager
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.terminals.terminals import Terminals
-from setta.utils.constants import C
+from setta.utils.constants import SETTA_FILES_FOLDER, C
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
 from setta.websockets.msg_handlers.frontend_receiver import WMHFrontendReceiver
@@ -32,7 +32,7 @@ class SettaFastAPIState:
         self.lsps = LSPServers(self.settings_file.settings.languageServer)
         self.lsp_writers = LSPWriters(self.lsps)
         self.script_metadata = ScriptMetadata()
-        self.dbe = DBE(C.DB_PATH)
+        self.dbe = DBE(SETTA_FILES_FOLDER)
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.specific_file_watcher = SpecificFileWatcher()

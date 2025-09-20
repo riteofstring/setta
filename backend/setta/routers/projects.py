@@ -3,10 +3,6 @@ import traceback
 from fastapi import BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
-from setta.database.db.notifications.delete import delete_notification
-from setta.database.db.notifications.load import (
-    load_project_notifications,
-)
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
@@ -214,13 +210,10 @@ def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
 def route_get_notifications(
     x: GetNotificationsRequest, state: AppStateFromRequest
 ) -> list[SettaNotification]:
-    with state.dbe.session as db:
-        notifications = load_project_notifications(db, x.projectConfigId)
-        return notifications
+    return state.dbe.read_notifications(x.projectConfigId)
 
 
 @router.post(Route.DELETE_NOTIFICATION)
 def route_delete_notification(x: DeleteNotificationRequest, state: AppStateFromRequest):
-    with state.dbe.session as db:
-        success = delete_notification(db, x.notificationId)
-        return {"success": success}
+    success = state.dbe.delete_notification(x.notificationId)
+    return {"success": success}

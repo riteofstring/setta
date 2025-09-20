@@ -6,6 +6,8 @@ from pathlib import Path
 import click
 import uvicorn
 
+from setta.database.db_objs import DBE
+
 from . import __version__
 from .database.export_db.export_db import export_database
 from .utils.constants import SETTA_FILES_FOLDER, C
@@ -28,7 +30,6 @@ def version():
 
 
 @click.command()
-@click.argument("path", default=C.DEFAULT_DB_PATH, required=False)
 @click.option("--raw", is_flag=True, help="Export raw database format")
 @click.option("--readable", is_flag=True, help="Export in human-readable format")
 @click.option(
@@ -36,12 +37,13 @@ def version():
     is_flag=True,
     help="Export in readable format with variants",
 )
-def export_db(path, raw, readable, readable_with_variants):
+def export_db(raw, readable, readable_with_variants):
     # If no export options are specified, default to raw format
     if not any([raw, readable, readable_with_variants]):
         readable_with_variants = True
 
-    export_database(path, raw, readable, readable_with_variants)
+    dbe = DBE(SETTA_FILES_FOLDER)
+    export_database(dbe.project, raw, readable, readable_with_variants)
 
 
 @click.group(
@@ -51,7 +53,6 @@ def export_db(path, raw, readable, readable_with_variants):
     ),
 )
 @click.option("--reload", is_flag=True)
-@click.option("--db", "-d", type=click.Path(path_type=Path), default=C.DEFAULT_DB_PATH)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
 @click.option("--port", default=C.DEFAULT_PORT, help="backend port")
 @click.option(
@@ -63,14 +64,13 @@ def export_db(path, raw, readable, readable_with_variants):
     help="Set the logging level",
 )
 @click.pass_context
-def cli(ctx, reload, db: Path, host: str, port: int, log_level):
+def cli(ctx, reload, host: str, port: int, log_level):
     if ctx.invoked_subcommand is None:
-        print("Starting Setta", db, flush=True)
+        print("Starting Setta", flush=True)
 
         SETTA_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
         C.HOST = host
         C.PORT = port
-        C.DB_PATH = db
 
         sys.path.append(str(Path(__file__).resolve().parent))
 
@@ -85,6 +85,7 @@ def cli(ctx, reload, db: Path, host: str, port: int, log_level):
             port=port,
             log_level=log_level,
             reload=reload,
+            timeout_graceful_shutdown=1,
         )
         server = uvicorn.Server(config)
 

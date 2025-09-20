@@ -29,13 +29,11 @@ class C:
     DEFAULT_HOST = "127.0.0.1"
     DEFAULT_PORT = 8000
     DEV_MODE_FRONTEND_PORT = 3000
-    DEFAULT_DB_PATH = SETTA_FILES_FOLDER / "setta.db"
     SETTINGS_PROJECT_NAME = "settings"
 
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
-    DB_PATH: Path = DEFAULT_DB_PATH
 
     # WebSocket message types
     WS_RUN_CODE = "runCode"
