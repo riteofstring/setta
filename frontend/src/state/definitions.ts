@@ -18,6 +18,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
+  DrawAreaLayerItemTransform,
   IDToUUIDForLLM,
   ProjectStateSingleConfig,
   SettaNotification,
@@ -404,6 +405,16 @@ export type ZustandBrushStrokes = { x: Record<string, BrushStroke> };
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({
+    x: {},
+  })),
+);
+
+export type ZustandArtifactTransform = {
+  x: Record<string, DrawAreaLayerItemTransform>;
+};
+
+export const useArtifactTransform = createWithEqualityFn(
+  withResetFn<ZustandArtifactTransform>(() => ({
     x: {},
   })),
 );

@@ -61,10 +61,8 @@ class DrawAreaLayerItemTransform(BaseModel):
 
 class DrawAreaLayerItem(BaseModel):
     type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
-    dataPath: str = ""
-    transform: DrawAreaLayerItemTransform = Field(
-        default_factory=DrawAreaLayerItemTransform
-    )
+    dataPath: str
+    transformId: str
 
 
 class DrawAreaLayer(BaseModel):

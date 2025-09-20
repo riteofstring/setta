@@ -1,5 +1,6 @@
 import _ from "lodash";
 import {
+  useArtifactTransform,
   useBrushStrokes,
   useDecodedImages,
   useProjectState,
@@ -225,6 +226,7 @@ function drawOneLayer(
 
   const images = useDecodedImages.getState().x;
   const brushStrokes = useBrushStrokes.getState().x;
+  const transforms = useArtifactTransform.getState().x;
   const { layerOpacity } = layer;
 
   for (const [idx, e] of layer.elements.entries()) {
@@ -234,7 +236,11 @@ function drawOneLayer(
     if (e.type === DrawAreaLayerItemTypeEnum.Image && e.dataPath in images) {
       const img = images[e.dataPath];
       if (img && img.complete) {
-        const transformInfo = realTimeTransforms[idx] ?? e.transform;
+        const transformInfo =
+          realTimeTransforms[idx] ?? transforms[e.transformId];
+        if (!transformInfo) {
+          continue;
+        }
         artifactTempCtx.setTransform(...transformInfo.transform);
         artifactTempCtx.drawImage(img, 0, 0, img.width, img.height);
         transformInfo.eraserStrokes.forEach((s) =>
@@ -247,7 +253,11 @@ function drawOneLayer(
     ) {
       const stroke = brushStrokes[e.dataPath];
       if (stroke && stroke.points.length > 0) {
-        const transformInfo = realTimeTransforms[idx] ?? e.transform;
+        const transformInfo =
+          realTimeTransforms[idx] ?? transforms[e.transformId];
+        if (!transformInfo) {
+          continue;
+        }
         drawStrokeOntoTempCanvas(
           artifactTempCtx,
           stroke,
