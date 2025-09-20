@@ -3,8 +3,9 @@ import _ from "lodash";
 import { RefObject, useCallback } from "react";
 import {
   useArtifacts,
+  useArtifactTransform,
+  useBrushStrokes,
   useDecodedImages,
-  useProjectState,
 } from "state/definitions";
 import {
   ArtifactTypeEnum,
@@ -13,6 +14,7 @@ import {
   DrawAreaBrushShape,
   DrawAreaLayer,
   DrawAreaLayerItemTransform,
+  DrawAreaLayerItemTypeEnum,
   DrawAreaMode,
   DrawAreaModeEnum,
 } from "utils/generatedTypes";
@@ -277,7 +279,7 @@ function drawingOnMouseMove(
 }
 
 function drawingOnMouseUp(
-  layers,
+  layers: Array<DrawAreaLayer>,
   sectionId,
   eraserStrokeRef: RefObject<BrushStroke | null>,
   isDrawingRef,
@@ -290,55 +292,54 @@ function drawingOnMouseUp(
 ) {
   return () => {
     if (!isDrawingRef.current) {
-      return false;
+      return;
     }
-    if (canvasMode === DrawAreaModeEnum.erase && eraserStrokeRef.current) {
+    if (canvasMode === DrawAreaModeEnum.erase) {
       const images = useDecodedImages.getState().x;
-
-      useProjectState.setState((state) => {
-        const layer = state.artifactGroups[activeLayerId];
-        for (const t of layer.artifactTransforms) {
-          const artifact = artifactState[t.artifactId];
-          const inverseTransform = getInverseTransform(t.transform);
-          const boundsFn =
-            artifact.type === ArtifactTypeEnum.IMG
-              ? getImageBounds
-              : getBrushStrokesBounds;
-
-          const intersectingPath = filterEraserPath(
-            eraserPath.points,
-            eraserPath.lineWidth,
-            eraserPath.lineCap,
-            boundsFn(artifact.value, t.transform),
-          );
-
-          if (artifact.type === ArtifactTypeEnum.IMG) {
-            if (intersectingPath.length > 0) {
-              t.eraserStrokes.push({
-                ...eraserPath,
-                points: intersectingPath,
-                transform: inverseTransform,
-              });
+      const brushStrokes = useBrushStrokes.getState().x;
+      const layer = layers[activeLayerIdx];
+      if (!layer) {
+        return;
+      }
+      useArtifactTransform.setState((state) => {
+        if (!eraserStrokeRef.current) {
+          return;
+        }
+        for (const el of layer.elements) {
+          const transform = state.x[el.transformId];
+          if (!transform) {
+            continue;
+          }
+          const inverseTransform = getInverseTransform(transform.transform);
+          let bounds;
+          if (el.type === DrawAreaLayerItemTypeEnum.Image) {
+            const img = images[el.dataPath];
+            if (img) {
+              bounds = getImageBounds(img, transform.transform);
             }
-          } else {
-            for (const [idx] of artifact.value.entries()) {
-              if (intersectingPath.length > 0) {
-                if (!(idx in t.eraserStrokes)) {
-                  t.eraserStrokes[idx] = [];
-                }
-                t.eraserStrokes[idx].push({
-                  ...eraserPath,
-                  points: intersectingPath,
-                  transform: inverseTransform,
-                });
-              }
+          } else if (el.type === DrawAreaLayerItemTypeEnum.BrushStroke) {
+            const brushStroke = brushStrokes[el.dataPath];
+            if (brushStroke) {
+              bounds = getBrushStrokesBounds(brushStroke, transform.transform);
             }
           }
+
+          const intersectingPath = filterEraserPath(
+            eraserStrokeRef.current.points,
+            eraserStrokeRef.current.lineWidth,
+            eraserStrokeRef.current.lineCap,
+            bounds,
+          );
+          transform.eraserStrokes.push({
+            ...eraserStrokeRef.current,
+            points: intersectingPath,
+          });
         }
       });
 
-      eraserStrokeRef.current = [];
+      eraserStrokeRef.current = null;
     }
+
     isDrawingRef.current = false;
     setGlobalBrushStrokesAndDrawAllLayers(
       sectionId,
@@ -347,8 +348,6 @@ function drawingOnMouseUp(
       tempCanvasRefs,
       draftCanvasRef,
     );
-
-    return true;
   };
 }
 

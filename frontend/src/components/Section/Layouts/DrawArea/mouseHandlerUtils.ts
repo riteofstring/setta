@@ -1,3 +1,4 @@
+import { DrawAreaLayerItemTransform } from "utils/generatedTypes";
 import { getCombinedTransformForStroke } from "./canvasUtils";
 import { getTransformedPoints, isPointOnStroke } from "./lowLevelStrokeUtils";
 
@@ -105,15 +106,24 @@ export function getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners) {
   };
 }
 
-export function getScaledWidth(image, transform) {
+export function getScaledWidth(
+  image: HTMLImageElement,
+  transform: DrawAreaLayerItemTransform["transform"],
+) {
   return image.width * transform[0];
 }
 
-export function getScaledHeight(image, transform) {
+export function getScaledHeight(
+  image: HTMLImageElement,
+  transform: DrawAreaLayerItemTransform["transform"],
+) {
   return image.height * transform[3];
 }
 
-export function getImageBounds(image, transform) {
+export function getImageBounds(
+  image: HTMLImageElement,
+  transform: DrawAreaLayerItemTransform["transform"],
+) {
   const xs = [transform[4], transform[4] + getScaledWidth(image, transform)];
   const ys = [transform[5], transform[5] + getScaledHeight(image, transform)];
 

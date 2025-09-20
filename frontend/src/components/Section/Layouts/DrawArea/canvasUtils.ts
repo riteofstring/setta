@@ -11,6 +11,7 @@ import {
   ArtifactTypeEnum,
   BrushStroke,
   CanvasPoint,
+  createBrushStroke,
   DrawAreaBrushShape,
   DrawAreaLayer,
   DrawAreaLayerItemTransform,
@@ -133,10 +134,7 @@ export function setGlobalBrushStrokesAndDrawAllLayers(
   useBrushStrokes.setState((state) => ({
     x: {
       ...state.x,
-      [currBrushStrokeArtifactId]: {
-        ...state.x[currBrushStrokeArtifactId],
-        value: _.cloneDeep(stroke),
-      },
+      [stroke.id]: _.cloneDeep(stroke),
     },
   }));
   drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
@@ -312,7 +310,7 @@ export function startNewStroke(
     return null;
   }
   drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
-  return {
+  return createBrushStroke({
     strokeStyle: dCtx.strokeStyle,
     lineWidth: dCtx.lineWidth,
     lineCap: dCtx.lineCap,
@@ -320,15 +318,15 @@ export function startNewStroke(
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: dCtx.globalCompositeOperation,
-  };
+  });
 }
 
 export function startNewEraserStroke(
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
   firstPoint: CanvasPoint,
-): BrushStroke {
-  return {
+) {
+  return createBrushStroke({
     strokeStyle: "rgba(0,0,0,1)",
     lineWidth: eraserBrushSize,
     lineCap: brushShape,
@@ -336,7 +334,7 @@ export function startNewEraserStroke(
     // canvasHeight: draftCanvas.height,
     // canvasWidth: draftCanvas.width,
     globalCompositeOperation: "destination-out",
-  };
+  });
 }
 
 function drawStrokeOntoTempCanvas(

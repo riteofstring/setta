@@ -6812,6 +6812,7 @@ export function createBaseSectionImpl(
 }
 
 export const BrushStrokeSchema = z.object({
+  id: z.string().default(create_new_id),
   strokeStyle: z.string(),
   lineWidth: z.number(),
   lineCap: z.enum(DrawAreaBrushShapeEnum),

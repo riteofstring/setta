@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 CanvasPoint = tuple[float, float]
@@ -20,6 +21,7 @@ class DrawAreaBrushShape(str, Enum):
 
 
 class BrushStroke(BaseModel):
+    id: str = Field(default_factory=create_new_id)
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape

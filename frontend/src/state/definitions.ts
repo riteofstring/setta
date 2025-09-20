@@ -414,7 +414,9 @@ export type ZustandArtifactTransform = {
 };
 
 export const useArtifactTransform = createWithEqualityFn(
-  withResetFn<ZustandArtifactTransform>(() => ({
-    x: {},
-  })),
+  immer(
+    withResetFn<ZustandArtifactTransform>(() => ({
+      x: {},
+    })),
+  ),
 );
