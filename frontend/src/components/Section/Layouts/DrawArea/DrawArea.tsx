@@ -6,7 +6,7 @@ import useDeepCompareEffect from "use-deep-compare-effect";
 import {
   BrushStroke,
   CanvasPoint,
-  DrawAreaLayerItem,
+  DrawAreaLayerItemTransform,
   DrawAreaMode,
   DrawAreaModeEnum,
   SectionTypeEnum,
@@ -73,9 +73,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   });
   const strokesRef = useRef<Array<BrushStroke>>([]);
   const eraserStrokesRef = useRef<Array<EraserStrokeElement>>([]); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
-  const localArtifactTransformsRef = useRef<DrawAreaLayerItem["transform"]>([
-    1, 0, 0, 1, 0, 0,
-  ]);
+  const localArtifactTransformsRef = useRef<
+    DrawAreaLayerItemTransform["transform"]
+  >([1, 0, 0, 1, 0, 0]);
   const prevPointRef = useRef<CanvasPoint>(null);
   const isDrawing = useRef(false);
   const isDragging = useRef(false);

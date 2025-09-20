@@ -1,20 +1,29 @@
 import _ from "lodash";
 import {
   useArtifacts,
+  useBrushStrokes,
+  useDecodedImages,
   useProjectState,
   ZustandProjectState,
 } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import {
   ArtifactTypeEnum,
+  BrushStroke,
   CanvasPoint,
   DrawAreaBrushShape,
   DrawAreaLayer,
-  DrawAreaLayerItem,
+  DrawAreaLayerItemTransform,
   DrawAreaLayerItemTypeEnum,
   SectionSize,
 } from "utils/generatedTypes";
-import { LayerCanvasesType, Strokes, TempCanvasesType } from "./types";
+import {
+  LayerCanvasesType,
+  ResizeHandle,
+  ResizeHandleCorners,
+  Strokes,
+  TempCanvasesType,
+} from "./types";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
@@ -175,7 +184,6 @@ export function drawAllLayers(
   layers: Array<DrawAreaLayer>,
   layerCanvasRefs: React.RefObject<LayerCanvasesType>,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
-  realTimeValues = [], // array of {artifactId: value}
   realTimeTransforms = [], // array of {idx: {transform, eraserStrokes}}
   realTimeResizeHandles = [], // array of array of corner coordinates
   realTimeEraserStrokes = [], // array of eraserStrokes array
@@ -188,7 +196,6 @@ export function drawAllLayers(
       layer,
       layerCanvasRefs.current[idx],
       tempCanvasRefs,
-      realTimeValues[idx],
       realTimeTransforms[idx],
       realTimeResizeHandles[idx],
       realTimeEraserStrokes[idx],
@@ -200,10 +207,9 @@ function drawOneLayer(
   layer: DrawAreaLayer,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
-  realTimeValues = {}, // artifactId -> value
-  realTimeTransforms = {}, // idx -> {transform, eraserStrokes}
-  realTimeResizeHandles = [], // array of corner coordinates
-  realTimeEraserStrokes = [], // eraserStrokes array
+  realTimeTransforms: Array<DrawAreaLayerItemTransform> = [],
+  realTimeResizeHandles: Array<ResizeHandle> = [], // array of corner coordinates
+  realTimeEraserStrokes: Array<BrushStroke> = [], // eraserStrokes array
 ) {
   clearCanvas(layerCanvas);
 
@@ -224,44 +230,42 @@ function drawOneLayer(
     return;
   }
 
-  const artifactState = useArtifacts.getState().x;
+  const images = useDecodedImages.getState().x;
+  const brushStrokes = useBrushStrokes.getState().x;
   const { layerOpacity } = layer;
 
-  for (const [idx, t] of layer.elements.entries()) {
-    if (!(t.dataPath in artifactState)) {
-      continue;
-    }
-    const artifact = artifactState[t.dataPath];
-
+  for (const [idx, e] of layer.elements.entries()) {
     artifactTempCtx.globalAlpha = 1;
     artifactTempCtx.globalCompositeOperation = "source-over";
 
-    if (
-      t.type === DrawAreaLayerItemTypeEnum.Image &&
-      artifact.value instanceof Image &&
-      artifact.value.complete
-    ) {
-      const image = realTimeValues?.[id] ?? artifact.value;
-      const transformInfo = realTimeTransforms?.[idx] ?? t.transform;
-      artifactTempCtx.setTransform(...transformInfo.transform);
-      artifactTempCtx.drawImage(image, 0, 0, image.width, image.height);
-      drawStrokesOntoTempCanvas(
-        artifactTempCtx,
-        transformInfo.eraserStrokes,
-        transformInfo.transform,
-      );
+    if (e.type === DrawAreaLayerItemTypeEnum.Image && e.dataPath in images) {
+      const img = images[e.dataPath];
+      if (img && img.complete) {
+        const transformInfo = realTimeTransforms[idx] ?? e.transform;
+        artifactTempCtx.setTransform(...transformInfo.transform);
+        artifactTempCtx.drawImage(img, 0, 0, img.width, img.height);
+        transformInfo.eraserStrokes.forEach((s) =>
+          drawStrokeOntoTempCanvas(artifactTempCtx, s, transformInfo.transform),
+        );
+      }
     } else if (
-      artifact.type === ArtifactTypeEnum.BRUSH_STROKES &&
-      artifact.value.length > 0
+      e.type === DrawAreaLayerItemTypeEnum.BrushStroke &&
+      e.dataPath in brushStrokes
     ) {
-      const strokes = realTimeValues?.[id] ?? artifact.value;
-      const artifactTransformInfo = realTimeTransforms?.[idx] ?? t;
-      drawStrokesOntoTempCanvas(
-        artifactTempCtx,
-        strokes,
-        artifactTransformInfo.transform,
-        artifactTransformInfo.eraserStrokes,
-      );
+      const stroke = brushStrokes[e.dataPath];
+      if (stroke && stroke.points.length > 0) {
+        const transformInfo = realTimeTransforms[idx] ?? e.transform;
+        drawStrokeOntoTempCanvas(
+          artifactTempCtx,
+          stroke,
+          transformInfo.transform,
+        );
+        transformInfo.eraserStrokes.forEach((s) =>
+          drawStrokeOntoTempCanvas(artifactTempCtx, s, transformInfo.transform),
+        );
+      }
+    } else {
+      continue;
     }
 
     artifactTempCtx.resetTransform(); // MUST reset, otherwise get smudging when moving images around. No idea why
@@ -270,11 +274,13 @@ function drawOneLayer(
     layerTempCtx.globalCompositeOperation = "source-over";
     layerTempCtx.drawImage(artifactTempCanvas, 0, 0);
 
-    clearCanvas(tempCanvasRefs.current.artifact);
+    clearCanvas(artifactTempCanvas);
   }
 
   if (realTimeEraserStrokes) {
-    drawStrokesOntoTempCanvas(layerTempCtx, realTimeEraserStrokes);
+    realTimeEraserStrokes.forEach((s) =>
+      drawStrokeOntoTempCanvas(layerTempCtx, s, null),
+    );
   }
 
   ctx.globalCompositeOperation = "source-over";
@@ -334,32 +340,11 @@ export function startNewEraserStroke(
   });
 }
 
-function drawStrokesOntoTempCanvas(
-  ctx,
-  strokes,
-  artifactTransform = null,
-  pairedStrokes = {},
+function drawStrokeOntoTempCanvas(
+  ctx: CanvasRenderingContext2D,
+  stroke: BrushStroke,
+  transform: DrawAreaLayerItemTransform["transform"] | null,
 ) {
-  for (const [idx, stroke] of strokes.entries()) {
-    // const scale = Math.min(
-    //   canvas.width / stroke.canvasWidth,
-    //   canvas.height / stroke.canvasHeight,
-    // );
-    // ctx.scale(scale, scale);
-    drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform);
-    if (pairedStrokes[idx]) {
-      for (const pairedStroke of pairedStrokes[idx]) {
-        drawStrokeOntoTempCanvas(ctx, pairedStroke, artifactTransform);
-      }
-    }
-  }
-}
-
-function drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform) {
-  const transform = getCombinedTransformForStroke(
-    artifactTransform,
-    stroke.transform,
-  );
   if (transform) {
     ctx.setTransform(...transform);
   }
@@ -371,9 +356,11 @@ function drawStrokeOntoTempCanvas(ctx, stroke, artifactTransform) {
   ctx.lineCap = stroke.lineCap;
   let prevPoint = stroke.points[0];
   stroke.points.forEach((point) => {
-    ctx.moveTo(prevPoint[0], prevPoint[1]);
-    ctx.lineTo(point[0], point[1]);
-    prevPoint = point;
+    if (prevPoint) {
+      ctx.moveTo(prevPoint[0], prevPoint[1]);
+      ctx.lineTo(point[0], point[1]);
+      prevPoint = point;
+    }
   });
   ctx.stroke();
 }
@@ -393,7 +380,10 @@ export function drawStroke(
   ctx.stroke();
 }
 
-function drawResizeHandles(ctx, resizeHandles) {
+function drawResizeHandles(
+  ctx: CanvasRenderingContext2D,
+  resizeHandles: ResizeHandleCorners,
+) {
   ctx.globalAlpha = 1;
   ctx.fillStyle = "#4299e1"; // blue-500
 
@@ -432,8 +422,8 @@ export function getCombinedTransformForStroke(
 }
 
 export function getInverseTransform(
-  transform: DrawAreaLayerItem["transform"],
-): DrawAreaLayerItem["transform"] {
+  transform: DrawAreaLayerItemTransform["transform"],
+): DrawAreaLayerItemTransform["transform"] {
   // Inverse transform:
   // - Divide by scale instead of multiply
   // - Subtract translated position divided by scale

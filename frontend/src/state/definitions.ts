@@ -13,6 +13,7 @@ import {
 import {
   AllProjectMetadata,
   APIKeys,
+  BrushStroke,
   ChartDataType,
   ChatMetadata,
   createProjectConfig,
@@ -399,7 +400,7 @@ export const useDecodedImages = createWithEqualityFn(
   })),
 );
 
-export type ZustandBrushStrokes = { x: Record<string, HTMLImageElement> };
+export type ZustandBrushStrokes = { x: Record<string, BrushStroke> };
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({

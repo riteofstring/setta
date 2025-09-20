@@ -6,7 +6,7 @@ import {
   ArtifactTypeEnum,
   CanvasPoint,
   DrawAreaBrushShape,
-  DrawAreaLayerItem,
+  DrawAreaLayerItemTransform,
   DrawAreaMode,
   DrawAreaModeEnum,
 } from "utils/generatedTypes";
@@ -63,7 +63,9 @@ export function useDrawModeMouseHandlers(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   canvasTransferQueueLength: number,
   activeLayerIdx: number,
-  localArtifactTransformsRef: React.RefObject<DrawAreaLayerItem["transform"]>,
+  localArtifactTransformsRef: React.RefObject<
+    DrawAreaLayerItemTransform["transform"]
+  >,
   canvasMode: DrawAreaMode,
 ) {
   let onMouseDown: React.MouseEventHandler<HTMLCanvasElement>,

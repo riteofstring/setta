@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -54,11 +54,17 @@ class BrushStroke(BaseModel):
     ]
 
 
+class DrawAreaLayerItemTransform(BaseModel):
+    transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
+    eraserStrokes: list[BrushStroke] = Field(default_factory=list)
+
+
 class DrawAreaLayerItem(BaseModel):
     type: DrawAreaLayerItemType = DrawAreaLayerItemType.BrushStroke
     dataPath: str = ""
-    transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
-    eraserStrokes: Any
+    transform: DrawAreaLayerItemTransform = Field(
+        default_factory=DrawAreaLayerItemTransform
+    )
 
 
 class DrawAreaLayer(BaseModel):
