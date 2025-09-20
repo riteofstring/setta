@@ -9,12 +9,14 @@ import {
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import {
   BrushStroke,
+  BrushStrokeWithId,
   CanvasPoint,
   createBrushStroke,
   DrawAreaBrushShape,
   DrawAreaLayer,
   DrawAreaLayerItemTransform,
   DrawAreaLayerItemTypeEnum,
+  DrawAreaTransform,
   SectionSize,
 } from "utils/generatedTypes";
 import {
@@ -125,7 +127,7 @@ function getCtx(canvas: HTMLCanvasElement) {
 
 export function setGlobalBrushStrokeAndDrawLayer(
   layer: DrawAreaLayer,
-  stroke: BrushStroke,
+  stroke: BrushStrokeWithId,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvas: HTMLCanvasElement,
@@ -242,7 +244,11 @@ export function drawOneLayer(
         artifactTempCtx.setTransform(...transformInfo.transform);
         artifactTempCtx.drawImage(img, 0, 0, img.width, img.height);
         transformInfo.eraserStrokes.forEach((s) =>
-          drawStrokeOntoTempCanvas(artifactTempCtx, s, transformInfo.transform),
+          drawStrokeOntoTempCanvas(
+            artifactTempCtx,
+            s,
+            getCombinedTransformForStroke(transformInfo.transform, s.transform),
+          ),
         );
       }
     } else if (
@@ -262,7 +268,11 @@ export function drawOneLayer(
           transformInfo.transform,
         );
         transformInfo.eraserStrokes.forEach((s) =>
-          drawStrokeOntoTempCanvas(artifactTempCtx, s, transformInfo.transform),
+          drawStrokeOntoTempCanvas(
+            artifactTempCtx,
+            s,
+            getCombinedTransformForStroke(transformInfo.transform, s.transform),
+          ),
         );
       }
     } else {
@@ -340,7 +350,7 @@ export function startNewEraserStroke(
 function drawStrokeOntoTempCanvas(
   ctx: CanvasRenderingContext2D,
   stroke: BrushStroke,
-  transform: DrawAreaLayerItemTransform["transform"] | null,
+  transform: DrawAreaTransform | null,
 ) {
   if (transform) {
     ctx.setTransform(...transform);
@@ -395,19 +405,9 @@ function drawResizeHandles(
 }
 
 export function getCombinedTransformForStroke(
-  artifactTransform,
-  strokeTransform,
-) {
-  if (!artifactTransform && !strokeTransform) {
-    return null;
-  }
-  if (!strokeTransform) {
-    return artifactTransform;
-  }
-  if (!artifactTransform) {
-    return strokeTransform;
-  }
-
+  artifactTransform: DrawAreaTransform,
+  strokeTransform: DrawAreaTransform,
+): DrawAreaTransform {
   return [
     artifactTransform[0] * strokeTransform[0], // multiply scales
     0,
@@ -419,8 +419,8 @@ export function getCombinedTransformForStroke(
 }
 
 export function getInverseTransform(
-  transform: DrawAreaLayerItemTransform["transform"],
-): DrawAreaLayerItemTransform["transform"] {
+  transform: DrawAreaTransform,
+): DrawAreaTransform {
   // Inverse transform:
   // - Divide by scale instead of multiply
   // - Subtract translated position divided by scale

@@ -1356,6 +1356,17 @@ export const CanvasPointSchema = z.tuple([z.number(), z.number()]);
 
 export type CanvasPoint = z.infer<typeof CanvasPointSchema>;
 
+export const DrawAreaTransformSchema = z.tuple([
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+]);
+
+export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
+
 export const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
   xAxisColumn: z.union([z.string(), z.null()]).default(null),
@@ -6812,7 +6823,6 @@ export function createBaseSectionImpl(
 }
 
 export const BrushStrokeSchema = z.object({
-  id: z.string().default(create_new_id),
   strokeStyle: z.string(),
   lineWidth: z.number(),
   lineCap: z.enum(DrawAreaBrushShapeEnum),
@@ -6855,6 +6865,103 @@ export function createBrushStroke(
   return BrushStrokeSchema.parse(options);
 }
 
+export const BrushStrokeWithIdSchema = z.object({
+  strokeStyle: z.string(),
+  lineWidth: z.number(),
+  lineCap: z.enum(DrawAreaBrushShapeEnum),
+  points: z.array(z.tuple([z.number(), z.number()])),
+  globalCompositeOperation: z.literal([
+    "color",
+    "color-burn",
+    "color-dodge",
+    "copy",
+    "darken",
+    "destination-atop",
+    "destination-in",
+    "destination-out",
+    "destination-over",
+    "difference",
+    "exclusion",
+    "hard-light",
+    "hue",
+    "lighten",
+    "lighter",
+    "luminosity",
+    "multiply",
+    "overlay",
+    "saturation",
+    "screen",
+    "soft-light",
+    "source-atop",
+    "source-in",
+    "source-out",
+    "source-over",
+    "xor",
+  ]),
+  id: z.string().default(create_new_id),
+});
+
+export type BrushStrokeWithId = z.infer<typeof BrushStrokeWithIdSchema>;
+
+export function createBrushStrokeWithId(
+  options: Partial<BrushStrokeWithId> = {},
+): BrushStrokeWithId {
+  return BrushStrokeWithIdSchema.parse(options);
+}
+
+export const BrushStrokeWithTransformSchema = z.object({
+  strokeStyle: z.string(),
+  lineWidth: z.number(),
+  lineCap: z.enum(DrawAreaBrushShapeEnum),
+  points: z.array(z.tuple([z.number(), z.number()])),
+  globalCompositeOperation: z.literal([
+    "color",
+    "color-burn",
+    "color-dodge",
+    "copy",
+    "darken",
+    "destination-atop",
+    "destination-in",
+    "destination-out",
+    "destination-over",
+    "difference",
+    "exclusion",
+    "hard-light",
+    "hue",
+    "lighten",
+    "lighter",
+    "luminosity",
+    "multiply",
+    "overlay",
+    "saturation",
+    "screen",
+    "soft-light",
+    "source-atop",
+    "source-in",
+    "source-out",
+    "source-over",
+    "xor",
+  ]),
+  transform: z.tuple([
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+  ]),
+});
+
+export type BrushStrokeWithTransform = z.infer<
+  typeof BrushStrokeWithTransformSchema
+>;
+
+export function createBrushStrokeWithTransform(
+  options: Partial<BrushStrokeWithTransform> = {},
+): BrushStrokeWithTransform {
+  return BrushStrokeWithTransformSchema.parse(options);
+}
+
 export const DrawAreaLayerItemTransformSchema = z.object({
   transform: z
     .tuple([
@@ -6866,7 +6973,7 @@ export const DrawAreaLayerItemTransformSchema = z.object({
       z.number(),
     ])
     .default([1, 0, 0, 1, 0, 0]),
-  eraserStrokes: z.array(BrushStrokeSchema).default([]),
+  eraserStrokes: z.array(BrushStrokeWithTransformSchema).default([]),
 });
 
 export type DrawAreaLayerItemTransform = z.infer<

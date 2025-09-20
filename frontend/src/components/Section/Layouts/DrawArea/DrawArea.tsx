@@ -5,10 +5,11 @@ import { useProjectState } from "state/definitions";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
   BrushStroke,
+  BrushStrokeWithId,
   CanvasPoint,
-  DrawAreaLayerItemTransform,
   DrawAreaMode,
   DrawAreaModeEnum,
+  DrawAreaTransform,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
@@ -70,11 +71,11 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     layer: null,
     artifact: null,
   });
-  const strokeRef = useRef<BrushStroke>(null);
+  const strokeRef = useRef<BrushStrokeWithId>(null);
   const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
-  const localArtifactTransformsRef = useRef<
-    DrawAreaLayerItemTransform["transform"]
-  >([1, 0, 0, 1, 0, 0]);
+  const localArtifactTransformsRef = useRef<DrawAreaTransform>([
+    1, 0, 0, 1, 0, 0,
+  ]);
   const prevPointRef = useRef<CanvasPoint>(null);
   const isDrawing = useRef(false);
   const isDragging = useRef(false);

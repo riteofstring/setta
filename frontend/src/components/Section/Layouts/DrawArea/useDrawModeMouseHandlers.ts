@@ -13,10 +13,10 @@ import {
   CanvasPoint,
   DrawAreaBrushShape,
   DrawAreaLayer,
-  DrawAreaLayerItemTransform,
   DrawAreaLayerItemTypeEnum,
   DrawAreaMode,
   DrawAreaModeEnum,
+  DrawAreaTransform,
 } from "utils/generatedTypes";
 import {
   drawOneLayer,
@@ -72,9 +72,7 @@ export function useDrawModeMouseHandlers(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   canvasTransferQueueLength: number,
   activeLayerIdx: number,
-  localArtifactTransformsRef: React.RefObject<
-    DrawAreaLayerItemTransform["transform"]
-  >,
+  localArtifactTransformsRef: React.RefObject<DrawAreaTransform>,
   canvasMode: DrawAreaMode,
 ) {
   let onMouseDown: React.MouseEventHandler<HTMLCanvasElement>,

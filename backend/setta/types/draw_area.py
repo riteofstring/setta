@@ -7,6 +7,7 @@ from setta.database.utils import create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 CanvasPoint = tuple[float, float]
+DrawAreaTransform = tuple[float, float, float, float, float, float]
 
 
 class DrawAreaLayerItemType(str, Enum):
@@ -21,7 +22,6 @@ class DrawAreaBrushShape(str, Enum):
 
 
 class BrushStroke(BaseModel):
-    id: str = Field(default_factory=create_new_id)
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
@@ -56,9 +56,17 @@ class BrushStroke(BaseModel):
     ]
 
 
+class BrushStrokeWithId(BrushStroke):
+    id: str = Field(default_factory=create_new_id)
+
+
+class BrushStrokeWithTransform(BrushStroke):
+    transform: DrawAreaTransform
+
+
 class DrawAreaLayerItemTransform(BaseModel):
-    transform: tuple[float, float, float, float, float, float] = (1, 0, 0, 1, 0, 0)
-    eraserStrokes: list[BrushStroke] = Field(default_factory=list)
+    transform: DrawAreaTransform = (1, 0, 0, 1, 0, 0)
+    eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
 
 
 class DrawAreaLayerItem(BaseModel):
