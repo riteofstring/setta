@@ -6,7 +6,6 @@ from setta.types.generated.unions import BaseDictSectionImplUnion
 from setta.types.helpers import (
     get_variant_base_and_effective_section_impl,
 )
-
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateSingleConfig
 

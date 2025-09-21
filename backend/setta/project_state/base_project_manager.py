@@ -317,6 +317,7 @@ class BaseProjectManager(ABC):
         section_variant_ids: Iterable[str] | None = None,
     ):
         load_json_sources_into_data_structures(
+            self.dbe,
             self.settings_file.settings,
             self.project_state_backend,
             section_variant_ids,

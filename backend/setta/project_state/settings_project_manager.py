@@ -21,7 +21,7 @@ class SettingsProjectManager(BaseProjectManager):
     def load_initial_state(self):
         logger.debug("Loading settings project")
         p = self.settings_file.load_settings_project()
-        load_json_sources_into_data_structures(self.settings_file.settings, p)
+        load_json_sources_into_data_structures(self.dbe, self.settings_file.settings, p)
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):

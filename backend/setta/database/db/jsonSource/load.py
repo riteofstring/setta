@@ -1,9 +1,11 @@
 import json
 import logging
+from pathlib import Path
 from typing import Iterable
 
 from pydantic import BaseModel, Field
 
+from setta.database.db_objs import DBE
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeObjType,
@@ -54,6 +56,7 @@ class ProcessedJSONObject(BaseModel):
 
 
 def load_json_sources_into_data_structures(
+    dbe: DBE,
     settings: SettingsState,
     p: ProjectStateCore,
     section_variant_ids: Iterable[str] | None = None,
@@ -75,7 +78,7 @@ def load_json_sources_into_data_structures(
             ):
                 continue
             new_data, isMissing = load_json_source(
-                settings, variant.name, impl.jsonSourceKeys
+                dbe, settings, Path(variant.name), impl.jsonSourceKeys
             )
             impl = set_effective_impl_value(
                 base_impl,
@@ -224,14 +227,15 @@ def merge_into_existing(
     )
 
 
-def load_json_source(settings: SettingsState, filename: str, jsonSourceKeys: list[str]):
+def load_json_source(
+    dbe: DBE, settings: SettingsState, filename: Path, jsonSourceKeys: list[str]
+):
     jsonSourceData = {}
     isMissing = False
 
     try:
         logger.debug(f"Attempting to read {filename} with keys {jsonSourceKeys}")
-        with open(filename, "r") as f:
-            jsonSourceData = json.load(f)
+        jsonSourceData = dbe.read(filename)
     except json.JSONDecodeError:
         pass
     except FileNotFoundError:
