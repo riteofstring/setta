@@ -15,6 +15,7 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.lsp.managers import LSPWriters
+from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import Code
 from setta.project_state.history import History
 from setta.project_state.project_code import (
@@ -160,12 +161,14 @@ class BaseProjectManager(ABC):
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
+        artifacts: Artifacts,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
+        self.artifacts = artifacts
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
@@ -551,6 +554,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
             self.settings_file.settings,
+            self.artifacts,
             project_state,
             x.implType,
             x.position,
@@ -565,6 +569,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
+            self.artifacts,
             project_state,
             x.parentId,
             x.implType,
@@ -581,6 +586,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
+            self.artifacts,
             project_state,
             x.calledBy,
             x.implType,
@@ -594,6 +600,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
+            self.artifacts,
             project_state,
             SectionType.Terminal,
             Position(),
@@ -891,7 +898,7 @@ class BaseProjectManager(ABC):
     async def group_sections(self, x: GroupSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = group_sections(
-            self.settings_file.settings, project_state, x.sectionIds
+            self.settings_file.settings, self.artifacts, project_state, x.sectionIds
         )
         if not success:
             notification = SettaNotification(

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
 
 from setta.database.utils import create_new_id
+from setta.project_state.artifacts import Artifacts
 from setta.types.chart import ChartType
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
@@ -18,8 +19,10 @@ from setta.types.core import (
     get_default_section_core_name,
 )
 from setta.types.draw_area import (
+    BrushStrokeWithId,
     DrawAreaLayer,
     DrawAreaLayerItem,
+    DrawAreaLayerItemTransform,
     DrawAreaLayerItemType,
 )
 from setta.types.generated.chart_settings_unions import (
@@ -440,6 +443,7 @@ def set_project_config_name(
 
 def create_section(
     settings: SettingsState,
+    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
@@ -459,7 +463,7 @@ def create_section(
         default_core_args.update(core_overrides)
     core = Core(**default_core_args)
     if isinstance(impl, DrawSectionImpl):
-        init_draw_section_layer(impl)
+        init_draw_section_layer(impl, artifacts)
 
     p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
@@ -469,22 +473,36 @@ def create_section(
     return core.id
 
 
-def init_draw_section_layer(impl: DrawSectionImpl):
+def init_draw_section_layer(impl: DrawSectionImpl, artifacts: Artifacts):
+    transform = DrawAreaLayerItemTransform()
+    brushStroke = BrushStrokeWithId(
+        strokeStyle=hex_to_rgba(impl.brushColor, impl.brushOpacity),
+        lineWidth=impl.brushSize,
+        lineCap=impl.brushShape,
+    )
     layerItem = DrawAreaLayerItem(
         type=DrawAreaLayerItemType.BrushStroke,
+        dataPath=brushStroke.id,
+        transformId=transform.id,
     )
-    layer = DrawAreaLayer(elements=[])
+    layer = DrawAreaLayer(elements=[layerItem])
+    artifacts.drawAreaTransforms[transform.id] = transform
+    artifacts.brushStrokes[brushStroke.id] = brushStroke
+    impl.layers = [layer]
 
 
 def create_top_level_section(
     settings: SettingsState,
+    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     position: Position,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
 ):
-    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
+    sectionId = create_section(
+        settings, artifacts, p, impl_type, impl_overrides, core_overrides
+    )
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )
@@ -493,6 +511,7 @@ def create_top_level_section(
 
 def create_child_sections(
     settings: SettingsState,
+    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     parentId: str,
     impl_type: SectionType,
@@ -504,7 +523,7 @@ def create_child_sections(
     )
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
-        create_section(settings, p, impl_type, {"size": size})
+        create_section(settings, artifacts, p, impl_type, {"size": size})
         for _ in range(numChildren)
     ]
     if startIdx is None:
@@ -525,6 +544,7 @@ def create_child_sections(
 
 def create_child_sections_via_incrementer(
     settings: SettingsState,
+    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     calledBy: str,
     impl_type: SectionType,
@@ -542,7 +562,9 @@ def create_child_sections_via_incrementer(
             p, parentId, BaseParentSectionImpl
         )
         startIdx = parentImpl.children.index(calledBy) + 1
-    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
+    create_child_sections(
+        settings, artifacts, p, parentId, impl_type, numChildren, startIdx
+    )
 
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[str]):
@@ -790,6 +812,17 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
 def is_color_hex(string):
     pattern = r"^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$"
     return bool(re.match(pattern, string))
+
+
+def hex_to_rgba(hex_color: str, opacity: float) -> str:
+    # Remove # if present
+    hex_color = hex_color.replace("#", "")
+
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+
+    return f"rgba({r}, {g}, {b}, {opacity})"
 
 
 # use this if lambda function isn't sufficient for the type checker
@@ -1246,6 +1279,7 @@ def move_section_to_parent_section(
 
 def group_sections(
     settings: SettingsState,
+    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     sectionIds: list[str],
 ):
@@ -1262,14 +1296,14 @@ def group_sections(
         x = min(p.projectConfig.topLevelSections[s].x for s in sectionIds)
         y = min(p.projectConfig.topLevelSections[s].y for s in sectionIds)
         groupId = create_top_level_section(
-            settings, p, SectionType.Group, Position(x=x, y=y)
+            settings, artifacts, p, SectionType.Group, Position(x=x, y=y)
         )
     else:
         # create group in parent, at index min(idx)
         children = get_curr_section_children_ids(p, parentId)
         idx = min(children.index(s) for s in sectionIds)
         groupId = create_child_sections(
-            settings, p, parentId, SectionType.Group, 1, idx
+            settings, artifacts, p, parentId, SectionType.Group, 1, idx
         )
         groupId = groupId[0]
 

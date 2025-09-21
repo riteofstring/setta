@@ -25,7 +25,7 @@ class BrushStroke(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[CanvasPoint]
+    points: list[CanvasPoint] = Field(default_factory=list)
     globalCompositeOperation: Literal[
         "color",
         "color-burn",
@@ -53,7 +53,7 @@ class BrushStroke(BaseModel):
         "source-out",
         "source-over",
         "xor",
-    ]
+    ] = "source-over"
 
 
 class BrushStrokeWithId(BrushStroke):
@@ -65,6 +65,7 @@ class BrushStrokeWithTransform(BrushStroke):
 
 
 class DrawAreaLayerItemTransform(BaseModel):
+    id: str = Field(default_factory=create_new_id)
     transform: DrawAreaTransform = (1, 0, 0, 1, 0, 0)
     eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
 
@@ -89,5 +90,5 @@ class DrawAreaMode(str, Enum):
 
 
 ImageMapping = dict[str, str]
-BrushStrokeMapping = dict[str, BrushStroke]
+BrushStrokeMapping = dict[str, BrushStrokeWithId]
 DrawAreaTransformMapping = dict[str, DrawAreaLayerItemTransform]

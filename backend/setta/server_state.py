@@ -37,12 +37,14 @@ class SettaFastAPIState:
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.specific_file_watcher = SpecificFileWatcher()
+        self.artifacts = Artifacts()
         project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
+            self.artifacts,
         )
         settings_project_manager = SettingsProjectManager(
             self.lsp_writers,
@@ -50,6 +52,7 @@ class SettaFastAPIState:
             self.settings_file,
             self.specific_file_watcher,
             self.dbe,
+            self.artifacts,
         )
         self.project_manager_switcher = ProjectManagerSwitcher(
             project_manager, settings_project_manager
@@ -84,7 +87,6 @@ class SettaFastAPIState:
         self.chat_manager = ChatManager(
             self.dbe, self.mcp_client, self.wmh_frontend_sender
         )
-        self.artifacts = Artifacts()
 
         asyncio.create_task(self.mcp_client.connect_to_server())
         asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))
