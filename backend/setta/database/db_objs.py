@@ -28,7 +28,7 @@ class DBE:
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
 
-    def read(self, path: Path):
+    def read_json(self, path: Path):
         if not path.exists():
             return {}
 
@@ -37,7 +37,7 @@ class DBE:
             with open(path, "r") as f:
                 return json.load(f)
 
-    def write(self, path: Path, data: Any):
+    def write_json(self, path: Path, data: Any):
         lock = self.get_file_lock(path)
 
         with lock:
@@ -78,18 +78,18 @@ class DBE:
             Path(tmp_path).replace(path)
 
     def read_project(self):
-        return ProjectStateBackend.model_validate(self.read(self.project))
+        return ProjectStateBackend.model_validate(self.read_json(self.project))
 
     def write_project(self, project: ProjectStateBackend):
-        self.write(self.project, project.model_dump())
+        self.write_json(self.project, project.model_dump())
 
     def read_uuid_mapping(self):
-        uuid_to_id: UUIDToIDForLLM = self.read(self.uuid_mapping)
+        uuid_to_id: UUIDToIDForLLM = self.read_json(self.uuid_mapping)
         id_to_uuid: IDToUUIDForLLM = {v: k for k, v in uuid_to_id.items()}
         return id_to_uuid, uuid_to_id
 
     def write_uuid_mapping(self, uuid_to_id: UUIDToIDForLLM):
-        self.write(self.uuid_mapping, uuid_to_id)
+        self.write_json(self.uuid_mapping, uuid_to_id)
 
     def read_notifications(self, projectConfigId: str | None = None):
         data = self.read_jsonl(self.notifications)
@@ -108,13 +108,15 @@ class DBE:
         self.write_notifications(filtered)
 
     def read_settings(self):
-        return SettingsState.model_validate(self.read(self.settings))
+        return SettingsState.model_validate(self.read_json(self.settings))
 
     def write_settings(self, settings: SettingsState):
-        self.write(self.settings, settings.model_dump())
+        self.write_json(self.settings, settings.model_dump())
 
     def read_settings_project(self):
-        return ProjectStateSingleConfig.model_validate(self.read(self.settings_project))
+        return ProjectStateSingleConfig.model_validate(
+            self.read_json(self.settings_project)
+        )
 
     def write_settings_project(self, settings_project: ProjectStateSingleConfig):
-        self.write(self.settings_project, settings_project.model_dump())
+        self.write_json(self.settings_project, settings_project.model_dump())

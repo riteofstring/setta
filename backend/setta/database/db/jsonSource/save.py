@@ -51,7 +51,7 @@ def save_json_source_data(
 
     # Save each file
     for filename, data in to_be_saved.items():
-        dbe.write(filename, data)
+        dbe.write_json(filename, data)
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

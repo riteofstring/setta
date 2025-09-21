@@ -36,7 +36,7 @@ class SettingsFile:
             )
 
         for filename, data in to_be_saved.items():
-            self.dbe.write(filename, data)
+            self.dbe.write_json(filename, data)
         await self.load_and_broadcast_settings()
 
     def load_settings(self) -> SettingsState:
@@ -44,7 +44,7 @@ class SettingsFile:
         paths = self.get_settings_paths()
         output = {}
         for settings_slice, path in paths.items():
-            output[settings_slice] = self.dbe.read(path)[settings_slice]
+            output[settings_slice] = self.dbe.read_json(path)[settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings
@@ -59,7 +59,7 @@ class SettingsFile:
         for k in SettingsState.model_fields.keys():
             path = self.find_path_for_settings_slice(p, k)
             if not path.exists():
-                self.dbe.write(path, SettingsState().model_dump())
+                self.dbe.write_json(path, SettingsState().model_dump())
             settings_slice_to_path[k] = path
         return settings_slice_to_path
 

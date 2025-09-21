@@ -235,7 +235,7 @@ def load_json_source(
 
     try:
         logger.debug(f"Attempting to read {filename} with keys {jsonSourceKeys}")
-        jsonSourceData = dbe.read(filename)
+        jsonSourceData = dbe.read_json(filename)
     except json.JSONDecodeError:
         pass
     except FileNotFoundError:
