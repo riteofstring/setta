@@ -1,3 +1,7 @@
+from setta.database.db.jsonSource.save import (
+    remove_json_source_values,
+    save_json_source_data,
+)
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
@@ -16,7 +20,10 @@ class ProjectManager(BaseProjectManager):
         return self.dbe.read_project()
 
     def save(self):
-        save(self.settings_file.settings, self.dbe, self.project_state_backend)
+        p = self.project_state_backend.model_copy(deep=True)
+        save_json_source_data(self.dbe, p)
+        remove_json_source_values(p)
+        save(self.settings_file.settings, self.dbe, p)
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         if x.withRefs:

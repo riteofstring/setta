@@ -14,11 +14,11 @@ from setta.types.helpers import (
     get_variant_effective_section_impl,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateCore
 
 
 def save_json_source_data(
-    dbe: DBE, p: ProjectStateSingleConfig, section_variant_ids: list[str] | None = None
+    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
 ):
     to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
@@ -70,7 +70,7 @@ def add_key_path_to_dict(output: dict, key_path: list[str]):
     return output
 
 
-def remove_json_source_values(p: ProjectStateSingleConfig):
+def remove_json_source_values(p: ProjectStateCore):
     for section in p.sections.values():
         for variant_id in section.variants:
             impl = get_variant_effective_section_impl(p, section.id, variant_id)
