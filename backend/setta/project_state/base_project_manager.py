@@ -357,6 +357,7 @@ class BaseProjectManager(ABC):
         projectConfigName = projectConfig.name
         project_temp_folder = self.temp_folder / projectConfigName
         new_gen_code = ProjectGenPythonCode(
+            self.dbe,
             project_temp_folder,
             self.lsp_writers,
             self.websocket_msg_handler,
@@ -669,6 +670,7 @@ class BaseProjectManager(ABC):
         codeLanguage = section_impl.codeLanguage
         if codeLanguage == CodeLanguage.python:
             return ProjectPythonCode(
+                self.dbe,
                 project_temp_folder,
                 self.lsp_writers,
                 self.websocket_msg_handler,
@@ -676,7 +678,9 @@ class BaseProjectManager(ABC):
                 sectionId,
             )
         elif codeLanguage == CodeLanguage.bash:
-            return ProjectBashCode(project_temp_folder, project_state, sectionId)
+            return ProjectBashCode(
+                self.dbe, project_temp_folder, project_state, sectionId
+            )
         return None
 
     async def maybe_do_rename_refactor(

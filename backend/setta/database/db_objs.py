@@ -28,26 +28,34 @@ class DBE:
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
 
-    def read_json(self, path: Path):
+    def read(self, path: Path):
         if not path.exists():
-            return {}
-
+            return None
         lock = self.get_file_lock(path)
         with lock:
             with open(path, "r") as f:
-                return json.load(f)
+                return f.read()
 
-    def write_json(self, path: Path, data: Any):
+    def write(self, path: Path, data):
         lock = self.get_file_lock(path)
 
         with lock:
             with tempfile.NamedTemporaryFile(
                 mode="w", dir=path.parent, delete=False, suffix=".tmp"
             ) as tmp:
-                json.dump(data, tmp, indent=2, sort_keys=True)
+                tmp.write(data)
                 tmp_path = tmp.name
 
             Path(tmp_path).replace(path)
+
+    def read_json(self, path: Path):
+        x = self.read(path)
+        if x is None:
+            return {}
+        return json.loads(x)
+
+    def write_json(self, path: Path, data: Any):
+        self.write(path, json.dumps(data, indent=2, sort_keys=True))
 
     def read_jsonl(self, path: Path) -> list[dict]:
         if not path.exists():

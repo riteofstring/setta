@@ -55,6 +55,7 @@ from setta.types.section_impls import (
 class ProjectGenPythonCode(PythonCode):
     def __init__(
         self,
+        dbe,
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
@@ -62,7 +63,7 @@ class ProjectGenPythonCode(PythonCode):
         dep_graph: DependencyGraph,
         code_generator: PythonCodeGenerator,
     ):
-        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
         # with open("test_project_state.json", "w") as f:
         # json.dump(project_state, f)
         self.project_config_id = project_config_id
@@ -284,13 +285,14 @@ class ProjectGenPythonCode(PythonCode):
 class ProjectPythonCode(PythonCode):
     def __init__(
         self,
+        dbe,
         temp_folder,
         lsp_writers,
         websocket_msg_handler,
         project_state: ProjectStateSingleConfig,
         sectionId,
     ):
-        super().__init__(temp_folder, lsp_writers, websocket_msg_handler)
+        super().__init__(dbe, temp_folder, lsp_writers, websocket_msg_handler)
         self.section_path_full_name = get_section_path_full_name(
             project_state, sectionId
         )
@@ -334,8 +336,10 @@ class ProjectPythonCode(PythonCode):
 
 
 class ProjectBashCode(BashCode):
-    def __init__(self, temp_folder, project_state: ProjectStateSingleConfig, sectionId):
-        super().__init__(temp_folder)
+    def __init__(
+        self, dbe, temp_folder, project_state: ProjectStateSingleConfig, sectionId
+    ):
+        super().__init__(dbe, temp_folder)
         self.section_path_full_name = get_section_path_full_name(
             project_state, sectionId
         )
