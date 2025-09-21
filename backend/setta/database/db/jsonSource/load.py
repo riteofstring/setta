@@ -203,13 +203,14 @@ def merge_into_existing(
         else:
             raise TypeError
 
+    to_delete_from_code_obj_variant_map: set[str] = set()
     for metadataString, id in jsonSourceMetadata_to_id.items():
         newId = new_jsonSourceMetadata_to_id.get(metadataString)
         if not newId:
             variantId = section_impl.codeObjVariantMap[id]
             variant = p.codeObjVariants[variantId]
             impl = p.codeObjImpls[variant.impl]
-            del section_impl.codeObjVariantMap[id]
+            to_delete_from_code_obj_variant_map.add(id)
             del p.codeObjs[id]
             del p.codeObjImpls[impl.id]
             del p.codeObjVariants[variantId]
@@ -222,7 +223,12 @@ def merge_into_existing(
             topLevelParamIds=[
                 replacements[c][0] if c in replacements else c
                 for c in new_data.sectionImpl.topLevelParamIds
-            ]
+            ],
+            codeObjVariantMap=lambda curr: {
+                k: v
+                for k, v in curr.items()
+                if k not in to_delete_from_code_obj_variant_map
+            },
         ),
     )
 

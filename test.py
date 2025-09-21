@@ -1,67 +1,22 @@
-# import json
-
-# import yaml
-# from setta.types.helpers import get_variant_base_and_effective_section_impl
-# from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
-# from setta.types.project_state import ProjectStateSingleConfig
-# from setta.types.section_impls import BaseDictSectionImpl
-
-# with open("setta_files/setta-settings-project.json", "r") as f:
-#     p = ProjectStateSingleConfig.model_validate(json.load(f))
-
-# unpinned_dict = {}
-
-# for s in p.sections.values():
-#     for v in s.variants:
-#         _, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
-#         if not isinstance(impl, BaseDictSectionImpl):
-#             continue
-#         hierarchy = traverse_hierarchy(
-#             p.codeObjs,
-#             p.codeObjImpls,
-#             p.codeObjVariants,
-#             impl.codeObjVariantMap,
-#             impl.topLevelParamIds,
-#             TraversalOptions(
-#                 build_name_paths=True,
-#                 build_nested_dict=True,
-#                 nested_dict_keys_prefix=impl.jsonSourceKeys,
-#             ),
-#         )
-#         print(yaml.dump(hierarchy.nested_dict))
-
-# # pprint(unpinned_dict)
-
-
 from pathlib import Path
+from pprint import pprint
+from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
+from setta.database.db_objs import DBE
+from setta.types.generated.settings_state import SettingsState
+from setta.types.project_state import ProjectStateBackend
+from setta.types.section_impls import DictSectionImpl
 
 
-def list_directory_contents_pathlib(folder_path):
-    """
-    Lists all files and subfolders using pathlib.
+dbe = DBE(Path("setta_files"))
+p = dbe.read_project()
+settings_state = SettingsState()
+dbe.write_json(Path("test.json"), {"dog": 5, "cat": 7})
+load_json_sources_into_data_structures(dbe, settings_state, p)
 
-    Args:
-        folder_path (str): Path to the folder to list contents of
+print("*"*50)
+pprint(p.model_dump())
 
-    Returns:
-        list: A list of dictionaries with 'name' and 'type' keys
-    """
-    path = Path(folder_path)
-
-    # Check if path exists and is a directory
-    if not path.exists():
-        raise FileNotFoundError(f"Path does not exist: {folder_path}")
-    if not path.is_dir():
-        raise NotADirectoryError(f"Path is not a directory: {folder_path}")
-
-    contents = []
-
-    for item in path.iterdir():
-        contents.append(
-            {"name": item.name, "type": "folder" if item.is_dir() else "file"}
-        )
-
-    return contents
-
-
-print(list_directory_contents_pathlib("/Users/kevin/Downloads"))
+dbe.write_json(Path("test.json"), {"dog": 5})
+load_json_sources_into_data_structures(dbe, settings_state, p)
+print("*"*50)
+pprint(p.model_dump())
