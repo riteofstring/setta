@@ -1,7 +1,7 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import {
   useArtifacts,
-  useArtifactTransform,
+  useDrawAreaLayerItemTransform,
   useBrushStrokes,
   useDecodedImages,
 } from "state/definitions";
@@ -325,7 +325,7 @@ function drawingOnMouseUp(
       if (!layer) {
         return;
       }
-      useArtifactTransform.setState((state) => {
+      useDrawAreaLayerItemTransform.setState((state) => {
         if (!eraserStrokeRef.current) {
           return;
         }

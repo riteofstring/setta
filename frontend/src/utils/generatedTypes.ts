@@ -5294,14 +5294,29 @@ export function createWebsocketMsgAllProjectMetadata(
   return WebsocketMsgAllProjectMetadataSchema.parse(options);
 }
 
-export const WebsocketMsgUpdateArtifactsSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: z.union([
+export const UpdateArtifactMsgContentSchema = z.object({
+  artifact: z.union([
     ImageArtifactSchema,
     BrushStrokeArtifactSchema,
     DrawAreaLayerItemTransformArtifactSchema,
     ChartDataArtifactSchema,
   ]),
+  updateType: z.literal(["update", "delete"]),
+});
+
+export type UpdateArtifactMsgContent = z.infer<
+  typeof UpdateArtifactMsgContentSchema
+>;
+
+export function createUpdateArtifactMsgContent(
+  options: Partial<UpdateArtifactMsgContent> = {},
+): UpdateArtifactMsgContent {
+  return UpdateArtifactMsgContentSchema.parse(options);
+}
+
+export const WebsocketMsgUpdateArtifactsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: UpdateArtifactMsgContentSchema,
   messageType: z
     .literal("UpdateArtifacts")
     .default(WebsocketMsgTypeForFrontendEnum.UpdateArtifacts),

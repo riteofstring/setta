@@ -1,6 +1,6 @@
 import _ from "lodash";
 import {
-  useArtifactTransform,
+  useDrawAreaLayerItemTransform,
   useBrushStrokes,
   useDecodedImages,
   useProjectState,
@@ -230,7 +230,7 @@ export function drawOneLayer(
 
   const images = useDecodedImages.getState().x;
   const brushStrokes = useBrushStrokes.getState().x;
-  const transforms = useArtifactTransform.getState().x;
+  const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
   for (const [idx, e] of layer.elements.entries()) {

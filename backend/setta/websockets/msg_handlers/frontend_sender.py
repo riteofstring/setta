@@ -1,9 +1,12 @@
+from typing import Literal
+
 from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.types.ai import IDToUUIDForLLM
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import BaseArtifactUnion
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -14,6 +17,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.websocket import (
+    UpdateArtifactMsgContent,
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
     WebsocketMsgLLMStreamingResponse,
@@ -21,6 +25,7 @@ from setta.types.websocket import (
     WebsocketMsgNotification,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
+    WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
     WebsocketMsgUUIDMappingForLLM,
@@ -35,11 +40,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    # async def broadcast_artifact(self, artifact: Artifact):
-    #     await self.websocket_manager.broadcast(
-    #         message=WebsocketMsgArtifact(content=artifact),
-    #         connectionType=WebsocketConnectionType.FRONTEND,
-    #     )
+    async def broadcast_artifact_update(
+        self, artifact: BaseArtifactUnion, updateType: Literal["update", "delete"]
+    ):
+        await self.websocket_manager.broadcast(
+            message=WebsocketMsgUpdateArtifacts(
+                content=UpdateArtifactMsgContent(
+                    artifact=artifact, updateType=updateType
+                )
+            ),
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
 
     async def send_streaming_response(
         self,

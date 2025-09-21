@@ -402,7 +402,7 @@ export const useDecodedImages = createWithEqualityFn(
   })),
 );
 
-export type ZustandBrushStrokes = { x: BrushStrokeMapping };
+type ZustandBrushStrokes = { x: BrushStrokeMapping };
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({
@@ -410,13 +410,13 @@ export const useBrushStrokes = createWithEqualityFn(
   })),
 );
 
-export type ZustandArtifactTransform = {
+type ZustandDrawAreaLayerItemTransform = {
   x: DrawAreaLayerItemTransformMapping;
 };
 
-export const useArtifactTransform = createWithEqualityFn(
+export const useDrawAreaLayerItemTransform = createWithEqualityFn(
   immer(
-    withResetFn<ZustandArtifactTransform>(() => ({
+    withResetFn<ZustandDrawAreaLayerItemTransform>(() => ({
       x: {},
     })),
   ),

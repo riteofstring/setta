@@ -2,7 +2,7 @@ import React from "react";
 import { useLoadedImageArtifact } from "state/hooks/artifacts";
 
 function _ImageArea({ sectionId }: { sectionId: string }) {
-  const imageSrc = useLoadedImageArtifact(sectionId);
+  const imageArtifact = useLoadedImageArtifact(sectionId);
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
   //   sectionId,
   //   false,
@@ -14,8 +14,8 @@ function _ImageArea({ sectionId }: { sectionId: string }) {
       className={`section-w-full section-row-main flex overflow-clip px-3 pb-1 pt-1 ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       // {...getRootProps()}
     >
-      {!!imageSrc && (
-        <ImageAreaCore sectionId={sectionId} imageSrc={imageSrc} />
+      {!!imageArtifact && (
+        <ImageAreaCore sectionId={sectionId} imageSrc={imageArtifact.value} />
       )}
     </figure>
   );

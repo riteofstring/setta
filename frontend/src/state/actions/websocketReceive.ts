@@ -23,6 +23,7 @@ import {
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
+import { updateArtifacts } from "./artifacts";
 import { updateInteractiveDependencies } from "./interactive";
 import { processRenameRefactorResults } from "./referenceRenaming";
 import {
@@ -128,7 +129,7 @@ function receiveMessage(message: string) {
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);
     case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
-      return null;
+      return updateArtifacts(m.content);
     default:
       return m satisfies never;
   }

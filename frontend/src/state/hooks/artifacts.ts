@@ -1,7 +1,4 @@
-import {
-  base64StrToImgSrc,
-  base64ToImageObj,
-} from "components/Section/Layouts/DrawArea/base64Conversion";
+import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
@@ -27,18 +24,6 @@ import {
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-async function loadImage(imagePath: string) {
-  const res = await route_load_image_artifacts({ imagePaths: [imagePath] });
-  if (res200(res)) {
-    if (res.data[0]) {
-      const imageSrc = base64StrToImgSrc(res.data[0]);
-      useImages.setState((state) => ({
-        x: { ...state.x, [imagePath]: imageSrc },
-      }));
-    }
-  }
-}
-
 export function useLoadedImageArtifact(sectionId: string) {
   const imagePath = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -49,15 +34,7 @@ export function useLoadedImageArtifact(sectionId: string) {
     return impl.imagePath;
   });
 
-  const image = useImages((x) => x.x[imagePath]);
-
-  useEffect(() => {
-    if (!image && imagePath) {
-      loadImage(imagePath);
-    }
-  }, [!!image]);
-
-  return image;
+  return useImages((x) => x.x[imagePath]);
 }
 
 async function loadChartData(dataPath: string) {

@@ -72,6 +72,11 @@ class BackendWebsocketMsg(WebsocketMsg):
     pass
 
 
+class UpdateArtifactMsgContent(BaseModel):
+    artifact: BaseArtifactUnionWithDiscriminator
+    updateType: Literal["update", "delete"]
+
+
 class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
@@ -157,7 +162,7 @@ class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
 
 
 class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
-    content: BaseArtifactUnionWithDiscriminator
+    content: UpdateArtifactMsgContent
     messageType: Literal[WebsocketMsgTypeForFrontend.UpdateArtifacts] = (
         WebsocketMsgTypeForFrontend.UpdateArtifacts
     )
