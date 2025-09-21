@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -24,7 +25,9 @@ class DBE:
     def get_file_lock(self, path):
         locks_dir = self.path / "file_locks"
         locks_dir.mkdir(exist_ok=True)
-        lock_filename = f"{path.name}.lock"
+        # Create a hash to avoid name conflicts
+        path_hash = hashlib.md5(str(path.absolute()).encode()).hexdigest()[:8]
+        lock_filename = f"{path.name}_{path_hash}.lock"
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
 
