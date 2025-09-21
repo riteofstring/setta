@@ -11,13 +11,13 @@ from setta.database.db.jsonSource.load import load_json_sources_into_data_struct
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
-    FileWatcherCallback,
     SpecificFileWatcher,
 )
 from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import Code
 from setta.project_state.history import History
+from setta.project_state.jsonSource import JSONSource
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -100,8 +100,6 @@ from setta.types.helpers import (
     delete_section_variant_or_ask,
     delete_sections,
     get_curr_effective_section_impl,
-    get_json_source_files_to_watch,
-    get_variants_for_json_source_update,
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
@@ -147,7 +145,6 @@ from setta.types.project_state import (
 from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
-from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -162,6 +159,7 @@ class BaseProjectManager(ABC):
         specific_file_watcher: SpecificFileWatcher,
         dbe: DBE,
         artifacts: Artifacts,
+        json_source: JSONSource,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -169,6 +167,7 @@ class BaseProjectManager(ABC):
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self.artifacts = artifacts
+        self.json_source = json_source
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
@@ -184,7 +183,6 @@ class BaseProjectManager(ABC):
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
-        self.json_source_mapping: dict[Path, list[str]] = {}
         self.watch_json_source_files()
         self.watch_artifacts()
 
@@ -999,6 +997,9 @@ class BaseProjectManager(ABC):
     def project_state_backend(self, x: ProjectStateBackend):
         self.history.set_current(x)
 
+    def project_state_backend_getter_fn(self):
+        return self.project_state_backend
+
     def add_new_history_entry(self, trigger_autosave=True):
         self.history.add_current_copy()
         if trigger_autosave:
@@ -1056,40 +1057,14 @@ class BaseProjectManager(ABC):
         pass
 
     def watch_json_source_files(self):
-        filename_set, new_json_source_mapping = get_json_source_files_to_watch(
-            self.project_state_backend
+        self.json_source.watch_json_source_files(
+            self.load_json_sources, self.project_state_backend_getter_fn
         )
-        callbacks = {
-            k: self.get_json_source_file_watcher_callback() for k in filename_set
-        }
-        fire_immediately: list[Path] = []
-        for k, v in new_json_source_mapping.items():
-            if self.json_source_mapping.get(k) != v:
-                fire_immediately.append(k)
-
-        self.json_source_mapping = new_json_source_mapping
-        self.specific_file_watcher.update_callbacks(
-            callbacks, self.__class__.__name__, fire_immediately
-        )
-
-    def get_json_source_file_watcher_callback(self) -> FileWatcherCallback:
-        async def fn(coreUpdate: FileWatcherCoreUpdate):
-            variantsToLoad = get_variants_for_json_source_update(
-                self.project_state_backend, coreUpdate
-            )
-            if len(variantsToLoad) > 0:
-                await self.load_json_sources(variantsToLoad)
-                notification = SettaNotification(
-                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
-                )
-                await self.websocket_msg_handler.broadcast_notification(notification)
-
-        return fn
 
     def watch_artifacts(self):
+        pass
         # get artifact paths to watch
         # self.artifacts.watch_artifacts(list_of_paths)
-        pass
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {

@@ -37,7 +37,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # startup
     app.state.setta = SettaFastAPIState(app)
 
     if not is_dev_mode():

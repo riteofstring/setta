@@ -80,9 +80,11 @@ from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
     CallableSectionImpl,
+    ChartSectionImpl,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
+    ImageSectionImpl,
     ListRootSectionImpl,
     SectionSize,
     SectionType,
@@ -92,7 +94,6 @@ from setta.types.section_impls import (
     TextBlockSectionImpl,
 )
 from setta.types.simplified_states import Position
-from setta.types.specific_file_watcher import FileWatcherCoreUpdate
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.utils import insert_into_array, move_item_in_array
 
@@ -146,7 +147,7 @@ def get_curr_effective_section_impl_with_type_guard(
 
 
 def get_variant_effective_section_impl(
-    p: "ProjectStateSingleConfig", sectionId: str, variantId: str
+    p: "ProjectStateCore", sectionId: str, variantId: str
 ):
     variant = p.sectionVariants[variantId]
     impl = p.sectionImpls[variant.impl]
@@ -954,41 +955,27 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
     )
 
 
-def get_json_source_files_to_watch(p: "ProjectStateBackend"):
+def get_artifact_files_to_watch(p: "ProjectStateBackend"):
     filename_set: set[Path] = set()
-    json_source_mapping: dict[Path, list[str]] = defaultdict(list)
+    artifact_to_section_mapping: dict[Path, list[str]] = defaultdict(list)
     for s in p.sections.values():
         for v in s.variants:
-            variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
-            if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                filepath = Path(variant.name).resolve()
-                filename_set.add(filepath)
-                json_source_mapping[filepath].append(s.id)
-    return filename_set, json_source_mapping
+            impl = get_variant_effective_section_impl(p, s.id, v)
+            currPaths: set[Path] = set()
+            if isinstance(impl, ImageSectionImpl):
+                currPaths.add(Path(impl.imagePath))
+            elif isinstance(impl, DrawSectionImpl):
+                for layer in impl.layers:
+                    for el in layer.elements:
+                        currPaths.add(Path(el.dataPath))
+            elif isinstance(impl, ChartSectionImpl):
+                currPaths.add(Path(impl.dataPath))
+            if len(currPaths) > 0:
+                filename_set.update(currPaths)
+                for curr in currPaths:
+                    artifact_to_section_mapping[curr].append(s.id)
 
-
-def get_variants_for_json_source_update(
-    p: "ProjectStateCore", coreUpdate: FileWatcherCoreUpdate
-):
-    variantsToLoad: set[str] = set()
-    processed = set()
-    for section in p.sections.values():
-        for variant_id in section.variants:
-            if variant_id in variantsToLoad:
-                continue
-            processed.add(variant_id)
-            variant, _, impl = get_variant_base_and_effective_section_impl(
-                p, section, variant_id
-            )
-            if (
-                not isinstance(impl, BaseDictSectionImpl)
-                or not impl.isJsonSource
-                or variant.name != str(coreUpdate.relPath)
-            ):
-                continue
-
-            variantsToLoad.add(variant_id)
-    return variantsToLoad
+    return filename_set, artifact_to_section_mapping
 
 
 def delete_section_variant_or_ask(
