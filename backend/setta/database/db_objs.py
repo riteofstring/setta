@@ -22,7 +22,11 @@ class DBE:
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
-        return FileLock(f"{path}.lock", timeout=10)
+        locks_dir = self.path / "file_locks"
+        locks_dir.mkdir(exist_ok=True)
+        lock_filename = f"{path.name}.lock"
+        lock_path = locks_dir / lock_filename
+        return FileLock(lock_path, timeout=10)
 
     def read(self, path: Path):
         if not path.exists():
