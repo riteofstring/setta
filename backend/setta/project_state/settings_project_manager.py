@@ -1,7 +1,6 @@
 import logging
 from typing import Iterable
 
-from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
@@ -24,7 +23,6 @@ class SettingsProjectManager(BaseProjectManager):
     def load_initial_state(self):
         logger.debug("Loading settings project")
         p = self.settings_file.load_settings_project()
-        load_json_sources_into_data_structures(self.dbe, self.settings_file.settings, p)
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
     def save(self):

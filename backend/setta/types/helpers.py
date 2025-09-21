@@ -953,7 +953,7 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
     )
 
 
-def get_json_source_files_to_watch(p: "ProjectStateSingleConfig"):
+def get_json_source_files_to_watch(p: "ProjectStateBackend"):
     filename_set = set()
     for s in p.sections.values():
         for v in s.variants:
@@ -1167,13 +1167,13 @@ def set_social_url(p: "ProjectStateSingleConfig", sectionId: str, url: str):
     )
 
 
-async def set_image_area_image_path(
+def set_image_area_image_path(
     artifacts: Artifacts, p: "ProjectStateSingleConfig", sectionId: str, imagePath: str
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
     )
-    await artifacts.load_image(imagePath)
+    artifacts.load_image(imagePath)
 
 
 def set_chart_area_data_path(

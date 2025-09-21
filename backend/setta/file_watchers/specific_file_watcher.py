@@ -2,11 +2,10 @@ import asyncio
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
-from watchdog.observers.api import ObservedWatch
 
 from setta.types.specific_file_watcher import (
     FileEventType,
@@ -15,11 +14,15 @@ from setta.types.specific_file_watcher import (
 from setta.utils.constants import CWD
 from setta.utils.utils import ensure_str_path
 
+if TYPE_CHECKING:
+    from watchdog.observers.api import ObservedWatch
+
 logger = logging.getLogger(__name__)
 
 
 FileWatcherCallback = Callable[[FileWatcherCoreUpdate], Coroutine[Any, Any, None]]
 CallbacksDict = dict[Path, list[FileWatcherCallback]]
+CallbackCategoryToCallbacksDict = dict[str, dict[Path, list[FileWatcherCallback]]]
 
 
 class MockFileEvent:
@@ -32,8 +35,8 @@ class MockFileEvent:
 class SpecificFileWatcher:
     def __init__(self):
         self.observer = Observer()
-        self.watched_dirs: dict[Path, ObservedWatch] = {}
-        self.callbacks: CallbacksDict = defaultdict(list)
+        self.watched_dirs: dict[Path, "ObservedWatch"] = {}
+        self.callbacks: CallbackCategoryToCallbacksDict = defaultdict(dict)
         self.file_to_patterns: dict[Path, set[str]] = {}
         self.handler = SpecificFileEventHandler(
             asyncio.get_event_loop(),
@@ -48,10 +51,12 @@ class SpecificFileWatcher:
     def update_callbacks(
         self,
         callbacks: CallbacksDict,
-        fire_immediately: bool = True,
+        callbackCategory: str,
+        fire_immediately: bool = False,
     ):
-        self.callbacks.clear()
-        self.callbacks.update(callbacks)
+        print("\n\n\ncallbackCategory", callbackCategory)
+        self.callbacks[callbackCategory].clear()
+        self.callbacks[callbackCategory].update(callbacks)
 
         # Get all unique parent directories of the files we need to watch
         dirs_to_watch = set()
@@ -81,19 +86,17 @@ class SpecificFileWatcher:
 
     def start(self):
         self.observer.start()
-        self.started = True
 
     def stop(self):
         self.observer.stop()
         self.observer.join()
-        self.started = False
 
 
 class SpecificFileEventHandler(FileSystemEventHandler):
     def __init__(
         self,
         loop: asyncio.AbstractEventLoop,
-        callbacks: CallbacksDict,
+        callbacks: CallbackCategoryToCallbacksDict,
         file_to_patterns: dict[Path, set[str]],
     ):
         self.loop = loop
@@ -147,13 +150,12 @@ class SpecificFileEventHandler(FileSystemEventHandler):
             except ValueError:
                 dest_rel_path = dest_abs_path
 
-        if dest_abs_path:
-            handlers = self.callbacks[dest_abs_path]
-            file_to_read = dest_abs_path
-        else:
-            handlers = self.callbacks[abs_path]
-            file_to_read = abs_path
+        handlers: list[FileWatcherCallback] = []
+        file_to_read = dest_abs_path if dest_abs_path else abs_path
+        for callbacks in self.callbacks.values():
+            handlers.extend(callbacks.get(file_to_read, []))
 
+        print("\n\n\n", handlers)
         if len(handlers) == 0:
             return
 

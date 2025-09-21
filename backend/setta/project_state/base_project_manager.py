@@ -184,6 +184,7 @@ class BaseProjectManager(ABC):
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
+        self.watch_json_source_files(fireImmediately=True)
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -338,7 +339,7 @@ class BaseProjectManager(ABC):
         self,
         projectState: ProjectStateSingleConfig,
         messageId: str | None = None,
-        updateFileWatcher: bool = True,
+        updateFileWatcher=True,
     ):
         projectState.validate_singleton_sections()
         projectState.validate_parent_section_map()
@@ -396,7 +397,7 @@ class BaseProjectManager(ABC):
         self.delete_unused_files(project_temp_folder)
         self.project_state_backend = self.get_new_project_state_backend(projectState)
         if updateFileWatcher:
-            self.maybe_watch_json_source_files(projectState)
+            self.watch_json_source_files()
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
@@ -871,7 +872,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        await set_image_area_image_path(
+        set_image_area_image_path(
             self.artifacts, project_state, x.sectionId, x.imagePath
         )
         await self.update_and_broadcast_project_state(project_state)
@@ -1052,13 +1053,15 @@ class BaseProjectManager(ABC):
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
 
-    def maybe_watch_json_source_files(self, projectState: ProjectStateSingleConfig):
-        filename_set = get_json_source_files_to_watch(projectState)
+    def watch_json_source_files(self, fireImmediately=False):
+        filename_set = get_json_source_files_to_watch(self.project_state_backend)
         callbacks = {
             Path(k).resolve(): [self.get_json_source_file_watcher_callback()]
             for k in filename_set
         }
-        self.specific_file_watcher.update_callbacks(callbacks, fire_immediately=False)
+        self.specific_file_watcher.update_callbacks(
+            callbacks, self.__class__.__name__, fireImmediately
+        )
 
     def get_json_source_file_watcher_callback(self) -> FileWatcherCallback:
         async def fn(coreUpdate: FileWatcherCoreUpdate):
