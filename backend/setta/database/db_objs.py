@@ -33,7 +33,7 @@ class DBE:
             with open(path, "r") as f:
                 return json.load(f)
 
-    def write(self, path: Path, data: Any) -> None:
+    def write(self, path: Path, data: Any):
         lock = self.get_file_lock(path)
 
         with lock:
@@ -50,7 +50,7 @@ class DBE:
             return []
 
         lock = self.get_file_lock(path)
-        items = []
+        items: list[dict] = []
         with lock:
             with open(path, "r") as f:
                 for line in f:
@@ -59,7 +59,7 @@ class DBE:
                         items.append(json.loads(line))
         return items
 
-    def write_jsonl(self, path: Path, items: list[dict]) -> None:
+    def write_jsonl(self, path: Path, items: list[dict]):
         lock = self.get_file_lock(path)
 
         with lock:
@@ -87,9 +87,7 @@ class DBE:
     def write_uuid_mapping(self, uuid_to_id: UUIDToIDForLLM):
         self.write(self.uuid_mapping, uuid_to_id)
 
-    def read_notifications(
-        self, projectConfigId: str | None = None
-    ) -> list[SettaNotification]:
+    def read_notifications(self, projectConfigId: str | None = None):
         data = self.read_jsonl(self.notifications)
         data = [SettaNotification.model_validate(item) for item in data]
         if projectConfigId:

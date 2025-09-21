@@ -81,11 +81,6 @@ def replace_at_positions(input_string, replacements, return_positions=False):
     return final_string
 
 
-def save_json_to_file(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-
-
 def remove_empty(x):
     if isinstance(x, defaultdict):
         # Create a new defaultdict with the same default_factory

@@ -1,20 +1,20 @@
 from collections import defaultdict
+from pathlib import Path
 
+from setta.database.db_objs import DBE
 from setta.types.generated.unions import BaseDictSectionImplUnion
 from setta.types.helpers import (
     get_variant_base_and_effective_section_impl,
 )
 
-# Import from new shared utilities
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.utils.utils import save_json_to_file
 
 
 def save_json_source_data(
-    p: ProjectStateSingleConfig, section_variant_ids: list[str] | None = None
+    dbe: DBE, p: ProjectStateSingleConfig, section_variant_ids: list[str] | None = None
 ):
-    to_be_saved = defaultdict(dict)
+    to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
         for variant_id in section.variants:
@@ -43,7 +43,7 @@ def save_json_source_data(
                 ),
             )
 
-            filename = variant.name
+            filename = Path(variant.name)
             to_be_saved[filename].update(hierarchy.nested_dict)
 
             # Make sure the jsonSourceKeys are present.
@@ -52,7 +52,7 @@ def save_json_source_data(
 
     # Save each file
     for filename, data in to_be_saved.items():
-        save_json_to_file(filename, data)
+        dbe.write(filename, data)
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

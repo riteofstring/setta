@@ -33,7 +33,7 @@ class SettingsProjectManager(BaseProjectManager):
             self.project_state_backend,
             default_id,
         )
-        save_json_source_data(p)
+        save_json_source_data(self.dbe, p)
         self.dbe.write_settings_project(p)
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
