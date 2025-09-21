@@ -13,7 +13,6 @@ from setta.types.helpers_lvl2 import (
     merge_single_config_into_backend,
 )
 from setta.types.project_state import ProjectStateBackend
-from setta.utils.utils import save_json_to_file
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SettingsProjectManager(BaseProjectManager):
     def load_initial_state(self):
         logger.debug("Loading settings project")
-        p = self.settings_file.seed_settings_project()
+        p = self.settings_file.load_settings_project()
         load_json_sources_into_data_structures(self.settings_file.settings, p)
         return merge_single_config_into_backend(ProjectStateBackend(), p)
 
@@ -35,9 +34,7 @@ class SettingsProjectManager(BaseProjectManager):
             default_id,
         )
         save_json_source_data(p)
-        save_json_to_file(
-            self.settings_file.path_default_settings_project, p.model_dump()
-        )
+        self.dbe.write_settings_project(p)
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         raise ValueError

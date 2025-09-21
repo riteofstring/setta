@@ -8,6 +8,7 @@ from typing import Coroutine, Iterable
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
+from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
     FileWatcherCallback,
@@ -158,11 +159,13 @@ class BaseProjectManager(ABC):
         websocket_msg_handler: WMHFrontendSender,
         settings_file: SettingsFile,
         specific_file_watcher: SpecificFileWatcher,
+        dbe: DBE,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
         self.settings_file = settings_file
         self.specific_file_watcher = specific_file_watcher
+        self.dbe = dbe
         self.temp_folder = CODE_FOLDER / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())

@@ -6,8 +6,9 @@ from typing import Any
 from filelock import FileLock
 
 from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
+from setta.types.generated.settings_state import SettingsState
 from setta.types.notifications import SettaNotification
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 
 
 class DBE:
@@ -16,6 +17,8 @@ class DBE:
         self.project = self.path / "project.json"
         self.uuid_mapping = self.path / "uuid_mapping.json"
         self.notifications = self.path / "notifications.json"
+        self.settings = self.path / "setta-settings.json"
+        self.settings_project = self.path / "setta-settings-project.json"
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
@@ -74,8 +77,7 @@ class DBE:
         return ProjectStateBackend.model_validate(self.read(self.project))
 
     def write_project(self, project: ProjectStateBackend):
-        x = project.model_dump()
-        self.write(self.project, x)
+        self.write(self.project, project.model_dump())
 
     def read_uuid_mapping(self):
         uuid_to_id: UUIDToIDForLLM = self.read(self.uuid_mapping)
@@ -102,3 +104,15 @@ class DBE:
         data = self.read_notifications()
         filtered = [item for item in data if item.id != notification_id]
         self.write_notifications(filtered)
+
+    def read_settings(self):
+        return SettingsState.model_validate(self.read(self.settings))
+
+    def write_settings(self, settings: SettingsState):
+        self.write(self.settings, settings.model_dump())
+
+    def read_settings_project(self):
+        return ProjectStateSingleConfig.model_validate(self.read(self.settings_project))
+
+    def write_settings_project(self, settings_project: ProjectStateSingleConfig):
+        self.write(self.settings_project, settings_project.model_dump())
