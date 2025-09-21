@@ -37,7 +37,9 @@ class SettaFastAPIState:
 
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.specific_file_watcher = SpecificFileWatcher()
-        self.artifacts = Artifacts(self.wmh_frontend_sender)
+        self.artifacts = Artifacts(
+            self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
+        )
         project_manager = ProjectManager(
             self.lsp_writers,
             self.wmh_frontend_sender,

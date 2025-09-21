@@ -1,6 +1,7 @@
 import copy
 import math
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, assert_never
 
@@ -954,13 +955,16 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
 
 
 def get_json_source_files_to_watch(p: "ProjectStateBackend"):
-    filename_set = set()
+    filename_set: set[Path] = set()
+    json_source_mapping: dict[Path, list[str]] = defaultdict(list)
     for s in p.sections.values():
         for v in s.variants:
             variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
             if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                filename_set.add(variant.name)
-    return filename_set
+                filepath = Path(variant.name).resolve()
+                filename_set.add(filepath)
+                json_source_mapping[filepath].append(s.id)
+    return filename_set, json_source_mapping
 
 
 def get_variants_for_json_source_update(
@@ -1016,10 +1020,12 @@ def toggle_variant_json_source(
     p: "ProjectStateSingleConfig", sectionId: str, variantId: str
 ):
     core = p.sections[sectionId]
-    variant, base_impl, _ = get_variant_base_and_effective_section_impl_with_type_guard(
-        p, core, variantId, BaseDictSectionImpl
+    variant, base_impl, impl = (
+        get_variant_base_and_effective_section_impl_with_type_guard(
+            p, core, variantId, BaseDictSectionImpl
+        )
     )
-    newIsJsonSource = not base_impl.isJsonSource
+    newIsJsonSource = not impl.isJsonSource
     newConfigLanguage = (
         ConfigLanguage.json if newIsJsonSource else ConfigLanguage.python
     )

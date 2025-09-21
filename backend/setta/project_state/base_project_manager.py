@@ -184,7 +184,9 @@ class BaseProjectManager(ABC):
         print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
-        self.watch_json_source_files(fireImmediately=True)
+        self.json_source_mapping: dict[Path, list[str]] = {}
+        self.watch_json_source_files()
+        self.watch_artifacts()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -1053,14 +1055,21 @@ class BaseProjectManager(ABC):
     def save_as_existing_project_config(self, x: SaveAsExistingProjectConfigRequest):
         pass
 
-    def watch_json_source_files(self, fireImmediately=False):
-        filename_set = get_json_source_files_to_watch(self.project_state_backend)
+    def watch_json_source_files(self):
+        filename_set, new_json_source_mapping = get_json_source_files_to_watch(
+            self.project_state_backend
+        )
         callbacks = {
-            Path(k).resolve(): [self.get_json_source_file_watcher_callback()]
-            for k in filename_set
+            k: self.get_json_source_file_watcher_callback() for k in filename_set
         }
+        fire_immediately: list[Path] = []
+        for k, v in new_json_source_mapping.items():
+            if self.json_source_mapping.get(k) != v:
+                fire_immediately.append(k)
+
+        self.json_source_mapping = new_json_source_mapping
         self.specific_file_watcher.update_callbacks(
-            callbacks, self.__class__.__name__, fireImmediately
+            callbacks, self.__class__.__name__, fire_immediately
         )
 
     def get_json_source_file_watcher_callback(self) -> FileWatcherCallback:
@@ -1076,6 +1085,11 @@ class BaseProjectManager(ABC):
                 await self.websocket_msg_handler.broadcast_notification(notification)
 
         return fn
+
+    def watch_artifacts(self):
+        # get artifact paths to watch
+        # self.artifacts.watch_artifacts(list_of_paths)
+        pass
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {

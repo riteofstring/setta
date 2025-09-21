@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 FileWatcherCallback = Callable[[FileWatcherCoreUpdate], Coroutine[Any, Any, None]]
-CallbacksDict = dict[Path, list[FileWatcherCallback]]
-CallbackCategoryToCallbacksDict = dict[str, dict[Path, list[FileWatcherCallback]]]
+CallbacksDict = dict[Path, FileWatcherCallback]
+CallbackCategoryToCallbacksDict = dict[str, CallbacksDict]
 
 
 class MockFileEvent:
@@ -52,9 +52,8 @@ class SpecificFileWatcher:
         self,
         callbacks: CallbacksDict,
         callbackCategory: str,
-        fire_immediately: bool = False,
+        fire_immediately: list[Path],
     ):
-        print("\n\n\ncallbackCategory", callbackCategory)
         self.callbacks[callbackCategory].clear()
         self.callbacks[callbackCategory].update(callbacks)
 
@@ -74,15 +73,14 @@ class SpecificFileWatcher:
 
         # Add watches for new directories
         dirs_to_add = dirs_to_watch - current_watched_dirs
-        print("\n\ndirs_to_add", dirs_to_add)
         for dir_path in dirs_to_add:
             watch = self.observer.schedule(self.handler, str(dir_path), recursive=False)
             self.watched_dirs[dir_path] = watch
 
-        # Fire immediate reads if requested
-        if fire_immediately:
-            for file_path in callbacks.keys():
-                self.request_read(file_path)
+        # Fire immediate reads if requested (only for new files)
+        for f in fire_immediately:
+            if f in callbacks:
+                self.request_read(f)
 
     def start(self):
         self.observer.start()
@@ -153,7 +151,9 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         handlers: list[FileWatcherCallback] = []
         file_to_read = dest_abs_path if dest_abs_path else abs_path
         for callbacks in self.callbacks.values():
-            handlers.extend(callbacks.get(file_to_read, []))
+            c = callbacks.get(file_to_read)
+            if c:
+                handlers.append(c)
 
         print("\n\n\n", handlers)
         if len(handlers) == 0:

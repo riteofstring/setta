@@ -31,12 +31,12 @@ class DBE:
         lock_path = locks_dir / lock_filename
         return FileLock(lock_path, timeout=10)
 
-    def read(self, path: Path):
+    def read(self, path: Path, mode="r"):
         if not path.exists():
             return None
         lock = self.get_file_lock(path)
         with lock:
-            with open(path, "r") as f:
+            with open(path, mode) as f:
                 return f.read()
 
     def write(self, path: Path, data):
