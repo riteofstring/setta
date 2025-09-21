@@ -124,7 +124,7 @@ export function DrawAreaControls({
       >
         <LayerList sectionId={sectionId} activeLayerIdx={activeLayerIdx} />
       </StandardPopover>
-      
+
       <DrawAreaClearStrokesButton clearStrokes={clearStrokes} />
     </div>
   );

@@ -17,6 +17,11 @@ from setta.types.core import (
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
 )
+from setta.types.draw_area import (
+    DrawAreaLayer,
+    DrawAreaLayerItem,
+    DrawAreaLayerItemType,
+)
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
     BaseChartSettingsUnion,
@@ -70,6 +75,7 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     CallableSectionImpl,
     ConfigLanguage,
+    DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
     SectionSize,
@@ -452,12 +458,22 @@ def create_section(
     if core_overrides:
         default_core_args.update(core_overrides)
     core = Core(**default_core_args)
+    if isinstance(impl, DrawSectionImpl):
+        init_draw_section_layer(impl)
+
     p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
     p.sectionImpls[impl.id] = impl
     p.sectionVariants[variant.id] = variant
 
     return core.id
+
+
+def init_draw_section_layer(impl: DrawSectionImpl):
+    layerItem = DrawAreaLayerItem(
+        type=DrawAreaLayerItemType.BrushStroke,
+    )
+    layer = DrawAreaLayer(elements=[])
 
 
 def create_top_level_section(

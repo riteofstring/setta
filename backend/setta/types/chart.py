@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 ChartDataType = dict[str, list[str | float]]
+ChartDataMapping = dict[str, ChartDataType]
 
 
 class ChartType(str, Enum):

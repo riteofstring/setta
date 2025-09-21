@@ -13,13 +13,14 @@ import {
 import {
   AllProjectMetadata,
   APIKeys,
-  BrushStroke,
-  ChartDataType,
+  BrushStrokeMapping,
+  ChartDataMapping,
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  DrawAreaLayerItemTransform,
+  DrawAreaTransformMapping,
   IDToUUIDForLLM,
+  ImageMapping,
   ProjectStateSingleConfig,
   SettaNotification,
   SettingsState,
@@ -377,7 +378,7 @@ export const useLocalStorage = createWithEqualityFn(
   ),
 );
 
-type ZustandImages = { x: Record<string, string> };
+type ZustandImages = { x: ImageMapping };
 
 export const useImages = createWithEqualityFn(
   withResetFn<ZustandImages>(() => ({
@@ -385,7 +386,7 @@ export const useImages = createWithEqualityFn(
   })),
 );
 
-type ZustandChartData = { x: Record<string, ChartDataType> };
+type ZustandChartData = { x: ChartDataMapping };
 
 export const useChartData = createWithEqualityFn(
   withResetFn<ZustandChartData>(() => ({
@@ -401,7 +402,7 @@ export const useDecodedImages = createWithEqualityFn(
   })),
 );
 
-export type ZustandBrushStrokes = { x: Record<string, BrushStroke> };
+export type ZustandBrushStrokes = { x: BrushStrokeMapping };
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({
@@ -410,7 +411,7 @@ export const useBrushStrokes = createWithEqualityFn(
 );
 
 export type ZustandArtifactTransform = {
-  x: Record<string, DrawAreaLayerItemTransform>;
+  x: DrawAreaTransformMapping;
 };
 
 export const useArtifactTransform = createWithEqualityFn(

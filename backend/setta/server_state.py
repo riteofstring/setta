@@ -9,6 +9,7 @@ from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
 from setta.mcp.chat_manager import ChatManager
 from setta.mcp.client import MCPClient
 from setta.mcp.server import SettaFastMCP
+from setta.project_state.artifacts import Artifacts
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.settings_project_manager import SettingsProjectManager
@@ -83,6 +84,7 @@ class SettaFastAPIState:
         self.chat_manager = ChatManager(
             self.dbe, self.mcp_client, self.wmh_frontend_sender
         )
+        self.artifacts = Artifacts()
 
         asyncio.create_task(self.mcp_client.connect_to_server())
         asyncio.create_task(start_lsps(self.lsps, self.lsp_readers, self.lsp_writers))

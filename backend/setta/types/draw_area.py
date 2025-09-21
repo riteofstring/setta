@@ -86,3 +86,8 @@ class DrawAreaMode(str, Enum):
     draw = "draw"
     erase = "erase"
     edit = "edit"
+
+
+ImageMapping = dict[str, str]
+BrushStrokeMapping = dict[str, BrushStroke]
+DrawAreaTransformMapping = dict[str, DrawAreaLayerItemTransform]
