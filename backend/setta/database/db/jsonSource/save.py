@@ -2,9 +2,16 @@ from collections import defaultdict
 from pathlib import Path
 
 from setta.database.db_objs import DBE
+from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
+from setta.types.generated.effective_impls import set_effective_impl_value
+from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseChildlessCodeObjImplArgsWithCallable,
+)
 from setta.types.generated.unions import BaseDictSectionImplUnion
 from setta.types.helpers import (
+    get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
+    get_variant_effective_section_impl,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateSingleConfig
@@ -63,7 +70,23 @@ def add_key_path_to_dict(output: dict, key_path: list[str]):
     return output
 
 
-def remove_json_source_values(p: dict):
-    for variant in p["sectionVariants"].values():
-        if variant["isJsonSource"]:
-            variant["values"] = {}
+def remove_json_source_values(p: ProjectStateSingleConfig):
+    for section in p.sections.values():
+        for variant_id in section.variants:
+            impl = get_variant_effective_section_impl(p, section.id, variant_id)
+            if not isinstance(impl, BaseDictSectionImplUnion) or not impl.isJsonSource:
+                continue
+            code_obj_variant_map = impl.codeObjVariantMap
+            for cid, cvariant_id in code_obj_variant_map.items():
+                cobj = p.codeObjs[cid]
+                cvariant, cbase_impl, _ = get_variant_base_and_effective_code_obj_impl(
+                    p, cobj, cvariant_id
+                )
+                if not isinstance(cbase_impl, BaseChildlessCodeObjImpl):
+                    continue
+                set_effective_impl_value(
+                    cbase_impl,
+                    cobj,
+                    cvariant,
+                    BaseChildlessCodeObjImplArgsWithCallable(value=""),
+                )

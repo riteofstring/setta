@@ -2,7 +2,10 @@ import logging
 from typing import Iterable
 
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
-from setta.database.db.jsonSource.save import save_json_source_data
+from setta.database.db.jsonSource.save import (
+    remove_json_source_values,
+    save_json_source_data,
+)
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
@@ -34,6 +37,7 @@ class SettingsProjectManager(BaseProjectManager):
             default_id,
         )
         save_json_source_data(self.dbe, p)
+        remove_json_source_values(p)
         self.dbe.write_settings_project(p)
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):

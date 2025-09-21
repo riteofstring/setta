@@ -107,7 +107,11 @@ class SpecificFileEventHandler(FileSystemEventHandler):
         self._send_event(event, FileEventType.modified)
 
     def on_deleted(self, event: FileSystemEvent):
-        self._send_event(event, FileEventType.deleted)
+        # this can happen when using Path().replace()
+        if Path(ensure_str_path(event.src_path)).exists():
+            self._send_event(event, FileEventType.modified)
+        else:
+            self._send_event(event, FileEventType.deleted)
 
     def on_moved(self, event: FileSystemEvent):
         # TODO
