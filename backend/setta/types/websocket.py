@@ -8,9 +8,11 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse
 from setta.types.generated.settings_state import SettingsState
+from setta.types.generated.unions import (
+    BaseArtifactUnionWithDiscriminator,
+)
 from setta.types.lsp import (
     SettaProjectConfigDiagnostics,
 )
@@ -26,11 +28,11 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     Notification = "Notification"
     LLMStreamingResponse = "LLMStreamingResponse"
     UUIDMappingForLLM = "UUIDMappingForLLM"
-    Artifact = "Artifact"
     ReturnRenameRefactorResults = "ReturnRenameRefactorResults"
     UpdateFrontendProjectState = "UpdateFrontendProjectState"
     UpdateSettings = "UpdateSettings"
     AllProjectMetadata = "AllProjectMetadata"
+    UpdateArtifacts = "UpdateArtifacts"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -77,11 +79,11 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     )
 
 
-class WebsocketMsgArtifact(FrontendWebsocketMsg):
-    content: Artifact
-    messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
-        WebsocketMsgTypeForFrontend.Artifact
-    )
+# class WebsocketMsgArtifact(FrontendWebsocketMsg):
+#     content: Artifact
+#     messageType: Literal[WebsocketMsgTypeForFrontend.Artifact] = (
+#         WebsocketMsgTypeForFrontend.Artifact
+#     )
 
 
 class WebsocketMsgNotification(FrontendWebsocketMsg):
@@ -151,6 +153,13 @@ class WebsocketMsgAllProjectMetadata(FrontendWebsocketMsg):
     content: AllProjectMetadata
     messageType: Literal[WebsocketMsgTypeForFrontend.AllProjectMetadata] = (
         WebsocketMsgTypeForFrontend.AllProjectMetadata
+    )
+
+
+class WebsocketMsgUpdateArtifacts(FrontendWebsocketMsg):
+    content: BaseArtifactUnionWithDiscriminator
+    messageType: Literal[WebsocketMsgTypeForFrontend.UpdateArtifacts] = (
+        WebsocketMsgTypeForFrontend.UpdateArtifacts
     )
 
 

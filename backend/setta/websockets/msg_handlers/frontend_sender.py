@@ -2,7 +2,6 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
 )
 from setta.types.ai import IDToUUIDForLLM
-from setta.types.artifact import Artifact
 from setta.types.chat_messages import LLMStreamingResponse, LLMStreamingResponseChunk
 from setta.types.generated.settings_state import SettingsState
 from setta.types.lsp import (
@@ -17,7 +16,6 @@ from setta.types.project_state import (
 from setta.types.websocket import (
     WebsocketConnectionType,
     WebsocketMsgAllProjectMetadata,
-    WebsocketMsgArtifact,
     WebsocketMsgLLMStreamingResponse,
     WebsocketMsgLSPDiagnostics,
     WebsocketMsgNotification,
@@ -37,11 +35,11 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_artifact(self, artifact: Artifact):
-        await self.websocket_manager.broadcast(
-            message=WebsocketMsgArtifact(content=artifact),
-            connectionType=WebsocketConnectionType.FRONTEND,
-        )
+    # async def broadcast_artifact(self, artifact: Artifact):
+    #     await self.websocket_manager.broadcast(
+    #         message=WebsocketMsgArtifact(content=artifact),
+    #         connectionType=WebsocketConnectionType.FRONTEND,
+    #     )
 
     async def send_streaming_response(
         self,

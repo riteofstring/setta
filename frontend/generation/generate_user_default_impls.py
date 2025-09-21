@@ -185,7 +185,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 # Section type imports
-from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
+from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     ChartSettings,
     CodeLanguage,

@@ -403,7 +403,7 @@ def get_impl_unions(name_filters: list[str], exclusion_filters: list[str]):
         attr = getattr(setta.types.generated.unions, name)
 
         origin = get_origin(attr)
-        if origin is Union:
+        if origin in (Union, types.UnionType):
             unions.append((name, attr))
 
     return unions

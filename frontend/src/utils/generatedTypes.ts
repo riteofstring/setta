@@ -13,6 +13,13 @@ export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
 
 export const BaseClipboardDataTypeSet = new Set(["Sections"]);
 
+export const BaseArtifactTypeSet = new Set([
+  "BrushStroke",
+  "ChartData",
+  "DrawAreaLayerItemTransform",
+  "Image",
+]);
+
 export const BaseCanvasSectionImplArgsTypeSet = new Set(["Chart", "Draw"]);
 
 export const BaseCanvasSectionImplTypeSet = new Set(["Chart", "Draw"]);
@@ -177,13 +184,13 @@ export const FrontendWebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllDependencies",
   "AllProjectMetadata",
-  "Artifact",
   "LLMStreamingResponse",
   "LSPDiagnostics",
   "Notification",
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
   "UUIDMappingForLLM",
+  "UpdateArtifacts",
   "UpdateFrontendProjectState",
   "UpdateSettings",
 ]);
@@ -192,7 +199,6 @@ export const WebsocketMsgTypeSet = new Set([
   "AllConnections",
   "AllDependencies",
   "AllProjectMetadata",
-  "Artifact",
   "CurrentAddressUpdate",
   "LLMStreamingResponse",
   "LSPDiagnostics",
@@ -200,6 +206,7 @@ export const WebsocketMsgTypeSet = new Set([
   "ReturnRenameRefactorResults",
   "TerminalMetadata",
   "UUIDMappingForLLM",
+  "UpdateArtifacts",
   "UpdateFrontendProjectState",
   "UpdateSettings",
 ]);
@@ -210,10 +217,10 @@ export const SINGLETON_SECTION_TYPES = new Set([
 ]);
 
 export const ArtifactTypeEnum = {
-  IMG: "IMG",
-  BRUSH_STROKES: "BRUSH_STROKES",
-  LIST: "LIST",
-  CHAT_HISTORY: "CHAT_HISTORY",
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
+  ChartData: "ChartData",
 } as const;
 
 export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
@@ -221,6 +228,22 @@ export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
 export const ChartTypeEnum = { line: "line", scatter: "scatter" } as const;
 
 export type ChartType = ObjectValues<typeof ChartTypeEnum>;
+
+export const DrawAreaBrushShapeEnum = {
+  butt: "butt",
+  round: "round",
+  square: "square",
+} as const;
+
+export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
+
+export const DrawAreaModeEnum = {
+  draw: "draw",
+  erase: "erase",
+  edit: "edit",
+} as const;
+
+export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
 export const ChatRoleEnum = { user: "user", assistant: "assistant" } as const;
 
@@ -281,31 +304,6 @@ export const SectionTypeEnum = {
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
-
-export const DrawAreaBrushShapeEnum = {
-  butt: "butt",
-  round: "round",
-  square: "square",
-} as const;
-
-export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
-
-export const DrawAreaLayerItemTypeEnum = {
-  Image: "Image",
-  BrushStroke: "BrushStroke",
-} as const;
-
-export type DrawAreaLayerItemType = ObjectValues<
-  typeof DrawAreaLayerItemTypeEnum
->;
-
-export const DrawAreaModeEnum = {
-  draw: "draw",
-  erase: "erase",
-  edit: "edit",
-} as const;
-
-export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -567,11 +565,11 @@ export const WebsocketMsgTypeForFrontendEnum = {
   Notification: "Notification",
   LLMStreamingResponse: "LLMStreamingResponse",
   UUIDMappingForLLM: "UUIDMappingForLLM",
-  Artifact: "Artifact",
   ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
   UpdateFrontendProjectState: "UpdateFrontendProjectState",
   UpdateSettings: "UpdateSettings",
   AllProjectMetadata: "AllProjectMetadata",
+  UpdateArtifacts: "UpdateArtifacts",
 } as const;
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
@@ -590,31 +588,238 @@ export const UUIDToIDForLLMSchema = z.record(z.string(), IDSchema);
 
 export type UUIDToIDForLLM = z.infer<typeof UUIDToIDForLLMSchema>;
 
-export const JSONValueTypeSchema = z.union([
-  z.record(z.string(), z.any()),
-  z.array(z.any()),
-  z.string(),
-  z.int(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-]);
+export const BrushStrokeSchema = z.object({
+  strokeStyle: z.string(),
+  lineWidth: z.number(),
+  lineCap: z.enum(DrawAreaBrushShapeEnum),
+  points: z.array(z.tuple([z.number(), z.number()])).default([]),
+  globalCompositeOperation: z
+    .literal([
+      "color",
+      "color-burn",
+      "color-dodge",
+      "copy",
+      "darken",
+      "destination-atop",
+      "destination-in",
+      "destination-out",
+      "destination-over",
+      "difference",
+      "exclusion",
+      "hard-light",
+      "hue",
+      "lighten",
+      "lighter",
+      "luminosity",
+      "multiply",
+      "overlay",
+      "saturation",
+      "screen",
+      "soft-light",
+      "source-atop",
+      "source-in",
+      "source-out",
+      "source-over",
+      "xor",
+    ])
+    .default("source-over" as const),
+});
 
-export type JSONValueType = z.infer<typeof JSONValueTypeSchema>;
+export type BrushStroke = z.infer<typeof BrushStrokeSchema>;
 
-export const ChartDataMappingSchema = z.record(
+export function createBrushStroke(
+  options: Partial<BrushStroke> = {},
+): BrushStroke {
+  return BrushStrokeSchema.parse(options);
+}
+
+export const BrushStrokeArtifactSchema = z.object({
+  type: z.literal("BrushStroke").default(ArtifactTypeEnum.BrushStroke),
+  id: z.string().default(create_new_id),
+  value: BrushStrokeSchema,
+});
+
+export type BrushStrokeArtifact = z.infer<typeof BrushStrokeArtifactSchema>;
+
+export function createBrushStrokeArtifact(
+  options: Partial<BrushStrokeArtifact> = {},
+): BrushStrokeArtifact {
+  return BrushStrokeArtifactSchema.parse(options);
+}
+
+export const BrushStrokeMappingSchema = z.record(
   z.string(),
-  z.record(z.string(), z.array(z.union([z.string(), z.number()]))),
+  BrushStrokeArtifactSchema,
 );
 
-export type ChartDataMapping = z.infer<typeof ChartDataMappingSchema>;
+export type BrushStrokeMapping = z.infer<typeof BrushStrokeMappingSchema>;
 
-export const ChartDataTypeSchema = z.record(
+export const CanvasPointSchema = z.tuple([z.number(), z.number()]);
+
+export type CanvasPoint = z.infer<typeof CanvasPointSchema>;
+
+export const ChartDataSchema = z.record(
   z.string(),
   z.array(z.union([z.string(), z.number()])),
 );
 
-export type ChartDataType = z.infer<typeof ChartDataTypeSchema>;
+export type ChartData = z.infer<typeof ChartDataSchema>;
+
+export const ChartDataArtifactSchema = z.object({
+  type: z.literal("ChartData").default(ArtifactTypeEnum.ChartData),
+  id: z.string().default(create_new_id),
+  value: z.record(z.string(), z.array(z.union([z.string(), z.number()]))),
+});
+
+export type ChartDataArtifact = z.infer<typeof ChartDataArtifactSchema>;
+
+export function createChartDataArtifact(
+  options: Partial<ChartDataArtifact> = {},
+): ChartDataArtifact {
+  return ChartDataArtifactSchema.parse(options);
+}
+
+export const ChartDataMappingSchema = z.record(
+  z.string(),
+  ChartDataArtifactSchema,
+);
+
+export type ChartDataMapping = z.infer<typeof ChartDataMappingSchema>;
+
+export const BrushStrokeWithTransformSchema = z.object({
+  strokeStyle: z.string(),
+  lineWidth: z.number(),
+  lineCap: z.enum(DrawAreaBrushShapeEnum),
+  points: z.array(z.tuple([z.number(), z.number()])).default([]),
+  globalCompositeOperation: z
+    .literal([
+      "color",
+      "color-burn",
+      "color-dodge",
+      "copy",
+      "darken",
+      "destination-atop",
+      "destination-in",
+      "destination-out",
+      "destination-over",
+      "difference",
+      "exclusion",
+      "hard-light",
+      "hue",
+      "lighten",
+      "lighter",
+      "luminosity",
+      "multiply",
+      "overlay",
+      "saturation",
+      "screen",
+      "soft-light",
+      "source-atop",
+      "source-in",
+      "source-out",
+      "source-over",
+      "xor",
+    ])
+    .default("source-over" as const),
+  transform: z.tuple([
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+    z.number(),
+  ]),
+});
+
+export type BrushStrokeWithTransform = z.infer<
+  typeof BrushStrokeWithTransformSchema
+>;
+
+export function createBrushStrokeWithTransform(
+  options: Partial<BrushStrokeWithTransform> = {},
+): BrushStrokeWithTransform {
+  return BrushStrokeWithTransformSchema.parse(options);
+}
+
+export const DrawAreaLayerItemTransformSchema = z.object({
+  transform: z
+    .tuple([
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+      z.number(),
+    ])
+    .default([1, 0, 0, 1, 0, 0]),
+  eraserStrokes: z.array(BrushStrokeWithTransformSchema).default([]),
+});
+
+export type DrawAreaLayerItemTransform = z.infer<
+  typeof DrawAreaLayerItemTransformSchema
+>;
+
+export function createDrawAreaLayerItemTransform(
+  options: Partial<DrawAreaLayerItemTransform> = {},
+): DrawAreaLayerItemTransform {
+  return DrawAreaLayerItemTransformSchema.parse(options);
+}
+
+export const DrawAreaLayerItemTransformArtifactSchema = z.object({
+  type: z
+    .literal("DrawAreaLayerItemTransform")
+    .default(ArtifactTypeEnum.DrawAreaLayerItemTransform),
+  id: z.string().default(create_new_id),
+  value: DrawAreaLayerItemTransformSchema,
+});
+
+export type DrawAreaLayerItemTransformArtifact = z.infer<
+  typeof DrawAreaLayerItemTransformArtifactSchema
+>;
+
+export function createDrawAreaLayerItemTransformArtifact(
+  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
+): DrawAreaLayerItemTransformArtifact {
+  return DrawAreaLayerItemTransformArtifactSchema.parse(options);
+}
+
+export const DrawAreaLayerItemTransformMappingSchema = z.record(
+  z.string(),
+  DrawAreaLayerItemTransformArtifactSchema,
+);
+
+export type DrawAreaLayerItemTransformMapping = z.infer<
+  typeof DrawAreaLayerItemTransformMappingSchema
+>;
+
+export const DrawAreaTransformSchema = z.tuple([
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+]);
+
+export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
+
+export const ImageArtifactSchema = z.object({
+  type: z.literal("Image").default(ArtifactTypeEnum.Image),
+  id: z.string().default(create_new_id),
+  value: z.string(),
+});
+
+export type ImageArtifact = z.infer<typeof ImageArtifactSchema>;
+
+export function createImageArtifact(
+  options: Partial<ImageArtifact> = {},
+): ImageArtifact {
+  return ImageArtifactSchema.parse(options);
+}
+
+export const ImageMappingSchema = z.record(z.string(), ImageArtifactSchema);
+
+export type ImageMapping = z.infer<typeof ImageMappingSchema>;
 
 export const CitationCharLocationSchema = z.object({
   cited_text: z.string(),
@@ -1359,158 +1564,6 @@ export const AllImplFieldsSchema = z.literal([
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
 
-export const BrushStrokeSchema = z.object({
-  strokeStyle: z.string(),
-  lineWidth: z.number(),
-  lineCap: z.enum(DrawAreaBrushShapeEnum),
-  points: z.array(z.tuple([z.number(), z.number()])),
-  globalCompositeOperation: z.literal([
-    "color",
-    "color-burn",
-    "color-dodge",
-    "copy",
-    "darken",
-    "destination-atop",
-    "destination-in",
-    "destination-out",
-    "destination-over",
-    "difference",
-    "exclusion",
-    "hard-light",
-    "hue",
-    "lighten",
-    "lighter",
-    "luminosity",
-    "multiply",
-    "overlay",
-    "saturation",
-    "screen",
-    "soft-light",
-    "source-atop",
-    "source-in",
-    "source-out",
-    "source-over",
-    "xor",
-  ]),
-});
-
-export type BrushStroke = z.infer<typeof BrushStrokeSchema>;
-
-export function createBrushStroke(
-  options: Partial<BrushStroke> = {},
-): BrushStroke {
-  return BrushStrokeSchema.parse(options);
-}
-
-export const BrushStrokeMappingSchema = z.record(z.string(), BrushStrokeSchema);
-
-export type BrushStrokeMapping = z.infer<typeof BrushStrokeMappingSchema>;
-
-export const CanvasPointSchema = z.tuple([z.number(), z.number()]);
-
-export type CanvasPoint = z.infer<typeof CanvasPointSchema>;
-
-export const DrawAreaTransformSchema = z.tuple([
-  z.number(),
-  z.number(),
-  z.number(),
-  z.number(),
-  z.number(),
-  z.number(),
-]);
-
-export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
-
-export const BrushStrokeWithTransformSchema = z.object({
-  strokeStyle: z.string(),
-  lineWidth: z.number(),
-  lineCap: z.enum(DrawAreaBrushShapeEnum),
-  points: z.array(z.tuple([z.number(), z.number()])),
-  globalCompositeOperation: z.literal([
-    "color",
-    "color-burn",
-    "color-dodge",
-    "copy",
-    "darken",
-    "destination-atop",
-    "destination-in",
-    "destination-out",
-    "destination-over",
-    "difference",
-    "exclusion",
-    "hard-light",
-    "hue",
-    "lighten",
-    "lighter",
-    "luminosity",
-    "multiply",
-    "overlay",
-    "saturation",
-    "screen",
-    "soft-light",
-    "source-atop",
-    "source-in",
-    "source-out",
-    "source-over",
-    "xor",
-  ]),
-  transform: z.tuple([
-    z.number(),
-    z.number(),
-    z.number(),
-    z.number(),
-    z.number(),
-    z.number(),
-  ]),
-});
-
-export type BrushStrokeWithTransform = z.infer<
-  typeof BrushStrokeWithTransformSchema
->;
-
-export function createBrushStrokeWithTransform(
-  options: Partial<BrushStrokeWithTransform> = {},
-): BrushStrokeWithTransform {
-  return BrushStrokeWithTransformSchema.parse(options);
-}
-
-export const DrawAreaLayerItemTransformSchema = z.object({
-  transform: z
-    .tuple([
-      z.number(),
-      z.number(),
-      z.number(),
-      z.number(),
-      z.number(),
-      z.number(),
-    ])
-    .default([1, 0, 0, 1, 0, 0]),
-  eraserStrokes: z.array(BrushStrokeWithTransformSchema).default([]),
-});
-
-export type DrawAreaLayerItemTransform = z.infer<
-  typeof DrawAreaLayerItemTransformSchema
->;
-
-export function createDrawAreaLayerItemTransform(
-  options: Partial<DrawAreaLayerItemTransform> = {},
-): DrawAreaLayerItemTransform {
-  return DrawAreaLayerItemTransformSchema.parse(options);
-}
-
-export const DrawAreaTransformMappingSchema = z.record(
-  z.string(),
-  DrawAreaLayerItemTransformSchema,
-);
-
-export type DrawAreaTransformMapping = z.infer<
-  typeof DrawAreaTransformMappingSchema
->;
-
-export const ImageMappingSchema = z.record(z.string(), z.string());
-
-export type ImageMapping = z.infer<typeof ImageMappingSchema>;
-
 export const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
   xAxisColumn: z.union([z.string(), z.null()]).default(null),
@@ -1912,8 +1965,8 @@ export function createChartSectionImpl(
 
 export const DrawAreaLayerItemSchema = z.object({
   type: z
-    .enum(DrawAreaLayerItemTypeEnum)
-    .default(DrawAreaLayerItemTypeEnum.BrushStroke),
+    .literal(["Image", "BrushStroke"])
+    .default(ArtifactTypeEnum.BrushStroke),
   dataPath: z.string(),
   transformId: z.string(),
 });
@@ -2712,6 +2765,35 @@ export const BaseSectionWithParamsImplUnionSchema = z.union([
 export type BaseSectionWithParamsImplUnion = z.infer<
   typeof BaseSectionWithParamsImplUnionSchema
 >;
+
+export const BaseArtifactUnionSchema = z.union([
+  ImageArtifactSchema,
+  BrushStrokeArtifactSchema,
+  DrawAreaLayerItemTransformArtifactSchema,
+  ChartDataArtifactSchema,
+]);
+
+export type BaseArtifactUnion = z.infer<typeof BaseArtifactUnionSchema>;
+
+export const BaseArtifactUnionWithDiscriminatorSchema = z.discriminatedUnion(
+  "type",
+  [
+    ImageArtifactSchema,
+    BrushStrokeArtifactSchema,
+    DrawAreaLayerItemTransformArtifactSchema,
+    ChartDataArtifactSchema,
+  ],
+);
+
+export type BaseArtifactUnionWithDiscriminator = z.infer<
+  typeof BaseArtifactUnionWithDiscriminatorSchema
+>;
+
+export function createBaseArtifactUnionWithDiscriminator(
+  options: Partial<BaseArtifactUnionWithDiscriminator> = {},
+): BaseArtifactUnionWithDiscriminator {
+  return BaseArtifactUnionWithDiscriminatorSchema.parse(options);
+}
 
 export const ChartSectionImplArgsSchema = z.object({
   type: z.literal("Chart").optional(),
@@ -3996,45 +4078,6 @@ export function createWebsocketMsgAllConnections(
   return WebsocketMsgAllConnectionsSchema.parse(options);
 }
 
-export const ArtifactSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-  value: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-});
-
-export type Artifact = z.infer<typeof ArtifactSchema>;
-
-export function createArtifact(options: Partial<Artifact> = {}): Artifact {
-  return ArtifactSchema.parse(options);
-}
-
-export const WebsocketMsgArtifactSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: ArtifactSchema,
-  messageType: z
-    .literal("Artifact")
-    .default(WebsocketMsgTypeForFrontendEnum.Artifact),
-});
-
-export type WebsocketMsgArtifact = z.infer<typeof WebsocketMsgArtifactSchema>;
-
-export function createWebsocketMsgArtifact(
-  options: Partial<WebsocketMsgArtifact> = {},
-): WebsocketMsgArtifact {
-  return WebsocketMsgArtifactSchema.parse(options);
-}
-
 export const SettaNotificationSchema = z.object({
   id: z.string().default(create_new_id),
   projectConfigId: z
@@ -5251,9 +5294,31 @@ export function createWebsocketMsgAllProjectMetadata(
   return WebsocketMsgAllProjectMetadataSchema.parse(options);
 }
 
+export const WebsocketMsgUpdateArtifactsSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: z.union([
+    ImageArtifactSchema,
+    BrushStrokeArtifactSchema,
+    DrawAreaLayerItemTransformArtifactSchema,
+    ChartDataArtifactSchema,
+  ]),
+  messageType: z
+    .literal("UpdateArtifacts")
+    .default(WebsocketMsgTypeForFrontendEnum.UpdateArtifacts),
+});
+
+export type WebsocketMsgUpdateArtifacts = z.infer<
+  typeof WebsocketMsgUpdateArtifactsSchema
+>;
+
+export function createWebsocketMsgUpdateArtifacts(
+  options: Partial<WebsocketMsgUpdateArtifacts> = {},
+): WebsocketMsgUpdateArtifacts {
+  return WebsocketMsgUpdateArtifactsSchema.parse(options);
+}
+
 export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
-  WebsocketMsgArtifactSchema,
   WebsocketMsgNotificationSchema,
   WebsocketMsgLLMStreamingResponseSchema,
   WebsocketMsgUUIDMappingForLLMSchema,
@@ -5264,6 +5329,7 @@ export const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
+  WebsocketMsgUpdateArtifactsSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
@@ -5273,7 +5339,6 @@ export type FrontendWebsocketMsgUnion = z.infer<
 export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
   z.discriminatedUnion("messageType", [
     WebsocketMsgAllConnectionsSchema,
-    WebsocketMsgArtifactSchema,
     WebsocketMsgNotificationSchema,
     WebsocketMsgLLMStreamingResponseSchema,
     WebsocketMsgUUIDMappingForLLMSchema,
@@ -5284,6 +5349,7 @@ export const FrontendWebsocketMsgUnionWithDiscriminatorSchema =
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
+    WebsocketMsgUpdateArtifactsSchema,
   ]);
 
 export type FrontendWebsocketMsgUnionWithDiscriminator = z.infer<
@@ -5298,7 +5364,6 @@ export function createFrontendWebsocketMsgUnionWithDiscriminator(
 
 export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
-  WebsocketMsgArtifactSchema,
   WebsocketMsgNotificationSchema,
   WebsocketMsgLLMStreamingResponseSchema,
   WebsocketMsgUUIDMappingForLLMSchema,
@@ -5309,6 +5374,7 @@ export const WebsocketMsgUnionSchema = z.union([
   WebsocketMsgTerminalMetadataSchema,
   WebsocketMsgUpdateSettingsSchema,
   WebsocketMsgAllProjectMetadataSchema,
+  WebsocketMsgUpdateArtifactsSchema,
   WebsocketMsgCurrentAddressUpdateSchema,
 ]);
 
@@ -5318,7 +5384,6 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
   "messageType",
   [
     WebsocketMsgAllConnectionsSchema,
-    WebsocketMsgArtifactSchema,
     WebsocketMsgNotificationSchema,
     WebsocketMsgLLMStreamingResponseSchema,
     WebsocketMsgUUIDMappingForLLMSchema,
@@ -5329,6 +5394,7 @@ export const WebsocketMsgUnionWithDiscriminatorSchema = z.discriminatedUnion(
     WebsocketMsgTerminalMetadataSchema,
     WebsocketMsgUpdateSettingsSchema,
     WebsocketMsgAllProjectMetadataSchema,
+    WebsocketMsgUpdateArtifactsSchema,
     WebsocketMsgCurrentAddressUpdateSchema,
   ],
 );
@@ -6771,44 +6837,18 @@ export function createFolderContentItem(
   return FolderContentItemSchema.parse(options);
 }
 
-export const ArtifactWithIdSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-  value: z
-    .union([
-      z.record(z.string(), z.any()),
-      z.array(z.any()),
-      z.string(),
-      z.int(),
-      z.number(),
-      z.boolean(),
-      z.null(),
-    ])
-    .default(null),
-  id: z.union([z.string(), z.null()]),
+export const BaseArtifactSchema = z.object({
+  type: z.any(),
+  id: z.string().default(create_new_id),
+  value: z.any(),
 });
 
-export type ArtifactWithId = z.infer<typeof ArtifactWithIdSchema>;
+export type BaseArtifact = z.infer<typeof BaseArtifactSchema>;
 
-export function createArtifactWithId(
-  options: Partial<ArtifactWithId> = {},
-): ArtifactWithId {
-  return ArtifactWithIdSchema.parse(options);
-}
-
-export const ArtifactWithoutValueSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  type: z.enum(ArtifactTypeEnum),
-});
-
-export type ArtifactWithoutValue = z.infer<typeof ArtifactWithoutValueSchema>;
-
-export function createArtifactWithoutValue(
-  options: Partial<ArtifactWithoutValue> = {},
-): ArtifactWithoutValue {
-  return ArtifactWithoutValueSchema.parse(options);
+export function createBaseArtifact(
+  options: Partial<BaseArtifact> = {},
+): BaseArtifact {
+  return BaseArtifactSchema.parse(options);
 }
 
 export const BaseChartSettingsSchema = z.object({
@@ -6964,50 +7004,6 @@ export function createBaseSectionImpl(
   options: Partial<BaseSectionImpl> = {},
 ): BaseSectionImpl {
   return BaseSectionImplSchema.parse(options);
-}
-
-export const BrushStrokeWithIdSchema = z.object({
-  strokeStyle: z.string(),
-  lineWidth: z.number(),
-  lineCap: z.enum(DrawAreaBrushShapeEnum),
-  points: z.array(z.tuple([z.number(), z.number()])),
-  globalCompositeOperation: z.literal([
-    "color",
-    "color-burn",
-    "color-dodge",
-    "copy",
-    "darken",
-    "destination-atop",
-    "destination-in",
-    "destination-out",
-    "destination-over",
-    "difference",
-    "exclusion",
-    "hard-light",
-    "hue",
-    "lighten",
-    "lighter",
-    "luminosity",
-    "multiply",
-    "overlay",
-    "saturation",
-    "screen",
-    "soft-light",
-    "source-atop",
-    "source-in",
-    "source-out",
-    "source-over",
-    "xor",
-  ]),
-  id: z.string().default(create_new_id),
-});
-
-export type BrushStrokeWithId = z.infer<typeof BrushStrokeWithIdSchema>;
-
-export function createBrushStrokeWithId(
-  options: Partial<BrushStrokeWithId> = {},
-): BrushStrokeWithId {
-  return BrushStrokeWithIdSchema.parse(options);
 }
 
 export const BaseCanvasSectionImplSchema = z.object({

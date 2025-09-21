@@ -23,10 +23,7 @@ import {
   WebsocketMsgTypeForFrontendEnum,
 } from "utils/generatedTypes";
 import { receiveLLMResponseChunk, updateUUIDMappingForLLM } from "./ai";
-import {
-  updateInteractiveArtifacts,
-  updateInteractiveDependencies,
-} from "./interactive";
+import { updateInteractiveDependencies } from "./interactive";
 import { processRenameRefactorResults } from "./referenceRenaming";
 import {
   getCurrProjectConfigId,
@@ -109,8 +106,8 @@ function receiveMessage(message: string) {
       return setWebsocketConnections(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllDependencies:
       return updateInteractiveDependencies(m.content);
-    case WebsocketMsgTypeForFrontendEnum.Artifact:
-      return updateInteractiveArtifacts(m.content);
+    // case WebsocketMsgTypeForFrontendEnum.Artifact:
+    //   return updateInteractiveArtifacts(m.content);
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
@@ -130,6 +127,8 @@ function receiveMessage(message: string) {
       return updateSettings(m.content);
     case WebsocketMsgTypeForFrontendEnum.AllProjectMetadata:
       return updateAllProjectMetadata(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UpdateArtifacts:
+      return null;
     default:
       return m satisfies never;
   }

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from setta.api.logger import load_from_csv_base64, parse_csv_content
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.chart import ChartDataType
+from setta.types.artifact import ChartData
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -143,7 +143,7 @@ def route_load_image_artifacts(x: LoadImageArtifactsRequest) -> list[str]:
 
 
 @router.post(Route.LOAD_CHART_DATA)
-def route_load_chart_data(x: LoadChartDataRequest) -> ChartDataType:
+def route_load_chart_data(x: LoadChartDataRequest) -> ChartData:
     with open(x.dataPath, "r") as f:
         content = f.read()
         return parse_csv_content(content)

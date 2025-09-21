@@ -257,7 +257,7 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
             ts, dependent_type_defs = python_type_to_zod(actual_type, processed_types)
             type_definitions.update(dependent_type_defs)
             if (
-                get_origin(actual_type) is Union
+                get_origin(actual_type) in (Union, types.UnionType)
                 and type(annotation) is FieldInfo
                 and annotation.discriminator
             ):

@@ -1,7 +1,7 @@
-from setta.types.chart import ChartDataMapping
-from setta.types.draw_area import (
+from setta.types.artifact import (
     BrushStrokeMapping,
-    DrawAreaTransformMapping,
+    ChartDataMapping,
+    DrawAreaLayerItemTransformMapping,
     ImageMapping,
 )
 
@@ -11,4 +11,4 @@ class Artifacts:
         self.images: ImageMapping = {}
         self.brushStrokes: BrushStrokeMapping = {}
         self.chartData: ChartDataMapping = {}
-        self.drawAreaTransforms: DrawAreaTransformMapping = {}
+        self.drawAreaLayerItemTransforms: DrawAreaLayerItemTransformMapping = {}

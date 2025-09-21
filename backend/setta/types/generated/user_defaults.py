@@ -1,18 +1,18 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+# Section type imports
+from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 
 # Code object type imports
 from setta.types.code_obj_impls import (
     ColorPickerChoice,
     ParamNameType,
 )
-
-# Section type imports
-from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     CodeLanguage,
@@ -40,7 +40,7 @@ class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="fo
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
-    pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
 
 

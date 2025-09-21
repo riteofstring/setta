@@ -18,7 +18,7 @@ import {
   ChatMetadata,
   createProjectConfig,
   createSingletonSections,
-  DrawAreaTransformMapping,
+  DrawAreaLayerItemTransformMapping,
   IDToUUIDForLLM,
   ImageMapping,
   ProjectStateSingleConfig,
@@ -411,7 +411,7 @@ export const useBrushStrokes = createWithEqualityFn(
 );
 
 export type ZustandArtifactTransform = {
-  x: DrawAreaTransformMapping;
+  x: DrawAreaLayerItemTransformMapping;
 };
 
 export const useArtifactTransform = createWithEqualityFn(

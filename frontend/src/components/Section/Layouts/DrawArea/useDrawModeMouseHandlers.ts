@@ -8,11 +8,10 @@ import {
 import {
   ArtifactTypeEnum,
   BrushStroke,
-  BrushStrokeWithId,
+  BrushStrokeArtifact,
   CanvasPoint,
   DrawAreaBrushShape,
   DrawAreaLayer,
-  DrawAreaLayerItemTypeEnum,
   DrawAreaMode,
   DrawAreaModeEnum,
   DrawAreaTransform,
@@ -53,7 +52,7 @@ import {
 export function useDrawModeMouseHandlers(
   layers: Array<DrawAreaLayer>,
   sectionId: string,
-  strokeRef: React.RefObject<BrushStrokeWithId | null>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   eraserBrushSize: number,
@@ -183,7 +182,7 @@ export function useDrawModeMouseHandlers(
 
 function drawingOnMouseDown(
   layers: Array<DrawAreaLayer>,
-  strokeRef: React.RefObject<BrushStroke | null>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
@@ -227,7 +226,7 @@ function drawingOnMouseDown(
 
 function drawingOnMouseMove(
   layers: Array<DrawAreaLayer>,
-  strokeRef: React.RefObject<BrushStrokeWithId | null>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   isDrawingRef: React.RefObject<boolean>,
@@ -267,7 +266,7 @@ function drawingOnMouseMove(
       draftCanvasRef.current &&
       strokeRef.current
     ) {
-      if (strokeRef.current.points.length >= canvasTransferQueueLength) {
+      if (strokeRef.current.value.points.length >= canvasTransferQueueLength) {
         const [layer, layerCanvas] = getActiveLayerAndCanvas(
           layers,
           layerCanvasRefs,
@@ -287,7 +286,7 @@ function drawingOnMouseMove(
         prevPointRef.current = point;
       } else if (prevPointRef.current) {
         drawStroke(draftCanvasRef.current, prevPointRef.current, point);
-        strokeRef.current.points.push(point);
+        strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
       }
     }
@@ -299,7 +298,7 @@ function drawingOnMouseUp(
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   isDrawingRef: React.RefObject<boolean>,
   activeLayerIdx: number,
-  strokeRef: React.RefObject<BrushStrokeWithId | null>,
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   layerCanvasRefs: React.RefObject<LayerCanvasesType>,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
@@ -331,21 +330,26 @@ function drawingOnMouseUp(
           return;
         }
         for (const el of layer.elements) {
-          const transform = state.x[el.transformId];
-          if (!transform) {
+          const artifact = state.x[el.transformId];
+          if (!artifact) {
             continue;
           }
-          const inverseTransform = getInverseTransform(transform.transform);
+          const inverseTransform = getInverseTransform(
+            artifact.value.transform,
+          );
           let bounds;
-          if (el.type === DrawAreaLayerItemTypeEnum.Image) {
+          if (el.type === ArtifactTypeEnum.Image) {
             const img = images[el.dataPath];
             if (img) {
-              bounds = getImageBounds(img, transform.transform);
+              bounds = getImageBounds(img, artifact.value.transform);
             }
-          } else if (el.type === DrawAreaLayerItemTypeEnum.BrushStroke) {
+          } else if (el.type === ArtifactTypeEnum.BrushStroke) {
             const brushStroke = brushStrokes[el.dataPath];
             if (brushStroke) {
-              bounds = getBrushStrokesBounds(brushStroke, transform.transform);
+              bounds = getBrushStrokesBounds(
+                brushStroke,
+                artifact.value.transform,
+              );
             }
           }
 
@@ -355,7 +359,7 @@ function drawingOnMouseUp(
             eraserStrokeRef.current.lineCap,
             bounds,
           );
-          transform.eraserStrokes.push({
+          artifact.value.eraserStrokes.push({
             ...eraserStrokeRef.current,
             points: intersectingPath,
             transform: inverseTransform,

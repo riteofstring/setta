@@ -1,13 +1,18 @@
 from typing import Any, Callable, Literal, NotRequired, TypedDict
 
-from setta.types.chart import LineChartSettings, ScatterChartSettings
+from setta.types.artifact import (
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
+    LineChartSettings,
+    ScatterChartSettings,
+)
 from setta.types.code_obj_impls import (
     CodeObjType,
     ColorPickerChoice,
     ParameterPassingStyle,
     ParamNameType,
 )
-from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewingEditingMode,

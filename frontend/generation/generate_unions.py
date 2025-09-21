@@ -21,7 +21,7 @@ def construct_unions(
         module, base_class, exclude_empty=True, required_discriminator=discriminator
     )
     code = """
-from typing import Annotated,Union,TypeGuard
+from typing import Annotated,TypeGuard
 from pydantic import Field, TypeAdapter
 
 """
@@ -32,7 +32,7 @@ from pydantic import Field, TypeAdapter
 
     for base_class, child_classes in class_to_children.items():
         union_name = f"{class_transformer(base_class.__name__)}Union"
-        code += f"{union_name} = Union[{', '.join(class_transformer(c.__name__) for c in child_classes)}]\n\n"
+        code += f"{union_name} = {' | '.join(class_transformer(c.__name__) for c in child_classes)}\n\n"
         code += f'{union_name}WithDiscriminator = Annotated[{union_name}, Field(discriminator="{discriminator}")]\n\n'
         code += f"{class_transformer(base_class.__name__)}TypeAdapter = TypeAdapter({union_name}WithDiscriminator)\n\n"
 
@@ -53,6 +53,7 @@ from pydantic import Field, TypeAdapter
 
 
 def generate_unions(output_file):
+    import setta.types.artifact
     import setta.types.code_obj_impls
     import setta.types.generated.impl_args_as_typed_dicts
     import setta.types.section_impls
@@ -84,6 +85,14 @@ def generate_unions(output_file):
         "type",
         setta.types.generated.impl_args_as_typed_dicts,
         lambda x: f"{x}Args",
+    )
+
+    code += construct_unions(
+        setta.types.artifact,
+        setta.types.artifact.BaseArtifact,
+        "type",
+        setta.types.artifact,
+        lambda x: x,
     )
 
     code = ruff_format(code)
@@ -124,13 +133,13 @@ def generate_clipboard_data_unions(output_file: Path):
 
 
 def generate_chart_settings_unions(output_file: Path):
-    import setta.types.chart
+    import setta.types.artifact
 
     code = construct_unions(
-        setta.types.chart,
-        setta.types.chart.BaseChartSettings,
+        setta.types.artifact,
+        setta.types.artifact.BaseChartSettings,
         "type",
-        setta.types.chart,
+        setta.types.artifact,
         lambda x: x,
     )
     code = ruff_format(code)

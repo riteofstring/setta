@@ -4,7 +4,7 @@ import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   BrushStroke,
-  BrushStrokeWithId,
+  BrushStrokeArtifact,
   CanvasPoint,
   DrawAreaMode,
   DrawAreaModeEnum,
@@ -70,7 +70,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     layer: null,
     artifact: null,
   });
-  const strokeRef = useRef<BrushStrokeWithId>(null);
+  const strokeRef = useRef<BrushStrokeArtifact>(null);
   const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef<DrawAreaTransform>([
     1, 0, 0, 1, 0, 0,
@@ -196,7 +196,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     ) {
       return;
     }
-    strokeRef.current.points = [];
+    strokeRef.current.value.points = [];
     setGlobalBrushStrokeAndDrawLayer(
       layer,
       strokeRef.current,

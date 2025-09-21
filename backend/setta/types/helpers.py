@@ -6,7 +6,16 @@ from typing import TYPE_CHECKING, TypeVar, assert_never
 
 from setta.database.utils import create_new_id
 from setta.project_state.artifacts import Artifacts
-from setta.types.chart import ChartType
+from setta.types.artifact import (
+    ArtifactType,
+    BrushStroke,
+    BrushStrokeArtifact,
+    ChartType,
+    DrawAreaLayer,
+    DrawAreaLayerItem,
+    DrawAreaLayerItemTransform,
+    DrawAreaLayerItemTransformArtifact,
+)
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeCallableCodeObjImpl,
@@ -17,13 +26,6 @@ from setta.types.core import (
     Variant,
     compute_initial_nonPresetImpls,
     get_default_section_core_name,
-)
-from setta.types.draw_area import (
-    BrushStrokeWithId,
-    DrawAreaLayer,
-    DrawAreaLayerItem,
-    DrawAreaLayerItemTransform,
-    DrawAreaLayerItemType,
 )
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsTypeAdapter,
@@ -475,19 +477,21 @@ def create_section(
 
 def init_draw_section_layer(impl: DrawSectionImpl, artifacts: Artifacts):
     transform = DrawAreaLayerItemTransform()
-    brushStroke = BrushStrokeWithId(
+    transformArtifact = DrawAreaLayerItemTransformArtifact(value=transform)
+    brushStroke = BrushStroke(
         strokeStyle=hex_to_rgba(impl.brushColor, impl.brushOpacity),
         lineWidth=impl.brushSize,
         lineCap=impl.brushShape,
     )
+    brushStrokeArtifact = BrushStrokeArtifact(value=brushStroke)
     layerItem = DrawAreaLayerItem(
-        type=DrawAreaLayerItemType.BrushStroke,
-        dataPath=brushStroke.id,
-        transformId=transform.id,
+        type=ArtifactType.BrushStroke,
+        dataPath=brushStrokeArtifact.id,
+        transformId=transformArtifact.id,
     )
     layer = DrawAreaLayer(elements=[layerItem])
-    artifacts.drawAreaTransforms[transform.id] = transform
-    artifacts.brushStrokes[brushStroke.id] = brushStroke
+    artifacts.drawAreaLayerItemTransforms[transformArtifact.id] = transformArtifact
+    artifacts.brushStrokes[brushStrokeArtifact.id] = brushStrokeArtifact
     impl.layers = [layer]
 
 

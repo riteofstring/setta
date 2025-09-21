@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import (
     BaseModel,
@@ -8,10 +8,16 @@ from pydantic import (
 )
 
 from setta.database.utils import create_new_id
-from setta.types.chart import LineChartSettings
+from setta.types.artifact import (
+    DrawAreaBrushShape,
+    DrawAreaLayer,
+    DrawAreaMode,
+    LineChartSettings,
+)
 from setta.types.code_obj_impls import ColorPickerChoice
-from setta.types.draw_area import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
-from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
+from setta.types.generated.chart_settings_unions import (
+    BaseChartSettingsUnionWithDiscriminator,
+)
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
@@ -40,8 +46,8 @@ class SectionSizeMode(str, Enum):
 
 
 class SectionSize(BaseModel, extra="forbid"):
-    width: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
-    height: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    width: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
+    height: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
 
 
 class CodeLanguage(str, Enum):
@@ -118,7 +124,7 @@ class BaseSectionWithParamsImpl(BaseSectionImpl):
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python
     pinnedParams: list[str] = Field(default_factory=list)
-    pinnedAreaHeight: Union[float, Literal[SectionSizeMode.auto]] = SectionSizeMode.auto
+    pinnedAreaHeight: float | Literal[SectionSizeMode.auto] = SectionSizeMode.auto
     selectedParams: list[str] = Field(default_factory=list)
     ignoreTypeErrors: dict[str, bool] = Field(default_factory=dict)
     displayMode: SectionWithParamsDisplayMode = SectionWithParamsDisplayMode.Gui
@@ -175,7 +181,9 @@ class ImageSectionImpl(BaseSectionImpl):
 class ChartSectionImpl(BaseCanvasSectionImpl):
     type: Literal[SectionType.Chart] = SectionType.Chart
     dataPath: str = ""
-    chartSettings: BaseChartSettingsUnion = Field(default_factory=LineChartSettings)
+    chartSettings: BaseChartSettingsUnionWithDiscriminator = Field(
+        default_factory=LineChartSettings
+    )
     size: SectionSize = Field(
         default_factory=lambda: SectionSize(width=400, height=400)
     )

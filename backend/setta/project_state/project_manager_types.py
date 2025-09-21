@@ -2,9 +2,11 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from setta.types.chart import ChartType
+from setta.types.artifact import ChartType
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
-from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion
+from setta.types.generated.chart_settings_unions import (
+    BaseChartSettingsUnionWithDiscriminator,
+)
 from setta.types.generated.unions import BaseSectionImplArgsUnion
 from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
@@ -343,7 +345,7 @@ class SetChartTypeRequest(BaseModel):
 class SetChartSettingsRequest(BaseModel):
     projectConfigId: str
     sectionId: str
-    chartSettings: BaseChartSettingsUnion
+    chartSettings: BaseChartSettingsUnionWithDiscriminator
     changedSettings: list[str]
 
 

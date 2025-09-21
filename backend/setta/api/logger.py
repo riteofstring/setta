@@ -9,8 +9,7 @@ from pathlib import Path
 import requests
 import websockets
 
-from setta.types.artifact import Artifact, ArtifactType, ArtifactWithId, JSONValueType
-from setta.types.chart import ChartDataType
+from setta.types.artifact import ArtifactType, ChartData
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
@@ -102,7 +101,7 @@ class SettaLogger:
 
         return data_to_send
 
-    def fill_in_missing_artifact_ids(self, data_to_send: list[ArtifactWithId]):
+    def fill_in_missing_artifact_ids(self, data_to_send):
         res = requests.post(
             f"{C.BACKEND}{Route.PREFIX}{Route.FILL_IN_MISSING_ARTIFACT_IDS}",
             json={"namesPathsTypes": data_to_send},
@@ -117,7 +116,7 @@ class SettaLogger:
                 ] = id
                 data_to_send[idx].id = id
 
-    def get_name_path_type_key(self, artifact: Artifact):
+    def get_name_path_type_key(self, artifact):
         return artifact.name, artifact.path, artifact.type
 
     def list(self, name: str):
@@ -163,7 +162,7 @@ class SettaDataWrapper(ABC):
         pass
 
     @abstractmethod
-    def serialize(self) -> JSONValueType:
+    def serialize(self):
         pass
 
     @abstractmethod
@@ -343,13 +342,13 @@ def parse_csv_row(values):
     return row
 
 
-def parse_csv_content(content: str) -> ChartDataType:
+def parse_csv_content(content: str) -> ChartData:
     lines = content.strip().split("\n")
     if not lines:
         return {}
 
     headers = [h.strip() for h in lines[0].split(",")]
-    result: ChartDataType = {header: [] for header in headers}
+    result: ChartData = {header: [] for header in headers}
 
     if not lines[1:]:
         return result
