@@ -1,4 +1,5 @@
 import _ from "lodash";
+import React from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrProjectConfigId,
@@ -10,7 +11,7 @@ import { route_set_param_entered_value } from "utils/generatedEndpoints";
 import { isBaseChildlessCodeObjImpl } from "utils/generatedTypes";
 import { ParamUI } from "../ParamUIs/ParamUI";
 
-export function ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
+function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const globalValue = useProjectState((x) => {
     const impl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
@@ -67,3 +68,5 @@ const debouncedSetParamEnteredValue = _.debounce(
   },
   50,
 );
+
+export const ParamInput = React.memo(_ParamInput);
