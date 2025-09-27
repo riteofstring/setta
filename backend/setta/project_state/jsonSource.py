@@ -124,7 +124,7 @@ class JSONSource:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
-            processedJsonInfo = self.process_json_object(filepath, file_content)
+            processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
             project_state_backend = project_state_backend_getter_fn()
             variantsToLoad = self.get_variants_for_json_source_update(
@@ -177,7 +177,6 @@ class JSONSource:
 
     def process_json_object(
         self,
-        filepath: Path,
         jsonSourceData: dict,
         jsonSourceKeysToLoad: list[list[str]],
     ):
@@ -194,6 +193,7 @@ class JSONSource:
                 collect_all_visited=True,
                 build_name_paths=True,
                 build_name_path_to_id=True,
+                build_name_path_to_descendants=True,
             ),
         )
 

@@ -21,6 +21,7 @@ class TraversalOptions:
     build_id_paths: bool = True  # paths of IDs
     build_name_paths: bool = False  # paths of names (ancestor_paths)
     build_name_path_to_id: bool = False
+    build_name_path_to_descendants: bool = False
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
     build_nested_dict: bool = False
     name_path_prefix: list[str] = field(default_factory=list)
@@ -41,6 +42,9 @@ class HierarchyTraversalResult:
     id_path_map: dict[str, list[str]] = field(default_factory=dict)
     name_path_map: dict[str, list[str]] = field(default_factory=dict)
     name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
+    name_path_to_descendant_ids: dict[tuple[str, ...], list[str]] = field(
+        default_factory=dict
+    )
     all_visited_ids: set[str] = field(default_factory=set)
     nested_dict: dict = field(default_factory=dict)
     early_stopped: bool = False
@@ -157,8 +161,25 @@ def traverse_hierarchy(
                 break
 
     # Set root parents to None
-    for root_id in root_ids:
-        if root_id in result.all_visited_ids and options.build_parent_map:
-            result.parent_map.setdefault(root_id, None)
+    if options.build_parent_map:
+        for root_id in root_ids:
+            if root_id in result.all_visited_ids:
+                result.parent_map.setdefault(root_id, None)
+
+    # Build name_path_to_descendant_ids if requested
+    if options.build_name_path_to_descendants and options.build_name_paths:
+        for collected_id in result.collected_ids:
+            if collected_id in result.name_path_map:
+                name_path = result.name_path_map[collected_id]
+
+                for i in range(1, len(name_path)):
+                    ancestor_path = tuple(name_path[:i])
+                    if ancestor_path not in result.name_path_to_descendant_ids:
+                        result.name_path_to_descendant_ids[ancestor_path] = []
+                    result.name_path_to_descendant_ids[ancestor_path].append(
+                        collected_id
+                    )
+
+    return result
 
     return result

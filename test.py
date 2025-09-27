@@ -26,8 +26,9 @@ sfw = SpecificFileWatcher()
 js = JSONSource(wmh, settings_file, sfw, dbe)
 
 file_contents = dbe.read_json(dbe.settings)
-processedJson = js.process_json_object(dbe.settings, file_contents, [["gui"]])
+processedJson = js.process_json_object(file_contents, [["gui"]])
 pprint(processedJson.jsonSourceKeyToTopLevelIds)
+pprint(processedJson.hierarchy.name_path_to_descendant_ids)
 # pprint(processedJson.model_dump())
 
 # load_json_sources_into_data_structures(
