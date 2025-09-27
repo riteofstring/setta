@@ -191,6 +191,7 @@ class JSONSource:
             rootTopLevelParamIds,
             options=TraversalOptions(
                 collect_all_visited=True,
+                build_children_map=True,
                 build_name_paths=True,
                 build_name_path_to_id=True,
                 build_name_path_to_descendants=True,
@@ -202,9 +203,9 @@ class JSONSource:
             topLevelIds = (
                 rootTopLevelParamIds
                 if len(jsonSourceKeys) == 0
-                else getToplLeveParamIdsFromJsonSourceKeys(
-                    jsonSourceKeys, new_data, hierarchy
-                )
+                else hierarchy.children_map[
+                    hierarchy.name_path_to_id[tuple(jsonSourceKeys)]
+                ]
             )
             jsonSourceKeysToTopLevelIds[tuple(jsonSourceKeys)] = topLevelIds
 
@@ -273,17 +274,3 @@ class JSONSource:
         output.codeObjImpls[codeObjImpl.id] = codeObjImpl
         output.codeObjVariants[variantId] = codeObjVariant
         return codeObj, codeObjImpl, codeObjVariant
-
-
-def getToplLeveParamIdsFromJsonSourceKeys(
-    jsonSourceKeys: list[str],
-    processedJson: JSONSourceKeyValueInfo,
-    hierarchy: HierarchyTraversalResult,
-) -> list[str]:
-    codeObjId = hierarchy.name_path_to_id[tuple(jsonSourceKeys)]
-    codeObj = processedJson.codeObjs[codeObjId]
-    # We can access "children" directly instead of through get_effective_impl
-    # because we know all attributes are shared.
-    # We use .get in case jsonSourceKeys is pointing to a non-nested code obj
-    # (which won't have a children attribute)
-    return codeObj.sharedModifier.get("children", [])

@@ -94,21 +94,23 @@ def merge_into_existing(
         TraversalOptions(
             collect_all_visited=True,
             build_name_paths=True,
+            build_name_path_to_id=True,
+            name_path_prefix=section_impl.jsonSourceKeys,
         ),
     )
-    jsonSourceMetadataTupleToId: MetadataTupleToId = createMetadataTupleToId(
-        filename, hierarchy
-    )
-    processedJson = new_data.keyValueInfo
+    keyValueInfo = new_data.keyValueInfo
+    newTopLevelIds = new_data.jsonSourceKeyToTopLevelIds[
+        tuple(section_impl.jsonSourceKeys)
+    ]
 
     replacements: dict[str, tuple[str, BaseCodeObjImpl]] = {}
-    for newId, newCodeObj in processedJson.codeObjs.items():
-        existingCodeObjId = jsonSourceMetadataTupleToId.get(
-            createMetadataTuple(filename, new_data.hierarchy.name_path_map[newId])
+    for newId in newTopLevelIds:
+        existingCodeObjId = hierarchy.name_path_to_id.get(
+            tuple(new_data.hierarchy.name_path_map[newId])
         )
-        newVariantId = processedJson.sectionImpl.codeObjVariantMap[newId]
-        newVariant = processedJson.codeObjVariants[newVariantId]
-        newImpl = processedJson.codeObjImpls[newVariant.impl]
+        newVariantId = keyValueInfo.codeObjVariantMap[newId]
+        newVariant = keyValueInfo.codeObjVariants[newVariantId]
+        newImpl = keyValueInfo.codeObjImpls[newVariant.impl]
         if not existingCodeObjId:
             section_impl = set_effective_impl_value(
                 base_section_impl,

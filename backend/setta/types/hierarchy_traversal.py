@@ -168,17 +168,15 @@ def traverse_hierarchy(
 
     # Build name_path_to_descendant_ids if requested
     if options.build_name_path_to_descendants and options.build_name_paths:
-        for collected_id in result.collected_ids:
-            if collected_id in result.name_path_map:
-                name_path = result.name_path_map[collected_id]
+        for visited_id in result.all_visited_ids:
+            if visited_id in result.name_path_map:
+                name_path = result.name_path_map[visited_id]
 
                 for i in range(1, len(name_path)):
                     ancestor_path = tuple(name_path[:i])
                     if ancestor_path not in result.name_path_to_descendant_ids:
                         result.name_path_to_descendant_ids[ancestor_path] = []
-                    result.name_path_to_descendant_ids[ancestor_path].append(
-                        collected_id
-                    )
+                    result.name_path_to_descendant_ids[ancestor_path].append(visited_id)
 
     return result
 
