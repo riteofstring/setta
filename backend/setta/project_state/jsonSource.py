@@ -60,8 +60,8 @@ class JSONSource:
         project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
-            filename = coreUpdate.relPath
-            self.json_sources[filename] = self.dbe.read_json(filename)
+            filepath = coreUpdate.fileToRead
+            self.json_sources[filepath] = self.dbe.read_json(filepath)
             project_state_backend = project_state_backend_getter_fn()
             variantsToLoad = self.get_variants_for_json_source_update(
                 project_state_backend, coreUpdate
@@ -69,7 +69,7 @@ class JSONSource:
             if len(variantsToLoad) > 0:
                 await load_json_sources_fn(self.json_sources, variantsToLoad)
                 notification = SettaNotification(
-                    message=f"{filename} {coreUpdate.eventType.value}",
+                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
                 )
                 await self.websocket_msg_handler.broadcast_notification(notification)
 
