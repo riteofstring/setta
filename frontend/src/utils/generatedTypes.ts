@@ -7371,24 +7371,6 @@ export function createUserDefaultBaseSectionWithParamsImpl(
   return UserDefaultBaseSectionWithParamsImplSchema.parse(options);
 }
 
-export const FileWatcherCoreUpdateSchema = z.object({
-  absPath: z.string(),
-  relPath: z.string(),
-  eventType: z.enum(FileEventTypeEnum),
-  matchingGlobPatterns: z.array(z.string()),
-  destAbsPath: z.union([z.string(), z.null()]).default(null),
-  destRelPath: z.union([z.string(), z.null()]).default(null),
-  fileToRead: z.string(),
-});
-
-export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
-
-export function createFileWatcherCoreUpdate(
-  options: Partial<FileWatcherCoreUpdate> = {},
-): FileWatcherCoreUpdate {
-  return FileWatcherCoreUpdateSchema.parse(options);
-}
-
 export const PositionSchema = z.object({
   x: z.number().default(0),
   y: z.number().default(0),
@@ -7512,6 +7494,24 @@ export function createSimplifiedSectionCreation(
   options: Partial<SimplifiedSectionCreation> = {},
 ): SimplifiedSectionCreation {
   return SimplifiedSectionCreationSchema.parse(options);
+}
+
+export const FileWatcherCoreUpdateSchema = z.object({
+  absPath: z.string(),
+  relPath: z.string(),
+  eventType: z.enum(FileEventTypeEnum),
+  matchingGlobPatterns: z.array(z.string()),
+  destAbsPath: z.union([z.string(), z.null()]).default(null),
+  destRelPath: z.union([z.string(), z.null()]).default(null),
+  fileToRead: z.string(),
+});
+
+export type FileWatcherCoreUpdate = z.infer<typeof FileWatcherCoreUpdateSchema>;
+
+export function createFileWatcherCoreUpdate(
+  options: Partial<FileWatcherCoreUpdate> = {},
+): FileWatcherCoreUpdate {
+  return FileWatcherCoreUpdateSchema.parse(options);
 }
 
 export const BackendWebsocketMsgSchema = z.object({
