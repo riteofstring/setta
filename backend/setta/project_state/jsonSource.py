@@ -126,14 +126,21 @@ class JSONSource:
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
+            project_state_backend = project_state_backend_getter_fn()
+            variantsToLoad, jsonSoureKeysToLoad = (
+                self.get_variants_for_json_source_update(
+                    project_state_backend, coreUpdate
+                )
+            )
+
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
-            processedJsonInfo = self.process_json_object(file_content)
-            self.json_sources[filepath] = processedJsonInfo
-            project_state_backend = project_state_backend_getter_fn()
-            variantsToLoad = self.get_variants_for_json_source_update(
-                project_state_backend, coreUpdate
+
+            processedJsonInfo = self.process_json_object(
+                file_content, jsonSoureKeysToLoad
             )
+            self.json_sources[filepath] = processedJsonInfo
+
             if len(variantsToLoad) > 0:
                 await load_json_sources_fn(self.json_sources, variantsToLoad)
                 notification = SettaNotification(
@@ -160,6 +167,7 @@ class JSONSource:
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"
     ):
         variantsToLoad: set[str] = set()
+        jsonSourceKeysToLoad: set[tuple[str, ...]] = set()
         processed = set()
         for section in p.sections.values():
             for variant_id in section.variants:
@@ -177,12 +185,13 @@ class JSONSource:
                     continue
 
                 variantsToLoad.add(variant_id)
-        return variantsToLoad
+                jsonSourceKeysToLoad.add(tuple(impl.jsonSourceKeys))
+        return variantsToLoad, jsonSourceKeysToLoad
 
     def process_json_object(
         self,
         jsonSourceData: dict,
-        jsonSourceKeysToLoad: list[list[str]],
+        jsonSourceKeysToLoad: set[tuple[str, ...]],
     ):
         #  sectionImpl=
         new_data = JSONSourceKeyValueInfo()
@@ -207,11 +216,9 @@ class JSONSource:
             topLevelIds = (
                 rootTopLevelParamIds
                 if len(jsonSourceKeys) == 0
-                else hierarchy.children_map[
-                    hierarchy.name_path_to_id[tuple(jsonSourceKeys)]
-                ]
+                else hierarchy.children_map[hierarchy.name_path_to_id[jsonSourceKeys]]
             )
-            jsonSourceKeysToTopLevelIds[tuple(jsonSourceKeys)] = topLevelIds
+            jsonSourceKeysToTopLevelIds[jsonSourceKeys] = topLevelIds
 
         return ProcessedJSONInfo(jsonSourceKeysToTopLevelIds, new_data, hierarchy)
 

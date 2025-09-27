@@ -24,7 +24,7 @@ class TraversalOptions:  # setta-convert-pydantic-to-js: skip
     build_name_path_to_descendants: bool = False
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
     build_nested_dict: bool = False
-    name_path_prefix: list[str] = field(default_factory=list)
+    name_path_prefix: tuple[str, ...] = field(default_factory=tuple)
 
     # Collection
     collect_all_visited: bool = (
@@ -39,8 +39,8 @@ class HierarchyTraversalResult:  # setta-convert-pydantic-to-js: skip
     collected_ids: list[str] = field(default_factory=list)
     parent_map: dict[str, Optional[str]] = field(default_factory=dict)
     children_map: dict[str, list[str]] = field(default_factory=dict)
-    id_to_id_path: dict[str, list[str]] = field(default_factory=dict)
-    id_to_name_path: dict[str, list[str]] = field(default_factory=dict)
+    id_to_id_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    id_to_name_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
     name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
     name_path_to_descendant_ids: dict[tuple[str, ...], list[str]] = field(
         default_factory=dict
@@ -69,10 +69,12 @@ def traverse_hierarchy(
         return get_effective_impl(codeObjImpls[variant.impl], codeObjs[id], variant)
 
     # Build stack with optional filtering
-    stack: list[tuple[str, list[str], list[str]]] = []  # (id, id_path, name_path)
+    stack: list[
+        tuple[str, tuple[str, ...], tuple[str, ...]]
+    ] = []  # (id, id_path, name_path)
     for root_id in reversed(root_ids):
         if not options.traverse_filter or options.traverse_filter(get_impl(root_id)):
-            stack.append((root_id, [], options.name_path_prefix))
+            stack.append((root_id, (), options.name_path_prefix))
 
     while stack:
         current_id, current_id_path, current_name_path = stack.pop()
@@ -84,10 +86,10 @@ def traverse_hierarchy(
         impl = get_impl(current_id)
 
         # Build paths
-        new_id_path = current_id_path + [current_id]
+        new_id_path = current_id_path + (current_id,)
         new_name_path = current_name_path
         if options.build_id_to_name_path and current_id in codeObjs:
-            new_name_path = current_name_path + [codeObjs[current_id].name]
+            new_name_path = current_name_path + (codeObjs[current_id].name,)
 
         # NEW: Build nested dict if requested
         if options.build_nested_dict:
@@ -117,13 +119,13 @@ def traverse_hierarchy(
             if not options.track_path_for or options.track_path_for(impl):
                 result.id_to_id_path[current_id] = new_id_path
             else:
-                result.id_to_id_path[current_id] = list(current_id_path)
+                result.id_to_id_path[current_id] = current_id_path
 
         if options.build_id_to_name_path:
             result.id_to_name_path[current_id] = new_name_path
 
         if options.build_name_path_to_id:
-            result.name_path_to_id[tuple(new_name_path)] = current_id
+            result.name_path_to_id[new_name_path] = current_id
 
         # Collect if matches filter
         if options.collect_all_visited or (
@@ -175,7 +177,7 @@ def traverse_hierarchy(
                 name_path = result.id_to_name_path[visited_id]
 
                 for i in range(1, len(name_path)):
-                    ancestor_path = tuple(name_path[:i])
+                    ancestor_path = name_path[:i]
                     if ancestor_path not in result.name_path_to_descendant_ids:
                         result.name_path_to_descendant_ids[ancestor_path] = []
                     result.name_path_to_descendant_ids[ancestor_path].append(visited_id)

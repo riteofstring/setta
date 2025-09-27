@@ -93,7 +93,7 @@ def merge_into_existing(
             collect_all_visited=True,
             build_id_to_name_path=True,
             build_name_path_to_id=True,
-            name_path_prefix=section_impl.jsonSourceKeys,
+            name_path_prefix=tuple(section_impl.jsonSourceKeys),
         ),
     )
     keyValueInfo = new_data.keyValueInfo
@@ -105,7 +105,7 @@ def merge_into_existing(
     newCodeObjVariantMapEntries: dict[str, str] = {}
     for newId in newIdsToProcess:
         existingCodeObjId = hierarchy.name_path_to_id.get(
-            tuple(new_data.hierarchy.id_to_name_path[newId])
+            new_data.hierarchy.id_to_name_path[newId]
         )
         newCodeObj = keyValueInfo.codeObjs[newId]
         newVariantId = keyValueInfo.codeObjVariantMap[newId]
