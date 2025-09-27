@@ -3,7 +3,7 @@ import copy
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Coroutine, Iterable
+from typing import Any, Coroutine, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -318,12 +318,13 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def load_json_sources(
         self,
+        json_sources: dict[Path, Any],
         section_variant_ids: Iterable[str] | None = None,
     ):
         load_json_sources_into_data_structures(
-            self.dbe,
             self.settings_file.settings,
             self.project_state_backend,
+            json_sources,
             section_variant_ids,
         )
         for configId in self.project_state_backend.projectConfigs.keys():

@@ -42,7 +42,7 @@ class SettaFastAPIState:
             self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
         )
         self.json_source = JSONSource(
-            self.wmh_frontend_sender, self.specific_file_watcher
+            self.wmh_frontend_sender, self.specific_file_watcher, self.dbe
         )
         project_manager = ProjectManager(
             self.lsp_writers,

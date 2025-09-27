@@ -1,4 +1,5 @@
-from collections import defaultdict
+import json
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
@@ -12,6 +13,9 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateBackend, ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+    from setta.database.db_objs import DBE
+
+logger = logging.getLogger(__name__)
 
 
 class JSONSource:
@@ -19,49 +23,52 @@ class JSONSource:
         self,
         websocket_msg_handler: "WMHFrontendSender",
         specific_file_watcher: "SpecificFileWatcher",
+        dbe: "DBE",
     ):
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
-        self.json_source_to_section_mapping: dict[Path, list[str]] = {}
+        self.dbe = dbe
+        self.json_sources: dict[Path, Any] = {}
 
     def watch_json_source_files(
         self,
-        load_json_sources_fn: Callable[[set[str]], Coroutine[Any, Any, None]],
+        load_json_sources_fn: Callable[
+            [dict[Path, Any], set[str]], Coroutine[Any, Any, None]
+        ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
     ):
-        filename_set, new_json_source_to_section_mapping = (
-            self.get_json_source_files_to_watch(project_state_backend_getter_fn())
+        filename_set = self.get_json_source_files_to_watch(
+            project_state_backend_getter_fn()
         )
-        callbacks = {
-            k: self.get_json_source_file_watcher_callback(
-                load_json_sources_fn, project_state_backend_getter_fn
-            )
-            for k in filename_set
-        }
-        fire_immediately: list[Path] = []
-        for k, v in new_json_source_to_section_mapping.items():
-            if self.json_source_to_section_mapping.get(k) != v:
-                fire_immediately.append(k)
+        callback = self.get_json_source_file_watcher_callback(
+            load_json_sources_fn, project_state_backend_getter_fn
+        )
+        callbacks = {k: callback for k in filename_set}
 
-        self.json_source_to_section_mapping = new_json_source_to_section_mapping
+        fire_immediately = [f for f in filename_set if f not in self.json_sources]
+
         self.specific_file_watcher.update_callbacks(
             callbacks, self.__class__.__name__, fire_immediately
         )
 
     def get_json_source_file_watcher_callback(
         self,
-        load_json_sources_fn: Callable[[set[str]], Coroutine[Any, Any, None]],
+        load_json_sources_fn: Callable[
+            [dict[Path, Any], set[str]], Coroutine[Any, Any, None]
+        ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
+            filename = coreUpdate.relPath
+            self.json_sources[filename] = self.dbe.read_json(filename)
             project_state_backend = project_state_backend_getter_fn()
             variantsToLoad = self.get_variants_for_json_source_update(
                 project_state_backend, coreUpdate
             )
             if len(variantsToLoad) > 0:
-                await load_json_sources_fn(variantsToLoad)
+                await load_json_sources_fn(self.json_sources, variantsToLoad)
                 notification = SettaNotification(
-                    message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+                    message=f"{filename} {coreUpdate.eventType.value}",
                 )
                 await self.websocket_msg_handler.broadcast_notification(notification)
 
@@ -69,15 +76,13 @@ class JSONSource:
 
     def get_json_source_files_to_watch(self, p: "ProjectStateBackend"):
         filename_set: set[Path] = set()
-        json_source_to_section_mapping: dict[Path, list[str]] = defaultdict(list)
         for s in p.sections.values():
             for v in s.variants:
                 variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
                 if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
                     filepath = Path(variant.name).resolve()
                     filename_set.add(filepath)
-                    json_source_to_section_mapping[filepath].append(s.id)
-        return filename_set, json_source_to_section_mapping
+        return filename_set
 
     def get_variants_for_json_source_update(
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"

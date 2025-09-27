@@ -1,5 +1,6 @@
 import logging
-from typing import Iterable
+from pathlib import Path
+from typing import Any, Iterable
 
 from setta.database.db.jsonSource.save import (
     remove_json_source_values,
@@ -46,7 +47,8 @@ class SettingsProjectManager(BaseProjectManager):
 
     async def load_json_sources(
         self,
+        json_sources: dict[Path, Any],
         section_variant_ids: Iterable[str] | None = None,
     ):
-        await super().load_json_sources(section_variant_ids)
+        await super().load_json_sources(json_sources, section_variant_ids)
         await self.settings_file.load_and_broadcast_settings()

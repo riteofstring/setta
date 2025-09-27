@@ -56,9 +56,9 @@ class ProcessedJSONObject(BaseModel):
 
 
 def load_json_sources_into_data_structures(
-    dbe: DBE,
     settings: SettingsState,
     p: ProjectStateCore,
+    json_sources: dict[Path, dict],
     section_variant_ids: Iterable[str] | None = None,
 ):
     processed = set()
@@ -77,9 +77,11 @@ def load_json_sources_into_data_structures(
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
-            new_data, isMissing = load_json_source(
-                dbe, settings, Path(variant.name), impl.jsonSourceKeys
+            jsonSourceData = json_sources.get(Path(variant.name))
+            new_data = process_json_object(
+                settings, jsonSourceData, impl.jsonSourceKeys
             )
+            isMissing = new_data is None
             impl = set_effective_impl_value(
                 base_impl,
                 section,
@@ -233,31 +235,14 @@ def merge_into_existing(
     )
 
 
-def load_json_source(
-    dbe: DBE, settings: SettingsState, filename: Path, jsonSourceKeys: list[str]
-):
-    jsonSourceData = {}
-    isMissing = False
-
-    try:
-        logger.debug(f"Attempting to read {filename} with keys {jsonSourceKeys}")
-        jsonSourceData = dbe.read_json(filename)
-    except json.JSONDecodeError:
-        pass
-    except FileNotFoundError:
-        logger.debug(f"couldn't find: {filename}")
-        isMissing = True
-
-    new_data = process_json_object(settings, jsonSourceData, jsonSourceKeys)
-
-    return new_data, isMissing
-
-
 def process_json_object(
     settings: SettingsState,
-    jsonSourceData: dict,
+    jsonSourceData: dict | None,
     jsonSourceKeys: list[str],
 ):
+    if jsonSourceData is None:
+        return None
+
     new_data = ProcessedJSONObject(
         sectionImpl=create_section_impl(
             SectionType.Dict,
