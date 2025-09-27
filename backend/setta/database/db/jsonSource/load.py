@@ -78,7 +78,6 @@ def load_json_sources_into_data_structures(
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
-            print("variant_id", variant_id)
             jsonSourceData = json_sources.get(Path(variant.name).resolve())
             new_data = process_json_object(
                 settings, jsonSourceData, impl.jsonSourceKeys
