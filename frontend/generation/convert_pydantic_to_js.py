@@ -27,7 +27,6 @@ from typing import (
 import setta.routers
 import setta.types
 import setta.types.code_obj_impls
-import setta.types.generated
 import setta.types.section_impls
 import setta.types.websocket
 from fastapi import WebSocket
@@ -50,6 +49,16 @@ TYPE_ALIAS_EXCLUSIONS = [
 ]
 
 DATACLASS_EXCLUSIONS = ["SerializeAsAny"]
+
+
+def is_not_tagged_for_skipping(cls):
+    try:
+        source = inspect.getsource(cls)
+        return all(
+            "# setta-convert-pydantic-to-js: skip" not in s for s in source.split("\n")
+        )
+    except:
+        return True
 
 
 def get_modules_from_package(package):
@@ -75,7 +84,10 @@ def get_modules_from_package(package):
 
 def get_all_sets(module):
     return inspect.getmembers(
-        module, lambda obj: isinstance(obj, set) and not inspect.isclass(obj)
+        module,
+        lambda obj: isinstance(obj, set)
+        and not inspect.isclass(obj)
+        and is_not_tagged_for_skipping(obj),
     )
 
 
@@ -92,7 +104,7 @@ def get_all_type_aliases(module):
     return [
         (name, obj)
         for name, obj in inspect.getmembers(module)
-        if is_type_alias(name, obj)
+        if is_type_alias(name, obj) and is_not_tagged_for_skipping(obj)
     ]
 
 
@@ -101,12 +113,15 @@ def get_all_enums(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, enum.Enum)
-        and obj is not enum.Enum,
+        and obj is not enum.Enum
+        and is_not_tagged_for_skipping(obj),
     )
 
 
 def get_all_typeddicts(module):
-    return inspect.getmembers(module, is_typeddict)
+    return inspect.getmembers(
+        module, lambda obj: is_typeddict(obj) and is_not_tagged_for_skipping(obj)
+    )
 
 
 def get_all_pydantic_models(module):
@@ -114,7 +129,8 @@ def get_all_pydantic_models(module):
         module,
         lambda obj: inspect.isclass(obj)
         and issubclass(obj, BaseModel)
-        and obj is not BaseModel,
+        and obj is not BaseModel
+        and is_not_tagged_for_skipping(obj),
     )
 
 
@@ -124,7 +140,8 @@ def get_all_dataclasses(module):
         module,
         lambda obj: inspect.isclass(obj)
         and dataclasses.is_dataclass(obj)
-        and obj.__name__ not in DATACLASS_EXCLUSIONS,
+        and obj.__name__ not in DATACLASS_EXCLUSIONS
+        and is_not_tagged_for_skipping(obj),
     )
 
 

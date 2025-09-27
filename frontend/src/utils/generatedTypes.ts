@@ -8988,49 +8988,6 @@ export function createRunCodeRequest(
   return RunCodeRequestSchema.parse(options);
 }
 
-export const HierarchyTraversalResultSchema = z.object({
-  collected_ids: z.array(z.string()).default([]),
-  parent_map: z.record(z.string(), z.union([z.string(), z.null()])).default({}),
-  children_map: z.record(z.string(), z.array(z.string())).default({}),
-  id_path_map: z.record(z.string(), z.array(z.string())).default({}),
-  name_path_map: z.record(z.string(), z.array(z.string())).default({}),
-  all_visited_ids: z.set(z.string()).default(new Set()),
-  nested_dict: z.record(z.string(), z.any()).default({}),
-  early_stopped: z.boolean().default(false),
-});
-
-export type HierarchyTraversalResult = z.infer<
-  typeof HierarchyTraversalResultSchema
->;
-
-export function createHierarchyTraversalResult(
-  options: Partial<HierarchyTraversalResult> = {},
-): HierarchyTraversalResult {
-  return HierarchyTraversalResultSchema.parse(options);
-}
-
-export const TraversalOptionsSchema = z.object({
-  collect_filter: z.union([z.any(), z.null()]).default(null),
-  traverse_filter: z.union([z.any(), z.null()]).default(null),
-  early_stop: z.union([z.any(), z.null()]).default(null),
-  build_parent_map: z.boolean().default(true),
-  build_children_map: z.boolean().default(true),
-  build_id_paths: z.boolean().default(true),
-  build_name_paths: z.boolean().default(false),
-  track_path_for: z.union([z.any(), z.null()]).default(null),
-  build_nested_dict: z.boolean().default(false),
-  nested_dict_keys_prefix: z.array(z.string()).default([]),
-  collect_all_visited: z.boolean().default(false),
-});
-
-export type TraversalOptions = z.infer<typeof TraversalOptionsSchema>;
-
-export function createTraversalOptions(
-  options: Partial<TraversalOptions> = {},
-): TraversalOptions {
-  return TraversalOptionsSchema.parse(options);
-}
-
 export const SettaLSPPositionSchema = z.object({
   start: z.int(),
   end: z.int(),
