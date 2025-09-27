@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class ShownParamIdDetails(BaseModel, extra="forbid"):
-    requiredParamIdsToPaths: dict[str, list[str]] = Field(default_factory=dict)
+    requiredParamIdsToPaths: dict[str, tuple[str, ...]] = Field(default_factory=dict)
     topLevelParamIds: list[str] = Field(default_factory=list)
 
 
@@ -69,7 +69,7 @@ def get_param_ids_to_show(
 
 def filter_for_ui_display(
     param_ids: list[str],
-    path_map: dict[str, list[str]],
+    path_map: dict[str, tuple[str, ...]],
     children_map: dict[str, list[str]],
     pinned_params: set[str],
 ) -> ShownParamIds:
@@ -144,7 +144,7 @@ def _should_include_param(
 def _build_area(
     param_ids: list[str],
     candidates: set[str],
-    path_map: dict[str, list[str]],
+    path_map: dict[str, tuple[str, ...]],
     children_map: dict[str, list[str]],
 ) -> ShownParamIdDetails:
     """Build a area including only params that are leaves or have children in the area."""
@@ -157,7 +157,7 @@ def _build_area(
             path = path_map.get(param_id, [])
             for path_param_id in path:
                 result.requiredParamIdsToPaths[path_param_id] = path_map.get(
-                    path_param_id, []
+                    path_param_id, ()
                 )
             included.add(param_id)
 

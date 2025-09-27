@@ -12,6 +12,7 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import (
+    get_effective_impl,
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -53,7 +54,6 @@ def load_json_sources_into_data_structures(
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
-            print("variant_id", variant_id)
             filename = Path(variant.name).resolve()
             processedJson = json_sources.get(filename)
             isMissing = processedJson is None
@@ -117,7 +117,8 @@ def merge_into_existing(
             p.codeObjImpls[newImpl.id] = newImpl
             p.codeObjs[newId] = newCodeObj
         else:
-            replacements[newId] = (existingCodeObjId, newImpl)
+            newEffectiveImpl = get_effective_impl(newImpl, newCodeObj, newVariant)
+            replacements[newId] = (existingCodeObjId, newEffectiveImpl)
 
     for newId, (existingCodeObjId, newImpl) in replacements.items():
         variantId = section_impl.codeObjVariantMap[existingCodeObjId]

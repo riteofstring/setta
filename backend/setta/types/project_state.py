@@ -151,9 +151,9 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     continue
                 root_ids = get_root_code_obj_ids(impl)
                 name_path_prefix = (
-                    impl.jsonSourceKeys
+                    tuple(impl.jsonSourceKeys)
                     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
-                    else []
+                    else ()
                 )
                 hierarchy = traverse_hierarchy(
                     self.codeObjs,
