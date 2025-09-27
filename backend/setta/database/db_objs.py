@@ -17,6 +17,7 @@ class DBE:
         self.project = self.path / "project.json"
         self.uuid_mapping = self.path / "uuid_mapping.json"
         self.notifications = self.path / "notifications.json"
+        self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
         self.path.mkdir(parents=True, exist_ok=True)
 
