@@ -32,6 +32,7 @@ class JSONSource:
 
     def watch_json_source_files(
         self,
+        callbackCategory: str,
         load_json_sources_fn: Callable[
             [dict[Path, Any], set[str]], Coroutine[Any, Any, None]
         ],
@@ -48,7 +49,7 @@ class JSONSource:
         fire_immediately = [f for f in filename_set if f not in self.json_sources]
 
         self.specific_file_watcher.update_callbacks(
-            callbacks, self.__class__.__name__, fire_immediately
+            callbacks, callbackCategory, fire_immediately
         )
 
     def get_json_source_file_watcher_callback(

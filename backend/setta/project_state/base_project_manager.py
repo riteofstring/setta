@@ -1059,7 +1059,9 @@ class BaseProjectManager(ABC):
 
     def watch_json_source_files(self):
         self.json_source.watch_json_source_files(
-            self.load_json_sources, self.project_state_backend_getter_fn
+            self.__class__.__name__,
+            self.load_json_sources,
+            self.project_state_backend_getter_fn,
         )
 
     def watch_artifacts(self):

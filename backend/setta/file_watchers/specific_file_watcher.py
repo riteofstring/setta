@@ -59,9 +59,9 @@ class SpecificFileWatcher:
 
         # Get all unique parent directories of the files we need to watch
         dirs_to_watch = set()
-        for file_path in callbacks.keys():
-            # Watch the parent directory of each file
-            dirs_to_watch.add(file_path.parent)
+        for category_callbacks in self.callbacks.values():
+            for file_path in category_callbacks.keys():
+                dirs_to_watch.add(file_path.parent)
 
         # Remove watches for directories no longer needed
         current_watched_dirs = set(self.watched_dirs.keys())
