@@ -3,7 +3,7 @@ import copy
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Coroutine, Iterable
+from typing import Coroutine, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
@@ -17,7 +17,10 @@ from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import Code
 from setta.project_state.history import History
-from setta.project_state.jsonSource import JSONSource
+from setta.project_state.jsonSource import (
+    JSONSource,
+    ProcessedJSONInfo,
+)
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -318,11 +321,10 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def load_json_sources(
         self,
-        json_sources: dict[Path, Any],
+        json_sources: dict[Path, ProcessedJSONInfo],
         section_variant_ids: Iterable[str] | None = None,
     ):
         load_json_sources_into_data_structures(
-            self.settings_file.settings,
             self.project_state_backend,
             json_sources,
             section_variant_ids,
