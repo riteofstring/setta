@@ -30,12 +30,12 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnion,
     BaseDictSectionImplUnion,
 )
-from setta.types.helpers import (
-    get_code_obj_variant_map_update_fn,
-)
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
+)
+from setta.types.helpers_lvl2 import (
+    get_code_obj_variant_map_update_fn,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import (

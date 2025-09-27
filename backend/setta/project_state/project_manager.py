@@ -8,7 +8,7 @@ from setta.project_state.project_manager_types import (
     SaveAsNewProjectConfigRequest,
 )
 from setta.project_state.save_load import save
-from setta.types.helpers_lvl2 import (
+from setta.types.helpers_lvl3 import (
     copy_project,
     copy_project_config,
     merge_single_config_into_backend,

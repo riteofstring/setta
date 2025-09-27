@@ -11,7 +11,7 @@ from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
 )
-from setta.types.helpers_lvl2 import (
+from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
 )

@@ -9,7 +9,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.helpers import (
+from setta.types.helpers_lvl2 import (
     ProjectNameTaken,
     ProjectNotFound,
 )

@@ -87,7 +87,8 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
+from setta.types.helpers_lvl2 import (
     add_kwarg,
     change_param_impl,
     create_child_sections,
@@ -129,8 +130,7 @@ from setta.types.helpers import (
     unselect_all_params,
     update_param_impl_config,
 )
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl
-from setta.types.helpers_lvl2 import (
+from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
     paste_sections,

@@ -1,7 +1,7 @@
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.settings_project_manager import SettingsProjectManager
-from setta.types.helpers import ProjectNotFound, confirm_config_name
+from setta.types.helpers_lvl2 import ProjectNotFound, confirm_config_name
 from setta.types.project_state import ProjectStateSingleConfig
 
 

@@ -14,13 +14,13 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     ParameterPassingStyle,
 )
-from setta.types.helpers import (
-    get_curr_section_callable_code_obj,
-    get_curr_top_level_param_ids,
-)
 from setta.types.helpers_lvl1 import (
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
+)
+from setta.types.helpers_lvl2 import (
+    get_curr_section_callable_code_obj,
+    get_curr_top_level_param_ids,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,

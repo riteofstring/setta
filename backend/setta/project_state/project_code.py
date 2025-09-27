@@ -33,17 +33,17 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 )
 from setta.types.generated.impl_creation_fns import create_code_obj_impl
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
+    get_curr_code_obj_variant,
+    get_curr_effective_section_impl,
+    set_curr_effective_section_impl_value,
+)
+from setta.types.helpers_lvl2 import (
     add_children_of_callable,
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
     get_section_path_full_name,
-)
-from setta.types.helpers_lvl1 import (
-    get_curr_code_obj_variant,
-    get_curr_effective_section_impl,
-    set_curr_effective_section_impl_value,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_state import (
