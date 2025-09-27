@@ -128,4 +128,4 @@ function _ParamSwitch(props) {
   );
 }
 
-export const ParamSwitch = React.memo(_ParamSwitch);
+export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);

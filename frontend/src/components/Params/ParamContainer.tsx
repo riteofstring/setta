@@ -109,7 +109,7 @@ function _ParamContainer({
   );
 }
 
-export const ParamContainer = React.memo(_ParamContainer);
+export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
 
 function useColumnWidth(sectionId, isNestedParam) {
   const childlessRef = useRef();
