@@ -45,7 +45,7 @@ def save_json_source_data(
                 TraversalOptions(
                     build_name_paths=True,
                     build_nested_dict=True,
-                    nested_dict_keys_prefix=impl.jsonSourceKeys,
+                    name_path_prefix=impl.jsonSourceKeys,
                 ),
             )
 

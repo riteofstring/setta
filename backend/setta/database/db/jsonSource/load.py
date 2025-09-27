@@ -3,10 +3,7 @@ from pathlib import Path
 from typing import Iterable
 
 from setta.project_state.jsonSource import (
-    MetadataTupleToId,
     ProcessedJSONInfo,
-    createMetadataTuple,
-    createMetadataTupleToId,
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
@@ -102,7 +99,7 @@ def merge_into_existing(
     jsonSourceMetadataTupleToId: MetadataTupleToId = createMetadataTupleToId(
         filename, hierarchy
     )
-    processedJson = new_data.processedJson
+    processedJson = new_data.keyValueInfo
 
     replacements: dict[str, tuple[str, BaseCodeObjImpl]] = {}
     for newId, newCodeObj in processedJson.codeObjs.items():

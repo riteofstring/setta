@@ -150,7 +150,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 ):
                     continue
                 root_ids = get_root_code_obj_ids(impl)
-                nested_dict_keys_prefix = (
+                name_path_prefix = (
                     impl.jsonSourceKeys
                     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
                     else []
@@ -164,7 +164,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     TraversalOptions(
                         build_name_paths=True,
                         build_nested_dict=True,
-                        nested_dict_keys_prefix=nested_dict_keys_prefix,
+                        name_path_prefix=name_path_prefix,
                     ),
                 )
                 output[v] = yaml.dump(hierarchy.nested_dict)

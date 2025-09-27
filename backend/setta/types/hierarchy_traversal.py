@@ -20,9 +20,10 @@ class TraversalOptions:
     build_children_map: bool = True
     build_id_paths: bool = True  # paths of IDs
     build_name_paths: bool = False  # paths of names (ancestor_paths)
+    build_name_path_to_id: bool = False
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
     build_nested_dict: bool = False
-    nested_dict_keys_prefix: list[str] = field(default_factory=list)
+    name_path_prefix: list[str] = field(default_factory=list)
 
     # Collection
     collect_all_visited: bool = (
@@ -39,6 +40,7 @@ class HierarchyTraversalResult:
     children_map: dict[str, list[str]] = field(default_factory=dict)
     id_path_map: dict[str, list[str]] = field(default_factory=dict)
     name_path_map: dict[str, list[str]] = field(default_factory=dict)
+    name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
     all_visited_ids: set[str] = field(default_factory=set)
     nested_dict: dict = field(default_factory=dict)
     early_stopped: bool = False
@@ -66,7 +68,7 @@ def traverse_hierarchy(
     stack: list[tuple[str, list[str], list[str]]] = []  # (id, id_path, name_path)
     for root_id in reversed(root_ids):
         if not options.traverse_filter or options.traverse_filter(get_impl(root_id)):
-            stack.append((root_id, [], []))
+            stack.append((root_id, [], options.name_path_prefix))
 
     while stack:
         current_id, current_id_path, current_name_path = stack.pop()
@@ -95,19 +97,16 @@ def traverse_hierarchy(
                     f"Unexpected code object implementation type: {type(impl)}"
                 )
 
-            # Build full key path
-            key_path = options.nested_dict_keys_prefix + new_name_path
-
-            if key_path:  # Only process if we have a path
+            if new_name_path:  # Only process if we have a path
                 # Navigate/create nested structure
                 current_dict = result.nested_dict
-                for key in key_path[:-1]:
+                for key in new_name_path[:-1]:
                     if key not in current_dict:
                         current_dict[key] = {}
                     current_dict = current_dict[key]
 
                 # Set the value at the final key
-                current_dict[key_path[-1]] = value
+                current_dict[new_name_path[-1]] = value
 
         # Store path information
         if options.build_id_paths:
@@ -118,6 +117,9 @@ def traverse_hierarchy(
 
         if options.build_name_paths:
             result.name_path_map[current_id] = new_name_path
+
+        if options.build_name_path_to_id:
+            result.name_path_to_id[tuple(new_name_path)] = current_id
 
         # Collect if matches filter
         if options.collect_all_visited or (

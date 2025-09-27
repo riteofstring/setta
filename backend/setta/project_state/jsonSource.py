@@ -6,24 +6,34 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
-
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
-from setta.types.code_obj_impls import CodeObjType, NestedParamCodeObjImpl
+from setta.types.code_obj_impls import (
+    CodeObjType,
+    NestedParamCodeObjImpl,
+    TextParamCodeObjImpl,
+)
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
-from setta.types.generated.impl_args_as_typed_dicts import DictSectionImplArgs
+from setta.types.generated.effective_impls import (
+    set_effective_impl_value,
+)
+from setta.types.generated.impl_args_as_typed_dicts import (
+    NestedParamCodeObjImplArgsWithCallable,
+    TextParamCodeObjImplArgsWithCallable,
+)
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
-    create_section_impl,
 )
 from setta.types.generated.unions import BaseCodeObjImplUnion
-from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
+from setta.types.helpers_lvl1 import (
+    get_variant_base_and_effective_section_impl,
+)
 from setta.types.hierarchy_traversal import (
     HierarchyTraversalResult,
     TraversalOptions,
     traverse_hierarchy,
 )
 from setta.types.notifications import SettaNotification
-from setta.types.section_impls import BaseDictSectionImpl, SectionType
+from setta.types.section_impls import BaseDictSectionImpl
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -37,22 +47,18 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class ProcessedJSONObject:
-    sectionImpl: BaseDictSectionImpl
+class JSONSourceKeyValueInfo:
     codeObjs: dict[str, Core] = field(default_factory=dict)
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = field(default_factory=dict)
     codeObjVariants: dict[str, Variant] = field(default_factory=dict)
-
-
-MetadataTuple = tuple[Path, tuple[str, ...]]
-MetadataTupleToId = dict[MetadataTuple, str]
+    codeObjVariantMap: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class ProcessedJSONInfo:
-    processedJson: ProcessedJSONObject
+    jsonSourceKeyToTopLevelIds: dict[tuple[str, ...], list[str]]
+    keyValueInfo: JSONSourceKeyValueInfo
     hierarchy: HierarchyTraversalResult
-    metadataTupleToId: MetadataTupleToId
 
 
 class JSONSource:
@@ -173,45 +179,58 @@ class JSONSource:
         self,
         filepath: Path,
         jsonSourceData: dict,
+        jsonSourceKeysToLoad: list[list[str]],
     ):
-        new_data = ProcessedJSONObject(
-            sectionImpl=create_section_impl(
-                SectionType.Dict,
-                self.settings_file.settings.dictSectionDefault,
-                DictSectionImplArgs(isJsonSource=True),
-            )
-        )
-
-        topLevelParamIds = self.process_json_object_helper(new_data, jsonSourceData)
-        new_data.sectionImpl.topLevelParamIds = topLevelParamIds
-
+        #  sectionImpl=
+        new_data = JSONSourceKeyValueInfo()
+        rootTopLevelParamIds = self.process_json_object_helper(new_data, jsonSourceData)
         hierarchy = traverse_hierarchy(
             new_data.codeObjs,
             new_data.codeObjImpls,
             new_data.codeObjVariants,
-            new_data.sectionImpl.codeObjVariantMap,
-            new_data.sectionImpl.topLevelParamIds,
+            new_data.codeObjVariantMap,
+            rootTopLevelParamIds,
             options=TraversalOptions(
                 collect_all_visited=True,
                 build_name_paths=True,
+                build_name_path_to_id=True,
             ),
         )
-        metadataTupleToId = createMetadataTupleToId(filepath, hierarchy)
 
-        return ProcessedJSONInfo(new_data, hierarchy, metadataTupleToId)
+        jsonSourceKeysToTopLevelIds: dict[tuple[str, ...], list[str]] = {}
+        for jsonSourceKeys in jsonSourceKeysToLoad:
+            topLevelIds = (
+                rootTopLevelParamIds
+                if len(jsonSourceKeys) == 0
+                else getToplLeveParamIdsFromJsonSourceKeys(
+                    jsonSourceKeys, new_data, hierarchy
+                )
+            )
+            jsonSourceKeysToTopLevelIds[tuple(jsonSourceKeys)] = topLevelIds
 
-    def process_json_object_helper(self, output: ProcessedJSONObject, obj: dict):
+        return ProcessedJSONInfo(jsonSourceKeysToTopLevelIds, new_data, hierarchy)
+
+    def process_json_object_helper(self, output: JSONSourceKeyValueInfo, obj: dict):
         children_keys: list[str] = []
         for k, v in obj.items():
-            codeObj, codeObjImpl = self.add_to_processed_json_object(k, v, output)
+            codeObj, codeObjImpl, codeObjVariant = self.add_to_processed_json_object(
+                k, v, output
+            )
             children_keys.append(codeObj.id)
             if isinstance(codeObjImpl, NestedParamCodeObjImpl):
-                codeObjImpl.children = self.process_json_object_helper(output, v)
+                set_effective_impl_value(
+                    codeObjImpl,
+                    codeObj,
+                    codeObjVariant,
+                    NestedParamCodeObjImplArgsWithCallable(
+                        children=self.process_json_object_helper(output, v)
+                    ),
+                )
 
         return children_keys
 
     def add_to_processed_json_object(
-        self, key: str, value, output: ProcessedJSONObject
+        self, key: str, value, output: JSONSourceKeyValueInfo
     ):
         is_dict = isinstance(value, dict)
         if is_dict:
@@ -227,7 +246,6 @@ class JSONSource:
             codeObjImpl = create_code_obj_impl(
                 CodeObjType.TextParam,
                 self.settings_file.settings.textParamCodeObjDefault,
-                {"value": json.dumps(value)},
             )
             codeObjVariant = Variant(
                 impl=codeObjImpl.id,
@@ -238,21 +256,34 @@ class JSONSource:
             name=key,
             variants=[variantId],
             defaultVariant=variantId,
+            unsharedKeys=[],  # all attributes (like value) should be shared across variants & impls
         )
 
-        output.sectionImpl.codeObjVariantMap[codeObj.id] = variantId
+        if isinstance(codeObjImpl, TextParamCodeObjImpl):
+            # this should set codeObj.sharedModifier["value"]
+            set_effective_impl_value(
+                codeObjImpl,
+                codeObj,
+                codeObjVariant,
+                TextParamCodeObjImplArgsWithCallable(value=json.dumps(value)),
+            )
+
+        output.codeObjVariantMap[codeObj.id] = variantId
         output.codeObjs[codeObj.id] = codeObj
         output.codeObjImpls[codeObjImpl.id] = codeObjImpl
         output.codeObjVariants[variantId] = codeObjVariant
-        return codeObj, codeObjImpl
+        return codeObj, codeObjImpl, codeObjVariant
 
 
-def createMetadataTuple(filename: Path, path: list[str]):
-    return filename, tuple(path)
-
-
-def createMetadataTupleToId(filename: Path, hierarchy: HierarchyTraversalResult):
-    output: MetadataTupleToId = {}
-    for id in hierarchy.name_path_map:
-        output[createMetadataTuple(filename, hierarchy.name_path_map[id])] = id
-    return output
+def getToplLeveParamIdsFromJsonSourceKeys(
+    jsonSourceKeys: list[str],
+    processedJson: JSONSourceKeyValueInfo,
+    hierarchy: HierarchyTraversalResult,
+) -> list[str]:
+    codeObjId = hierarchy.name_path_to_id[tuple(jsonSourceKeys)]
+    codeObj = processedJson.codeObjs[codeObjId]
+    # We can access "children" directly instead of through get_effective_impl
+    # because we know all attributes are shared.
+    # We use .get in case jsonSourceKeys is pointing to a non-nested code obj
+    # (which won't have a children attribute)
+    return codeObj.sharedModifier.get("children", [])
