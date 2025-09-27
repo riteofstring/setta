@@ -7,7 +7,6 @@ from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
 )
-from setta.types.generated.unions import BaseDictSectionImplUnion
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
@@ -15,6 +14,7 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
+from setta.types.section_impls import BaseDictSectionImpl
 
 
 def save_json_source_data(
@@ -31,7 +31,7 @@ def save_json_source_data(
                 p, section, variant_id
             )
             if (
-                not isinstance(impl, BaseDictSectionImplUnion)
+                not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
@@ -43,7 +43,7 @@ def save_json_source_data(
                 impl.codeObjVariantMap,
                 impl.topLevelParamIds,
                 TraversalOptions(
-                    build_name_paths=True,
+                    build_id_to_name_path=True,
                     build_nested_dict=True,
                     name_path_prefix=impl.jsonSourceKeys,
                 ),
@@ -74,7 +74,7 @@ def remove_json_source_values(p: ProjectStateCore):
     for section in p.sections.values():
         for variant_id in section.variants:
             impl = get_variant_effective_section_impl(p, section.id, variant_id)
-            if not isinstance(impl, BaseDictSectionImplUnion) or not impl.isJsonSource:
+            if not isinstance(impl, BaseDictSectionImpl) or not impl.isJsonSource:
                 continue
             code_obj_variant_map = impl.codeObjVariantMap
             for cid, cvariant_id in code_obj_variant_map.items():

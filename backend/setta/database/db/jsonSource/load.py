@@ -6,28 +6,28 @@ from setta.project_state.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.types.code_obj_impls import (
+    BaseChildlessCodeObjImpl,
     BaseCodeObjImpl,
+    NestedParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant
 from setta.types.generated.effective_impls import (
     set_effective_impl_value,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
+    BaseChildlessCodeObjImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
-)
-from setta.types.generated.unions import (
-    BaseDictSectionImplUnion,
+    NestedParamCodeObjImplArgsWithCallable,
 )
 from setta.types.helpers_lvl1 import (
+    get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
-)
-from setta.types.helpers_lvl2 import (
-    get_code_obj_variant_map_update_fn,
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import (
     ProjectStateCore,
 )
+from setta.types.section_impls import BaseDictSectionImpl
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ def load_json_sources_into_data_structures(
                 p, section, variant_id
             )
             if (
-                not isinstance(base_impl, BaseDictSectionImplUnion)
-                or not isinstance(impl, BaseDictSectionImplUnion)
+                not isinstance(base_impl, BaseDictSectionImpl)
+                or not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
@@ -67,7 +67,6 @@ def load_json_sources_into_data_structures(
                 continue
             merge_into_existing(
                 p,
-                filename,
                 processedJson,
                 section,
                 base_impl,
@@ -78,11 +77,10 @@ def load_json_sources_into_data_structures(
 
 def merge_into_existing(
     p: ProjectStateCore,
-    filename: Path,
     new_data: ProcessedJSONInfo,
     section: Core,
-    base_section_impl: BaseDictSectionImplUnion,
-    section_impl: BaseDictSectionImplUnion,
+    base_section_impl: BaseDictSectionImpl,
+    section_impl: BaseDictSectionImpl,
     section_variant: Variant,
 ):
     hierarchy = traverse_hierarchy(
@@ -93,102 +91,99 @@ def merge_into_existing(
         section_impl.topLevelParamIds,
         TraversalOptions(
             collect_all_visited=True,
-            build_name_paths=True,
+            build_id_to_name_path=True,
             build_name_path_to_id=True,
             name_path_prefix=section_impl.jsonSourceKeys,
         ),
     )
     keyValueInfo = new_data.keyValueInfo
-    newTopLevelIds = new_data.jsonSourceKeyToTopLevelIds[
-        tuple(section_impl.jsonSourceKeys)
-    ]
+    newIdsToProcess = new_data.hierarchy.name_path_to_descendant_ids.get(
+        tuple(section_impl.jsonSourceKeys), []
+    )
 
     replacements: dict[str, tuple[str, BaseCodeObjImpl]] = {}
-    for newId in newTopLevelIds:
+    newCodeObjVariantMapEntries: dict[str, str] = {}
+    for newId in newIdsToProcess:
         existingCodeObjId = hierarchy.name_path_to_id.get(
-            tuple(new_data.hierarchy.name_path_map[newId])
+            tuple(new_data.hierarchy.id_to_name_path[newId])
         )
+        newCodeObj = keyValueInfo.codeObjs[newId]
         newVariantId = keyValueInfo.codeObjVariantMap[newId]
         newVariant = keyValueInfo.codeObjVariants[newVariantId]
         newImpl = keyValueInfo.codeObjImpls[newVariant.impl]
         if not existingCodeObjId:
-            section_impl = set_effective_impl_value(
-                base_section_impl,
-                section,
-                section_variant,
-                BaseDictSectionImplArgsWithCallable(
-                    codeObjVariantMap=get_code_obj_variant_map_update_fn(
-                        {newId: newVariantId}
-                    )
-                ),
-            )
+            newCodeObjVariantMapEntries[newId] = newVariantId
             p.codeObjVariants[newVariantId] = newVariant
             p.codeObjImpls[newImpl.id] = newImpl
             p.codeObjs[newId] = newCodeObj
         else:
             replacements[newId] = (existingCodeObjId, newImpl)
 
-    # for newId, (existingCodeObjId, newImpl) in replacements.items():
-    #     variantId = section_impl.codeObjVariantMap[existingCodeObjId]
-    #     codeObjCore = p.codeObjs[existingCodeObjId]
-    #     variant, baseCodeObjImpl, impl = get_variant_base_and_effective_code_obj_impl(
-    #         p, codeObjCore, variantId
-    #     )
-    #     if (
-    #         isinstance(baseCodeObjImpl, NestedParamCodeObjImpl)
-    #         and isinstance(impl, NestedParamCodeObjImpl)
-    #         and isinstance(newImpl, NestedParamCodeObjImpl)
-    #     ):
-    #         impl = set_effective_impl_value(
-    #             baseCodeObjImpl,
-    #             codeObjCore,
-    #             variant,
-    #             NestedParamCodeObjImplArgsWithCallable(
-    #                 children=[
-    #                     replacements[c][0] if c in replacements else c
-    #                     for c in newImpl.children
-    #                 ]
-    #             ),
-    #         )
-    #     elif (
-    #         isinstance(baseCodeObjImpl, BaseChildlessCodeObjImplUnion)
-    #         and isinstance(impl, BaseChildlessCodeObjImplUnion)
-    #         and isinstance(newImpl, BaseChildlessCodeObjImplUnion)
-    #     ):
-    #         impl = set_effective_impl_value(
-    #             baseCodeObjImpl,
-    #             codeObjCore,
-    #             variant,
-    #             BaseChildlessCodeObjImplArgsWithCallable(value=newImpl.value),
-    #         )
-    #     else:
-    #         raise TypeError
+    for newId, (existingCodeObjId, newImpl) in replacements.items():
+        variantId = section_impl.codeObjVariantMap[existingCodeObjId]
+        codeObjCore = p.codeObjs[existingCodeObjId]
+        variant, baseCodeObjImpl, impl = get_variant_base_and_effective_code_obj_impl(
+            p, codeObjCore, variantId
+        )
+        if (
+            isinstance(baseCodeObjImpl, NestedParamCodeObjImpl)
+            and isinstance(impl, NestedParamCodeObjImpl)
+            and isinstance(newImpl, NestedParamCodeObjImpl)
+        ):
+            impl = set_effective_impl_value(
+                baseCodeObjImpl,
+                codeObjCore,
+                variant,
+                NestedParamCodeObjImplArgsWithCallable(
+                    children=[
+                        replacements[c][0] if c in replacements else c
+                        for c in newImpl.children
+                    ]
+                ),
+            )
+        elif (
+            isinstance(baseCodeObjImpl, BaseChildlessCodeObjImpl)
+            and isinstance(impl, BaseChildlessCodeObjImpl)
+            and isinstance(newImpl, BaseChildlessCodeObjImpl)
+        ):
+            impl = set_effective_impl_value(
+                baseCodeObjImpl,
+                codeObjCore,
+                variant,
+                BaseChildlessCodeObjImplArgsWithCallable(value=newImpl.value),
+            )
+        else:
+            raise TypeError
 
-    # to_delete_from_code_obj_variant_map: set[str] = set()
-    # for metadataString, id in jsonSourceMetadata_to_id.items():
-    #     newId = new_jsonSourceMetadata_to_id.get(metadataString)
-    #     if not newId:
-    #         variantId = section_impl.codeObjVariantMap[id]
-    #         variant = p.codeObjVariants[variantId]
-    #         impl = p.codeObjImpls[variant.impl]
-    #         to_delete_from_code_obj_variant_map.add(id)
-    #         del p.codeObjs[id]
-    #         del p.codeObjImpls[impl.id]
-    #         del p.codeObjVariants[variantId]
+    to_delete_from_code_obj_variant_map: set[str] = set()
+    for name_path, id in hierarchy.name_path_to_id.items():
+        newId = new_data.hierarchy.name_path_to_id.get(name_path)
+        if not newId:
+            variantId = section_impl.codeObjVariantMap[id]
+            variant = p.codeObjVariants[variantId]
+            impl = p.codeObjImpls[variant.impl]
+            to_delete_from_code_obj_variant_map.add(id)
+            del p.codeObjs[id]
+            del p.codeObjImpls[impl.id]
+            del p.codeObjVariants[variantId]
 
-    # set_effective_impl_value(
-    #     base_section_impl,
-    #     section,
-    #     section_variant,
-    #     BaseDictSectionImplArgsWithCallable(
-    #         topLevelParamIds=[
-    #             replacements[c][0] if c in replacements else c
-    #             for c in new_data.sectionImpl.topLevelParamIds
-    #         ],
-    #         codeObjVariantMap=lambda curr: {
-    #             k: v
-    #             for k, v in curr.items()
-    #             if k not in to_delete_from_code_obj_variant_map
-    #         },
-    #     ),
-    # )
+    newTopLevelParamIds = new_data.jsonSourceKeyToTopLevelIds[
+        tuple(section_impl.jsonSourceKeys)
+    ]
+    set_effective_impl_value(
+        base_section_impl,
+        section,
+        section_variant,
+        BaseDictSectionImplArgsWithCallable(
+            topLevelParamIds=[
+                replacements[c][0] if c in replacements else c
+                for c in newTopLevelParamIds
+            ],
+            codeObjVariantMap=lambda curr: newCodeObjVariantMapEntries
+            | {
+                k: v
+                for k, v in curr.items()
+                if k not in to_delete_from_code_obj_variant_map
+            },
+        ),
+    )

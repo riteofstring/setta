@@ -18,8 +18,8 @@ class TraversalOptions:
     # What to build
     build_parent_map: bool = True
     build_children_map: bool = True
-    build_id_paths: bool = True  # paths of IDs
-    build_name_paths: bool = False  # paths of names (ancestor_paths)
+    build_id_to_id_path: bool = True  # paths of IDs
+    build_id_to_name_path: bool = False  # paths of names (ancestor_paths)
     build_name_path_to_id: bool = False
     build_name_path_to_descendants: bool = False
     track_path_for: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
@@ -39,8 +39,8 @@ class HierarchyTraversalResult:
     collected_ids: list[str] = field(default_factory=list)
     parent_map: dict[str, Optional[str]] = field(default_factory=dict)
     children_map: dict[str, list[str]] = field(default_factory=dict)
-    id_path_map: dict[str, list[str]] = field(default_factory=dict)
-    name_path_map: dict[str, list[str]] = field(default_factory=dict)
+    id_to_id_path: dict[str, list[str]] = field(default_factory=dict)
+    id_to_name_path: dict[str, list[str]] = field(default_factory=dict)
     name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
     name_path_to_descendant_ids: dict[tuple[str, ...], list[str]] = field(
         default_factory=dict
@@ -86,7 +86,7 @@ def traverse_hierarchy(
         # Build paths
         new_id_path = current_id_path + [current_id]
         new_name_path = current_name_path
-        if options.build_name_paths and current_id in codeObjs:
+        if options.build_id_to_name_path and current_id in codeObjs:
             new_name_path = current_name_path + [codeObjs[current_id].name]
 
         # NEW: Build nested dict if requested
@@ -113,14 +113,14 @@ def traverse_hierarchy(
                 current_dict[new_name_path[-1]] = value
 
         # Store path information
-        if options.build_id_paths:
+        if options.build_id_to_id_path:
             if not options.track_path_for or options.track_path_for(impl):
-                result.id_path_map[current_id] = new_id_path
+                result.id_to_id_path[current_id] = new_id_path
             else:
-                result.id_path_map[current_id] = list(current_id_path)
+                result.id_to_id_path[current_id] = list(current_id_path)
 
-        if options.build_name_paths:
-            result.name_path_map[current_id] = new_name_path
+        if options.build_id_to_name_path:
+            result.id_to_name_path[current_id] = new_name_path
 
         if options.build_name_path_to_id:
             result.name_path_to_id[tuple(new_name_path)] = current_id
@@ -150,7 +150,9 @@ def traverse_hierarchy(
                         child_impl
                     ):
                         # Determine paths for child
-                        child_id_path = result.id_path_map.get(current_id, new_id_path)
+                        child_id_path = result.id_to_id_path.get(
+                            current_id, new_id_path
+                        )
                         stack.append((child_id, child_id_path, new_name_path))
 
         # Check early stop
@@ -167,10 +169,10 @@ def traverse_hierarchy(
                 result.parent_map.setdefault(root_id, None)
 
     # Build name_path_to_descendant_ids if requested
-    if options.build_name_path_to_descendants and options.build_name_paths:
+    if options.build_name_path_to_descendants and options.build_id_to_name_path:
         for visited_id in result.all_visited_ids:
-            if visited_id in result.name_path_map:
-                name_path = result.name_path_map[visited_id]
+            if visited_id in result.id_to_name_path:
+                name_path = result.id_to_name_path[visited_id]
 
                 for i in range(1, len(name_path)):
                     ancestor_path = tuple(name_path[:i])

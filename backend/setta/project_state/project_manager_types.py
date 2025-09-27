@@ -7,7 +7,9 @@ from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
 )
-from setta.types.generated.unions import BaseSectionImplArgsUnion
+from setta.types.generated.unions import (
+    BaseSectionImplArgsUnionWithDiscriminator,
+)
 from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.project_state import (
     ProjectStateSingleConfig,
@@ -84,7 +86,7 @@ class UpdateParamImplConfigRequest(BaseModel):
 class CreateTopLevelSectionRequest(BaseModel):
     projectConfigId: str
     implType: SectionType
-    implOverrides: BaseSectionImplArgsUnion
+    implOverrides: BaseSectionImplArgsUnionWithDiscriminator
     position: Position
 
 

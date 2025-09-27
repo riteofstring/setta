@@ -23,7 +23,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
 )
-from setta.types.generated.unions import BaseCodeObjImplUnion
+from setta.types.generated.unions import (
+    BaseCodeObjImplUnionWithDiscriminator,
+)
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_section_impl,
 )
@@ -49,7 +51,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class JSONSourceKeyValueInfo:
     codeObjs: dict[str, Core] = field(default_factory=dict)
-    codeObjImpls: dict[str, BaseCodeObjImplUnion] = field(default_factory=dict)
+    codeObjImpls: dict[str, BaseCodeObjImplUnionWithDiscriminator] = field(
+        default_factory=dict
+    )
     codeObjVariants: dict[str, Variant] = field(default_factory=dict)
     codeObjVariantMap: dict[str, str] = field(default_factory=dict)
 
@@ -192,7 +196,7 @@ class JSONSource:
             options=TraversalOptions(
                 collect_all_visited=True,
                 build_children_map=True,
-                build_name_paths=True,
+                build_id_to_name_path=True,
                 build_name_path_to_id=True,
                 build_name_path_to_descendants=True,
             ),

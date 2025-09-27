@@ -162,7 +162,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     impl.codeObjVariantMap,
                     root_ids,
                     TraversalOptions(
-                        build_name_paths=True,
+                        build_id_to_name_path=True,
                         build_nested_dict=True,
                         name_path_prefix=name_path_prefix,
                     ),

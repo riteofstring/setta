@@ -53,7 +53,7 @@ def get_param_ids_to_show(
         TraversalOptions(
             collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
             track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
-            build_name_paths=False,  # Don't need names for UI display
+            build_id_to_name_path=False,  # Don't need names for UI display
             build_parent_map=False,  # Don't need parent map, we have children_map
         ),
     )
@@ -61,7 +61,7 @@ def get_param_ids_to_show(
     # Filter into pinned/unpinned for UI display
     return filter_for_ui_display(
         param_ids=result.collected_ids,
-        path_map=result.id_path_map,
+        path_map=result.id_to_id_path,
         children_map=result.children_map,
         pinned_params=set(impl.pinnedParams),
     )

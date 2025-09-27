@@ -692,14 +692,6 @@ def hex_to_rgba(hex_color: str, opacity: float) -> str:
     return f"rgba({r}, {g}, {b}, {opacity})"
 
 
-# use this if lambda function isn't sufficient for the type checker
-def get_code_obj_variant_map_update_fn(newMappings: dict[str, str]):
-    def fn(currMap: dict[str, str]):
-        return {**currMap, **newMappings}
-
-    return fn
-
-
 def create_kwarg_objs(
     settings: SettingsState, p: "ProjectStateSingleConfig", sectionId: str
 ):
