@@ -5,7 +5,7 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.project_state.settings_project import create_settings_project_state
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
 )

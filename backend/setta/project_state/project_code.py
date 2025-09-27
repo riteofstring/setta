@@ -38,9 +38,11 @@ from setta.types.helpers import (
     add_code_obj,
     callable_has_been_selected_before,
     callable_is_already_selected,
+    get_section_path_full_name,
+)
+from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_section_impl,
-    get_section_path_full_name,
     set_curr_effective_section_impl_value,
 )
 from setta.types.lsp import SettaProjectConfigDiagnostics

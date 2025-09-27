@@ -5,7 +5,6 @@ from typing import Iterable
 
 from pydantic import BaseModel, Field
 
-from setta.database.db_objs import DBE
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeObjType,
@@ -33,6 +32,8 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers import (
     get_code_obj_variant_map_update_fn,
+)
+from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
 )

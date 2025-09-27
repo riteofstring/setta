@@ -8,7 +8,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.unions import BaseDictSectionImplUnion
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
     get_variant_effective_section_impl,

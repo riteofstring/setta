@@ -6,7 +6,7 @@ from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.code_obj_impls import BaseParentCodeObjImpl
 from setta.types.core import Core, Variant
 from setta.types.generated.unions import BaseCodeObjImplUnion, BaseSectionImplUnion
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,

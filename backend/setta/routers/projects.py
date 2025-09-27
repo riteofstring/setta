@@ -100,7 +100,7 @@ async def route_save_project(
         # TODO: pending operations should finish first.
         # This endpoint shouldn't just take frontend state as it could be incorrect.
         # update_success = await project_manager.update_from_frontend(
-        #     req, trigger_autosave=False, updateFileWatcher=False
+        #     req, trigger_autosave=False,
         # )
         update_success = True
         if not update_success:

@@ -10,7 +10,7 @@ from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
     BaseSectionImplUnionWithDiscriminator,
 )
-from setta.types.helpers import (
+from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )

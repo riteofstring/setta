@@ -1,9 +1,8 @@
 import copy
 import math
 import re
-from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar, assert_never
+from typing import TYPE_CHECKING, assert_never
 
 from setta.database.utils import create_new_id
 from setta.project_state.artifacts import Artifacts
@@ -39,7 +38,6 @@ from setta.types.generated.effective_impls import (
 from setta.types.generated.impl_args_as_typed_dicts import (
     BaseChildlessCodeObjImplArgsWithCallable,
     BaseCodeObjImplArgs,
-    BaseCodeObjImplArgsWithCallable,
     BaseCodeSectionImplArgsWithCallable,
     BaseDictSectionImplArgsWithCallable,
     BaseParentCodeObjImplArgsWithCallable,
@@ -72,19 +70,31 @@ from setta.types.generated.unions import (
     BaseParamCodeObjImplUnion,
     BaseSectionImplArgsUnion,
 )
+from setta.types.helpers_lvl1 import (
+    get_curr_code_obj_variant,
+    get_curr_effective_code_obj_impl,
+    get_curr_effective_code_obj_impl_with_type_guard,
+    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
+    get_curr_section_base_impl,
+    get_curr_section_variant,
+    get_variant_base_and_effective_section_impl,
+    get_variant_base_and_effective_section_impl_with_type_guard,
+    get_variant_base_code_obj_impl,
+    get_variant_effective_section_impl,
+    set_curr_effective_code_obj_impl_value,
+    set_curr_effective_section_impl_value,
+)
 from setta.types.project_config import TopLevelSectionLayout
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
-    BaseSectionImpl,
     BaseSectionWithParamsImpl,
     BrowserAreaViewMode,
     CallableSectionImpl,
-    ChartSectionImpl,
     ConfigLanguage,
     DrawSectionImpl,
     GroupSectionImpl,
-    ImageSectionImpl,
     ListRootSectionImpl,
     SectionSize,
     SectionType,
@@ -100,7 +110,6 @@ from setta.utils.utils import insert_into_array, move_item_in_array
 if TYPE_CHECKING:
     from setta.types.project_state import (
         ProjectStateBackend,
-        ProjectStateCore,
         ProjectStateSingleConfig,
     )
 
@@ -111,154 +120,6 @@ class ProjectNotFound(Exception):
 
 class ProjectNameTaken(Exception):
     pass
-
-
-GenericBaseSectionImplType = TypeVar(
-    "GenericBaseSectionImplType", bound=BaseSectionImpl
-)
-
-
-GenericBaseCodeObjImplType = TypeVar(
-    "GenericBaseCodeObjImplType", bound=BaseCodeObjImpl
-)
-
-
-def get_curr_effective_section_impl(
-    p: "ProjectStateSingleConfig",
-    section_id: str,
-):
-    variant = get_curr_section_variant(p, section_id)
-    base_impl = p.sectionImpls[variant.impl]
-    core = p.sections[section_id]
-    return get_effective_impl(base_impl, core, variant)
-
-
-def get_curr_effective_section_impl_with_type_guard(
-    project_state: "ProjectStateSingleConfig",
-    section_id: str,
-    impl_type: type[GenericBaseSectionImplType],
-) -> GenericBaseSectionImplType:
-    impl = get_curr_effective_section_impl(project_state, section_id)
-
-    if not isinstance(impl, impl_type):
-        raise ValueError(f"Section {section_id} failed type guard")
-
-    return impl
-
-
-def get_variant_effective_section_impl(
-    p: "ProjectStateCore", sectionId: str, variantId: str
-):
-    variant = p.sectionVariants[variantId]
-    impl = p.sectionImpls[variant.impl]
-    core = p.sections[sectionId]
-    return get_effective_impl(impl, core, variant)
-
-
-def get_variant_base_and_effective_section_impl(
-    p: "ProjectStateCore", core: Core, variant_id: str
-):
-    variant = p.sectionVariants[variant_id]
-    base_impl = p.sectionImpls[variant.impl]
-    impl = get_effective_impl(base_impl, core, variant)
-    return variant, base_impl, impl
-
-
-def get_variant_base_and_effective_section_impl_with_type_guard(
-    p: "ProjectStateCore",
-    core: Core,
-    variant_id: str,
-    impl_type: type[GenericBaseSectionImplType],
-) -> tuple[Variant, GenericBaseSectionImplType, GenericBaseSectionImplType]:
-    variant, base_impl, impl = get_variant_base_and_effective_section_impl(
-        p, core, variant_id
-    )
-    if not isinstance(base_impl, impl_type) or not isinstance(impl, impl_type):
-        raise TypeError
-    return variant, base_impl, impl
-
-
-def get_curr_section_variant(
-    p: "ProjectStateSingleConfig",
-    section_id: str,
-):
-    variant_id = p.projectConfig.sectionVariantMap[section_id]
-    return p.sectionVariants[variant_id]
-
-
-def get_curr_code_obj_variant(
-    p: "ProjectStateSingleConfig", sectionId: str, codeObjId: str
-):
-    section_impl = get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    variant_id = section_impl.codeObjVariantMap[codeObjId]
-    return p.codeObjVariants[variant_id]
-
-
-def get_curr_effective_code_obj_impl(
-    p: "ProjectStateSingleConfig",
-    sectionId: str,
-    codeObjId: str,
-):
-    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    baseImpl = p.codeObjImpls[variant.impl]
-    core = p.codeObjs[codeObjId]
-    return get_effective_impl(baseImpl, core, variant)
-
-
-def get_curr_effective_code_obj_impl_with_type_guard(
-    project_state: "ProjectStateSingleConfig",
-    sectionId: str,
-    codeObjId: str,
-    impl_type: type[GenericBaseCodeObjImplType],
-) -> GenericBaseCodeObjImplType:
-    impl = get_curr_effective_code_obj_impl(project_state, sectionId, codeObjId)
-
-    if not isinstance(impl, impl_type):
-        raise ValueError(f"Section {sectionId}, codeObj {codeObjId} failed type guard")
-
-    return impl
-
-
-def get_variant_base_code_obj_impl(p: "ProjectStateSingleConfig", variantId: str):
-    variant = p.codeObjVariants[variantId]
-    return p.codeObjImpls[variant.impl]
-
-
-def get_variant_base_and_effective_code_obj_impl(
-    p: "ProjectStateCore", core: Core, variant_id: str
-):
-    variant = p.codeObjVariants[variant_id]
-    base_impl = p.codeObjImpls[variant.impl]
-    impl = get_effective_impl(base_impl, core, variant)
-    return variant, base_impl, impl
-
-
-def set_curr_effective_section_impl_value(
-    p: "ProjectStateSingleConfig", sectionId: str, args: BaseSectionImplArgsWithCallable
-):
-    variant = get_curr_section_variant(p, sectionId)
-    impl = p.sectionImpls[variant.impl]
-    core = p.sections[sectionId]
-    set_effective_impl_value(impl, core, variant, args)
-
-
-def set_curr_effective_code_obj_impl_value(
-    p: "ProjectStateSingleConfig",
-    sectionId: str,
-    codeObjId: str,
-    args: BaseCodeObjImplArgsWithCallable,
-):
-    variant = get_curr_code_obj_variant(p, sectionId, codeObjId)
-    impl = p.codeObjImpls[variant.impl]
-    core = p.codeObjs[codeObjId]
-    set_effective_impl_value(impl, core, variant, args)
-
-
-def get_curr_section_base_impl(p: "ProjectStateSingleConfig", sectionId: str):
-    variant = get_curr_section_variant(p, sectionId)
-    return p.sectionImpls[variant.impl]
 
 
 def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: str):
@@ -953,29 +814,6 @@ def maybe_update_gen_python_code_section(p: "ProjectStateSingleConfig", code: st
     set_curr_effective_section_impl_value(
         p, sectionId, GenPythonCodeSectionImplArgsWithCallable(code=code)
     )
-
-
-def get_artifact_files_to_watch(p: "ProjectStateBackend"):
-    filename_set: set[Path] = set()
-    artifact_to_section_mapping: dict[Path, list[str]] = defaultdict(list)
-    for s in p.sections.values():
-        for v in s.variants:
-            impl = get_variant_effective_section_impl(p, s.id, v)
-            currPaths: set[Path] = set()
-            if isinstance(impl, ImageSectionImpl):
-                currPaths.add(Path(impl.imagePath))
-            elif isinstance(impl, DrawSectionImpl):
-                for layer in impl.layers:
-                    for el in layer.elements:
-                        currPaths.add(Path(el.dataPath))
-            elif isinstance(impl, ChartSectionImpl):
-                currPaths.add(Path(impl.dataPath))
-            if len(currPaths) > 0:
-                filename_set.update(currPaths)
-                for curr in currPaths:
-                    artifact_to_section_mapping[curr].append(s.id)
-
-    return filename_set, artifact_to_section_mapping
 
 
 def delete_section_variant_or_ask(

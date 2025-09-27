@@ -1,21 +1,20 @@
 import asyncio
-from collections import defaultdict
-import json
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
-from setta.types.helpers import get_variant_base_and_effective_section_impl
+from setta.types.helpers_lvl1 import get_variant_base_and_effective_section_impl
 from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
 
 if TYPE_CHECKING:
+    from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.types.project_state import ProjectStateBackend, ProjectStateCore
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
-    from setta.database.db_objs import DBE
 
 logger = logging.getLogger(__name__)
 

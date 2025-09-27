@@ -99,7 +99,6 @@ from setta.types.helpers import (
     delete_section_variant,
     delete_section_variant_or_ask,
     delete_sections,
-    get_curr_effective_section_impl,
     group_sections,
     maybe_update_gen_python_code_section,
     set_browser_area_view_mode,
@@ -130,6 +129,7 @@ from setta.types.helpers import (
     unselect_all_params,
     update_param_impl_config,
 )
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
@@ -184,7 +184,7 @@ class BaseProjectManager(ABC):
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
         self.watch_json_source_files()
-        self.watch_artifacts()
+        self.watch_artifact_files()
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -399,6 +399,7 @@ class BaseProjectManager(ABC):
         self.project_state_backend = self.get_new_project_state_backend(projectState)
         if updateFileWatcher:
             self.watch_json_source_files()
+            self.watch_artifact_files()
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
@@ -1064,10 +1065,10 @@ class BaseProjectManager(ABC):
             self.project_state_backend_getter_fn,
         )
 
-    def watch_artifacts(self):
-        pass
-        # get artifact paths to watch
-        # self.artifacts.watch_artifacts(list_of_paths)
+    def watch_artifact_files(self):
+        self.artifacts.watch_artifact_files(
+            self.__class__.__name__, self.project_state_backend
+        )
 
 
 # function apiKeysFilepathSubscriptionFn(state: ZustandAIStore) {
