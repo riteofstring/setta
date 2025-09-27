@@ -42,9 +42,13 @@ class SettingsFile:
     def load_settings(self) -> SettingsState:
         logger.debug("Loading settings")
         paths = self.get_settings_paths()
+        path_set = set(paths.values())
+        contents = {}
+        for p in path_set:
+            contents[p] = self.dbe.read_json(p)
         output = {}
         for settings_slice, path in paths.items():
-            output[settings_slice] = self.dbe.read_json(path)[settings_slice]
+            output[settings_slice] = contents[path][settings_slice]
 
         self.settings = SettingsState.model_validate(output)
         return self.settings
