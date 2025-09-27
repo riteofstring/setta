@@ -1,3 +1,5 @@
+import asyncio
+from collections import defaultdict
 import json
 import logging
 from pathlib import Path
@@ -29,6 +31,7 @@ class JSONSource:
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self.json_sources: dict[Path, Any] = {}
+        self.json_source_to_variant_mapping: dict[Path, set[str]] = defaultdict(set)
 
     def watch_json_source_files(
         self,
@@ -38,16 +41,32 @@ class JSONSource:
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateBackend"],
     ):
-        filename_set = self.get_json_source_files_to_watch(
-            project_state_backend_getter_fn()
+        filename_set, new_json_source_to_variant_mapping = (
+            self.get_json_source_files_to_watch(project_state_backend_getter_fn())
         )
+
+        variant_ids_to_load_from_cache: set[str] = set()
+        for filename, variant_ids in new_json_source_to_variant_mapping.items():
+            if filename in self.json_sources:
+                variant_ids_to_load_from_cache.update(
+                    variant_ids.difference(
+                        self.json_source_to_variant_mapping[filename]
+                    )
+                )
+
+        if len(variant_ids_to_load_from_cache) > 0:
+            asyncio.create_task(
+                load_json_sources_fn(self.json_sources, variant_ids_to_load_from_cache)
+            )
+
+        self.json_source_to_variant_mapping = new_json_source_to_variant_mapping
+
         callback = self.get_json_source_file_watcher_callback(
             load_json_sources_fn, project_state_backend_getter_fn
         )
         callbacks = {k: callback for k in filename_set}
 
         fire_immediately = [f for f in filename_set if f not in self.json_sources]
-
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
@@ -77,13 +96,16 @@ class JSONSource:
 
     def get_json_source_files_to_watch(self, p: "ProjectStateBackend"):
         filename_set: set[Path] = set()
+        new_json_source_to_variant_mapping: dict[Path, set[str]] = defaultdict(set)
         for s in p.sections.values():
             for v in s.variants:
                 variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
                 if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
                     filepath = Path(variant.name).resolve()
                     filename_set.add(filepath)
-        return filename_set
+                    new_json_source_to_variant_mapping[filepath].add(v)
+
+        return filename_set, new_json_source_to_variant_mapping
 
     def get_variants_for_json_source_update(
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"
