@@ -193,7 +193,6 @@ class JSONSource:
         jsonSourceData: dict,
         jsonSourceKeysToLoad: set[tuple[str, ...]],
     ):
-        #  sectionImpl=
         new_data = JSONSourceKeyValueInfo()
         rootTopLevelParamIds = self.process_json_object_helper(new_data, jsonSourceData)
         hierarchy = traverse_hierarchy(

@@ -542,7 +542,7 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: str):
         newCodeObjVariantMap: dict[str, str] = {}
         for codeObjId, codeObjVariantId in newBaseImpl.codeObjVariantMap.items():
             newCodeObjVariantMap[codeObjId] = create_new_code_obj_variant(
-                p, codeObjId, codeObjVariantId
+                p, codeObjId, codeObjVariantId, None
             )
         set_effective_impl_value(
             newBaseImpl,
@@ -560,10 +560,17 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: str):
 
 
 def create_new_code_obj_variant(
-    p: "ProjectStateCore", codeObjId: str, codeObjVariantId: str | None
+    p: "ProjectStateCore",
+    codeObjId: str,
+    codeObjVariantId: str | None,
+    codeObjImpl: BaseCodeObjImplUnion | None,
 ):
-    if codeObjVariantId:
+    currBaseImpl: BaseCodeObjImplUnion | None = codeObjImpl
+    if not currBaseImpl and codeObjVariantId:
         currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
+
+    newBaseImpl: BaseCodeObjImplUnion
+    if currBaseImpl:
         if currBaseImpl.isPreset:
             newBaseImpl = currBaseImpl
         else:
