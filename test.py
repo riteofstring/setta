@@ -1,4 +1,5 @@
 from pathlib import Path
+from pprint import pprint
 
 from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db_objs import DBE
@@ -46,6 +47,12 @@ set_section_variant_name(p, p.sections[sectionId].defaultVariant, "test.json")
 file_contents = dbe.read_json(Path("test.json"))
 processedJson = js.process_json_object(file_contents, set([()]))
 load_json_sources_into_data_structures(p, {Path("test.json").resolve(): processedJson})
+print("*********project state********")
+pprint(p.model_dump())
+
+load_json_sources_into_data_structures(p, {Path("test.json").resolve(): processedJson})
+print("*********project state********")
+pprint(p.model_dump())
 
 sectionId = create_top_level_section(
     settings_file.settings,
@@ -60,4 +67,5 @@ file_contents = dbe.read_json(Path("test.json"))
 processedJson = js.process_json_object(file_contents, set([()]))
 load_json_sources_into_data_structures(p, {Path("test.json").resolve(): processedJson})
 
-# pprint(p.model_dump())
+print("*********project state********")
+pprint(p.model_dump())

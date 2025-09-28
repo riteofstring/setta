@@ -20,6 +20,7 @@ from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
+    TextParamCodeObjImpl,
 )
 from setta.types.core import (
     Core,
@@ -110,6 +111,7 @@ from setta.utils.utils import insert_into_array, move_item_in_array
 if TYPE_CHECKING:
     from setta.types.project_state import (
         ProjectStateBackend,
+        ProjectStateCore,
         ProjectStateSingleConfig,
     )
 
@@ -539,7 +541,7 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: str):
     if isinstance(newBaseImpl, BaseSectionWithParamsImpl):
         newCodeObjVariantMap: dict[str, str] = {}
         for codeObjId, codeObjVariantId in newBaseImpl.codeObjVariantMap.items():
-            newCodeObjVariantMap[codeObjId] = create_new_code_obj_version(
+            newCodeObjVariantMap[codeObjId] = create_new_code_obj_variant(
                 p, codeObjId, codeObjVariantId
             )
         set_effective_impl_value(
@@ -557,20 +559,23 @@ def create_new_section_variant(p: "ProjectStateSingleConfig", sectionId: str):
     p.projectConfig.sectionVariantMap[sectionId] = newVariant.id
 
 
-def create_new_code_obj_version(
-    p: "ProjectStateSingleConfig", codeObjId: str, codeObjVariantId: str
+def create_new_code_obj_variant(
+    p: "ProjectStateCore", codeObjId: str, codeObjVariantId: str | None
 ):
-    currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
-    if currBaseImpl.isPreset:
-        newBaseImpl = currBaseImpl
+    if codeObjVariantId:
+        currBaseImpl = get_variant_base_code_obj_impl(p, codeObjVariantId)
+        if currBaseImpl.isPreset:
+            newBaseImpl = currBaseImpl
+        else:
+            newBaseImpl = currBaseImpl.model_copy(
+                update=BaseCodeObjImplArgs(
+                    id=create_new_id(),
+                    name=generate_memorable_string(),
+                ),
+                deep=True,
+            )
     else:
-        newBaseImpl = currBaseImpl.model_copy(
-            update=BaseCodeObjImplArgs(
-                id=create_new_id(),
-                name=generate_memorable_string(),
-            ),
-            deep=True,
-        )
+        newBaseImpl = TextParamCodeObjImpl()
 
     newVariant = Variant(
         impl=newBaseImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(newBaseImpl)
@@ -1185,6 +1190,21 @@ def unselect_all_params(p: "ProjectStateSingleConfig"):
                 s,
                 BaseSectionWithParamsImplArgsWithCallable(selectedParams=[]),
             )
+
+
+def delete_code_obj(p: "ProjectStateCore", codeObjId: str):
+    codeObj = p.codeObjs[codeObjId]
+    for v in codeObj.variants:
+        variant = p.codeObjVariants.get(v)
+        if not variant:
+            continue
+        for i in variant.nonPresetImpls:
+            impl = p.codeObjImpls.get(i)
+            if not impl or impl.isPreset:
+                continue
+            del p.codeObjImpls[i]
+        del p.codeObjVariants[v]
+    del p.codeObjs[codeObjId]
 
 
 # for (const sectionId of Object.keys(x.sections)) {

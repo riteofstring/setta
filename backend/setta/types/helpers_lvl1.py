@@ -123,7 +123,7 @@ def get_curr_effective_code_obj_impl_with_type_guard(
     return impl
 
 
-def get_variant_base_code_obj_impl(p: "ProjectStateSingleConfig", variantId: str):
+def get_variant_base_code_obj_impl(p: "ProjectStateCore", variantId: str):
     variant = p.codeObjVariants[variantId]
     return p.codeObjImpls[variant.impl]
 
