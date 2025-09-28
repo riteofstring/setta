@@ -358,10 +358,16 @@ def python_type_to_zod(python_type, processed_types: set) -> tuple[str, dict]:
         args = get_args(python_type)
         if args:
             schemas = []
+            hasEllipsis = False
             for t in args:
-                ts, dependent_type_defs = python_type_to_zod(t, processed_types)
-                schemas.append(ts)
-                type_definitions.update(dependent_type_defs)
+                if t is Ellipsis:
+                    hasEllipsis = True
+                else:
+                    ts, dependent_type_defs = python_type_to_zod(t, processed_types)
+                    schemas.append(ts)
+                    type_definitions.update(dependent_type_defs)
+            if len(set(schemas)) == 1 and hasEllipsis:
+                return f"z.array({schemas[0]})", type_definitions
             return f"z.tuple([{', '.join(schemas)}])", type_definitions
         return "z.tuple()", type_definitions
 
