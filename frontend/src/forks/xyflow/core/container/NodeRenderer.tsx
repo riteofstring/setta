@@ -1,5 +1,6 @@
 import { NodeWrapper } from "forks/xyflow/core/components/wrapNode";
 import { useReactFlow } from "forks/xyflow/core/store";
+import _ from "lodash";
 import { memo, useEffect, useMemo, useRef } from "react";
 import {
   getNodeUpdateInformation,
@@ -25,7 +26,10 @@ const NodeRenderer = () => {
   const nodeIds = useNodeInternals((x) => Array.from(x.x.keys()), shallow);
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
   const resizeObserverRef = useRef<ResizeObserver>();
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
+  // const activeSectionIds = useProjectState(
+  //   (x) => x.projectConfig.activeIds,
+  //   _.isEqual,
+  // );
 
   const resizeObserver = useMemo(() => {
     if (typeof ResizeObserver === "undefined") {
@@ -55,7 +59,7 @@ const NodeRenderer = () => {
           <NodeWrapper
             key={nodeId}
             id={nodeId}
-            selected={activeSectionIds.includes(nodeId)}
+            // selected={activeSectionIds.includes(nodeId)}
             isDraggable={!panActivationKeyPressed}
             resizeObserver={resizeObserver}
             visibility={readyToBeVisible ? "visible" : "hidden"}

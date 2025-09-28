@@ -29,7 +29,7 @@ function _SectionContainer({
       viewingEditingMode,
       isGroup: impl.type === SectionTypeEnum.Group,
     };
-  });
+  }, _.isEqual);
 
   if (!getSectionShouldRender(visibility, viewingEditingMode)) {
     return null;
@@ -54,6 +54,4 @@ function _SectionContainer({
     </ContainerSwitch>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  _.isEqual(p.dragListeners, n.dragListeners),
-);
+export const SectionContainer = React.memo(_SectionContainer, () => true);

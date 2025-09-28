@@ -1,8 +1,8 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { Resizable } from "re-resizable";
-import { useState } from "react";
+import React, { useState } from "react";
 
-export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
+function _ResizableWithScale({ children, onResizeStart, as, ...props }) {
   const { scale, onResizeStart: onResizeStart_ } = useSetScaleOnResizeStart();
 
   function localOnResizeStart(...props) {
@@ -21,6 +21,8 @@ export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
     </Resizable>
   );
 }
+
+export const ResizableWithScale = React.memo(_ResizableWithScale, () => true);
 
 function useSetScaleOnResizeStart() {
   const [scale, setScale] = useState(1);

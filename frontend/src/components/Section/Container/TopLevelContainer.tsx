@@ -17,23 +17,23 @@ export function TopLevelContainer({
   visibility: boolean;
   viewingEditingMode: ViewingEditingMode;
 }) {
-  const activeIsSelf = useDndState((x) => x.activeId === sectionId);
-  const dndProps = useDndProps({ sectionId, isTopLevel: true });
-  const { setNodeRef: droppableRef } = useDroppable({
-    ...dndProps,
-    disabled: activeIsSelf,
-  });
-  const { listeners: dragListeners, setNodeRef: draggableRef } =
-    useDraggable(dndProps);
+  // const activeIsSelf = useDndState((x) => x.activeId === sectionId);
+  // const dndProps = useDndProps({ sectionId, isTopLevel: true });
+  // const { setNodeRef: droppableRef } = useDroppable({
+  //   ...dndProps,
+  //   disabled: activeIsSelf,
+  // });
+  // const { listeners: dragListeners, setNodeRef: draggableRef } =
+  //   useDraggable(dndProps);
 
   return (
     <DndSlotAndDndWatcher
       isGroup={isGroup}
       sectionId={sectionId}
       isTopLevel={true}
-      droppableRef={droppableRef}
-      draggableRef={draggableRef}
-      dragListeners={dragListeners}
+      // droppableRef={droppableRef}
+      // draggableRef={draggableRef}
+      // dragListeners={dragListeners}
       visibility={visibility}
       viewingEditingMode={viewingEditingMode}
     >
