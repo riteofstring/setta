@@ -41,7 +41,7 @@ def save_json_source_data(
                 p.codeObjImpls,
                 p.codeObjVariants,
                 impl.codeObjVariantMap,
-                impl.topLevelParamIds,
+                [impl.topLevelParamId],
                 TraversalOptions(
                     build_id_to_name_path=True,
                     build_nested_dict=True,

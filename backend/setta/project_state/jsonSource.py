@@ -60,7 +60,7 @@ class JSONSourceKeyValueInfo:
 
 @dataclass
 class ProcessedJSONInfo:
-    jsonSourceKeyToTopLevelIds: dict[tuple[str, ...], list[str]]
+    jsonSourceKeyToTopLevelId: dict[tuple[str, ...], str]
     keyValueInfo: JSONSourceKeyValueInfo
     hierarchy: HierarchyTraversalResult
 
@@ -210,16 +210,16 @@ class JSONSource:
             ),
         )
 
-        jsonSourceKeysToTopLevelIds: dict[tuple[str, ...], list[str]] = {}
+        jsonSourceKeysToTopLevelId: dict[tuple[str, ...], str] = {}
         for jsonSourceKeys in jsonSourceKeysToLoad:
             topLevelIds = (
                 rootTopLevelParamIds
                 if len(jsonSourceKeys) == 0
                 else hierarchy.children_map[hierarchy.name_path_to_id[jsonSourceKeys]]
             )
-            jsonSourceKeysToTopLevelIds[jsonSourceKeys] = topLevelIds
+            jsonSourceKeysToTopLevelId[jsonSourceKeys] = topLevelIds
 
-        return ProcessedJSONInfo(jsonSourceKeysToTopLevelIds, new_data, hierarchy)
+        return ProcessedJSONInfo(jsonSourceKeysToTopLevelId, new_data, hierarchy)
 
     def process_json_object_helper(self, output: JSONSourceKeyValueInfo, obj: dict):
         children_keys: list[str] = []

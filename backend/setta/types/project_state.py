@@ -14,6 +14,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
     get_variant_base_and_effective_section_impl,
 )
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_config import ProjectConfig
 from setta.types.section_impls import (
@@ -26,7 +27,6 @@ from setta.types.section_impls import (
 from setta.types.shown_params import (
     ShownParamIds,
     get_param_ids_to_show,
-    get_root_code_obj_ids,
 )
 
 SINGLETON_SECTION_TYPES = set([SectionType.GlobalVariables, SectionType.GenPythonCode])
@@ -149,7 +149,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     or impl.displayMode != SectionWithParamsDisplayMode.Yaml
                 ):
                     continue
-                root_ids = get_root_code_obj_ids(impl)
+                root_ids = get_top_level_param_ids(self, impl)
                 name_path_prefix = (
                     tuple(impl.jsonSourceKeys)
                     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource

@@ -49,7 +49,7 @@ def add_code_obj_details(
         defaultVariant=codeObjVariant.id,
     )
     codeObjs[codeObj.id] = codeObj
-    return codeObj.id
+    return codeObj.id, codeObjVariant.id
 
 
 def process_model_fields(
@@ -97,19 +97,17 @@ def process_model_fields(
             codeObjName, codeObjImpl = k, ColorPickerParamCodeObjImpl()
 
         if codeObjName and codeObjImpl:
-            codeObjId = add_code_obj_details(
+            codeObjId, codeObjVariantId = add_code_obj_details(
                 codeObjName, codeObjImpl, codeObjs, codeObjImpls, codeObjVariants
             )
             child_ids.append(codeObjId)
-            defaultVariant = codeObjs[codeObjId].defaultVariant
-            if defaultVariant:
-                codeObjVariantMap[codeObjId] = defaultVariant
+            codeObjVariantMap[codeObjId] = codeObjVariantId
 
     return child_ids, codeObjVariantMap
 
 
 def create_settings_code_objs(section_names):
-    sectionToTopLevelIds: dict[str, list[str]] = {}
+    sectionToTopLevelId: dict[str, str] = {}
     codeObjs: dict[str, Core] = {}
     codeObjImpls: dict[str, BaseCodeObjImplUnion] = {}
     codeObjVariants: dict[str, Variant] = {}
@@ -118,8 +116,9 @@ def create_settings_code_objs(section_names):
 
     for s in section_names:
         d = SettingsState.model_fields[s].default_factory
+
         if isclass(d) and issubclass(d, BaseModel):
-            sectionToTopLevelIds[s], codeObjVariantMaps[s] = process_model_fields(
+            children, codeObjVariantMaps[s] = process_model_fields(
                 d,
                 codeObjs,
                 codeObjImpls,
@@ -127,11 +126,18 @@ def create_settings_code_objs(section_names):
                 presetCodeObjImplNames,
             )
         else:
-            sectionToTopLevelIds[s] = []
+            children = []
             codeObjVariantMaps[s] = {}
 
+        topLevelParamImpl = NestedParamCodeObjImpl(children=children)
+        codeObjId, codeObjVariantId = add_code_obj_details(
+            s, topLevelParamImpl, codeObjs, codeObjImpls, codeObjVariants
+        )
+        codeObjVariantMaps[s][codeObjId] = codeObjVariantId
+        sectionToTopLevelId[s] = codeObjId
+
     return (
-        sectionToTopLevelIds,
+        sectionToTopLevelId,
         codeObjs,
         codeObjImpls,
         codeObjVariants,
@@ -142,7 +148,7 @@ def create_settings_code_objs(section_names):
 def create_settings_project_state(settings_path: Path):
     section_names = SettingsState.model_fields.keys()
     (
-        sectionToTopLevelIds,
+        sectionToTopLevelId,
         codeObjs,
         codeObjImpls,
         codeObjVariants,
@@ -160,7 +166,7 @@ def create_settings_project_state(settings_path: Path):
             jsonSourceKeys=[k],
             configLanguage=ConfigLanguage.json,
             codeObjVariantMap=codeObjVariantMaps[k],
-            topLevelParamIds=sectionToTopLevelIds[k],
+            topLevelParamId=sectionToTopLevelId[k],
         )
         sectionVariant = Variant(
             name=str(settings_path.relative_to(CWD)),

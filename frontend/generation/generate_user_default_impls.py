@@ -28,7 +28,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "BaseCodeSectionImpl": DEFAULT_EXCLUSIONS,
     "BaseParentSectionImpl": DEFAULT_EXCLUSIONS.union({"children"}),
     "BaseDictSectionImpl": DEFAULT_EXCLUSIONS.union(
-        {"topLevelParamIds", "jsonSourceMissing"}
+        {"topLevelParamId", "jsonSourceMissing"}
     ),
     # Concrete classes
     "CallableSectionImpl": DEFAULT_EXCLUSIONS.union({"callable"}),

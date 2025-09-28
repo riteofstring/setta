@@ -283,7 +283,7 @@ def update_section_impl_details(
             c.pinnedParams = [codeObjIdMap[v] for v in c.pinnedParams]
             c.selectedParams = [codeObjIdMap[v] for v in c.selectedParams]
         if isinstance(c, BaseDictSectionImpl):
-            c.topLevelParamIds = [codeObjIdMap[v] for v in c.topLevelParamIds]
+            c.topLevelParamId = codeObjIdMap[c.topLevelParamId]
         if isinstance(c, CallableSectionImpl):
             if c.callable:
                 c.callable = codeObjIdMap[c.callable]

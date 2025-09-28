@@ -137,6 +137,20 @@ def get_variant_base_and_effective_code_obj_impl(
     return variant, base_impl, impl
 
 
+def get_variant_base_and_effective_code_obj_impl_with_type_guard(
+    p: "ProjectStateCore",
+    core: Core,
+    variant_id: str,
+    impl_type: type[GenericBaseCodeObjImplType],
+) -> tuple[Variant, GenericBaseCodeObjImplType, GenericBaseCodeObjImplType]:
+    variant, base_impl, impl = get_variant_base_and_effective_code_obj_impl(
+        p, core, variant_id
+    )
+    if not isinstance(base_impl, impl_type) or not isinstance(impl, impl_type):
+        raise TypeError
+    return variant, base_impl, impl
+
+
 def set_curr_effective_section_impl_value(
     p: "ProjectStateSingleConfig", sectionId: str, args: BaseSectionImplArgsWithCallable
 ):

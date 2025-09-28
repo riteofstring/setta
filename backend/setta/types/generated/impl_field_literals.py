@@ -60,7 +60,7 @@ AllImplFields = Literal[
     "size",
     "step",
     "text",
-    "topLevelParamIds",
+    "topLevelParamId",
     "type",
     "url",
     "value",

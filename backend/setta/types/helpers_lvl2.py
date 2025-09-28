@@ -18,6 +18,7 @@ from setta.types.artifact import (
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
+    BaseParentCodeObjImpl,
     CodeCallableCodeObjImpl,
     CodeObjType,
     TextParamCodeObjImpl,
@@ -73,12 +74,12 @@ from setta.types.generated.unions import (
 )
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
-    get_curr_effective_code_obj_impl,
     get_curr_effective_code_obj_impl_with_type_guard,
     get_curr_effective_section_impl,
     get_curr_effective_section_impl_with_type_guard,
     get_curr_section_base_impl,
     get_curr_section_variant,
+    get_variant_base_and_effective_code_obj_impl_with_type_guard,
     get_variant_base_and_effective_section_impl,
     get_variant_base_and_effective_section_impl_with_type_guard,
     get_variant_base_code_obj_impl,
@@ -150,16 +151,31 @@ def get_curr_top_level_param_ids(
     section_impl = get_curr_effective_section_impl_with_type_guard(
         p, section_id, BaseSectionWithParamsImpl
     )
+    return get_top_level_param_ids(p, section_impl)
+
+
+def get_top_level_param_ids(
+    p: "ProjectStateCore", section_impl: BaseSectionWithParamsImpl
+) -> list[str]:
+    parentCodeObjId: str | None = None
     if isinstance(section_impl, CallableSectionImpl):
-        callableId = section_impl.callable
-        if not callableId:
-            return []
-        code_obj_impl = get_curr_effective_code_obj_impl(p, section_id, callableId)
-        if isinstance(code_obj_impl, CodeCallableCodeObjImpl):
-            return code_obj_impl.children
+        parentCodeObjId = section_impl.callable
     elif isinstance(section_impl, BaseDictSectionImpl):
-        return section_impl.topLevelParamIds
-    raise TypeError
+        parentCodeObjId = section_impl.topLevelParamId
+    else:
+        raise TypeError
+
+    if not parentCodeObjId:
+        return []
+
+    codeObj = p.codeObjs[parentCodeObjId]
+    _, _, code_obj_impl = get_variant_base_and_effective_code_obj_impl_with_type_guard(
+        p,
+        codeObj,
+        section_impl.codeObjVariantMap[parentCodeObjId],
+        BaseParentCodeObjImpl,
+    )
+    return code_obj_impl.children
 
 
 def get_section_path_full_name(p: "ProjectStateSingleConfig", section_id: str):
@@ -724,7 +740,7 @@ def add_kwarg(settings: SettingsState, p: "ProjectStateSingleConfig", sectionId:
     if isinstance(sectionImpl, CallableSectionImpl):
         return add_kwarg_to_callable_section(settings, p, sectionId, sectionImpl)
     elif isinstance(sectionImpl, BaseDictSectionImpl):
-        return add_kwarg_to_dict_section(settings, p, sectionId)
+        return add_kwarg_to_dict_section(settings, p, sectionId, sectionImpl)
     raise TypeError
 
 
@@ -756,17 +772,18 @@ def add_kwarg_to_dict_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
     sectionId: str,
+    sectionImpl: BaseDictSectionImpl,
 ):
     newId = create_kwarg_objs(settings, p, sectionId)
 
-    set_curr_effective_section_impl_value(
+    set_curr_effective_code_obj_impl_value(
         p,
         sectionId,
-        BaseDictSectionImplArgsWithCallable(
-            topLevelParamIds=lambda curr: [*curr, newId]
+        sectionImpl.topLevelParamId,
+        BaseParentCodeObjImplArgsWithCallable(
+            children=lambda currChildren: [*currChildren, newId]
         ),
     )
-
     return newId
 
 
@@ -777,7 +794,7 @@ def delete_kwarg(p: "ProjectStateSingleConfig", sectionId: str):
     if isinstance(sectionImpl, CallableSectionImpl):
         return delete_kwarg_from_callable_section(p, sectionId, sectionImpl)
     elif isinstance(sectionImpl, BaseDictSectionImpl):
-        return delete_kwarg_from_dict_section(p, sectionId)
+        return delete_kwarg_from_dict_section(p, sectionId, sectionImpl)
     raise TypeError
 
 
@@ -801,13 +818,15 @@ def delete_kwarg_from_callable_section(
 
 
 def delete_kwarg_from_dict_section(
-    p: "ProjectStateSingleConfig",
-    sectionId: str,
+    p: "ProjectStateSingleConfig", sectionId: str, sectionImpl: BaseDictSectionImpl
 ):
-    set_curr_effective_section_impl_value(
+    set_curr_effective_code_obj_impl_value(
         p,
         sectionId,
-        BaseDictSectionImplArgsWithCallable(topLevelParamIds=lambda curr: curr[:-1]),
+        sectionImpl.topLevelParamId,
+        BaseParentCodeObjImplArgsWithCallable(
+            children=lambda currChildren: currChildren[:-1]
+        ),
     )
 
 

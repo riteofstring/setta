@@ -3,15 +3,14 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from setta.types.code_obj_impls import BaseParamCodeObjImpl
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.section_impls import (
-    BaseDictSectionImpl,
     BaseSectionWithParamsImpl,
-    CallableSectionImpl,
 )
 
 if TYPE_CHECKING:
-    from setta.types.project_state import ProjectStateCore
+    from setta.types.project_state import ProjectStateSingleConfig
 
 
 class ShownParamIdDetails(BaseModel, extra="forbid"):
@@ -24,24 +23,15 @@ class ShownParamIds(BaseModel, extra="forbid"):
     unpinned: ShownParamIdDetails = Field(default_factory=ShownParamIdDetails)
 
 
-def get_root_code_obj_ids(impl: BaseSectionWithParamsImpl):
-    if isinstance(impl, CallableSectionImpl):
-        return [impl.callable] if impl.callable else []
-    elif isinstance(impl, BaseDictSectionImpl):
-        return impl.topLevelParamIds
-    else:
-        raise TypeError(f"Unsupported section implementation type: {type(impl)}")
-
-
 def get_param_ids_to_show(
-    p: "ProjectStateCore", impl: BaseSectionWithParamsImpl
+    p: "ProjectStateSingleConfig", impl: BaseSectionWithParamsImpl
 ) -> ShownParamIds:
     """
     Get both pinned and unpinned parameter IDs for UI display.
     Uses a single traversal followed by filtering.
     """
     # Determine root IDs based on section type
-    root_ids = get_root_code_obj_ids(impl)
+    root_ids = get_top_level_param_ids(p, impl)
 
     # Single traversal to get all parameters and their relationships
     result = traverse_hierarchy(

@@ -100,7 +100,7 @@ class CoreArgs(TypedDict):
                 "size",
                 "step",
                 "text",
-                "topLevelParamIds",
+                "topLevelParamId",
                 "type",
                 "url",
                 "value",
@@ -233,7 +233,7 @@ class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
     type: NotRequired[Any]
-    topLevelParamIds: NotRequired[list[str]]
+    topLevelParamId: NotRequired[str]
     isJsonSource: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
@@ -241,7 +241,7 @@ class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
 
 class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    topLevelParamIds: NotRequired[list[str] | Callable[[list[str]], list[str]]]
+    topLevelParamId: NotRequired[str | Callable[[str], str]]
     isJsonSource: NotRequired[bool | Callable[[bool], bool]]
     jsonSourceKeys: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     jsonSourceMissing: NotRequired[bool | Callable[[bool], bool]]

@@ -144,7 +144,7 @@ class BaseParentSectionImpl(BaseSectionImpl):
 
 
 class BaseDictSectionImpl(BaseSectionWithParamsImpl):
-    topLevelParamIds: list[str] = Field(default_factory=list)
+    topLevelParamId: str
     isJsonSource: bool = False
     jsonSourceKeys: list[str] = Field(default_factory=list)
     jsonSourceMissing: bool = False

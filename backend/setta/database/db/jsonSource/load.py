@@ -181,18 +181,17 @@ def merge_into_existing(
             u.codeObj.defaultVariant = variantId
         newCodeObjVariantMapEntries[u.codeObj.id] = variantId
 
-    newTopLevelParamIds = to_update.processedJson.jsonSourceKeyToTopLevelIds[
+    newTopLevelParamId = to_update.processedJson.jsonSourceKeyToTopLevelId[
         tuple(to_update.impl.jsonSourceKeys)
     ]
+    if newTopLevelParamId in replacements:
+        newTopLevelParamId = replacements[newTopLevelParamId].existingCodeObjId
     set_effective_impl_value(
         to_update.baseImpl,
         to_update.section,
         to_update.variant,
         BaseDictSectionImplArgsWithCallable(
-            topLevelParamIds=[
-                replacements[c].existingCodeObjId if c in replacements else c
-                for c in newTopLevelParamIds
-            ],
+            topLevelParamId=newTopLevelParamId,
             codeObjVariantMap=lambda curr: newCodeObjVariantMapEntries
             | {k: v for k, v in curr.items() if k not in codeObjsToDelete},
         ),
@@ -217,7 +216,7 @@ def compute_existing_replacement_mapping(
         p.codeObjImpls,
         p.codeObjVariants,
         section_impl.codeObjVariantMap,
-        section_impl.topLevelParamIds,
+        [section_impl.topLevelParamId],
         TraversalOptions(
             collect_all_visited=True,
             build_id_to_name_path=True,
