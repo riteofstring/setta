@@ -176,12 +176,10 @@ def traverse_hierarchy(
             if visited_id in result.id_to_name_path:
                 name_path = result.id_to_name_path[visited_id]
 
-                for i in range(1, len(name_path)):
+                for i in range(0, len(name_path)):
                     ancestor_path = name_path[:i]
                     if ancestor_path not in result.name_path_to_descendant_ids:
                         result.name_path_to_descendant_ids[ancestor_path] = []
                     result.name_path_to_descendant_ids[ancestor_path].append(visited_id)
-
-    return result
 
     return result
