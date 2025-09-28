@@ -42,7 +42,7 @@ class HierarchyTraversalResult:  # setta-convert-pydantic-to-js: skip
     id_to_id_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
     id_to_name_path: dict[str, tuple[str, ...]] = field(default_factory=dict)
     name_path_to_id: dict[tuple[str, ...], str] = field(default_factory=dict)
-    name_path_to_descendant_ids: dict[tuple[str, ...], list[str]] = field(
+    name_path_to_descendant_ids: dict[tuple[str, ...], set[str]] = field(
         default_factory=dict
     )
     all_visited_ids: set[str] = field(default_factory=set)
@@ -179,7 +179,7 @@ def traverse_hierarchy(
                 for i in range(0, len(name_path)):
                     ancestor_path = name_path[:i]
                     if ancestor_path not in result.name_path_to_descendant_ids:
-                        result.name_path_to_descendant_ids[ancestor_path] = []
-                    result.name_path_to_descendant_ids[ancestor_path].append(visited_id)
+                        result.name_path_to_descendant_ids[ancestor_path] = set()
+                    result.name_path_to_descendant_ids[ancestor_path].add(visited_id)
 
     return result
