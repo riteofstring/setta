@@ -43,6 +43,7 @@ def get_param_ids_to_show(
         options=TraversalOptions(
             collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
             track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
+            build_id_to_id_path=True,
             build_id_to_name_path=False,  # Don't need names for UI display
             build_parent_map=False,  # Don't need parent map, we have children_map
         ),
@@ -51,7 +52,7 @@ def get_param_ids_to_show(
     # Filter into pinned/unpinned for UI display
     return filter_for_ui_display(
         param_ids=result.collected_ids,
-        path_map=result.id_to_id_path,
+        id_to_id_path=result.id_to_id_path,
         children_map=result.children_map,
         pinned_params=set(impl.pinnedParams),
     )
@@ -59,7 +60,7 @@ def get_param_ids_to_show(
 
 def filter_for_ui_display(
     param_ids: list[str],
-    path_map: dict[str, tuple[str, ...]],
+    id_to_id_path: dict[str, tuple[str, ...]],
     children_map: dict[str, list[str]],
     pinned_params: set[str],
 ) -> ShownParamIds:
@@ -79,7 +80,7 @@ def filter_for_ui_display(
     for param_id in param_ids:
         if param_id in pinned_params:
             # Add the param itself and all ancestors
-            curr_path = path_map.get(param_id, [])
+            curr_path = id_to_id_path.get(param_id, [])
             for path_param_id in curr_path:
                 params_for_pinned_area.add(path_param_id)
             # Add all descendants
@@ -88,19 +89,22 @@ def filter_for_ui_display(
     # For each unpinned parameter: add it and its ancestors
     for param_id in param_ids:
         if param_id not in pinned_params:
-            curr_path = path_map.get(param_id, [])
+            curr_path = id_to_id_path.get(param_id, [])
             for path_param_id in curr_path:
                 params_for_unpinned_area.add(path_param_id)
 
     # Step 2: Build areas, filtering out empty parent nodes
     pinned_result = _build_area(
-        param_ids, params_for_pinned_area, path_map, children_map
+        param_ids, params_for_pinned_area, id_to_id_path, children_map
     )
     unpinned_result = _build_area(
-        param_ids, params_for_unpinned_area, path_map, children_map
+        param_ids, params_for_unpinned_area, id_to_id_path, children_map
     )
 
-    return ShownParamIds(pinned=pinned_result, unpinned=unpinned_result)
+    return ShownParamIds(
+        pinned=pinned_result,
+        unpinned=unpinned_result,
+    )
 
 
 def _add_descendants(
@@ -134,7 +138,7 @@ def _should_include_param(
 def _build_area(
     param_ids: list[str],
     candidates: set[str],
-    path_map: dict[str, tuple[str, ...]],
+    id_to_id_path: dict[str, tuple[str, ...]],
     children_map: dict[str, list[str]],
 ) -> ShownParamIdDetails:
     """Build a area including only params that are leaves or have children in the area."""
@@ -144,9 +148,9 @@ def _build_area(
     # Build the result for params that should be included
     for param_id in param_ids:
         if _should_include_param(param_id, candidates, children_map):
-            path = path_map.get(param_id, [])
+            path = id_to_id_path.get(param_id, [])
             for path_param_id in path:
-                result.requiredParamIdsToPaths[path_param_id] = path_map.get(
+                result.requiredParamIdsToPaths[path_param_id] = id_to_id_path.get(
                     path_param_id, ()
                 )
             included.add(param_id)

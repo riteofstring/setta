@@ -16,9 +16,9 @@ class TraversalOptions:  # setta-convert-pydantic-to-js: skip
     early_stop: Optional[Callable[[BaseCodeObjImplUnion], bool]] = None
 
     # What to build
-    build_parent_map: bool = True
-    build_children_map: bool = True
-    build_id_to_id_path: bool = True  # paths of IDs
+    build_parent_map: bool = False
+    build_children_map: bool = False
+    build_id_to_id_path: bool = False  # paths of IDs
     build_id_to_name_path: bool = False  # paths of names (ancestor_paths)
     build_name_path_to_id: bool = False
     build_name_path_to_descendants: bool = False

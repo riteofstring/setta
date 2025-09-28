@@ -1,6 +1,5 @@
 import { ZustandProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
-import { CodeObjPathMap } from "utils/getDescendants";
 import {
   getCurrEffectiveSectionImpl,
   getCurrSectionVariantId,
@@ -8,15 +7,13 @@ import {
 
 export function paramNameFromPathArray(
   codeObjs: ZustandProjectState["codeObjs"],
-  pathMap: CodeObjPathMap,
-  paramId: string,
+  currPath: Array<string>,
 ) {
-  const currPath = pathMap[paramId];
   if (currPath.length === 1) {
     return codeObjs[currPath[0]].name;
   } else {
     let name = "";
-    for (const [pathIdx, currId] of pathMap[paramId].entries()) {
+    for (const [pathIdx, currId] of currPath.entries()) {
       if (pathIdx === 0) {
         name = codeObjs[currId].name;
       } else {
