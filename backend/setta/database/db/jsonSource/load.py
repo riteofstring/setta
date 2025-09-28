@@ -81,7 +81,6 @@ def load_json_sources_into_data_structures(
                 not isinstance(base_impl, BaseDictSectionImpl)
                 or not isinstance(impl, BaseDictSectionImpl)
                 or not impl.isJsonSource
-                or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
             filename = Path(variant.name).resolve()
@@ -98,9 +97,10 @@ def load_json_sources_into_data_structures(
             hierarchy = compute_existing_replacement_mapping(
                 p, processedJson, impl, replacements, unmatchedCodeObj
             )
-            sectionVariantsToUpdate[variant_id] = SectionVariantToUpdate(
-                section, base_impl, impl, variant, hierarchy, processedJson
-            )
+            if (not section_variant_ids) or (variant_id in section_variant_ids):
+                sectionVariantsToUpdate[variant_id] = SectionVariantToUpdate(
+                    section, base_impl, impl, variant, hierarchy, processedJson
+                )
 
     filter_out_replacements_from_unmatched(replacements, unmatchedCodeObj)
     print("********replacements********")
