@@ -9,7 +9,7 @@ from pathlib import Path
 import requests
 import websockets
 
-from setta.types.artifact import ArtifactType, ChartData
+from setta.types.artifact import ArtifactType
 from setta.types.routes import Route
 from setta.types.websocket import WebsocketMsgTypeForFrontend
 from setta.utils.constants import CODE_FOLDER_ENV_VARIABLE, C
@@ -327,39 +327,6 @@ def pil_to_setta_img(pil_image, format="png"):
     pil_image.save(buffer, format=format.upper())
     raw_data = buffer.getvalue()
     return SettaImg(img=raw_data, format=format)
-
-
-def parse_csv_row(values):
-    row: list[str | float] = []
-    for x in values:
-        if x.strip() == "":
-            row.append("")
-        else:
-            try:
-                row.append(float(x))
-            except ValueError:
-                row.append(x)
-    return row
-
-
-def parse_csv_content(content: str) -> ChartData:
-    lines = content.strip().split("\n")
-    if not lines:
-        return {}
-
-    headers = [h.strip() for h in lines[0].split(",")]
-    result: ChartData = {header: [] for header in headers}
-
-    if not lines[1:]:
-        return result
-
-    # Parse rows and populate lists
-    for line in lines[1:]:
-        values = parse_csv_row(line.strip().split(","))
-        for header, value in zip(headers, values):
-            result[header].append(value)
-
-    return result
 
 
 def load_from_csv_file(path):

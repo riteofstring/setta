@@ -25,29 +25,30 @@ import { newArtifactTransform, newLayer } from "utils/objs/artifact";
 import { getSectionType } from "./sectionInfos";
 
 export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
-  const artifact = artifactUpdate.artifact;
-  switch (artifact.type) {
-    case ArtifactTypeEnum.Image:
-      return useImages.setState((state) => ({
-        x: { ...state.x, [artifact.id]: artifact },
-      }));
-    case ArtifactTypeEnum.BrushStroke:
-      return useBrushStrokes.setState((state) => ({
-        ...state.x,
-        [artifact.id]: artifact,
-      }));
-    case ArtifactTypeEnum.DrawAreaLayerItemTransform:
-      return useDrawAreaLayerItemTransform.setState((state) => ({
-        ...state.x,
-        [artifact.id]: artifact,
-      }));
-    case ArtifactTypeEnum.ChartData:
-      return useChartData.setState((state) => ({
-        ...state.x,
-        [artifact.id]: artifact,
-      }));
-    default:
-      return artifact satisfies never;
+  for (const artifact of artifactUpdate.artifacts) {
+    switch (artifact.type) {
+      case ArtifactTypeEnum.Image:
+        return useImages.setState((state) => ({
+          x: { ...state.x, [artifact.id]: artifact },
+        }));
+      case ArtifactTypeEnum.BrushStroke:
+        return useBrushStrokes.setState((state) => ({
+          ...state.x,
+          [artifact.id]: artifact,
+        }));
+      case ArtifactTypeEnum.DrawAreaLayerItemTransform:
+        return useDrawAreaLayerItemTransform.setState((state) => ({
+          ...state.x,
+          [artifact.id]: artifact,
+        }));
+      case ArtifactTypeEnum.ChartData:
+        return useChartData.setState((state) => ({
+          ...state.x,
+          [artifact.id]: artifact,
+        }));
+      default:
+        return artifact satisfies never;
+    }
   }
 }
 

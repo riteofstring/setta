@@ -5295,12 +5295,14 @@ export function createWebsocketMsgAllProjectMetadata(
 }
 
 export const UpdateArtifactMsgContentSchema = z.object({
-  artifact: z.union([
-    ImageArtifactSchema,
-    BrushStrokeArtifactSchema,
-    DrawAreaLayerItemTransformArtifactSchema,
-    ChartDataArtifactSchema,
-  ]),
+  artifacts: z.array(
+    z.discriminatedUnion("type", [
+      ImageArtifactSchema,
+      BrushStrokeArtifactSchema,
+      DrawAreaLayerItemTransformArtifactSchema,
+      ChartDataArtifactSchema,
+    ]),
+  ),
   updateType: z.literal(["update", "delete"]),
 });
 

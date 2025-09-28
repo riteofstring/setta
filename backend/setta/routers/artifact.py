@@ -4,7 +4,8 @@ from typing import TypedDict
 
 from pydantic import BaseModel
 
-from setta.api.logger import load_from_csv_base64, parse_csv_content
+from setta.api.logger import load_from_csv_base64
+from setta.project_state.artifacts import parse_csv_content
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.artifact import ChartData, ImageArtifact

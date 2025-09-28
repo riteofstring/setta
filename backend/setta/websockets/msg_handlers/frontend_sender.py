@@ -40,13 +40,15 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             connectionType=WebsocketConnectionType.FRONTEND,
         )
 
-    async def broadcast_artifact_update(
-        self, artifact: BaseArtifactUnion, updateType: Literal["update", "delete"]
+    async def broadcast_artifacts_update(
+        self,
+        artifacts: list[BaseArtifactUnion],
+        updateType: Literal["update", "delete"],
     ):
         await self.websocket_manager.broadcast(
             message=WebsocketMsgUpdateArtifacts(
                 content=UpdateArtifactMsgContent(
-                    artifact=artifact, updateType=updateType
+                    artifacts=artifacts, updateType=updateType
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

@@ -1,10 +1,13 @@
 import base64
+from collections import defaultdict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
     ArtifactType,
+    ChartData,
+    ChartDataArtifact,
     ImageArtifact,
 )
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
@@ -18,6 +21,7 @@ from setta.types.section_impls import (
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+    from setta.types.generated.unions import BaseArtifactUnion
     from setta.types.project_state import ProjectStateBackend
     from setta.types.specific_file_watcher import FileWatcherCoreUpdate
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -40,9 +44,12 @@ class Artifacts:
         callbackCategory: str,
         project_state_backend: "ProjectStateBackend",
     ):
-        path_and_types = self.get_artifact_files_to_watch(project_state_backend)
+        path_and_types, path_to_types = self.get_artifact_files_to_watch(
+            project_state_backend
+        )
         callbacks = {
-            k[0]: self.get_artifact_file_watcher_callback() for k in path_and_types
+            k: self.get_artifact_file_watcher_callback(types)
+            for k, types in path_to_types.items()
         }
         fire_immediately: set[Path] = set(
             [k[0] for k in path_and_types if k not in self.artifacts]
@@ -51,11 +58,22 @@ class Artifacts:
             callbacks, callbackCategory, fire_immediately
         )
 
-    def get_artifact_file_watcher_callback(self) -> FileWatcherCallback:
+    def get_artifact_file_watcher_callback(
+        self, types: set[ArtifactType]
+    ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
-            artifact = self.read_image_from_disk(coreUpdate.fileToRead)
-            await self.websocket_msg_handler.broadcast_artifact_update(
-                artifact=artifact, updateType="update"
+            artifacts: list[BaseArtifactUnion] = []
+            for t in types:
+                artifact = None
+                if t == ArtifactType.Image:
+                    artifact = self.read_image_from_disk(coreUpdate.fileToRead)
+                elif t == ArtifactType.ChartData:
+                    artifact = self.read_chart_data_from_disk(coreUpdate.fileToRead)
+                if artifact:
+                    artifacts.append(artifact)
+
+            await self.websocket_msg_handler.broadcast_artifacts_update(
+                artifacts=artifacts, updateType="update"
             )
             notification = SettaNotification(
                 message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
@@ -82,19 +100,64 @@ class Artifacts:
                         (Path(impl.dataPath).resolve(), ArtifactType.ChartData)
                     )
 
-        return path_and_types
+        path_to_types: dict[Path, set[ArtifactType]] = defaultdict(set)
+        for path, artifact_type in path_and_types:
+            path_to_types[path].add(artifact_type)
 
-    def read_image_from_disk(self, imagePath: Path):
-        img = self.dbe.read(imagePath, "rb")
+        return path_and_types, path_to_types
+
+    def read_image_from_disk(self, path: Path):
+        img = self.dbe.read(path, "rb")
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
-                id=str(imagePath), value=f"data:image/png;base64,{b64_str}"
+                id=str(path), value=f"data:image/png;base64,{b64_str}"
             )
-            self.artifacts[(imagePath, ArtifactType.Image)] = artifact
+            self.artifacts[(path, ArtifactType.Image)] = artifact
             return artifact
-        else:
-            raise ValueError
+        raise ValueError
+
+    def read_chart_data_from_disk(self, path: Path):
+        x = self.dbe.read(path)
+        if x:
+            value = parse_csv_content(x)
+            artifact = ChartDataArtifact(id=str(path), value=value)
+            self.artifacts[(path, ArtifactType.ChartData)] = artifact
+            return artifact
+        raise ValueError
 
     def get_cached_image(self, imagePath: Path):
         return self.artifacts.get((imagePath, ArtifactType.Image))
+
+
+def parse_csv_row(values):
+    row: list[str | float] = []
+    for x in values:
+        if x.strip() == "":
+            row.append("")
+        else:
+            try:
+                row.append(float(x))
+            except ValueError:
+                row.append(x)
+    return row
+
+
+def parse_csv_content(content: str) -> ChartData:
+    lines = content.strip().split("\n")
+    if not lines:
+        return {}
+
+    headers = [h.strip() for h in lines[0].split(",")]
+    result: ChartData = {header: [] for header in headers}
+
+    if not lines[1:]:
+        return result
+
+    # Parse rows and populate lists
+    for line in lines[1:]:
+        values = parse_csv_row(line.strip().split(","))
+        for header, value in zip(headers, values):
+            result[header].append(value)
+
+    return result

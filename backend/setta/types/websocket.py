@@ -73,7 +73,7 @@ class BackendWebsocketMsg(WebsocketMsg):
 
 
 class UpdateArtifactMsgContent(BaseModel):
-    artifact: BaseArtifactUnionWithDiscriminator
+    artifacts: list[BaseArtifactUnionWithDiscriminator]
     updateType: Literal["update", "delete"]
 
 
