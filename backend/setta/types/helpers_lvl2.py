@@ -223,7 +223,7 @@ def callable_has_been_selected_before(
 
 def add_code_obj(
     p: "ProjectStateSingleConfig",
-    section_id: str,
+    section_ids: list[str],
     code_obj: Core,
     code_obj_impl: BaseCodeObjImplUnion,
 ):
@@ -238,16 +238,17 @@ def add_code_obj(
     p.codeObjImpls[code_obj_impl.id] = code_obj_impl
     p.codeObjVariants[code_obj_variant.id] = code_obj_variant
 
-    set_curr_effective_section_impl_value(
-        p,
-        section_id,
-        BaseSectionWithParamsImplArgsWithCallable(
-            codeObjVariantMap=lambda currMap: {
-                **currMap,
-                code_obj.id: code_obj_variant.id,
-            }
-        ),
-    )
+    for s in section_ids:
+        set_curr_effective_section_impl_value(
+            p,
+            s,
+            BaseSectionWithParamsImplArgsWithCallable(
+                codeObjVariantMap=lambda currMap: {
+                    **currMap,
+                    code_obj.id: code_obj_variant.id,
+                }
+            ),
+        )
 
     return code_obj_variant
 
@@ -286,7 +287,7 @@ def add_children_of_callable(
             update_variants(p, existing.variants, new_param_impl)
             param_ids_in_order.append(existing.id)
         else:
-            add_code_obj(p, section_id, new_param, new_param_impl)
+            add_code_obj(p, [section_id], new_param, new_param_impl)
             param_ids_in_order.append(new_param.id)
 
     set_curr_effective_code_obj_impl_value(
@@ -721,7 +722,7 @@ def hex_to_rgba(hex_color: str, opacity: float) -> str:
 
 
 def create_kwarg_objs(
-    settings: SettingsState, p: "ProjectStateSingleConfig", sectionId: str
+    settings: SettingsState, p: "ProjectStateSingleConfig", sectionIds: list[str]
 ):
     newImpl = create_code_obj_impl(
         CodeObjType.TextParam,
@@ -729,7 +730,8 @@ def create_kwarg_objs(
         TextParamCodeObjImplArgs(coreNameEditable=True),
     )
     newCore = Core(name="")
-    add_code_obj(p, sectionId, newCore, newImpl)
+
+    add_code_obj(p, sectionIds, newCore, newImpl)
     return newCore.id
 
 
@@ -754,7 +756,7 @@ def add_kwarg_to_callable_section(
     if not callableId:
         raise ValueError
 
-    newId = create_kwarg_objs(settings, p, sectionId)
+    newId = create_kwarg_objs(settings, p, [sectionId])
 
     set_curr_effective_code_obj_impl_value(
         p,
@@ -774,7 +776,14 @@ def add_kwarg_to_dict_section(
     sectionId: str,
     sectionImpl: BaseDictSectionImpl,
 ):
-    newId = create_kwarg_objs(settings, p, sectionId)
+    sectionIds = []
+    for section in p.sections.values():
+        impl = get_curr_effective_section_impl(p, section.id)
+        if isinstance(impl, BaseDictSectionImpl):
+            if impl.topLevelParamId == sectionImpl.topLevelParamId:
+                sectionIds.append(section.id)
+
+    newId = create_kwarg_objs(settings, p, sectionIds)
 
     set_curr_effective_code_obj_impl_value(
         p,

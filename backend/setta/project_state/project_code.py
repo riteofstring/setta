@@ -172,7 +172,7 @@ class ProjectGenPythonCode(PythonCode):
             )
             callable_code_obj = Core(name=callableName)
             callable_code_obj_variant = add_code_obj(
-                project_state, sectionId, callable_code_obj, callable_base_impl
+                project_state, [sectionId], callable_code_obj, callable_base_impl
             )
         else:
             callable_code_obj = project_state.codeObjs[prev_selected]
