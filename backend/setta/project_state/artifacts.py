@@ -53,7 +53,7 @@ class Artifacts:
 
     def get_artifact_file_watcher_callback(self) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
-            artifact = self.load_image(coreUpdate.fileToRead)
+            artifact = self.read_image_from_disk(coreUpdate.fileToRead)
             await self.websocket_msg_handler.broadcast_artifact_update(
                 artifact=artifact, updateType="update"
             )
@@ -84,7 +84,7 @@ class Artifacts:
 
         return path_and_types
 
-    def load_image(self, imagePath: Path):
+    def read_image_from_disk(self, imagePath: Path):
         img = self.dbe.read(imagePath, "rb")
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
@@ -95,3 +95,6 @@ class Artifacts:
             return artifact
         else:
             raise ValueError
+
+    def get_cached_image(self, imagePath: Path):
+        return self.artifacts.get((imagePath, ArtifactType.Image))

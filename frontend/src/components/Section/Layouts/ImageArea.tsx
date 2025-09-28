@@ -1,8 +1,8 @@
 import React from "react";
-import { useLoadedImageArtifact } from "state/hooks/artifacts";
+import { useImageArtifact } from "state/hooks/artifacts";
 
 function _ImageArea({ sectionId }: { sectionId: string }) {
-  const imageArtifact = useLoadedImageArtifact(sectionId);
+  const imageArtifact = useImageArtifact(sectionId);
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
   //   sectionId,
   //   false,

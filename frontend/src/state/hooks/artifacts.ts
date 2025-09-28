@@ -19,12 +19,26 @@ import {
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_load_cached_image_artifacts,
   route_load_chart_data,
-  route_load_image_artifacts,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-export function useLoadedImageArtifact(sectionId: string) {
+async function loadCachedImage(imagePath: string) {
+  const res = await route_load_cached_image_artifacts({
+    imagePaths: [imagePath],
+  });
+  if (res200(res)) {
+    const imgArtifact = res.data[0];
+    if (imgArtifact) {
+      useImages.setState((state) => ({
+        x: { ...state.x, [imagePath]: imgArtifact },
+      }));
+    }
+  }
+}
+
+export function useImageArtifact(sectionId: string) {
   const imagePath = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
@@ -34,7 +48,18 @@ export function useLoadedImageArtifact(sectionId: string) {
     return impl.imagePath;
   });
 
-  return useImages((x) => x.x[imagePath]);
+  const imageArtifact = useImages((x) => x.x[imagePath]);
+
+  // Read image from backend cache when this hook gets initialized,
+  // i.e. when the component loads for the first time.
+  // In all other cases, backend will send artifact updates by websocket.
+  useEffect(() => {
+    if (!imageArtifact && imagePath) {
+      loadCachedImage(imagePath);
+    }
+  }, []);
+
+  return imageArtifact;
 }
 
 async function loadChartData(dataPath: string) {

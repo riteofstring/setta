@@ -199,10 +199,10 @@ export async function route_get_folder_contents(
   return await post("/getFolderContents", x);
 }
 
-export async function route_load_image_artifacts(
-  x: gt.LoadImageArtifactsRequest,
-): Promise<ResponseDataAndStatus<Array<string>>> {
-  return await post("/loadImageArtifacts", x);
+export async function route_load_cached_image_artifacts(
+  x: gt.LoadCachedImageArtifactsRequest,
+): Promise<ResponseDataAndStatus<Array<gt.ImageArtifact | null>>> {
+  return await post("/loadCachedImageArtifacts", x);
 }
 
 export async function route_load_chart_data(

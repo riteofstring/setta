@@ -1,4 +1,3 @@
-import base64
 import os
 from pathlib import Path
 from typing import TypedDict
@@ -8,7 +7,7 @@ from pydantic import BaseModel
 from setta.api.logger import load_from_csv_base64, parse_csv_content
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.artifact import ChartData
+from setta.types.artifact import ChartData, ImageArtifact
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -52,7 +51,7 @@ class FolderContentItem(TypedDict):
     type: str
 
 
-class LoadImageArtifactsRequest(BaseModel):
+class LoadCachedImageArtifactsRequest(BaseModel):
     imagePaths: list[str]
 
 
@@ -131,15 +130,12 @@ def route_get_folder_contents(
     return contents
 
 
-@router.post(Route.LOAD_IMAGE_ARTIFACTS)
-def route_load_image_artifacts(x: LoadImageArtifactsRequest) -> list[str]:
-    output: list[str] = []
-    for p in x.imagePaths:
-        with open(p, "rb") as f:
-            img = f.read()
-            b64_str = base64.b64encode(img).decode("utf-8")
-            output.append(b64_str)
-    return output
+@router.post(Route.LOAD_CACHED_IMAGE_ARTIFACTS)
+def route_load_cached_image_artifacts(
+    x: LoadCachedImageArtifactsRequest,
+    state: AppStateFromRequest,
+) -> list[ImageArtifact | None]:
+    return [state.artifacts.get_cached_image(Path(i).resolve()) for i in x.imagePaths]
 
 
 @router.post(Route.LOAD_CHART_DATA)
