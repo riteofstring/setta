@@ -324,15 +324,15 @@ class BaseProjectManager(ABC):
         json_sources: dict[Path, ProcessedJSONInfo],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
+        p = self.project_state_backend.model_copy(deep=True)
         load_json_sources_into_data_structures(
-            self.project_state_backend,
+            p,
             json_sources,
             section_variants_to_load,
         )
-        for configId in self.project_state_backend.projectConfigs.keys():
-            singleConfig = convert_backend_to_single_config(
-                self.project_state_backend, configId
-            )
+
+        for configId in p.projectConfigs.keys():
+            singleConfig = convert_backend_to_single_config(p, configId)
             # Don't update file watcher here because otherwise it'll be an infinite loop
             await self.update_and_broadcast_project_state(
                 singleConfig, updateFileWatcher=False

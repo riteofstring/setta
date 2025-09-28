@@ -48,7 +48,7 @@ class SettingsProjectManager(BaseProjectManager):
     async def load_json_sources(
         self,
         json_sources: dict[Path, Any],
-        section_variant_ids: Iterable[str] | None = None,
+        section_variants_to_load: Iterable[tuple[str, str]],
     ):
-        await super().load_json_sources(json_sources, section_variant_ids)
+        await super().load_json_sources(json_sources, section_variants_to_load)
         await self.settings_file.load_and_broadcast_settings()
