@@ -12,6 +12,7 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_section_impl,
     get_variant_effective_section_impl,
 )
+from setta.types.helpers_lvl2 import get_top_level_param_ids
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
@@ -36,13 +37,15 @@ def save_json_source_data(
                 or (section_variant_ids and variant_id not in section_variant_ids)
             ):
                 continue
+
+            topLevelParamIds = get_top_level_param_ids(p, impl)
             hierarchy = traverse_hierarchy(
                 p.codeObjs,
                 p.codeObjImpls,
                 p.codeObjVariants,
                 impl.codeObjVariantMap,
-                [impl.topLevelParamId],
-                TraversalOptions(
+                topLevelParamIds,
+                options=TraversalOptions(
                     build_id_to_name_path=True,
                     build_nested_dict=True,
                     name_path_prefix=tuple(impl.jsonSourceKeys),
