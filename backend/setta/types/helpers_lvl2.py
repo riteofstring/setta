@@ -1031,12 +1031,11 @@ def set_social_url(p: "ProjectStateSingleConfig", sectionId: str, url: str):
 
 
 def set_image_area_image_path(
-    artifacts: Artifacts, p: "ProjectStateSingleConfig", sectionId: str, imagePath: str
+    p: "ProjectStateSingleConfig", sectionId: str, imagePath: str
 ):
     set_curr_effective_section_impl_value(
         p, sectionId, ImageSectionImplArgsWithCallable(imagePath=imagePath)
     )
-    artifacts.load_image(imagePath)
 
 
 def set_chart_area_data_path(

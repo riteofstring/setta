@@ -1,17 +1,14 @@
 import base64
-from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
-    BrushStrokeMapping,
-    ChartDataMapping,
-    DrawAreaLayerItemTransformMapping,
+    ArtifactType,
     ImageArtifact,
-    ImageMapping,
 )
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
+from setta.types.notifications import SettaNotification
 from setta.types.section_impls import (
     ChartSectionImpl,
     DrawSectionImpl,
@@ -36,81 +33,65 @@ class Artifacts:
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
-        self.images: "ImageMapping" = {}
-        self.brushStrokes: "BrushStrokeMapping" = {}
-        self.chartData: "ChartDataMapping" = {}
-        self.drawAreaLayerItemTransforms: "DrawAreaLayerItemTransformMapping" = {}
-        self.artifact_to_section_mapping: dict[Path, list[str]] = {}
+        self.artifacts: dict[tuple[Path, ArtifactType], Any] = {}
 
     def watch_artifact_files(
         self,
         callbackCategory: str,
         project_state_backend: "ProjectStateBackend",
     ):
-        filename_set, new_artifact_to_section_mapping = (
-            self.get_artifact_files_to_watch(project_state_backend)
+        path_and_types = self.get_artifact_files_to_watch(project_state_backend)
+        callbacks = {
+            k[0]: self.get_artifact_file_watcher_callback() for k in path_and_types
+        }
+        fire_immediately: set[Path] = set(
+            [k[0] for k in path_and_types if k not in self.artifacts]
         )
-        # callbacks = {k: self.get_artifact_file_watcher_callback() for k in filename_set}
-        # fire_immediately: list[Path] = []
-        # for k, v in new_artifact_to_section_mapping.items():
-        #     if self.artifact_to_section_mapping.get(k) != v:
-        #         fire_immediately.append(k)
-
-        # self.artifact_to_section_mapping = new_artifact_to_section_mapping
-        # self.specific_file_watcher.update_callbacks(
-        #     callbacks, self.__class__.__name__, fire_immediately
-        # )
+        self.specific_file_watcher.update_callbacks(
+            callbacks, callbackCategory, fire_immediately
+        )
 
     def get_artifact_file_watcher_callback(self) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
-            self.load_image(str(coreUpdate.fileToRead), updateFileWatcher=False)
+            artifact = self.load_image(coreUpdate.fileToRead)
+            await self.websocket_msg_handler.broadcast_artifact_update(
+                artifact=artifact, updateType="update"
+            )
+            notification = SettaNotification(
+                message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+            )
+            await self.websocket_msg_handler.broadcast_notification(notification)
 
         return fn
 
     def get_artifact_files_to_watch(self, p: "ProjectStateBackend"):
-        filename_set: set[Path] = set()
-        artifact_to_section_mapping: dict[Path, list[str]] = defaultdict(list)
+        path_and_types: set[tuple[Path, ArtifactType]] = set()
         for s in p.sections.values():
             for v in s.variants:
                 impl = get_variant_effective_section_impl(p, s.id, v)
-                currPaths: set[Path] = set()
                 if isinstance(impl, ImageSectionImpl):
-                    currPaths.add(Path(impl.imagePath))
+                    path_and_types.add(
+                        (Path(impl.imagePath).resolve(), ArtifactType.Image)
+                    )
                 elif isinstance(impl, DrawSectionImpl):
                     for layer in impl.layers:
                         for el in layer.elements:
-                            currPaths.add(Path(el.dataPath))
+                            path_and_types.add((Path(el.dataPath).resolve(), el.type))
                 elif isinstance(impl, ChartSectionImpl):
-                    currPaths.add(Path(impl.dataPath))
-                if len(currPaths) > 0:
-                    filename_set.update(currPaths)
-                    for curr in currPaths:
-                        artifact_to_section_mapping[curr].append(s.id)
+                    path_and_types.add(
+                        (Path(impl.dataPath).resolve(), ArtifactType.ChartData)
+                    )
 
-        return filename_set, artifact_to_section_mapping
+        return path_and_types
 
-    def load_image(self, imagePath: str, updateFileWatcher=True):
-        img = self.dbe.read(Path(imagePath), "rb")
+    def load_image(self, imagePath: Path):
+        img = self.dbe.read(imagePath, "rb")
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
-                id=imagePath, value=f"data:image/png;base64,{b64_str}"
+                id=str(imagePath), value=f"data:image/png;base64,{b64_str}"
             )
-            self.images[imagePath] = artifact
-
-    # async def broadcast_update(
-    #     self, artifact: BaseArtifactUnion, updateType: Literal["update", "delete"]
-    # ):
-    #     await self.websocket_msg_handler.broadcast_artifact_update(
-    #         artifact=artifact, updateType=updateType
-    #     )
-
-    # def update_file_watcher_callbacks(self):
-    #     callbacks = {
-    #         Path(k).resolve(): self.get_artifact_file_watcher_callback()
-    #         for k in self.images.keys()
-    #     }
-    #     self.specific_file_watcher.update_callbacks(
-    #         callbacks,
-    #         "artifact",
-    #     )
+            self.artifacts[(imagePath, ArtifactType.Image)] = artifact
+            return artifact
+        else:
+            raise ValueError

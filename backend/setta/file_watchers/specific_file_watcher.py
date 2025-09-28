@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Iterable
 
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
@@ -52,7 +52,7 @@ class SpecificFileWatcher:
         self,
         callbacks: CallbacksDict,
         callbackCategory: str,
-        fire_immediately: list[Path],
+        fire_immediately: Iterable[Path],
     ):
         self.callbacks[callbackCategory].clear()
         self.callbacks[callbackCategory].update(callbacks)

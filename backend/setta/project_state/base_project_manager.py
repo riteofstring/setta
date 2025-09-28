@@ -876,9 +876,7 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def set_image_area_image_path(self, x: SetImageAreaImagePathRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_image_area_image_path(
-            self.artifacts, project_state, x.sectionId, x.imagePath
-        )
+        set_image_area_image_path(project_state, x.sectionId, x.imagePath)
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

@@ -114,7 +114,7 @@ class JSONSource:
         )
         callbacks = {k: callback for k in filename_set}
 
-        fire_immediately = [f for f in filename_set if f not in self.json_sources]
+        fire_immediately = set([f for f in filename_set if f not in self.json_sources])
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
         )
