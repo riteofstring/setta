@@ -205,10 +205,10 @@ export async function route_load_cached_image_artifacts(
   return await post("/loadCachedImageArtifacts", x);
 }
 
-export async function route_load_chart_data(
-  x: gt.LoadChartDataRequest,
-): Promise<ResponseDataAndStatus<Record<string, Array<string | number>>>> {
-  return await post("/loadChartData", x);
+export async function route_load_cached_chart_data(
+  x: gt.LoadCachedChartDataRequest,
+): Promise<ResponseDataAndStatus<gt.ChartDataArtifact | null>> {
+  return await post("/loadCachedChartData", x);
 }
 
 export async function route_restart_language_server(): Promise<

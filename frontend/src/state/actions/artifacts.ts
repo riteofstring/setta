@@ -33,18 +33,24 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
         }));
       case ArtifactTypeEnum.BrushStroke:
         return useBrushStrokes.setState((state) => ({
-          ...state.x,
-          [artifact.id]: artifact,
+          x: {
+            ...state.x,
+            [artifact.id]: artifact,
+          },
         }));
       case ArtifactTypeEnum.DrawAreaLayerItemTransform:
         return useDrawAreaLayerItemTransform.setState((state) => ({
-          ...state.x,
-          [artifact.id]: artifact,
+          x: {
+            ...state.x,
+            [artifact.id]: artifact,
+          },
         }));
       case ArtifactTypeEnum.ChartData:
         return useChartData.setState((state) => ({
-          ...state.x,
-          [artifact.id]: artifact,
+          x: {
+            ...state.x,
+            [artifact.id]: artifact,
+          },
         }));
       default:
         return artifact satisfies never;

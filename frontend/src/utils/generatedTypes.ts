@@ -480,7 +480,7 @@ export const RouteEnum = {
   GET_FOLDER_CONTENTS: "/getFolderContents",
   LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
   SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
-  LOAD_CHART_DATA: "/loadChartData",
+  LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
   SET_CHART_TYPE: "/setChartType",
   SET_CHART_AREA_IMAGE_PATH: "/setChartAreaDataPath",
   SET_CHART_SETTINGS: "/setChartSettings",
@@ -7752,6 +7752,20 @@ export function createLoadAvailableArtifactsRequest(
   return LoadAvailableArtifactsRequestSchema.parse(options);
 }
 
+export const LoadCachedChartDataRequestSchema = z.object({
+  dataPath: z.string(),
+});
+
+export type LoadCachedChartDataRequest = z.infer<
+  typeof LoadCachedChartDataRequestSchema
+>;
+
+export function createLoadCachedChartDataRequest(
+  options: Partial<LoadCachedChartDataRequest> = {},
+): LoadCachedChartDataRequest {
+  return LoadCachedChartDataRequestSchema.parse(options);
+}
+
 export const LoadCachedImageArtifactsRequestSchema = z.object({
   imagePaths: z.array(z.string()),
 });
@@ -7764,18 +7778,6 @@ export function createLoadCachedImageArtifactsRequest(
   options: Partial<LoadCachedImageArtifactsRequest> = {},
 ): LoadCachedImageArtifactsRequest {
   return LoadCachedImageArtifactsRequestSchema.parse(options);
-}
-
-export const LoadChartDataRequestSchema = z.object({
-  dataPath: z.string(),
-});
-
-export type LoadChartDataRequest = z.infer<typeof LoadChartDataRequestSchema>;
-
-export function createLoadChartDataRequest(
-  options: Partial<LoadChartDataRequest> = {},
-): LoadChartDataRequest {
-  return LoadChartDataRequestSchema.parse(options);
 }
 
 export const ReadCSVBase64RequestSchema = z.object({

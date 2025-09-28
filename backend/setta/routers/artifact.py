@@ -5,10 +5,9 @@ from typing import TypedDict
 from pydantic import BaseModel
 
 from setta.api.logger import load_from_csv_base64
-from setta.project_state.artifacts import parse_csv_content
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.artifact import ChartData, ImageArtifact
+from setta.types.artifact import ChartDataArtifact, ImageArtifact
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -56,7 +55,7 @@ class LoadCachedImageArtifactsRequest(BaseModel):
     imagePaths: list[str]
 
 
-class LoadChartDataRequest(BaseModel):
+class LoadCachedChartDataRequest(BaseModel):
     dataPath: str
 
 
@@ -139,8 +138,9 @@ def route_load_cached_image_artifacts(
     return [state.artifacts.get_cached_image(Path(i).resolve()) for i in x.imagePaths]
 
 
-@router.post(Route.LOAD_CHART_DATA)
-def route_load_chart_data(x: LoadChartDataRequest) -> ChartData:
-    with open(x.dataPath, "r") as f:
-        content = f.read()
-        return parse_csv_content(content)
+@router.post(Route.LOAD_CACHED_CHART_DATA)
+def route_load_cached_chart_data(
+    x: LoadCachedChartDataRequest,
+    state: AppStateFromRequest,
+) -> ChartDataArtifact | None:
+    return state.artifacts.get_cached_chart_data(Path(x.dataPath).resolve())

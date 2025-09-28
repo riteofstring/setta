@@ -48,7 +48,10 @@ function ChartConfig({ sectionId }: { sectionId: string }) {
 
   const { valueHeaders, dataIsReady } = useChartData((x) => {
     if (x.x[dataPath]) {
-      return { valueHeaders: Object.keys(x.x[dataPath]), dataIsReady: true };
+      return {
+        valueHeaders: Object.keys(x.x[dataPath].value),
+        dataIsReady: true,
+      };
     }
     return { valueHeaders: [], dataIsReady: false };
   });

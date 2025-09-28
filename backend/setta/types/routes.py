@@ -111,7 +111,7 @@ class Route(str, Enum):
     GET_FOLDER_CONTENTS = "/getFolderContents"
     LOAD_CACHED_IMAGE_ARTIFACTS = "/loadCachedImageArtifacts"
     SET_IMAGE_AREA_IMAGE_PATH = "/setImageAreaImagePath"
-    LOAD_CHART_DATA = "/loadChartData"
+    LOAD_CACHED_CHART_DATA = "/loadCachedChartData"
     SET_CHART_TYPE = "/setChartType"
     SET_CHART_AREA_IMAGE_PATH = "/setChartAreaDataPath"
     SET_CHART_SETTINGS = "/setChartSettings"

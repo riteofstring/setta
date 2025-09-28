@@ -19,8 +19,8 @@ import {
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_load_cached_chart_data,
   route_load_cached_image_artifacts,
-  route_load_chart_data,
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
@@ -62,12 +62,15 @@ export function useImageArtifact(sectionId: string) {
   return imageArtifact;
 }
 
-async function loadChartData(dataPath: string) {
-  const res = await route_load_chart_data({ dataPath });
+async function loadCachedChartData(dataPath: string) {
+  const res = await route_load_cached_chart_data({ dataPath });
   if (res200(res)) {
-    useChartData.setState((state) => ({
-      x: { ...state.x, [dataPath]: res.data },
-    }));
+    const data = res.data;
+    if (data) {
+      useChartData.setState((state) => ({
+        x: { ...state.x, [dataPath]: data },
+      }));
+    }
   }
 }
 
@@ -85,11 +88,11 @@ export function useLoadedChartData(sectionId: string) {
 
   useEffect(() => {
     if (!data && dataPath) {
-      loadChartData(dataPath);
+      loadCachedChartData(dataPath);
     }
-  }, [!!data]);
+  }, []);
 
-  return data ?? {};
+  return data?.value ?? {};
 }
 
 async function loadDrawAreaImages(imagePaths: Array<string>) {

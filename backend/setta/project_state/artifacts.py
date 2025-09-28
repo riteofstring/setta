@@ -126,8 +126,11 @@ class Artifacts:
             return artifact
         raise ValueError
 
-    def get_cached_image(self, imagePath: Path):
-        return self.artifacts.get((imagePath, ArtifactType.Image))
+    def get_cached_image(self, path: Path):
+        return self.artifacts.get((path, ArtifactType.Image))
+
+    def get_cached_chart_data(self, path: Path):
+        return self.artifacts.get((path, ArtifactType.ChartData))
 
 
 def parse_csv_row(values):
