@@ -1811,7 +1811,7 @@ export const DictSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
-  topLevelParamId: z.string(),
+  topLevelParamId: z.union([z.string(), z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
@@ -2131,7 +2131,7 @@ export const GlobalVariablesSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
-  topLevelParamId: z.string(),
+  topLevelParamId: z.union([z.string(), z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
@@ -3345,7 +3345,7 @@ export const DictSectionImplArgsSchema = z.object({
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
-  topLevelParamId: z.string().optional(),
+  topLevelParamId: z.union([z.string(), z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
@@ -3383,7 +3383,7 @@ export const GlobalVariablesSectionImplArgsSchema = z.object({
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
-  topLevelParamId: z.string().optional(),
+  topLevelParamId: z.union([z.string(), z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
@@ -5638,7 +5638,7 @@ export const BaseDictSectionImplArgsSchema = z.object({
   selectedParams: z.array(z.string()).optional(),
   ignoreTypeErrors: z.record(z.string(), z.boolean()).optional(),
   displayMode: z.enum(SectionWithParamsDisplayModeEnum).optional(),
-  topLevelParamId: z.string().optional(),
+  topLevelParamId: z.union([z.string(), z.null()]).optional(),
   isJsonSource: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
@@ -5686,7 +5686,7 @@ export const BaseDictSectionImplArgsWithCallableSchema = z.object({
   displayMode: z
     .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
-  topLevelParamId: z.union([z.string(), z.any()]).optional(),
+  topLevelParamId: z.union([z.string(), z.null(), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
   jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
   jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
@@ -6257,7 +6257,7 @@ export const DictSectionImplArgsWithCallableSchema = z.object({
   displayMode: z
     .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
-  topLevelParamId: z.union([z.string(), z.any()]).optional(),
+  topLevelParamId: z.union([z.string(), z.null(), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
   jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
   jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
@@ -6396,7 +6396,7 @@ export const GlobalVariablesSectionImplArgsWithCallableSchema = z.object({
   displayMode: z
     .union([z.enum(SectionWithParamsDisplayModeEnum), z.any()])
     .optional(),
-  topLevelParamId: z.union([z.string(), z.any()]).optional(),
+  topLevelParamId: z.union([z.string(), z.null(), z.any()]).optional(),
   isJsonSource: z.union([z.boolean(), z.any()]).optional(),
   jsonSourceKeys: z.union([z.array(z.string()), z.any()]).optional(),
   jsonSourceMissing: z.union([z.boolean(), z.any()]).optional(),
@@ -7099,7 +7099,7 @@ export const BaseDictSectionImplSchema = z.object({
   displayMode: z
     .enum(SectionWithParamsDisplayModeEnum)
     .default(SectionWithParamsDisplayModeEnum.Gui),
-  topLevelParamId: z.string(),
+  topLevelParamId: z.union([z.string(), z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
   jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),

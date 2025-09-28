@@ -55,7 +55,8 @@ def traverse_hierarchy(
     codeObjImpls: dict[str, BaseCodeObjImplUnion],
     codeObjVariants: dict[str, Variant],
     codeObjVariantMap: dict[str, str],
-    root_ids: list[str],
+    top_level_ids: list[str],
+    root_id: Optional[str] = None,
     options: Optional[TraversalOptions] = None,
 ) -> HierarchyTraversalResult:
     if options is None:
@@ -72,9 +73,18 @@ def traverse_hierarchy(
     stack: list[
         tuple[str, tuple[str, ...], tuple[str, ...]]
     ] = []  # (id, id_path, name_path)
-    for root_id in reversed(root_ids):
+
+    if root_id:
         if not options.traverse_filter or options.traverse_filter(get_impl(root_id)):
             stack.append((root_id, (), options.name_path_prefix))
+    else:
+        for top_level_id in top_level_ids:
+            if not options.traverse_filter or options.traverse_filter(
+                get_impl(top_level_id)
+            ):
+                stack.append((top_level_id, (), options.name_path_prefix))
+
+    stack.reverse()
 
     while stack:
         current_id, current_id_path, current_name_path = stack.pop()
@@ -89,9 +99,10 @@ def traverse_hierarchy(
         new_id_path = current_id_path + (current_id,)
         new_name_path = current_name_path
         if options.build_id_to_name_path and current_id in codeObjs:
-            new_name_path = current_name_path + (codeObjs[current_id].name,)
+            # Skip adding name for root_id to keep its path empty
+            if current_id != root_id:
+                new_name_path = current_name_path + (codeObjs[current_id].name,)
 
-        # NEW: Build nested dict if requested
         if options.build_nested_dict:
             # Extract value using provided extractor
             if isinstance(impl, BaseChildlessCodeObjImpl):
@@ -164,11 +175,12 @@ def traverse_hierarchy(
                 result.early_stopped = True
                 break
 
-    # Set root parents to None
     if options.build_parent_map:
-        for root_id in root_ids:
-            if root_id in result.all_visited_ids:
-                result.parent_map.setdefault(root_id, None)
+        if root_id and root_id in result.all_visited_ids:
+            result.parent_map.setdefault(root_id, None)
+        for top_level_id in top_level_ids:
+            if top_level_id in result.all_visited_ids:
+                result.parent_map.setdefault(top_level_id, None)
 
     # Build name_path_to_descendant_ids if requested
     if options.build_name_path_to_descendants and options.build_id_to_name_path:

@@ -8,6 +8,7 @@ from setta.project_state.jsonSource import (
 )
 from setta.types.code_obj_impls import (
     BaseChildlessCodeObjImpl,
+    BaseParentCodeObjImpl,
     NestedParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant
@@ -29,7 +30,11 @@ from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_section_impl,
     get_variant_base_code_obj_impl,
 )
-from setta.types.helpers_lvl2 import create_new_code_obj_variant, delete_code_obj
+from setta.types.helpers_lvl2 import (
+    create_new_code_obj_variant,
+    delete_code_obj,
+    get_top_level_param_ids,
+)
 from setta.types.hierarchy_traversal import (
     TraversalOptions,
     traverse_hierarchy,
@@ -113,6 +118,10 @@ def load_json_sources_into_data_structures(
                 codeObjsToDelete.update(currCodeObjsToDelete)
 
     filter_out_replacements_from_unmatched(replacements, unmatchedCodeObj)
+    # print("********replacements********")
+    # pprint(replacements)
+    # print("********unmatchedCodeObj********")
+    # pprint(len(unmatchedCodeObj))
     delete_old_code_objs(p, codeObjsToDelete)
     for toUpdate in sectionVariantsToUpdate.values():
         merge_into_existing(
@@ -132,8 +141,6 @@ def merge_into_existing(
         codeObjCore = p.codeObjs[r.existingCodeObjId]
         variantId = to_update.impl.codeObjVariantMap.get(r.existingCodeObjId)
         if not variantId:
-            # IMMEDIATE TODO:
-            # Also, topLevelParamId should point to a nested param that contains the displayed params
             variantId = create_new_code_obj_variant(
                 p, codeObjCore.id, None, r.matchedImpl
             )
@@ -205,27 +212,33 @@ def compute_existing_replacement_mapping(
     replacements: dict[str, ReplacementInfo],
     unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
 ):
-    keyValueInfo = processedJson.keyValueInfo
-    idsToProcess = processedJson.hierarchy.name_path_to_descendant_ids.get(
-        tuple(section_impl.jsonSourceKeys), set()
-    )
-    idsToProcess = idsToProcess.difference(replacements.keys())
-
+    topLevelParamIds = get_top_level_param_ids(p, section_impl)
+    jsonSourceKeys = tuple(section_impl.jsonSourceKeys)
     hierarchy = traverse_hierarchy(
         p.codeObjs,
         p.codeObjImpls,
         p.codeObjVariants,
         section_impl.codeObjVariantMap,
-        [section_impl.topLevelParamId],
-        TraversalOptions(
+        topLevelParamIds,
+        section_impl.topLevelParamId,
+        options=TraversalOptions(
             collect_all_visited=True,
             build_id_to_name_path=True,
             build_name_path_to_id=True,
-            name_path_prefix=tuple(section_impl.jsonSourceKeys),
+            name_path_prefix=jsonSourceKeys,
         ),
     )
 
     codeObjsToDelete: set[str] = set()
+    keyValueInfo = processedJson.keyValueInfo
+
+    idsToProcess: set[str] = set()
+    if jsonSourceKeys in processedJson.hierarchy.name_path_to_id:
+        idsToProcess = processedJson.hierarchy.name_path_to_descendant_ids.get(
+            jsonSourceKeys, set()
+        )
+        idsToProcess.add(processedJson.hierarchy.name_path_to_id[jsonSourceKeys])
+        idsToProcess = idsToProcess.difference(replacements.keys())
 
     for id in idsToProcess:
         existingCodeObjId = hierarchy.name_path_to_id.get(
@@ -241,11 +254,17 @@ def compute_existing_replacement_mapping(
         if existingCodeObjId:
             variantId = section_impl.codeObjVariantMap[existingCodeObjId]
             impl = get_variant_base_code_obj_impl(p, variantId)
-            if type(impl) is type(uImpl):
+            if (
+                isinstance(impl, BaseParentCodeObjImpl)
+                and isinstance(uImpl, BaseChildlessCodeObjImpl)
+            ) or (
+                isinstance(impl, BaseChildlessCodeObjImpl)
+                and isinstance(uImpl, BaseParentCodeObjImpl)
+            ):
+                codeObjsToDelete.add(existingCodeObjId)
+            else:
                 effectiveImpl = get_effective_impl(uImpl, uCodeObj, uVariant)
                 replacements[id] = ReplacementInfo(existingCodeObjId, effectiveImpl)
-            else:
-                codeObjsToDelete.add(existingCodeObjId)
 
     for name_path, id in hierarchy.name_path_to_id.items():
         matchedId = processedJson.hierarchy.name_path_to_id.get(name_path)

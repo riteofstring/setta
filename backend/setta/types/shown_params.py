@@ -31,7 +31,7 @@ def get_param_ids_to_show(
     Uses a single traversal followed by filtering.
     """
     # Determine root IDs based on section type
-    root_ids = get_top_level_param_ids(p, impl)
+    top_level_ids = get_top_level_param_ids(p, impl)
 
     # Single traversal to get all parameters and their relationships
     result = traverse_hierarchy(
@@ -39,8 +39,8 @@ def get_param_ids_to_show(
         p.codeObjImpls,
         p.codeObjVariants,
         impl.codeObjVariantMap,
-        root_ids,
-        TraversalOptions(
+        top_level_ids,
+        options=TraversalOptions(
             collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
             track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
             build_id_to_name_path=False,  # Don't need names for UI display

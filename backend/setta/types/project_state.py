@@ -149,7 +149,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     or impl.displayMode != SectionWithParamsDisplayMode.Yaml
                 ):
                     continue
-                root_ids = get_top_level_param_ids(self, impl)
+                top_level_ids = get_top_level_param_ids(self, impl)
                 name_path_prefix = (
                     tuple(impl.jsonSourceKeys)
                     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource
@@ -160,8 +160,8 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     self.codeObjImpls,
                     self.codeObjVariants,
                     impl.codeObjVariantMap,
-                    root_ids,
-                    TraversalOptions(
+                    top_level_ids,
+                    options=TraversalOptions(
                         build_id_to_name_path=True,
                         build_nested_dict=True,
                         name_path_prefix=name_path_prefix,

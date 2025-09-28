@@ -193,14 +193,17 @@ class JSONSource:
         jsonSourceData: dict,
         jsonSourceKeysToLoad: set[tuple[str, ...]],
     ):
-        new_data = JSONSourceKeyValueInfo()
-        rootTopLevelParamIds = self.process_json_object_helper(new_data, jsonSourceData)
+        new_data, rootId, rootChildren = self.construct_json_source_key_value_info(
+            jsonSourceData
+        )
+
         hierarchy = traverse_hierarchy(
             new_data.codeObjs,
             new_data.codeObjImpls,
             new_data.codeObjVariants,
             new_data.codeObjVariantMap,
-            rootTopLevelParamIds,
+            rootChildren,
+            rootId,
             options=TraversalOptions(
                 collect_all_visited=True,
                 build_children_map=True,
@@ -212,16 +215,36 @@ class JSONSource:
 
         jsonSourceKeysToTopLevelId: dict[tuple[str, ...], str] = {}
         for jsonSourceKeys in jsonSourceKeysToLoad:
-            topLevelIds = (
-                rootTopLevelParamIds
-                if len(jsonSourceKeys) == 0
-                else hierarchy.children_map[hierarchy.name_path_to_id[jsonSourceKeys]]
-            )
-            jsonSourceKeysToTopLevelId[jsonSourceKeys] = topLevelIds
+            jsonSourceKeysToTopLevelId[jsonSourceKeys] = hierarchy.name_path_to_id[
+                jsonSourceKeys
+            ]
 
         return ProcessedJSONInfo(jsonSourceKeysToTopLevelId, new_data, hierarchy)
 
-    def process_json_object_helper(self, output: JSONSourceKeyValueInfo, obj: dict):
+    def construct_json_source_key_value_info(self, jsonSourceData):
+        new_data = JSONSourceKeyValueInfo()
+        rootChildren = self.construct_json_source_key_value_info_helper(
+            new_data, jsonSourceData
+        )
+        rootImpl = NestedParamCodeObjImpl(children=rootChildren)
+        rootVariant = Variant(
+            impl=rootImpl.id, nonPresetImpls=compute_initial_nonPresetImpls(rootImpl)
+        )
+        root = Core(
+            name="",
+            variants=[rootVariant.id],
+            defaultVariant=rootVariant.id,
+            unsharedKeys=[],
+        )
+        new_data.codeObjVariantMap[root.id] = rootVariant.id
+        new_data.codeObjImpls[rootImpl.id] = rootImpl
+        new_data.codeObjVariants[rootVariant.id] = rootVariant
+        new_data.codeObjs[root.id] = root
+        return new_data, root.id, rootChildren
+
+    def construct_json_source_key_value_info_helper(
+        self, output: JSONSourceKeyValueInfo, obj: dict
+    ):
         children_keys: list[str] = []
         for k, v in obj.items():
             codeObj, codeObjImpl, codeObjVariant = self.add_to_processed_json_object(
@@ -234,7 +257,9 @@ class JSONSource:
                     codeObj,
                     codeObjVariant,
                     NestedParamCodeObjImplArgsWithCallable(
-                        children=self.process_json_object_helper(output, v)
+                        children=self.construct_json_source_key_value_info_helper(
+                            output, v
+                        )
                     ),
                 )
 

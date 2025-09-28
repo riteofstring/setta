@@ -233,7 +233,7 @@ class BaseParentSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
 
 class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
     type: NotRequired[Any]
-    topLevelParamId: NotRequired[str]
+    topLevelParamId: NotRequired[str | None]
     isJsonSource: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
@@ -241,7 +241,7 @@ class BaseDictSectionImplArgs(BaseSectionWithParamsImplArgs):
 
 class BaseDictSectionImplArgsWithCallable(BaseSectionWithParamsImplArgsWithCallable):
     type: NotRequired[Any | Callable[[Any], Any]]
-    topLevelParamId: NotRequired[str | Callable[[str], str]]
+    topLevelParamId: NotRequired[str | None | Callable[[str | None], str | None]]
     isJsonSource: NotRequired[bool | Callable[[bool], bool]]
     jsonSourceKeys: NotRequired[list[str] | Callable[[list[str]], list[str]]]
     jsonSourceMissing: NotRequired[bool | Callable[[bool], bool]]
