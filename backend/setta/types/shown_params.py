@@ -44,8 +44,7 @@ def get_param_ids_to_show(
             collect_filter=lambda x: isinstance(x, BaseParamCodeObjImpl),
             track_path_for=lambda x: isinstance(x, BaseParamCodeObjImpl),
             build_id_to_id_path=True,
-            build_id_to_name_path=False,  # Don't need names for UI display
-            build_parent_map=False,  # Don't need parent map, we have children_map
+            build_children_map=True,
         ),
     )
 
