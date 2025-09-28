@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
@@ -28,6 +28,7 @@ from setta.types.generated.unions import (
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
+    get_variant_base_and_effective_section_impl_with_type_guard,
     get_variant_base_code_obj_impl,
 )
 from setta.types.helpers_lvl2 import (
@@ -60,24 +61,46 @@ class UnmatchedCodeObjInfo:
 
 
 @dataclass
+class ReplacementsAndUnmatchedDicts:
+    replacements: dict[str, ReplacementInfo] = field(default_factory=dict)
+    unmatched: dict[str, UnmatchedCodeObjInfo] = field(default_factory=dict)
+
+
+FilenameToKeysToReplacementsAndUnmatchedDicts = dict[
+    Path, dict[tuple[str, ...], ReplacementsAndUnmatchedDicts]
+]
+
+
+@dataclass
 class SectionVariantToUpdate:
     section: Core
     baseImpl: BaseDictSectionImplUnionWithDiscriminator
     impl: BaseDictSectionImplUnionWithDiscriminator
     variant: Variant
     processedJson: ProcessedJSONInfo
+    filename: Path
+    jsonSourceKeys: tuple[str, ...]
 
 
 def load_json_sources_into_data_structures(
     p: ProjectStateCore,
     json_sources: dict[Path, ProcessedJSONInfo],
-    section_variant_ids: Iterable[str] | None = None,
+    section_variant_ids: Iterable[tuple[str, str]],
 ):
-    processedVariantIds: set[str] = set()
-    replacements: dict[str, ReplacementInfo] = {}
-    unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo] = {}
-    sectionVariantsToUpdate: dict[str, SectionVariantToUpdate] = {}
+    # set of (filename, jsonSourceKeys)
+    jsonSourceAndKeysToLoad: set[tuple[Path, tuple[str, ...]]] = set()
+    for s, v in section_variant_ids:
+        variant, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
+            p, p.sections[s], v, BaseDictSectionImpl
+        )
+        filename = Path(variant.name).resolve()
+        jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
+
+    # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
+    replacements_and_unmatched: FilenameToKeysToReplacementsAndUnmatchedDicts = {}
+    sectionVariantsToUpdate: dict[tuple[str, str], SectionVariantToUpdate] = {}
     codeObjsToDelete: set[str] = set()
+    processedVariantIds: set[str] = set()
 
     for section in p.sections.values():
         for variant_id in section.variants:
@@ -94,6 +117,9 @@ def load_json_sources_into_data_structures(
             ):
                 continue
             filename = Path(variant.name).resolve()
+            jsonSourceKeys = tuple(impl.jsonSourceKeys)
+            if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
+                continue
             processedJson = json_sources.get(filename)
             isMissing = processedJson is None
             impl = set_effective_impl_value(
@@ -104,29 +130,39 @@ def load_json_sources_into_data_structures(
             )
             if isMissing:
                 continue
-            currCodeObjsToDelete = compute_existing_replacement_mapping(
-                p, processedJson, impl, replacements, unmatchedCodeObj
+            r = replacements_and_unmatched.setdefault(filename, {}).setdefault(
+                jsonSourceKeys, ReplacementsAndUnmatchedDicts()
             )
-            if (not section_variant_ids) or (variant_id in section_variant_ids):
-                sectionVariantsToUpdate[variant_id] = SectionVariantToUpdate(
-                    section,
-                    base_impl,
-                    impl,
-                    variant,
-                    processedJson,
+            currCodeObjsToDelete = compute_existing_replacement_mapping(
+                p,
+                processedJson,
+                impl,
+                r.replacements,
+                r.unmatched,
+            )
+            if (section.id, variant_id) in section_variant_ids:
+                sectionVariantsToUpdate[(section.id, variant_id)] = (
+                    SectionVariantToUpdate(
+                        section,
+                        base_impl,
+                        impl,
+                        variant,
+                        processedJson,
+                        filename,
+                        jsonSourceKeys,
+                    )
                 )
                 codeObjsToDelete.update(currCodeObjsToDelete)
 
-    filter_out_replacements_from_unmatched(replacements, unmatchedCodeObj)
-    # print("********replacements********")
-    # pprint(replacements)
-    # print("********unmatchedCodeObj********")
-    # pprint(len(unmatchedCodeObj))
+    for jToR in replacements_and_unmatched.values():
+        for r in jToR.values():
+            filter_out_replacements_from_unmatched(r.replacements, r.unmatched)
+
     delete_old_code_objs(p, codeObjsToDelete)
+
     for toUpdate in sectionVariantsToUpdate.values():
-        merge_into_existing(
-            p, toUpdate, replacements, unmatchedCodeObj, codeObjsToDelete
-        )
+        r = replacements_and_unmatched[toUpdate.filename][toUpdate.jsonSourceKeys]
+        merge_into_existing(p, toUpdate, r.replacements, r.unmatched, codeObjsToDelete)
 
 
 def merge_into_existing(
@@ -188,7 +224,7 @@ def merge_into_existing(
             u.codeObj.defaultVariant = variantId
         newCodeObjVariantMapEntries[u.codeObj.id] = variantId
 
-    newTopLevelParamId = to_update.processedJson.jsonSourceKeyToTopLevelId[
+    newTopLevelParamId = to_update.processedJson.hierarchy.name_path_to_id[
         tuple(to_update.impl.jsonSourceKeys)
     ]
     if newTopLevelParamId in replacements:

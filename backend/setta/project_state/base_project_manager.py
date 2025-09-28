@@ -322,12 +322,12 @@ class BaseProjectManager(ABC):
     async def load_json_sources(
         self,
         json_sources: dict[Path, ProcessedJSONInfo],
-        section_variant_ids: Iterable[str] | None = None,
+        section_variants_to_load: Iterable[tuple[str, str]],
     ):
         load_json_sources_into_data_structures(
             self.project_state_backend,
             json_sources,
-            section_variant_ids,
+            section_variants_to_load,
         )
         for configId in self.project_state_backend.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(

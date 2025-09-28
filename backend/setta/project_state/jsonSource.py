@@ -60,7 +60,6 @@ class JSONSourceKeyValueInfo:
 
 @dataclass
 class ProcessedJSONInfo:
-    jsonSourceKeyToTopLevelId: dict[tuple[str, ...], str]
     keyValueInfo: JSONSourceKeyValueInfo
     hierarchy: HierarchyTraversalResult
 
@@ -78,35 +77,37 @@ class JSONSource:
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
         self.json_sources: dict[Path, ProcessedJSONInfo] = {}
-        self.json_source_to_variant_mapping: dict[Path, set[str]] = defaultdict(set)
+        # maps from file path to set of (sectionId, variantId)
+        self.json_source_to_section_variant: dict[Path, set[tuple[str, str]]] = (
+            defaultdict(set)
+        )
 
     def watch_json_source_files(
         self,
         callbackCategory: str,
         load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[str]], Coroutine[Any, Any, None]
+            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
+            Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
     ):
-        filename_set, new_json_source_to_variant_mapping = (
+        filename_set, new_json_source_to_section_variant = (
             self.get_json_source_files_to_watch(project_state_backend_getter_fn())
         )
 
-        variant_ids_to_load_from_cache: set[str] = set()
-        for filename, variant_ids in new_json_source_to_variant_mapping.items():
+        section_variant_ids_to_load: set[tuple[str, str]] = set()
+        for filename, ids in new_json_source_to_section_variant.items():
             if filename in self.json_sources:
-                variant_ids_to_load_from_cache.update(
-                    variant_ids.difference(
-                        self.json_source_to_variant_mapping[filename]
-                    )
+                section_variant_ids_to_load.update(
+                    ids.difference(self.json_source_to_section_variant[filename])
                 )
 
-        if len(variant_ids_to_load_from_cache) > 0:
+        if len(section_variant_ids_to_load) > 0:
             asyncio.create_task(
-                load_json_sources_fn(self.json_sources, variant_ids_to_load_from_cache)
+                load_json_sources_fn(self.json_sources, section_variant_ids_to_load)
             )
 
-        self.json_source_to_variant_mapping = new_json_source_to_variant_mapping
+        self.json_source_to_section_variant = new_json_source_to_section_variant
 
         callback = self.get_json_source_file_watcher_callback(
             load_json_sources_fn, project_state_backend_getter_fn
@@ -121,28 +122,25 @@ class JSONSource:
     def get_json_source_file_watcher_callback(
         self,
         load_json_sources_fn: Callable[
-            [dict[Path, ProcessedJSONInfo], set[str]], Coroutine[Any, Any, None]
+            [dict[Path, ProcessedJSONInfo], set[tuple[str, str]]],
+            Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
             project_state_backend = project_state_backend_getter_fn()
-            variantsToLoad, jsonSoureKeysToLoad = (
-                self.get_variants_for_json_source_update(
-                    project_state_backend, coreUpdate
-                )
+            sectionVariantsToLoad = self.get_section_variants_for_json_source_update(
+                project_state_backend, coreUpdate
             )
 
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
 
-            processedJsonInfo = self.process_json_object(
-                file_content, jsonSoureKeysToLoad
-            )
+            processedJsonInfo = self.process_json_object(file_content)
             self.json_sources[filepath] = processedJsonInfo
 
-            if len(variantsToLoad) > 0:
-                await load_json_sources_fn(self.json_sources, variantsToLoad)
+            if len(sectionVariantsToLoad) > 0:
+                await load_json_sources_fn(self.json_sources, sectionVariantsToLoad)
                 notification = SettaNotification(
                     message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
                 )
@@ -152,26 +150,27 @@ class JSONSource:
 
     def get_json_source_files_to_watch(self, p: "ProjectStateCore"):
         filename_set: set[Path] = set()
-        new_json_source_to_variant_mapping: dict[Path, set[str]] = defaultdict(set)
+        new_json_source_to_variant_mapping: dict[Path, set[tuple[str, str]]] = (
+            defaultdict(set)
+        )
         for s in p.sections.values():
             for v in s.variants:
                 variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
                 if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
                     filepath = Path(variant.name).resolve()
                     filename_set.add(filepath)
-                    new_json_source_to_variant_mapping[filepath].add(v)
+                    new_json_source_to_variant_mapping[filepath].add((s.id, v))
 
         return filename_set, new_json_source_to_variant_mapping
 
-    def get_variants_for_json_source_update(
+    def get_section_variants_for_json_source_update(
         self, p: "ProjectStateCore", coreUpdate: "FileWatcherCoreUpdate"
     ):
-        variantsToLoad: set[str] = set()
-        jsonSourceKeysToLoad: set[tuple[str, ...]] = set()
+        sectionVariantsToLoad: set[tuple[str, str]] = set()
         processed = set()
         for section in p.sections.values():
             for variant_id in section.variants:
-                if variant_id in variantsToLoad:
+                if variant_id in sectionVariantsToLoad:
                     continue
                 processed.add(variant_id)
                 variant, _, impl = get_variant_base_and_effective_section_impl(
@@ -184,15 +183,10 @@ class JSONSource:
                 ):
                     continue
 
-                variantsToLoad.add(variant_id)
-                jsonSourceKeysToLoad.add(tuple(impl.jsonSourceKeys))
-        return variantsToLoad, jsonSourceKeysToLoad
+                sectionVariantsToLoad.add((section.id, variant_id))
+        return sectionVariantsToLoad
 
-    def process_json_object(
-        self,
-        jsonSourceData: dict,
-        jsonSourceKeysToLoad: set[tuple[str, ...]],
-    ):
+    def process_json_object(self, jsonSourceData: dict):
         new_data, rootId, rootChildren = self.construct_json_source_key_value_info(
             jsonSourceData
         )
@@ -213,13 +207,7 @@ class JSONSource:
             ),
         )
 
-        jsonSourceKeysToTopLevelId: dict[tuple[str, ...], str] = {}
-        for jsonSourceKeys in jsonSourceKeysToLoad:
-            jsonSourceKeysToTopLevelId[jsonSourceKeys] = hierarchy.name_path_to_id[
-                jsonSourceKeys
-            ]
-
-        return ProcessedJSONInfo(jsonSourceKeysToTopLevelId, new_data, hierarchy)
+        return ProcessedJSONInfo(new_data, hierarchy)
 
     def construct_json_source_key_value_info(self, jsonSourceData):
         new_data = JSONSourceKeyValueInfo()
