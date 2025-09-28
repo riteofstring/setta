@@ -128,7 +128,7 @@ def merge_into_existing(
     codeObjsToDelete: set[str],
 ):
     newCodeObjVariantMapEntries: dict[str, str] = {}
-    for matchedId, r in replacements.items():
+    for r in replacements.values():
         codeObjCore = p.codeObjs[r.existingCodeObjId]
         variantId = to_update.impl.codeObjVariantMap.get(r.existingCodeObjId)
         if not variantId:
