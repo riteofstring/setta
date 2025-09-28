@@ -27,10 +27,10 @@ from setta.types.generated.unions import (
 from setta.types.helpers_lvl1 import (
     get_variant_base_and_effective_code_obj_impl,
     get_variant_base_and_effective_section_impl,
+    get_variant_base_code_obj_impl,
 )
 from setta.types.helpers_lvl2 import create_new_code_obj_variant, delete_code_obj
 from setta.types.hierarchy_traversal import (
-    HierarchyTraversalResult,
     TraversalOptions,
     traverse_hierarchy,
 )
@@ -60,7 +60,6 @@ class SectionVariantToUpdate:
     baseImpl: BaseDictSectionImplUnionWithDiscriminator
     impl: BaseDictSectionImplUnionWithDiscriminator
     variant: Variant
-    hierarchy: HierarchyTraversalResult
     processedJson: ProcessedJSONInfo
 
 
@@ -73,6 +72,7 @@ def load_json_sources_into_data_structures(
     replacements: dict[str, ReplacementInfo] = {}
     unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo] = {}
     sectionVariantsToUpdate: dict[str, SectionVariantToUpdate] = {}
+    codeObjsToDelete: set[str] = set()
 
     for section in p.sections.values():
         for variant_id in section.variants:
@@ -99,21 +99,25 @@ def load_json_sources_into_data_structures(
             )
             if isMissing:
                 continue
-            hierarchy = compute_existing_replacement_mapping(
+            currCodeObjsToDelete = compute_existing_replacement_mapping(
                 p, processedJson, impl, replacements, unmatchedCodeObj
             )
             if (not section_variant_ids) or (variant_id in section_variant_ids):
                 sectionVariantsToUpdate[variant_id] = SectionVariantToUpdate(
-                    section, base_impl, impl, variant, hierarchy, processedJson
+                    section,
+                    base_impl,
+                    impl,
+                    variant,
+                    processedJson,
                 )
+                codeObjsToDelete.update(currCodeObjsToDelete)
 
     filter_out_replacements_from_unmatched(replacements, unmatchedCodeObj)
-    # print("********replacements********")
-    # pprint(replacements)
-    # print("********unmatchedCodeObj********")
-    # pprint(unmatchedCodeObj)
+    delete_old_code_objs(p, codeObjsToDelete)
     for toUpdate in sectionVariantsToUpdate.values():
-        merge_into_existing(p, toUpdate, replacements, unmatchedCodeObj)
+        merge_into_existing(
+            p, toUpdate, replacements, unmatchedCodeObj, codeObjsToDelete
+        )
 
 
 def merge_into_existing(
@@ -121,6 +125,7 @@ def merge_into_existing(
     to_update: SectionVariantToUpdate,
     replacements: dict[str, ReplacementInfo],
     unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
+    codeObjsToDelete: set[str],
 ):
     newCodeObjVariantMapEntries: dict[str, str] = {}
     for matchedId, r in replacements.items():
@@ -176,13 +181,6 @@ def merge_into_existing(
             u.codeObj.defaultVariant = variantId
         newCodeObjVariantMapEntries[u.codeObj.id] = variantId
 
-    to_delete_from_code_obj_variant_map: set[str] = set()
-    for name_path, id in to_update.hierarchy.name_path_to_id.items():
-        matchedId = to_update.processedJson.hierarchy.name_path_to_id.get(name_path)
-        if not matchedId:
-            delete_code_obj(p, id)
-            to_delete_from_code_obj_variant_map.add(id)
-
     newTopLevelParamIds = to_update.processedJson.jsonSourceKeyToTopLevelIds[
         tuple(to_update.impl.jsonSourceKeys)
     ]
@@ -196,11 +194,7 @@ def merge_into_existing(
                 for c in newTopLevelParamIds
             ],
             codeObjVariantMap=lambda curr: newCodeObjVariantMapEntries
-            | {
-                k: v
-                for k, v in curr.items()
-                if k not in to_delete_from_code_obj_variant_map
-            },
+            | {k: v for k, v in curr.items() if k not in codeObjsToDelete},
         ),
     )
 
@@ -232,22 +226,34 @@ def compute_existing_replacement_mapping(
         ),
     )
 
+    codeObjsToDelete: set[str] = set()
+
     for id in idsToProcess:
         existingCodeObjId = hierarchy.name_path_to_id.get(
             processedJson.hierarchy.id_to_name_path[id]
         )
-        codeObj = keyValueInfo.codeObjs[id]
-        variantId = keyValueInfo.codeObjVariantMap[id]
-        variant = keyValueInfo.codeObjVariants[variantId]
-        impl = keyValueInfo.codeObjImpls[variant.impl]
+        uCodeObj = keyValueInfo.codeObjs[id]
+        uVariantId = keyValueInfo.codeObjVariantMap[id]
+        uVariant = keyValueInfo.codeObjVariants[uVariantId]
+        uImpl = keyValueInfo.codeObjImpls[uVariant.impl]
 
         if id not in unmatchedCodeObj:
-            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(codeObj, impl)
+            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(uCodeObj, uImpl)
         if existingCodeObjId:
-            effectiveImpl = get_effective_impl(impl, codeObj, variant)
-            replacements[id] = ReplacementInfo(existingCodeObjId, effectiveImpl)
+            variantId = section_impl.codeObjVariantMap[existingCodeObjId]
+            impl = get_variant_base_code_obj_impl(p, variantId)
+            if type(impl) is type(uImpl):
+                effectiveImpl = get_effective_impl(uImpl, uCodeObj, uVariant)
+                replacements[id] = ReplacementInfo(existingCodeObjId, effectiveImpl)
+            else:
+                codeObjsToDelete.add(existingCodeObjId)
 
-    return hierarchy
+    for name_path, id in hierarchy.name_path_to_id.items():
+        matchedId = processedJson.hierarchy.name_path_to_id.get(name_path)
+        if not matchedId:
+            codeObjsToDelete.add(id)
+
+    return codeObjsToDelete
 
 
 def filter_out_replacements_from_unmatched(
@@ -256,3 +262,8 @@ def filter_out_replacements_from_unmatched(
 ):
     for r in replacements.keys():
         unmatchedCodeObj.pop(r, None)
+
+
+def delete_old_code_objs(p: ProjectStateCore, codeObjsToDelete: set[str]):
+    for c in codeObjsToDelete:
+        delete_code_obj(p, c)
