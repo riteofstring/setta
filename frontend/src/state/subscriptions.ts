@@ -28,7 +28,7 @@ export function subscribe() {
   useProjectState.subscribe(
     activeIdsSubscriptionFn,
     () => {
-      // debounced_route_set_active_ids();
+      debounced_route_set_active_ids();
     },
     {
       equalityFn: _.isEqual,

@@ -1,6 +1,5 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import _ from "lodash";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
@@ -105,7 +104,7 @@ function useTitleIsEditable(sectionId: string) {
       sectionName: s.name,
       titleIsEditable: !uneditableTypes.includes(impl.type),
     };
-  }, _.isEqual);
+  });
 }
 
 function getSiblingHasName(sectionId: string, newName: string) {

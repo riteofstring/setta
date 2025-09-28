@@ -380,7 +380,6 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  console.log(x.projectState);
   const pendingOps = usePendingOperations
     .getState()
     .pending.filter((opInfo) => !x.completedOpIds.includes(opInfo.opId));
