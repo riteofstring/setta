@@ -1,14 +1,18 @@
 import base64
 from collections import defaultdict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, assert_never
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
     ArtifactType,
+    BrushStrokeMapping,
     ChartData,
     ChartDataArtifact,
+    ChartDataMapping,
+    DrawAreaLayerItemTransformMapping,
     ImageArtifact,
+    ImageMapping,
 )
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
 from setta.types.notifications import SettaNotification
@@ -37,7 +41,10 @@ class Artifacts:
         self.websocket_msg_handler = websocket_msg_handler
         self.specific_file_watcher = specific_file_watcher
         self.dbe = dbe
-        self.artifacts: dict[tuple[Path, ArtifactType], Any] = {}
+        self.images: ImageMapping = {}
+        self.chart_data: ChartDataMapping = {}
+        self.brush_strokes: BrushStrokeMapping = {}
+        self.draw_area_layer_item_transforms: DrawAreaLayerItemTransformMapping = {}
 
     def watch_artifact_files(
         self,
@@ -52,7 +59,11 @@ class Artifacts:
             for k, types in path_to_types.items()
         }
         fire_immediately: set[Path] = set(
-            [k[0] for k in path_and_types if k not in self.artifacts]
+            [
+                k[0]
+                for k in path_and_types
+                if k[0] not in self.dict_for_artifact_type(k[1])
+            ]
         )
         self.specific_file_watcher.update_callbacks(
             callbacks, callbackCategory, fire_immediately
@@ -113,7 +124,7 @@ class Artifacts:
             artifact = ImageArtifact(
                 id=str(path), value=f"data:image/png;base64,{b64_str}"
             )
-            self.artifacts[(path, ArtifactType.Image)] = artifact
+            self.images[path] = artifact
             return artifact
         raise ValueError
 
@@ -122,15 +133,28 @@ class Artifacts:
         if x:
             value = parse_csv_content(x)
             artifact = ChartDataArtifact(id=str(path), value=value)
-            self.artifacts[(path, ArtifactType.ChartData)] = artifact
+            self.chart_data[path] = artifact
             return artifact
         raise ValueError
 
     def get_cached_image(self, path: Path):
-        return self.artifacts.get((path, ArtifactType.Image))
+        return self.images.get(path)
 
     def get_cached_chart_data(self, path: Path):
-        return self.artifacts.get((path, ArtifactType.ChartData))
+        return self.chart_data.get(path)
+
+    def dict_for_artifact_type(self, x: ArtifactType):
+        match x:
+            case ArtifactType.Image:
+                return self.images
+            case ArtifactType.ChartData:
+                return self.chart_data
+            case ArtifactType.BrushStroke:
+                return self.brush_strokes
+            case ArtifactType.DrawAreaLayerItemTransform:
+                return self.draw_area_layer_item_transforms
+            case _:
+                assert_never(x)
 
 
 def parse_csv_row(values):
