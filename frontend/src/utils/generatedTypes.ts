@@ -4397,6 +4397,7 @@ export const ProjectStateSingleConfigSchema = z.object({
     .default({}),
   yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(z.string(), ShownParamIdsSchema).default({}),
+  requiredDecodedImages: z.array(z.string()).default([]),
 });
 
 export type ProjectStateSingleConfig = z.infer<

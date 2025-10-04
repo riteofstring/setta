@@ -5,6 +5,7 @@ from pydantic import (
     model_validator,
 )
 
+from setta.types.artifact import ArtifactType
 from setta.types.core import Core, Variant
 from setta.types.generated.unions import (
     BaseCodeObjImplUnionWithDiscriminator,
@@ -21,6 +22,7 @@ from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
+    DrawSectionImpl,
     SectionType,
     SectionWithParamsDisplayMode,
 )
@@ -81,6 +83,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     parentSectionMap: dict[str, str | None] = Field(default_factory=dict)
     yamlValues: dict[str, str] = Field(default_factory=dict)
     shownParamIds: dict[str, ShownParamIds] = Field(default_factory=dict)
+    requiredDecodedImages: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _validate_singleton_sections(self):
@@ -101,6 +104,10 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_shown_param_ids(self):
         return self.validate_shown_param_ids()
+
+    @model_validator(mode="after")
+    def _validate_required_decoded_images(self):
+        return self.validate_required_decoded_images()
 
     def validate_singleton_sections(self):
         output = SingletonSections()
@@ -180,6 +187,20 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                     continue
                 output[v] = get_param_ids_to_show(self, impl)
         self.shownParamIds = output
+        return self
+
+    def validate_required_decoded_images(self):
+        output: set[str] = set()
+        for s in self.sections.values():
+            for v in s.variants:
+                _, _, impl = get_variant_base_and_effective_section_impl(self, s, v)
+                if not isinstance(impl, DrawSectionImpl):
+                    continue
+                for layer in impl.layers:
+                    for el in layer.elements:
+                        if el.type == ArtifactType.Image:
+                            output.add(el.dataPath)
+        self.requiredDecodedImages = list(output)
         return self
 
 

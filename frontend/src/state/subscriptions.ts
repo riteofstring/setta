@@ -3,9 +3,12 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   useArtifacts,
+  useDecodedImages,
+  useImages,
   useMisc,
   useNodeInternals,
   useProjectState,
+  ZustandImages,
   ZustandProjectState,
 } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -23,6 +26,7 @@ import {
   getSectionShouldRender,
   getSectionViewingEditingModeVisibility,
 } from "./actions/sectionInfos";
+import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
   useProjectState.subscribe(
@@ -136,6 +140,31 @@ export function subscribe() {
       equalityFn: _.isEqual,
     },
   );
+
+  useImages.subscribe(
+    imagesToDecodeSubscriptionFn,
+    (x) => {
+      const requiredDecodedImages =
+        useProjectState.getState().requiredDecodedImages;
+      const decodedImages = useDecodedImages.getState().x;
+      const needToDecode: Array<string> = [];
+      for (const [path, img] of Object.entries(x)) {
+        if (
+          img &&
+          requiredDecodedImages.includes(path) &&
+          !(path in decodedImages)
+        ) {
+          needToDecode.push(path);
+        }
+      }
+      if (needToDecode.length > 0) {
+        decodeExistingRawImages(needToDecode);
+      }
+    },
+    {
+      equalityFn: _.isEqual,
+    },
+  );
 }
 
 function reactFlowTransformSubscriptionFn(state) {
@@ -192,4 +221,8 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
 
 function activeIdsSubscriptionFn(state: ZustandProjectState) {
   return state.projectConfig.activeIds;
+}
+
+function imagesToDecodeSubscriptionFn(state: ZustandImages) {
+  return state.x;
 }

@@ -1,6 +1,6 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   addArtifactAndMaybeCreateNewArtifactGroup,
@@ -22,7 +22,7 @@ import {
   route_load_cached_chart_data,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   const res = await route_load_cached_image_artifacts({
@@ -101,7 +101,7 @@ export function useLoadedChartData(sectionId: string) {
   return data?.value ?? {};
 }
 
-async function decodeExistingRawImages(needToDecode: Array<string>) {
+export async function decodeExistingRawImages(needToDecode: Array<string>) {
   const images: ZustandDecodedImages["x"] = {};
   for (const path of needToDecode) {
     const rawImage = useImages.getState().x[path];
@@ -113,43 +113,39 @@ async function decodeExistingRawImages(needToDecode: Array<string>) {
 }
 
 export function useLoadedDrawAreaData(sectionId: string) {
-  const paths = useProjectState((x) => {
+  const elements = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
       x,
       sectionId,
       SectionTypeEnum.Draw,
     );
-    return impl.layers.flatMap((l) => l.elements.map((e) => e.dataPath));
+    return impl.layers.flatMap((l) => l.elements);
   }, _.isEqual);
 
-  const decoded = useDecodedImages((x) => paths.map((p) => x.x[p]), _.isEqual);
-  const needToDecode = useMemo(() => {
-    const needToDecode: string[] = [];
-    for (const [idx, d] of decoded.entries()) {
-      if (paths[idx] && !d) {
-        needToDecode.push(paths[idx]);
+  const { decoded, needToDecode } = useDecodedImages((x) => {
+    const decoded: Array<HTMLImageElement> = [];
+    const needToDecode: Array<string> = [];
+    for (const e of elements) {
+      if (e.type === ArtifactTypeEnum.Image) {
+        if (e.dataPath in x) {
+          decoded[e.dataPath] = x[e.dataPath];
+        } else {
+          needToDecode.push(e.dataPath);
+        }
       }
     }
-    return needToDecode;
-  }, [paths, decoded]);
+    return { decoded, needToDecode };
+  }, _.isEqual);
 
   useEffect(() => {
-    if (needToDecode.length > 0) {
-      const rawImages = useImages.getState().x;
-      const needToLoad = needToDecode.filter((d) => !(d in rawImages));
+    const rawImages = useImages.getState().x;
+    const needToLoad = needToDecode.filter((d) => !(d in rawImages));
+    if (needToLoad.length > 0) {
       loadCachedImages(needToLoad);
     }
   }, []);
 
-  useDeepCompareEffect(() => {
-    if (needToDecode.length > 0) {
-      const rawImages = useImages.getState().x;
-      const existingRawImages = needToDecode.filter((d) => d in rawImages);
-      decodeExistingRawImages(existingRawImages);
-    }
-  }, [needToDecode]);
-
-  return decoded ?? {};
+  return decoded;
 }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
