@@ -1,11 +1,7 @@
 import asyncio
-from pathlib import Path
-from pprint import pprint
+import os
 import shutil
-import time
 
-from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
-from setta.database.db.jsonSource.save import save_json_source_data
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
@@ -17,17 +13,12 @@ from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     SetSectionVariantNameRequest,
 )
-from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.types.generated.impl_args_as_typed_dicts import DictSectionImplArgs
 from setta.types.helpers_lvl1 import get_curr_section_variant
-from setta.types.helpers_lvl2 import create_top_level_section, set_section_variant_name
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
-    merge_single_config_into_backend,
 )
-from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import SectionType
 from setta.types.simplified_states import Position
 from setta.utils.constants import SETTA_FILES_FOLDER
@@ -38,6 +29,11 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 
 async def main():
+    for filename in os.listdir("."):
+        for t in ["ProjectManager", "SettingsProjectManager"]:
+            if filename.startswith(t) and os.path.isfile(os.path.join(".", filename)):
+                os.remove(os.path.join(".", filename))
+
     shutil.rmtree("setta_files")
     websocket_manager = WebsocketManager()
     wmh_frontend_sender = WMHFrontendSender(websocket_manager)
