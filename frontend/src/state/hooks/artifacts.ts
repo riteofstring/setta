@@ -122,32 +122,32 @@ export function useLoadedDrawAreaData(sectionId: string) {
     return impl.layers.flatMap((l) => l.elements.map((e) => e.dataPath));
   }, _.isEqual);
 
-  const rawImageExists = useImages((x) => paths.map((p) => p in x), _.isEqual);
   const decoded = useDecodedImages((x) => paths.map((p) => x.x[p]), _.isEqual);
-  const { needToLoad, needToDecode } = useMemo(() => {
-    const needToLoad: string[] = [];
+  const needToDecode = useMemo(() => {
     const needToDecode: string[] = [];
-    for (const [idx, r] of rawImageExists.entries()) {
-      if (paths[idx]) {
-        if (!r) {
-          needToLoad.push(paths[idx]);
-        }
-        if (r && !decoded[idx]) {
-          needToDecode.push(paths[idx]);
-        }
+    for (const [idx, d] of decoded.entries()) {
+      if (paths[idx] && !d) {
+        needToDecode.push(paths[idx]);
       }
     }
-    return { needToLoad, needToDecode };
-  }, [paths, decoded, rawImageExists]);
+    return needToDecode;
+  }, [paths, decoded]);
 
-  useDeepCompareEffect(() => {
-    if (needToLoad.length > 0) {
+  useEffect(() => {
+    if (needToDecode.length > 0) {
+      const rawImages = useImages.getState().x;
+      const needToLoad = needToDecode.filter((d) => !(d in rawImages));
       loadCachedImages(needToLoad);
     }
+  }, []);
+
+  useDeepCompareEffect(() => {
     if (needToDecode.length > 0) {
-      decodeExistingRawImages(needToDecode);
+      const rawImages = useImages.getState().x;
+      const existingRawImages = needToDecode.filter((d) => d in rawImages);
+      decodeExistingRawImages(existingRawImages);
     }
-  }, [needToLoad, needToDecode]);
+  }, [needToDecode]);
 
   return decoded ?? {};
 }
