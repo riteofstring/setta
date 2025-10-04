@@ -286,7 +286,12 @@ def compute_existing_replacement_mapping(
         uImpl = keyValueInfo.codeObjImpls[uVariant.impl]
 
         if id not in unmatchedCodeObj:
-            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(uCodeObj, uImpl)
+            # .model_copy is important because currently
+            # if multiple sections point to the same json
+            # then they can end up pointing to the same unmatchedCodeObj
+            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(
+                uCodeObj.model_copy(deep=True), uImpl.model_copy(deep=True)
+            )
         if existingCodeObjId:
             variantId = section_impl.codeObjVariantMap[existingCodeObjId]
             impl = get_variant_base_code_obj_impl(p, variantId)

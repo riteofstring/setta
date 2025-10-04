@@ -324,7 +324,7 @@ class BaseProjectManager(ABC):
         json_sources: dict[Path, ProcessedJSONInfo],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
-        p = self.project_state_backend.model_copy(deep=True)
+        p = self.project_state_backend
         load_json_sources_into_data_structures(
             p,
             json_sources,
