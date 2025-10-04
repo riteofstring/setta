@@ -140,6 +140,8 @@ export function setGlobalBrushStrokeAndDrawLayer(
     },
   }));
 
+  console.log("useBrushStrokes.getState().x", useBrushStrokes.getState().x);
+
   drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
   clearCanvas(draftCanvas);
 }
@@ -233,7 +235,10 @@ export function drawOneLayer(
   const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
+  console.log("brushStrokes", brushStrokes);
+
   for (const [idx, e] of layer.elements.entries()) {
+    console.log("e", e);
     artifactTempCtx.globalAlpha = 1;
     artifactTempCtx.globalCompositeOperation = "source-over";
 
@@ -268,6 +273,7 @@ export function drawOneLayer(
       e.dataPath in brushStrokes
     ) {
       const artifact = brushStrokes[e.dataPath];
+      console.log("brush stroke artifact", artifact);
       if (artifact && artifact.value.points.length > 0) {
         const tArtifact = realTimeTransforms[idx] ?? transforms[e.transformId];
         if (!tArtifact) {

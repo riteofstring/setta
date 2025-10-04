@@ -224,16 +224,16 @@ class Artifacts:
         raise ValueError
 
     def get_cached_image(self, path: Path):
-        return self.images.get(path)
+        return self.images.get(normalize_path(path))
 
     def get_cached_chart_data(self, path: Path):
-        return self.chart_data.get(path)
+        return self.chart_data.get(normalize_path(path))
 
     def get_cached_brush_stroke(self, path: Path):
-        return self.brush_strokes.get(path)
+        return self.brush_strokes.get(normalize_path(path))
 
     def get_cached_draw_area_layer_item_transform(self, path: Path):
-        return self.draw_area_layer_item_transforms.get(path)
+        return self.draw_area_layer_item_transforms.get(normalize_path(path))
 
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
