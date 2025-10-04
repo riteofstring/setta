@@ -24,17 +24,20 @@ import {
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-async function loadCachedImage(imagePath: string) {
+async function loadCachedImages(imagePaths: Array<string>) {
   const res = await route_load_cached_image_artifacts({
-    imagePaths: [imagePath],
+    imagePaths,
   });
   if (res200(res)) {
-    const imgArtifact = res.data[0];
-    if (imgArtifact) {
-      useImages.setState((state) => ({
-        x: { ...state.x, [imagePath]: imgArtifact },
-      }));
-    }
+    useImages.setState((state) => {
+      const newImgs = { ...state.x };
+      for (const img of res.data) {
+        if (img) {
+          newImgs[img.id] = img;
+        }
+      }
+      return { x: newImgs };
+    });
   }
 }
 
@@ -55,7 +58,7 @@ export function useImageArtifact(sectionId: string) {
   // In all other cases, backend will send artifact updates by websocket.
   useEffect(() => {
     if (!imageArtifact && imagePath) {
-      loadCachedImage(imagePath);
+      loadCachedImages([imagePath]);
     }
   }, []);
 
@@ -95,17 +98,15 @@ export function useLoadedChartData(sectionId: string) {
   return data?.value ?? {};
 }
 
-async function loadDrawAreaImages(imagePaths: Array<string>) {
-  const res = await route_load_image_artifacts({ imagePaths });
-  if (res200(res)) {
-    const images: ZustandDecodedImages["x"] = {};
-    for (const [idx, r] of res.data.entries()) {
-      if (imagePaths[idx]) {
-        images[imagePaths[idx]] = await base64ToImageObj(r);
-      }
+async function decodeExistingRawImages(needToDecode: Array<string>) {
+  const images: ZustandDecodedImages["x"] = {};
+  for (const path of needToDecode) {
+    const rawImage = useImages.getState().x[path];
+    if (rawImage) {
+      images[path] = await base64ToImageObj(rawImage.value);
     }
-    useDecodedImages.setState((state) => ({ x: { ...state.x, ...images } }));
   }
+  useDecodedImages.setState((state) => ({ x: { ...state.x, ...images } }));
 }
 
 export function useLoadedDrawAreaData(sectionId: string) {
@@ -118,24 +119,34 @@ export function useLoadedDrawAreaData(sectionId: string) {
     return impl.layers.flatMap((l) => l.elements.map((e) => e.dataPath));
   }, _.isEqual);
 
-  const data = useDecodedImages((x) => paths.map((p) => x.x[p]), _.isEqual);
-  const notLoaded = useMemo(() => {
-    const missing: string[] = [];
-    for (const [idx, d] of data.entries()) {
-      if (!d && paths[idx]) {
-        missing.push(paths[idx]);
+  const rawImageExists = useImages((x) => paths.map((p) => p in x), _.isEqual);
+  const decoded = useDecodedImages((x) => paths.map((p) => x.x[p]), _.isEqual);
+  const { needToLoad, needToDecode } = useMemo(() => {
+    const needToLoad: string[] = [];
+    const needToDecode: string[] = [];
+    for (const [idx, r] of rawImageExists.entries()) {
+      if (paths[idx]) {
+        if (!r) {
+          needToLoad.push(paths[idx]);
+        }
+        if (r && !decoded[idx]) {
+          needToDecode.push(paths[idx]);
+        }
       }
     }
-    return missing;
-  }, [data, paths]);
+    return { needToLoad, needToDecode };
+  }, [paths, decoded, rawImageExists]);
 
   useDeepCompareEffect(() => {
-    if (notLoaded) {
-      loadDrawAreaImages(notLoaded);
+    if (needToLoad.length > 0) {
+      loadCachedImages(needToLoad);
     }
-  }, [notLoaded]);
+    if (needToDecode.length > 0) {
+      decodeExistingRawImages(needToDecode);
+    }
+  }, [needToLoad, needToDecode]);
 
-  return data ?? {};
+  return decoded ?? {};
 }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
