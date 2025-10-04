@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class ArtifactMetadata:
-    last_read_hash: str
+    last_read_hash: str | None
     is_dirty: bool = False
 
 
@@ -268,15 +268,18 @@ class Artifacts:
         conflict_strategy: SaveConflictStrategy,
     ):
         # Check if file changed on disk
-        current_hash = self._compute_file_hash(path)
-        if current_hash and current_hash != metadata.last_read_hash:
-            # File changed externally
-            if conflict_strategy == SaveConflictStrategy.skip:
-                return
-            elif conflict_strategy == SaveConflictStrategy.backup:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                backup_path = path.with_suffix(f".backup_{timestamp}{path.suffix}")
-                self.dbe.copy(path, backup_path)
+        if (
+            metadata.last_read_hash is not None
+        ):  # Only check conflicts for existing files
+            current_hash = self._compute_file_hash(path)
+            if current_hash and current_hash != metadata.last_read_hash:
+                # File changed externally
+                if conflict_strategy == SaveConflictStrategy.skip:
+                    return
+                elif conflict_strategy == SaveConflictStrategy.backup:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    backup_path = path.with_suffix(f".backup_{timestamp}{path.suffix}")
+                    self.dbe.copy(path, backup_path)
 
         if isinstance(artifact, ImageArtifact):
             # Extract base64 and write binary
@@ -321,6 +324,12 @@ class Artifacts:
                     self._save_artifact_to_disk(
                         path, artifact, metadata, conflict_strategy
                     )
+
+    def add_artifact(self, x: "BaseArtifactUnion"):
+        d = self.dict_for_artifact_type(x.type)
+        m = self.metadata_dict_for_artifact_type(x.type)
+        d[Path(x.id)] = x  # type: ignore
+        m[Path(x.id)] = ArtifactMetadata(last_read_hash=None, is_dirty=True)
 
 
 def parse_csv_row(values):
