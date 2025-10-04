@@ -38,6 +38,7 @@ class SettingsProjectManager(BaseProjectManager):
         save_json_source_data(self.dbe, p)
         remove_json_source_values(p)
         self.dbe.write_settings_project(p)
+        self.artifacts.save()
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         raise ValueError

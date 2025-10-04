@@ -1,3 +1,4 @@
+from setta.database.backup import maybe_create_backup
 from setta.database.db.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
@@ -7,7 +8,6 @@ from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,
 )
-from setta.project_state.save_load import save
 from setta.types.helpers_lvl3 import (
     copy_project,
     copy_project_config,
@@ -23,7 +23,21 @@ class ProjectManager(BaseProjectManager):
         p = self.project_state_backend.model_copy(deep=True)
         save_json_source_data(self.dbe, p)
         remove_json_source_values(p)
-        save(self.settings_file.settings, self.dbe, p)
+        maybe_create_backup(
+            self.dbe.project,
+            self.settings_file.settings.backend.autobackup,
+            self.settings_file.settings.backend.autobackupFreq,
+            self.settings_file.settings.backend.autobackupKeepLastN,
+        )
+        self.dbe.write_project(p)
+        # maybe_export_database(
+        #     db,
+        #     dbe.path,
+        #     settings.backend.exportDbRawOnSave,
+        #     settings.backend.exportDbReadableOnSave,
+        #     settings.backend.exportDbReadableWithVariantsOnSave,
+        # )
+        self.artifacts.save()
 
     async def save_as_new_project_config(self, x: SaveAsNewProjectConfigRequest):
         if x.withRefs:

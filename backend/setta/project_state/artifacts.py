@@ -156,6 +156,9 @@ class Artifacts:
             case _:
                 assert_never(x)
 
+    def save(self):
+        pass
+
 
 def parse_csv_row(values):
     row: list[str | float] = []
