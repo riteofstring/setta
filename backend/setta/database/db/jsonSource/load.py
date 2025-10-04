@@ -87,6 +87,7 @@ def load_json_sources_into_data_structures(
     json_sources: dict[Path, ProcessedJSONInfo],
     section_variant_ids: Iterable[tuple[str, str]],
 ):
+    print("load_json_sources_into_data_structures")
     # set of (filename, jsonSourceKeys)
     jsonSourceAndKeysToLoad: set[tuple[Path, tuple[str, ...]]] = set()
     for s, v in section_variant_ids:
@@ -157,7 +158,12 @@ def load_json_sources_into_data_structures(
     for jToR in replacements_and_unmatched.values():
         for r in jToR.values():
             filter_out_replacements_from_unmatched(r.replacements, r.unmatched)
+            if len(r.unmatched) > 0:
+                print("len(replacements)", len(r.replacements))
+                print("len(unmatched)", len(r.unmatched))
 
+    if len(codeObjsToDelete) > 0:
+        print("len(codeObjsToDelete)", len(codeObjsToDelete))
     delete_old_code_objs(p, codeObjsToDelete)
 
     for toUpdate in sectionVariantsToUpdate.values():
@@ -172,6 +178,7 @@ def merge_into_existing(
     unmatchedCodeObj: dict[str, UnmatchedCodeObjInfo],
     codeObjsToDelete: set[str],
 ):
+    print("merge_into_existing")
     newCodeObjVariantMapEntries: dict[str, str] = {}
     for r in replacements.values():
         codeObjCore = p.codeObjs[r.existingCodeObjId]
@@ -229,6 +236,8 @@ def merge_into_existing(
     ]
     if newTopLevelParamId in replacements:
         newTopLevelParamId = replacements[newTopLevelParamId].existingCodeObjId
+    # print("newTopLevelParamId", newTopLevelParamId)
+    # print("newCodeObjVariantMapEntries", newCodeObjVariantMapEntries)
     set_effective_impl_value(
         to_update.baseImpl,
         to_update.section,
@@ -286,7 +295,9 @@ def compute_existing_replacement_mapping(
         uImpl = keyValueInfo.codeObjImpls[uVariant.impl]
 
         if id not in unmatchedCodeObj:
-            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(uCodeObj, uImpl)
+            unmatchedCodeObj[id] = UnmatchedCodeObjInfo(
+                uCodeObj.model_copy(deep=True), uImpl.model_copy(deep=True)
+            )
         if existingCodeObjId:
             variantId = section_impl.codeObjVariantMap[existingCodeObjId]
             impl = get_variant_base_code_obj_impl(p, variantId)

@@ -3,6 +3,7 @@ import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Coroutine
 
@@ -110,7 +111,7 @@ class JSONSource:
         self.json_source_to_section_variant = new_json_source_to_section_variant
 
         callback = self.get_json_source_file_watcher_callback(
-            load_json_sources_fn, project_state_backend_getter_fn
+            load_json_sources_fn, project_state_backend_getter_fn, callbackCategory
         )
         callbacks = {k: callback for k in filename_set}
 
@@ -126,17 +127,23 @@ class JSONSource:
             Coroutine[Any, Any, None],
         ],
         project_state_backend_getter_fn: Callable[[], "ProjectStateCore"],
+        callbackCategory,
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
             project_state_backend = project_state_backend_getter_fn()
+            write_json(
+                project_state_backend_getter_fn().model_dump(),
+                f"{callbackCategory}.json",
+            )
+
             sectionVariantsToLoad = self.get_section_variants_for_json_source_update(
                 project_state_backend, coreUpdate
             )
 
             filepath = coreUpdate.fileToRead
             file_content = self.dbe.read_json(filepath)
-
             processedJsonInfo = self.process_json_object(file_content)
+            print(f"{callbackCategory} setting self.json_sources", flush=True)
             self.json_sources[filepath] = processedJsonInfo
 
             if len(sectionVariantsToLoad) > 0:
@@ -297,3 +304,18 @@ class JSONSource:
         output.codeObjImpls[codeObjImpl.id] = codeObjImpl
         output.codeObjVariants[variantId] = codeObjVariant
         return codeObj, codeObjImpl, codeObjVariant
+
+
+def write_json(data, filename):
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+    else:
+        base, ext = os.path.splitext(filename)
+        counter = 1
+        new_filename = f"{base}_{counter}{ext}"
+        while os.path.exists(new_filename):
+            counter += 1
+            new_filename = f"{base}_{counter}{ext}"
+        with open(new_filename, "w") as f:
+            json.dump(data, f, indent=2, sort_keys=True)

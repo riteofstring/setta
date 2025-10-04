@@ -1,5 +1,7 @@
 import asyncio
 import copy
+import json
+import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -180,14 +182,16 @@ class BaseProjectManager(ABC):
         self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
             asyncio.Queue()
         )
-        print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
+        # print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
         self._process_queue_task_started = asyncio.Event()
         self.queue_task = asyncio.create_task(self._process_queue())
-        print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
+        # print(f"[DEBUG] Queue task created with id: {id(self.queue_task)}", flush=True)
         self.autosave_debouncer = AsyncDebouncer(self.autosave, wait=2.0)
         self.completed_op_ids_since_last_broadcast: list[str] = []
+        self.json_load_count = 0
         self.watch_json_source_files()
         self.watch_artifact_files()
+        
 
     @abstractmethod
     def load_initial_state(self) -> ProjectStateBackend:
@@ -195,34 +199,34 @@ class BaseProjectManager(ABC):
 
     async def _process_queue(self):
         """Background task that processes messages one at a time"""
-        print("[DEBUG] Starting _process_queue background task", flush=True)
+        # print("[DEBUG] Starting _process_queue background task", flush=True)
         self._process_queue_task_started.set()
         while True:
-            print(
-                f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
-                flush=True,
-            )
+            # print(
+            # f"[DEBUG] Queue size before get: {self.message_queue.qsize()}",
+            # flush=True,
+            # )
             # Get the next message handler and its arguments
-            print("[DEBUG] Waiting for next message in queue...", flush=True)
+            # print("[DEBUG] Waiting for next message in queue...", flush=True)
             coroutine, future = await self.message_queue.get()
             try:
                 # Execute the actual implementation
-                print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
+                # print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
                 result = await coroutine
-                print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
+                # print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
                 # Set the result for the waiting call
-                print(
-                    f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
-                    flush=True,
-                )
+                # print(
+                # f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
+                # flush=True,
+                # )
                 future.set_result(result)
             except Exception as e:
                 # Propagate any exceptions back to the caller
-                print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
+                # print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
                 future.set_exception(e)
             finally:
                 # Mark the task as done
-                print("[DEBUG] Marking queue task as done", flush=True)
+                # print("[DEBUG] Marking queue task as done", flush=True)
                 self.message_queue.task_done()
 
     async def _enqueue(self, coroutine: Coroutine):
@@ -230,37 +234,37 @@ class BaseProjectManager(ABC):
         await self._process_queue_task_started.wait()
 
         # print(f"[DEBUG] Enqueueing {handler.__name__} with args {args}", flush=True)
-        print(
-            f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
-            flush=True,
-        )
+        # print(
+        #     f"[DEBUG] Queue task status: cancelled={self.queue_task.cancelled()}, done={self.queue_task.done()}, exception={self.queue_task.exception() if self.queue_task.done() else None}",
+        #     flush=True,
+        # )
 
         # Create a future to hold the result
         future = asyncio.Future()
-        print(f"[DEBUG] Created future {id(future)}", flush=True)
+        # print(f"[DEBUG] Created future {id(future)}", flush=True)
 
         # Put the message in the queue
-        print("[DEBUG] Putting message in queue", flush=True)
+        print("[DEBUG] Putting message in queue", coroutine, flush=True)
         await self.message_queue.put((coroutine, future))
-        print("[DEBUG] Message in queue, waiting for result", flush=True)
+        # print("[DEBUG] Message in queue, waiting for result", flush=True)
 
         # Wait for the message to be processed and return the result
-        print(f"[DEBUG] Awaiting future {id(future)}", flush=True)
+        # print(f"[DEBUG] Awaiting future {id(future)}", flush=True)
         start_time = asyncio.get_event_loop().time()
         try:
             result = await future
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result",
-                flush=True,
-            )
+            # print(
+            #     f"[DEBUG] Future completed after {end_time - start_time:.2f}s with result",
+            #     flush=True,
+            # )
             return result
-        except Exception as e:
+        except Exception:
             end_time = asyncio.get_event_loop().time()
-            print(
-                f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}",
-                flush=True,
-            )
+            # print(
+            #     f"[DEBUG] Future raised exception after {end_time - start_time:.2f}s: {e}",
+            #     flush=True,
+            # )
             raise
 
     @staticmethod
@@ -324,19 +328,23 @@ class BaseProjectManager(ABC):
         json_sources: dict[Path, ProcessedJSONInfo],
         section_variants_to_load: Iterable[tuple[str, str]],
     ):
-        p = self.project_state_backend.model_copy(deep=True)
+        p = self.project_state_backend
+        print("self.load_json_sources", self.__class__.__name__)
+        write_json(p.model_dump(), f"{self.__class__.__name__}_project_BEFORE.json")
         load_json_sources_into_data_structures(
             p,
             json_sources,
             section_variants_to_load,
         )
+        # self.json_load_count +=1
+        write_json(p.model_dump(), f"{self.__class__.__name__}_project_AFTER.json")
 
         for configId in p.projectConfigs.keys():
             singleConfig = convert_backend_to_single_config(p, configId)
             # Don't update file watcher here because otherwise it'll be an infinite loop
-            await self.update_and_broadcast_project_state(
-                singleConfig, updateFileWatcher=False
-            )
+            # await self.update_and_broadcast_project_state(
+            #     singleConfig, updateFileWatcher=False
+            # )
 
     async def update(
         self,
@@ -1003,9 +1011,10 @@ class BaseProjectManager(ABC):
         return self.project_state_backend
 
     def add_new_history_entry(self, trigger_autosave=True):
-        self.history.add_current_copy()
-        if trigger_autosave:
-            self.autosave_debouncer.trigger()
+        pass
+        # self.history.add_current_copy()
+        # if trigger_autosave:
+        # self.autosave_debouncer.trigger()
 
     @enqueue_method
     async def undo(self, x: UndoRequest):
@@ -1096,3 +1105,18 @@ class BaseProjectManager(ABC):
 #     apiKeysInitialLoadComplete: true,
 #   });
 # }
+
+
+def write_json(data, filename):
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+    else:
+        base, ext = os.path.splitext(filename)
+        counter = 1
+        new_filename = f"{base}_{counter}{ext}"
+        while os.path.exists(new_filename):
+            counter += 1
+            new_filename = f"{base}_{counter}{ext}"
+        with open(new_filename, "w") as f:
+            json.dump(data, f, indent=2, sort_keys=True)
