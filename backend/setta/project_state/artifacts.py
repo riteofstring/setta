@@ -4,6 +4,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
@@ -43,6 +44,12 @@ if TYPE_CHECKING:
 class ArtifactMetadata:
     last_read_hash: str
     is_dirty: bool = False
+
+
+class SaveConflictStrategy(str, Enum):
+    skip = "skip"
+    backup = "backup"
+    overwrite = "overwrite"
 
 
 class Artifacts:
@@ -96,14 +103,19 @@ class Artifacts:
             artifacts: list[BaseArtifactUnion] = []
             for t in types:
                 artifact = None
-                if t == ArtifactType.Image:
-                    artifact = self.read_image_from_disk(coreUpdate.fileToRead)
-                elif t == ArtifactType.ChartData:
-                    artifact = self.read_chart_data_from_disk(coreUpdate.fileToRead)
-                elif t == ArtifactType.BrushStroke:
-                    artifact = self.read_brush_stroke_from_disk(coreUpdate.fileToRead)
-                elif t == ArtifactType.DrawAreaLayerItemTransform:
-                    artifact = self.read_transform_from_disk(coreUpdate.fileToRead)
+                match t:
+                    case ArtifactType.Image:
+                        artifact = self.read_image_from_disk(coreUpdate.fileToRead)
+                    case ArtifactType.ChartData:
+                        artifact = self.read_chart_data_from_disk(coreUpdate.fileToRead)
+                    case ArtifactType.BrushStroke:
+                        artifact = self.read_brush_stroke_from_disk(
+                            coreUpdate.fileToRead
+                        )
+                    case ArtifactType.DrawAreaLayerItemTransform:
+                        artifact = self.read_transform_from_disk(coreUpdate.fileToRead)
+                    case _:
+                        assert_never(t)
                 if artifact:
                     artifacts.append(artifact)
 
@@ -142,11 +154,9 @@ class Artifacts:
         return path_and_types, path_to_types
 
     def _compute_hash(self, data: bytes):
-        """Compute hash of data for change detection"""
         return hashlib.md5(data).hexdigest()
 
     def _compute_file_hash(self, path: Path):
-        """Compute hash of file content for change detection"""
         try:
             content = self.dbe.read(path, "rb")
             if content:
@@ -255,21 +265,19 @@ class Artifacts:
         path: Path,
         artifact: "BaseArtifactUnion",
         metadata: ArtifactMetadata,
-        conflict_strategy: str,
-    ) -> str:
+        conflict_strategy: SaveConflictStrategy,
+    ):
         # Check if file changed on disk
         current_hash = self._compute_file_hash(path)
         if current_hash and current_hash != metadata.last_read_hash:
             # File changed externally
-            if conflict_strategy == "skip":
-                return "conflict"
-            elif conflict_strategy == "backup":
+            if conflict_strategy == SaveConflictStrategy.skip:
+                return
+            elif conflict_strategy == SaveConflictStrategy.backup:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 backup_path = path.with_suffix(f".backup_{timestamp}{path.suffix}")
                 self.dbe.copy(path, backup_path)
-            # If "overwrite", just continue to write
 
-        # Write based on artifact type
         if isinstance(artifact, ImageArtifact):
             # Extract base64 and write binary
             if "," in artifact.value:
@@ -281,96 +289,38 @@ class Artifacts:
             new_hash = self._compute_hash(binary_data)
 
         elif isinstance(artifact, ChartDataArtifact):
-            # Convert ChartData back to CSV
             csv_content = chart_data_to_csv(artifact.value)
             self.dbe.write(path, csv_content)
             new_hash = self._compute_hash(csv_content.encode())
 
         elif isinstance(artifact, BrushStrokeArtifact):
-            # Save as JSON
             data = artifact.value.model_dump()
             json_content = json.dumps(data, indent=2, sort_keys=True)
             self.dbe.write(path, json_content)
             new_hash = self._compute_hash(json_content.encode())
 
         elif isinstance(artifact, DrawAreaLayerItemTransformArtifact):
-            # Save as JSON
             data = artifact.value.model_dump()
             json_content = json.dumps(data, indent=2, sort_keys=True)
             self.dbe.write(path, json_content)
             new_hash = self._compute_hash(json_content.encode())
         else:
-            return "unknown_type"
+            raise TypeError
 
         # Update metadata
         metadata.last_read_hash = new_hash
         metadata.is_dirty = False
 
-        return "saved"
-
-    def save(self, conflict_strategy: str = "skip"):
-        """
-        Save dirty artifacts to disk
-
-        conflict_strategy:
-        - "skip": Don't write if file changed on disk (safest)
-        - "overwrite": Always write (may lose external changes)
-        - "backup": Create backup of disk version before overwriting
-
-        Returns dict with "saved" and "conflicts" lists of paths
-        """
-        conflicts = []
-        saved = []
-
-        # Save images
-        for path, artifact in self.images.items():
-            metadata = self.image_metadata.get(path)
-            if metadata and metadata.is_dirty:
-                result = self._save_artifact_to_disk(
-                    path, artifact, metadata, conflict_strategy
-                )
-                if result == "conflict":
-                    conflicts.append(path)
-                elif result == "saved":
-                    saved.append(path)
-
-        # Save chart data
-        for path, artifact in self.chart_data.items():
-            metadata = self.chart_data_metadata.get(path)
-            if metadata and metadata.is_dirty:
-                result = self._save_artifact_to_disk(
-                    path, artifact, metadata, conflict_strategy
-                )
-                if result == "conflict":
-                    conflicts.append(path)
-                elif result == "saved":
-                    saved.append(path)
-
-        # Save brush strokes
-        for path, artifact in self.brush_strokes.items():
-            metadata = self.brush_stroke_metadata.get(path)
-            if metadata and metadata.is_dirty:
-                result = self._save_artifact_to_disk(
-                    path, artifact, metadata, conflict_strategy
-                )
-                if result == "conflict":
-                    conflicts.append(path)
-                elif result == "saved":
-                    saved.append(path)
-
-        # Save transforms
-        for path, artifact in self.draw_area_layer_item_transforms.items():
-            metadata = self.transform_metadata.get(path)
-            if metadata and metadata.is_dirty:
-                result = self._save_artifact_to_disk(
-                    path, artifact, metadata, conflict_strategy
-                )
-                if result == "conflict":
-                    conflicts.append(path)
-                elif result == "saved":
-                    saved.append(path)
-
-        return {"saved": saved, "conflicts": conflicts}
+    def save(self, conflict_strategy: SaveConflictStrategy = SaveConflictStrategy.skip):
+        for artifact_type in ArtifactType:
+            art_dict = self.dict_for_artifact_type(artifact_type)
+            metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
+            for path, artifact in art_dict.items():
+                metadata = metadata_dict.get(path)
+                if metadata and metadata.is_dirty:
+                    self._save_artifact_to_disk(
+                        path, artifact, metadata, conflict_strategy
+                    )
 
 
 def parse_csv_row(values):
