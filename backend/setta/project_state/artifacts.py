@@ -1,15 +1,23 @@
 import base64
+import hashlib
+import json
 from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
     ArtifactType,
+    BrushStroke,
+    BrushStrokeArtifact,
     BrushStrokeMapping,
     ChartData,
     ChartDataArtifact,
     ChartDataMapping,
+    DrawAreaLayerItemTransform,
+    DrawAreaLayerItemTransformArtifact,
     DrawAreaLayerItemTransformMapping,
     ImageArtifact,
     ImageMapping,
@@ -31,6 +39,12 @@ if TYPE_CHECKING:
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
+@dataclass
+class ArtifactMetadata:
+    last_read_hash: str
+    is_dirty: bool = False
+
+
 class Artifacts:
     def __init__(
         self,
@@ -45,6 +59,12 @@ class Artifacts:
         self.chart_data: ChartDataMapping = {}
         self.brush_strokes: BrushStrokeMapping = {}
         self.draw_area_layer_item_transforms: DrawAreaLayerItemTransformMapping = {}
+
+        # Add metadata tracking
+        self.image_metadata: dict[Path, ArtifactMetadata] = {}
+        self.chart_data_metadata: dict[Path, ArtifactMetadata] = {}
+        self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
+        self.transform_metadata: dict[Path, ArtifactMetadata] = {}
 
     def watch_artifact_files(
         self,
@@ -80,6 +100,10 @@ class Artifacts:
                     artifact = self.read_image_from_disk(coreUpdate.fileToRead)
                 elif t == ArtifactType.ChartData:
                     artifact = self.read_chart_data_from_disk(coreUpdate.fileToRead)
+                elif t == ArtifactType.BrushStroke:
+                    artifact = self.read_brush_stroke_from_disk(coreUpdate.fileToRead)
+                elif t == ArtifactType.DrawAreaLayerItemTransform:
+                    artifact = self.read_transform_from_disk(coreUpdate.fileToRead)
                 if artifact:
                     artifacts.append(artifact)
 
@@ -117,6 +141,20 @@ class Artifacts:
 
         return path_and_types, path_to_types
 
+    def _compute_hash(self, data: bytes):
+        """Compute hash of data for change detection"""
+        return hashlib.md5(data).hexdigest()
+
+    def _compute_file_hash(self, path: Path):
+        """Compute hash of file content for change detection"""
+        try:
+            content = self.dbe.read(path, "rb")
+            if content:
+                return self._compute_hash(content)
+        except:
+            pass
+        return None
+
     def read_image_from_disk(self, path: Path):
         img = self.dbe.read(path, "rb")
         if img:
@@ -125,15 +163,53 @@ class Artifacts:
                 id=str(path), value=f"data:image/png;base64,{b64_str}"
             )
             self.images[path] = artifact
+            self.image_metadata[path] = ArtifactMetadata(
+                last_read_hash=self._compute_hash(img),
+                is_dirty=False,
+            )
             return artifact
         raise ValueError
 
     def read_chart_data_from_disk(self, path: Path):
         x = self.dbe.read(path)
         if x:
-            value = parse_csv_content(x)
+            value = csv_to_chart_data(x)
             artifact = ChartDataArtifact(id=str(path), value=value)
             self.chart_data[path] = artifact
+            self.chart_data_metadata[path] = ArtifactMetadata(
+                last_read_hash=self._compute_hash(x.encode()),
+                is_dirty=False,
+            )
+            return artifact
+        raise ValueError
+
+    def read_brush_stroke_from_disk(self, path: Path):
+        content = self.dbe.read(path)
+        if content:
+            data = json.loads(content)
+            artifact = BrushStrokeArtifact(
+                id=str(path), value=BrushStroke.model_validate(data)
+            )
+            self.brush_strokes[path] = artifact
+            self.brush_stroke_metadata[path] = ArtifactMetadata(
+                last_read_hash=self._compute_hash(content.encode()),
+                is_dirty=False,
+            )
+            return artifact
+        raise ValueError
+
+    def read_transform_from_disk(self, path: Path):
+        content = self.dbe.read(path)
+        if content:
+            data = json.loads(content)
+            artifact = DrawAreaLayerItemTransformArtifact(
+                id=str(path), value=DrawAreaLayerItemTransform.model_validate(data)
+            )
+            self.draw_area_layer_item_transforms[path] = artifact
+            self.transform_metadata[path] = ArtifactMetadata(
+                last_read_hash=self._compute_hash(content.encode()),
+                is_dirty=False,
+            )
             return artifact
         raise ValueError
 
@@ -142,6 +218,24 @@ class Artifacts:
 
     def get_cached_chart_data(self, path: Path):
         return self.chart_data.get(path)
+
+    def mark_dirty(self, path: Path, artifact_type: ArtifactType):
+        metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
+        if path in metadata_dict:
+            metadata_dict[path].is_dirty = True
+
+    def metadata_dict_for_artifact_type(self, artifact_type: ArtifactType):
+        match artifact_type:
+            case ArtifactType.Image:
+                return self.image_metadata
+            case ArtifactType.ChartData:
+                return self.chart_data_metadata
+            case ArtifactType.BrushStroke:
+                return self.brush_stroke_metadata
+            case ArtifactType.DrawAreaLayerItemTransform:
+                return self.transform_metadata
+            case _:
+                assert_never(artifact_type)
 
     def dict_for_artifact_type(self, x: ArtifactType):
         match x:
@@ -156,8 +250,127 @@ class Artifacts:
             case _:
                 assert_never(x)
 
-    def save(self):
-        pass
+    def _save_artifact_to_disk(
+        self,
+        path: Path,
+        artifact: "BaseArtifactUnion",
+        metadata: ArtifactMetadata,
+        conflict_strategy: str,
+    ) -> str:
+        # Check if file changed on disk
+        current_hash = self._compute_file_hash(path)
+        if current_hash and current_hash != metadata.last_read_hash:
+            # File changed externally
+            if conflict_strategy == "skip":
+                return "conflict"
+            elif conflict_strategy == "backup":
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_path = path.with_suffix(f".backup_{timestamp}{path.suffix}")
+                self.dbe.copy(path, backup_path)
+            # If "overwrite", just continue to write
+
+        # Write based on artifact type
+        if isinstance(artifact, ImageArtifact):
+            # Extract base64 and write binary
+            if "," in artifact.value:
+                data = artifact.value.split(",")[1]  # Remove data:image/png;base64,
+            else:
+                data = artifact.value
+            binary_data = base64.b64decode(data)
+            self.dbe.write(path, binary_data, "wb")
+            new_hash = self._compute_hash(binary_data)
+
+        elif isinstance(artifact, ChartDataArtifact):
+            # Convert ChartData back to CSV
+            csv_content = chart_data_to_csv(artifact.value)
+            self.dbe.write(path, csv_content)
+            new_hash = self._compute_hash(csv_content.encode())
+
+        elif isinstance(artifact, BrushStrokeArtifact):
+            # Save as JSON
+            data = artifact.value.model_dump()
+            json_content = json.dumps(data, indent=2, sort_keys=True)
+            self.dbe.write(path, json_content)
+            new_hash = self._compute_hash(json_content.encode())
+
+        elif isinstance(artifact, DrawAreaLayerItemTransformArtifact):
+            # Save as JSON
+            data = artifact.value.model_dump()
+            json_content = json.dumps(data, indent=2, sort_keys=True)
+            self.dbe.write(path, json_content)
+            new_hash = self._compute_hash(json_content.encode())
+        else:
+            return "unknown_type"
+
+        # Update metadata
+        metadata.last_read_hash = new_hash
+        metadata.is_dirty = False
+
+        return "saved"
+
+    def save(self, conflict_strategy: str = "skip"):
+        """
+        Save dirty artifacts to disk
+
+        conflict_strategy:
+        - "skip": Don't write if file changed on disk (safest)
+        - "overwrite": Always write (may lose external changes)
+        - "backup": Create backup of disk version before overwriting
+
+        Returns dict with "saved" and "conflicts" lists of paths
+        """
+        conflicts = []
+        saved = []
+
+        # Save images
+        for path, artifact in self.images.items():
+            metadata = self.image_metadata.get(path)
+            if metadata and metadata.is_dirty:
+                result = self._save_artifact_to_disk(
+                    path, artifact, metadata, conflict_strategy
+                )
+                if result == "conflict":
+                    conflicts.append(path)
+                elif result == "saved":
+                    saved.append(path)
+
+        # Save chart data
+        for path, artifact in self.chart_data.items():
+            metadata = self.chart_data_metadata.get(path)
+            if metadata and metadata.is_dirty:
+                result = self._save_artifact_to_disk(
+                    path, artifact, metadata, conflict_strategy
+                )
+                if result == "conflict":
+                    conflicts.append(path)
+                elif result == "saved":
+                    saved.append(path)
+
+        # Save brush strokes
+        for path, artifact in self.brush_strokes.items():
+            metadata = self.brush_stroke_metadata.get(path)
+            if metadata and metadata.is_dirty:
+                result = self._save_artifact_to_disk(
+                    path, artifact, metadata, conflict_strategy
+                )
+                if result == "conflict":
+                    conflicts.append(path)
+                elif result == "saved":
+                    saved.append(path)
+
+        # Save transforms
+        for path, artifact in self.draw_area_layer_item_transforms.items():
+            metadata = self.transform_metadata.get(path)
+            if metadata and metadata.is_dirty:
+                result = self._save_artifact_to_disk(
+                    path, artifact, metadata, conflict_strategy
+                )
+                if result == "conflict":
+                    conflicts.append(path)
+                elif result == "saved":
+                    saved.append(path)
+
+        return {"saved": saved, "conflicts": conflicts}
 
 
 def parse_csv_row(values):
@@ -173,7 +386,7 @@ def parse_csv_row(values):
     return row
 
 
-def parse_csv_content(content: str) -> ChartData:
+def csv_to_chart_data(content: str) -> ChartData:
     lines = content.strip().split("\n")
     if not lines:
         return {}
@@ -191,3 +404,29 @@ def parse_csv_content(content: str) -> ChartData:
             result[header].append(value)
 
     return result
+
+
+def chart_data_to_csv(data: ChartData):
+    if not data:
+        return ""
+
+    headers = list(data.keys())
+
+    # Get the number of rows (all columns should have the same length)
+    num_rows = len(data[headers[0]]) if headers else 0
+
+    # Build CSV string
+    csv_lines = [",".join(headers)]
+
+    for i in range(num_rows):
+        row_values = []
+        for header in headers:
+            value = data[header][i]
+            # Convert value to string, handling empty strings specially
+            if value == "":
+                row_values.append("")
+            else:
+                row_values.append(str(value))
+        csv_lines.append(",".join(row_values))
+
+    return "\n".join(csv_lines)
