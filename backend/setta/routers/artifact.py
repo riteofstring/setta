@@ -7,7 +7,12 @@ from pydantic import BaseModel
 from setta.api.logger import load_from_csv_base64
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
-from setta.types.artifact import ChartDataArtifact, ImageArtifact
+from setta.types.artifact import (
+    BrushStrokeArtifact,
+    ChartDataArtifact,
+    DrawAreaLayerItemTransformArtifact,
+    ImageArtifact,
+)
 from setta.types.routes import Route
 
 router = SettaAPIRouter()
@@ -51,12 +56,8 @@ class FolderContentItem(TypedDict):
     type: str
 
 
-class LoadCachedImageArtifactsRequest(BaseModel):
-    imagePaths: list[str]
-
-
-class LoadCachedChartDataRequest(BaseModel):
-    dataPath: str
+class LoadCachedPathsRequest(BaseModel):
+    paths: list[str]
 
 
 @router.post(Route.SEND_ARTIFACT)
@@ -132,15 +133,34 @@ def route_get_folder_contents(
 
 @router.post(Route.LOAD_CACHED_IMAGE_ARTIFACTS)
 def route_load_cached_image_artifacts(
-    x: LoadCachedImageArtifactsRequest,
+    x: LoadCachedPathsRequest,
     state: AppStateFromRequest,
 ) -> list[ImageArtifact | None]:
-    return [state.artifacts.get_cached_image(Path(i).resolve()) for i in x.imagePaths]
+    return [state.artifacts.get_cached_image(Path(i).resolve()) for i in x.paths]
 
 
 @router.post(Route.LOAD_CACHED_CHART_DATA)
 def route_load_cached_chart_data(
-    x: LoadCachedChartDataRequest,
+    x: LoadCachedPathsRequest,
     state: AppStateFromRequest,
-) -> ChartDataArtifact | None:
-    return state.artifacts.get_cached_chart_data(Path(x.dataPath).resolve())
+) -> list[ChartDataArtifact | None]:
+    return [state.artifacts.get_cached_chart_data(Path(i).resolve()) for i in x.paths]
+
+
+@router.post(Route.LOAD_CACHED_BRUSH_STROKES)
+def route_load_cached_brush_strokes(
+    x: LoadCachedPathsRequest,
+    state: AppStateFromRequest,
+) -> list[BrushStrokeArtifact | None]:
+    return [state.artifacts.get_cached_brush_stroke(Path(i).resolve()) for i in x.paths]
+
+
+@router.post(Route.LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM)
+def route_load_cached_draw_area_layer_item_transform(
+    x: LoadCachedPathsRequest,
+    state: AppStateFromRequest,
+) -> list[DrawAreaLayerItemTransformArtifact | None]:
+    return [
+        state.artifacts.get_cached_draw_area_layer_item_transform(Path(i).resolve())
+        for i in x.paths
+    ]

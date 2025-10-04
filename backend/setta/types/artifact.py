@@ -1,4 +1,5 @@
 from enum import Enum
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -143,7 +144,7 @@ class ChartDataArtifact(BaseArtifact):
     value: ChartData
 
 
-ImageMapping = dict[str, ImageArtifact]
-BrushStrokeMapping = dict[str, BrushStrokeArtifact]
-DrawAreaLayerItemTransformMapping = dict[str, DrawAreaLayerItemTransformArtifact]
-ChartDataMapping = dict[str, ChartDataArtifact]
+ImageMapping = dict[Path, ImageArtifact]
+BrushStrokeMapping = dict[Path, BrushStrokeArtifact]
+DrawAreaLayerItemTransformMapping = dict[Path, DrawAreaLayerItemTransformArtifact]
+ChartDataMapping = dict[Path, ChartDataArtifact]
