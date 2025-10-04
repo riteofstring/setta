@@ -10,8 +10,10 @@ import {
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useArtifacts,
+  useBrushStrokes,
   useChartData,
   useDecodedImages,
+  useDrawAreaLayerItemTransform,
   useImages,
   useProjectState,
   ZustandDecodedImages,
@@ -19,10 +21,17 @@ import {
 import useDeepCompareEffect from "use-deep-compare-effect";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_load_cached_brush_strokes,
   route_load_cached_chart_data,
+  route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  ArtifactTypeEnum,
+  BrushStrokeMapping,
+  DrawAreaLayerItemTransformMapping,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   const res = await route_load_cached_image_artifacts({
@@ -101,6 +110,37 @@ export function useLoadedChartData(sectionId: string) {
   return data?.value ?? {};
 }
 
+async function loadCachedBrushStrokes(paths: Array<string>) {
+  const res = await route_load_cached_brush_strokes({ paths });
+  console.log("loadCachedBrushStrokes", res)
+  if (res200(res)) {
+    useBrushStrokes.setState((state) => {
+      const newData = { ...state.x };
+      for (const img of res.data) {
+        if (img) {
+          newData[img.id] = img;
+        }
+      }
+      return { x: newData };
+    });
+  }
+}
+
+async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
+  const res = await route_load_cached_draw_area_layer_item_transform({ paths });
+  if (res200(res)) {
+    useDrawAreaLayerItemTransform.setState((state) => {
+      const newData = { ...state.x };
+      for (const img of res.data) {
+        if (img) {
+          newData[img.id] = img;
+        }
+      }
+      return { x: newData };
+    });
+  }
+}
+
 export async function decodeExistingRawImages(needToDecode: Array<string>) {
   const images: ZustandDecodedImages["x"] = {};
   for (const path of needToDecode) {
@@ -122,30 +162,74 @@ export function useLoadedDrawAreaData(sectionId: string) {
     return impl.layers.flatMap((l) => l.elements);
   }, _.isEqual);
 
-  const { decoded, needToDecode } = useDecodedImages((x) => {
-    const decoded: Array<HTMLImageElement> = [];
-    const needToDecode: Array<string> = [];
+  const { decodedImages, imagesToDecode } = useDecodedImages((x) => {
+    const decodedImages: ZustandDecodedImages["x"] = {};
+    const imagesToDecode: Array<string> = [];
     for (const e of elements) {
       if (e.type === ArtifactTypeEnum.Image) {
-        if (e.dataPath in x) {
-          decoded[e.dataPath] = x[e.dataPath];
+        const d = x.x[e.dataPath];
+        if (d) {
+          decodedImages[e.dataPath] = d;
         } else {
-          needToDecode.push(e.dataPath);
+          imagesToDecode.push(e.dataPath);
         }
       }
     }
-    return { decoded, needToDecode };
+    return { decodedImages, imagesToDecode };
   }, _.isEqual);
+
+  const { brushStrokes, brushStrokesToLoad } = useBrushStrokes((x) => {
+    const brushStrokes: BrushStrokeMapping = {};
+    const brushStrokesToLoad: Array<string> = [];
+    for (const e of elements) {
+      if (e.type === ArtifactTypeEnum.BrushStroke) {
+        const b = x.x[e.dataPath];
+        if (b) {
+          brushStrokes[e.dataPath] = b;
+        } else {
+          brushStrokesToLoad.push(e.dataPath);
+        }
+      }
+    }
+    return { brushStrokes, brushStrokesToLoad };
+  }, _.isEqual);
+
+  console.log("brushStrokesToLoad", brushStrokesToLoad)
+
+  const { transforms, transformsToLoad } = useDrawAreaLayerItemTransform(
+    (x) => {
+      const transforms: DrawAreaLayerItemTransformMapping = {};
+      const transformsToLoad: Array<string> = [];
+      for (const e of elements) {
+        const t = x.x[e.transformId];
+        if (t) {
+          transforms[e.transformId] = t;
+        } else {
+          transformsToLoad.push(e.transformId);
+        }
+      }
+      return { transforms, transformsToLoad };
+    },
+    _.isEqual,
+  );
 
   useEffect(() => {
     const rawImages = useImages.getState().x;
-    const needToLoad = needToDecode.filter((d) => !(d in rawImages));
-    if (needToLoad.length > 0) {
-      loadCachedImages(needToLoad);
+    const imagesToLoad = imagesToDecode.filter((d) => !(d in rawImages));
+    if (imagesToLoad.length > 0) {
+      loadCachedImages(imagesToLoad);
+    }
+
+    if (brushStrokesToLoad.length > 0) {
+      loadCachedBrushStrokes(brushStrokesToLoad);
+    }
+
+    if (transformsToLoad.length > 0) {
+      loadCachedDrawAreaLayerItemTransforms(transformsToLoad);
     }
   }, []);
 
-  return decoded;
+  return { decodedImages, brushStrokes, transforms };
 }
 
 function useLoadedArtifacts(sectionId, artifactIds, attrPickerFn) {
