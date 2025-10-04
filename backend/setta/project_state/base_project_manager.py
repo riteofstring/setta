@@ -150,6 +150,7 @@ from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import CODE_FOLDER
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 
@@ -660,13 +661,16 @@ class BaseProjectManager(ABC):
 
     def add_to_used_files(self, code_obj: Code):
         if code_obj.temp_file:
-            self.used_files.add(code_obj.temp_file.resolve())
+            self.used_files.add(normalize_path(code_obj.temp_file))
 
     def delete_unused_files(self, project_temp_folder: Path):
         # Get all files in the project temp folder and delete unused ones
         if project_temp_folder.exists():
             for file_path in project_temp_folder.glob("**/*"):
-                if file_path.is_file() and file_path.resolve() not in self.used_files:
+                if (
+                    file_path.is_file()
+                    and normalize_path(file_path) not in self.used_files
+                ):
                     try:
                         file_path.unlink()
                         print(f"Deleted unused file: {file_path}")

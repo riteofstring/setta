@@ -36,6 +36,7 @@ from setta.types.hierarchy_traversal import (
 )
 from setta.types.notifications import SettaNotification
 from setta.types.section_impls import BaseDictSectionImpl
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -157,7 +158,7 @@ class JSONSource:
             for v in s.variants:
                 variant, _, impl = get_variant_base_and_effective_section_impl(p, s, v)
                 if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-                    filepath = Path(variant.name).resolve()
+                    filepath = normalize_path(variant.name)
                     filename_set.add(filepath)
                     new_json_source_to_variant_mapping[filepath].add((s.id, v))
 

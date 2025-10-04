@@ -1,17 +1,14 @@
 import json
-import os
 from collections import defaultdict
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, TypeVar
 
+from setta.utils.constants import CWD
+
 
 def get_absolute_path(src_path, file_path):
     return (Path(src_path).parent / file_path).resolve()
-
-
-def is_dev_mode():
-    return os.environ.get("SETTA_DEV_MODE")
 
 
 def try_json(x):
@@ -113,3 +110,14 @@ def move_item_in_array(array: list[list_generic], from_index: int, to_index: int
     item = new_array.pop(from_index)
     new_array.insert(to_index, item)
     return new_array
+
+
+def normalize_path(path: Path | str):
+    # Resolve to absolute path (handles both relative and absolute inputs)
+    absolute = (CWD / path).resolve()
+
+    try:
+        return absolute.relative_to(CWD.resolve())
+    except ValueError:
+        # Path is outside project
+        return absolute

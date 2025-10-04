@@ -29,8 +29,8 @@ from setta.routers import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.routes import Route
-from setta.utils.constants import C
-from setta.utils.utils import get_absolute_path, is_dev_mode
+from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.utils import get_absolute_path
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     app.state.setta = SettaFastAPIState(app)
 
-    if not is_dev_mode():
+    if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
         frontend_folder = Path("static/frontend")
         dist_path = get_absolute_path(__file__, frontend_folder)

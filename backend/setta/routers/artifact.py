@@ -136,7 +136,7 @@ def route_load_cached_image_artifacts(
     x: LoadCachedPathsRequest,
     state: AppStateFromRequest,
 ) -> list[ImageArtifact | None]:
-    return [state.artifacts.get_cached_image(Path(i).resolve()) for i in x.paths]
+    return [state.artifacts.get_cached_image(i) for i in x.paths]
 
 
 @router.post(Route.LOAD_CACHED_CHART_DATA)
@@ -144,7 +144,7 @@ def route_load_cached_chart_data(
     x: LoadCachedPathsRequest,
     state: AppStateFromRequest,
 ) -> list[ChartDataArtifact | None]:
-    return [state.artifacts.get_cached_chart_data(Path(i).resolve()) for i in x.paths]
+    return [state.artifacts.get_cached_chart_data(i) for i in x.paths]
 
 
 @router.post(Route.LOAD_CACHED_BRUSH_STROKES)
@@ -152,7 +152,7 @@ def route_load_cached_brush_strokes(
     x: LoadCachedPathsRequest,
     state: AppStateFromRequest,
 ) -> list[BrushStrokeArtifact | None]:
-    return [state.artifacts.get_cached_brush_stroke(Path(i).resolve()) for i in x.paths]
+    return [state.artifacts.get_cached_brush_stroke(i) for i in x.paths]
 
 
 @router.post(Route.LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM)
@@ -161,6 +161,5 @@ def route_load_cached_draw_area_layer_item_transform(
     state: AppStateFromRequest,
 ) -> list[DrawAreaLayerItemTransformArtifact | None]:
     return [
-        state.artifacts.get_cached_draw_area_layer_item_transform(Path(i).resolve())
-        for i in x.paths
+        state.artifacts.get_cached_draw_area_layer_item_transform(i) for i in x.paths
     ]

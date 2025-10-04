@@ -30,6 +30,7 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     ImageSectionImpl,
 )
+from setta.utils.utils import normalize_path
 
 if TYPE_CHECKING:
     from setta.database.db_objs import DBE
@@ -136,15 +137,15 @@ class Artifacts:
                 impl = get_variant_effective_section_impl(p, s.id, v)
                 if isinstance(impl, ImageSectionImpl):
                     path_and_types.add(
-                        (Path(impl.imagePath).resolve(), ArtifactType.Image)
+                        (normalize_path(impl.imagePath), ArtifactType.Image)
                     )
                 elif isinstance(impl, DrawSectionImpl):
                     for layer in impl.layers:
                         for el in layer.elements:
-                            path_and_types.add((Path(el.dataPath).resolve(), el.type))
+                            path_and_types.add((normalize_path(el.dataPath), el.type))
                 elif isinstance(impl, ChartSectionImpl):
                     path_and_types.add(
-                        (Path(impl.dataPath).resolve(), ArtifactType.ChartData)
+                        (normalize_path(impl.dataPath), ArtifactType.ChartData)
                     )
 
         path_to_types: dict[Path, set[ArtifactType]] = defaultdict(set)
@@ -198,7 +199,7 @@ class Artifacts:
         if content:
             data = json.loads(content)
             artifact = BrushStrokeArtifact(
-                id=str(path), value=BrushStroke.model_validate(data)
+                id=str(normalize_path(path)), value=BrushStroke.model_validate(data)
             )
             self.brush_strokes[path] = artifact
             self.brush_stroke_metadata[path] = ArtifactMetadata(
@@ -223,17 +224,17 @@ class Artifacts:
             return artifact
         raise ValueError
 
-    def get_cached_image(self, path: Path):
-        return self.images.get(path)
+    def get_cached_image(self, path: Path | str):
+        return self.images.get(normalize_path(path))
 
-    def get_cached_chart_data(self, path: Path):
-        return self.chart_data.get(path)
+    def get_cached_chart_data(self, path: Path | str):
+        return self.chart_data.get(normalize_path(path))
 
-    def get_cached_brush_stroke(self, path: Path):
-        return self.brush_strokes.get(path)
+    def get_cached_brush_stroke(self, path: Path | str):
+        return self.brush_strokes.get(normalize_path(path))
 
-    def get_cached_draw_area_layer_item_transform(self, path: Path):
-        return self.draw_area_layer_item_transforms.get(path)
+    def get_cached_draw_area_layer_item_transform(self, path: Path | str):
+        return self.draw_area_layer_item_transforms.get(normalize_path(path))
 
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)

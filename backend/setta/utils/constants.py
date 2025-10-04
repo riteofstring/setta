@@ -1,9 +1,8 @@
 import logging
+import os
 from pathlib import Path
 
 from setta.types.routes import Route
-
-from .utils import is_dev_mode
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +11,7 @@ SETTA_FILES_FOLDER = CWD / "setta_files"
 CODE_FOLDER = SETTA_FILES_FOLDER / "code"
 DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
+IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 
 
 class classproperty:
@@ -91,7 +91,7 @@ class C:
 
     @classproperty
     def FRONTEND_ORIGINS(cls):
-        if is_dev_mode():
+        if IS_DEV_MODE:
             output: list[str] = [f"http://{cls.HOST}:{cls.DEV_MODE_FRONTEND_PORT}"]
         else:
             output: list[str] = [cls.BACKEND]

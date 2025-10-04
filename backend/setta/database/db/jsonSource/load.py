@@ -44,6 +44,7 @@ from setta.types.project_state import (
     ProjectStateCore,
 )
 from setta.types.section_impls import BaseDictSectionImpl
+from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,7 @@ def load_json_sources_into_data_structures(
         variant, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
             p, p.sections[s], v, BaseDictSectionImpl
         )
-        filename = Path(variant.name).resolve()
+        filename = normalize_path(variant.name)
         jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
 
     # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
@@ -116,7 +117,7 @@ def load_json_sources_into_data_structures(
                 or not impl.isJsonSource
             ):
                 continue
-            filename = Path(variant.name).resolve()
+            filename = normalize_path(variant.name)
             jsonSourceKeys = tuple(impl.jsonSourceKeys)
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue

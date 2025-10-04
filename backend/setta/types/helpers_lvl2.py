@@ -1,7 +1,6 @@
 import copy
 import math
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING, assert_never
 
 from setta.database.utils import create_new_id
@@ -107,7 +106,7 @@ from setta.types.section_impls import (
 )
 from setta.types.simplified_states import Position
 from setta.utils.generate_memorable_string import generate_memorable_string
-from setta.utils.utils import insert_into_array, move_item_in_array
+from setta.utils.utils import insert_into_array, move_item_in_array, normalize_path
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
@@ -854,7 +853,7 @@ def delete_section_variant_or_ask(
     core = p.sections[sectionId]
     variant, _, impl = get_variant_base_and_effective_section_impl(p, core, variantId)
     if isinstance(impl, BaseDictSectionImpl) and impl.isJsonSource:
-        return Path(variant.name).resolve()
+        return normalize_path(variant.name)
     delete_section_variant(p, sectionId, variantId)
 
 
