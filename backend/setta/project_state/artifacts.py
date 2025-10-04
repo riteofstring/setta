@@ -229,6 +229,12 @@ class Artifacts:
     def get_cached_chart_data(self, path: Path):
         return self.chart_data.get(path)
 
+    def get_cached_brush_stroke(self, path: Path):
+        return self.brush_strokes.get(path)
+
+    def get_cached_draw_area_layer_item_transform(self, path: Path):
+        return self.draw_area_layer_item_transforms.get(path)
+
     def mark_dirty(self, path: Path, artifact_type: ArtifactType):
         metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
         if path in metadata_dict:

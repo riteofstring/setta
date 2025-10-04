@@ -24,9 +24,9 @@ import {
 } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-async function loadCachedImages(imagePaths: Array<string>) {
+async function loadCachedImages(paths: Array<string>) {
   const res = await route_load_cached_image_artifacts({
-    imagePaths,
+    paths,
   });
   if (res200(res)) {
     useImages.setState((state) => {
@@ -65,15 +65,18 @@ export function useImageArtifact(sectionId: string) {
   return imageArtifact;
 }
 
-async function loadCachedChartData(dataPath: string) {
-  const res = await route_load_cached_chart_data({ dataPath });
+async function loadCachedChartData(paths: Array<string>) {
+  const res = await route_load_cached_chart_data({ paths });
   if (res200(res)) {
-    const data = res.data;
-    if (data) {
-      useChartData.setState((state) => ({
-        x: { ...state.x, [dataPath]: data },
-      }));
-    }
+    useChartData.setState((state) => {
+      const newData = { ...state.x };
+      for (const img of res.data) {
+        if (img) {
+          newData[img.id] = img;
+        }
+      }
+      return { x: newData };
+    });
   }
 }
 
@@ -91,7 +94,7 @@ export function useLoadedChartData(sectionId: string) {
 
   useEffect(() => {
     if (!data && dataPath) {
-      loadCachedChartData(dataPath);
+      loadCachedChartData([dataPath]);
     }
   }, []);
 
