@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useLoadedDrawAreaData } from "state/hooks/artifacts";
 import {
   BrushStroke,
   BrushStrokeArtifact,
@@ -29,9 +28,6 @@ import {
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
-  const { brushStrokes } = useLoadedDrawAreaData(sectionId);
-  console.log("DrawArea brushStrokes", brushStrokes);
-
   const {
     layers,
     activeLayerIdx,

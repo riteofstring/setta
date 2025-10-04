@@ -38,23 +38,17 @@ class DBE:
             with open(path, mode) as f:
                 return f.read()
 
-    def write(self, path: Path, data, mode="w"):
+    def write(self, path: Path, data):
         lock = self.get_file_lock(path)
 
         with lock:
             with tempfile.NamedTemporaryFile(
-                mode=mode, dir=path.parent, delete=False, suffix=".tmp"
+                mode="w", dir=path.parent, delete=False, suffix=".tmp"
             ) as tmp:
                 tmp.write(data)
                 tmp_path = tmp.name
 
             Path(tmp_path).replace(path)
-
-    def copy(self, source: Path, dest: Path):
-        content = self.read(source, mode="rb")
-        if content is None:
-            raise FileNotFoundError(f"Source file {source} does not exist")
-        self.write(dest, content, mode="wb")
 
     def read_json(self, path: Path):
         x = self.read(path)

@@ -95,8 +95,6 @@ class JSONSource:
             self.get_json_source_files_to_watch(project_state_backend_getter_fn())
         )
 
-        print("filename_set", filename_set, flush=True)
-
         section_variant_ids_to_load: set[tuple[str, str]] = set()
         for filename, ids in new_json_source_to_section_variant.items():
             if filename in self.json_sources:

@@ -484,8 +484,6 @@ export const RouteEnum = {
   SET_CHART_TYPE: "/setChartType",
   SET_CHART_AREA_IMAGE_PATH: "/setChartAreaDataPath",
   SET_CHART_SETTINGS: "/setChartSettings",
-  LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
-  LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM: "/loadDrawAreaLayerItemTransform",
 } as const;
 
 export type Route = ObjectValues<typeof RouteEnum>;
@@ -4397,7 +4395,6 @@ export const ProjectStateSingleConfigSchema = z.object({
     .default({}),
   yamlValues: z.record(z.string(), z.string()).default({}),
   shownParamIds: z.record(z.string(), ShownParamIdsSchema).default({}),
-  requiredDecodedImages: z.array(z.string()).default([]),
 });
 
 export type ProjectStateSingleConfig = z.infer<
@@ -7755,18 +7752,32 @@ export function createLoadAvailableArtifactsRequest(
   return LoadAvailableArtifactsRequestSchema.parse(options);
 }
 
-export const LoadCachedPathsRequestSchema = z.object({
-  paths: z.array(z.string()),
+export const LoadCachedChartDataRequestSchema = z.object({
+  dataPath: z.string(),
 });
 
-export type LoadCachedPathsRequest = z.infer<
-  typeof LoadCachedPathsRequestSchema
+export type LoadCachedChartDataRequest = z.infer<
+  typeof LoadCachedChartDataRequestSchema
 >;
 
-export function createLoadCachedPathsRequest(
-  options: Partial<LoadCachedPathsRequest> = {},
-): LoadCachedPathsRequest {
-  return LoadCachedPathsRequestSchema.parse(options);
+export function createLoadCachedChartDataRequest(
+  options: Partial<LoadCachedChartDataRequest> = {},
+): LoadCachedChartDataRequest {
+  return LoadCachedChartDataRequestSchema.parse(options);
+}
+
+export const LoadCachedImageArtifactsRequestSchema = z.object({
+  imagePaths: z.array(z.string()),
+});
+
+export type LoadCachedImageArtifactsRequest = z.infer<
+  typeof LoadCachedImageArtifactsRequestSchema
+>;
+
+export function createLoadCachedImageArtifactsRequest(
+  options: Partial<LoadCachedImageArtifactsRequest> = {},
+): LoadCachedImageArtifactsRequest {
+  return LoadCachedImageArtifactsRequestSchema.parse(options);
 }
 
 export const ReadCSVBase64RequestSchema = z.object({

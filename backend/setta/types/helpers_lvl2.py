@@ -372,8 +372,8 @@ def init_draw_section_layer(impl: DrawSectionImpl, artifacts: Artifacts):
         transformId=transformArtifact.id,
     )
     layer = DrawAreaLayer(elements=[layerItem])
-    artifacts.add_artifact(transformArtifact)
-    artifacts.add_artifact(brushStrokeArtifact)
+    artifacts.drawAreaLayerItemTransforms[transformArtifact.id] = transformArtifact
+    artifacts.brushStrokes[brushStrokeArtifact.id] = brushStrokeArtifact
     impl.layers = [layer]
 
 

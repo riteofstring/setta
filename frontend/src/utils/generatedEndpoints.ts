@@ -200,29 +200,15 @@ export async function route_get_folder_contents(
 }
 
 export async function route_load_cached_image_artifacts(
-  x: gt.LoadCachedPathsRequest,
+  x: gt.LoadCachedImageArtifactsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.ImageArtifact | null>>> {
   return await post("/loadCachedImageArtifacts", x);
 }
 
 export async function route_load_cached_chart_data(
-  x: gt.LoadCachedPathsRequest,
-): Promise<ResponseDataAndStatus<Array<gt.ChartDataArtifact | null>>> {
+  x: gt.LoadCachedChartDataRequest,
+): Promise<ResponseDataAndStatus<gt.ChartDataArtifact | null>> {
   return await post("/loadCachedChartData", x);
-}
-
-export async function route_load_cached_brush_strokes(
-  x: gt.LoadCachedPathsRequest,
-): Promise<ResponseDataAndStatus<Array<gt.BrushStrokeArtifact | null>>> {
-  return await post("/loadCachedBrushStrokes", x);
-}
-
-export async function route_load_cached_draw_area_layer_item_transform(
-  x: gt.LoadCachedPathsRequest,
-): Promise<
-  ResponseDataAndStatus<Array<gt.DrawAreaLayerItemTransformArtifact | null>>
-> {
-  return await post("/loadDrawAreaLayerItemTransform", x);
 }
 
 export async function route_restart_language_server(): Promise<

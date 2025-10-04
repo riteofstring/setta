@@ -115,5 +115,3 @@ class Route(str, Enum):
     SET_CHART_TYPE = "/setChartType"
     SET_CHART_AREA_IMAGE_PATH = "/setChartAreaDataPath"
     SET_CHART_SETTINGS = "/setChartSettings"
-    LOAD_CACHED_BRUSH_STROKES = "/loadCachedBrushStrokes"
-    LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANFORM = "/loadDrawAreaLayerItemTransform"

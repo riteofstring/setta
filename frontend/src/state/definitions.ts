@@ -378,14 +378,12 @@ export const useLocalStorage = createWithEqualityFn(
   ),
 );
 
-export type ZustandImages = { x: ImageMapping };
+type ZustandImages = { x: ImageMapping };
 
 export const useImages = createWithEqualityFn(
-  subscribeWithSelector(
-    withResetFn<ZustandImages>(() => ({
-      x: {},
-    })),
-  ),
+  withResetFn<ZustandImages>(() => ({
+    x: {},
+  })),
 );
 
 type ZustandChartData = { x: ChartDataMapping };

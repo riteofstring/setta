@@ -93,8 +93,7 @@ def load_json_sources_into_data_structures(
         variant, _, impl = get_variant_base_and_effective_section_impl_with_type_guard(
             p, p.sections[s], v, BaseDictSectionImpl
         )
-        filename = normalize_path(variant.name)
-        print("1. load json source filename", filename, flush=True)
+        filename = Path(variant.name).resolve()
         jsonSourceAndKeysToLoad.add((filename, tuple(impl.jsonSourceKeys)))
 
     # maps from filepath, to jsonSourceKeys to ReplacementsAndUnmatchedDicts
@@ -117,8 +116,7 @@ def load_json_sources_into_data_structures(
                 or not impl.isJsonSource
             ):
                 continue
-            filename = normalize_path(variant.name)
-            print("2. load json source filename", filename, flush=True)
+            filename = Path(variant.name).resolve()
             jsonSourceKeys = tuple(impl.jsonSourceKeys)
             if (filename, jsonSourceKeys) not in jsonSourceAndKeysToLoad:
                 continue
