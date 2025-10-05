@@ -444,21 +444,18 @@ function drawStrokeOntoTempCanvas(
   let prevPoint: CanvasPoint | null = null;
 
   for (const point of stroke.points) {
-    if (point === "BREAK") {
-      // Reset the previous point to break the path
-      prevPoint = null;
-    } else if (prevPoint !== null) {
+    if (prevPoint !== null) {
       // Draw a segment from prevPoint to current point
-      ctx.beginPath();
       ctx.moveTo(prevPoint[0], prevPoint[1]);
       ctx.lineTo(point[0], point[1]);
-      ctx.stroke();
       prevPoint = point;
     } else {
       // First point after a break or at the start
       prevPoint = point;
     }
   }
+
+  ctx.stroke();
 }
 
 export function drawStroke(

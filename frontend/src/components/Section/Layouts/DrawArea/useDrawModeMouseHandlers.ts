@@ -275,16 +275,10 @@ function drawingOnMouseMove(
       draftCanvasRef.current &&
       strokeRef.current
     ) {
-      if (strokeLengthSinceBreak.current >= canvasTransferQueueLength) {
-        strokeRef.current.value.points.push("BREAK");
-        strokeRef.current.value.points.push(point);
-        prevPointRef.current = point;
-        strokeLengthSinceBreak.current = 1;
-      } else if (prevPointRef.current) {
+      if (prevPointRef.current) {
         drawStroke(draftCanvasRef.current, prevPointRef.current, point);
         strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
-        strokeLengthSinceBreak.current += 1;
       }
     }
   };
