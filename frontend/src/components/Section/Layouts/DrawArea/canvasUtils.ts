@@ -32,6 +32,7 @@ import {
 import { updateArrayAt } from "utils/utils";
 import {
   LayerCanvasesType,
+  LocalLayerItemState,
   ResizeHandleCorners,
   TempCanvasesType,
 } from "./types";
@@ -202,34 +203,41 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
 }
 
 export function setGlobalArtifactTransformsAndDrawAllLayers(
-  sectionId,
-  activeLayerId,
-  localArtifactTransformsRef,
-  resizeHandleCorners,
-  layerCanvasRefs,
-  tempCanvasRefs,
-  fnCanvasToBase64,
+  layers: Array<DrawAreaLayer>,
+  activeLayerIdx: number,
+  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
+  resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>,
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>,
+  tempCanvasRefs: React.RefObject<TempCanvasesType>,
 ) {
-  useProjectState.setState((state) => {
-    for (const [idx, t] of state.artifactGroups[
-      activeLayerId
-    ].artifactTransforms.entries()) {
-      const { transform, eraserStrokes } =
-        localArtifactTransformsRef.current[idx];
-      t.transform = _.cloneDeep(transform);
-      t.eraserStrokes = _.cloneDeep(eraserStrokes);
+  const activeLayer = layers[activeLayerIdx];
+  if (!activeLayer) {
+    return;
+  }
+
+  useDrawAreaLayerItemTransform.setState((state) => {
+    for (const [idx, element] of activeLayer.elements.entries()) {
+      const local = localArtifactTransformsRef.current[idx];
+      if (!local) {
+        continue;
+      }
+      const transformArtifact = state.x[element.transformId];
+      if (!transformArtifact) {
+        continue;
+      }
+      transformArtifact.value.transform = _.cloneDeep(local.transform);
+      transformArtifact.value.eraserStrokes = _.cloneDeep(
+        local.eraserStrokes,
+      );
     }
   });
 
-  drawAllLayers(
-    sectionId,
-    layerCanvasRefs,
-    tempCanvasRefs,
-    fnCanvasToBase64,
-    {},
-    {},
-    { [activeLayerId]: resizeHandleCorners.current },
-  );
+  const resizeHandles =
+    resizeHandleCorners.current && activeLayerIdx !== undefined
+      ? { [activeLayerIdx]: resizeHandleCorners.current }
+      : {};
+
+  drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs, {}, resizeHandles);
 }
 
 export function drawAllLayers(

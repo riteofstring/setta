@@ -1,3 +1,9 @@
+import {
+  ArtifactType,
+  BrushStrokeWithTransform,
+  DrawAreaTransform,
+} from "utils/generatedTypes";
+
 export type LayerCanvasesType = Array<HTMLCanvasElement | null>;
 
 export type TempCanvasesType = {
@@ -18,3 +24,11 @@ export type ResizeHandleCorners = [
   CanvasPointXY,
   CanvasPointXY,
 ];
+
+export type LocalLayerItemState = {
+  transformId: string;
+  dataPath: string;
+  type: ArtifactType;
+  transform: DrawAreaTransform;
+  eraserStrokes: Array<BrushStrokeWithTransform>;
+};

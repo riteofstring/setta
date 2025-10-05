@@ -8,7 +8,6 @@ import {
   CanvasPoint,
   DrawAreaMode,
   DrawAreaModeEnum,
-  DrawAreaTransform,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
@@ -21,6 +20,8 @@ import {
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
   LayerCanvasesType,
+  LocalLayerItemState,
+  CanvasPointXY,
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,
@@ -73,17 +74,15 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   });
   const strokeRef = useRef<BrushStrokeArtifact>(null);
   const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
-  const localArtifactTransformsRef = useRef<DrawAreaTransform>([
-    1, 0, 0, 1, 0, 0,
-  ]);
+  const localArtifactTransformsRef = useRef<Array<LocalLayerItemState>>([]);
   const prevPointRef = useRef<CanvasPoint>(null);
   const isDrawing = useRef(false);
   const isDragging = useRef(false);
   const draggedIdx = useRef<number>(null);
-  const lastPos = useRef<CanvasPoint>(null);
+  const lastPos = useRef<CanvasPointXY | null>(null);
   const selectedIdx = useRef<number>(null);
-  const resizeHandle = useRef<ResizeHandle>(null);
-  const resizeHandleCorners = useRef<ResizeHandleCorners>(null);
+  const resizeHandle = useRef<ResizeHandle | null>(null);
+  const resizeHandleCorners = useRef<ResizeHandleCorners | null>(null);
 
   // const updateDrawArea = useMisc(
   //   (x) => x.updateAllDrawAreas || x.updateDrawArea[sectionId],

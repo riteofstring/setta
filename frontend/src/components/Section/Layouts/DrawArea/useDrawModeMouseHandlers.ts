@@ -1,6 +1,6 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
+import cloneDeep from "lodash/cloneDeep";
 import {
-  useArtifacts,
   useBrushStrokes,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
@@ -12,9 +12,9 @@ import {
   CanvasPoint,
   DrawAreaBrushShape,
   DrawAreaLayer,
+  DrawAreaLayerItemTransformArtifact,
   DrawAreaMode,
   DrawAreaModeEnum,
-  DrawAreaTransform,
 } from "utils/generatedTypes";
 import {
   addNewBrushStrokeToGlobalStateAndDrawLayer,
@@ -44,6 +44,8 @@ import {
 } from "./mouseHandlerUtils";
 import {
   LayerCanvasesType,
+  LocalLayerItemState,
+  CanvasPointXY,
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,
@@ -60,7 +62,7 @@ export function useDrawModeMouseHandlers(
   isDrawing: React.RefObject<boolean>,
   isDragging: React.RefObject<boolean>,
   draggedIdx: React.RefObject<number | null>,
-  lastPos: React.RefObject<CanvasPoint | null>,
+  lastPos: React.RefObject<CanvasPointXY | null>,
   selectedIdx: React.RefObject<number | null>,
   resizeHandle: React.RefObject<ResizeHandle | null>,
   resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>,
@@ -69,13 +71,53 @@ export function useDrawModeMouseHandlers(
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   activeLayerIdx: number,
-  localArtifactTransformsRef: React.RefObject<DrawAreaTransform>,
+  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
   canvasMode: DrawAreaMode,
 ) {
   let onMouseDown: React.MouseEventHandler<HTMLCanvasElement>,
     onMouseMove: React.MouseEventHandler<HTMLCanvasElement>,
     onMouseUp: React.MouseEventHandler<HTMLCanvasElement>,
     onMouseEnter: React.MouseEventHandler<HTMLCanvasElement>;
+
+  const activeLayer = layers[activeLayerIdx];
+
+  if (
+    canvasMode === DrawAreaModeEnum.edit &&
+    !isDragging.current &&
+    resizeHandle.current === null
+  ) {
+    syncLocalTransformsForEditMode(activeLayer, localArtifactTransformsRef);
+  }
+
+  const redrawEditMode = () => {
+    if (canvasMode !== DrawAreaModeEnum.edit) {
+      return;
+    }
+
+    const transformsMap =
+      activeLayer &&
+      localArtifactTransformsRef.current.length === activeLayer.elements.length
+        ? {
+            [activeLayerIdx]: localArtifactTransformsRef.current.map(
+              (local): DrawAreaLayerItemTransformArtifact => ({
+                type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
+                id: local.transformId,
+                value: {
+                  transform: local.transform,
+                  eraserStrokes: local.eraserStrokes,
+                },
+              }),
+            ),
+          }
+        : {};
+
+    const handles =
+      selectedIdx.current !== null && resizeHandleCorners.current
+        ? { [activeLayerIdx]: resizeHandleCorners.current }
+        : {};
+
+    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs, transformsMap, handles);
+  };
 
   if (
     canvasMode === DrawAreaModeEnum.draw ||
@@ -125,7 +167,7 @@ export function useDrawModeMouseHandlers(
 
     onMouseEnter = drawingOnMouseEnter(draftCanvasRef, onMouseDown);
   } else {
-    onMouseDown = editingOnMouseDown({
+    const handleMouseDown = editingOnMouseDown({
       layerCanvasRefs,
       selectedIdx,
       localArtifactTransformsRef,
@@ -134,10 +176,10 @@ export function useDrawModeMouseHandlers(
       lastPos,
       draggedIdx,
       isDragging,
-      activeLayerId,
+      activeLayerIdx,
     });
 
-    onMouseMove = editingOnMouseMove({
+    const handleMouseMove = editingOnMouseMove({
       layerCanvasRefs,
       isDragging,
       lastPos,
@@ -146,20 +188,38 @@ export function useDrawModeMouseHandlers(
       selectedIdx,
       draggedIdx,
       localArtifactTransformsRef,
-      activeLayerId,
+      activeLayerIdx,
     });
 
-    onMouseUp = editingOnMouseUp({
-      sectionId,
+    const handleMouseUp = editingOnMouseUp({
+      layers,
       isDragging,
       draggedIdx,
       resizeHandle,
       resizeHandleCorners,
-      activeLayerId,
+      activeLayerIdx,
       localArtifactTransformsRef,
       layerCanvasRefs,
       tempCanvasRefs,
     });
+
+    onMouseDown = (e) => {
+      const shouldRedraw = handleMouseDown(e);
+      if (shouldRedraw) {
+        redrawEditMode();
+      }
+    };
+
+    onMouseMove = (e) => {
+      const shouldRedraw = handleMouseMove(e);
+      if (shouldRedraw) {
+        redrawEditMode();
+      }
+    };
+
+    onMouseUp = () => {
+      handleMouseUp();
+    };
 
     onMouseEnter = () => {};
   }
@@ -178,6 +238,56 @@ export function useDrawModeMouseHandlers(
     onMouseUp,
     onMouseEnter,
   };
+}
+
+function syncLocalTransformsForEditMode(
+  activeLayer: DrawAreaLayer | undefined,
+  localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
+) {
+  if (!activeLayer) {
+    localArtifactTransformsRef.current = [];
+    return;
+  }
+
+  const transformsState = useDrawAreaLayerItemTransform.getState().x;
+
+  const needsResync =
+    localArtifactTransformsRef.current.length !== activeLayer.elements.length ||
+    activeLayer.elements.some((element, idx) => {
+      const local = localArtifactTransformsRef.current[idx];
+      const artifact = transformsState[element.transformId];
+      if (!local || !artifact) {
+        return true;
+      }
+      if (local.transformId !== element.transformId) {
+        return true;
+      }
+      return (
+        local.eraserStrokes.length !== artifact.value.eraserStrokes.length
+      );
+    });
+
+  if (!needsResync) {
+    return;
+  }
+
+  localArtifactTransformsRef.current = activeLayer.elements.map((element) => {
+    const artifact = transformsState[element.transformId];
+    const defaultTransform: LocalLayerItemState["transform"] = [
+      1, 0, 0, 1, 0, 0,
+    ];
+    return {
+      transformId: element.transformId,
+      dataPath: element.dataPath,
+      type: element.type,
+      transform: artifact
+        ? cloneDeep(artifact.value.transform)
+        : [...defaultTransform],
+      eraserStrokes: artifact
+        ? cloneDeep(artifact.value.eraserStrokes)
+        : [],
+    };
+  });
 }
 
 function drawingOnMouseDown(
@@ -400,26 +510,34 @@ function editingOnMouseDown({
   lastPos,
   draggedIdx,
   isDragging,
-  activeLayerId,
+  activeLayerIdx,
 }) {
-  // returns true if layers should be redrawn
   return (e) => {
-    const artifactState = useArtifacts.getState().x;
-    const canvas = layerCanvasRefs.current[activeLayerId];
+    const canvas = layerCanvasRefs.current[activeLayerIdx];
+    if (!canvas) {
+      return false;
+    }
     const rect = canvas.getBoundingClientRect();
     const zoom = getZoom();
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
 
-    if (selectedIdx.current !== null) {
+    const localTransforms = localArtifactTransformsRef.current;
+    const images = useDecodedImages.getState().x;
+    const brushStrokes = useBrushStrokes.getState().x;
+
+    if (
+      selectedIdx.current !== null &&
+      resizeHandleCorners.current &&
+      localTransforms[selectedIdx.current]
+    ) {
+      const currTransform = localTransforms[selectedIdx.current].transform;
       for (let i = 0; i < resizeHandleCorners.current.length; i++) {
         const corner = resizeHandleCorners.current[i];
         if (
           Math.abs(x - corner.x) <= RESIZE_HANDLE_SIZE / 2 &&
           Math.abs(y - corner.y) <= RESIZE_HANDLE_SIZE / 2
         ) {
-          const currTransform =
-            localArtifactTransformsRef.current[selectedIdx.current].transform;
           resizeHandle.current = {
             idx: i,
             wasPositive: {
@@ -433,11 +551,17 @@ function editingOnMouseDown({
       }
     }
 
-    for (let i = localArtifactTransformsRef.current.length - 1; i >= 0; i--) {
-      const { transform, artifactId } = localArtifactTransformsRef.current[i];
-      const artifact = artifactState[artifactId];
-      if (artifact.type === ArtifactTypeEnum.IMG) {
-        const bounds = getImageBounds(artifact.value, transform);
+    for (let i = localTransforms.length - 1; i >= 0; i--) {
+      const local = localTransforms[i];
+      if (!local) {
+        continue;
+      }
+      if (local.type === ArtifactTypeEnum.Image) {
+        const img = images[local.dataPath];
+        if (!img) {
+          continue;
+        }
+        const bounds = getImageBounds(img, local.transform);
         if (
           x >= bounds.minX &&
           x <= bounds.maxX &&
@@ -451,10 +575,17 @@ function editingOnMouseDown({
           lastPos.current = { x, y };
           return true;
         }
-      } else if (artifact.type === ArtifactTypeEnum.BRUSH_STROKES) {
-        const hit = detectHit(x, y, artifact, transform);
+      } else if (local.type === ArtifactTypeEnum.BrushStroke) {
+        const brushStrokeArtifact = brushStrokes[local.dataPath];
+        if (!brushStrokeArtifact) {
+          continue;
+        }
+        const hit = detectHit(x, y, brushStrokeArtifact, local.transform);
         if (hit) {
-          const bounds = getBrushStrokesBounds(artifact.value, transform);
+          const bounds = getBrushStrokesBounds(
+            brushStrokeArtifact.value,
+            local.transform,
+          );
           setResizeHandleCorners(resizeHandleCorners, bounds);
           isDragging.current = true;
           draggedIdx.current = i;
@@ -464,9 +595,15 @@ function editingOnMouseDown({
         }
       }
     }
+
+    const hadSelection = selectedIdx.current !== null;
     selectedIdx.current = null;
     resizeHandleCorners.current = null;
-    return false;
+    isDragging.current = false;
+    draggedIdx.current = null;
+    resizeHandle.current = null;
+    lastPos.current = null;
+    return hadSelection;
   };
 }
 
@@ -479,261 +616,251 @@ function editingOnMouseMove({
   selectedIdx,
   draggedIdx,
   localArtifactTransformsRef,
-  activeLayerId,
+  activeLayerIdx,
 }) {
-  // returns true if layers should be redrawn
   return (e) => {
-    if (!isDragging.current && resizeHandle.current === null) return false;
+    if (
+      (!isDragging.current || draggedIdx.current === null) &&
+      (resizeHandle.current === null || selectedIdx.current === null)
+    ) {
+      return false;
+    }
 
-    const artifactState = useArtifacts.getState().x;
-    const canvas = layerCanvasRefs.current[activeLayerId];
+    const canvas = layerCanvasRefs.current[activeLayerIdx];
+    if (!canvas) {
+      return false;
+    }
     const rect = canvas.getBoundingClientRect();
     const zoom = getZoom();
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
-    const dx = x - lastPos.current.x;
-    const dy = y - lastPos.current.y;
+    if (!lastPos.current) {
+      lastPos.current = { x, y };
+      return false;
+    }
+    const prev = lastPos.current as unknown as { x: number; y: number };
+    const dx = x - prev.x;
+    const dy = y - prev.y;
     // Check if shift key is pressed to preserve aspect ratio
     const preserveAspectRatio = e.shiftKey;
 
     if (isDragging.current && draggedIdx.current !== null) {
-      const { transform } =
-        localArtifactTransformsRef.current[draggedIdx.current];
-      transform[4] += dx;
-      transform[5] += dy;
-      lastPos.current = { x, y };
+      const local = localArtifactTransformsRef.current[draggedIdx.current];
+      if (!local || !resizeHandleCorners.current) {
+        return false;
+      }
+      local.transform[4] += dx;
+      local.transform[5] += dy;
       resizeHandleCorners.current = resizeHandleCorners.current.map((c) => ({
         x: c.x + dx,
         y: c.y + dy,
-      }));
-    } else if (resizeHandle.current !== null && selectedIdx.current !== null) {
-      const { transform, artifactId } =
-        localArtifactTransformsRef.current[selectedIdx.current];
-      const artifact = artifactState[artifactId];
+      })) as ResizeHandleCorners;
+      lastPos.current = { x, y };
+      return true;
+    }
 
-      if (artifact.type === ArtifactTypeEnum.IMG) {
-        const scaledWidth = getScaledWidth(artifact.value, transform);
-        const scaledHeight = getScaledHeight(artifact.value, transform);
+    if (
+      resizeHandle.current !== null &&
+      selectedIdx.current !== null &&
+      resizeHandleCorners.current
+    ) {
+      const local = localArtifactTransformsRef.current[selectedIdx.current];
+      if (!local) {
+        return false;
+      }
+      const images = useDecodedImages.getState().x;
+      const brushStrokes = useBrushStrokes.getState().x;
+
+      let latestBounds:
+        | ReturnType<typeof getImageBounds>
+        | ReturnType<typeof getBrushStrokesBounds>
+        | null = null;
+
+      if (local.type === ArtifactTypeEnum.Image) {
+        const img = images[local.dataPath];
+        if (!img) {
+          return false;
+        }
+        const scaledWidth = getScaledWidth(img, local.transform);
+        const scaledHeight = getScaledHeight(img, local.transform);
         const handleBehaviorFn = getImageHandleBehaviorFn(
           resizeHandle.current.idx,
           resizeHandle.current.wasPositive.xScale,
           resizeHandle.current.wasPositive.yScale,
         );
+        let nextDx = dx;
+        let nextDy = dy;
 
         if (preserveAspectRatio) {
-          // When preserving aspect ratio, use the dimension with the larger change
           const aspectRatio = scaledWidth / scaledHeight;
-
-          // Always use the mouse movement as the dominant input
-          // If dx is close to zero, use dy as the primary change
-          // If dy is close to zero, use dx as the primary change
-          // Otherwise, use whichever has a larger absolute value
-
-          // Use a small threshold to prevent division by zero or tiny values
           const epsilon = 0.001;
           const absDx = Math.abs(dx);
           const absDy = Math.abs(dy);
 
-          let newDx = dx;
-          let newDy = dy;
-
-          // Normalize the changes based on handle position and dominant dimension
-          if (absDx < epsilon && absDy < epsilon) {
-            // Both changes are too small, keep original values
-            newDx = dx;
-            newDy = dy;
-          } else if (absDx < epsilon) {
-            // Height change is dominant (dx is nearly zero)
-            newDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
-            // Adjust direction based on handle
-            if (
-              resizeHandle.current.idx === 1 ||
-              resizeHandle.current.idx === 2
-            ) {
-              newDx = -newDx;
-            }
-          } else if (absDy < epsilon) {
-            // Width change is dominant (dy is nearly zero)
-            newDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
-            // Adjust direction based on handle
-            if (
-              resizeHandle.current.idx === 1 ||
-              resizeHandle.current.idx === 2
-            ) {
-              newDy = -newDy;
-            }
-          } else if (absDx > absDy) {
-            // Width change is dominant
-            newDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
-            // For top-right and bottom-left handles, flip the sign
-            if (
-              resizeHandle.current.idx === 1 ||
-              resizeHandle.current.idx === 2
-            ) {
-              newDy = -newDy;
-            }
-          } else {
-            // Height change is dominant
-            newDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
-            // For top-right and bottom-left handles, flip the sign
-            if (
-              resizeHandle.current.idx === 1 ||
-              resizeHandle.current.idx === 2
-            ) {
-              newDx = -newDx;
+          if (!(absDx < epsilon && absDy < epsilon)) {
+            if (absDx < epsilon) {
+              nextDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDx = -nextDx;
+              }
+            } else if (absDy < epsilon) {
+              nextDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDy = -nextDy;
+              }
+            } else if (absDx > absDy) {
+              nextDy = ((dx > 0 ? 1 : -1) * absDx) / aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDy = -nextDy;
+              }
+            } else {
+              nextDx = (dy > 0 ? 1 : -1) * absDy * aspectRatio;
+              if (
+                resizeHandle.current.idx === 1 ||
+                resizeHandle.current.idx === 2
+              ) {
+                nextDx = -nextDx;
+              }
             }
           }
-
-          handleBehaviorFn(
-            transform,
-            scaledWidth,
-            scaledHeight,
-            newDx,
-            newDy,
-            artifact,
-          );
-        } else {
-          // Original behavior without aspect ratio preservation
-          handleBehaviorFn(
-            transform,
-            scaledWidth,
-            scaledHeight,
-            dx,
-            dy,
-            artifact,
-          );
         }
-      } else if (artifact.type === ArtifactTypeEnum.BRUSH_STROKES) {
+
+        handleBehaviorFn(
+          local.transform,
+          scaledWidth,
+          scaledHeight,
+          preserveAspectRatio ? nextDx : dx,
+          preserveAspectRatio ? nextDy : dy,
+          { value: img },
+        );
+
+        if (preserveAspectRatio) {
+          latestBounds = getImageBounds(img, local.transform);
+        }
+      } else if (local.type === ArtifactTypeEnum.BrushStroke) {
+        const brushStrokeArtifact = brushStrokes[local.dataPath];
+        if (!brushStrokeArtifact) {
+          return false;
+        }
         const bounds =
           getPseudoBoundsFromResizeHandleCorners(resizeHandleCorners);
         const width = bounds.maxX - bounds.minX;
         const height = bounds.maxY - bounds.minY;
 
-        // For each case, we'll modify handling when preserveAspectRatio is true
         switch (resizeHandle.current.idx) {
           case 0: {
-            // Top-left
             let scaleX = (width - dx) / width;
             let scaleY = (height - dy) / height;
-
             if (preserveAspectRatio) {
-              // Use the larger scale factor for both dimensions
               const uniformScale = Math.max(scaleX, scaleY);
               scaleX = scaleY = uniformScale;
             }
-
-            // Anchor point is bottom-right
             const anchorX = bounds.maxX;
             const anchorY = bounds.maxY;
-
-            transform[0] = preventExactZero(transform[0] * scaleX);
-            transform[3] = preventExactZero(transform[3] * scaleY);
-            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
-            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
-
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
             break;
           }
           case 1: {
-            // Top-right
             let scaleX = (width + dx) / width;
             let scaleY = (height - dy) / height;
-
             if (preserveAspectRatio) {
-              // Use the larger scale factor for both dimensions
               const uniformScale = Math.max(scaleX, scaleY);
               scaleX = scaleY = uniformScale;
             }
-
-            // Anchor point is bottom-left
             const anchorX = bounds.minX;
             const anchorY = bounds.maxY;
-
-            transform[0] = preventExactZero(transform[0] * scaleX);
-            transform[3] = preventExactZero(transform[3] * scaleY);
-            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
-            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
-
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
             break;
           }
           case 2: {
-            // Bottom-left
             let scaleX = (width - dx) / width;
             let scaleY = (height + dy) / height;
-
             if (preserveAspectRatio) {
-              // Use the larger scale factor for both dimensions
               const uniformScale = Math.max(scaleX, scaleY);
               scaleX = scaleY = uniformScale;
             }
-
-            // Anchor point is top-right
             const anchorX = bounds.maxX;
             const anchorY = bounds.minY;
-
-            transform[0] = preventExactZero(transform[0] * scaleX);
-            transform[3] = preventExactZero(transform[3] * scaleY);
-            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
-            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
-
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
             break;
           }
           case 3: {
-            // Bottom-right
             let scaleX = (width + dx) / width;
             let scaleY = (height + dy) / height;
-
             if (preserveAspectRatio) {
-              // Use the larger scale factor for both dimensions
               const uniformScale = Math.max(scaleX, scaleY);
               scaleX = scaleY = uniformScale;
             }
-
-            // Anchor point is top-left
             const anchorX = bounds.minX;
             const anchorY = bounds.minY;
-
-            transform[0] = preventExactZero(transform[0] * scaleX);
-            transform[3] = preventExactZero(transform[3] * scaleY);
-            transform[4] = anchorX - (anchorX - transform[4]) * scaleX;
-            transform[5] = anchorY - (anchorY - transform[5]) * scaleY;
+            local.transform[0] = preventExactZero(local.transform[0] * scaleX);
+            local.transform[3] = preventExactZero(local.transform[3] * scaleY);
+            local.transform[4] =
+              anchorX - (anchorX - local.transform[4]) * scaleX;
+            local.transform[5] =
+              anchorY - (anchorY - local.transform[5]) * scaleY;
             break;
           }
         }
+
+        if (preserveAspectRatio) {
+          latestBounds = getBrushStrokesBounds(
+            brushStrokeArtifact.value,
+            local.transform,
+          );
+        }
       }
 
-      // When preserving aspect ratio, we need to update the corners based on
-      // the actual transform rather than the mouse movement
-      if (preserveAspectRatio && artifact) {
-        const bounds =
-          artifact.type === ArtifactTypeEnum.IMG
-            ? getImageBounds(artifact.value, transform)
-            : getBrushStrokesBounds(artifact.value, transform);
-
-        setResizeHandleCorners(resizeHandleCorners, bounds);
+      if (preserveAspectRatio && latestBounds) {
+        setResizeHandleCorners(resizeHandleCorners, latestBounds);
       } else {
         incrementResizeHandleCorners(
           resizeHandle,
           resizeHandleCorners,
           preserveAspectRatio ? 0 : dx,
           preserveAspectRatio ? 0 : dy,
-          transform,
         );
       }
 
       lastPos.current = { x, y };
+      return true;
     }
 
-    return true;
+    return false;
   };
 }
 
 function editingOnMouseUp({
-  sectionId,
   isDragging,
   draggedIdx,
   resizeHandle,
   resizeHandleCorners,
-  activeLayerId,
+  activeLayerIdx,
+  layers,
   localArtifactTransformsRef,
   layerCanvasRefs,
   tempCanvasRefs,
@@ -748,8 +875,8 @@ function editingOnMouseUp({
       );
     }
     setGlobalArtifactTransformsAndDrawAllLayers(
-      sectionId,
-      activeLayerId,
+      layers,
+      activeLayerIdx,
       localArtifactTransformsRef,
       resizeHandleCorners,
       layerCanvasRefs,
