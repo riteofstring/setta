@@ -18,8 +18,8 @@ import {
 } from "utils/generatedTypes";
 import {
   addNewBrushStrokeToGlobalStateAndDrawLayer,
-  continueStroke,
   drawOneLayer,
+  drawStroke,
   getActiveLayerAndCanvas,
   getInverseTransform,
   getXY,
@@ -54,7 +54,6 @@ export function useDrawModeMouseHandlers(
   sectionId: string,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   strokeLengthSinceBreak: React.RefObject<number>,
-  strokeCurrentPath: React.RefObject<Path2D>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   eraserBrushSize: number,
@@ -88,7 +87,6 @@ export function useDrawModeMouseHandlers(
       layers,
       strokeRef,
       strokeLengthSinceBreak,
-      strokeCurrentPath,
       eraserStrokeRef,
       eraserBrushSize,
       brushShape,
@@ -106,7 +104,6 @@ export function useDrawModeMouseHandlers(
       layers,
       strokeRef,
       strokeLengthSinceBreak,
-      strokeCurrentPath,
       eraserStrokeRef,
       prevPointRef,
       isDrawing,
@@ -192,7 +189,6 @@ function drawingOnMouseDown(
   layers: Array<DrawAreaLayer>,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   strokeLengthSinceBreak: React.RefObject<number>,
-  strokeCurrentPath: React.RefObject<Path2D>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
@@ -228,10 +224,7 @@ function drawingOnMouseDown(
         eraserStrokeRef.current,
       );
     } else {
-      const newPath = startNewStroke(draftCanvasRef, point);
-      if (newPath) {
-        strokeCurrentPath.current = newPath;
-      }
+      strokeRef.current = startNewStroke(draftCanvasRef, point);
       strokeLengthSinceBreak.current = 1;
     }
     prevPointRef.current = point;
@@ -243,7 +236,6 @@ function drawingOnMouseMove(
   layers: Array<DrawAreaLayer>,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   strokeLengthSinceBreak: React.RefObject<number>,
-  strokeCurrentPath: React.RefObject<Path2D>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   isDrawingRef: React.RefObject<boolean>,
@@ -280,20 +272,17 @@ function drawingOnMouseMove(
       );
     } else if (
       canvasMode === DrawAreaModeEnum.draw &&
-      draftCanvasRef.current
+      draftCanvasRef.current &&
+      strokeRef.current
     ) {
-      if (strokeLengthSinceBreak.current >= 100000) {
-        // strokeRef.current.value.points.push("BREAK");
-        // strokeRef.current.value.points.push(point);
+      if (strokeLengthSinceBreak.current >= canvasTransferQueueLength) {
+        strokeRef.current.value.points.push("BREAK");
+        strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
         strokeLengthSinceBreak.current = 1;
       } else if (prevPointRef.current) {
-        continueStroke(
-          draftCanvasRef.current,
-          strokeCurrentPath.current,
-          point,
-        );
-        // strokeRef.current.value.points.push(point);
+        drawStroke(draftCanvasRef.current, prevPointRef.current, point);
+        strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
         strokeLengthSinceBreak.current += 1;
       }
