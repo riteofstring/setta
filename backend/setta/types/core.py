@@ -19,6 +19,7 @@ class Core(BaseModel, extra="forbid"):
             "codeObjVariantMap",
             "topLevelParamId",
             "value",
+            "layers",
         ]
     )
 
