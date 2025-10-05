@@ -143,6 +143,12 @@ class Artifacts:
                     for layer in impl.layers:
                         for el in layer.elements:
                             path_and_types.add((normalize_path(el.dataPath), el.type))
+                            path_and_types.add(
+                                (
+                                    normalize_path(el.transformId),
+                                    ArtifactType.DrawAreaLayerItemTransform,
+                                )
+                            )
                 elif isinstance(impl, ChartSectionImpl):
                     path_and_types.add(
                         (normalize_path(impl.dataPath), ArtifactType.ChartData)
@@ -171,7 +177,7 @@ class Artifacts:
         if img:
             b64_str = base64.b64encode(img).decode("utf-8")
             artifact = ImageArtifact(
-                id=str(path), value=f"data:image/png;base64,{b64_str}"
+                id=str(normalize_path(path)), value=f"data:image/png;base64,{b64_str}"
             )
             self.images[path] = artifact
             self.image_metadata[path] = ArtifactMetadata(
@@ -185,7 +191,7 @@ class Artifacts:
         x = self.dbe.read(path)
         if x:
             value = csv_to_chart_data(x)
-            artifact = ChartDataArtifact(id=str(path), value=value)
+            artifact = ChartDataArtifact(id=str(normalize_path(path)), value=value)
             self.chart_data[path] = artifact
             self.chart_data_metadata[path] = ArtifactMetadata(
                 last_read_hash=self._compute_hash(x.encode()),
@@ -214,7 +220,8 @@ class Artifacts:
         if content:
             data = json.loads(content)
             artifact = DrawAreaLayerItemTransformArtifact(
-                id=str(path), value=DrawAreaLayerItemTransform.model_validate(data)
+                id=str(normalize_path(path)),
+                value=DrawAreaLayerItemTransform.model_validate(data),
             )
             self.draw_area_layer_item_transforms[path] = artifact
             self.transform_metadata[path] = ArtifactMetadata(
