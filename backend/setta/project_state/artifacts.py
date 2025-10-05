@@ -68,7 +68,6 @@ class Artifacts:
         self.brush_strokes: BrushStrokeMapping = {}
         self.draw_area_layer_item_transforms: DrawAreaLayerItemTransformMapping = {}
 
-        # Add metadata tracking
         self.image_metadata: dict[Path, ArtifactMetadata] = {}
         self.chart_data_metadata: dict[Path, ArtifactMetadata] = {}
         self.brush_stroke_metadata: dict[Path, ArtifactMetadata] = {}
@@ -339,11 +338,14 @@ class Artifacts:
                         path, artifact, metadata, conflict_strategy
                     )
 
-    def add_artifact(self, x: "BaseArtifactUnion"):
+    def update_artifact(self, x: "BaseArtifactUnion"):
         d = self.dict_for_artifact_type(x.type)
         m = self.metadata_dict_for_artifact_type(x.type)
-        d[Path(x.id)] = x  # type: ignore
-        m[Path(x.id)] = ArtifactMetadata(last_read_hash=None, is_dirty=True)
+        key = normalize_path(x.id)
+        d[key] = x  # type: ignore
+        if key not in m:
+            m[key] = ArtifactMetadata(last_read_hash=None, is_dirty=True)
+        m[key].is_dirty = True
 
 
 def parse_csv_row(values):
