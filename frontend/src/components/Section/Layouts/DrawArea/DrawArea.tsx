@@ -75,6 +75,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   });
   const strokeRef = useRef<BrushStrokeArtifact>(null);
   const strokeLengthSinceBreak = useRef(0);
+  const strokeCurrentPath = useRef(new Path2D());
   const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef<DrawAreaTransform>([
     1, 0, 0, 1, 0, 0,
@@ -166,6 +167,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       sectionId,
       strokeRef,
       strokeLengthSinceBreak,
+      strokeCurrentPath,
       eraserStrokeRef,
       prevPointRef,
       eraserBrushSize,

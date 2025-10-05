@@ -17,7 +17,6 @@ import {
   BrushStrokeArtifact,
   CanvasPoint,
   createBrushStroke,
-  createBrushStrokeArtifact,
   createDrawAreaLayerItem,
   createDrawAreaLayerItemTransform,
   createDrawAreaLayerItemTransformArtifact,
@@ -383,7 +382,7 @@ export function drawOneLayer(
 export function startNewStroke(
   draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
   firstPoint: CanvasPoint,
-): BrushStrokeArtifact | null {
+): Path2D | null {
   if (!draftCanvasRef.current) {
     return null;
   }
@@ -396,18 +395,22 @@ export function startNewStroke(
   if (typeof dCtx.strokeStyle !== "string") {
     return null;
   }
-  drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
-  return createBrushStrokeArtifact({
-    value: {
-      strokeStyle: dCtx.strokeStyle,
-      lineWidth: dCtx.lineWidth,
-      lineCap: dCtx.lineCap,
-      points: [firstPoint],
-      // canvasHeight: draftCanvas.height,
-      // canvasWidth: draftCanvas.width,
-      globalCompositeOperation: dCtx.globalCompositeOperation,
-    },
-  });
+  // drawStroke(draftCanvasRef.current, firstPoint, firstPoint);
+  const newPath = new Path2D();
+  newPath.moveTo(firstPoint[0], firstPoint[1]);
+  // const newArtifact = createBrushStrokeArtifact({
+  //   value: {
+  //     strokeStyle: dCtx.strokeStyle,
+  //     lineWidth: dCtx.lineWidth,
+  //     lineCap: dCtx.lineCap,
+  //     points: [firstPoint],
+  //     // canvasHeight: draftCanvas.height,
+  //     // canvasWidth: draftCanvas.width,
+  //     globalCompositeOperation: dCtx.globalCompositeOperation,
+  //   },
+  // });
+
+  return newPath
 }
 
 export function startNewEraserStroke(
@@ -473,6 +476,25 @@ export function drawStroke(
   ctx.moveTo(from[0], from[1]);
   ctx.lineTo(to[0], to[1]);
   ctx.stroke();
+}
+
+export function continueStroke(
+  canvas: HTMLCanvasElement,
+  currentPath: Path2D,
+  to: CanvasPoint,
+) {
+  const ctx = getCtx(canvas);
+  if (!ctx || !currentPath) return;
+
+  // Add to the path
+  currentPath.lineTo(to[0], to[1]);
+
+  // Clear the entire draft canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Redraw the ENTIRE path from start to current point
+  // ctx.globalAlpha = 0.5; // Your semi-transparent setting
+  ctx.stroke(currentPath); // One stroke call for the whole path
 }
 
 function drawResizeHandles(
