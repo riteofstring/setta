@@ -53,6 +53,7 @@ export function useDrawModeMouseHandlers(
   layers: Array<DrawAreaLayer>,
   sectionId: string,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  strokeLengthSinceBreak: React.RefObject<number>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   eraserBrushSize: number,
@@ -85,6 +86,7 @@ export function useDrawModeMouseHandlers(
     onMouseDown = drawingOnMouseDown(
       layers,
       strokeRef,
+      strokeLengthSinceBreak,
       eraserStrokeRef,
       eraserBrushSize,
       brushShape,
@@ -101,6 +103,7 @@ export function useDrawModeMouseHandlers(
       sectionId,
       layers,
       strokeRef,
+      strokeLengthSinceBreak,
       eraserStrokeRef,
       prevPointRef,
       isDrawing,
@@ -185,6 +188,7 @@ export function useDrawModeMouseHandlers(
 function drawingOnMouseDown(
   layers: Array<DrawAreaLayer>,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  strokeLengthSinceBreak: React.RefObject<number>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   eraserBrushSize: number,
   brushShape: DrawAreaBrushShape,
@@ -221,6 +225,7 @@ function drawingOnMouseDown(
       );
     } else {
       strokeRef.current = startNewStroke(draftCanvasRef, point);
+      strokeLengthSinceBreak.current = 1;
     }
     prevPointRef.current = point;
   };
@@ -230,6 +235,7 @@ function drawingOnMouseMove(
   sectionId: string,
   layers: Array<DrawAreaLayer>,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
+  strokeLengthSinceBreak: React.RefObject<number>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   prevPointRef: React.RefObject<CanvasPoint | null>,
   isDrawingRef: React.RefObject<boolean>,
@@ -269,29 +275,16 @@ function drawingOnMouseMove(
       draftCanvasRef.current &&
       strokeRef.current
     ) {
-      if (strokeRef.current.value.points.length >= canvasTransferQueueLength) {
-        const [layer, layerCanvas] = getActiveLayerAndCanvas(
-          layers,
-          layerCanvasRefs,
-          activeLayerIdx,
-        );
-        if (!layer || !layerCanvas) {
-          return;
-        }
-        addNewBrushStrokeToGlobalStateAndDrawLayer(
-          sectionId,
-          activeLayerIdx,
-          strokeRef.current,
-          layerCanvas,
-          tempCanvasRefs,
-          draftCanvasRef.current,
-        );
-        strokeRef.current = startNewStroke(draftCanvasRef, point);
+      if (strokeLengthSinceBreak.current >= canvasTransferQueueLength) {
+        strokeRef.current.value.points.push("BREAK");
+        strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
+        strokeLengthSinceBreak.current = 1;
       } else if (prevPointRef.current) {
         drawStroke(draftCanvasRef.current, prevPointRef.current, point);
         strokeRef.current.value.points.push(point);
         prevPointRef.current = point;
+        strokeLengthSinceBreak.current += 1;
       }
     }
   };

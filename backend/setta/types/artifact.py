@@ -55,7 +55,7 @@ class BrushStroke(BaseModel):
     strokeStyle: str
     lineWidth: float
     lineCap: DrawAreaBrushShape
-    points: list[CanvasPoint] = Field(default_factory=list)
+    points: list[CanvasPoint | Literal["BREAK"]] = Field(default_factory=list)
     globalCompositeOperation: Literal[
         "color",
         "color-burn",

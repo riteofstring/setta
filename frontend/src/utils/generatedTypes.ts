@@ -594,7 +594,9 @@ export const BrushStrokeSchema = z.object({
   strokeStyle: z.string(),
   lineWidth: z.number(),
   lineCap: z.enum(DrawAreaBrushShapeEnum),
-  points: z.array(z.tuple([z.number(), z.number()])).default([]),
+  points: z
+    .array(z.union([z.tuple([z.number(), z.number()]), z.literal("BREAK")]))
+    .default([]),
   globalCompositeOperation: z
     .literal([
       "color",
@@ -692,7 +694,9 @@ export const BrushStrokeWithTransformSchema = z.object({
   strokeStyle: z.string(),
   lineWidth: z.number(),
   lineCap: z.enum(DrawAreaBrushShapeEnum),
-  points: z.array(z.tuple([z.number(), z.number()])).default([]),
+  points: z
+    .array(z.union([z.tuple([z.number(), z.number()]), z.literal("BREAK")]))
+    .default([]),
   globalCompositeOperation: z
     .literal([
       "color",
