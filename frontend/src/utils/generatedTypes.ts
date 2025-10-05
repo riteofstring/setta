@@ -1511,7 +1511,6 @@ export const AllImplFieldsSchema = z.literal([
   "brushSize",
   "callable",
   "canvasMode",
-  "canvasTransferQueueLength",
   "chartSettings",
   "children",
   "choices",
@@ -1647,7 +1646,6 @@ export const CoreSchema = z.object({
         "brushSize",
         "callable",
         "canvasMode",
-        "canvasTransferQueueLength",
         "chartSettings",
         "children",
         "choices",
@@ -2038,7 +2036,6 @@ export const DrawSectionImplSchema = z.object({
   brushOpacity: z.number().default(1),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
-  canvasTransferQueueLength: z.int().default(50),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
   colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
@@ -2853,7 +2850,6 @@ export const DrawSectionImplArgsSchema = z.object({
   brushOpacity: z.number().optional(),
   eraserBrushSize: z.int().optional(),
   drawThrottleDelay: z.int().optional(),
-  canvasTransferQueueLength: z.int().optional(),
   canvasMode: z.enum(DrawAreaModeEnum).optional(),
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
 });
@@ -4793,7 +4789,6 @@ export const UserDefaultDrawSectionImplSchema = z.object({
   brushOpacity: z.number().default(1),
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
-  canvasTransferQueueLength: z.int().default(50),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
   colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
@@ -6305,7 +6300,6 @@ export const DrawSectionImplArgsWithCallableSchema = z.object({
   brushOpacity: z.union([z.number(), z.any()]).optional(),
   eraserBrushSize: z.union([z.int(), z.any()]).optional(),
   drawThrottleDelay: z.union([z.int(), z.any()]).optional(),
-  canvasTransferQueueLength: z.union([z.int(), z.any()]).optional(),
   canvasMode: z.union([z.enum(DrawAreaModeEnum), z.any()]).optional(),
   colorChoices: z.union([z.array(ColorPickerChoiceSchema), z.any()]).optional(),
 });
@@ -6758,7 +6752,6 @@ export const CoreArgsSchema = z.object({
         "brushSize",
         "callable",
         "canvasMode",
-        "canvasTransferQueueLength",
         "chartSettings",
         "children",
         "choices",

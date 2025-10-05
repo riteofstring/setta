@@ -41,7 +41,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     brushOpacity,
     eraserBrushSize,
     drawThrottleDelay,
-    canvasTransferQueueLength,
     canvasMode,
     layerOpacity,
   } = useProjectState((x) => {
@@ -61,7 +60,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       brushOpacity: impl.brushOpacity,
       eraserBrushSize: impl.eraserBrushSize,
       drawThrottleDelay: impl.drawThrottleDelay,
-      canvasTransferQueueLength: impl.canvasTransferQueueLength,
       canvasMode: impl.canvasMode,
       layerOpacity: activeLayer?.layerOpacity ?? 0,
     };
@@ -74,7 +72,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     artifact: null,
   });
   const strokeRef = useRef<BrushStrokeArtifact>(null);
-  const strokeLengthSinceBreak = useRef(0);
   const eraserStrokeRef = useRef<BrushStroke>(null); // store in here until mouseup, then compute collisions with artifacts and store in localArtifactTransformsRef
   const localArtifactTransformsRef = useRef<DrawAreaTransform>([
     1, 0, 0, 1, 0, 0,
@@ -165,7 +162,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       layers,
       sectionId,
       strokeRef,
-      strokeLengthSinceBreak,
       eraserStrokeRef,
       prevPointRef,
       eraserBrushSize,
@@ -181,7 +177,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       layerCanvasRefs,
       tempCanvasRefs,
       draftCanvasRef,
-      canvasTransferQueueLength,
       activeLayerIdx,
       localArtifactTransformsRef,
       canvasMode,

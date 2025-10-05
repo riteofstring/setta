@@ -11,7 +11,6 @@ AllImplFields = Literal[
     "brushSize",
     "callable",
     "canvasMode",
-    "canvasTransferQueueLength",
     "chartSettings",
     "children",
     "choices",

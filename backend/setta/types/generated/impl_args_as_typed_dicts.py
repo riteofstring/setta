@@ -51,7 +51,6 @@ class CoreArgs(TypedDict):
                 "brushSize",
                 "callable",
                 "canvasMode",
-                "canvasTransferQueueLength",
                 "chartSettings",
                 "children",
                 "choices",
@@ -353,7 +352,6 @@ class DrawSectionImplArgs(BaseCanvasSectionImplArgs):
     brushOpacity: NotRequired[float]
     eraserBrushSize: NotRequired[int]
     drawThrottleDelay: NotRequired[int]
-    canvasTransferQueueLength: NotRequired[int]
     canvasMode: NotRequired[DrawAreaMode]
     colorChoices: NotRequired[list[ColorPickerChoice]]
 
@@ -375,7 +373,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
     brushOpacity: NotRequired[float | Callable[[float], float]]
     eraserBrushSize: NotRequired[int | Callable[[int], int]]
     drawThrottleDelay: NotRequired[int | Callable[[int], int]]
-    canvasTransferQueueLength: NotRequired[int | Callable[[int], int]]
     canvasMode: NotRequired[DrawAreaMode | Callable[[DrawAreaMode], DrawAreaMode]]
     colorChoices: NotRequired[
         list[ColorPickerChoice]

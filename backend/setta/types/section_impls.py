@@ -199,7 +199,6 @@ class DrawSectionImpl(BaseCanvasSectionImpl):
     brushOpacity: float = 1
     eraserBrushSize: int = 16
     drawThrottleDelay: int = 0
-    canvasTransferQueueLength: int = 50
     canvasMode: DrawAreaMode = DrawAreaMode.draw
     colorChoices: list[ColorPickerChoice] = Field(default_factory=list)
 
