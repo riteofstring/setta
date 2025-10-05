@@ -128,7 +128,6 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
 
 async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
   const res = await route_load_cached_draw_area_layer_item_transform({ paths });
-  console.log("loadCachedDrawAreaLayerItemTransforms", res)
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const newData = { ...state.x };
@@ -213,8 +212,6 @@ export function useLoadedDrawAreaData(sectionId: string) {
     },
     _.isEqual,
   );
-
-  console.log("transformsToLoad", transformsToLoad)
 
   useEffect(() => {
     const rawImages = useImages.getState().x;
