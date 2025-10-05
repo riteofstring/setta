@@ -7,11 +7,21 @@ export const getBrushStrokesBounds = (strokes, artifactTransform) => {
     maxX = -Infinity,
     minY = Infinity,
     maxY = -Infinity;
-  for (const stroke of strokes) {
-    const combinedTransform = getCombinedTransformForStroke(
-      artifactTransform,
-      stroke.transform,
-    );
+  const strokesToProcess = Array.isArray(strokes)
+    ? strokes
+    : Array.isArray(strokes?.value)
+      ? strokes.value
+      : strokes?.value
+        ? [strokes.value]
+        : [strokes].filter(Boolean);
+  for (const stroke of strokesToProcess) {
+    if (!stroke || !stroke.points) {
+      continue;
+    }
+    const combinedTransform =
+      stroke.transform && Array.isArray(stroke.transform)
+        ? getCombinedTransformForStroke(artifactTransform, stroke.transform)
+        : artifactTransform;
     for (const point of getTransformedPoints(
       stroke.points,
       combinedTransform,

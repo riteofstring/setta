@@ -439,7 +439,7 @@ function drawingOnMouseUp(
             const brushStroke = brushStrokes[el.dataPath];
             if (brushStroke) {
               bounds = getBrushStrokesBounds(
-                brushStroke,
+                brushStroke.value,
                 artifact.value.transform,
               );
             }
