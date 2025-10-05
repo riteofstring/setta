@@ -14,7 +14,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
-import { useLocalPendingValue } from "state/hooks/utils";
 import {
   DrawAreaBrushShape,
   DrawAreaBrushShapeEnum,
@@ -147,7 +146,7 @@ function DrawAreaColorPicker({
     return impl.colorChoices;
   }, _.isEqual);
 
-  const [localValue, setLocalValue] = useLocalPendingValue(brushColor);
+  const [localValue, setLocalValue] = useState(brushColor);
 
   const debouncedSetBrushColor = useCallback(
     _.debounce((v) => {
@@ -184,11 +183,11 @@ function DrawAreaSetToDrawModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.draw,
-      }),
-    );
+      });
+    });
   }
 
   return (
@@ -214,27 +213,27 @@ function BrushSettings({ sectionId, opacity, brushSize, brushShape }) {
   }, [brushSize]);
 
   function setBrushOpacity(v: number) {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushOpacity: v,
-      }),
-    );
+      });
+    });
   }
 
   function setBrushSize(v: number) {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushSize: v,
-      }),
-    );
+      });
+    });
   }
 
   function setBrushShape(v: DrawAreaBrushShape) {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         brushShape: v,
-      }),
-    );
+      });
+    });
   }
 
   const sliderRootClassName =
@@ -311,11 +310,11 @@ function DrawAreaSetToEraserModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.erase,
-      }),
-    );
+      });
+    });
   }
 
   return (
@@ -336,11 +335,11 @@ function EraserSettings({ sectionId, eraserBrushSize }) {
   }, [eraserBrushSize]);
 
   function setBrushSize(v: number) {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         eraserBrushSize: v,
-      }),
-    );
+      });
+    });
   }
 
   const sliderRootClassName =
@@ -383,11 +382,11 @@ function DrawAreaSetToEditModeButton({
   canvasMode: DrawAreaMode;
 }) {
   function onClick() {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         canvasMode: DrawAreaModeEnum.edit,
-      }),
-    );
+      });
+    });
   }
 
   return (
@@ -408,7 +407,7 @@ function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   }, [opacity]);
 
   function setOpacity(v: number) {
-    useProjectState.setState((x) =>
+    useProjectState.setState((x) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
         layers: (currLayers) => {
           if (currLayers[activeLayerIdx]) {
@@ -416,8 +415,8 @@ function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
           }
           return currLayers;
         },
-      }),
-    );
+      });
+    });
   }
 
   const sliderRootClassName =
