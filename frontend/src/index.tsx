@@ -8,7 +8,7 @@ import { App } from "./App";
 import "./index.css";
 
 scan({
-  enabled: false,
+  enabled: true,
 });
 
 subscribe();
