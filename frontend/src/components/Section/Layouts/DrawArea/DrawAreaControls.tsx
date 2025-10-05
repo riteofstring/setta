@@ -3,7 +3,7 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
@@ -14,6 +14,7 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
+import { useLocalPendingValue } from "state/hooks/utils";
 import {
   DrawAreaBrushShape,
   DrawAreaBrushShapeEnum,
@@ -146,19 +147,29 @@ function DrawAreaColorPicker({
     return impl.colorChoices;
   }, _.isEqual);
 
-  function setBrushColor(v: string) {
-    useProjectState.setState((x) =>
-      setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
-        brushColor: v,
-      }),
-    );
+  const [localValue, setLocalValue] = useLocalPendingValue(brushColor);
+
+  const debouncedSetBrushColor = useCallback(
+    _.debounce((v) => {
+      useProjectState.setState((x) => {
+        setCurrEffectiveSectionImplValue<"DrawSection">(x, sectionId, {
+          brushColor: v,
+        });
+      });
+    }, 200),
+    [sectionId],
+  );
+
+  function onChange(v: string) {
+    setLocalValue(v);
+    debouncedSetBrushColor(v);
   }
 
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
-      value={brushColor}
-      onChange={setBrushColor}
+      value={localValue}
+      onChange={onChange}
       colorPickerChoicesClasses="inline-flex cursor-pointer items-center overflow-hidden rounded-lg single-cell-container h-8 min-h-0 w-full min-w-0 max-w-24 items-center text-white"
       wrapperClassName="single-cell-container justify-self-start self-center min-w-8 max-w-48 h-full"
     />
