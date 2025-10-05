@@ -17,6 +17,7 @@ import {
   DrawAreaTransform,
 } from "utils/generatedTypes";
 import {
+  addNewBrushStrokeToGlobalStateAndDrawLayer,
   drawOneLayer,
   drawStroke,
   getActiveLayerAndCanvas,
@@ -24,7 +25,6 @@ import {
   getXY,
   RESIZE_HANDLE_SIZE,
   setGlobalArtifactTransformsAndDrawAllLayers,
-  setGlobalBrushStrokeAndDrawLayer,
   startNewEraserStroke,
   startNewStroke,
 } from "./canvasUtils";
@@ -98,6 +98,7 @@ export function useDrawModeMouseHandlers(
     );
 
     onMouseMove = drawingOnMouseMove(
+      sectionId,
       layers,
       strokeRef,
       eraserStrokeRef,
@@ -112,6 +113,7 @@ export function useDrawModeMouseHandlers(
     );
 
     onMouseUp = drawingOnMouseUp(
+      sectionId,
       layers,
       eraserStrokeRef,
       isDrawing,
@@ -225,6 +227,7 @@ function drawingOnMouseDown(
 }
 
 function drawingOnMouseMove(
+  sectionId: string,
   layers: Array<DrawAreaLayer>,
   strokeRef: React.RefObject<BrushStrokeArtifact | null>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
@@ -275,8 +278,9 @@ function drawingOnMouseMove(
         if (!layer || !layerCanvas) {
           return;
         }
-        setGlobalBrushStrokeAndDrawLayer(
-          layer,
+        addNewBrushStrokeToGlobalStateAndDrawLayer(
+          sectionId,
+          activeLayerIdx,
           strokeRef.current,
           layerCanvas,
           tempCanvasRefs,
@@ -294,6 +298,7 @@ function drawingOnMouseMove(
 }
 
 function drawingOnMouseUp(
+  sectionId: string,
   layers: Array<DrawAreaLayer>,
   eraserStrokeRef: React.RefObject<BrushStroke | null>,
   isDrawingRef: React.RefObject<boolean>,
@@ -373,8 +378,9 @@ function drawingOnMouseUp(
       if (!strokeRef.current || !draftCanvasRef.current) {
         return;
       }
-      setGlobalBrushStrokeAndDrawLayer(
-        layer,
+      addNewBrushStrokeToGlobalStateAndDrawLayer(
+        sectionId,
+        activeLayerIdx,
         strokeRef.current,
         layerCanvas,
         tempCanvasRefs,

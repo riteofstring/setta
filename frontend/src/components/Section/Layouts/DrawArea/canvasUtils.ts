@@ -1,5 +1,9 @@
 import _ from "lodash";
 import {
+  getCurrEffectiveSectionImplOfType,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
+import {
   useBrushStrokes,
   useDecodedImages,
   useDrawAreaLayerItemTransform,
@@ -14,12 +18,18 @@ import {
   CanvasPoint,
   createBrushStroke,
   createBrushStrokeArtifact,
+  createDrawAreaLayerItem,
+  createDrawAreaLayerItemTransform,
+  createDrawAreaLayerItemTransformArtifact,
   DrawAreaBrushShape,
   DrawAreaLayer,
+  DrawAreaLayerItem,
   DrawAreaLayerItemTransformArtifact,
   DrawAreaTransform,
   SectionSize,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
+import { updateArrayAt } from "utils/utils";
 import {
   LayerCanvasesType,
   ResizeHandleCorners,
@@ -126,8 +136,33 @@ function getCtx(canvas: HTMLCanvasElement) {
   return canvas.getContext("2d");
 }
 
-export function setGlobalBrushStrokeAndDrawLayer(
-  layer: DrawAreaLayer,
+function addDrawAreaLayerItem(
+  sectionId: string,
+  layerIdx: number,
+  layerItem: DrawAreaLayerItem,
+) {
+  useProjectState.setState((state) => {
+    setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+      layers: (currLayers) => {
+        const target = currLayers[layerIdx];
+        if (!target) {
+          return currLayers;
+        }
+        target.elements.push(layerItem);
+        return updateArrayAt(currLayers, layerIdx, target);
+      },
+    });
+  });
+  return getCurrEffectiveSectionImplOfType(
+    useProjectState.getState(),
+    sectionId,
+    SectionTypeEnum.Draw,
+  ).layers[layerIdx];
+}
+
+export function addNewBrushStrokeToGlobalStateAndDrawLayer(
+  sectionId: string,
+  layerIdx: number,
   stroke: BrushStrokeArtifact,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
@@ -140,7 +175,29 @@ export function setGlobalBrushStrokeAndDrawLayer(
     },
   }));
 
-  drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
+  const newTransform = createDrawAreaLayerItemTransform({});
+  const newTransformArtifact = createDrawAreaLayerItemTransformArtifact({
+    value: newTransform,
+  });
+  useDrawAreaLayerItemTransform.setState((state) => ({
+    x: { ...state.x, [newTransformArtifact.id]: newTransformArtifact },
+  }));
+
+  const updatedLayer = addDrawAreaLayerItem(
+    sectionId,
+    layerIdx,
+    createDrawAreaLayerItem({
+      type: ArtifactTypeEnum.BrushStroke,
+      dataPath: stroke.id,
+      transformId: newTransformArtifact.id,
+    }),
+  );
+  if (updatedLayer) {
+    drawOneLayer(updatedLayer, layerCanvas, tempCanvasRefs, [], null, null);
+  } else {
+    console.error("updatedLayer is undefined. This shouldn't happen");
+  }
+
   clearCanvas(draftCanvas);
 }
 
@@ -233,7 +290,11 @@ export function drawOneLayer(
   const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
+  // console.log("drawOneLayer brushStrokes", brushStrokes);
+  console.log("drawOneLayer layer.elements", layer.elements);
+
   for (const [idx, e] of layer.elements.entries()) {
+    // console.log("drawOneLayer e", e);
     artifactTempCtx.globalAlpha = 1;
     artifactTempCtx.globalCompositeOperation = "source-over";
 
@@ -268,8 +329,10 @@ export function drawOneLayer(
       e.dataPath in brushStrokes
     ) {
       const artifact = brushStrokes[e.dataPath];
+      // console.log("drawOneLayer brush stroke artifact", artifact);
       if (artifact && artifact.value.points.length > 0) {
         const tArtifact = realTimeTransforms[idx] ?? transforms[e.transformId];
+        // console.log("drawOneLayer tArtifact", tArtifact);
         if (!tArtifact) {
           continue;
         }
@@ -368,6 +431,7 @@ function drawStrokeOntoTempCanvas(
   stroke: BrushStroke,
   transform: DrawAreaTransform | null,
 ) {
+  console.log("drawStrokeOntoTempCanvas", stroke);
   if (transform) {
     ctx.setTransform(...transform);
   }

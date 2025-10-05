@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useRef } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { useLoadedDrawAreaData } from "state/hooks/artifacts";
 import {
   BrushStroke,
   BrushStrokeArtifact,
@@ -13,11 +12,11 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
+  addNewBrushStrokeToGlobalStateAndDrawLayer,
   drawAllLayers,
   getActiveLayerAndCanvas,
   setCanvasSize,
   setDraftCanvasProperties,
-  setGlobalBrushStrokeAndDrawLayer,
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
@@ -29,8 +28,8 @@ import {
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
-  const { brushStrokes } = useLoadedDrawAreaData(sectionId);
-  console.log("DrawArea brushStrokes", brushStrokes);
+  // const { brushStrokes, transforms } = useLoadedDrawAreaData(sectionId);
+  // console.log("DrawArea brushStrokes", brushStrokes, transforms);
 
   const {
     layers,
@@ -201,8 +200,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       return;
     }
     strokeRef.current.value.points = [];
-    setGlobalBrushStrokeAndDrawLayer(
-      layer,
+    addNewBrushStrokeToGlobalStateAndDrawLayer(
+      sectionId,
+      activeLayerIdx,
       strokeRef.current,
       layerCanvas,
       tempCanvasRefs,

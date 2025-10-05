@@ -561,7 +561,6 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         sectionId = create_top_level_section(
             self.settings_file.settings,
-            self.artifacts,
             project_state,
             x.implType,
             x.position,
@@ -576,7 +575,6 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections(
             self.settings_file.settings,
-            self.artifacts,
             project_state,
             x.parentId,
             x.implType,
@@ -593,7 +591,6 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         create_child_sections_via_incrementer(
             self.settings_file.settings,
-            self.artifacts,
             project_state,
             x.calledBy,
             x.implType,
@@ -607,7 +604,6 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(projectConfigId)
         create_top_level_section(
             self.settings_file.settings,
-            self.artifacts,
             project_state,
             SectionType.Terminal,
             Position(),
@@ -908,7 +904,7 @@ class BaseProjectManager(ABC):
     async def group_sections(self, x: GroupSectionsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         success = group_sections(
-            self.settings_file.settings, self.artifacts, project_state, x.sectionIds
+            self.settings_file.settings, project_state, x.sectionIds
         )
         if not success:
             notification = SettaNotification(

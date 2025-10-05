@@ -4,16 +4,9 @@ import re
 from typing import TYPE_CHECKING, assert_never
 
 from setta.database.utils import create_new_id
-from setta.project_state.artifacts import Artifacts
 from setta.types.artifact import (
-    ArtifactType,
-    BrushStroke,
-    BrushStrokeArtifact,
     ChartType,
     DrawAreaLayer,
-    DrawAreaLayerItem,
-    DrawAreaLayerItemTransform,
-    DrawAreaLayerItemTransformArtifact,
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
@@ -326,7 +319,6 @@ def set_project_config_name(
 
 def create_section(
     settings: SettingsState,
-    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
@@ -346,7 +338,7 @@ def create_section(
         default_core_args.update(core_overrides)
     core = Core(**default_core_args)
     if isinstance(impl, DrawSectionImpl):
-        init_draw_section_layer(impl, artifacts)
+        init_draw_section_layer(impl)
 
     p.projectConfig.sectionVariantMap[core.id] = variant.id
     p.sections[core.id] = core
@@ -356,38 +348,20 @@ def create_section(
     return core.id
 
 
-def init_draw_section_layer(impl: DrawSectionImpl, artifacts: Artifacts):
-    transform = DrawAreaLayerItemTransform()
-    transformArtifact = DrawAreaLayerItemTransformArtifact(value=transform)
-    brushStroke = BrushStroke(
-        strokeStyle=hex_to_rgba(impl.brushColor, impl.brushOpacity),
-        lineWidth=impl.brushSize,
-        lineCap=impl.brushShape,
-    )
-    brushStrokeArtifact = BrushStrokeArtifact(value=brushStroke)
-    layerItem = DrawAreaLayerItem(
-        type=ArtifactType.BrushStroke,
-        dataPath=brushStrokeArtifact.id,
-        transformId=transformArtifact.id,
-    )
-    layer = DrawAreaLayer(elements=[layerItem])
-    artifacts.add_artifact(transformArtifact)
-    artifacts.add_artifact(brushStrokeArtifact)
+def init_draw_section_layer(impl: DrawSectionImpl):
+    layer = DrawAreaLayer(elements=[])
     impl.layers = [layer]
 
 
 def create_top_level_section(
     settings: SettingsState,
-    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     impl_type: SectionType,
     position: Position,
     impl_overrides: BaseSectionImplArgsUnion | None = None,
     core_overrides: CoreArgs | None = None,
 ):
-    sectionId = create_section(
-        settings, artifacts, p, impl_type, impl_overrides, core_overrides
-    )
+    sectionId = create_section(settings, p, impl_type, impl_overrides, core_overrides)
     p.projectConfig.topLevelSections[sectionId] = TopLevelSectionLayout(
         **position.model_dump()
     )
@@ -396,7 +370,6 @@ def create_top_level_section(
 
 def create_child_sections(
     settings: SettingsState,
-    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     parentId: str,
     impl_type: SectionType,
@@ -408,7 +381,7 @@ def create_child_sections(
     )
     size = SectionSize(width=effectiveImpl.size.width)
     newIds = [
-        create_section(settings, artifacts, p, impl_type, {"size": size})
+        create_section(settings, p, impl_type, {"size": size})
         for _ in range(numChildren)
     ]
     if startIdx is None:
@@ -429,7 +402,6 @@ def create_child_sections(
 
 def create_child_sections_via_incrementer(
     settings: SettingsState,
-    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     calledBy: str,
     impl_type: SectionType,
@@ -447,9 +419,7 @@ def create_child_sections_via_incrementer(
             p, parentId, BaseParentSectionImpl
         )
         startIdx = parentImpl.children.index(calledBy) + 1
-    create_child_sections(
-        settings, artifacts, p, parentId, impl_type, numChildren, startIdx
-    )
+    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[str]):
@@ -1145,7 +1115,6 @@ def move_section_to_parent_section(
 
 def group_sections(
     settings: SettingsState,
-    artifacts: Artifacts,
     p: "ProjectStateSingleConfig",
     sectionIds: list[str],
 ):
@@ -1162,14 +1131,14 @@ def group_sections(
         x = min(p.projectConfig.topLevelSections[s].x for s in sectionIds)
         y = min(p.projectConfig.topLevelSections[s].y for s in sectionIds)
         groupId = create_top_level_section(
-            settings, artifacts, p, SectionType.Group, Position(x=x, y=y)
+            settings, p, SectionType.Group, Position(x=x, y=y)
         )
     else:
         # create group in parent, at index min(idx)
         children = get_curr_section_children_ids(p, parentId)
         idx = min(children.index(s) for s in sectionIds)
         groupId = create_child_sections(
-            settings, artifacts, p, parentId, SectionType.Group, 1, idx
+            settings, p, parentId, SectionType.Group, 1, idx
         )
         groupId = groupId[0]
 
