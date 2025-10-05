@@ -54,7 +54,7 @@ export function setDraftCanvasProperties(
     return;
   }
   dCtx.globalCompositeOperation = "source-over";
-  dCtx.strokeStyle = hexToRGBAString(brushColor, brushOpacity);
+  dCtx.strokeStyle = hexToRGBA(brushColor, brushOpacity);
   dCtx.lineWidth = brushSize;
   dCtx.lineCap = brushShape;
   dCtx.globalAlpha = layerOpacity;
@@ -522,23 +522,14 @@ export function getInverseTransform(
   ];
 }
 
-export function hexToRgb(hex) {
+function hexToRGBA(_hex: string, opacity: number) {
   // Remove # if present
-  hex = hex.replace("#", "");
+  const hex = _hex.replace("#", "");
 
   // Parse r, g, b values
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
-
-  return { r, g, b };
-}
-
-function hexToRGBAString(_hex: string, opacity: number) {
-  // Remove # if present
-  const hex = _hex.replace("#", "");
-
-  const { r, g, b } = hexToRgb(hex);
 
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
