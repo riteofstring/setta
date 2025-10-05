@@ -434,7 +434,6 @@ function drawStrokeOntoTempCanvas(
   if (transform) {
     ctx.setTransform(...transform);
   }
-  ctx.beginPath();
   ctx.globalCompositeOperation = stroke.globalCompositeOperation;
   ctx.strokeStyle = stroke.strokeStyle;
   ctx.globalAlpha = 1;
