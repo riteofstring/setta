@@ -235,12 +235,24 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     }
   });
 
-  const resizeHandles =
-    resizeHandleCorners.current && activeLayerIdx !== undefined
-      ? { [activeLayerIdx]: resizeHandleCorners.current }
-      : {};
+  const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+  if (!layerCanvas) {
+    return;
+  }
 
-  drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs, {}, resizeHandles);
+  const activeResizeHandles =
+    resizeHandleCorners.current && activeLayerIdx !== undefined
+      ? resizeHandleCorners.current
+      : null;
+
+  drawOneLayer(
+    activeLayer,
+    layerCanvas,
+    tempCanvasRefs,
+    [],
+    activeResizeHandles,
+    null,
+  );
 }
 
 export function drawAllLayers(

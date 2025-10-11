@@ -18,7 +18,6 @@ import {
 } from "utils/generatedTypes";
 import {
   addNewBrushStrokeToGlobalStateAndDrawLayer,
-  drawAllLayers,
   drawOneLayer,
   drawStroke,
   getActiveLayerAndCanvas,
@@ -95,34 +94,41 @@ export function useDrawModeMouseHandlers(
       return;
     }
 
-    const transformsMap =
-      activeLayer &&
+    if (!activeLayer) {
+      return;
+    }
+
+    const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
+    if (!layerCanvas) {
+      return;
+    }
+
+    const transforms =
       localArtifactTransformsRef.current.length === activeLayer.elements.length
-        ? {
-            [activeLayerIdx]: localArtifactTransformsRef.current.map(
-              (local): DrawAreaLayerItemTransformArtifact => ({
-                type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
-                id: local.transformId,
-                value: {
-                  transform: local.transform,
-                  eraserStrokes: local.eraserStrokes,
-                },
-              }),
-            ),
-          }
-        : {};
+        ? localArtifactTransformsRef.current.map(
+            (local): DrawAreaLayerItemTransformArtifact => ({
+              type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
+              id: local.transformId,
+              value: {
+                transform: local.transform,
+                eraserStrokes: local.eraserStrokes,
+              },
+            }),
+          )
+        : [];
 
     const handles =
       selectedIdx.current !== null && resizeHandleCorners.current
-        ? { [activeLayerIdx]: resizeHandleCorners.current }
-        : {};
+        ? resizeHandleCorners.current
+        : null;
 
-    drawAllLayers(
-      layers,
-      layerCanvasRefs,
+    drawOneLayer(
+      activeLayer,
+      layerCanvas,
       tempCanvasRefs,
-      transformsMap,
+      transforms,
       handles,
+      null,
     );
   };
 
