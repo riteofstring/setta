@@ -1707,6 +1707,7 @@ export const CoreSchema = z.object({
       "codeObjVariantMap" as const,
       "topLevelParamId" as const,
       "value" as const,
+      "layers" as const,
     ]),
 });
 
