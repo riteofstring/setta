@@ -31,16 +31,16 @@ import {
 } from "utils/generatedTypes";
 import { updateArrayAt } from "utils/utils";
 import {
+  getIdentityTransform,
+  invertTransform as invertAffineTransform,
+  multiplyTransforms,
+} from "./transformUtils";
+import {
   LayerCanvasesType,
   LocalLayerItemState,
   ResizeHandleCorners,
   TempCanvasesType,
 } from "./types";
-import {
-  getIdentityTransform,
-  invertTransform as invertAffineTransform,
-  multiplyTransforms,
-} from "./transformUtils";
 
 export const RESIZE_HANDLE_SIZE = 16;
 

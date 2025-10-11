@@ -6,7 +6,10 @@ import type {
 } from "utils/generatedTypes";
 import { getCombinedTransformForStroke } from "./canvasUtils";
 import { getTransformedPoints, isPointOnStroke } from "./lowLevelStrokeUtils";
-import { applyTransformToPoint, applyTransformToVector } from "./transformUtils";
+import {
+  applyTransformToPoint,
+  applyTransformToVector,
+} from "./transformUtils";
 import type { ResizeHandle, ResizeHandleCorners } from "./types";
 
 type Bounds = {
@@ -79,11 +82,14 @@ export const getBrushStrokesBounds = (
       ? getCombinedTransformForStroke(artifactTransform, stroke.transform)
       : artifactTransform;
 
-    const numericPoints = stroke.points.filter(
-      (p): p is [number, number] => Array.isArray(p),
+    const numericPoints = stroke.points.filter((p): p is [number, number] =>
+      Array.isArray(p),
     );
 
-    for (const point of getTransformedPoints(numericPoints, combinedTransform)) {
+    for (const point of getTransformedPoints(
+      numericPoints,
+      combinedTransform,
+    )) {
       bounds.minX = Math.min(bounds.minX, point[0]);
       bounds.minY = Math.min(bounds.minY, point[1]);
       bounds.maxX = Math.max(bounds.maxX, point[0]);
