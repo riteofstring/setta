@@ -20,6 +20,7 @@ class DBE:
         self.notifications = self.path / "notifications.json"
         self.settings = self.path / "setta-settings.json"
         self.settings_project = self.path / "setta-settings-project.json"
+        self.chats = self.path / "chats"
         self.path.mkdir(parents=True, exist_ok=True)
 
     def get_file_lock(self, path):
@@ -132,3 +133,27 @@ class DBE:
 
     def write_settings_project(self, settings_project: ProjectStateSingleConfig):
         self.write_json(self.settings_project, settings_project.model_dump())
+
+    def chat_path(self, chat_id: str) -> Path:
+        return self.chats / f"{chat_id}.json"
+
+    def read_chat(self, chat_id: str) -> dict | None:
+        path = self.chat_path(chat_id)
+        if not path.exists():
+            return None
+        return self.read_json(path)
+
+    def write_chat(self, chat_id: str, data: Any):
+        self.write_json(self.chat_path(chat_id), data)
+
+    def list_chat_paths(self) -> list[Path]:
+        if not self.chats.exists():
+            return []
+        return sorted(self.chats.glob("*.json"))
+
+    def delete_chat_file(self, chat_id: str):
+        path = self.chat_path(chat_id)
+        lock = self.get_file_lock(path)
+        with lock:
+            if path.exists():
+                path.unlink()

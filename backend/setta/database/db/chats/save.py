@@ -1,70 +1,70 @@
+from __future__ import annotations
+
 from anthropic.types import TextBlock
 
+from setta.database.db.chats.load import load_chat
+from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
+from setta.utils.timestamps import get_now_timestamp
 
 
-def create_new_chat_name(first_message: ChatMessage):
+def create_new_chat_name(first_message: ChatMessage) -> str:
     name = None
-    for c in first_message.content:
-        if isinstance(c, TextBlock):
-            name = c.text[:30]
+    for content_block in first_message.content:
+        if isinstance(content_block, TextBlock):
+            name = content_block.text[:30]
             break
     if not name:
         name = generate_memorable_string()
     return name
 
 
-def create_new_chat(db, first_message: ChatMessage):
-    chat_id = create_new_id()
-    name = create_new_chat_name(first_message)
-    chat = Chat(id=chat_id, name=name, messages=[first_message])
-
-    chat_msg_db_element = ChatMessageTable()
-    chat_msg_db_element.id = first_message.id
-    chat_msg_db_element.order = 0
-    chat_msg_db_element.role = first_message.role
-    chat_msg_db_element.content = [c.model_dump() for c in first_message.content]
-
-    chat_db_element = ChatTable()
-    chat_db_element.id = chat.id
-    chat_db_element.name = chat.name
-    chat_db_element.messages = [chat_msg_db_element]
-    db.add(chat_db_element)
-
+def _persist_chat(dbe: DBE, chat: Chat) -> Chat:
+    dbe.write_chat(chat.id, chat.model_dump(mode="json"))
     return chat
 
 
-def delete_chat(db, chat_id: str):
-    stmt = delete(ChatTable).where(ChatTable.id == chat_id)
-    db.execute(stmt)
+def _copy_message(message: ChatMessage) -> ChatMessage:
+    return ChatMessage.model_validate(message.model_dump(mode="json"))
 
 
-def save_messages(db, chat_id: str, messages: list[ChatMessage]):
-    stmt = select(func.max(ChatMessageTable.order)).where(
-        ChatMessageTable.chatId == chat_id
+def _copy_messages(messages: list[ChatMessage]) -> list[ChatMessage]:
+    return [_copy_message(message) for message in messages]
+
+
+def create_new_chat(dbe: DBE, first_message: ChatMessage) -> Chat:
+    chat_id = create_new_id()
+    name = create_new_chat_name(first_message)
+    chat = Chat(
+        id=chat_id,
+        name=name,
+        messages=_copy_messages([first_message]),
+        lastUpdated=get_now_timestamp(),
     )
-    max_order = db.scalar(stmt)
+    return _persist_chat(dbe, chat)
 
-    # If there are no existing messages, max_order would be None
-    if max_order is None:
-        max_order = -1
 
-    # Prepare the message objects
-    cmt_list: list[dict] = []
-    for idx, m in enumerate(messages):
-        cmt = ChatMessageTable()
-        cmt.id = m.id
-        cmt.chatId = chat_id
-        cmt.order = max_order + 1 + idx
-        cmt.role = m.role
-        cmt.content = [c.model_dump() for c in m.content]
-        cmt_list.append(cmt.to_dict())
+def delete_chat(dbe: DBE, chat_id: str) -> None:
+    dbe.delete_chat_file(chat_id)
 
-    stmt = (
-        insert(ChatMessageTable)
-        .values(cmt_list)
-        .on_conflict_do_nothing(index_elements=["id"])
-    )
-    db.execute(stmt)
+
+def save_messages(dbe: DBE, chat_id: str, messages: list[ChatMessage]) -> Chat | None:
+    if len(messages) == 0:
+        return load_chat(dbe, chat_id)
+
+    chat = load_chat(dbe, chat_id)
+    if not chat:
+        return None
+
+    existing_ids = {message.id for message in chat.messages}
+    new_messages = [
+        message for message in messages if message.id not in existing_ids
+    ]
+    if not new_messages:
+        return chat
+
+    chat.messages.extend(_copy_messages(new_messages))
+    chat.lastUpdated = get_now_timestamp()
+    return _persist_chat(dbe, chat)

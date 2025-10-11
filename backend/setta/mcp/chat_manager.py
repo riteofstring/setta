@@ -55,45 +55,36 @@ class ChatManager:
         self.cache_trigger_tokens = 1000
 
     def get_chat(self, chat_id: str):
-        with self.dbe.session as db:
-            return load_chat(db, chat_id)
+        return load_chat(self.dbe, chat_id)
 
     def get_or_create_chat(self, chat_id: str | None, message: ChatMessage):
-        if not chat_id or not self.get_chat(chat_id):
+        if not chat_id:
             return self.create_new_chat(message)
-        self.save_messages_to_db(chat_id, [message])
-        return self.get_chat(chat_id)
+        chat = self.get_chat(chat_id)
+        if not chat:
+            return self.create_new_chat(message)
+        saved = self.save_messages_to_db(chat_id, [message])
+        return saved or self.get_chat(chat_id)
 
     def save_messages_to_db(self, chat_id: str, messages: list[ChatMessage]):
-        if len(messages) == 0:
-            return
-        with self.dbe.session as db:
-            save_messages(db, chat_id, messages)
+        return save_messages(self.dbe, chat_id, messages)
 
     def save_current_stream_to_db(self, chat_id: str):
         messages = self.get_current_stream(chat_id)
         messages = self.remove_incomplete_tool_uses(messages)
-        self.save_messages_to_db(
-            chat_id,
-            messages,
-        )
-        chat = self.get_chat(chat_id)
+        chat = self.save_messages_to_db(chat_id, messages)
         if not chat:
             raise ValueError
         return chat
 
     def create_new_chat(self, first_message: ChatMessage):
-        with self.dbe.session as db:
-            return create_new_chat(db, first_message)
+        return create_new_chat(self.dbe, first_message)
 
     def get_all_chat_metadata(self):
-        with self.dbe.session as db:
-            return load_all_chat_metadata(db)
-        raise ValueError
+        return load_all_chat_metadata(self.dbe)
 
     def delete_chat(self, chat_id: str):
-        with self.dbe.session as db:
-            delete_chat(db, chat_id)
+        delete_chat(self.dbe, chat_id)
 
     def is_waiting_for_response(self, chat_id: str):
         return chat_id in self.current_streams

@@ -1,41 +1,51 @@
-from setta.types.chat_messages import Chat, ChatMessage, ChatMetadata
+from __future__ import annotations
+
+import logging
+
+from pydantic import ValidationError
+
+from setta.database.db_objs import DBE
+from setta.types.chat_messages import Chat, ChatMetadata
+
+logger = logging.getLogger(__name__)
 
 
-def load_chat(db, chat_id: str):
-    # Load chat with all messages in one query using eager loading
-    stmt = (
-        select(ChatTable)
-        .where(ChatTable.id == chat_id)
-        .options(selectinload(ChatTable.messages))
-    )
-
-    chat_row = db.scalars(stmt).first()
-
-    if not chat_row:
+def load_chat(dbe: DBE, chat_id: str) -> Chat | None:
+    data = dbe.read_chat(chat_id)
+    if not data:
+        return None
+    try:
+        return Chat.model_validate(data)
+    except ValidationError as exc:
+        logger.warning("Unable to load chat %s: %s", chat_id, exc)
         return None
 
-    # Convert to Pydantic model
-    return Chat(
-        id=chat_row.id,
-        name=chat_row.name,
-        lastUpdated=chat_row.lastUpdated,
-        messages=[
-            ChatMessage(
-                id=msg.id,
-                role=msg.role,
-                content=msg.content,
-            )
-            for msg in chat_row.messages
-        ],
-    )
 
-
-def load_all_chat_metadata(db):
-    stmt = select(ChatTable).order_by(ChatTable.lastUpdated)
-    results = db.scalars(stmt).all()
+def load_all_chat_metadata(dbe: DBE) -> list[ChatMetadata]:
     output: list[ChatMetadata] = []
-    for row in results:
-        output.append(
-            ChatMetadata(id=row.id, name=row.name, lastUpdated=row.lastUpdated)
-        )
+    for path in dbe.list_chat_paths():
+        data = dbe.read_json(path)
+        if not data:
+            continue
+        required_keys = {"id", "name", "lastUpdated"}
+        if not required_keys.issubset(data.keys()):
+            logger.debug(
+                "Skipping chat metadata from %s because required fields are missing",
+                path,
+            )
+            continue
+        try:
+            output.append(
+                ChatMetadata.model_validate(
+                    {
+                        "id": data["id"],
+                        "name": data["name"],
+                        "lastUpdated": data["lastUpdated"],
+                    }
+                )
+            )
+        except ValidationError as exc:
+            logger.warning("Unable to parse metadata for %s: %s", path, exc)
+            continue
+    output.sort(key=lambda chat: chat.lastUpdated)
     return output
