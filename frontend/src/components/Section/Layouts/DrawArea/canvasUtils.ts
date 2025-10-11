@@ -15,6 +15,7 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
+import { bumpLocalRevisions } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
   BrushStroke,
@@ -182,12 +183,27 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvas: HTMLCanvasElement,
 ) {
-  useBrushStrokes.setState((state) => ({
-    x: {
-      ...state.x,
-      [stroke.id]: _.cloneDeep(stroke),
-    },
-  }));
+  useBrushStrokes.setState((state) => {
+    const existing = state.x[stroke.id];
+    if (existing && _.isEqual(existing, stroke)) {
+      return state;
+    }
+    const revisions = bumpLocalRevisions(
+      {
+        revisionById: state.revisionById,
+        localRevisionById: state.localRevisionById,
+      },
+      [stroke.id],
+      sectionId,
+    );
+    return {
+      x: {
+        ...state.x,
+        [stroke.id]: _.cloneDeep(stroke),
+      },
+      ...revisions,
+    };
+  });
 
   const existingElement = layer.elements.find(
     (el) =>
@@ -205,9 +221,24 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
   const newTransformArtifact = createDrawAreaLayerItemTransformArtifact({
     value: newTransform,
   });
-  useDrawAreaLayerItemTransform.setState((state) => ({
-    x: { ...state.x, [newTransformArtifact.id]: newTransformArtifact },
-  }));
+  useDrawAreaLayerItemTransform.setState((state) => {
+    const existing = state.x[newTransformArtifact.id];
+    if (existing && _.isEqual(existing, newTransformArtifact)) {
+      return state;
+    }
+    const revisions = bumpLocalRevisions(
+      {
+        revisionById: state.revisionById,
+        localRevisionById: state.localRevisionById,
+      },
+      [newTransformArtifact.id],
+      sectionId,
+    );
+    return {
+      x: { ...state.x, [newTransformArtifact.id]: newTransformArtifact },
+      ...revisions,
+    };
+  });
 
   const updatedLayer = addDrawAreaLayerItem(
     sectionId,
@@ -232,6 +263,7 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
 }
 
 export function setGlobalArtifactTransformsAndDrawAllLayers(
+  sectionId: string,
   layers: Array<DrawAreaLayer>,
   activeLayerIdx: number,
   localArtifactTransformsRef: React.RefObject<Array<LocalLayerItemState>>,
@@ -247,6 +279,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   const updatedTransformIds: Array<string> = [];
 
   useDrawAreaLayerItemTransform.setState((state) => {
+    const changedIds: Array<string> = [];
     for (const [idx, element] of activeLayer.elements.entries()) {
       const local = localArtifactTransformsRef.current[idx];
       if (!local) {
@@ -259,6 +292,19 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
       transformArtifact.value.transform = _.cloneDeep(local.transform);
       transformArtifact.value.eraserStrokes = _.cloneDeep(local.eraserStrokes);
       updatedTransformIds.push(element.transformId);
+      changedIds.push(element.transformId);
+    }
+    if (changedIds.length > 0) {
+      const revisions = bumpLocalRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        changedIds,
+        sectionId,
+      );
+      state.revisionById = revisions.revisionById;
+      state.localRevisionById = revisions.localRevisionById;
     }
   });
 

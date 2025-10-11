@@ -6,6 +6,7 @@ import {
   useDecodedImages,
   useDrawAreaLayerItemTransform,
 } from "state/definitions";
+import { bumpLocalRevisions } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
   BrushStroke,
@@ -218,6 +219,7 @@ export function useDrawModeMouseHandlers(
     });
 
     const handleMouseUp = editingOnMouseUp({
+      sectionId,
       layers,
       isDragging,
       draggedIdx,
@@ -444,6 +446,7 @@ function drawingOnMouseUp(
         if (!eraserStrokeRef.current) {
           return;
         }
+        const changedIds: Array<string> = [];
         for (const el of layer.elements) {
           const artifact = state.x[el.transformId];
           if (!artifact) {
@@ -483,6 +486,19 @@ function drawingOnMouseUp(
             transform: inverseTransform,
           });
           touchedTransformIds.add(el.transformId);
+          changedIds.push(el.transformId);
+        }
+        if (changedIds.length > 0) {
+          const revisions = bumpLocalRevisions(
+            {
+              revisionById: state.revisionById,
+              localRevisionById: state.localRevisionById,
+            },
+            changedIds,
+            sectionId,
+          );
+          state.revisionById = revisions.revisionById;
+          state.localRevisionById = revisions.localRevisionById;
         }
       });
 
@@ -965,6 +981,7 @@ function editingOnMouseMove({
 }
 
 function editingOnMouseUp({
+  sectionId,
   isDragging,
   draggedIdx,
   resizeHandle,
@@ -985,6 +1002,7 @@ function editingOnMouseUp({
       );
     }
     setGlobalArtifactTransformsAndDrawAllLayers(
+      sectionId,
       layers,
       activeLayerIdx,
       localArtifactTransformsRef,

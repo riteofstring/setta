@@ -1,11 +1,16 @@
 import _ from "lodash";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
+  RevisionedArtifacts,
   useBrushStrokes,
   useChartData,
   useDrawAreaLayerItemTransform,
   useImages,
 } from "state/definitions";
+import {
+  bumpRemoteRevisions,
+  removeRevisionEntries,
+} from "state/utils/revisions";
 import { post, res200 } from "utils/endpointUtils";
 import {
   ArtifactType,
@@ -38,8 +43,9 @@ type UpdateArtifactsResponse = {
 
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
-  changed: boolean;
-  bumpRevision: () => void;
+  changedIds: Set<string>;
+  deletedIds: Set<string>;
+  commit: () => void;
 };
 
 function cloneArtifact<T extends ArtifactByType>(artifact: T): T {
@@ -48,13 +54,51 @@ function cloneArtifact<T extends ArtifactByType>(artifact: T): T {
 
 function createStoreUpdate<T extends ArtifactByType>(
   current: Record<string, T>,
-  bump: () => void,
+  setState: (
+    updater: (
+      state: RevisionedArtifacts<Record<string, T>>,
+    ) => void | RevisionedArtifacts<Record<string, T>>,
+  ) => void,
+  options: { mode?: "replace" | "mutate" } = {},
 ): StoreUpdate<T> {
-  return {
+  const { mode = "replace" } = options;
+  const storeUpdate: StoreUpdate<T> = {
     next: { ...current },
-    changed: false,
-    bumpRevision: bump,
+    changedIds: new Set<string>(),
+    deletedIds: new Set<string>(),
+    commit: () => {
+      if (
+        storeUpdate.changedIds.size === 0 &&
+        storeUpdate.deletedIds.size === 0
+      ) {
+        return;
+      }
+      const changedIds = Array.from(storeUpdate.changedIds);
+      const deletedIds = Array.from(storeUpdate.deletedIds);
+      setState((state) => {
+        const afterRemoval = removeRevisionEntries(
+          {
+            revisionById: state.revisionById,
+            localRevisionById: state.localRevisionById,
+          },
+          deletedIds,
+        );
+        const afterBump = bumpRemoteRevisions(afterRemoval, changedIds);
+        if (mode === "mutate") {
+          state.x = storeUpdate.next;
+          state.revisionById = afterBump.revisionById;
+          state.localRevisionById = afterBump.localRevisionById;
+          return;
+        }
+        return {
+          x: storeUpdate.next,
+          revisionById: afterBump.revisionById,
+          localRevisionById: afterBump.localRevisionById,
+        };
+      });
+    },
   };
+  return storeUpdate;
 }
 
 function applyUpdate<T extends ArtifactByType>(
@@ -65,15 +109,15 @@ function applyUpdate<T extends ArtifactByType>(
   if (updateType === "delete") {
     if (artifact.id in storeUpdate.next) {
       delete storeUpdate.next[artifact.id];
-      storeUpdate.changed = true;
+      storeUpdate.deletedIds.add(artifact.id);
     }
     return;
   }
 
   const existing = storeUpdate.next[artifact.id];
-  if (!existing || !_.isEqual(existing.value, artifact.value)) {
+  if (!existing || !_.isEqual(existing, artifact)) {
     storeUpdate.next[artifact.id] = cloneArtifact(artifact);
-    storeUpdate.changed = true;
+    storeUpdate.changedIds.add(artifact.id);
   }
 }
 
@@ -82,36 +126,25 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
     return;
   }
 
-  const imagesUpdate = createStoreUpdate(useImages.getState().x, () =>
-    useImages.setState((state) => ({
-      x: imagesUpdate.next,
-      remoteRevision: state.remoteRevision + 1,
-    })),
+  const imagesUpdate = createStoreUpdate(
+    useImages.getState().x,
+    useImages.setState,
   );
 
   const brushStrokeUpdate = createStoreUpdate(
     useBrushStrokes.getState().x,
-    () =>
-      useBrushStrokes.setState((state) => ({
-        x: brushStrokeUpdate.next,
-        remoteRevision: state.remoteRevision + 1,
-      })),
+    useBrushStrokes.setState,
   );
 
   const transformUpdate = createStoreUpdate(
     useDrawAreaLayerItemTransform.getState().x,
-    () =>
-      useDrawAreaLayerItemTransform.setState((state) => ({
-        x: transformUpdate.next,
-        remoteRevision: state.remoteRevision + 1,
-      })),
+    useDrawAreaLayerItemTransform.setState,
+    { mode: "mutate" },
   );
 
-  const chartDataUpdate = createStoreUpdate(useChartData.getState().x, () =>
-    useChartData.setState((state) => ({
-      x: chartDataUpdate.next,
-      remoteRevision: state.remoteRevision + 1,
-    })),
+  const chartDataUpdate = createStoreUpdate(
+    useChartData.getState().x,
+    useChartData.setState,
   );
 
   for (const artifact of artifactUpdate.artifacts) {
@@ -133,18 +166,10 @@ export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
     }
   }
 
-  if (imagesUpdate.changed) {
-    imagesUpdate.bumpRevision();
-  }
-  if (brushStrokeUpdate.changed) {
-    brushStrokeUpdate.bumpRevision();
-  }
-  if (transformUpdate.changed) {
-    transformUpdate.bumpRevision();
-  }
-  if (chartDataUpdate.changed) {
-    chartDataUpdate.bumpRevision();
-  }
+  imagesUpdate.commit();
+  brushStrokeUpdate.commit();
+  transformUpdate.commit();
+  chartDataUpdate.commit();
 }
 
 export function getNamePathTypeKey(artifact: {

@@ -1,8 +1,10 @@
 # Draw Area Artifact Refresh Implementation – Summary
 
 ## Frontend
+
 - **State architecture**
-  - Introduced `remoteRevision` counters to all draw-area artifact stores (`useImages`, `useBrushStrokes`, `useDrawAreaLayerItemTransform`, etc.) so canvas renders can react to backend updates without re-subscribing to full payloads.
+  - Track per-artifact revision counters in all draw-area stores (`useImages`, `useBrushStrokes`, `useDrawAreaLayerItemTransform`, etc.) so canvases redraw only when the artifacts they reference change.
+  - Record revision deltas alongside the originating section so a draw area can ignore its own local edits while other sections that reuse the artifact still repaint.
   - Split the legacy `useLoadedDrawAreaData` hook into:
     - `useDrawAreaArtifactLoader`, which reads element IDs from `useProjectState`, fetches any missing artifacts from the backend caches, and triggers decoding only when needed.
     - `useDrawAreaArtifactData`, which returns the current in-memory artifacts for components that genuinely need them.
@@ -17,6 +19,7 @@
   - Image cache subscriptions now re-decode base64 payloads only when they actually change, preventing stale decoded canvases.
 
 ## Backend
+
 - `Artifacts` manager now:
   - Tracks conflict metadata (dirty flag, last hash, backup path).
   - Prepares writes via a shared helper that hashes payloads, short-circuits when nothing changed, and handles backup logic.
@@ -26,5 +29,6 @@
 - Extended generated route enum with `UPDATE_ARTIFACTS`.
 
 ## Integration Notes
+
 - Frontend autosave queue defaults to the backend’s backup strategy but can be adjusted by passing a `conflictStrategy` with the new endpoint.
 - Conflict notifications now originate from both websocket saves (autosave) and file watcher events; UI should surface metadata from notifications to help users resolve issues.

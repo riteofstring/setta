@@ -6,12 +6,14 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useBrushStrokes,
-  useDecodedImages,
   useDrawAreaLayerItemTransform,
-  useImages,
   useProjectState,
 } from "state/definitions";
-import { useDrawAreaArtifactLoader } from "state/hooks/artifacts";
+import { removeRevisionEntries } from "state/utils/revisions";
+import {
+  useDrawAreaArtifactLoader,
+  useDrawAreaArtifactRevisionStamps,
+} from "state/hooks/artifacts";
 import {
   ArtifactTypeEnum,
   BrushStroke,
@@ -41,14 +43,12 @@ import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 export function DrawArea({ sectionId }: { sectionId: string }) {
   useDrawAreaArtifactLoader(sectionId);
 
-  const brushRemoteRevision = useBrushStrokes((state) => state.remoteRevision);
-  const transformRemoteRevision = useDrawAreaLayerItemTransform(
-    (state) => state.remoteRevision,
-  );
-  const imageRemoteRevision = useImages((state) => state.remoteRevision);
-  const decodedRemoteRevision = useDecodedImages(
-    (state) => state.remoteRevision,
-  );
+  const {
+    images: imageRevisionStamp,
+    decodedImages: decodedImageRevisionStamp,
+    brushStrokes: brushRevisionStamp,
+    transforms: transformRevisionStamp,
+  } = useDrawAreaArtifactRevisionStamps(sectionId);
 
   const {
     layers,
@@ -179,10 +179,10 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     layers,
     sectionSize.height,
     sectionSize.width,
-    imageRemoteRevision,
-    decodedRemoteRevision,
-    brushRemoteRevision,
-    transformRemoteRevision,
+    imageRevisionStamp,
+    decodedImageRevisionStamp,
+    brushRevisionStamp,
+    transformRevisionStamp,
   ]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
@@ -244,18 +244,52 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
 
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
+      const removedIds: Array<string> = [];
       for (const id of strokeIds) {
-        delete next[id];
+        if (id in next) {
+          delete next[id];
+          removedIds.push(id);
+        }
       }
-      return { x: next };
+      if (removedIds.length === 0) {
+        return state;
+      }
+      const revisions = removeRevisionEntries(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        removedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
 
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };
+      const removedIds: Array<string> = [];
       for (const id of transformIds) {
-        delete next[id];
+        if (id in next) {
+          delete next[id];
+          removedIds.push(id);
+        }
       }
-      return { x: next };
+      if (removedIds.length === 0) {
+        return state;
+      }
+      const revisions = removeRevisionEntries(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        removedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
 
     useProjectState.setState((state) => {

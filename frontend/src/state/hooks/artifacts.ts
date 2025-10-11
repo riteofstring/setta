@@ -1,6 +1,6 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useBrushStrokes,
@@ -12,6 +12,7 @@ import {
   ZustandDecodedImages,
   ZustandProjectState,
 } from "state/definitions";
+import { bumpRemoteRevisions } from "state/utils/revisions";
 import { res200 } from "utils/endpointUtils";
 import {
   route_load_cached_brush_strokes,
@@ -34,12 +35,30 @@ async function loadCachedImages(paths: Array<string>) {
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
+      const changedIds: Array<string> = [];
       for (const img of res.data) {
         if (img) {
-          next[img.id] = img;
+          const existing = state.x[img.id];
+          if (!existing || !_.isEqual(existing, img)) {
+            next[img.id] = img;
+            changedIds.push(img.id);
+          }
         }
       }
-      return { x: next, remoteRevision: state.remoteRevision + 1 };
+      if (changedIds.length === 0) {
+        return state;
+      }
+      const revisions = bumpRemoteRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        changedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
   }
 }
@@ -73,12 +92,30 @@ async function loadCachedChartData(paths: Array<string>) {
   if (res200(res)) {
     useChartData.setState((state) => {
       const next = { ...state.x };
+      const changedIds: Array<string> = [];
       for (const artifact of res.data) {
         if (artifact) {
-          next[artifact.id] = artifact;
+          const existing = state.x[artifact.id];
+          if (!existing || !_.isEqual(existing, artifact)) {
+            next[artifact.id] = artifact;
+            changedIds.push(artifact.id);
+          }
         }
       }
-      return { x: next, remoteRevision: state.remoteRevision + 1 };
+      if (changedIds.length === 0) {
+        return state;
+      }
+      const revisions = bumpRemoteRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        changedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
   }
 }
@@ -112,12 +149,30 @@ async function loadCachedBrushStrokes(paths: Array<string>) {
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const next = { ...state.x };
+      const changedIds: Array<string> = [];
       for (const artifact of res.data) {
         if (artifact) {
-          next[artifact.id] = artifact;
+          const existing = state.x[artifact.id];
+          if (!existing || !_.isEqual(existing, artifact)) {
+            next[artifact.id] = artifact;
+            changedIds.push(artifact.id);
+          }
         }
       }
-      return { x: next, remoteRevision: state.remoteRevision + 1 };
+      if (changedIds.length === 0) {
+        return state;
+      }
+      const revisions = bumpRemoteRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        changedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
   }
 }
@@ -130,12 +185,30 @@ async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
       const next = { ...state.x };
+      const changedIds: Array<string> = [];
       for (const artifact of res.data) {
         if (artifact) {
-          next[artifact.id] = artifact;
+          const existing = state.x[artifact.id];
+          if (!existing || !_.isEqual(existing, artifact)) {
+            next[artifact.id] = artifact;
+            changedIds.push(artifact.id);
+          }
         }
       }
-      return { x: next, remoteRevision: state.remoteRevision + 1 };
+      if (changedIds.length === 0) {
+        return state;
+      }
+      const revisions = bumpRemoteRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        changedIds,
+      );
+      return {
+        x: next,
+        ...revisions,
+      };
     });
   }
 }
@@ -152,11 +225,21 @@ export async function decodeExistingRawImages(needToDecode: Array<string>) {
       decoded[path] = await base64ToImageObj(rawImage.value);
     }
   }
-  if (Object.keys(decoded).length > 0) {
-    useDecodedImages.setState((state) => ({
-      x: { ...state.x, ...decoded },
-      remoteRevision: state.remoteRevision + 1,
-    }));
+  const decodedIds = Object.keys(decoded);
+  if (decodedIds.length > 0) {
+    useDecodedImages.setState((state) => {
+      const revisions = bumpRemoteRevisions(
+        {
+          revisionById: state.revisionById,
+          localRevisionById: state.localRevisionById,
+        },
+        decodedIds,
+      );
+      return {
+        x: { ...state.x, ...decoded },
+        ...revisions,
+      };
+    });
   }
 }
 
@@ -203,6 +286,75 @@ function useDrawAreaElementRefs(sectionId: string) {
     (state) => collectDrawAreaArtifactRefs(state, sectionId),
     _.isEqual,
   );
+}
+
+function buildRevisionStamp(ids: Array<string>, revisions: Array<number>) {
+  if (ids.length === 0 || revisions.length === 0) {
+    return "";
+  }
+  const pairs = ids.map((id, idx) => [id, revisions[idx] ?? 0] as const);
+  pairs.sort((a, b) => a[0].localeCompare(b[0]));
+  return pairs.map(([id, revision]) => `${id}:${revision}`).join("|");
+}
+
+export function useDrawAreaArtifactRevisionStamps(sectionId: string) {
+  const refs = useDrawAreaElementRefs(sectionId);
+
+  const imageRevisions = useImages(
+    (state) =>
+      refs.imagePaths.map((id) => {
+        const total = state.revisionById[id] ?? 0;
+        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
+        return total - local;
+      }),
+    _.isEqual,
+  );
+  const decodedRevisions = useDecodedImages(
+    (state) =>
+      refs.imagePaths.map((id) => {
+        const total = state.revisionById[id] ?? 0;
+        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
+        return total - local;
+      }),
+    _.isEqual,
+  );
+  const brushRevisions = useBrushStrokes(
+    (state) =>
+      refs.brushStrokeIds.map((id) => {
+        const total = state.revisionById[id] ?? 0;
+        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
+        return total - local;
+      }),
+    _.isEqual,
+  );
+  const transformRevisions = useDrawAreaLayerItemTransform(
+    (state) =>
+      refs.transformIds.map((id) => {
+        const total = state.revisionById[id] ?? 0;
+        const local = state.localRevisionById[id]?.[sectionId] ?? 0;
+        return total - local;
+      }),
+    _.isEqual,
+  );
+
+  const images = useMemo(
+    () => buildRevisionStamp(refs.imagePaths, imageRevisions),
+    [refs.imagePaths, imageRevisions],
+  );
+  const decodedImages = useMemo(
+    () => buildRevisionStamp(refs.imagePaths, decodedRevisions),
+    [refs.imagePaths, decodedRevisions],
+  );
+  const brushStrokes = useMemo(
+    () => buildRevisionStamp(refs.brushStrokeIds, brushRevisions),
+    [refs.brushStrokeIds, brushRevisions],
+  );
+  const transforms = useMemo(
+    () => buildRevisionStamp(refs.transformIds, transformRevisions),
+    [refs.transformIds, transformRevisions],
+  );
+
+  return { images, decodedImages, brushStrokes, transforms };
 }
 
 export function useDrawAreaArtifactLoader(sectionId: string) {
