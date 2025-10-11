@@ -1,8 +1,16 @@
 import _ from "lodash";
 import { useEffect, useRef } from "react";
-import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
 import {
+  getCurrEffectiveSectionImplOfType,
+  setCurrEffectiveSectionImplValue,
+} from "state/actions/sectionInfos";
+import {
+  useBrushStrokes,
+  useDrawAreaLayerItemTransform,
+  useProjectState,
+} from "state/definitions";
+import {
+  ArtifactTypeEnum,
   BrushStroke,
   BrushStrokeArtifact,
   CanvasPoint,
@@ -187,29 +195,103 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     );
 
   function clearStrokes() {
-    const [layer, layerCanvas] = getActiveLayerAndCanvas(
+    const [layer] = getActiveLayerAndCanvas(
       layers,
       layerCanvasRefs,
       activeLayerIdx,
     );
-    if (
-      !strokeRef.current ||
-      !layer ||
-      !layerCanvas ||
-      !draftCanvasRef.current
-    ) {
+    if (!layer) {
       return;
     }
-    strokeRef.current.value.points = [];
-    addNewBrushStrokeToGlobalStateAndDrawLayer(
-      sectionId,
-      activeLayerIdx,
-      strokeRef.current,
-      layer,
-      layerCanvas,
-      tempCanvasRefs,
-      draftCanvasRef.current,
+
+    const brushStrokeElements = layer.elements.filter(
+      (element) => element.type === ArtifactTypeEnum.BrushStroke,
     );
+    if (brushStrokeElements.length === 0) {
+      const draftCanvas = draftCanvasRef.current;
+      if (draftCanvas) {
+        const ctx = draftCanvas.getContext("2d");
+        ctx?.clearRect(0, 0, draftCanvas.width, draftCanvas.height);
+      }
+      strokeRef.current = null;
+      eraserStrokeRef.current = null;
+      prevPointRef.current = null;
+      return;
+    }
+
+    const strokeIds = brushStrokeElements.map((element) => element.dataPath);
+    const transformIds = brushStrokeElements.map(
+      (element) => element.transformId,
+    );
+
+    useBrushStrokes.setState((state) => {
+      const next = { ...state.x };
+      for (const id of strokeIds) {
+        delete next[id];
+      }
+      return { x: next };
+    });
+
+    useDrawAreaLayerItemTransform.setState((state) => {
+      const next = { ...state.x };
+      for (const id of transformIds) {
+        delete next[id];
+      }
+      return { x: next };
+    });
+
+    useProjectState.setState((state) => {
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: (currLayers) => {
+          const currentLayer = currLayers[activeLayerIdx];
+          if (!currentLayer) {
+            return currLayers;
+          }
+          const filteredElements = currentLayer.elements.filter(
+            (element) => element.type !== ArtifactTypeEnum.BrushStroke,
+          );
+          if (filteredElements.length === currentLayer.elements.length) {
+            return currLayers;
+          }
+          const nextLayers = [...currLayers];
+          nextLayers[activeLayerIdx] = {
+            ...currentLayer,
+            elements: filteredElements,
+          };
+          return nextLayers;
+        },
+      });
+    });
+
+    localArtifactTransformsRef.current =
+      localArtifactTransformsRef.current.filter(
+        (item) => !strokeIds.includes(item.dataPath),
+      );
+    isDrawing.current = false;
+    isDragging.current = false;
+    draggedIdx.current = null;
+    lastPos.current = null;
+    selectedIdx.current = null;
+    resizeHandle.current = null;
+    resizeHandleCorners.current = null;
+    strokeRef.current = null;
+    eraserStrokeRef.current = null;
+    prevPointRef.current = null;
+
+    const draftCanvas = draftCanvasRef.current;
+    if (draftCanvas) {
+      const ctx = draftCanvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, draftCanvas.width, draftCanvas.height);
+      }
+    }
+
+    const nextLayers = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Draw,
+    ).layers;
+    drawAllLayers(nextLayers, layerCanvasRefs, tempCanvasRefs);
   }
 
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
