@@ -5,7 +5,7 @@ from pathlib import Path
 from setta.database.db_objs import DBE
 from setta.lsp.managers import LSPWriters
 from setta.project_state.utils import convert_path_to_module_path
-from setta.utils.constants import CWD
+from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ class PythonCode(Code):
         return "py"
 
     def get_run_command(self, path: Path):
-        path = path.relative_to(CWD)
+        path = normalize_path(path)
         module_path = convert_path_to_module_path(path)
         return f"python -m {module_path}"
 
@@ -115,5 +115,5 @@ class BashCode(Code):
         return "sh"
 
     def get_run_command(self, path: Path):
-        path = path.relative_to(CWD)
+        path = normalize_path(path)
         return f"bash {path}"

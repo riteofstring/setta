@@ -10,8 +10,20 @@ export function createNewId() {
   return uuidv4();
 }
 
-export function createArtifactId() {
-  return `${C.ARTIFACTS_FOLDER}/${createNewId()}.json`;
+export function createArtifactId(extension = ".json") {
+  return `${C.ARTIFACTS_FOLDER}/${createNewId()}${extension}`;
+}
+
+export function createJsonArtifactId() {
+  return createArtifactId(".json");
+}
+
+export function createCsvArtifactId() {
+  return createArtifactId(".csv");
+}
+
+export function createPngArtifactId() {
+  return createArtifactId(".png");
 }
 
 export function createRandomName() {

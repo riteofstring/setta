@@ -9,9 +9,21 @@ from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-def create_artifact_id():
+def create_artifact_id(extension: str = ".json"):
     new_id = create_new_id()
-    return (C.ARTIFACTS_FOLDER / f"{new_id}.json").as_posix()
+    return (C.ARTIFACTS_FOLDER / f"{new_id}{extension}").as_posix()
+
+
+def create_json_artifact_id():
+    return create_artifact_id(".json")
+
+
+def create_csv_artifact_id():
+    return create_artifact_id(".csv")
+
+
+def create_png_artifact_id():
+    return create_artifact_id(".png")
 
 
 ChartData = dict[str, list[str | float]]
@@ -125,17 +137,19 @@ class DrawAreaMode(str, Enum):
 
 class BaseArtifact(BaseModel):
     type: Any
-    id: str = Field(default_factory=create_artifact_id)
+    id: str = Field(default_factory=create_json_artifact_id)
     value: Any
 
 
 class ImageArtifact(BaseArtifact):
     type: Literal[ArtifactType.Image] = ArtifactType.Image
+    id: str = Field(default_factory=create_png_artifact_id)
     value: str
 
 
 class BrushStrokeArtifact(BaseArtifact):
     type: Literal[ArtifactType.BrushStroke] = ArtifactType.BrushStroke
+    id: str = Field(default_factory=create_json_artifact_id)
     value: BrushStroke
 
 
@@ -143,11 +157,13 @@ class DrawAreaLayerItemTransformArtifact(BaseArtifact):
     type: Literal[ArtifactType.DrawAreaLayerItemTransform] = (
         ArtifactType.DrawAreaLayerItemTransform
     )
+    id: str = Field(default_factory=create_json_artifact_id)
     value: DrawAreaLayerItemTransform
 
 
 class ChartDataArtifact(BaseArtifact):
     type: Literal[ArtifactType.ChartData] = ArtifactType.ChartData
+    id: str = Field(default_factory=create_csv_artifact_id)
     value: ChartData
 
 

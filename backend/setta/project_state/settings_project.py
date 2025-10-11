@@ -26,7 +26,7 @@ from setta.types.section_impls import (
     DictSectionImpl,
     SectionSize,
 )
-from setta.utils.constants import CWD
+from setta.utils.utils import normalize_path
 
 
 def add_code_obj_details(
@@ -169,7 +169,7 @@ def create_settings_project_state(settings_path: Path):
             topLevelParamId=sectionToTopLevelId[k],
         )
         sectionVariant = Variant(
-            name=str(settings_path.relative_to(CWD)),
+            name=str(normalize_path(settings_path)),
             impl=sectionImpl.id,
             nonPresetImpls=compute_initial_nonPresetImpls(sectionImpl),
         )

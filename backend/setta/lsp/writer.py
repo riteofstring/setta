@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import uuid
+from pathlib import Path
 
 from .server import LanguageServer, LanguageServerInteractor
 
@@ -129,5 +130,5 @@ class LanguageServerWriter(LanguageServerInteractor):
         return await self.wait_for_response(request_id)
 
     # https://github.com/microsoft/language-server-protocol/issues/1676
-    def get_uri(self, filepath):
-        return filepath.as_uri()
+    def get_uri(self, filepath: Path):
+        return filepath.absolute().as_uri()

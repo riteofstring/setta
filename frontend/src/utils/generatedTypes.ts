@@ -1,6 +1,8 @@
 import {
-  createArtifactId as create_artifact_id,
+  createCsvArtifactId as create_csv_artifact_id,
+  createJsonArtifactId as create_json_artifact_id,
   createNewId as create_new_id,
+  createPngArtifactId as create_png_artifact_id,
   createRandomName as generate_memorable_string,
 } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
@@ -652,7 +654,7 @@ export function createBrushStroke(
 
 export const BrushStrokeArtifactSchema = z.object({
   type: z.literal("BrushStroke").default(ArtifactTypeEnum.BrushStroke),
-  id: z.string().default(create_artifact_id),
+  id: z.string().default(create_json_artifact_id),
   value: BrushStrokeSchema,
 });
 
@@ -684,7 +686,7 @@ export type ChartData = z.infer<typeof ChartDataSchema>;
 
 export const ChartDataArtifactSchema = z.object({
   type: z.literal("ChartData").default(ArtifactTypeEnum.ChartData),
-  id: z.string().default(create_artifact_id),
+  id: z.string().default(create_csv_artifact_id),
   value: z.record(z.string(), z.array(z.union([z.string(), z.number()]))),
 });
 
@@ -788,7 +790,7 @@ export const DrawAreaLayerItemTransformArtifactSchema = z.object({
   type: z
     .literal("DrawAreaLayerItemTransform")
     .default(ArtifactTypeEnum.DrawAreaLayerItemTransform),
-  id: z.string().default(create_artifact_id),
+  id: z.string().default(create_json_artifact_id),
   value: DrawAreaLayerItemTransformSchema,
 });
 
@@ -824,7 +826,7 @@ export type DrawAreaTransform = z.infer<typeof DrawAreaTransformSchema>;
 
 export const ImageArtifactSchema = z.object({
   type: z.literal("Image").default(ArtifactTypeEnum.Image),
-  id: z.string().default(create_artifact_id),
+  id: z.string().default(create_png_artifact_id),
   value: z.string(),
 });
 
@@ -6870,7 +6872,7 @@ export function createFolderContentItem(
 
 export const BaseArtifactSchema = z.object({
   type: z.any(),
-  id: z.string().default(create_artifact_id),
+  id: z.string().default(create_json_artifact_id),
   value: z.any(),
 });
 

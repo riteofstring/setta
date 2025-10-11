@@ -729,7 +729,7 @@ def main(output_file):
         all_dataclasses.update({k: v for k, v in dataclasses_list})
 
     ts_code = """import { z } from 'zod';
-import { createNewId as create_new_id, createRandomName as generate_memorable_string, createArtifactId as create_artifact_id } from "utils/idNameCreation";
+import { createNewId as create_new_id, createRandomName as generate_memorable_string, createArtifactId as create_artifact_id, createJsonArtifactId as create_json_artifact_id, createCsvArtifactId as create_csv_artifact_id, createPngArtifactId as create_png_artifact_id } from "utils/idNameCreation";
 import { getNowTimestamp as get_now_timestamp } from "utils/timestamps";
 import _ from "lodash"
 
