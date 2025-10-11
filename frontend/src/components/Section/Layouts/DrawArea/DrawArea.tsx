@@ -200,6 +200,7 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
       sectionId,
       activeLayerIdx,
       strokeRef.current,
+      layer,
       layerCanvas,
       tempCanvasRefs,
       draftCanvasRef.current,

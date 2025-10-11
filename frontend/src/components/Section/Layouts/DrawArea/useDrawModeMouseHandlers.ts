@@ -178,7 +178,19 @@ export function useDrawModeMouseHandlers(
       canvasMode,
     );
 
-    onMouseEnter = drawingOnMouseEnter(draftCanvasRef, onMouseDown);
+    onMouseEnter = drawingOnMouseEnter({
+      canvasMode,
+      draftCanvasRef,
+      onMouseDown,
+      strokeRef,
+      eraserStrokeRef,
+      prevPointRef,
+      isDrawingRef: isDrawing,
+      layers,
+      layerCanvasRefs,
+      tempCanvasRefs,
+      activeLayerIdx,
+    });
   } else {
     const handleMouseDown = editingOnMouseDown({
       layerCanvasRefs,
@@ -481,6 +493,7 @@ function drawingOnMouseUp(
         sectionId,
         activeLayerIdx,
         strokeRef.current,
+        layer,
         layerCanvas,
         tempCanvasRefs,
         draftCanvasRef.current,
@@ -489,27 +502,106 @@ function drawingOnMouseUp(
   };
 }
 
-function drawingOnMouseEnter(
-  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>,
+function drawingOnMouseEnter({
+  canvasMode,
+  draftCanvasRef,
+  onMouseDown,
+  strokeRef,
+  eraserStrokeRef,
+  prevPointRef,
+  isDrawingRef,
+  layers,
+  layerCanvasRefs,
+  tempCanvasRefs,
+  activeLayerIdx,
+}: {
+  canvasMode: DrawAreaMode;
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   onMouseDown: (
     e: React.MouseEvent<HTMLCanvasElement>,
     offsetX: number | null,
     offsetY: number | null,
-  ) => void,
-): React.MouseEventHandler<HTMLCanvasElement> {
+  ) => void;
+  strokeRef: React.RefObject<BrushStrokeArtifact | null>;
+  eraserStrokeRef: React.RefObject<BrushStroke | null>;
+  prevPointRef: React.RefObject<CanvasPoint | null>;
+  isDrawingRef: React.RefObject<boolean>;
+  layers: Array<DrawAreaLayer>;
+  layerCanvasRefs: React.RefObject<LayerCanvasesType>;
+  tempCanvasRefs: React.RefObject<TempCanvasesType>;
+  activeLayerIdx: number;
+}): React.MouseEventHandler<HTMLCanvasElement> {
   return (e) => {
-    if (!draftCanvasRef.current) {
+    if (!draftCanvasRef.current || e.buttons !== 1) {
       return;
     }
-    if (e.buttons === 1) {
-      // have to compute offset this way for some reason
-      // otherwise it's inaccurate
-      const zoom = getZoom();
-      const rect = draftCanvasRef.current.getBoundingClientRect();
-      const offsetX = (e.clientX - rect.left) / zoom;
-      const offsetY = (e.clientY - rect.top) / zoom;
-      onMouseDown(e, offsetX, offsetY);
+
+    const zoom = getZoom();
+    const rect = draftCanvasRef.current.getBoundingClientRect();
+    const offsetX = (e.clientX - rect.left) / zoom;
+    const offsetY = (e.clientY - rect.top) / zoom;
+    const point: CanvasPoint = [offsetX, offsetY];
+
+    if (canvasMode === DrawAreaModeEnum.draw) {
+      const activeStroke = strokeRef.current;
+      if (!activeStroke) {
+        onMouseDown(e, offsetX, offsetY);
+        return;
+      }
+
+      const points = activeStroke.value.points;
+      if (points.length > 0) {
+        const lastPoint = points[points.length - 1];
+        if (lastPoint !== "BREAK") {
+          points.push("BREAK");
+        }
+      }
+      points.push(point);
+
+      drawStroke(draftCanvasRef.current, point, point);
+      prevPointRef.current = point;
+      isDrawingRef.current = true;
+      return;
     }
+
+    if (canvasMode === DrawAreaModeEnum.erase) {
+      const activeEraserStroke = eraserStrokeRef.current;
+      if (!activeEraserStroke) {
+        onMouseDown(e, offsetX, offsetY);
+        return;
+      }
+
+      const points = activeEraserStroke.points;
+      if (points.length > 0) {
+        const lastPoint = points[points.length - 1];
+        if (lastPoint !== "BREAK") {
+          points.push("BREAK");
+        }
+      }
+      points.push(point);
+
+      prevPointRef.current = point;
+      isDrawingRef.current = true;
+
+      const [layer, layerCanvas] = getActiveLayerAndCanvas(
+        layers,
+        layerCanvasRefs,
+        activeLayerIdx,
+      );
+      if (layer && layerCanvas) {
+        drawOneLayer(
+          layer,
+          layerCanvas,
+          tempCanvasRefs,
+          [],
+          null,
+          activeEraserStroke,
+        );
+      }
+      return;
+    }
+
+    onMouseDown(e, offsetX, offsetY);
   };
 }
 

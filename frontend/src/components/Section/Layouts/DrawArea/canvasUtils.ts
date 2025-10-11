@@ -173,6 +173,7 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
   sectionId: string,
   layerIdx: number,
   stroke: BrushStrokeArtifact,
+  layer: DrawAreaLayer,
   layerCanvas: HTMLCanvasElement,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
   draftCanvas: HTMLCanvasElement,
@@ -183,6 +184,17 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
       [stroke.id]: _.cloneDeep(stroke),
     },
   }));
+
+  const existingElement = layer.elements.find(
+    (el) =>
+      el.type === ArtifactTypeEnum.BrushStroke && el.dataPath === stroke.id,
+  );
+
+  if (existingElement) {
+    drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
+    clearCanvas(draftCanvas);
+    return;
+  }
 
   const newTransform = createDrawAreaLayerItemTransform({});
   const newTransformArtifact = createDrawAreaLayerItemTransformArtifact({
@@ -316,6 +328,7 @@ export function drawOneLayer(
   const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
+  console.log(layer.elements)
   for (const [idx, e] of layer.elements.entries()) {
     // console.log("drawOneLayer e", e);
     artifactTempCtx.globalAlpha = 1;
