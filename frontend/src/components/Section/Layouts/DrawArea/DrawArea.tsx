@@ -247,16 +247,13 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
             numLayers={layers.length}
             activeLayerIdx={activeLayerIdx}
             layerCanvasRefs={layerCanvasRefs}
+            draftCanvasRef={draftCanvasRef}
             cursorIcon={cursorIcon}
             canvasClassName={canvasClassName}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
             onMouseEnter={onMouseEnter}
-          />
-          <canvas
-            ref={draftCanvasRef}
-            className={`pointer-events-none ${canvasClassName}`}
           />
         </div>
       </section>
@@ -268,6 +265,7 @@ function LayerCanvases({
   numLayers,
   activeLayerIdx,
   layerCanvasRefs,
+  draftCanvasRef,
   cursorIcon,
   canvasClassName,
   onMouseDown,
@@ -278,6 +276,7 @@ function LayerCanvases({
   numLayers: number;
   activeLayerIdx: number;
   layerCanvasRefs: React.RefObject<LayerCanvasesType>;
+  draftCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   cursorIcon: string;
   canvasClassName: string;
   onMouseDown: React.MouseEventHandler<HTMLCanvasElement>;
@@ -303,6 +302,15 @@ function LayerCanvases({
         onMouseEnter={i === activeLayerIdx ? onMouseEnter : undefined}
       />,
     );
+    if (i === activeLayerIdx) {
+      canvases.push(
+        <canvas
+          key="draft-canvas"
+          ref={draftCanvasRef}
+          className={`pointer-events-none ${canvasClassName}`}
+        />,
+      );
+    }
   }
   return canvases;
 }
