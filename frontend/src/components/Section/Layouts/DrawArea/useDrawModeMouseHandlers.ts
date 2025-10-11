@@ -18,6 +18,7 @@ import {
 } from "utils/generatedTypes";
 import {
   addNewBrushStrokeToGlobalStateAndDrawLayer,
+  drawAllLayers,
   drawOneLayer,
   drawStroke,
   getActiveLayerAndCanvas,
