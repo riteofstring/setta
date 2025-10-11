@@ -30,20 +30,18 @@ def version():
 
 
 @click.command()
-@click.option("--raw", is_flag=True, help="Export raw database format")
 @click.option("--readable", is_flag=True, help="Export in human-readable format")
 @click.option(
     "--readable-with-variants",
     is_flag=True,
     help="Export in readable format with variants",
 )
-def export_db(raw, readable, readable_with_variants):
-    # If no export options are specified, default to raw format
-    if not any([raw, readable, readable_with_variants]):
+def export_db(readable, readable_with_variants):
+    if not any([readable, readable_with_variants]):
         readable_with_variants = True
 
     dbe = DBE(C.SETTA_FILES_FOLDER)
-    export_database(dbe.project, raw, readable, readable_with_variants)
+    export_database(dbe.project, readable, readable_with_variants)
 
 
 @click.group(
