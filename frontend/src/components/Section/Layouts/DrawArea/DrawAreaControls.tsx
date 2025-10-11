@@ -13,7 +13,6 @@ import {
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { getSectionArtifactGroupMetadata } from "state/hooks/artifacts";
 import {
   DrawAreaBrushShape,
   DrawAreaBrushShapeEnum,

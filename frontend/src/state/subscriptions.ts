@@ -2,7 +2,6 @@ import { updateDndChildren } from "forks/dnd-kit/dndChildren";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
-  useArtifacts,
   useDecodedImages,
   useImages,
   useMisc,
@@ -12,8 +11,6 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { getNamePathTypeKey } from "./actions/artifacts";
-import { maybeRequestDrawAreaUpdate } from "./actions/artifactsDrawArea";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
@@ -119,28 +116,6 @@ export function subscribe() {
     },
   );
 
-  useArtifacts.subscribe(
-    artifactNamePathTypeToIdSubscriptionFn,
-    (artifacts) => {
-      useArtifacts.setState(() => {
-        const namePathTypeToId = {};
-        for (const [id, a] of Object.entries(artifacts)) {
-          namePathTypeToId[getNamePathTypeKey(a)] = id;
-        }
-        return { namePathTypeToId };
-      });
-    },
-    { equalityFn: _.isEqual },
-  );
-
-  useArtifacts.subscribe(
-    artifactWhoModifiedSubscriptionFn,
-    maybeRequestDrawAreaUpdate,
-    {
-      equalityFn: _.isEqual,
-    },
-  );
-
   useImages.subscribe(
     imagesToDecodeSubscriptionFn,
     (x) => {
@@ -177,24 +152,6 @@ function reactFlowTransformSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
-}
-
-function artifactNamePathTypeToIdSubscriptionFn(state) {
-  const output = {};
-  for (const [id, a] of Object.entries(state.x)) {
-    output[id] = { name: a.name, path: a.path, type: a.type };
-  }
-  return output;
-}
-
-function artifactWhoModifiedSubscriptionFn(state) {
-  const output = {};
-  for (const [id, a] of Object.entries(state.x)) {
-    if (a.modifiedByInfo) {
-      output[id] = a.modifiedByInfo;
-    }
-  }
-  return output;
 }
 
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {

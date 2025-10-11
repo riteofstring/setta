@@ -1,9 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
-import {
-  addArtifactAndMaybeCreateNewArtifactGroup,
-  prepareArtifactForRendering,
-} from "state/actions/artifacts";
 import { closeModal } from "state/actions/modal";
 import { getSectionType } from "state/actions/sectionInfos";
 import { useModal } from "state/definitions";
