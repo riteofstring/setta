@@ -2,7 +2,8 @@ import logging
 
 import yaml
 
-from setta.utils.constants import SETTA_FILES_FOLDER
+from setta.utils.constants import C
+from setta.utils.utils import normalize_path
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ def export_raw(db, filename):
     yaml.add_representer(str, literal_presenter)
 
     # For YAML export, PyYAML is used; ensure it's installed
-    filepath = SETTA_FILES_FOLDER / f"{filename}_export.yaml"
+    filepath = normalize_path(C.SETTA_FILES_FOLDER) / f"{filename}_export.yaml"
     logger.debug(f"saving raw db to {filepath}")
     with open(filepath, "w") as file:
         yaml.dump(database_export, file, allow_unicode=True, sort_keys=False)

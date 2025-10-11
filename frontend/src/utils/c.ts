@@ -9,6 +9,9 @@ export class C {
     CHART: ["list"],
     CHAT: ["chatHistory"],
   };
+  static ARTIFACTS_FOLDER = "setta_files/artifacts";
+  static CODE_FOLDER = "setta_files/code";
+  static DB_BACKUP_FOLDER = "setta_files/backups";
   static DEFAULT_HOST = "127.0.0.1";
   static DEFAULT_PORT = 8000;
   static DEV_MODE_FRONTEND_PORT = 3000;
@@ -39,6 +42,7 @@ export class C {
   static MCP_SETTA_STATE_ARG_NAME = "setta_state";
   static NOTIFICATION_IS_FOR_ALL_PROJECTS = "NOTIFICATION_IS_FOR_ALL_PROJECTS";
   static PORT = 8000;
+  static SETTA_FILES_FOLDER = "setta_files";
   static SETTA_MCP_PARAM_NAMES = [
     "setta_chat_id",
     "setta_state",

@@ -10,7 +10,7 @@ from setta.database.db_objs import DBE
 
 from . import __version__
 from .database.export_db.export_db import export_database
-from .utils.constants import SETTA_FILES_FOLDER, C
+from .utils.constants import C
 from .websockets.connect import connect as _connect
 
 
@@ -42,7 +42,7 @@ def export_db(raw, readable, readable_with_variants):
     if not any([raw, readable, readable_with_variants]):
         readable_with_variants = True
 
-    dbe = DBE(SETTA_FILES_FOLDER)
+    dbe = DBE(C.SETTA_FILES_FOLDER)
     export_database(dbe.project, raw, readable, readable_with_variants)
 
 
@@ -68,7 +68,6 @@ def cli(ctx, reload, host: str, port: int, log_level):
     if ctx.invoked_subcommand is None:
         print("Starting Setta", flush=True)
 
-        SETTA_FILES_FOLDER.mkdir(parents=True, exist_ok=True)
         C.HOST = host
         C.PORT = port
 

@@ -7,9 +7,6 @@ from setta.types.routes import Route
 logger = logging.getLogger(__name__)
 
 CWD = Path.cwd()
-SETTA_FILES_FOLDER = CWD / "setta_files"
-CODE_FOLDER = SETTA_FILES_FOLDER / "code"
-DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
 CODE_FOLDER_ENV_VARIABLE = "SETTA_CODE_FOLDER"
 IS_DEV_MODE = os.environ.get("SETTA_DEV_MODE")
 
@@ -34,6 +31,11 @@ class C:
     # Set HOST and PORT from defaults (can be overridden)
     HOST: str = DEFAULT_HOST
     PORT: int = DEFAULT_PORT
+
+    SETTA_FILES_FOLDER = Path("setta_files")
+    CODE_FOLDER = SETTA_FILES_FOLDER / "code"
+    DB_BACKUP_FOLDER = SETTA_FILES_FOLDER / "backups"
+    ARTIFACTS_FOLDER = SETTA_FILES_FOLDER / "artifacts"
 
     # WebSocket message types
     WS_RUN_CODE = "runCode"

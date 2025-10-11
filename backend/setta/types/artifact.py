@@ -5,7 +5,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.database.utils import create_new_id
+from setta.utils.constants import C
 from setta.utils.generate_memorable_string import generate_memorable_string
+
+
+def create_artifact_id():
+    new_id = create_new_id()
+    return (C.ARTIFACTS_FOLDER / f"{new_id}.json").as_posix()
+
 
 ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
@@ -118,7 +125,7 @@ class DrawAreaMode(str, Enum):
 
 class BaseArtifact(BaseModel):
     type: Any
-    id: str = Field(default_factory=create_new_id)
+    id: str = Field(default_factory=create_artifact_id)
     value: Any
 
 

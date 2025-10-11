@@ -36,6 +36,8 @@ export class C {
 
     # Generate static properties for all constants
     for name, value in constants.items():
+        if isinstance(value, Path):
+            value = value.as_posix()
         js_code += f"  static {name} = {json.dumps(value)};\n"
 
     js_code += "}"

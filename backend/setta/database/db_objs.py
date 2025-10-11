@@ -9,11 +9,12 @@ from filelock import FileLock
 from setta.types.ai import IDToUUIDForLLM, UUIDToIDForLLM
 from setta.types.notifications import SettaNotification
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
+from setta.utils.utils import normalize_path
 
 
 class DBE:
     def __init__(self, path: Path):
-        self.path = path
+        self.path = normalize_path(path)
         self.project = self.path / "project.json"
         self.uuid_mapping = self.path / "uuid_mapping.json"
         self.notifications = self.path / "notifications.json"
@@ -42,6 +43,7 @@ class DBE:
         lock = self.get_file_lock(path)
 
         with lock:
+            path.parent.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
                 mode=mode, dir=path.parent, delete=False, suffix=".tmp"
             ) as tmp:

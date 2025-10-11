@@ -151,7 +151,7 @@ from setta.types.section_impls import CodeLanguage, CodeSectionImpl, SectionType
 from setta.types.settings_state import RenameRefactorMode
 from setta.types.simplified_states import Position
 from setta.utils.async_debouncer import AsyncDebouncer
-from setta.utils.constants import CODE_FOLDER
+from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
@@ -174,7 +174,7 @@ class BaseProjectManager(ABC):
         self.dbe = dbe
         self.artifacts = artifacts
         self.json_source = json_source
-        self.temp_folder = CODE_FOLDER / "temp_folder"
+        self.temp_folder = normalize_path(C.CODE_FOLDER) / "temp_folder"
         self.temp_folder.mkdir(parents=True, exist_ok=True)
         self.history = History(self.load_initial_state())
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
@@ -279,7 +279,7 @@ class BaseProjectManager(ABC):
         projectConfigId: str,
         sectionId: str | None,
     ):
-        target_folder = create_timestamped_folder(CODE_FOLDER)
+        target_folder = create_timestamped_folder(C.CODE_FOLDER)
         gen_code = self.gen_code[projectConfigId]
         gen_code_path = gen_code.write_to_folder(target_folder)
 
