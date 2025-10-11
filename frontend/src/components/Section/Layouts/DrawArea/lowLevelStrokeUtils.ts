@@ -1,120 +1,69 @@
-export function getTransformedPoints(points, transform) {
+import { DrawAreaTransform } from "utils/generatedTypes";
+import {
+  applyTransformToPoint,
+  getIdentityTransform,
+  invertTransform,
+} from "./transformUtils";
+
+export function getTransformedPoints(
+  points: Array<[number, number]>,
+  transform: DrawAreaTransform | null,
+) {
   if (!transform) {
     return points;
   }
-  return points.map((point) => [
-    point[0] * transform[0] + transform[4],
-    point[1] * transform[3] + transform[5],
-  ]);
-}
-
-function getSegmentAngle(p1, p2) {
-  return Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
-}
-
-function getTransformedWidth(width, angle, scaleX, scaleY) {
-  // Get the direction perpendicular to the line
-  const perpAngle = angle + Math.PI / 2;
-
-  // Calculate how much the width is scaled in the perpendicular direction
-  const perpX = Math.cos(perpAngle);
-  const perpY = Math.sin(perpAngle);
-
-  // Scale the perpendicular vector
-  const scaledPerpX = perpX * scaleX;
-  const scaledPerpY = perpY * scaleY;
-
-  // The new width is the length of the scaled perpendicular vector
-  return (
-    width * Math.sqrt(scaledPerpX * scaledPerpX + scaledPerpY * scaledPerpY)
-  );
-}
-
-function getSamplePoints(points, minDistance) {
-  if (points.length <= 2) return points;
-
-  const samples = [points[0]];
-  let lastSample = points[0];
-
-  for (let i = 1; i < points.length; i++) {
-    const point = points[i];
-    const dx = point[0] - lastSample[0];
-    const dy = point[1] - lastSample[1];
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance >= minDistance) {
-      samples.push(point);
-      lastSample = point;
-    }
-  }
-
-  // Always include the last point if it's not too close to the last sample
-  const lastPoint = points[points.length - 1];
-  const dx = lastPoint[0] - lastSample[0];
-  const dy = lastPoint[1] - lastSample[1];
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  if (distance >= minDistance || samples.length === 1) {
-    samples.push(lastPoint);
-  }
-
-  return samples;
+  return points.map((point) => applyTransformToPoint(transform, point));
 }
 
 export function isPointOnStroke(x, y, stroke, transform) {
-  const point = [x, y];
-  const allPoints = getTransformedPoints(stroke.points, transform);
-  const strokePoints = getSamplePoints(allPoints, 5);
+  const inverse =
+    transform !== null
+      ? invertTransform(transform) ?? getIdentityTransform()
+      : getIdentityTransform();
+  const [localX, localY] = applyTransformToPoint(inverse, [x, y]);
+  const halfWidth = stroke.lineWidth / 2;
 
-  // Handle single point
-  if (strokePoints.length === 1) {
-    const width = stroke.lineWidth * Math.max(transform[0], transform[3]);
-    return (
-      Math.hypot(
-        point[0] - strokePoints[0][0],
-        point[1] - strokePoints[0][1],
-      ) <=
-      width / 2
-    );
-  }
+  let prevPoint: [number, number] | null = null;
+  for (const rawPoint of stroke.points) {
+    if (rawPoint === "BREAK") {
+      prevPoint = null;
+      continue;
+    }
 
-  // Check each segment between sampled points
-  for (let i = 0; i < strokePoints.length - 1; i++) {
-    const currentPoint = strokePoints[i];
-    const nextPoint = strokePoints[i + 1];
+    const point = rawPoint;
 
-    const segmentAngle = getSegmentAngle(currentPoint, nextPoint);
-    const segmentWidth = getTransformedWidth(
-      stroke.lineWidth,
-      segmentAngle,
-      transform[0],
-      transform[3],
-    );
+    if (!prevPoint) {
+      const distance = Math.hypot(localX - point[0], localY - point[1]);
+      if (distance <= halfWidth) {
+        return true;
+      }
 
-    // Calculate distance to line segment
-    const dx = nextPoint[0] - currentPoint[0];
-    const dy = nextPoint[1] - currentPoint[1];
+      prevPoint = point;
+      continue;
+    }
+
+    const dx = point[0] - prevPoint[0];
+    const dy = point[1] - prevPoint[1];
     const lengthSq = dx * dx + dy * dy;
 
-    if (lengthSq === 0) continue;
+    if (lengthSq === 0) {
+      prevPoint = point;
+      continue;
+    }
 
-    const t = Math.max(
-      0,
-      Math.min(
-        1,
-        ((point[0] - currentPoint[0]) * dx +
-          (point[1] - currentPoint[1]) * dy) /
-          lengthSq,
-      ),
-    );
+    const tNumerator =
+      (localX - prevPoint[0]) * dx + (localY - prevPoint[1]) * dy;
+    const t = Math.max(0, Math.min(1, tNumerator / lengthSq));
 
-    const projX = currentPoint[0] + t * dx;
-    const projY = currentPoint[1] + t * dy;
-    const distance = Math.hypot(point[0] - projX, point[1] - projY);
+    const projX = prevPoint[0] + t * dx;
+    const projY = prevPoint[1] + t * dy;
+    const distance = Math.hypot(localX - projX, localY - projY);
 
-    if (distance <= segmentWidth / 2) {
+    if (distance <= halfWidth) {
       return true;
     }
+
+    prevPoint = point;
   }
 
   return false;

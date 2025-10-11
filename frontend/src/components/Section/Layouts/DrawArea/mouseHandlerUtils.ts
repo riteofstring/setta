@@ -6,6 +6,7 @@ import type {
 } from "utils/generatedTypes";
 import { getCombinedTransformForStroke } from "./canvasUtils";
 import { getTransformedPoints, isPointOnStroke } from "./lowLevelStrokeUtils";
+import { applyTransformToPoint, applyTransformToVector } from "./transformUtils";
 import type { ResizeHandle, ResizeHandleCorners } from "./types";
 
 type Bounds = {
@@ -62,10 +63,12 @@ export const getBrushStrokesBounds = (
   strokes: StrokeSource,
   artifactTransform: DrawAreaTransform,
 ): Bounds => {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let maxY = -Infinity;
+  const bounds: Bounds = {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+  };
 
   for (const stroke of normalizeStrokeSource(strokes)) {
     if (!stroke.points) {
@@ -76,23 +79,19 @@ export const getBrushStrokesBounds = (
       ? getCombinedTransformForStroke(artifactTransform, stroke.transform)
       : artifactTransform;
 
-    for (const point of getTransformedPoints(
-      stroke.points,
-      combinedTransform,
-    )) {
-      if (point[0] < minX) minX = point[0];
-      if (point[1] < minY) minY = point[1];
-      if (point[0] > maxX) maxX = point[0];
-      if (point[1] > maxY) maxY = point[1];
+    const numericPoints = stroke.points.filter(
+      (p): p is [number, number] => Array.isArray(p),
+    );
+
+    for (const point of getTransformedPoints(numericPoints, combinedTransform)) {
+      bounds.minX = Math.min(bounds.minX, point[0]);
+      bounds.minY = Math.min(bounds.minY, point[1]);
+      bounds.maxX = Math.max(bounds.maxX, point[0]);
+      bounds.maxY = Math.max(bounds.maxY, point[1]);
     }
   }
 
-  return {
-    minX,
-    maxX,
-    minY,
-    maxY,
-  };
+  return bounds;
 };
 
 export function incrementResizeHandleCorners(
@@ -196,22 +195,31 @@ export function getScaledWidth(
   image: HTMLImageElement,
   transform: DrawAreaTransform,
 ): number {
-  return image.width * transform[0];
+  const [dx, dy] = applyTransformToVector(transform, [image.width, 0]);
+  return Math.hypot(dx, dy);
 }
 
 export function getScaledHeight(
   image: HTMLImageElement,
   transform: DrawAreaTransform,
 ): number {
-  return image.height * transform[3];
+  const [dx, dy] = applyTransformToVector(transform, [0, image.height]);
+  return Math.hypot(dx, dy);
 }
 
 export function getImageBounds(
   image: HTMLImageElement,
   transform: DrawAreaTransform,
 ): Bounds {
-  const xs = [transform[4], transform[4] + getScaledWidth(image, transform)];
-  const ys = [transform[5], transform[5] + getScaledHeight(image, transform)];
+  const corners = [
+    applyTransformToPoint(transform, [0, 0]),
+    applyTransformToPoint(transform, [image.width, 0]),
+    applyTransformToPoint(transform, [0, image.height]),
+    applyTransformToPoint(transform, [image.width, image.height]),
+  ];
+
+  const xs = corners.map(([x]) => x);
+  const ys = corners.map(([, y]) => y);
 
   return {
     minX: Math.min(...xs),

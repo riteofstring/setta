@@ -36,6 +36,11 @@ import {
   ResizeHandleCorners,
   TempCanvasesType,
 } from "./types";
+import {
+  getIdentityTransform,
+  invertTransform as invertAffineTransform,
+  multiplyTransforms,
+} from "./transformUtils";
 
 export const RESIZE_HANDLE_SIZE = 16;
 
@@ -502,30 +507,15 @@ export function getCombinedTransformForStroke(
   artifactTransform: DrawAreaTransform,
   strokeTransform: DrawAreaTransform,
 ): DrawAreaTransform {
-  return [
-    artifactTransform[0] * strokeTransform[0], // multiply scales
-    0,
-    0,
-    artifactTransform[3] * strokeTransform[3], // multiply scales
-    artifactTransform[4] + strokeTransform[4] * artifactTransform[0], // transform the translation
-    artifactTransform[5] + strokeTransform[5] * artifactTransform[3], // transform the translation
-  ];
+  const artifact = artifactTransform ?? getIdentityTransform();
+  const stroke = strokeTransform ?? getIdentityTransform();
+  return multiplyTransforms(artifact, stroke);
 }
 
 export function getInverseTransform(
   transform: DrawAreaTransform,
 ): DrawAreaTransform {
-  // Inverse transform:
-  // - Divide by scale instead of multiply
-  // - Subtract translated position divided by scale
-  return [
-    1 / transform[0],
-    0,
-    0,
-    1 / transform[3],
-    -transform[4] / transform[0],
-    -transform[5] / transform[3],
-  ];
+  return invertAffineTransform(transform) ?? getIdentityTransform();
 }
 
 function hexToRGBA(_hex: string, opacity: number) {
