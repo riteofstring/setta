@@ -226,9 +226,7 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
         continue;
       }
       transformArtifact.value.transform = _.cloneDeep(local.transform);
-      transformArtifact.value.eraserStrokes = _.cloneDeep(
-        local.eraserStrokes,
-      );
+      transformArtifact.value.eraserStrokes = _.cloneDeep(local.eraserStrokes);
     }
   });
 

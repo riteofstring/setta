@@ -4,9 +4,9 @@ import type {
   BrushStrokeWithTransform,
   DrawAreaTransform,
 } from "utils/generatedTypes";
-import type { ResizeHandle, ResizeHandleCorners } from "./types";
 import { getCombinedTransformForStroke } from "./canvasUtils";
 import { getTransformedPoints, isPointOnStroke } from "./lowLevelStrokeUtils";
+import type { ResizeHandle, ResizeHandleCorners } from "./types";
 
 type Bounds = {
   minX: number;
@@ -32,9 +32,7 @@ type StrokeSource = StrokeCollection | StrokeContainer | null | undefined;
 function isStrokeWithTransform(
   stroke: StrokeLike,
 ): stroke is BrushStrokeWithTransform {
-  return Array.isArray(
-    (stroke as Partial<BrushStrokeWithTransform>).transform,
-  );
+  return Array.isArray((stroke as Partial<BrushStrokeWithTransform>).transform);
 }
 
 function normalizeStrokeSource(source: StrokeSource): StrokeLike[] {
@@ -57,9 +55,7 @@ function normalizeStrokeSource(source: StrokeSource): StrokeLike[] {
     ? maybeCollection
     : [maybeCollection];
 
-  return strokes.filter(
-    (stroke): stroke is StrokeLike => Boolean(stroke),
-  );
+  return strokes.filter((stroke): stroke is StrokeLike => Boolean(stroke));
 }
 
 export const getBrushStrokesBounds = (
@@ -241,6 +237,7 @@ export function getImageHandleBehaviorFn(
       } else if (!xScaleWasPositive && !yScaleWasPositive) {
         return imageBottomRightHandleBehavior;
       }
+      break;
     case 1:
       if (xScaleWasPositive && yScaleWasPositive) {
         return imageTopRightHandleBehavior;
@@ -251,6 +248,7 @@ export function getImageHandleBehaviorFn(
       } else if (!xScaleWasPositive && !yScaleWasPositive) {
         return imageBottomLeftHandleBehavior;
       }
+      break;
     case 2:
       if (xScaleWasPositive && yScaleWasPositive) {
         return imageBottomLeftHandleBehavior;
@@ -261,6 +259,7 @@ export function getImageHandleBehaviorFn(
       } else if (!xScaleWasPositive && !yScaleWasPositive) {
         return imageTopRightHandleBehavior;
       }
+      break;
     case 3:
       if (xScaleWasPositive && yScaleWasPositive) {
         return imageBottomRightHandleBehavior;

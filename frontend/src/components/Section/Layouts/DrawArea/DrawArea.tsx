@@ -19,9 +19,9 @@ import {
 } from "./canvasUtils";
 import { DrawAreaControls } from "./DrawAreaControls";
 import {
+  CanvasPointXY,
   LayerCanvasesType,
   LocalLayerItemState,
-  CanvasPointXY,
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,

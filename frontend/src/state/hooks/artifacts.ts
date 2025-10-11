@@ -112,7 +112,7 @@ export function useLoadedChartData(sectionId: string) {
 
 async function loadCachedBrushStrokes(paths: Array<string>) {
   const res = await route_load_cached_brush_strokes({ paths });
-  console.log("loadCachedBrushStrokes", res)
+  console.log("loadCachedBrushStrokes", res);
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
       const newData = { ...state.x };
@@ -194,7 +194,7 @@ export function useLoadedDrawAreaData(sectionId: string) {
     return { brushStrokes, brushStrokesToLoad };
   }, _.isEqual);
 
-  console.log("brushStrokesToLoad", brushStrokesToLoad)
+  console.log("brushStrokesToLoad", brushStrokesToLoad);
 
   const { transforms, transformsToLoad } = useDrawAreaLayerItemTransform(
     (x) => {

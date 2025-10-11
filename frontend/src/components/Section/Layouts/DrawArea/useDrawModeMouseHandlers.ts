@@ -43,9 +43,9 @@ import {
   setResizeHandleCorners,
 } from "./mouseHandlerUtils";
 import {
+  CanvasPointXY,
   LayerCanvasesType,
   LocalLayerItemState,
-  CanvasPointXY,
   ResizeHandle,
   ResizeHandleCorners,
   TempCanvasesType,
@@ -116,7 +116,13 @@ export function useDrawModeMouseHandlers(
         ? { [activeLayerIdx]: resizeHandleCorners.current }
         : {};
 
-    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs, transformsMap, handles);
+    drawAllLayers(
+      layers,
+      layerCanvasRefs,
+      tempCanvasRefs,
+      transformsMap,
+      handles,
+    );
   };
 
   if (
@@ -262,9 +268,7 @@ function syncLocalTransformsForEditMode(
       if (local.transformId !== element.transformId) {
         return true;
       }
-      return (
-        local.eraserStrokes.length !== artifact.value.eraserStrokes.length
-      );
+      return local.eraserStrokes.length !== artifact.value.eraserStrokes.length;
     });
 
   if (!needsResync) {
@@ -283,9 +287,7 @@ function syncLocalTransformsForEditMode(
       transform: artifact
         ? cloneDeep(artifact.value.transform)
         : [...defaultTransform],
-      eraserStrokes: artifact
-        ? cloneDeep(artifact.value.eraserStrokes)
-        : [],
+      eraserStrokes: artifact ? cloneDeep(artifact.value.eraserStrokes) : [],
     };
   });
 }
