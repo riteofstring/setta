@@ -460,6 +460,9 @@ function drawingOnMouseUp(
             eraserStrokeRef.current.lineCap,
             bounds,
           );
+          if (intersectingPath.length === 0) {
+            continue;
+          }
           artifact.value.eraserStrokes.push({
             ...eraserStrokeRef.current,
             points: intersectingPath,

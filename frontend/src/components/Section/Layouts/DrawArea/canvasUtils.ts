@@ -15,6 +15,7 @@ import {
   ArtifactTypeEnum,
   BrushStroke,
   BrushStrokeArtifact,
+  BrushStrokeWithTransform,
   CanvasPoint,
   createBrushStroke,
   createBrushStrokeArtifact,
@@ -30,6 +31,8 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { updateArrayAt } from "utils/utils";
+import { filterEraserPath } from "./eraserIntersection";
+import { getBrushStrokesBounds, getImageBounds } from "./mouseHandlerUtils";
 import {
   getIdentityTransform,
   invertTransform as invertAffineTransform,
@@ -313,9 +316,6 @@ export function drawOneLayer(
   const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
-  // console.log("drawOneLayer brushStrokes", brushStrokes);
-  console.log("drawOneLayer layer.elements", layer.elements);
-
   for (const [idx, e] of layer.elements.entries()) {
     // console.log("drawOneLayer e", e);
     artifactTempCtx.globalAlpha = 1;
@@ -346,6 +346,23 @@ export function drawOneLayer(
             ),
           ),
         );
+        const previewStroke =
+          realTimeEraserStroke &&
+          getPreviewEraserStrokeForBounds(
+            realTimeEraserStroke,
+            getImageBounds(artifact, tArtifact.value.transform),
+            tArtifact.value.transform,
+          );
+        if (previewStroke) {
+          drawStrokeOntoTempCanvas(
+            artifactTempCtx,
+            previewStroke,
+            getCombinedTransformForStroke(
+              tArtifact.value.transform,
+              previewStroke.transform,
+            ),
+          );
+        }
       }
     } else if (
       e.type === ArtifactTypeEnum.BrushStroke &&
@@ -374,6 +391,23 @@ export function drawOneLayer(
             ),
           ),
         );
+        const previewStroke =
+          realTimeEraserStroke &&
+          getPreviewEraserStrokeForBounds(
+            realTimeEraserStroke,
+            getBrushStrokesBounds(artifact.value, tArtifact.value.transform),
+            tArtifact.value.transform,
+          );
+        if (previewStroke) {
+          drawStrokeOntoTempCanvas(
+            artifactTempCtx,
+            previewStroke,
+            getCombinedTransformForStroke(
+              tArtifact.value.transform,
+              previewStroke.transform,
+            ),
+          );
+        }
       }
     } else {
       continue;
@@ -386,10 +420,6 @@ export function drawOneLayer(
     layerTempCtx.drawImage(artifactTempCanvas, 0, 0);
 
     clearCanvas(artifactTempCanvas);
-  }
-
-  if (realTimeEraserStroke) {
-    drawStrokeOntoTempCanvas(layerTempCtx, realTimeEraserStroke, null);
   }
 
   ctx.globalCompositeOperation = "source-over";
@@ -522,6 +552,30 @@ export function getCombinedTransformForStroke(
   const artifact = artifactTransform ?? getIdentityTransform();
   const stroke = strokeTransform ?? getIdentityTransform();
   return multiplyTransforms(artifact, stroke);
+}
+
+function getPreviewEraserStrokeForBounds(
+  eraserStroke: BrushStroke,
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  artifactTransform: DrawAreaTransform,
+): BrushStrokeWithTransform | null {
+  if (!Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)) {
+    return null;
+  }
+  const filteredPoints = filterEraserPath(
+    eraserStroke.points,
+    eraserStroke.lineWidth,
+    eraserStroke.lineCap,
+    bounds,
+  );
+  if (filteredPoints.length === 0) {
+    return null;
+  }
+  return {
+    ...eraserStroke,
+    points: filteredPoints,
+    transform: getInverseTransform(artifactTransform),
+  };
 }
 
 export function getInverseTransform(
