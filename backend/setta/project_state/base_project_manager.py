@@ -7,7 +7,6 @@ from typing import Coroutine, Iterable
 
 from setta.code_gen.dependency_graph import DependencyGraph
 from setta.code_gen.python.generate_code import PythonCodeGenerator
-from setta.database.db.jsonSource.load import load_json_sources_into_data_structures
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -17,10 +16,11 @@ from setta.lsp.managers import LSPWriters
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code import Code
 from setta.project_state.history import History
-from setta.project_state.jsonSource import (
+from setta.project_state.jsonSource.jsonSource import (
     JSONSource,
     ProcessedJSONInfo,
 )
+from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 
-from setta.project_state.jsonSource import (
+from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.types.code_obj_impls import (

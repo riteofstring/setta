@@ -1,9 +1,9 @@
 from setta.database.backup import maybe_create_backup
-from setta.database.db.jsonSource.save import (
+from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.jsonSource.save import (
     remove_json_source_values,
     save_json_source_data,
 )
-from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager_types import (
     SaveAsExistingProjectConfigRequest,
     SaveAsNewProjectConfigRequest,

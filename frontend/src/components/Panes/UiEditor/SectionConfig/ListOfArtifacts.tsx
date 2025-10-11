@@ -9,7 +9,6 @@ import { useArtifacts, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { C } from "utils/c";
 import { res200 } from "utils/endpointUtils";
-import { route_load_available_artifacts } from "utils/generatedEndpoints";
 import { ArtifactType, ArtifactTypeEnum } from "utils/generatedTypes";
 
 const LayersList = ({
