@@ -103,6 +103,7 @@ class Route(str, Enum):
     SET_BROWSER_AREA_VIEW_MODE = "/setBrowserAreaViewMode"
     SET_TEXT_BLOCK_FORMAT = "/setTextBlockFormat"
     SET_SOCIAL_URL = "/setSocialUrl"
+    APPEND_DRAW_AREA_LAYER_ITEM = "/appendDrawAreaLayerItem"
     GROUP_SECTIONS = "/groupSections"
     UNGROUP_GROUPS = "/ungroupGroups"
     TOGGLE_PARAM_SELECTED = "/toggleParamSelected"

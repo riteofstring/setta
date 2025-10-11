@@ -587,6 +587,12 @@ export async function route_paste_sections(
   return await post("/pasteSections", x);
 }
 
+export async function route_append_draw_area_layer_item(
+  x: gt.AppendDrawAreaLayerItemRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/appendDrawAreaLayerItem", x);
+}
+
 export async function route_set_image_area_image_path(
   x: gt.SetImageAreaImagePathRequest,
 ): Promise<ResponseDataAndStatus<null>> {

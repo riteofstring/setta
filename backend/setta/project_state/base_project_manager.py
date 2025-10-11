@@ -27,6 +27,7 @@ from setta.project_state.project_code import (
     ProjectPythonCode,
 )
 from setta.project_state.project_manager_types import (
+    AppendDrawAreaLayerItemRequest,
     AddKwargRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
@@ -94,6 +95,7 @@ from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     change_param_impl,
+    append_draw_area_layer_item,
     create_child_sections,
     create_child_sections_via_incrementer,
     create_new_section_variant,
@@ -872,6 +874,14 @@ class BaseProjectManager(ABC):
     async def set_social_url(self, x: SetSocialUrlRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_social_url(project_state, x.sectionId, x.url)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    async def append_draw_area_layer_item(self, x: AppendDrawAreaLayerItemRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        append_draw_area_layer_item(
+            project_state, x.sectionId, x.layerIdx, x.element
+        )
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

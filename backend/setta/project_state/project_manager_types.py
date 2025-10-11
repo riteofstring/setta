@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from setta.types.artifact import ChartType
+from setta.types.artifact import ChartType, DrawAreaLayerItem
 from setta.types.clipboard import ProjectStateCoreWithSectionVariantMap
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
@@ -349,6 +349,13 @@ class SetChartSettingsRequest(BaseModel):
     sectionId: str
     chartSettings: BaseChartSettingsUnionWithDiscriminator
     changedSettings: list[str]
+
+
+class AppendDrawAreaLayerItemRequest(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    layerIdx: int
+    element: DrawAreaLayerItem
 
 
 @dataclass

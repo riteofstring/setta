@@ -5,6 +5,7 @@ import {
 } from "state/actions/artifacts";
 import {
   getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -35,6 +36,7 @@ import {
   SectionSize,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { route_append_draw_area_layer_item } from "utils/generatedEndpoints";
 import { updateArrayAt } from "utils/utils";
 import { filterEraserPath } from "./eraserIntersection";
 import { getBrushStrokesBounds, getImageBounds } from "./mouseHandlerUtils";
@@ -240,17 +242,21 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
     };
   });
 
-  const updatedLayer = addDrawAreaLayerItem(
-    sectionId,
-    layerIdx,
-    createDrawAreaLayerItem({
-      type: ArtifactTypeEnum.BrushStroke,
-      dataPath: stroke.id,
-      transformId: newTransformArtifact.id,
-    }),
-  );
+  const newLayerItem = createDrawAreaLayerItem({
+    type: ArtifactTypeEnum.BrushStroke,
+    dataPath: stroke.id,
+    transformId: newTransformArtifact.id,
+  });
+
+  const updatedLayer = addDrawAreaLayerItem(sectionId, layerIdx, newLayerItem);
   if (updatedLayer) {
     drawOneLayer(updatedLayer, layerCanvas, tempCanvasRefs, [], null, null);
+    void route_append_draw_area_layer_item({
+      projectConfigId: getCurrProjectConfigId(),
+      sectionId,
+      layerIdx,
+      element: newLayerItem,
+    });
   } else {
     console.error("updatedLayer is undefined. This shouldn't happen");
   }

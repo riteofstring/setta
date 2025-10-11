@@ -7,6 +7,7 @@ from setta.database.utils import create_new_id
 from setta.types.artifact import (
     ChartType,
     DrawAreaLayer,
+    DrawAreaLayerItem,
 )
 from setta.types.code_obj_impls import (
     BaseCodeObjImpl,
@@ -48,6 +49,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
+    DrawSectionImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -351,6 +353,40 @@ def create_section(
 def init_draw_section_layer(impl: DrawSectionImpl):
     layer = DrawAreaLayer(elements=[])
     impl.layers = [layer]
+
+
+def append_draw_area_layer_item(
+    p: "ProjectStateSingleConfig",
+    sectionId: str,
+    layerIdx: int,
+    element: DrawAreaLayerItem,
+):
+    impl = get_curr_effective_section_impl_with_type_guard(p, sectionId, DrawSectionImpl)
+    if layerIdx < 0 or layerIdx >= len(impl.layers):
+        raise ValueError(
+            f"Layer index {layerIdx} out of range for draw section {sectionId}"
+        )
+
+    target_layer = impl.layers[layerIdx]
+    if any(existing.dataPath == element.dataPath for existing in target_layer.elements):
+        return
+
+    element_copy = element.model_copy(deep=True)
+
+    def update_layers(curr_layers: list[DrawAreaLayer]):
+        layers_copy = [layer.model_copy(deep=True) for layer in curr_layers]
+        layer_to_update = layers_copy[layerIdx]
+        layer_to_update = layer_to_update.model_copy(
+            update={"elements": [*layer_to_update.elements, element_copy]}
+        )
+        layers_copy[layerIdx] = layer_to_update
+        return layers_copy
+
+    set_curr_effective_section_impl_value(
+        p,
+        sectionId,
+        DrawSectionImplArgsWithCallable(layers=update_layers),
+    )
 
 
 def create_top_level_section(

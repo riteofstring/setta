@@ -471,6 +471,7 @@ export const RouteEnum = {
   SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_SOCIAL_URL: "/setSocialUrl",
+  APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
   GROUP_SECTIONS: "/groupSections",
   UNGROUP_GROUPS: "/ungroupGroups",
   TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
@@ -8317,6 +8318,23 @@ export function createSetGenCodeSuffixRequest(
   options: Partial<SetGenCodeSuffixRequest> = {},
 ): SetGenCodeSuffixRequest {
   return SetGenCodeSuffixRequestSchema.parse(options);
+}
+
+export const AppendDrawAreaLayerItemRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  layerIdx: z.number().int(),
+  element: DrawAreaLayerItemSchema,
+});
+
+export type AppendDrawAreaLayerItemRequest = z.infer<
+  typeof AppendDrawAreaLayerItemRequestSchema
+>;
+
+export function createAppendDrawAreaLayerItemRequest(
+  options: Partial<AppendDrawAreaLayerItemRequest> = {},
+): AppendDrawAreaLayerItemRequest {
+  return AppendDrawAreaLayerItemRequestSchema.parse(options);
 }
 
 export const SetImageAreaImagePathRequestSchema = z.object({

@@ -1,6 +1,7 @@
 from setta.project_state.lsp_response_handlers.completion import CodeMirrorCompletion
 from setta.project_state.project_manager_types import (
     AddKwargRequest,
+    AppendDrawAreaLayerItemRequest,
     ChangeParamImplRequest,
     ClearTextFieldCompletionRequest,
     CodeAreaCompletionRequest,
@@ -454,6 +455,15 @@ async def route_prepare_sections_for_copy(
 @router.post(Route.PASTE_SECTIONS)
 async def route_paste_sections(x: PasteSectionsRequest, state: AppStateFromRequest):
     await state.project_manager_switcher.get(x.projectConfigId).paste_sections(x)
+
+
+@router.post(Route.APPEND_DRAW_AREA_LAYER_ITEM)
+async def route_append_draw_area_layer_item(
+    x: AppendDrawAreaLayerItemRequest, state: AppStateFromRequest
+):
+    await state.project_manager_switcher.get(
+        x.projectConfigId
+    ).append_draw_area_layer_item(x)
 
 
 @router.post(Route.SET_IMAGE_AREA_IMAGE_PATH)
