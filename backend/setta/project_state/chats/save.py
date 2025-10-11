@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from anthropic.types import TextBlock
 
-from setta.database.db.chats.load import load_chat
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
+from setta.project_state.chats.load import load_chat
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
@@ -59,9 +59,7 @@ def save_messages(dbe: DBE, chat_id: str, messages: list[ChatMessage]) -> Chat |
         return None
 
     existing_ids = {message.id for message in chat.messages}
-    new_messages = [
-        message for message in messages if message.id not in existing_ids
-    ]
+    new_messages = [message for message in messages if message.id not in existing_ids]
     if not new_messages:
         return chat
 

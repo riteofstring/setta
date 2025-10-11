@@ -4,15 +4,14 @@ from pathlib import Path
 from typing import cast
 
 from anthropic.types import TextBlock
-
-from setta.database.db.chats.load import load_all_chat_metadata, load_chat
-from setta.database.db.chats.save import (
+from setta.database.db_objs import DBE
+from setta.database.utils import create_new_id
+from setta.project_state.chats.load import load_all_chat_metadata, load_chat
+from setta.project_state.chats.save import (
     create_new_chat,
     delete_chat,
     save_messages,
 )
-from setta.database.db_objs import DBE
-from setta.database.utils import create_new_id
 from setta.types.chat_messages import Chat, ChatMessage, ChatRole
 
 
@@ -36,7 +35,7 @@ class ChatStorageTests(unittest.TestCase):
         loaded = load_chat(self.dbe, chat.id)
 
         self.assertIsNotNone(loaded)
-        loaded_chat = cast(Chat, loaded)
+        loaded_chat = cast("Chat", loaded)
         self.assertEqual(chat.id, loaded_chat.id)
         self.assertEqual(chat.name, loaded_chat.name)
         self.assertEqual(1, len(loaded_chat.messages))
@@ -53,14 +52,14 @@ class ChatStorageTests(unittest.TestCase):
         updated = save_messages(self.dbe, chat.id, [follow_up])
 
         self.assertIsNotNone(updated)
-        updated_chat = cast(Chat, updated)
+        updated_chat = cast("Chat", updated)
         self.assertGreaterEqual(updated_chat.lastUpdated, initial_last_updated)
         self.assertEqual(2, len(updated_chat.messages))
 
         # Saving the same message again should not duplicate it
         again = save_messages(self.dbe, chat.id, [follow_up])
         self.assertIsNotNone(again)
-        again_chat = cast(Chat, again)
+        again_chat = cast("Chat", again)
         self.assertEqual(2, len(again_chat.messages))
 
     def test_load_metadata_and_delete_chat(self):
