@@ -30,18 +30,6 @@ type ArtifactByType =
   | DrawAreaLayerItemTransformArtifact
   | ChartDataArtifact;
 
-type ArtifactUpdateResult = {
-  id: string;
-  type: string;
-  status: string;
-  backupPath?: string | null;
-  message?: string | null;
-};
-
-type UpdateArtifactsResponse = {
-  results?: Array<ArtifactUpdateResult>;
-};
-
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
   changedIds: Set<string>;

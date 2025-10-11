@@ -20,12 +20,7 @@ import {
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import {
-  ArtifactTypeEnum,
-  BrushStrokeMapping,
-  DrawAreaLayerItemTransformMapping,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
@@ -388,44 +383,3 @@ export function useDrawAreaArtifactLoader(sectionId: string) {
     void decodeExistingRawImages(pendingDecode);
   }, [sectionId, refs]);
 }
-
-export function useDrawAreaArtifactData(sectionId: string) {
-  const refs = useDrawAreaElementRefs(sectionId);
-
-  const decodedImages = useDecodedImages((state) => {
-    const acc: ZustandDecodedImages["x"] = {};
-    for (const path of refs.imagePaths) {
-      const decoded = state.x[path];
-      if (decoded) {
-        acc[path] = decoded;
-      }
-    }
-    return acc;
-  }, _.isEqual);
-
-  const brushStrokes = useBrushStrokes((state) => {
-    const acc: BrushStrokeMapping = {};
-    for (const id of refs.brushStrokeIds) {
-      const stroke = state.x[id];
-      if (stroke) {
-        acc[id] = stroke;
-      }
-    }
-    return acc;
-  }, _.isEqual);
-
-  const transforms = useDrawAreaLayerItemTransform((state) => {
-    const acc: DrawAreaLayerItemTransformMapping = {};
-    for (const id of refs.transformIds) {
-      const transform = state.x[id];
-      if (transform) {
-        acc[id] = transform;
-      }
-    }
-    return acc;
-  }, _.isEqual);
-
-  return { decodedImages, brushStrokes, transforms };
-}
-
-export const useLoadedDrawAreaData = useDrawAreaArtifactData;
