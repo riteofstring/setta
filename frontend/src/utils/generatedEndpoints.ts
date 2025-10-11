@@ -225,6 +225,12 @@ export async function route_load_cached_draw_area_layer_item_transform(
   return await post("/loadDrawAreaLayerItemTransform", x);
 }
 
+export async function route_update_artifacts(
+  x: gt.UpdateArtifactsRequest,
+): Promise<ResponseDataAndStatus<gt.UpdateArtifactsResponse>> {
+  return await post("/updateArtifacts", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {

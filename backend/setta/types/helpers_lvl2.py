@@ -44,12 +44,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ChartSectionImplArgsWithCallable,
     CodeCallableCodeObjImplArgsWithCallable,
     CoreArgs,
+    DrawSectionImplArgsWithCallable,
     GenPythonCodeSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgs,
-    DrawSectionImplArgsWithCallable,
 )
 from setta.types.generated.impl_creation_fns import (
     create_code_obj_impl,
@@ -361,7 +361,9 @@ def append_draw_area_layer_item(
     layerIdx: int,
     element: DrawAreaLayerItem,
 ):
-    impl = get_curr_effective_section_impl_with_type_guard(p, sectionId, DrawSectionImpl)
+    impl = get_curr_effective_section_impl_with_type_guard(
+        p, sectionId, DrawSectionImpl
+    )
     if layerIdx < 0 or layerIdx >= len(impl.layers):
         raise ValueError(
             f"Layer index {layerIdx} out of range for draw section {sectionId}"

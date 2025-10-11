@@ -401,6 +401,7 @@ export const RouteEnum = {
   SEND_ARTIFACT: "/sendArtfiact",
   LOAD_ARTIFACTS: "/loadArtifacts",
   LOAD_AVAILABLE_ARTIFACTS: "/loadAvailableArtifacts",
+  UPDATE_ARTIFACTS: "/updateArtifacts",
   READ_CSV_BASE64: "/readCSVBase64",
   FILL_IN_MISSING_ARTIFACT_IDS: "/getArtifactIdsFromNamePathType",
   GET_DEFAULT_PROJECT_CONFIG_NAME: "/getDefaultConfigName",
@@ -577,6 +578,16 @@ export const WebsocketMsgTypeForFrontendEnum = {
 
 export type WebsocketMsgTypeForFrontend = ObjectValues<
   typeof WebsocketMsgTypeForFrontendEnum
+>;
+
+export const SaveConflictStrategyEnum = {
+  skip: "skip",
+  backup: "backup",
+  overwrite: "overwrite",
+} as const;
+
+export type SaveConflictStrategy = ObjectValues<
+  typeof SaveConflictStrategyEnum
 >;
 
 export const APIKeysSchema = z.record(z.string(), z.string());
@@ -7671,6 +7682,22 @@ export function createStopLLMChatRequest(
   return StopLLMChatRequestSchema.parse(options);
 }
 
+export const ArtifactSaveResultSchema = z.object({
+  id: z.string(),
+  type: z.enum(ArtifactTypeEnum),
+  status: z.literal(["saved", "unchanged", "skipped", "conflict"]),
+  backupPath: z.union([z.string(), z.null()]).default(null),
+  message: z.union([z.string(), z.null()]).default(null),
+});
+
+export type ArtifactSaveResult = z.infer<typeof ArtifactSaveResultSchema>;
+
+export function createArtifactSaveResult(
+  options: Partial<ArtifactSaveResult> = {},
+): ArtifactSaveResult {
+  return ArtifactSaveResultSchema.parse(options);
+}
+
 export const CheckIfFileExistsRequestsSchema = z.object({
   filepath: z.string(),
 });
@@ -7792,6 +7819,44 @@ export function createSendArtifactRequest(
   return SendArtifactRequestSchema.parse(options);
 }
 
+export const UpdateArtifactsRequestSchema = z.object({
+  artifacts: z.array(
+    z.union([
+      ImageArtifactSchema,
+      BrushStrokeArtifactSchema,
+      DrawAreaLayerItemTransformArtifactSchema,
+      ChartDataArtifactSchema,
+    ]),
+  ),
+  conflictStrategy: z
+    .union([z.enum(SaveConflictStrategyEnum), z.null()])
+    .default(null),
+});
+
+export type UpdateArtifactsRequest = z.infer<
+  typeof UpdateArtifactsRequestSchema
+>;
+
+export function createUpdateArtifactsRequest(
+  options: Partial<UpdateArtifactsRequest> = {},
+): UpdateArtifactsRequest {
+  return UpdateArtifactsRequestSchema.parse(options);
+}
+
+export const UpdateArtifactsResponseSchema = z.object({
+  results: z.array(ArtifactSaveResultSchema),
+});
+
+export type UpdateArtifactsResponse = z.infer<
+  typeof UpdateArtifactsResponseSchema
+>;
+
+export function createUpdateArtifactsResponse(
+  options: Partial<UpdateArtifactsResponse> = {},
+): UpdateArtifactsResponse {
+  return UpdateArtifactsResponseSchema.parse(options);
+}
+
 export const DocstringToMarkdownRequestSchema = z.object({
   docstring: z.string(),
 });
@@ -7841,6 +7906,23 @@ export function createAddKwargRequest(
   options: Partial<AddKwargRequest> = {},
 ): AddKwargRequest {
   return AddKwargRequestSchema.parse(options);
+}
+
+export const AppendDrawAreaLayerItemRequestSchema = z.object({
+  projectConfigId: z.string(),
+  sectionId: z.string(),
+  layerIdx: z.int(),
+  element: DrawAreaLayerItemSchema,
+});
+
+export type AppendDrawAreaLayerItemRequest = z.infer<
+  typeof AppendDrawAreaLayerItemRequestSchema
+>;
+
+export function createAppendDrawAreaLayerItemRequest(
+  options: Partial<AppendDrawAreaLayerItemRequest> = {},
+): AppendDrawAreaLayerItemRequest {
+  return AppendDrawAreaLayerItemRequestSchema.parse(options);
 }
 
 export const ChangeParamImplRequestSchema = z.object({
@@ -8318,23 +8400,6 @@ export function createSetGenCodeSuffixRequest(
   options: Partial<SetGenCodeSuffixRequest> = {},
 ): SetGenCodeSuffixRequest {
   return SetGenCodeSuffixRequestSchema.parse(options);
-}
-
-export const AppendDrawAreaLayerItemRequestSchema = z.object({
-  projectConfigId: z.string(),
-  sectionId: z.string(),
-  layerIdx: z.number().int(),
-  element: DrawAreaLayerItemSchema,
-});
-
-export type AppendDrawAreaLayerItemRequest = z.infer<
-  typeof AppendDrawAreaLayerItemRequestSchema
->;
-
-export function createAppendDrawAreaLayerItemRequest(
-  options: Partial<AppendDrawAreaLayerItemRequest> = {},
-): AppendDrawAreaLayerItemRequest {
-  return AppendDrawAreaLayerItemRequestSchema.parse(options);
 }
 
 export const SetImageAreaImagePathRequestSchema = z.object({

@@ -392,47 +392,38 @@ export function useDrawAreaArtifactLoader(sectionId: string) {
 export function useDrawAreaArtifactData(sectionId: string) {
   const refs = useDrawAreaElementRefs(sectionId);
 
-  const decodedImages = useDecodedImages(
-    (state) => {
-      const acc: ZustandDecodedImages["x"] = {};
-      for (const path of refs.imagePaths) {
-        const decoded = state.x[path];
-        if (decoded) {
-          acc[path] = decoded;
-        }
+  const decodedImages = useDecodedImages((state) => {
+    const acc: ZustandDecodedImages["x"] = {};
+    for (const path of refs.imagePaths) {
+      const decoded = state.x[path];
+      if (decoded) {
+        acc[path] = decoded;
       }
-      return acc;
-    },
-    _.isEqual,
-  );
+    }
+    return acc;
+  }, _.isEqual);
 
-  const brushStrokes = useBrushStrokes(
-    (state) => {
-      const acc: BrushStrokeMapping = {};
-      for (const id of refs.brushStrokeIds) {
-        const stroke = state.x[id];
-        if (stroke) {
-          acc[id] = stroke;
-        }
+  const brushStrokes = useBrushStrokes((state) => {
+    const acc: BrushStrokeMapping = {};
+    for (const id of refs.brushStrokeIds) {
+      const stroke = state.x[id];
+      if (stroke) {
+        acc[id] = stroke;
       }
-      return acc;
-    },
-    _.isEqual,
-  );
+    }
+    return acc;
+  }, _.isEqual);
 
-  const transforms = useDrawAreaLayerItemTransform(
-    (state) => {
-      const acc: DrawAreaLayerItemTransformMapping = {};
-      for (const id of refs.transformIds) {
-        const transform = state.x[id];
-        if (transform) {
-          acc[id] = transform;
-        }
+  const transforms = useDrawAreaLayerItemTransform((state) => {
+    const acc: DrawAreaLayerItemTransformMapping = {};
+    for (const id of refs.transformIds) {
+      const transform = state.x[id];
+      if (transform) {
+        acc[id] = transform;
       }
-      return acc;
-    },
-    _.isEqual,
-  );
+    }
+    return acc;
+  }, _.isEqual);
 
   return { decodedImages, brushStrokes, transforms };
 }

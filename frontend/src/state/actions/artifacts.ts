@@ -11,7 +11,8 @@ import {
   bumpRemoteRevisions,
   removeRevisionEntries,
 } from "state/utils/revisions";
-import { post, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
+import { route_update_artifacts } from "utils/generatedEndpoints";
 import {
   ArtifactType,
   ArtifactTypeEnum,
@@ -245,8 +246,9 @@ async function flushPendingArtifacts(force = false) {
   }
 
   flushPromise = (async () => {
-    const res = await post<UpdateArtifactsResponse>("/updateArtifacts", {
+    const res = await route_update_artifacts({
       artifacts: snapshot,
+      conflictStrategy: null,
     });
     if (res200(res)) {
       clearPendingArtifacts(snapshot);

@@ -9,11 +9,11 @@ import {
   useDrawAreaLayerItemTransform,
   useProjectState,
 } from "state/definitions";
-import { removeRevisionEntries } from "state/utils/revisions";
 import {
   useDrawAreaArtifactLoader,
   useDrawAreaArtifactRevisionStamps,
 } from "state/hooks/artifacts";
+import { removeRevisionEntries } from "state/utils/revisions";
 import {
   ArtifactTypeEnum,
   BrushStroke,

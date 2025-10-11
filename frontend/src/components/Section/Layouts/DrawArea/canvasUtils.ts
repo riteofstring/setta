@@ -17,6 +17,7 @@ import {
 } from "state/definitions";
 import { setDrawAreaSectionSize } from "state/hooks/sectionSizes";
 import { bumpLocalRevisions } from "state/utils/revisions";
+import { route_append_draw_area_layer_item } from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
   BrushStroke,
@@ -36,7 +37,6 @@ import {
   SectionSize,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-import { route_append_draw_area_layer_item } from "utils/generatedEndpoints";
 import { updateArrayAt } from "utils/utils";
 import { filterEraserPath } from "./eraserIntersection";
 import { getBrushStrokesBounds, getImageBounds } from "./mouseHandlerUtils";

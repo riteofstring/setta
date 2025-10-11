@@ -14,8 +14,8 @@ from setta.types.artifact import (
     DrawAreaLayerItemTransformArtifact,
     ImageArtifact,
 )
-from setta.types.routes import Route
 from setta.types.generated.unions import BaseArtifactUnion
+from setta.types.routes import Route
 
 router = SettaAPIRouter()
 
