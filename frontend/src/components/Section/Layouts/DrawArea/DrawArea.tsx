@@ -6,9 +6,12 @@ import {
 } from "state/actions/sectionInfos";
 import {
   useBrushStrokes,
+  useDecodedImages,
   useDrawAreaLayerItemTransform,
+  useImages,
   useProjectState,
 } from "state/definitions";
+import { useDrawAreaArtifactLoader } from "state/hooks/artifacts";
 import {
   ArtifactTypeEnum,
   BrushStroke,
@@ -19,7 +22,6 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import {
-  addNewBrushStrokeToGlobalStateAndDrawLayer,
   drawAllLayers,
   getActiveLayerAndCanvas,
   setCanvasSize,
@@ -37,8 +39,16 @@ import {
 import { useDrawModeMouseHandlers } from "./useDrawModeMouseHandlers";
 
 export function DrawArea({ sectionId }: { sectionId: string }) {
-  // const { brushStrokes, transforms } = useLoadedDrawAreaData(sectionId);
-  // console.log("DrawArea brushStrokes", brushStrokes, transforms);
+  useDrawAreaArtifactLoader(sectionId);
+
+  const brushRemoteRevision = useBrushStrokes((state) => state.remoteRevision);
+  const transformRemoteRevision = useDrawAreaLayerItemTransform(
+    (state) => state.remoteRevision,
+  );
+  const imageRemoteRevision = useImages((state) => state.remoteRevision);
+  const decodedRemoteRevision = useDecodedImages(
+    (state) => state.remoteRevision,
+  );
 
   const {
     layers,
@@ -165,7 +175,15 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   ]);
   useEffect(() => {
     drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
-  }, [layers, sectionSize.height, sectionSize.width]);
+  }, [
+    layers,
+    sectionSize.height,
+    sectionSize.width,
+    imageRemoteRevision,
+    decodedRemoteRevision,
+    brushRemoteRevision,
+    transformRemoteRevision,
+  ]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 

@@ -1,5 +1,6 @@
 import { getZoom } from "forks/xyflow/core/hooks/useViewportHelper";
 import cloneDeep from "lodash/cloneDeep";
+import { queueTransformsForSave } from "state/actions/artifacts";
 import {
   useBrushStrokes,
   useDecodedImages,
@@ -438,6 +439,7 @@ function drawingOnMouseUp(
       if (!layer) {
         return;
       }
+      const touchedTransformIds = new Set<string>();
       useDrawAreaLayerItemTransform.setState((state) => {
         if (!eraserStrokeRef.current) {
           return;
@@ -480,11 +482,15 @@ function drawingOnMouseUp(
             points: intersectingPath,
             transform: inverseTransform,
           });
+          touchedTransformIds.add(el.transformId);
         }
       });
 
       eraserStrokeRef.current = null;
       drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
+      if (touchedTransformIds.size > 0) {
+        queueTransformsForSave(Array.from(touchedTransformIds));
+      }
     } else if (canvasMode === DrawAreaModeEnum.draw) {
       if (!strokeRef.current || !draftCanvasRef.current) {
         return;

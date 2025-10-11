@@ -1,5 +1,9 @@
 import _ from "lodash";
 import {
+  queueBrushStrokeForSave,
+  queueTransformsForSave,
+} from "state/actions/artifacts";
+import {
   getCurrEffectiveSectionImplOfType,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
@@ -193,6 +197,7 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
   if (existingElement) {
     drawOneLayer(layer, layerCanvas, tempCanvasRefs, [], null, null);
     clearCanvas(draftCanvas);
+    queueBrushStrokeForSave(stroke.id);
     return;
   }
 
@@ -219,6 +224,10 @@ export function addNewBrushStrokeToGlobalStateAndDrawLayer(
     console.error("updatedLayer is undefined. This shouldn't happen");
   }
 
+  queueBrushStrokeForSave(stroke.id, {
+    transformId: newTransformArtifact.id,
+  });
+
   clearCanvas(draftCanvas);
 }
 
@@ -229,11 +238,13 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
   resizeHandleCorners: React.RefObject<ResizeHandleCorners | null>,
   layerCanvasRefs: React.RefObject<LayerCanvasesType>,
   tempCanvasRefs: React.RefObject<TempCanvasesType>,
-) {
+): Array<string> {
   const activeLayer = layers[activeLayerIdx];
   if (!activeLayer) {
-    return;
+    return [];
   }
+
+  const updatedTransformIds: Array<string> = [];
 
   useDrawAreaLayerItemTransform.setState((state) => {
     for (const [idx, element] of activeLayer.elements.entries()) {
@@ -247,12 +258,13 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
       }
       transformArtifact.value.transform = _.cloneDeep(local.transform);
       transformArtifact.value.eraserStrokes = _.cloneDeep(local.eraserStrokes);
+      updatedTransformIds.push(element.transformId);
     }
   });
 
   const layerCanvas = layerCanvasRefs.current[activeLayerIdx];
   if (!layerCanvas) {
-    return;
+    return [];
   }
 
   const activeResizeHandles =
@@ -268,6 +280,12 @@ export function setGlobalArtifactTransformsAndDrawAllLayers(
     activeResizeHandles,
     null,
   );
+
+  const uniqueIds = Array.from(new Set(updatedTransformIds));
+  if (uniqueIds.length > 0) {
+    queueTransformsForSave(uniqueIds, { immediate: true });
+  }
+  return uniqueIds;
 }
 
 export function drawAllLayers(

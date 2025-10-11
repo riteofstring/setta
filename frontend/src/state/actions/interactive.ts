@@ -9,6 +9,7 @@ import { route_format_code } from "utils/generatedEndpoints";
 import { ArtifactTypeEnum } from "utils/generatedTypes";
 import { getProjectData } from "./project/saveProject";
 import { getSectionVariant } from "./sectionInfos";
+import { getNamePathTypeKey } from "./artifacts";
 
 export async function formatCode() {
   const res = await route_format_code({ project: getProjectData({}) });

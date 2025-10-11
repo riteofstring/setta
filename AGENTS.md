@@ -1,6 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
+
 - `backend/setta/` houses the Python package, including API routers, code generation, and server state modules that ship to PyPI.
 - `frontend/` contains the React/Vite UI; place components and stores in `src/`, shared templates in `generation/`, and static assets under `public/`.
 - `setta_files/` stores runtime metadata created by the app; keep only canonical fixtures under version control and wipe local noise before committing.
@@ -8,6 +9,7 @@
 - The `tests/` directory mirrors backend modules for new Python regression suites; align subfolders with the `setta` package layout.
 
 ## Build, Test, and Development Commands
+
 - `pnpm start` (or `pnpm startr` for backend reloads) runs Vite alongside `backendStart.sh` for a full-stack dev server on localhost:8000.
 - `pnpm build` produces the production frontend bundle; `./build.sh` wraps this, copies artifacts into `backend/setta/static/frontend/`, and builds the wheel via `python -m build`.
 - `pnpm test` executes the Vitest suite; watch mode is available with `pnpm test -- --watch` for UI-driven workflows.
@@ -15,6 +17,7 @@
 - Release smoke tests rely on `test_install.sh`, which builds, installs, and verifies the packaged distribution in a fresh environment.
 
 ## Coding Style & Naming Conventions
+
 - Python follows Ruff defaults (see `ruff.toml`); use 4-space indents, snake_case for functions/modules, and PascalCase for classes and Pydantic models.
 - Keep FastAPI routers grouped by feature under `backend/setta/routers/` and name endpoint functions with verbs (`get_notifications`, `create_project_state`).
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
@@ -23,12 +26,14 @@
 - Avoid "any" types, unless absolutely necessary.
 
 ## Testing Guidelines
+
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
 - Backend coverage is currently sparse—add focused unit tests under `tests/` that mirror the `setta` namespace and execute them with `python -m unittest discover tests`.
 - Exercise `test.py` when altering database or JSON source flows; it seeds `setta_files/` and validates round-trips through the project state stack.
 - Document manual verification steps (e.g., launching `setta` against a sample project) in your PR description when automated coverage is not yet available.
 
 ## Commit & Pull Request Guidelines
+
 - Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
 - Group related changes together; split UI and backend adjustments into separate commits when the history would otherwise mix responsibilities.
 - Every PR should describe the change, list commands executed (`pnpm test`, `./format_code.sh`, `test_install.sh`), and link any GitHub issues or Linear tickets.
@@ -36,7 +41,16 @@
 - Ensure reviewers are assigned, labels applied, and CI (when enabled) is green before merging or tagging a release.
 
 ## Environment & Tooling
+
 - Initialize local environments with `. ./init_env.sh` followed by `. ./dev_install.sh` to sync Python and pnpm dependencies; these scripts expect Python 3.10+ and pnpm on PATH.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
 - Regenerate TypeScript bindings or templates via `pnpm generate` whenever editing files under `frontend/generation/`.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
+
+## Endpoints
+
+Endpoint functions on the backend and frontend always have the exact same name.
+
+## Pydantic
+
+Never use the `alias` feature in pydantic. Camel case is fine for pydantic attributes, if it makes the backend/frontend communication easier.

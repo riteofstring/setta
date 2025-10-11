@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Literal, assert_never
+
+from pydantic import BaseModel
 
 from setta.file_watchers.specific_file_watcher import FileWatcherCallback
 from setta.types.artifact import (
@@ -24,7 +26,7 @@ from setta.types.artifact import (
     ImageMapping,
 )
 from setta.types.helpers_lvl1 import get_variant_effective_section_impl
-from setta.types.notifications import SettaNotification
+from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.section_impls import (
     ChartSectionImpl,
     DrawSectionImpl,
@@ -45,6 +47,22 @@ if TYPE_CHECKING:
 class ArtifactMetadata:
     last_read_hash: str | None
     is_dirty: bool = False
+    has_conflict: bool = False
+
+
+@dataclass
+class PreparedArtifact:
+    payload: bytes | str
+    mode: Literal["wb", "w"]
+    hash: str
+
+
+class ArtifactSaveResult(BaseModel):
+    id: str
+    type: ArtifactType
+    status: Literal["saved", "unchanged", "skipped", "conflict"]
+    backupPath: str | None = None
+    message: str | None = None
 
 
 class SaveConflictStrategy(str, Enum):
@@ -101,8 +119,21 @@ class Artifacts:
     ) -> FileWatcherCallback:
         async def fn(coreUpdate: "FileWatcherCoreUpdate"):
             artifacts: list[BaseArtifactUnion] = []
+            conflict_infos: list[tuple[BaseArtifactUnion, str]] = []
+            normalized_path = normalize_path(coreUpdate.fileToRead)
             for t in types:
                 artifact = None
+                metadata_dict = self.metadata_dict_for_artifact_type(t)
+                art_dict = self.dict_for_artifact_type(t)
+                metadata = metadata_dict.get(normalized_path)
+                backup_path: str | None = None
+                if metadata and metadata.is_dirty:
+                    cached_artifact = art_dict.get(normalized_path)
+                    backup_path = self._backup_local_version(
+                        normalized_path, cached_artifact
+                    )
+                    metadata.is_dirty = False
+                    metadata.has_conflict = True
                 match t:
                     case ArtifactType.Image:
                         artifact = self.read_image_from_disk(coreUpdate.fileToRead)
@@ -118,14 +149,21 @@ class Artifacts:
                         assert_never(t)
                 if artifact:
                     artifacts.append(artifact)
+                    if backup_path:
+                        metadata_after = metadata_dict.get(normalize_path(artifact.id))
+                        if metadata_after:
+                            metadata_after.has_conflict = True
+                        conflict_infos.append((artifact, backup_path))
 
-            await self.websocket_msg_handler.broadcast_artifacts_update(
-                artifacts=artifacts, updateType="update"
-            )
+            if artifacts:
+                await self.websocket_msg_handler.broadcast_artifacts_update(
+                    artifacts=artifacts, updateType="update"
+                )
             notification = SettaNotification(
-                message=f"{coreUpdate.relPath} {coreUpdate.eventType.value}",
+                message=f"{normalized_path} {coreUpdate.eventType.value}",
             )
             await self.websocket_msg_handler.broadcast_notification(notification)
+            # TODO: do something with conflict_infos. Let's figure this out later.
 
         return fn
 
@@ -273,79 +311,207 @@ class Artifacts:
             case _:
                 assert_never(x)
 
+    def _prepare_artifact_for_storage(
+        self, artifact: "BaseArtifactUnion"
+    ) -> PreparedArtifact:
+        if isinstance(artifact, ImageArtifact):
+            data = (
+                artifact.value.split(",", 1)[1]
+                if "," in artifact.value
+                else artifact.value
+            )
+            binary_data = base64.b64decode(data)
+            return PreparedArtifact(
+                payload=binary_data,
+                mode="wb",
+                hash=self._compute_hash(binary_data),
+            )
+        if isinstance(artifact, ChartDataArtifact):
+            csv_content = chart_data_to_csv(artifact.value)
+            encoded = csv_content.encode("utf-8")
+            return PreparedArtifact(
+                payload=csv_content,
+                mode="w",
+                hash=self._compute_hash(encoded),
+            )
+        if isinstance(artifact, BrushStrokeArtifact):
+            data = artifact.value.model_dump()
+            json_content = json.dumps(data, indent=2, sort_keys=True)
+            encoded = json_content.encode("utf-8")
+            return PreparedArtifact(
+                payload=json_content,
+                mode="w",
+                hash=self._compute_hash(encoded),
+            )
+        if isinstance(artifact, DrawAreaLayerItemTransformArtifact):
+            data = artifact.value.model_dump()
+            json_content = json.dumps(data, indent=2, sort_keys=True)
+            encoded = json_content.encode("utf-8")
+            return PreparedArtifact(
+                payload=json_content,
+                mode="w",
+                hash=self._compute_hash(encoded),
+            )
+        raise TypeError
+
+    def _create_backup_path(self, path: Path, prefix: str = "backup") -> Path:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        suffix = path.suffix
+        backup_name = f".{prefix}_{timestamp}{suffix}"
+        return path.with_suffix(backup_name)
+
+    def _write_prepared_artifact(
+        self,
+        path: Path,
+        artifact: "BaseArtifactUnion",
+        metadata: ArtifactMetadata,
+        prepared: PreparedArtifact,
+        conflict_strategy: SaveConflictStrategy,
+    ) -> ArtifactSaveResult:
+        backup_path_str: str | None = None
+        message: str | None = None
+        # Short-circuit if nothing changed and artifact already clean
+        if metadata.last_read_hash == prepared.hash and not metadata.is_dirty:
+            return ArtifactSaveResult(
+                id=str(path),
+                type=artifact.type,
+                status="unchanged",
+            )
+
+        current_hash = (
+            self._compute_file_hash(path) if metadata.last_read_hash else None
+        )
+
+        if (
+            metadata.last_read_hash is not None
+            and current_hash
+            and current_hash != metadata.last_read_hash
+        ):
+            metadata.has_conflict = True
+            if conflict_strategy == SaveConflictStrategy.skip:
+                metadata.is_dirty = True
+                return ArtifactSaveResult(
+                    id=str(path),
+                    type=artifact.type,
+                    status="skipped",
+                    message="Skipped save due to detected external changes.",
+                )
+            if conflict_strategy == SaveConflictStrategy.backup:
+                backup_path = self._create_backup_path(path, prefix="conflict_backup")
+                self.dbe.copy(path, backup_path)
+                backup_path_str = str(backup_path)
+                message = f"External changes detected. Previous contents copied to {backup_path_str}."
+            elif conflict_strategy == SaveConflictStrategy.overwrite:
+                message = (
+                    "External changes detected. Overwriting per requested strategy."
+                )
+        else:
+            metadata.has_conflict = False
+
+        self.dbe.write(path, prepared.payload, prepared.mode)
+
+        metadata.last_read_hash = prepared.hash
+        metadata.is_dirty = False
+
+        return ArtifactSaveResult(
+            id=str(path),
+            type=artifact.type,
+            status="conflict" if metadata.has_conflict else "saved",
+            backupPath=backup_path_str,
+            message=message,
+        )
+
+    def _backup_local_version(
+        self,
+        path: Path,
+        artifact: "BaseArtifactUnion | None",
+    ) -> str | None:
+        if artifact is None:
+            return None
+        prepared = self._prepare_artifact_for_storage(artifact)
+        backup_path = self._create_backup_path(path, prefix="local_unsaved")
+        self.dbe.write(backup_path, prepared.payload, prepared.mode)
+        return str(backup_path)
+
+    def _update_single_artifact(
+        self,
+        artifact: "BaseArtifactUnion",
+        conflict_strategy: SaveConflictStrategy,
+    ) -> ArtifactSaveResult:
+        art_dict = self.dict_for_artifact_type(artifact.type)
+        metadata_dict = self.metadata_dict_for_artifact_type(artifact.type)
+        path = normalize_path(artifact.id)
+
+        art_dict[path] = artifact  # type: ignore
+        metadata = metadata_dict.get(path)
+        if metadata is None:
+            metadata = ArtifactMetadata(
+                last_read_hash=self._compute_file_hash(path),
+                is_dirty=True,
+            )
+            metadata_dict[path] = metadata
+        else:
+            metadata.is_dirty = True
+
+        prepared = self._prepare_artifact_for_storage(artifact)
+        return self._write_prepared_artifact(
+            path, artifact, metadata, prepared, conflict_strategy
+        )
+
+    async def apply_updates(
+        self,
+        artifacts: list["BaseArtifactUnion"],
+        conflict_strategy: SaveConflictStrategy,
+    ) -> list[ArtifactSaveResult]:
+        results: list[ArtifactSaveResult] = []
+        for artifact in artifacts:
+            result = self._update_single_artifact(artifact, conflict_strategy)
+            results.append(result)
+            if result.status == "conflict":
+                message = f"Detected conflicting changes while saving {result.id}."
+                if result.backupPath:
+                    message += f" Local version stored at {result.backupPath}."
+                notification = SettaNotification(
+                    message=message,
+                    type=SettaNotificationType.warning,
+                )
+                await self.websocket_msg_handler.broadcast_notification(notification)
+            elif result.status == "skipped":
+                message = result.message or (
+                    f"Skipped saving {result.id} due to detected external changes."
+                )
+                notification = SettaNotification(
+                    message=message,
+                    type=SettaNotificationType.warning,
+                )
+                await self.websocket_msg_handler.broadcast_notification(notification)
+        return results
+
     def _save_artifact_to_disk(
         self,
         path: Path,
         artifact: "BaseArtifactUnion",
         metadata: ArtifactMetadata,
         conflict_strategy: SaveConflictStrategy,
-    ):
-        # Check if file changed on disk
-        if (
-            metadata.last_read_hash is not None
-        ):  # Only check conflicts for existing files
-            current_hash = self._compute_file_hash(path)
-            if current_hash and current_hash != metadata.last_read_hash:
-                # File changed externally
-                if conflict_strategy == SaveConflictStrategy.skip:
-                    return
-                elif conflict_strategy == SaveConflictStrategy.backup:
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    backup_path = path.with_suffix(f".backup_{timestamp}{path.suffix}")
-                    self.dbe.copy(path, backup_path)
-
-        if isinstance(artifact, ImageArtifact):
-            # Extract base64 and write binary
-            if "," in artifact.value:
-                data = artifact.value.split(",")[1]  # Remove data:image/png;base64,
-            else:
-                data = artifact.value
-            binary_data = base64.b64decode(data)
-            self.dbe.write(path, binary_data, "wb")
-            new_hash = self._compute_hash(binary_data)
-
-        elif isinstance(artifact, ChartDataArtifact):
-            csv_content = chart_data_to_csv(artifact.value)
-            self.dbe.write(path, csv_content)
-            new_hash = self._compute_hash(csv_content.encode())
-
-        elif isinstance(artifact, BrushStrokeArtifact):
-            data = artifact.value.model_dump()
-            json_content = json.dumps(data, indent=2, sort_keys=True)
-            self.dbe.write(path, json_content)
-            new_hash = self._compute_hash(json_content.encode())
-
-        elif isinstance(artifact, DrawAreaLayerItemTransformArtifact):
-            data = artifact.value.model_dump()
-            json_content = json.dumps(data, indent=2, sort_keys=True)
-            self.dbe.write(path, json_content)
-            new_hash = self._compute_hash(json_content.encode())
-        else:
-            raise TypeError
-
-        # Update metadata
-        metadata.last_read_hash = new_hash
-        metadata.is_dirty = False
+    ) -> ArtifactSaveResult:
+        prepared = self._prepare_artifact_for_storage(artifact)
+        return self._write_prepared_artifact(
+            path, artifact, metadata, prepared, conflict_strategy
+        )
 
     def save(self, conflict_strategy: SaveConflictStrategy = SaveConflictStrategy.skip):
+        results: list[ArtifactSaveResult] = []
         for artifact_type in ArtifactType:
             art_dict = self.dict_for_artifact_type(artifact_type)
             metadata_dict = self.metadata_dict_for_artifact_type(artifact_type)
             for path, artifact in art_dict.items():
                 metadata = metadata_dict.get(path)
                 if metadata and metadata.is_dirty:
-                    self._save_artifact_to_disk(
+                    result = self._save_artifact_to_disk(
                         path, artifact, metadata, conflict_strategy
                     )
-
-    def update_artifact(self, x: "BaseArtifactUnion"):
-        d = self.dict_for_artifact_type(x.type)
-        m = self.metadata_dict_for_artifact_type(x.type)
-        key = normalize_path(x.id)
-        d[key] = x  # type: ignore
-        if key not in m:
-            m[key] = ArtifactMetadata(last_read_hash=None, is_dirty=True)
-        m[key].is_dirty = True
+                    results.append(result)
+        return results
 
 
 def parse_csv_row(values):

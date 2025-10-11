@@ -5,6 +5,7 @@ from typing import TypedDict
 from pydantic import BaseModel
 
 from setta.api.logger import load_from_csv_base64
+from setta.project_state.artifacts import ArtifactSaveResult, SaveConflictStrategy
 from setta.routers.dependencies import AppStateFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.artifact import (
@@ -14,6 +15,7 @@ from setta.types.artifact import (
     ImageArtifact,
 )
 from setta.types.routes import Route
+from setta.types.generated.unions import BaseArtifactUnion
 
 router = SettaAPIRouter()
 
@@ -58,6 +60,15 @@ class FolderContentItem(TypedDict):
 
 class LoadCachedPathsRequest(BaseModel):
     paths: list[str]
+
+
+class UpdateArtifactsResponse(BaseModel):
+    results: list[ArtifactSaveResult]
+
+
+class UpdateArtifactsRequest(BaseModel):
+    artifacts: list[BaseArtifactUnion]
+    conflictStrategy: SaveConflictStrategy | None = None
 
 
 @router.post(Route.SEND_ARTIFACT)
@@ -163,3 +174,13 @@ def route_load_cached_draw_area_layer_item_transform(
     return [
         state.artifacts.get_cached_draw_area_layer_item_transform(i) for i in x.paths
     ]
+
+
+@router.post(Route.UPDATE_ARTIFACTS)
+async def route_update_artifacts(
+    x: UpdateArtifactsRequest,
+    state: AppStateFromRequest,
+) -> UpdateArtifactsResponse:
+    conflict_strategy = x.conflictStrategy or SaveConflictStrategy.backup
+    results = await state.artifacts.apply_updates(x.artifacts, conflict_strategy)
+    return UpdateArtifactsResponse(results=results)

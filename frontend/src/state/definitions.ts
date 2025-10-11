@@ -378,48 +378,61 @@ export const useLocalStorage = createWithEqualityFn(
   ),
 );
 
-export type ZustandImages = { x: ImageMapping };
+type RevisionedArtifacts<T> = {
+  x: T;
+  remoteRevision: number;
+};
+
+export type ZustandImages = RevisionedArtifacts<ImageMapping>;
 
 export const useImages = createWithEqualityFn(
   subscribeWithSelector(
     withResetFn<ZustandImages>(() => ({
       x: {},
+      remoteRevision: 0,
     })),
   ),
 );
 
-type ZustandChartData = { x: ChartDataMapping };
+type ZustandChartData = RevisionedArtifacts<ChartDataMapping>;
 
 export const useChartData = createWithEqualityFn(
   withResetFn<ZustandChartData>(() => ({
     x: {},
+    remoteRevision: 0,
   })),
 );
 
-export type ZustandDecodedImages = { x: Record<string, HTMLImageElement> };
+export type ZustandDecodedImages = RevisionedArtifacts<
+  Record<string, HTMLImageElement>
+>;
 
 export const useDecodedImages = createWithEqualityFn(
   withResetFn<ZustandDecodedImages>(() => ({
     x: {},
+    remoteRevision: 0,
   })),
 );
 
-type ZustandBrushStrokes = { x: BrushStrokeMapping };
+type ZustandBrushStrokes = RevisionedArtifacts<BrushStrokeMapping>;
 
 export const useBrushStrokes = createWithEqualityFn(
   withResetFn<ZustandBrushStrokes>(() => ({
     x: {},
+    remoteRevision: 0,
   })),
 );
 
 type ZustandDrawAreaLayerItemTransform = {
   x: DrawAreaLayerItemTransformMapping;
+  remoteRevision: number;
 };
 
 export const useDrawAreaLayerItemTransform = createWithEqualityFn(
   immer(
     withResetFn<ZustandDrawAreaLayerItemTransform>(() => ({
       x: {},
+      remoteRevision: 0,
     })),
   ),
 );

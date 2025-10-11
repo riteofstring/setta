@@ -13,6 +13,7 @@ import {
   ProjectStateSingleConfig,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { flushQueuedArtifacts } from "../artifacts";
 import { addTemporaryNotification } from "../notifications";
 import {
   createTopLevelSectionLayoutDict,
@@ -74,6 +75,7 @@ export function getProjectData({ withArtifacts = false }) {
 
 export async function saveProject() {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
+  await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
   route_save_project(data);
 }
@@ -83,12 +85,14 @@ export async function saveAsNewProjectConfig(
   withRefs: boolean,
 ) {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
+  await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
   route_save_as_new_project_config({ project: data, newConfigName, withRefs });
 }
 
 export async function saveAsExistingProjectConfig(configName: string) {
   addTemporaryNotification("Saving...", SettaNotificationTypeEnum.save);
+  await flushQueuedArtifacts();
   const data = await getProjectDataForSaving();
   route_save_as_existing_project_config({ project: data, configName });
 }

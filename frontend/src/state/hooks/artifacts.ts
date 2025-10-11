@@ -1,7 +1,6 @@
 import { base64ToImageObj } from "components/Section/Layouts/DrawArea/base64Conversion";
 import _ from "lodash";
-import { useCallback, useEffect } from "react";
-import { useDropzone } from "react-dropzone";
+import { useEffect } from "react";
 import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import {
   useBrushStrokes,
@@ -11,6 +10,7 @@ import {
   useImages,
   useProjectState,
   ZustandDecodedImages,
+  ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -27,237 +27,262 @@ import {
 } from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
-  const res = await route_load_cached_image_artifacts({
-    paths,
-  });
+  if (paths.length === 0) {
+    return;
+  }
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
-      const newImgs = { ...state.x };
+      const next = { ...state.x };
       for (const img of res.data) {
         if (img) {
-          newImgs[img.id] = img;
+          next[img.id] = img;
         }
       }
-      return { x: newImgs };
+      return { x: next, remoteRevision: state.remoteRevision + 1 };
     });
   }
 }
 
 export function useImageArtifact(sectionId: string) {
-  const imagePath = useProjectState((x) => {
+  const imagePath = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
-      x,
+      state,
       sectionId,
       SectionTypeEnum.Image,
     );
     return impl.imagePath;
   });
 
-  const imageArtifact = useImages((x) => x.x[imagePath]);
+  const imageArtifact = useImages((state) => state.x[imagePath]);
 
-  // Read image from backend cache when this hook gets initialized,
-  // i.e. when the component loads for the first time.
-  // In all other cases, backend will send artifact updates by websocket.
   useEffect(() => {
     if (!imageArtifact && imagePath) {
-      loadCachedImages([imagePath]);
+      void loadCachedImages([imagePath]);
     }
-  }, []);
+  }, [imageArtifact, imagePath]);
 
   return imageArtifact;
 }
 
 async function loadCachedChartData(paths: Array<string>) {
+  if (paths.length === 0) {
+    return;
+  }
   const res = await route_load_cached_chart_data({ paths });
   if (res200(res)) {
     useChartData.setState((state) => {
-      const newData = { ...state.x };
-      for (const img of res.data) {
-        if (img) {
-          newData[img.id] = img;
+      const next = { ...state.x };
+      for (const artifact of res.data) {
+        if (artifact) {
+          next[artifact.id] = artifact;
         }
       }
-      return { x: newData };
+      return { x: next, remoteRevision: state.remoteRevision + 1 };
     });
   }
 }
 
 export function useLoadedChartData(sectionId: string) {
-  const dataPath = useProjectState((x) => {
+  const dataPath = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
-      x,
+      state,
       sectionId,
       SectionTypeEnum.Chart,
     );
     return impl.dataPath;
   });
 
-  const data = useChartData((x) => x.x[dataPath]);
+  const data = useChartData((state) => state.x[dataPath]);
 
   useEffect(() => {
     if (!data && dataPath) {
-      loadCachedChartData([dataPath]);
+      void loadCachedChartData([dataPath]);
     }
-  }, []);
+  }, [data, dataPath]);
 
   return data?.value ?? {};
 }
 
 async function loadCachedBrushStrokes(paths: Array<string>) {
+  if (paths.length === 0) {
+    return;
+  }
   const res = await route_load_cached_brush_strokes({ paths });
-  console.log("loadCachedBrushStrokes", res);
   if (res200(res)) {
     useBrushStrokes.setState((state) => {
-      const newData = { ...state.x };
-      for (const img of res.data) {
-        if (img) {
-          newData[img.id] = img;
+      const next = { ...state.x };
+      for (const artifact of res.data) {
+        if (artifact) {
+          next[artifact.id] = artifact;
         }
       }
-      return { x: newData };
+      return { x: next, remoteRevision: state.remoteRevision + 1 };
     });
   }
 }
 
 async function loadCachedDrawAreaLayerItemTransforms(paths: Array<string>) {
+  if (paths.length === 0) {
+    return;
+  }
   const res = await route_load_cached_draw_area_layer_item_transform({ paths });
   if (res200(res)) {
     useDrawAreaLayerItemTransform.setState((state) => {
-      const newData = { ...state.x };
-      for (const img of res.data) {
-        if (img) {
-          newData[img.id] = img;
+      const next = { ...state.x };
+      for (const artifact of res.data) {
+        if (artifact) {
+          next[artifact.id] = artifact;
         }
       }
-      return { x: newData };
+      return { x: next, remoteRevision: state.remoteRevision + 1 };
     });
   }
 }
 
 export async function decodeExistingRawImages(needToDecode: Array<string>) {
-  const images: ZustandDecodedImages["x"] = {};
+  if (needToDecode.length === 0) {
+    return;
+  }
+  const decoded: ZustandDecodedImages["x"] = {};
+  const rawImages = useImages.getState().x;
   for (const path of needToDecode) {
-    const rawImage = useImages.getState().x[path];
+    const rawImage = rawImages[path];
     if (rawImage) {
-      images[path] = await base64ToImageObj(rawImage.value);
+      decoded[path] = await base64ToImageObj(rawImage.value);
     }
   }
-  useDecodedImages.setState((state) => ({ x: { ...state.x, ...images } }));
+  if (Object.keys(decoded).length > 0) {
+    useDecodedImages.setState((state) => ({
+      x: { ...state.x, ...decoded },
+      remoteRevision: state.remoteRevision + 1,
+    }));
+  }
 }
 
-export function useLoadedDrawAreaData(sectionId: string) {
-  const elements = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.Draw,
+type DrawAreaArtifactRefs = {
+  imagePaths: Array<string>;
+  brushStrokeIds: Array<string>;
+  transformIds: Array<string>;
+};
+
+function collectDrawAreaArtifactRefs(
+  state: ZustandProjectState,
+  sectionId: string,
+): DrawAreaArtifactRefs {
+  const impl = getCurrEffectiveSectionImplOfType(
+    state,
+    sectionId,
+    SectionTypeEnum.Draw,
+  );
+
+  const imagePaths = new Set<string>();
+  const brushStrokeIds = new Set<string>();
+  const transformIds = new Set<string>();
+
+  for (const layer of impl.layers) {
+    for (const element of layer.elements) {
+      transformIds.add(element.transformId);
+      if (element.type === ArtifactTypeEnum.Image) {
+        imagePaths.add(element.dataPath);
+      } else if (element.type === ArtifactTypeEnum.BrushStroke) {
+        brushStrokeIds.add(element.dataPath);
+      }
+    }
+  }
+
+  return {
+    imagePaths: Array.from(imagePaths),
+    brushStrokeIds: Array.from(brushStrokeIds),
+    transformIds: Array.from(transformIds),
+  };
+}
+
+function useDrawAreaElementRefs(sectionId: string) {
+  return useProjectState(
+    (state) => collectDrawAreaArtifactRefs(state, sectionId),
+    _.isEqual,
+  );
+}
+
+export function useDrawAreaArtifactLoader(sectionId: string) {
+  const refs = useDrawAreaElementRefs(sectionId);
+
+  useEffect(() => {
+    if (sectionId === "") {
+      return;
+    }
+
+    const { imagePaths, brushStrokeIds, transformIds } = refs;
+
+    const imagesState = useImages.getState();
+    const decodedState = useDecodedImages.getState();
+    const brushState = useBrushStrokes.getState();
+    const transformState = useDrawAreaLayerItemTransform.getState();
+    const missingImages = imagePaths.filter((path) => !imagesState.x[path]);
+    const missingBrushStrokes = brushStrokeIds.filter(
+      (id) => !brushState.x[id],
     );
-    return impl.layers.flatMap((l) => l.elements);
-  }, _.isEqual);
+    const missingTransforms = transformIds.filter(
+      (id) => !transformState.x[id],
+    );
+    const pendingDecode = imagePaths.filter(
+      (path) => imagesState.x[path] && !decodedState.x[path],
+    );
 
-  const { decodedImages, imagesToDecode } = useDecodedImages((x) => {
-    const decodedImages: ZustandDecodedImages["x"] = {};
-    const imagesToDecode: Array<string> = [];
-    for (const e of elements) {
-      if (e.type === ArtifactTypeEnum.Image) {
-        const d = x.x[e.dataPath];
-        if (d) {
-          decodedImages[e.dataPath] = d;
-        } else {
-          imagesToDecode.push(e.dataPath);
+    void loadCachedImages(missingImages);
+    void loadCachedBrushStrokes(missingBrushStrokes);
+    void loadCachedDrawAreaLayerItemTransforms(missingTransforms);
+    void decodeExistingRawImages(pendingDecode);
+  }, [sectionId, refs]);
+}
+
+export function useDrawAreaArtifactData(sectionId: string) {
+  const refs = useDrawAreaElementRefs(sectionId);
+
+  const decodedImages = useDecodedImages(
+    (state) => {
+      const acc: ZustandDecodedImages["x"] = {};
+      for (const path of refs.imagePaths) {
+        const decoded = state.x[path];
+        if (decoded) {
+          acc[path] = decoded;
         }
       }
-    }
-    return { decodedImages, imagesToDecode };
-  }, _.isEqual);
-
-  const { brushStrokes, brushStrokesToLoad } = useBrushStrokes((x) => {
-    const brushStrokes: BrushStrokeMapping = {};
-    const brushStrokesToLoad: Array<string> = [];
-    for (const e of elements) {
-      if (e.type === ArtifactTypeEnum.BrushStroke) {
-        const b = x.x[e.dataPath];
-        if (b) {
-          brushStrokes[e.dataPath] = b;
-        } else {
-          brushStrokesToLoad.push(e.dataPath);
-        }
-      }
-    }
-    return { brushStrokes, brushStrokesToLoad };
-  }, _.isEqual);
-
-  console.log("brushStrokesToLoad", brushStrokesToLoad);
-
-  const { transforms, transformsToLoad } = useDrawAreaLayerItemTransform(
-    (x) => {
-      const transforms: DrawAreaLayerItemTransformMapping = {};
-      const transformsToLoad: Array<string> = [];
-      for (const e of elements) {
-        const t = x.x[e.transformId];
-        if (t) {
-          transforms[e.transformId] = t;
-        } else {
-          transformsToLoad.push(e.transformId);
-        }
-      }
-      return { transforms, transformsToLoad };
+      return acc;
     },
     _.isEqual,
   );
 
-  useEffect(() => {
-    const rawImages = useImages.getState().x;
-    const imagesToLoad = imagesToDecode.filter((d) => !(d in rawImages));
-    if (imagesToLoad.length > 0) {
-      loadCachedImages(imagesToLoad);
-    }
+  const brushStrokes = useBrushStrokes(
+    (state) => {
+      const acc: BrushStrokeMapping = {};
+      for (const id of refs.brushStrokeIds) {
+        const stroke = state.x[id];
+        if (stroke) {
+          acc[id] = stroke;
+        }
+      }
+      return acc;
+    },
+    _.isEqual,
+  );
 
-    if (brushStrokesToLoad.length > 0) {
-      loadCachedBrushStrokes(brushStrokesToLoad);
-    }
-
-    if (transformsToLoad.length > 0) {
-      loadCachedDrawAreaLayerItemTransforms(transformsToLoad);
-    }
-  }, []);
+  const transforms = useDrawAreaLayerItemTransform(
+    (state) => {
+      const acc: DrawAreaLayerItemTransformMapping = {};
+      for (const id of refs.transformIds) {
+        const transform = state.x[id];
+        if (transform) {
+          acc[id] = transform;
+        }
+      }
+      return acc;
+    },
+    _.isEqual,
+  );
 
   return { decodedImages, brushStrokes, transforms };
 }
 
-export function useLoadArtifactViaDropzone(
-  sectionId,
-  createNewArtifactGroup,
-  artifactType,
-) {
-  const onDrop = useCallback(
-    (acceptedFiles) => {
-      acceptedFiles.forEach((file) => {
-        const reader = new FileReader();
-
-        reader.onload = async () => {
-          const value = await prepareDataURLForRendering(
-            artifactType,
-            reader.result,
-          );
-          await addArtifactAndMaybeCreateNewArtifactGroup({
-            sectionId,
-            createNewArtifactGroup,
-            value,
-            artifactType,
-          });
-        };
-
-        reader.onerror = (error) => {
-          console.error("Error reading file:", error);
-        };
-
-        // Read the file as a Data URL (base64)
-        reader.readAsDataURL(file);
-      });
-    },
-    [sectionId, createNewArtifactGroup],
-  );
-
-  return useDropzone({ onDrop });
-}
+export const useLoadedDrawAreaData = useDrawAreaArtifactData;

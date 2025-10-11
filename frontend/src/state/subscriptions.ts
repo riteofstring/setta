@@ -127,7 +127,7 @@ export function subscribe() {
         if (
           img &&
           requiredDecodedImages.includes(path) &&
-          !(path in decodedImages)
+          (!decodedImages[path] || decodedImages[path].src !== img.value)
         ) {
           needToDecode.push(path);
         }

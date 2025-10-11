@@ -32,6 +32,7 @@ class Route(str, Enum):
     SEND_ARTIFACT = "/sendArtfiact"
     LOAD_ARTIFACTS = "/loadArtifacts"
     LOAD_AVAILABLE_ARTIFACTS = "/loadAvailableArtifacts"
+    UPDATE_ARTIFACTS = "/updateArtifacts"
     READ_CSV_BASE64 = "/readCSVBase64"
     FILL_IN_MISSING_ARTIFACT_IDS = "/getArtifactIdsFromNamePathType"
     GET_DEFAULT_PROJECT_CONFIG_NAME = "/getDefaultConfigName"
