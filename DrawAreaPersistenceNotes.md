@@ -1,9 +1,13 @@
 # Draw Area Persistence Notes
 
-## Current Bug
+## Status Update
 
-- Saving a project after painting a stroke in a draw area drops the stroke layer when the project reloads.  
-- Backend endpoint `backend/setta/routers/projects.py:97` ignores the `ProjectStateSingleConfig` payload from the frontend and calls `ProjectManager.save()` on its existing state, so any layer metadata created only on the frontend never reaches disk.
+- ✅ Structural layer inserts now route through the backend queue via `/appendDrawAreaLayerItem`; painted strokes persist after reload.
+- 🔄 Next focus: reconcile optimistic local state when the backend pushes the authoritative project snapshot.
+
+## Current Bug
+- Previously: Saving a project after painting a stroke in a draw area drops the stroke layer when the project reloads.  
+- Root cause analysis retained below for reference while we monitor the fix.
 
 ## Root Cause
 
@@ -18,8 +22,8 @@
 
 ## Suggested Direction
 
-1. **Move structural draw-area updates through the backend queue.**  
-   - On pointer-up (or equivalent “finalize stroke” moment), enqueue a backend command that appends the layer element via existing helper utilities.  
+1. **Move structural draw-area updates through the backend queue.** ✅  
+   - Implemented via `/appendDrawAreaLayerItem`, which the frontend now calls when a stroke is finalized so the backend records the new layer before any save runs.  
    - Continue to push brush stroke artifacts through `/updateArtifacts` for low-latency binary data sync.
 
 2. **Use optimistic UI with reconciliation.**  

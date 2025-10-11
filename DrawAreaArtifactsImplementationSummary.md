@@ -8,6 +8,8 @@
   - Split the legacy `useLoadedDrawAreaData` hook into:
     - `useDrawAreaArtifactLoader`, which reads element IDs from `useProjectState`, fetches any missing artifacts from the backend caches, and triggers decoding only when needed.
     - `useDrawAreaArtifactData`, which returns the current in-memory artifacts for components that genuinely need them.
+- **Persistence bridge**
+  - Finalizing a brush stroke now issues `/appendDrawAreaLayerItem`, routing layer element inserts through the backend queue while keeping the local optimistic update for responsiveness.
 - **Rendering changes**
   - `DrawArea` now owns only the revision numbers; it redraws layers when the revisions change instead of subscribing to entire artifact maps.
   - Canvas utilities enqueue brush strokes and transform updates in a new debounced save queue. Pointer-up on drawing/erasing triggers save scheduling; transform edits flush immediately.
@@ -26,6 +28,7 @@
   - Exposes `apply_updates`, used by the new API, to persist incoming artifacts immediately; conflict cases raise warning notifications with backup info.
   - Enhances the file watcher callback to back up unsaved local edits before overwriting cache entries, then emits conflict notifications when that happens.
 - Added `/updateArtifacts` route, reusing `SaveConflictStrategy` so the frontend can request backup/overwrite/skip behavior explicitly.
+- Added `/appendDrawAreaLayerItem` route plus helper plumbing so layer metadata changes flow through the project manager queue before being persisted.
 - Extended generated route enum with `UPDATE_ARTIFACTS`.
 
 ## Integration Notes

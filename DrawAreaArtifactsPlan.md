@@ -6,6 +6,11 @@
 - Provide a conflict strategy when disk changes and user edits happen concurrently.
 - Decide what granularity to use when syncing artifact changes back to the backend.
 
+## Persistence Status
+
+- ✅ Brush stroke layer insertions now call `/appendDrawAreaLayerItem`, sending structural updates through the backend queue before saves run.
+- ⏭️ Still need to reconcile optimistic edits once the backend broadcasts the authoritative project snapshot.
+
 ## Render Behaviour
 
 1. Split the current `useLoadedDrawAreaData` into:
@@ -30,6 +35,7 @@
 
 ### Follow-up Tasks
 
+- ✅ Route draw-area layer inserts through the backend queue.
 - Refactor the hooks and stores per above.
 - Wire the revision-based redraw in `DrawArea` and adjust websocket handlers.
 - Implement conflict notifications and expose the save strategy choices in the UI.
