@@ -7712,20 +7712,6 @@ export function createCheckIfFileExistsRequests(
   return CheckIfFileExistsRequestsSchema.parse(options);
 }
 
-export const FillInMissingArtifactIdsRequestSchema = z.object({
-  namesPathsTypes: z.array(z.any()),
-});
-
-export type FillInMissingArtifactIdsRequest = z.infer<
-  typeof FillInMissingArtifactIdsRequestSchema
->;
-
-export function createFillInMissingArtifactIdsRequest(
-  options: Partial<FillInMissingArtifactIdsRequest> = {},
-): FillInMissingArtifactIdsRequest {
-  return FillInMissingArtifactIdsRequestSchema.parse(options);
-}
-
 export const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
 });
@@ -7740,47 +7726,6 @@ export function createGetFolderContentsRequest(
   return GetFolderContentsRequestSchema.parse(options);
 }
 
-export const LoadArtifactFromDiskRequestSchema = z.object({
-  filepath: z.string(),
-  type: z.string(),
-});
-
-export type LoadArtifactFromDiskRequest = z.infer<
-  typeof LoadArtifactFromDiskRequestSchema
->;
-
-export function createLoadArtifactFromDiskRequest(
-  options: Partial<LoadArtifactFromDiskRequest> = {},
-): LoadArtifactFromDiskRequest {
-  return LoadArtifactFromDiskRequestSchema.parse(options);
-}
-
-export const LoadArtifactsRequestSchema = z.object({
-  artifactIds: z.array(z.string()),
-});
-
-export type LoadArtifactsRequest = z.infer<typeof LoadArtifactsRequestSchema>;
-
-export function createLoadArtifactsRequest(
-  options: Partial<LoadArtifactsRequest> = {},
-): LoadArtifactsRequest {
-  return LoadArtifactsRequestSchema.parse(options);
-}
-
-export const LoadAvailableArtifactsRequestSchema = z.object({
-  sectionType: z.string(),
-});
-
-export type LoadAvailableArtifactsRequest = z.infer<
-  typeof LoadAvailableArtifactsRequestSchema
->;
-
-export function createLoadAvailableArtifactsRequest(
-  options: Partial<LoadAvailableArtifactsRequest> = {},
-): LoadAvailableArtifactsRequest {
-  return LoadAvailableArtifactsRequestSchema.parse(options);
-}
-
 export const LoadCachedPathsRequestSchema = z.object({
   paths: z.array(z.string()),
 });
@@ -7793,30 +7738,6 @@ export function createLoadCachedPathsRequest(
   options: Partial<LoadCachedPathsRequest> = {},
 ): LoadCachedPathsRequest {
   return LoadCachedPathsRequestSchema.parse(options);
-}
-
-export const ReadCSVBase64RequestSchema = z.object({
-  base64Str: z.string(),
-});
-
-export type ReadCSVBase64Request = z.infer<typeof ReadCSVBase64RequestSchema>;
-
-export function createReadCSVBase64Request(
-  options: Partial<ReadCSVBase64Request> = {},
-): ReadCSVBase64Request {
-  return ReadCSVBase64RequestSchema.parse(options);
-}
-
-export const SendArtifactRequestSchema = z.object({
-  data: z.array(z.record(z.string(), z.any())),
-});
-
-export type SendArtifactRequest = z.infer<typeof SendArtifactRequestSchema>;
-
-export function createSendArtifactRequest(
-  options: Partial<SendArtifactRequest> = {},
-): SendArtifactRequest {
-  return SendArtifactRequestSchema.parse(options);
 }
 
 export const UpdateArtifactsRequestSchema = z.object({
@@ -7841,20 +7762,6 @@ export function createUpdateArtifactsRequest(
   options: Partial<UpdateArtifactsRequest> = {},
 ): UpdateArtifactsRequest {
   return UpdateArtifactsRequestSchema.parse(options);
-}
-
-export const UpdateArtifactsResponseSchema = z.object({
-  results: z.array(ArtifactSaveResultSchema),
-});
-
-export type UpdateArtifactsResponse = z.infer<
-  typeof UpdateArtifactsResponseSchema
->;
-
-export function createUpdateArtifactsResponse(
-  options: Partial<UpdateArtifactsResponse> = {},
-): UpdateArtifactsResponse {
-  return UpdateArtifactsResponseSchema.parse(options);
 }
 
 export const DocstringToMarkdownRequestSchema = z.object({

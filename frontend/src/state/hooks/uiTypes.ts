@@ -24,7 +24,7 @@ import {
   SliderParamCodeObjImpl,
 } from "utils/generatedTypes";
 
-export function getIsSeriesElementHelper(
+function getIsSeriesElementHelper(
   sectionId: string,
   parentTypesToCheck: Array<SectionType>,
   state: ZustandProjectState,
@@ -38,7 +38,7 @@ export function getIsSeriesElementHelper(
   return parentTypesToCheck.includes(parentImpl.type);
 }
 
-export function useIsSeriesElement(sectionId) {
+export function useIsSeriesElement(sectionId: string) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(
       sectionId,
@@ -48,7 +48,7 @@ export function useIsSeriesElement(sectionId) {
   );
 }
 
-export function useIsListElement(sectionId) {
+export function useIsListElement(sectionId: string) {
   return useProjectState((x) =>
     getIsSeriesElementHelper(sectionId, [SectionTypeEnum.ListRoot], x),
   );

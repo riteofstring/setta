@@ -49,7 +49,7 @@
 
 ## Endpoints
 
-Endpoint functions on the backend and frontend always have the exact same name.
+Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If the function exists on the backend but not on the frontend, then ask me to run pnpm generate for you.
 
 ## Pydantic
 

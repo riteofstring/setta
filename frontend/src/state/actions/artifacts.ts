@@ -240,8 +240,8 @@ async function flushPendingArtifacts(force = false) {
     });
     if (res200(res)) {
       clearPendingArtifacts(snapshot);
-      if (res.data?.results) {
-        for (const result of res.data.results) {
+      if (res.data) {
+        for (const result of res.data) {
           if (result.status === "conflict" || result.status === "skipped") {
             const message =
               result.message || `Conflict detected while saving ${result.id}.`;

@@ -95,6 +95,7 @@ export const useProjectState = withProjectState(
           yamlValues: {},
           shownParamIds: {},
           previewSectionVariantMap: {},
+          requiredDecodedImages: [],
         })),
       ),
     ),

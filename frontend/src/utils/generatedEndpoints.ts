@@ -151,46 +151,10 @@ export async function route_format_code(
   return await post("/formatCode", x);
 }
 
-export async function route_send_artifact(
-  x: gt.SendArtifactRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/sendArtfiact", x);
-}
-
-export async function route_load_artifacts(
-  x: gt.LoadArtifactsRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/loadArtifacts", x);
-}
-
-export async function route_load_available_artifacts(
-  x: gt.LoadAvailableArtifactsRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/loadAvailableArtifacts", x);
-}
-
 export async function route_check_if_file_exists(
   x: gt.CheckIfFileExistsRequests,
 ): Promise<ResponseDataAndStatus<boolean>> {
   return await post("/checkIfFileExists", x);
-}
-
-export async function route_load_artifact_from_disk(
-  x: gt.LoadArtifactFromDiskRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/loadArtifactFromDisk", x);
-}
-
-export async function route_read_csv_base64(
-  x: gt.ReadCSVBase64Request,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/readCSVBase64", x);
-}
-
-export async function route_get_artifact_ids_from_name_path_type(
-  x: gt.FillInMissingArtifactIdsRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/getArtifactIdsFromNamePathType", x);
 }
 
 export async function route_get_folder_contents(
@@ -227,7 +191,7 @@ export async function route_load_cached_draw_area_layer_item_transform(
 
 export async function route_update_artifacts(
   x: gt.UpdateArtifactsRequest,
-): Promise<ResponseDataAndStatus<gt.UpdateArtifactsResponse>> {
+): Promise<ResponseDataAndStatus<Array<gt.ArtifactSaveResult>>> {
   return await post("/updateArtifacts", x);
 }
 
