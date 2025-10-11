@@ -3,7 +3,13 @@ import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { arrayMove } from "forks/dnd-kit/CustomSortable";
 import _ from "lodash";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type DragEvent,
+  type MouseEvent,
+} from "react";
 import { BiHide, BiPaint, BiShow } from "react-icons/bi";
 import { BsLayers } from "react-icons/bs";
 import { FaPlus } from "react-icons/fa";
@@ -19,6 +25,7 @@ import {
   DrawAreaMode,
   DrawAreaModeEnum,
   SectionTypeEnum,
+  createDrawAreaLayer,
 } from "utils/generatedTypes";
 
 export function DrawAreaControls({
@@ -450,11 +457,50 @@ function LayerSettings({ sectionId, activeLayerIdx, opacity }) {
   );
 }
 
-function LayerList({ sectionId, activeLayerIdx }) {
+type LayerMetadata = {
+  index: number;
+  name: string;
+  visible: boolean;
+};
+
+function LayerList({
+  sectionId,
+  activeLayerIdx,
+}: {
+  sectionId: string;
+  activeLayerIdx: number;
+}) {
   function reorderLayers(draggedIdx: number, targetIdx: number) {
+    if (draggedIdx === targetIdx) {
+      return;
+    }
     useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      const nextLayers = arrayMove(impl.layers, draggedIdx, targetIdx);
+      const { activeLayerIdx: currentActiveIdx } = impl;
+
+      let nextActiveIdx = currentActiveIdx;
+      if (currentActiveIdx === draggedIdx) {
+        nextActiveIdx = targetIdx;
+      } else if (
+        draggedIdx < currentActiveIdx &&
+        currentActiveIdx <= targetIdx
+      ) {
+        nextActiveIdx = currentActiveIdx - 1;
+      } else if (
+        draggedIdx > currentActiveIdx &&
+        currentActiveIdx >= targetIdx
+      ) {
+        nextActiveIdx = currentActiveIdx + 1;
+      }
+
       setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
-        layers: (currLayers) => arrayMove(currLayers, draggedIdx, targetIdx),
+        layers: () => nextLayers,
+        activeLayerIdx: () => nextActiveIdx,
       });
     });
   }
@@ -463,10 +509,12 @@ function LayerList({ sectionId, activeLayerIdx }) {
     useProjectState.setState((state) => {
       setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
         layers: (currLayers) => {
-          if (currLayers[layerIdx]) {
-            currLayers[layerIdx].visible = visible;
+          if (!currLayers[layerIdx]) {
+            return currLayers;
           }
-          return currLayers;
+          return currLayers.map((layer, idx) =>
+            idx === layerIdx ? { ...layer, visible } : layer,
+          );
         },
       });
     });
@@ -480,63 +528,121 @@ function LayerList({ sectionId, activeLayerIdx }) {
     });
   }
 
-  function addLayer() {}
+  function addLayer() {
+    useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      const newLayers = [...impl.layers, createDrawAreaLayer()];
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: () => newLayers,
+        activeLayerIdx: () => newLayers.length - 1,
+      });
+    });
+  }
 
-  function deleteLayer() {}
+  function deleteLayer(layerIdx: number) {
+    useProjectState.setState((state) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        state,
+        sectionId,
+        SectionTypeEnum.Draw,
+      );
+      if (!impl.layers[layerIdx]) {
+        return;
+      }
+      if (impl.layers.length <= 1) {
+        return;
+      }
+      const newLayers = impl.layers.filter((_, idx) => idx !== layerIdx);
+      const currentActiveIdx = impl.activeLayerIdx;
+      let nextActiveIdx = currentActiveIdx;
+      if (currentActiveIdx === layerIdx) {
+        nextActiveIdx = Math.min(layerIdx, newLayers.length - 1);
+      } else if (currentActiveIdx > layerIdx) {
+        nextActiveIdx = currentActiveIdx - 1;
+      }
+      nextActiveIdx = Math.max(0, nextActiveIdx);
 
-  const layers = useProjectState(
-    (x) => getSectionArtifactGroupMetadata(sectionId, x),
-    _.isEqual,
-  );
-  const reversedLayers = layers.toReversed();
+      setCurrEffectiveSectionImplValue<"DrawSection">(state, sectionId, {
+        layers: () => newLayers,
+        activeLayerIdx: () => nextActiveIdx,
+      });
+    });
+  }
 
-  const [draggedOverIdx, setDraggedOverIdx] = useState(null);
+  const layers = useProjectState<Array<LayerMetadata>>((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Draw,
+    );
+    return impl.layers.map((layer, index) => ({
+      index,
+      name: layer.name,
+      visible: layer.visible,
+    }));
+  }, _.isEqual);
+  const reversedLayers = [...layers].reverse();
 
-  const handleDragStart = (e, idx) => {
-    e.dataTransfer.setData("text/plain", idx);
+  const [draggedOverIdx, setDraggedOverIdx] = useState<number | null>(null);
+
+  const handleDragStart = (event: DragEvent<HTMLLIElement>, layerIndex: number) => {
+    event.dataTransfer.setData("text/plain", String(layerIndex));
+    event.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (e, idx) => {
-    e.preventDefault();
-    setDraggedOverIdx(idx);
+  const handleDragOver = (event: DragEvent<HTMLLIElement>, layerIndex: number) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDraggedOverIdx(layerIndex);
   };
 
   const handleDragLeave = () => {
     setDraggedOverIdx(null);
   };
 
-  const handleDrop = (e, targetIdx) => {
-    e.preventDefault();
-    const draggedIdx = e.dataTransfer.getData("text/plain");
+  const handleDrop = (event: DragEvent<HTMLLIElement>, targetLayerIndex: number) => {
+    event.preventDefault();
+    const draggedLayerIndex = Number(event.dataTransfer.getData("text/plain"));
     setDraggedOverIdx(null);
 
-    if (draggedIdx !== targetIdx) {
-      // layers are reversed, so adjust indices
-      reorderLayers(
-        layers.length - 1 - draggedIdx,
-        layers.length - 1 - targetIdx,
-      );
+    if (
+      Number.isNaN(draggedLayerIndex) ||
+      draggedLayerIndex === targetLayerIndex
+    ) {
+      return;
     }
+
+    reorderLayers(draggedLayerIndex, targetLayerIndex);
   };
 
   return (
     <div className="flex w-full max-w-64 flex-col gap-2">
       <ul className="mt-1 flex w-full flex-col gap-2">
-        {reversedLayers.map((layer, idx) => (
+        {reversedLayers.map((layer) => (
           <li
-            key={layer.id}
+            key={`${layer.name}-${layer.index}`}
             draggable={true}
-            onDragStart={(e) => handleDragStart(e, idx)}
-            onDragOver={(e) => handleDragOver(e, idx)}
+            onDragStart={(event) => handleDragStart(event, layer.index)}
+            onDragOver={(event) => handleDragOver(event, layer.index)}
             onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, idx)}
+            onDrop={(event) => handleDrop(event, layer.index)}
             className={`dark:hover:bg-setta-8509 flex cursor-move items-center justify-between gap-2 rounded-lg  border-2 bg-setta-50 px-2 py-1 hover:bg-setta-100 dark:bg-setta-900 ${
-              draggedOverIdx === idx ? " border-blue-500" : "border-transparent"
+              draggedOverIdx === layer.index
+                ? " border-blue-500"
+                : "border-transparent"
             } `}
-            onClick={() => setActiveLayerIdx(layer.id)}
+            onClick={() => setActiveLayerIdx(layer.index)}
           >
             <button
-              onClick={() => setLayerVisibility(layer.id, !layer.visible)}
+              type="button"
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                setLayerVisibility(layer.index, !layer.visible);
+              }}
               className="cursor-pointer"
             >
               {layer.visible ? (
@@ -547,13 +653,17 @@ function LayerList({ sectionId, activeLayerIdx }) {
             </button>
 
             <p
-              className={`truncate text-sm font-semibold ${activeLayerId === layer.id ? " !text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
+              className={`truncate text-sm font-semibold ${layer.index === activeLayerIdx ? "!text-blue-500" : "text-setta-600 dark:text-setta-400"}`}
             >
               {layer.name}
             </p>
 
             <button
-              onClick={() => deleteLayer(layer.id)}
+              type="button"
+              onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                event.stopPropagation();
+                deleteLayer(layer.index);
+              }}
               className="flex h-4 w-4 cursor-pointer items-center"
             >
               <i className="gg-close  text-setta-400 hover:!text-red-500 dark:text-setta-700" />
@@ -562,6 +672,7 @@ function LayerList({ sectionId, activeLayerIdx }) {
         ))}
       </ul>
       <button
+        type="button"
         onClick={addLayer}
         className="flex max-w-full cursor-pointer items-center justify-center rounded p-2 text-sm text-setta-600 hover:text-blue-500"
       >

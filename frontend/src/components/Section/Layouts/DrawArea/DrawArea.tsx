@@ -103,6 +103,8 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
   //   return unsub;
   // }, [sectionId, fnCanvasToBase64]);
 
+  const layerCount = layers.length;
+
   useEffect(() => {
     useProjectState.setState((state) => {
       setCanvasSize(
@@ -114,10 +116,10 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
         state,
       );
     });
-    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
   }, [
     sectionSize.height,
     sectionSize.width,
+    layerCount,
     // JSON.stringify(layerIds),
     // updateDrawArea,
   ]);
@@ -153,6 +155,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
     // loadedArtifactIdsWithDuplicates,
     // updateDrawArea,
   ]);
+  useEffect(() => {
+    drawAllLayers(layers, layerCanvasRefs, tempCanvasRefs);
+  }, [layers, sectionSize.height, sectionSize.width]);
   // loadedArtifactIdsWithDuplicates contains all artifacts ids present in all layers
   // including duplicates (e.g. the same artifact present multiple times in a single layer, or across multiple layers)
 

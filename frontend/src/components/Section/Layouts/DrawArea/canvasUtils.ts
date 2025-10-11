@@ -328,7 +328,6 @@ export function drawOneLayer(
   const transforms = useDrawAreaLayerItemTransform.getState().x;
   const { layerOpacity } = layer;
 
-  console.log(layer.elements)
   for (const [idx, e] of layer.elements.entries()) {
     // console.log("drawOneLayer e", e);
     artifactTempCtx.globalAlpha = 1;
