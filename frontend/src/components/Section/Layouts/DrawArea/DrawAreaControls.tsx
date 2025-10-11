@@ -589,12 +589,18 @@ function LayerList({
 
   const [draggedOverIdx, setDraggedOverIdx] = useState<number | null>(null);
 
-  const handleDragStart = (event: DragEvent<HTMLLIElement>, layerIndex: number) => {
+  const handleDragStart = (
+    event: DragEvent<HTMLLIElement>,
+    layerIndex: number,
+  ) => {
     event.dataTransfer.setData("text/plain", String(layerIndex));
     event.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragOver = (event: DragEvent<HTMLLIElement>, layerIndex: number) => {
+  const handleDragOver = (
+    event: DragEvent<HTMLLIElement>,
+    layerIndex: number,
+  ) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     setDraggedOverIdx(layerIndex);
@@ -604,7 +610,10 @@ function LayerList({
     setDraggedOverIdx(null);
   };
 
-  const handleDrop = (event: DragEvent<HTMLLIElement>, targetLayerIndex: number) => {
+  const handleDrop = (
+    event: DragEvent<HTMLLIElement>,
+    targetLayerIndex: number,
+  ) => {
     event.preventDefault();
     const draggedLayerIndex = Number(event.dataTransfer.getData("text/plain"));
     setDraggedOverIdx(null);
