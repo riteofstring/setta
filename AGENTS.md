@@ -19,6 +19,8 @@
 - Keep FastAPI routers grouped by feature under `backend/setta/routers/` and name endpoint functions with verbs (`get_notifications`, `create_project_state`).
 - TypeScript/JS files use Prettier 3.2.4 and ESLint 9; components belong in PascalCase (`ToolbarButton.tsx`), hooks in camelCase prefixed with `use`.
 - Tailwind class strings are organized by Prettier plugins; co-locate companion styles in `icons.css` or module-scoped `.css` next to the component.
+- In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
+- Avoid "any" types, unless absolutely necessary.
 
 ## Testing Guidelines
 - Frontend tests live beside the code as `*.test.tsx` files; cover store logic, reducers, and view regressions with Vitest + React Testing Library helpers.
