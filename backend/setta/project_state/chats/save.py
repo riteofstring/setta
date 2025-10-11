@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from anthropic.types import TextBlock
 
-from setta.database.db_objs import DBE
-from setta.database.utils import create_new_id
 from setta.project_state.chats.load import load_chat
 from setta.types.chat_messages import Chat, ChatMessage
 from setta.utils.generate_memorable_string import generate_memorable_string
 from setta.utils.timestamps import get_now_timestamp
+
+if TYPE_CHECKING:
+    from setta.database.db_objs import DBE
 
 
 def create_new_chat_name(first_message: ChatMessage) -> str:
@@ -35,13 +38,10 @@ def _copy_messages(messages: list[ChatMessage]) -> list[ChatMessage]:
 
 
 def create_new_chat(dbe: DBE, first_message: ChatMessage) -> Chat:
-    chat_id = create_new_id()
     name = create_new_chat_name(first_message)
     chat = Chat(
-        id=chat_id,
         name=name,
         messages=_copy_messages([first_message]),
-        lastUpdated=get_now_timestamp(),
     )
     return _persist_chat(dbe, chat)
 

@@ -22,7 +22,6 @@ from anthropic.types import (
 )
 
 from setta.database.db_objs import DBE
-from setta.database.utils import create_new_id
 from setta.mcp.client import MCPClient
 from setta.project_state.chats.load import load_all_chat_metadata, load_chat
 from setta.project_state.chats.save import create_new_chat, delete_chat, save_messages
@@ -207,7 +206,6 @@ class ChatManager:
                     )
                     newer_msgs.append(
                         ChatMessage(
-                            id=create_new_id(),
                             role=ChatRole.user,
                             content=[tool_result],
                         )
