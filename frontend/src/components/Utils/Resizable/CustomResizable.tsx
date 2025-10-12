@@ -101,15 +101,14 @@ function CustomResizableCore({
       aspectRatio,
     });
     let updatedSectionSizes: Record<string, SectionSize> = {};
-    const applyResize = (state) => {
-      updatedSectionSizes = setSelfParentSiblingChildrenWidths(
-        sectionId,
-        changedSize,
-        state,
-      );
-    };
     dispatchOptimisticProjectStateUpdate({
-      apply: applyResize,
+      apply: (state) => {
+        updatedSectionSizes = setSelfParentSiblingChildrenWidths(
+          sectionId,
+          changedSize,
+          state,
+        );
+      },
       send: (frontendOpId) =>
         route_set_section_sizes({
           projectConfigId: getCurrProjectConfigId(),
