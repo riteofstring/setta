@@ -6,8 +6,13 @@ import {
 } from "downshift";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useState } from "react";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type DependencyList,
+  type EffectCallback,
+} from "react";
 import { flattenedItems } from "./utils";
 
 export type ComboboxItemType<T> = { id: T; name: string };
@@ -174,6 +179,21 @@ function getReducerModifications<T>(
   }
 }
 
+function useDeepCompareLayoutEffect(
+  effect: EffectCallback,
+  dependencies: DependencyList,
+) {
+  const dependenciesRef = useRef<DependencyList>([]);
+  const signalRef = useRef(0);
+
+  if (!_.isEqual(dependenciesRef.current, dependencies)) {
+    dependenciesRef.current = dependencies;
+    signalRef.current += 1;
+  }
+
+  useLayoutEffect(effect, [signalRef.current]);
+}
+
 export function useComboboxStateReducerWithFilteredItems<T>(
   allItems: AllItemsType<T>,
   value: string | null | undefined,
@@ -181,22 +201,19 @@ export function useComboboxStateReducerWithFilteredItems<T>(
   selectedItemCanBeNull: boolean,
   clearInputAfterSelection: boolean,
 ) {
-  const [selection, setSelection] = useState(null);
   const [filteredItems, setFilteredItems] = useState(allItems);
+  const selection =
+    value !== undefined ? getExactMatch(allItems, value, "id") : null;
 
-  useDeepCompareEffect(() => {
+  useDeepCompareLayoutEffect(() => {
     setFilteredItems(allItems);
     if (value !== undefined) {
-      const objContainingValue = getExactMatch(allItems, value, "id");
-      if (!_.isEqual(selection, objContainingValue)) {
-        setSelection(objContainingValue);
-      }
       // the following condition happens if the current selection is removed from the available options
-      if (value && !objContainingValue) {
+      if (value && !selection) {
         setValue(null);
       }
     }
-  }, [allItems, value]);
+  }, [allItems, selection, value]);
 
   const stateReducer: UseComboboxProps<ComboboxItemType<T>>["stateReducer"] = (
     state,

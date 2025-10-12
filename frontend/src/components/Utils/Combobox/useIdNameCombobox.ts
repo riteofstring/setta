@@ -1,4 +1,5 @@
 import { useCombobox, UseComboboxProps } from "downshift";
+import { type KeyboardEvent } from "react";
 import {
   AllItemsType,
   ComboboxItemType,
@@ -22,7 +23,7 @@ export function useIdNameCombobox<T>({
   selectedItemCanBeNull?: boolean;
   clearInputAfterSelection?: boolean;
 }) {
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.code === "Escape") {
       // TODO: figure out best way to blur without being annoying
       e.currentTarget.blur();
