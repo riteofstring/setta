@@ -307,6 +307,7 @@ class BaseProjectManager(ABC):
         return None
 
     def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
+        # Runs after handler finishes; drop from pending and mark completed only on success
         if not frontend_op_id:
             return
         if frontend_op_id in self.pending_frontend_ops:
@@ -315,6 +316,7 @@ class BaseProjectManager(ABC):
                 self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
 
     def _mark_current_frontend_op_completed_before_broadcast(self):
+        # Mid-handler hook so the broadcast payload includes the already-completed op id
         frontend_op_id = self._current_frontend_op_id.get()
         if frontend_op_id and frontend_op_id in self.pending_frontend_ops:
             self.pending_frontend_ops.pop(frontend_op_id, None)
