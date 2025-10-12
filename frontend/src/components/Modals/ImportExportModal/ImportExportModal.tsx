@@ -5,13 +5,12 @@ import { useEffect, useState } from "react";
 import { HiOutlineDuplicate } from "react-icons/hi";
 import { loadProjectState } from "state/actions/project/loadProject";
 import { useProjectState } from "state/definitions";
-import { useExportProjectJson } from "state/hooks/project";
 import { resetProjectStores } from "state/utils";
 import { res200 } from "utils/endpointUtils";
-import { router_add_default_data_for_json_import } from "utils/generatedEndpoints";
 
 export function ExportJSONModal({ open, modalType }) {
-  const [projectJson, exportProjectJson] = useExportProjectJson();
+  // TODO: implement this
+  const [projectJson, exportProjectJson] = [{}, () => {}];
 
   useEffect(() => {
     if (open) {
@@ -42,7 +41,8 @@ export function ImportJSONModal({ modalType }) {
       ...project["projectConfigs"],
       [id]: { id, name },
     };
-    const res = await router_add_default_data_for_json_import(project);
+    // TODO: implement this. It should validate the json.
+    const res = { status: null, data: null };
     if (res200(res)) {
       resetProjectStores();
       loadProjectState(res.data);

@@ -194,18 +194,6 @@ async def router_set_as_default_project(
     project_manager.save()
 
 
-@router.post(Route.FILTER_DATA_FOR_JSON_EXPORT)
-def router_filter_data_for_json_export(x: FilterDataForJSONExportRequest):
-    filter_data_for_json_export(x.project)
-    return x.project
-
-
-@router.post(Route.ADD_DEFAULT_DATA_FOR_JSON_IMPORT)
-def router_add_default_data_for_json_import(x: FilterDataForJSONExportRequest):
-    add_defaults_to_project_and_load_json_sources(x.project)
-    return x.project
-
-
 @router.post(Route.GET_NOTIFICATIONS)
 def route_get_notifications(
     x: GetNotificationsRequest, state: AppStateFromRequest

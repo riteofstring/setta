@@ -1165,7 +1165,7 @@ export function createToolResult(
 }
 
 export const ChatMessageSchema = z.object({
-  id: z.string(),
+  id: z.string().default(create_new_id),
   role: z.enum(ChatRoleEnum),
   content: z.array(
     z.union([
@@ -6897,7 +6897,7 @@ export function createBaseChartSettings(
 }
 
 export const ChatSchema = z.object({
-  id: z.string(),
+  id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
   messages: z.array(ChatMessageSchema),
@@ -6910,7 +6910,7 @@ export function createChat(options: Partial<Chat> = {}): Chat {
 }
 
 export const ChatMetadataSchema = z.object({
-  id: z.string(),
+  id: z.string().default(create_new_id),
   name: z.string(),
   lastUpdated: z.iso.datetime().default(get_now_timestamp),
 });
@@ -8848,18 +8848,6 @@ export function createCreateFileRequest(
   return CreateFileRequestSchema.parse(options);
 }
 
-export const DeleteFileRequestSchema = z.object({
-  filepath: z.string(),
-});
-
-export type DeleteFileRequest = z.infer<typeof DeleteFileRequestSchema>;
-
-export function createDeleteFileRequest(
-  options: Partial<DeleteFileRequest> = {},
-): DeleteFileRequest {
-  return DeleteFileRequestSchema.parse(options);
-}
-
 export const GetJSONSourcePathToBeDeletedSchema = z.object({
   variantName: z.string(),
 });
@@ -8886,36 +8874,6 @@ export function createNewJSONVersionNameRequest(
   options: Partial<NewJSONVersionNameRequest> = {},
 ): NewJSONVersionNameRequest {
   return NewJSONVersionNameRequestSchema.parse(options);
-}
-
-export const SectionToYamlRequestSchema = z.object({
-  codeInfo: z.record(z.string(), z.any()),
-  codeInfoChildren: z.record(z.string(), z.any()),
-  sectionVariant: z.record(z.string(), z.any()),
-  pinnedIds: z.record(z.string(), z.array(z.string())),
-  unpinnedIds: z.record(z.string(), z.array(z.string())),
-});
-
-export type SectionToYamlRequest = z.infer<typeof SectionToYamlRequestSchema>;
-
-export function createSectionToYamlRequest(
-  options: Partial<SectionToYamlRequest> = {},
-): SectionToYamlRequest {
-  return SectionToYamlRequestSchema.parse(options);
-}
-
-export const SectionsMakeCopyRequestSchema = z.object({
-  sectionsAndOtherInfo: z.record(z.string(), z.any()),
-});
-
-export type SectionsMakeCopyRequest = z.infer<
-  typeof SectionsMakeCopyRequestSchema
->;
-
-export function createSectionsMakeCopyRequest(
-  options: Partial<SectionsMakeCopyRequest> = {},
-): SectionsMakeCopyRequest {
-  return SectionsMakeCopyRequestSchema.parse(options);
 }
 
 export const SaveSettingsRequestSchema = z.object({

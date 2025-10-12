@@ -61,18 +61,6 @@ export async function router_set_as_default_project(
   return await post("/setAsDefaultProject", x);
 }
 
-export async function router_filter_data_for_json_export(
-  x: gt.FilterDataForJSONExportRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/filterDataForJSONExport", x);
-}
-
-export async function router_add_default_data_for_json_import(
-  x: gt.FilterDataForJSONExportRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/addDefaultDataForJSONImport", x);
-}
-
 export async function route_get_notifications(
   x: gt.GetNotificationsRequest,
 ): Promise<ResponseDataAndStatus<Array<gt.SettaNotification>>> {
@@ -83,12 +71,6 @@ export async function route_delete_notification(
   x: gt.DeleteNotificationRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteNotification", x);
-}
-
-export async function route_section_to_yaml(
-  x: gt.SectionToYamlRequest,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/sectionToYaml", x);
 }
 
 export async function route_new_json_version_name(

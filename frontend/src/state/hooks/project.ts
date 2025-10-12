@@ -1,26 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { loadProjectConfig } from "state/actions/project/loadProject";
-import { getProjectDataForSaving } from "state/actions/project/saveProject";
 import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { PAGE_LOAD_TYPES } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
-import { router_filter_data_for_json_export } from "utils/generatedEndpoints";
 import { useHotReload } from "utils/hotReload";
-
-export function useExportProjectJson() {
-  const [projectJson, setProjectJson] = useState({});
-  async function exportProjectJson() {
-    const project = await getProjectDataForSaving();
-    const res = await router_filter_data_for_json_export(project);
-    if (res200(res)) {
-      setProjectJson(res.data);
-    }
-  }
-
-  return [projectJson, exportProjectJson];
-}
 
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
