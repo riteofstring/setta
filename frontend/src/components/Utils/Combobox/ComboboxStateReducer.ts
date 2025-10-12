@@ -179,6 +179,16 @@ function getReducerModifications<T>(
   }
 }
 
+/**
+ * Custom hook equivalent to `useDeepCompareEffect` but using `useLayoutEffect`.
+ * Downshift needs the filtered items and selection to be synchronized before the
+ * browser paints; if we waited for the normal `useEffect` tick the menu would
+ * briefly render stale options, then snap to the updated ones on the next frame.
+ * We memoize the last dependency array via deep equality, bump a ref-backed
+ * signal when the dependencies actually change, and feed that signal into
+ * `useLayoutEffect` so React re-runs the effect only when the deep comparison
+ * reports a difference.
+ */
 function useDeepCompareLayoutEffect(
   effect: EffectCallback,
   dependencies: DependencyList,
