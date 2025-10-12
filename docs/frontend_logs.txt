@@ -1,0 +1,141 @@
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded false
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded false
+websocketReceive.ts:105 {id: null, content: Array(2), messageType: 'AllConnections'}
+websocketReceive.ts:105 {id: null, content: Array(0), messageType: 'AllDependencies'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'AllProjectMetadata'}
+settings.ts:13 [useLoadSettings] loaded settings {gridPattern: 'dots'}
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded true
+settings.ts:13 [useLoadSettings] loaded settings {gridPattern: 'dots'}
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+sectionInfos.ts:726 [dispatchOptimisticProjectStateUpdate] {opId: '7db8cbfc-958d-478c-8b24-77d7ad9e8b04', metadata: undefined}
+sectionInfos.ts:726 [dispatchOptimisticProjectStateUpdate] {opId: 'cce902e3-7c37-442d-aa0e-28d75ae8f55d', metadata: undefined}
+sectionInfos.ts:726 [dispatchOptimisticProjectStateUpdate] {opId: '45c7a99e-0bd2-4e29-ba0b-b4456cdf3d38', metadata: undefined}
+ParamInput.tsx:49 [ParamInput:onChange] {sectionId: 'b13c0a6c-580f-4e1f-b0e5-9b3828ed5b4b', paramInfoId: '5b21d5d4-1946-432a-b31b-b0c4c7c37ffc', value: '"lines"'}
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "lines"
+sectionInfos.ts:726 [dispatchOptimisticProjectStateUpdate] {opId: '6b948c6f-ccef-478e-9581-9d0d9d799b69', metadata: {…}}
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(4), gridPattern: '"lines"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(4), gridPattern: '"lines"'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'lines'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'lines'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'lines'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'lines'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'lines'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'lines'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'AllProjectMetadata'}
+GlobalWrapper.tsx:49 pathname /wing_staying
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /wing_staying
+GlobalWrapper.tsx:14 settingsLoaded true
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'LSPDiagnostics'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'LSPDiagnostics'}
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /home
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded true
+GlobalWrapper.tsx:49 pathname /settings
+GlobalWrapper.tsx:14 settingsLoaded true
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:49 [ParamInput:onChange] {sectionId: 'b13c0a6c-580f-4e1f-b0e5-9b3828ed5b4b', paramInfoId: '5b21d5d4-1946-432a-b31b-b0c4c7c37ffc', value: '"dots"'}
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "dots"
+sectionInfos.ts:726 [dispatchOptimisticProjectStateUpdate] {opId: '6444f0b9-bd29-4b22-8909-2d15cbe6c7c7', metadata: {…}}
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(1), gridPattern: '"dots"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(1), gridPattern: '"dots"'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'dots'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'dots'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"lines"'}
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+ParamInput.tsx:59 gridPattern globalValue: "lines"
+ParamInput.tsx:60 gridPattern value: "lines"
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'dots'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'dots'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"dots"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"dots"'}
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+ParamInput.tsx:59 gridPattern globalValue: "dots"
+ParamInput.tsx:60 gridPattern value: "dots"
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'dots'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'dots'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'LSPDiagnostics'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateFrontendProjectState'}
+websocketReceive.ts:127 [websocketReceive] UpdateFrontendProjectState {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"dots"'}
+sectionInfos.ts:414 [processProjectStateUpdateFromBackend] {projectConfigId: 'b567428c-5c18-4fda-b8a3-65f637ded91d', pendingOpIds: Array(0), completedOpIds: Array(0), gridPattern: '"dots"'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'UpdateSettings'}
+websocketReceive.ts:135 [websocketReceive] UpdateSettings {gridPattern: 'dots'}
+settings.ts:31 [updateSettings] applying new settings {gridPattern: 'dots'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'Notification'}
+websocketReceive.ts:105 {id: null, content: {…}, messageType: 'LSPDiagnostics'}

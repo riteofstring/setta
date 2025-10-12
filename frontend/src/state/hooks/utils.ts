@@ -92,6 +92,10 @@ export function useLocalPendingValue<T>(
       setPendingValue(null);
       return;
     }
+    console.log("[useLocalPendingValue] global update while pending", {
+      pendingValue,
+      globalValue,
+    });
     callbackOnGlobalUpdate?.(pendingValue);
   }, [globalValue]);
 

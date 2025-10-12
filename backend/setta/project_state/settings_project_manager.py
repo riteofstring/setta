@@ -63,5 +63,9 @@ class SettingsProjectManager(BaseProjectManager):
             project_state, updateFileWatcher=updateFileWatcher
         )
         if updateFileWatcher:
+            logger.critical(
+                "SettingsProjectManager.update_and_broadcast_project_state saving grid_pattern=%s",
+                self._extract_grid_pattern_value(project_state),
+            )
             self.save()
             await self.settings_file.load_and_broadcast_settings()

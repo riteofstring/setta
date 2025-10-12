@@ -1,8 +1,12 @@
+import logging
+
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.project_manager import ProjectManager
 from setta.project_state.settings_project_manager import SettingsProjectManager
 from setta.types.helpers_lvl2 import ProjectNotFound, confirm_config_name
 from setta.types.project_state import ProjectStateSingleConfig
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectManagerSwitcher:
@@ -17,14 +21,22 @@ class ProjectManagerSwitcher:
     def get(
         self, project_identifier: str | ProjectStateSingleConfig
     ) -> BaseProjectManager:
-        if isinstance(project_identifier, str):
-            if (
-                project_identifier
-                == self.settings.project_state_backend.defaultProjectConfigId
-            ):
-                return self.settings
-            return self.main
-        return self.get(project_identifier.projectConfig.id)
+        project_id = (
+            project_identifier
+            if isinstance(project_identifier, str)
+            else project_identifier.projectConfig.id
+        )
+        settings_default_id = self.settings.project_state_backend.defaultProjectConfigId
+        manager = (
+            self.settings if project_id == settings_default_id else self.main
+        )
+        logger.critical(
+            "ProjectManagerSwitcher.get project_id=%s resolved_manager=%s settings_default_id=%s",
+            project_id,
+            manager.__class__.__name__,
+            settings_default_id,
+        )
+        return manager
 
     def get_config_id_by_name(self, projectConfigName: str):
         projectConfigId = None

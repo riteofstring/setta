@@ -11,6 +11,7 @@ export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
   const settingsLoaded = useLoadSettings();
+  console.log("settingsLoaded", settingsLoaded)
   return settingsLoaded && children;
 }
 
@@ -45,6 +46,7 @@ function useSetHTMLTitle() {
       document.title = "setta.dev";
     }
   }, [pathname, projectConfigName, projectIs404]);
+  console.log("pathname", pathname)
 }
 
 function useOpenCloseWebsocket() {

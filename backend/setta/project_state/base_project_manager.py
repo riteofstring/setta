@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import copy
 import shutil
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Coroutine, Iterable
@@ -148,6 +149,7 @@ from setta.types.helpers_lvl3 import (
     paste_sections,
     prepare_sections_for_copy,
 )
+from setta.types.generated.effective_impls import get_effective_impl
 from setta.types.notifications import SettaNotification, SettaNotificationType
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import (
@@ -161,6 +163,8 @@ from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.constants import C
 from setta.utils.utils import normalize_path
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProjectManager(ABC):
@@ -532,6 +536,17 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.paramInfoId,
             x.value,
+        )
+        logger.critical(
+            "BaseProjectManager.set_param_entered_value manager=%s project_config_id=%s "
+            "section_id=%s param_info_id=%s value=%s grid_pattern=%s pending_ops=%s",
+            self.__class__.__name__,
+            x.projectConfigId,
+            x.sectionId,
+            x.paramInfoId,
+            x.value,
+            self._extract_grid_pattern_value(project_state),
+            list(self.pending_frontend_ops.keys()),
         )
         await self.update_and_broadcast_project_state(project_state)
 
@@ -1036,6 +1051,27 @@ class BaseProjectManager(ABC):
         paste_sections(project_state, x.data, x.position, x.asRef)
         await self.update_and_broadcast_project_state(project_state)
 
+    def _extract_grid_pattern_value(
+        self, project_state: ProjectStateSingleConfig
+    ) -> str | None:
+        for core in project_state.codeObjs.values():
+            if core.name != "gridPattern":
+                continue
+            variant_id = core.defaultVariant or (
+                core.variants[0] if core.variants else None
+            )
+            if not variant_id:
+                return None
+            variant = project_state.codeObjVariants.get(variant_id)
+            if not variant:
+                return None
+            impl = project_state.codeObjImpls.get(variant.impl)
+            if not impl:
+                return None
+            effective = get_effective_impl(impl, core, variant)
+            return getattr(effective, "value", None)
+        return None
+
     def get_default_project_config_name(self):
         if self.project_state_backend.defaultProjectConfigId:
             defaultId = self.project_state_backend.defaultProjectConfigId
@@ -1055,6 +1091,15 @@ class BaseProjectManager(ABC):
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
         self._mark_current_frontend_op_completed_before_broadcast()
+        logger.critical(
+            "BaseProjectManager.update_and_broadcast_project_state manager=%s "
+            "project_config_id=%s completed_op_ids=%s pending_op_ids=%s grid_pattern=%s",
+            self.__class__.__name__,
+            project_state.projectConfig.id,
+            list(self.completed_op_ids_since_last_broadcast),
+            list(self.pending_frontend_ops.keys()),
+            self._extract_grid_pattern_value(project_state),
+        )
         await self.websocket_msg_handler.broadcast_project_state(
             project_state,
             self.completed_op_ids_since_last_broadcast,

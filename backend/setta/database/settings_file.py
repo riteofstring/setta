@@ -26,6 +26,9 @@ class SettingsFile:
 
     async def save_settings(self, settings: SettingsState):
         logger.debug("Saving settings")
+        logger.critical(
+            "SettingsFile.save_settings grid_pattern=%s", settings.gui.gridPattern
+        )
         paths = self.get_settings_paths()
         to_be_saved = {}
         for settings_slice, path in paths.items():
@@ -55,6 +58,10 @@ class SettingsFile:
 
     async def load_and_broadcast_settings(self):
         self.load_settings()
+        logger.critical(
+            "SettingsFile.load_and_broadcast_settings grid_pattern=%s",
+            self.settings.gui.gridPattern,
+        )
         await self.websocket_msg_handler.broadcast_settings(self.settings)
 
     def get_settings_paths(self):
