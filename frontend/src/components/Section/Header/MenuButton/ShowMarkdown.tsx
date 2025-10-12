@@ -4,6 +4,7 @@ import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
+  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
@@ -36,16 +37,19 @@ export function RenderTextBlock({ sectionId }) {
       : TextBlockDisplayModeEnum.Render;
 
   function onClick() {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        displayMode: newDisplayMode,
-      });
-    });
-
-    route_set_text_block_display_mode({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      displayMode: newDisplayMode,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          displayMode: newDisplayMode,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_display_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          displayMode: newDisplayMode,
+          frontendOpId,
+        }),
     });
   }
 
@@ -72,15 +76,19 @@ export function ConvertFormat({ sectionId }) {
       : TextBlockFormatEnum.Plaintext;
 
   function onClick() {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
-        format: convertTo,
-      });
-    });
-    route_set_text_block_format({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      format: convertTo,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          format: convertTo,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_format({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          format: convertTo,
+          frontendOpId,
+        }),
     });
   }
 

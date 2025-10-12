@@ -18,6 +18,8 @@ import {
   route_set_top_level_section_layout,
   route_set_viewport,
   route_ungroup_groups,
+  route_toggle_param_selected,
+  route_unselect_all_params,
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
@@ -690,33 +692,66 @@ export function dispatchOptimisticProjectStateUpdate({
 }
 
 export function toggleParamSelected(sectionId: string, paramInfoId: string) {
-  useProjectState.setState((x) => {
-    setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(x, sectionId, {
-      selectedParams: (curr) => {
-        if (curr?.includes(paramInfoId)) {
-          return curr.filter((x) => x != paramInfoId);
-        }
-        return [...curr, paramInfoId];
-      },
-    });
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+        state,
+        sectionId,
+        {
+          selectedParams: (curr) => {
+            if (curr?.includes(paramInfoId)) {
+              return curr.filter((id) => id !== paramInfoId);
+            }
+            return [...(curr ?? []), paramInfoId];
+          },
+        },
+      );
+    },
+    send: (frontendOpId) =>
+      route_toggle_param_selected({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        paramInfoId,
+        frontendOpId,
+      }),
   });
 }
 
 export function unselectAllParams() {
-  let didUnselectSomeParams = false;
-  useProjectState.setState((x) => {
-    for (const sectionId of Object.keys(x.sections)) {
-      const impl = getCurrEffectiveSectionImpl(x, sectionId);
-      if (isBaseSectionWithParamsImpl(impl)) {
-        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-          x,
-          sectionId,
-          { selectedParams: [] },
-        );
-      }
-    }
+  const currentState = useProjectState.getState();
+  const sectionIds = Object.keys(currentState.sections);
+  const hasSelectedParams = sectionIds.some((sectionId) => {
+    const impl = getCurrEffectiveSectionImpl(currentState, sectionId);
+    return (
+      isBaseSectionWithParamsImpl(impl) && (impl.selectedParams?.length ?? 0) > 0
+    );
   });
-  return didUnselectSomeParams;
+
+  if (!hasSelectedParams) {
+    return false;
+  }
+
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      for (const sectionId of Object.keys(state.sections)) {
+        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {
+          setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+            state,
+            sectionId,
+            { selectedParams: [] },
+          );
+        }
+      }
+    },
+    send: (frontendOpId) =>
+      route_unselect_all_params({
+        projectConfigId: getCurrProjectConfigId(),
+        frontendOpId,
+      }),
+  });
+
+  return true;
 }
 
 export function updateAllProjectMetadata(x: AllProjectMetadata) {

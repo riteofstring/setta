@@ -5,6 +5,7 @@ import {
   getCurrProjectConfigId,
   getSectionChildren,
   getSectionCore,
+  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -79,13 +80,21 @@ function EditableTitle({
 }
 
 function setSectionName(sectionId: string, name: string) {
-  useProjectState.setState((x) => {
-    getSectionCore(x, sectionId).name = name;
-  });
-  route_set_section_name({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    name,
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      const section = state.sections[sectionId];
+      if (!section) {
+        return;
+      }
+      section.name = name;
+    },
+    send: (frontendOpId) =>
+      route_set_section_name({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        name,
+        frontendOpId,
+      }),
   });
 }
 

@@ -3,6 +3,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
+  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_toggle_minimized } from "utils/generatedEndpoints";
@@ -13,14 +14,19 @@ export function MinimizeButton({ sectionId, ...props }) {
     return impl.isMinimized;
   });
   function onClick() {
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue(state, sectionId, {
-        isMinimized: !isMinimized,
-      });
-    });
-    route_toggle_minimized({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        const impl = getCurrEffectiveSectionImpl(state, sectionId);
+        setCurrEffectiveSectionImplValue(state, sectionId, {
+          isMinimized: !impl.isMinimized,
+        });
+      },
+      send: (frontendOpId) =>
+        route_toggle_minimized({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          frontendOpId,
+        }),
     });
   }
 

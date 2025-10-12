@@ -35,7 +35,6 @@ import {
   deactivateParamSelect,
 } from "state/actions/paramSelect";
 import { useSettings } from "state/definitions";
-import { route_unselect_all_params } from "utils/generatedEndpoints";
 import { tabFromDocumentBody } from "utils/tabbingLogic";
 import { isMacOs } from "utils/utils";
 import {
@@ -659,7 +658,6 @@ function specialModTabCase(shortcutInfo) {
 
 function onEscapeKey() {
   unselectAllParams();
-  route_unselect_all_params({ projectConfigId: getCurrProjectConfigId() });
   // if (!didUnselectSomeParams) {
   //   clearActiveSectionIds();
   // }

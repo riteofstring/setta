@@ -5,10 +5,12 @@ import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { openDeleteJSONSourceFileModal } from "state/actions/modal";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   getSectionCore,
   getSectionVariant,
   getVariantBaseAndEffectiveSectionImpl,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -22,7 +24,10 @@ import {
   route_toggle_variant_frozen,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
-import { isBaseDictSectionImpl } from "utils/generatedTypes";
+import {
+  ConfigLanguageEnum,
+  isBaseDictSectionImpl,
+} from "utils/generatedTypes";
 
 export function VariantList({ sectionId }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -32,9 +37,14 @@ export function VariantList({ sectionId }) {
   }
 
   function onClickAddVariantButton() {
-    route_create_new_section_variant({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
+    dispatchOptimisticProjectStateUpdate({
+      apply: () => undefined,
+      send: (frontendOpId) =>
+        route_create_new_section_variant({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          frontendOpId,
+        }),
     });
   }
 
@@ -152,16 +162,20 @@ function OneVariant({
           x.previewSectionVariantMap[sectionId] = id;
         })
       }
-      onClick={() => {
-        useProjectState.setState((state) => {
-          state.projectConfig.sectionVariantMap[sectionId] = id;
-        });
-        route_set_section_variant({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          variantId: id,
-        });
-      }}
+      onClick={() =>
+        dispatchOptimisticProjectStateUpdate({
+          apply: (state) => {
+            state.projectConfig.sectionVariantMap[sectionId] = id;
+          },
+          send: (frontendOpId) =>
+            route_set_section_variant({
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              variantId: id,
+              frontendOpId,
+            }),
+        })
+      }
       className={`section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs hover:bg-setta-200/30 dark:hover:bg-setta-700/50 ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >
       <p
@@ -182,13 +196,17 @@ function OneVariant({
           }`}
           onClick={(e) => {
             e.stopPropagation(); // so that you can click on it without clicking on the variant
-            useProjectState.setState((x) => {
-              getSectionCore(x, sectionId).defaultVariant = id;
-            });
-            route_set_default_section_variant({
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              variantId: id,
+            dispatchOptimisticProjectStateUpdate({
+              apply: (state) => {
+                getSectionCore(state, sectionId).defaultVariant = id;
+              },
+              send: (frontendOpId) =>
+                route_set_default_section_variant({
+                  projectConfigId: getCurrProjectConfigId(),
+                  sectionId,
+                  variantId: id,
+                  frontendOpId,
+                }),
             });
           }}
         >
@@ -202,12 +220,17 @@ function OneVariant({
           }`}
           onClick={(e) => {
             e.stopPropagation(); // so that you can click on it without clicking on the variant
-            useProjectState.setState((x) => {
-              getSectionVariant(x, id).isFrozen = !isFrozen;
-            });
-            route_toggle_variant_frozen({
-              projectConfigId: getCurrProjectConfigId(),
-              variantId: id,
+            dispatchOptimisticProjectStateUpdate({
+              apply: (state) => {
+                const variant = getSectionVariant(state, id);
+                variant.isFrozen = !variant.isFrozen;
+              },
+              send: (frontendOpId) =>
+                route_toggle_variant_frozen({
+                  projectConfigId: getCurrProjectConfigId(),
+                  variantId: id,
+                  frontendOpId,
+                }),
             });
           }}
         >
@@ -222,10 +245,36 @@ function OneVariant({
             }`}
             onClick={(e) => {
               e.stopPropagation(); // so that you can click on it without clicking on the variant
-              route_toggle_variant_json_source({
-                projectConfigId: getCurrProjectConfigId(),
-                sectionId,
-                variantId: id,
+              dispatchOptimisticProjectStateUpdate({
+                apply: (state) => {
+                  const { impl } = getVariantBaseAndEffectiveSectionImpl(
+                    state,
+                    getSectionCore(state, sectionId),
+                    id,
+                  );
+                  if (!isBaseDictSectionImpl(impl)) {
+                    return;
+                  }
+                  const nextIsJsonSource = !impl.isJsonSource;
+                  const nextConfigLanguage = nextIsJsonSource
+                    ? ConfigLanguageEnum.json
+                    : ConfigLanguageEnum.python;
+                  setCurrEffectiveSectionImplValue<"BaseDictSection">(
+                    state,
+                    sectionId,
+                    {
+                      isJsonSource: nextIsJsonSource,
+                      configLanguage: nextConfigLanguage,
+                    },
+                  );
+                },
+                send: (frontendOpId) =>
+                  route_toggle_variant_json_source({
+                    projectConfigId: getCurrProjectConfigId(),
+                    sectionId,
+                    variantId: id,
+                    frontendOpId,
+                  }),
               });
             }}
           >
@@ -249,13 +298,17 @@ function OneVariantEditing({
   const name = useProjectState((x) => getSectionVariant(x, id).name);
 
   function onSetName(v: string) {
-    useProjectState.setState((x) => {
-      getSectionVariant(x, id).name = v;
-    });
-    route_set_section_variant_name({
-      projectConfigId: getCurrProjectConfigId(),
-      variantId: id,
-      name: v,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        getSectionVariant(state, id).name = v;
+      },
+      send: (frontendOpId) =>
+        route_set_section_variant_name({
+          projectConfigId: getCurrProjectConfigId(),
+          variantId: id,
+          name: v,
+          frontendOpId,
+        }),
     });
   }
 
@@ -276,20 +329,26 @@ function OneVariantEditing({
     conditionToSetName,
   );
 
-  async function onClickDelete(e) {
+  function onClickDelete(e) {
     e.stopPropagation();
-    const res = await route_delete_section_variant_or_ask({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      variantId: id,
+    dispatchOptimisticProjectStateUpdate({
+      apply: () => undefined,
+      send: async (frontendOpId) => {
+        const res = await route_delete_section_variant_or_ask({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          variantId: id,
+          frontendOpId,
+        });
+        if (res200(res) && res.data) {
+          openDeleteJSONSourceFileModal({
+            sectionId,
+            variantId: id,
+            filepath: res.data,
+          });
+        }
+      },
     });
-    if (res200(res) && res.data) {
-      openDeleteJSONSourceFileModal({
-        sectionId,
-        variantId: id,
-        filepath: res.data,
-      });
-    }
   }
 
   return (

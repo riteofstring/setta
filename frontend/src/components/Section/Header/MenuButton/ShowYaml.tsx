@@ -3,6 +3,7 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
+  dispatchOptimisticProjectStateUpdate,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { route_set_section_with_params_display_mode } from "utils/generatedEndpoints";
@@ -27,20 +28,21 @@ export function ShowYaml({ sectionId }) {
         ? SectionWithParamsDisplayModeEnum.Gui
         : SectionWithParamsDisplayModeEnum.Yaml;
 
-    // have to immediately set it on the frontend to avoid
-    // annoying visual issue
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-        state,
-        sectionId,
-        { displayMode: newDisplayMode },
-      );
-    });
-
-    route_set_section_with_params_display_mode({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionId,
-      displayMode: newDisplayMode,
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
+          state,
+          sectionId,
+          { displayMode: newDisplayMode },
+        );
+      },
+      send: (frontendOpId) =>
+        route_set_section_with_params_display_mode({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          displayMode: newDisplayMode,
+          frontendOpId,
+        }),
     });
   }
 
