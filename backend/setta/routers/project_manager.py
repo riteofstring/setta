@@ -209,11 +209,12 @@ async def route_redo(x: RedoRequest, state: AppStateFromRequest) -> None:
 async def route_get_latest_project_state(
     x: GetLatestProjectStateRequest, state: AppStateFromRequest
 ) -> ProjectStateSingleConfigWithCompletedOpIds:
-    projectState = await state.project_manager_switcher.get(
-        x.projectConfigId
-    ).get_latest_project_state(x)
+    manager = state.project_manager_switcher.get(x.projectConfigId)
+    projectState = await manager.get_latest_project_state(x)
     return ProjectStateSingleConfigWithCompletedOpIds(
-        projectState=projectState, completedOpIds=[]
+        projectState=projectState,
+        completedOpIds=[],
+        pendingOpIds=list(manager.pending_frontend_ops.keys()),
     )
 
 

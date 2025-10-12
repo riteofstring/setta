@@ -109,8 +109,14 @@ export const useAllProjectMetadata = createWithEqualityFn(
   })),
 );
 
+export type PendingOperation = {
+  opId: string;
+  apply: (x: ZustandProjectState) => void;
+  acknowledged: boolean;
+};
+
 type ZustandPendingOperations = {
-  pending: Array<{ opId: string; op: (x: ZustandProjectState) => void }>;
+  pending: Array<PendingOperation>;
 };
 
 export const usePendingOperations = withProjectState(

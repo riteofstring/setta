@@ -8,6 +8,7 @@ import {
   useNodeInternals,
   usePendingOperations,
   useProjectState,
+  PendingOperation,
   ZustandNodeInternalsState,
   ZustandProjectState,
 } from "state/definitions";
@@ -380,13 +381,31 @@ export function processProjectStateUpdateFromBackend(
   if (x.projectState.projectConfig.id !== projectConfigId) {
     return;
   }
-  const pendingOps = usePendingOperations
-    .getState()
-    .pending.filter((opInfo) => !x.completedOpIds.includes(opInfo.opId));
-  usePendingOperations.setState({ pending: pendingOps });
+  const backendPendingIds = new Set(x.pendingOpIds);
+  const completedIds = new Set(x.completedOpIds);
+  const currentPending = usePendingOperations.getState().pending;
+  const nextPending = currentPending.reduce<PendingOperation[]>(
+    (acc, opInfo) => {
+      if (completedIds.has(opInfo.opId)) {
+        return acc;
+      }
+      const isBackendPending = backendPendingIds.has(opInfo.opId);
+      const acknowledged = opInfo.acknowledged || isBackendPending;
+      if (opInfo.acknowledged && !isBackendPending) {
+        return acc;
+      }
+      acc.push({
+        ...opInfo,
+        acknowledged,
+      });
+      return acc;
+    },
+    [],
+  );
+  usePendingOperations.setState({ pending: nextPending });
   useProjectState.setState(() => {
-    for (const opInfo of pendingOps) {
-      opInfo.op(x.projectState);
+    for (const opInfo of nextPending) {
+      opInfo.apply(x.projectState);
     }
     return x.projectState;
   });
@@ -649,11 +668,24 @@ export async function ungroupActiveGroups() {
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
-export function addPendingOp(op: (x: ZustandProjectState) => void) {
+export function addPendingOp(apply: (x: ZustandProjectState) => void) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
-    pending: [...state.pending, { op, opId }],
+    pending: [...state.pending, { apply, opId, acknowledged: false }],
   }));
+  return opId;
+}
+
+export function dispatchOptimisticProjectStateUpdate({
+  apply,
+  send,
+}: {
+  apply: (state: ZustandProjectState) => void;
+  send: (frontendOpId: string) => void | Promise<unknown>;
+}) {
+  useProjectState.setState(apply);
+  const opId = addPendingOp(apply);
+  void send(opId);
   return opId;
 }
 

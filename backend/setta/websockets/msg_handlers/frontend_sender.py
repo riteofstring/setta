@@ -90,12 +90,17 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         )
 
     async def broadcast_project_state(
-        self, projectState: ProjectStateSingleConfig, completedOpIds: list[str]
+        self,
+        projectState: ProjectStateSingleConfig,
+        completedOpIds: list[str],
+        pendingOpIds: list[str],
     ):
         await self.websocket_manager.broadcast(
             WebsocketMsgUpdateFrontendProjectState(
                 content=ProjectStateSingleConfigWithCompletedOpIds(
-                    projectState=projectState, completedOpIds=completedOpIds
+                    projectState=projectState,
+                    completedOpIds=completedOpIds,
+                    pendingOpIds=pendingOpIds,
                 )
             ),
             connectionType=WebsocketConnectionType.FRONTEND,

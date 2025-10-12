@@ -1,4 +1,5 @@
 import asyncio
+import contextvars
 import copy
 import shutil
 from abc import ABC, abstractmethod
@@ -180,8 +181,12 @@ class BaseProjectManager(ABC):
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[str, dict[str, ProjectPythonCode | ProjectBashCode]] = {}
         self.used_files: set[Path] = set()
-        self.message_queue: asyncio.Queue[tuple[Coroutine, asyncio.Future]] = (
-            asyncio.Queue()
+        self.message_queue: asyncio.Queue[
+            tuple[Coroutine, asyncio.Future, str | None]
+        ] = asyncio.Queue()
+        self.pending_frontend_ops: dict[str, None] = {}
+        self._current_frontend_op_id: contextvars.ContextVar[str | None] = (
+            contextvars.ContextVar("current_frontend_op_id", default=None)
         )
         print("[DEBUG] Creating queue task in ProjectStateUpdater.__init__", flush=True)
         self._process_queue_task_started = asyncio.Event()
@@ -207,12 +212,14 @@ class BaseProjectManager(ABC):
             )
             # Get the next message handler and its arguments
             print("[DEBUG] Waiting for next message in queue...", flush=True)
-            coroutine, future = await self.message_queue.get()
+            coroutine, future, frontend_op_id = await self.message_queue.get()
+            token = self._current_frontend_op_id.set(frontend_op_id)
             try:
                 # Execute the actual implementation
                 print(f"[DEBUG] Starting handler {coroutine.__name__}", flush=True)
                 result = await coroutine
                 print(f"[DEBUG] Completed handler {coroutine.__name__}", flush=True)
+                self._finalize_frontend_op(frontend_op_id, success=True)
                 # Set the result for the waiting call
                 print(
                     f"[DEBUG] Setting result on future (cancelled={future.cancelled()})",
@@ -222,13 +229,15 @@ class BaseProjectManager(ABC):
             except Exception as e:
                 # Propagate any exceptions back to the caller
                 print(f"[DEBUG] Error in handler {coroutine.__name__}: {e}", flush=True)
+                self._finalize_frontend_op(frontend_op_id, success=False)
                 future.set_exception(e)
             finally:
                 # Mark the task as done
                 print("[DEBUG] Marking queue task as done", flush=True)
                 self.message_queue.task_done()
+                self._current_frontend_op_id.reset(token)
 
-    async def _enqueue(self, coroutine: Coroutine):
+    async def _enqueue(self, coroutine: Coroutine, frontend_op_id: str | None = None):
         """Enqueue a message for processing and wait for its completion"""
         await self._process_queue_task_started.wait()
 
@@ -244,7 +253,9 @@ class BaseProjectManager(ABC):
 
         # Put the message in the queue
         print("[DEBUG] Putting message in queue", flush=True)
-        await self.message_queue.put((coroutine, future))
+        if frontend_op_id:
+            self.pending_frontend_ops[frontend_op_id] = None
+        await self.message_queue.put((coroutine, future, frontend_op_id))
         print("[DEBUG] Message in queue, waiting for result", flush=True)
 
         # Wait for the message to be processed and return the result
@@ -269,9 +280,38 @@ class BaseProjectManager(ABC):
     @staticmethod
     def enqueue_method(func):
         async def wrapper(self, *args, **kwargs):
-            return await self._enqueue(func(self, *args, **kwargs))
+            frontend_op_id = self._extract_frontend_op_id(args, kwargs)
+            return await self._enqueue(
+                func(self, *args, **kwargs), frontend_op_id=frontend_op_id
+            )
 
         return wrapper
+
+    @staticmethod
+    def _extract_frontend_op_id(args, kwargs) -> str | None:
+        for arg in args:
+            frontend_op_id = getattr(arg, "frontendOpId", None)
+            if frontend_op_id:
+                return frontend_op_id
+        for value in kwargs.values():
+            frontend_op_id = getattr(value, "frontendOpId", None)
+            if frontend_op_id:
+                return frontend_op_id
+        return None
+
+    def _finalize_frontend_op(self, frontend_op_id: str | None, success: bool):
+        if not frontend_op_id:
+            return
+        if frontend_op_id in self.pending_frontend_ops:
+            self.pending_frontend_ops.pop(frontend_op_id, None)
+            if success:
+                self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
+
+    def _mark_current_frontend_op_completed_before_broadcast(self):
+        frontend_op_id = self._current_frontend_op_id.get()
+        if frontend_op_id and frontend_op_id in self.pending_frontend_ops:
+            self.pending_frontend_ops.pop(frontend_op_id, None)
+            self.completed_op_ids_since_last_broadcast.append(frontend_op_id)
 
     @enqueue_method
     async def create_run_command(
@@ -983,8 +1023,11 @@ class BaseProjectManager(ABC):
         self, project_state: ProjectStateSingleConfig, updateFileWatcher: bool = True
     ):
         await self.update(project_state, updateFileWatcher=updateFileWatcher)
+        self._mark_current_frontend_op_completed_before_broadcast()
         await self.websocket_msg_handler.broadcast_project_state(
-            project_state, self.completed_op_ids_since_last_broadcast
+            project_state,
+            self.completed_op_ids_since_last_broadcast,
+            list(self.pending_frontend_ops.keys()),
         )
         self.completed_op_ids_since_last_broadcast = []
 

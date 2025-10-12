@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useEffect } from "react";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
@@ -100,21 +101,26 @@ function CustomResizableCore({
       aspectRatio,
     });
     let updatedSectionSizes: Record<string, SectionSize> = {};
-    useProjectState.setState((state) => {
+    const applyResize = (state) => {
       updatedSectionSizes = setSelfParentSiblingChildrenWidths(
         sectionId,
         changedSize,
         state,
       );
+    };
+    dispatchOptimisticProjectStateUpdate({
+      apply: applyResize,
+      send: (frontendOpId) =>
+        route_set_section_sizes({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionSizes: updatedSectionSizes,
+          frontendOpId,
+        }),
     });
     useResizeEvent.setState((state) => {
       setSectionResizeEvent(sectionId, "end", state);
     });
     useMisc.setState({ mouseDownDraggingSection: false });
-    route_set_section_sizes({
-      projectConfigId: getCurrProjectConfigId(),
-      sectionSizes: updatedSectionSizes,
-    });
   }
 
   const heightResizable =
