@@ -16,8 +16,7 @@ import {
   updateNodeDimensions,
 } from "./actions/nodeInternals";
 import {
-  debounced_route_set_active_ids,
-  debounced_route_set_viewport,
+  debouncedDispatchViewportUpdate,
   getCurrEffectiveSectionImpl,
   getDisplayedSectionIdToChildren,
   getSectionShouldRender,
@@ -26,16 +25,6 @@ import {
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
 export function subscribe() {
-  useProjectState.subscribe(
-    activeIdsSubscriptionFn,
-    () => {
-      debounced_route_set_active_ids();
-    },
-    {
-      equalityFn: _.isEqual,
-    },
-  );
-
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
     (x) => {
@@ -84,7 +73,7 @@ export function subscribe() {
       // used by forked xterm to make text appear correctly
       window.reactFlowZoom = newState.transform[2];
 
-      debounced_route_set_viewport();
+      debouncedDispatchViewportUpdate();
     },
     { equalityFn: _.isEqual },
   );
@@ -174,10 +163,6 @@ function entryCodeBlockSubscriptionFn(state: ZustandProjectState) {
     }
   }
   return codeBlockIds;
-}
-
-function activeIdsSubscriptionFn(state: ZustandProjectState) {
-  return state.projectConfig.activeIds;
 }
 
 function imagesToDecodeSubscriptionFn(state: ZustandImages) {

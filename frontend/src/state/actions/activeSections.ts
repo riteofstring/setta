@@ -1,38 +1,69 @@
 import _ from "lodash";
-import { useProjectState } from "state/definitions";
+import { useProjectState, ZustandProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
   getHighestAncestor,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 import { setZIndices } from "./sections/sectionPositions";
+import { route_set_active_ids } from "utils/generatedEndpoints";
+
+function optimisticActiveIdsUpdate(
+  apply: (state: ZustandProjectState) => void,
+) {
+  return dispatchOptimisticProjectStateUpdate({
+    apply,
+    send: (frontendOpId) =>
+      route_set_active_ids({
+        projectConfigId: getCurrProjectConfigId(),
+        activeIds: useProjectState.getState().projectConfig.activeIds,
+        frontendOpId,
+      }),
+  });
+}
 
 export function setActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => {
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  if (_.isEqual(currentActiveIds, ids)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = ids;
   });
 }
 
 export function addActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => {
-    state.projectConfig.activeIds = [
-      ...new Set([...state.projectConfig.activeIds, ...ids]),
-    ];
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = [
+    ...new Set([...currentActiveIds, ...ids]),
+  ];
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
   });
 }
 
 export function removeActiveSectionIds(ids: Array<string>) {
-  useProjectState.setState((state) => {
-    state.projectConfig.activeIds = _.difference(
-      state.projectConfig.activeIds,
-      ids,
-    );
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  const nextActiveIds = _.difference(currentActiveIds, ids);
+  if (_.isEqual(currentActiveIds, nextActiveIds)) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = nextActiveIds;
   });
 }
 
 export function clearActiveSectionIds() {
-  useProjectState.setState((state) => {
+  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
+    return;
+  }
+  optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = [];
   });
 }

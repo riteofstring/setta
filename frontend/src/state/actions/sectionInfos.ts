@@ -15,7 +15,6 @@ import {
 import {
   route_delete_sections,
   route_group_sections,
-  route_set_active_ids,
   route_set_top_level_section_layout,
   route_set_viewport,
   route_ungroup_groups,
@@ -35,6 +34,7 @@ import {
   Variant,
   ViewingEditingMode,
   ViewingEditingModeEnum,
+  Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 
@@ -723,20 +723,24 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
   useAllProjectMetadata.setState(x);
 }
 
-export const debounced_route_set_active_ids = _.debounce(
-  () =>
-    route_set_active_ids({
-      projectConfigId: getCurrProjectConfigId(),
-      activeIds: useProjectState.getState().projectConfig.activeIds,
-    }),
-  500,
-);
+function dispatchViewportUpdate(viewport: Viewport | null) {
+  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
+    return;
+  }
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.viewport = viewport;
+    },
+    send: (frontendOpId) =>
+      route_set_viewport({
+        projectConfigId: getCurrProjectConfigId(),
+        viewport,
+        frontendOpId,
+      }),
+  });
+}
 
-export const debounced_route_set_viewport = _.debounce(
-  () =>
-    route_set_viewport({
-      projectConfigId: getCurrProjectConfigId(),
-      viewport: getCurrProjectConfigViewport(),
-    }),
+export const debouncedDispatchViewportUpdate = _.debounce(
+  () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
   1000,
 );

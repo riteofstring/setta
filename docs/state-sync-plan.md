@@ -26,7 +26,8 @@
 - Regenerated shared types so the frontend understands the richer payloads and request schemas expose `frontendOpId`.
 - Updated frontend stores: pending ops now keep acknowledgement state, reconciliation only replays operations the backend still considers pending, and section resizing uses the new optimistic helper for consistent UX.
 - Introduced `dispatchOptimisticProjectStateUpdate` to centralize optimistic updates and ensure backend calls share the same operation IDs.
+- Migrated active section selection and viewport synchronization to the helper so both flows share pending op IDs and no longer rely on bespoke debounced route calls.
 
 ## Next Steps
-1. Migrate remaining optimistic UI flows (active IDs, viewport tweaks, metadata updates, etc.) to the new helper so every operation participates in reconciliation.
-2. Run `pnpm generate`, `./format_code.sh`, and any relevant tests (`pnpm test`, targeted backend tests) to validate end-to-end.
+1. Audit remaining optimistic UI flows (section header toggles, display modes, metadata updates, etc.) and migrate each to the helper or a compatible local pending pattern.
+2. Run `pnpm generate`, `./format_code.sh`, and relevant test suites (`pnpm test`, focused backend tests) once the flow coverage is complete, then manually verify high-frequency edits stay stable while backend broadcasts arrive.
