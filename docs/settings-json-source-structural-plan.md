@@ -17,3 +17,9 @@
   - Watcher events replace the cache entry from disk, then call `load_json_sources_fn` to rebroadcast, keeping both settings and regular projects in sync.
 
 This approach restores parity with the main project flow, removes the per-change save override, avoids redundant disk churn, and guarantees that UI reads never regress to stale JSON while autosave is pending.
+
+## Current Progress
+- Added raw JSON caches and dirty tracking inside `JSONSource`, with critical logging on every mutation to trace state transitions.
+- Updated `BaseProjectManager.update` to synchronize project-state changes into the cache, flagging dirty files only when the payload actually changes and pruning stale entries.
+- Adjusted both project managers to call the new `save_json_source_data(self.dbe, self.json_source)` helper so autosave writes only dirty files.
+- Refactored JSON-source persistence helpers to flush from the cache, logging each write, while keeping a collector helper for other consumers.

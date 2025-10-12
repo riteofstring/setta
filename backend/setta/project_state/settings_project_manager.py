@@ -35,7 +35,7 @@ class SettingsProjectManager(BaseProjectManager):
             self.project_state_backend,
             default_id,
         )
-        save_json_source_data(self.dbe, p)
+        save_json_source_data(self.dbe, self.json_source)
         remove_json_source_values(p)
         self.dbe.write_settings_project(p)
         self.artifacts.save()

@@ -1,7 +1,11 @@
+import copy
+import logging
 from collections import defaultdict
 from pathlib import Path
+from typing import Iterable
 
 from setta.database.db_objs import DBE
+from setta.project_state.jsonSource.jsonSource import JSONSource
 from setta.types.code_obj_impls import BaseChildlessCodeObjImpl
 from setta.types.generated.effective_impls import set_effective_impl_value
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -18,9 +22,12 @@ from setta.types.project_state import ProjectStateCore
 from setta.types.section_impls import BaseDictSectionImpl
 
 
-def save_json_source_data(
-    dbe: DBE, p: ProjectStateCore, section_variant_ids: list[str] | None = None
-):
+logger = logging.getLogger(__name__)
+
+
+def collect_json_source_payloads(
+    p: ProjectStateCore, section_variant_ids: list[str] | None = None
+) -> dict[Path, dict]:
     to_be_saved: dict[Path, dict] = defaultdict(dict)
     processed = set()
     for section in p.sections.values():
@@ -53,15 +60,38 @@ def save_json_source_data(
             )
 
             filename = Path(variant.name)
-            to_be_saved[filename].update(hierarchy.nested_dict)
+            nested_dict = copy.deepcopy(hierarchy.nested_dict)
+            for key, value in nested_dict.items():
+                to_be_saved[filename][key] = value
 
             # Make sure the jsonSourceKeys are present.
             # (They might not be because they are completely empty)
             add_key_path_to_dict(to_be_saved[filename], impl.jsonSourceKeys)
 
-    # Save each file
-    for filename, data in to_be_saved.items():
+    return {filename: data for filename, data in to_be_saved.items()}
+
+
+def save_json_source_data(
+    dbe: DBE,
+    json_source: JSONSource,
+    *,
+    files_to_save: Iterable[Path] | None = None,
+):
+    if files_to_save is None:
+        files_to_save = list(json_source.json_source_dirty)
+    files_to_save = list(files_to_save)
+    if not files_to_save:
+        return
+
+    logger.critical(
+        "save_json_source_data flushing_files=%s",
+        [str(filename) for filename in files_to_save],
+    )
+    for filename in files_to_save:
+        data = json_source.get_cached_json(filename)
         dbe.write_json(filename, data)
+
+    json_source.json_source_dirty.difference_update(files_to_save)
 
 
 def add_key_path_to_dict(output: dict, key_path: list[str]):

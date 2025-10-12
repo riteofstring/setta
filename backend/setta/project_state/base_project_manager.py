@@ -24,6 +24,7 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.jsonSource.save import collect_json_source_payloads
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
@@ -457,9 +458,66 @@ class BaseProjectManager(ABC):
 
         self.delete_unused_files(project_temp_folder)
         self.project_state_backend = self.get_new_project_state_backend(projectState)
+        self._sync_json_source_cache_from_backend(projectState)
         if updateFileWatcher:
             self.watch_json_source_files()
             self.watch_artifact_files()
+
+    def _sync_json_source_cache_from_backend(
+        self, project_state: ProjectStateSingleConfig
+    ):
+        if not self.json_source:
+            return
+
+        payloads = collect_json_source_payloads(self.project_state_backend)
+        payload_files = set(payloads.keys())
+        for filepath, data in payloads.items():
+            existing = self.json_source.json_source_raw.get(filepath)
+            is_new_entry = existing is None
+            has_changed = not is_new_entry and existing != data
+            if not is_new_entry and not has_changed:
+                logger.critical(
+                    "BaseProjectManager.sync_json_source_cache unchanged file=%s "
+                    "manager=%s project_config_id=%s",
+                    str(filepath),
+                    self.__class__.__name__,
+                    project_state.projectConfig.id,
+                )
+                continue
+
+            mark_dirty = has_changed
+            reason = (
+                f"sync_from_backend:{self.__class__.__name__}"
+                f":config={project_state.projectConfig.id}"
+            )
+            self.json_source.set_cached_json(
+                filepath,
+                data,
+                mark_dirty=mark_dirty,
+                reason=reason,
+            )
+            logger.critical(
+                "BaseProjectManager.sync_json_source_cache updated file=%s "
+                "manager=%s project_config_id=%s new_entry=%s mark_dirty=%s",
+                str(filepath),
+                self.__class__.__name__,
+                project_state.projectConfig.id,
+                is_new_entry,
+                mark_dirty,
+            )
+
+        stale_files = set(self.json_source.json_source_raw.keys()) - payload_files
+        for stale in stale_files:
+            logger.critical(
+                "BaseProjectManager.sync_json_source_cache removing stale file=%s "
+                "manager=%s project_config_id=%s",
+                str(stale),
+                self.__class__.__name__,
+                project_state.projectConfig.id,
+            )
+            self.json_source.json_sources.pop(stale, None)
+            self.json_source.json_source_raw.pop(stale, None)
+            self.json_source.json_source_dirty.discard(stale)
 
     @enqueue_method
     async def type_check(self, projectConfigId: str):
